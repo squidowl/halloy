@@ -39,7 +39,7 @@ Proxy port to connect on.
 [proxy.http]
 port = 1080
 ```
- 
+
 ### `username`
 
 Proxy username.
@@ -70,7 +70,7 @@ Proxy password.
 password = "password"
 ```
 
-## Example 
+## Example
 
 ```toml
 [proxy.http]
@@ -113,7 +113,7 @@ Proxy port to connect on.
 [proxy.socks5]
 port = 1080
 ```
- 
+
 ### `username`
 
 Proxy username.
@@ -144,7 +144,7 @@ Proxy password.
 password = "password"
 ```
 
-## Example 
+## Example
 
 ```toml
 [proxy.socks5]
@@ -159,7 +159,7 @@ password = "password"
 Tor proxy settings. Utilizes the [arti](https://arti.torproject.org/) to integrate Tor natively.
 It accepts no further configuration.
 
-## Example 
+## Example
 
 ```toml
 [proxy.tor]

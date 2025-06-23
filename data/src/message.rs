@@ -13,19 +13,16 @@ use itertools::{Either, Itertools};
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-pub use self::formatting::Formatting;
-pub use self::source::{
-    server::{Kind, StandardReply},
-    Source,
-};
-
-use crate::config::buffer::UsernameFormat;
+pub use self::formatting::{Color, Formatting};
+pub use self::source::Source;
+pub use self::source::server::{Kind, StandardReply};
 use crate::config::Highlights;
+use crate::config::buffer::UsernameFormat;
 use crate::serde::fail_as_none;
 use crate::target::Channel;
 use crate::time::Posix;
 use crate::user::{Nick, NickRef};
-use crate::{ctcp, isupport, target, Config, Server, User};
+use crate::{Config, Server, User, ctcp, isupport, target};
 
 // References:
 // - https://datatracker.ietf.org/doc/html/rfc1738#section-5
@@ -35,7 +32,8 @@ const URL_PATH_UNRESERVED: &str = r#"\p{Letter}\p{Number}\-_.!~*'()"#;
 
 const URL_PATH_RESERVED: &str = r#";?:@&=+$,"#;
 
-const URL_PATH: &str = concatcp!(r#"["#, URL_PATH_UNRESERVED, URL_PATH_RESERVED, r#"%\/#]"#);
+const URL_PATH: &str =
+    concatcp!(r#"["#, URL_PATH_UNRESERVED, URL_PATH_RESERVED, r#"%\/#]"#);
 
 const URL_PATH_UNRESERVED_EXC_PUNC: &str = r#"\p{Letter}\p{Number}\-_~*'("#;
 
@@ -71,7 +69,7 @@ static CHANNEL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
 });
 
 static USER_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-    RegexBuilder::new(r#"(?i)(?<!\w)([\w"\-\[\]\\`^{|}*\/\@]+)(?!\w)"#)
+    RegexBuilder::new(r#"(?i)(?<!\w)([\w"\-\[\]\\`^{|}\/]+)(?!\w)"#)
         .build()
         .unwrap()
 });
@@ -198,7 +196,10 @@ impl Message {
                 Source::Server(Some(server)) => {
                     matches!(
                         server.kind(),
-                        Kind::MonitoredOnline | Kind::MonitoredOffline | Kind::StandardReply(_)
+                        Kind::MonitoredOnline
+                            | Kind::MonitoredOffline
+                            | Kind::StandardReply(_)
+                            | Kind::Wallops
                     )
                 }
                 Source::Internal(source::Internal::Logs) => true,
@@ -326,7 +327,11 @@ impl Message {
         }
     }
 
-    pub fn file_transfer_request_sent(to: &Nick, query: &target::Query, filename: &str) -> Message {
+    pub fn file_transfer_request_sent(
+        to: &Nick,
+        query: &target::Query,
+        filename: &str,
+    ) -> Message {
         let received_at = Posix::now();
         let server_time = Utc::now();
         let content = plain(format!("offering to send {to} \"{filename}\""));
@@ -360,6 +365,10 @@ impl Message {
         }
     }
 
+    pub fn text(&self) -> String {
+        self.content.text().to_string()
+    }
+
     pub fn log(record: crate::log::Record) -> Self {
         let received_at = Posix::now();
         let server_time = record.timestamp;
@@ -382,7 +391,9 @@ impl Message {
     pub fn has_highlight_fragment(&self) -> bool {
         if let Content::Fragments(fragments) = &self.content {
             fragments.iter().any(|fragment| match fragment {
-                Fragment::HighlightNick(_, _) | Fragment::HighlightMatch(_) => true,
+                Fragment::HighlightNick(_, _) | Fragment::HighlightMatch(_) => {
+                    true
+                }
                 Fragment::Text(_)
                 | Fragment::Channel(_)
                 | Fragment::User(_, _)
@@ -394,7 +405,10 @@ impl Message {
         }
     }
 
-    pub fn into_highlight(&self, server: Server) -> Option<(Self, Channel, User)> {
+    pub fn into_highlight(
+        &self,
+        server: Server,
+    ) -> Option<(Self, Channel, User)> {
         if !self.is_echo && self.has_highlight_fragment() {
             let (channel, user, source) = match self.target.clone() {
                 Target::Channel {
@@ -440,7 +454,7 @@ impl Serialize for Message {
             content: &'a Content,
             id: &'a Option<String>,
             // Old field before we had fragments,
-            // added for downgrade compatability
+            // added for downgrade compatibility
             text: Cow<'a, str>,
             hidden_urls: &'a HashSet<url::Url>,
             is_echo: &'a bool,
@@ -472,7 +486,7 @@ impl<'de> Deserialize<'de> for Message {
             server_time: DateTime<Utc>,
             direction: Direction,
             target: Target,
-            // New field, optional for upgrade compatability
+            // New field, optional for upgrade compatibility
             #[serde(default, deserialize_with = "fail_as_none")]
             content: Option<Content>,
             // Old field before we had fragments
@@ -480,7 +494,7 @@ impl<'de> Deserialize<'de> for Message {
             id: Option<String>,
             #[serde(default)]
             hidden_urls: HashSet<url::Url>,
-            // New field, optional for upgrade compatability
+            // New field, optional for upgrade compatibility
             #[serde(default, deserialize_with = "fail_as_none")]
             is_echo: Option<bool>,
         }
@@ -552,7 +566,8 @@ pub fn parse_fragments_with_highlights(
         .map(|fragment| match fragment {
             Fragment::User(user, raw)
                 if highlights.nickname.is_target_included(target)
-                    && our_nick.is_some_and(|nick| user.nickname() == *nick) =>
+                    && our_nick
+                        .is_some_and(|nick| user.nickname() == *nick) =>
             {
                 Fragment::HighlightNick(user, raw)
             }
@@ -598,8 +613,12 @@ pub fn parse_fragments_with_user(text: String, user: &User) -> Content {
     parse_fragments_with_users(text, users)
 }
 
-pub fn parse_fragments_with_users(text: String, channel_users: &[User]) -> Content {
-    let fragments = parse_fragments_with_users_inner(text, channel_users).collect::<Vec<_>>();
+pub fn parse_fragments_with_users(
+    text: String,
+    channel_users: &[User],
+) -> Content {
+    let fragments = parse_fragments_with_users_inner(text, channel_users)
+        .collect::<Vec<_>>();
 
     if fragments.len() == 1 && matches!(&fragments[0], Fragment::Text(_)) {
         let Some(Fragment::Text(text)) = fragments.into_iter().next() else {
@@ -636,8 +655,12 @@ fn parse_fragments_with_users_inner(
                 parse_regex_fragments(&USER_REGEX, text, |text| {
                     channel_users
                         .iter()
-                        .find(|user| text.eq_ignore_ascii_case(user.nickname().as_ref()))
-                        .map(|user| Fragment::User(user.clone(), text.to_owned()))
+                        .find(|user| {
+                            text.eq_ignore_ascii_case(user.nickname().as_ref())
+                        })
+                        .map(|user| {
+                            Fragment::User(user.clone(), text.to_owned())
+                        })
                 })
                 .into_iter(),
             );
@@ -647,7 +670,9 @@ fn parse_fragments_with_users_inner(
     })
 }
 
-fn parse_fragments_inner<'a>(text: String) -> impl Iterator<Item = Fragment> + use<'a> {
+fn parse_fragments_inner<'a>(
+    text: String,
+) -> impl Iterator<Item = Fragment> + use<'a> {
     let mut modifiers = HashSet::new();
     let mut fg = None;
     let mut bg = None;
@@ -676,30 +701,42 @@ fn parse_fragments_inner<'a>(text: String) -> impl Iterator<Item = Fragment> + u
     })
     .flat_map(move |fragment| {
         if let Fragment::Text(text) = &fragment {
-            if let Some(fragments) = formatting::parse(text, &mut modifiers, &mut fg, &mut bg) {
-                if fragments
-                    .iter()
-                    .any(|fragment| matches!(fragment, formatting::Fragment::Formatted(_, _)))
-                {
-                    return Either::Left(fragments.into_iter().map(Fragment::from));
+            if let Some(fragments) =
+                formatting::parse(text, &mut modifiers, &mut fg, &mut bg)
+            {
+                if fragments.is_empty() {
+                    return Either::Right(Either::Left(iter::empty()));
+                }
+
+                if fragments.iter().any(|fragment| {
+                    matches!(fragment, formatting::Fragment::Formatted(_, _))
+                }) {
+                    return Either::Left(
+                        fragments.into_iter().map(Fragment::from),
+                    );
                 // If there are no Formatted fragments,
                 // then fragments should contain a single Unformatted fragment
-                } else if let Some(text) =
-                    fragments
-                        .into_iter()
-                        .next()
-                        .and_then(|fragment| match fragment {
-                            formatting::Fragment::Unformatted(text) => Some(text),
-                            formatting::Fragment::Formatted(_, _) => None,
-                        })
+                } else if let Some(text) = fragments
+                    .into_iter()
+                    .next()
+                    .and_then(|fragment| match fragment {
+                        formatting::Fragment::Unformatted(text) => Some(text),
+                        formatting::Fragment::Formatted(_, _) => None,
+                    })
                 {
                     // Even if the fragment is Unformatted there may have been formatting
                     // characters in the text input into formatting::parse. They are
                     // stripped from the text contained in the fragment.
-                    return Either::Right(Either::Right(iter::once(Fragment::Text(text))));
+                    return Either::Right(Either::Right(iter::once(
+                        Fragment::Text(text),
+                    )));
                 }
-            } else {
+            } else if text.is_empty() {
                 return Either::Right(Either::Left(iter::empty()));
+            } else {
+                return Either::Right(Either::Right(iter::once(
+                    Fragment::Text(text.clone()),
+                )));
             }
         }
 
@@ -718,12 +755,13 @@ fn parse_regex_fragments<'a>(
     let mut fragments = Vec::with_capacity(1);
 
     for (re_match, fragment) in regex.find_iter(&text).filter_map(|result| {
-        result
-            .ok()
-            .and_then(|re_match| (f)(re_match.as_str()).map(|fragment| (re_match, fragment)))
+        result.ok().and_then(|re_match| {
+            (f)(re_match.as_str()).map(|fragment| (re_match, fragment))
+        })
     }) {
         if i < re_match.start() {
-            fragments.push(Fragment::Text(text[i..re_match.start()].to_string()));
+            fragments
+                .push(Fragment::Text(text[i..re_match.start()].to_string()));
         }
         i = re_match.end();
         fragments.push(fragment);
@@ -749,7 +787,9 @@ impl Content {
     fn text(&self) -> Cow<str> {
         match self {
             Content::Plain(s) => s.into(),
-            Content::Fragments(fragments) => fragments.iter().map(Fragment::as_str).join("").into(),
+            Content::Fragments(fragments) => {
+                fragments.iter().map(Fragment::as_str).join("").into()
+            }
             Content::Log(record) => (&record.message).into(),
         }
     }
@@ -833,8 +873,13 @@ fn target(
     match message.0.command {
         // Channel
         Command::MODE(target, ..) => {
-            let channel =
-                target::Channel::parse(&target, chantypes, statusmsg, casemapping).ok()?;
+            let channel = target::Channel::parse(
+                &target,
+                chantypes,
+                statusmsg,
+                casemapping,
+            )
+            .ok()?;
 
             Some(Target::Channel {
                 channel,
@@ -842,8 +887,13 @@ fn target(
             })
         }
         Command::TOPIC(channel, _) | Command::KICK(channel, _, _) => {
-            let channel =
-                target::Channel::parse(&channel, chantypes, statusmsg, casemapping).ok()?;
+            let channel = target::Channel::parse(
+                &channel,
+                chantypes,
+                statusmsg,
+                casemapping,
+            )
+            .ok()?;
 
             Some(Target::Channel {
                 channel,
@@ -851,8 +901,13 @@ fn target(
             })
         }
         Command::PART(channel, _) => {
-            let channel =
-                target::Channel::parse(&channel, chantypes, statusmsg, casemapping).ok()?;
+            let channel = target::Channel::parse(
+                &channel,
+                chantypes,
+                statusmsg,
+                casemapping,
+            )
+            .ok()?;
 
             Some(Target::Channel {
                 channel,
@@ -863,8 +918,13 @@ fn target(
             })
         }
         Command::JOIN(channel, _) => {
-            let channel =
-                target::Channel::parse(&channel, chantypes, statusmsg, casemapping).ok()?;
+            let channel = target::Channel::parse(
+                &channel,
+                chantypes,
+                statusmsg,
+                casemapping,
+            )
+            .ok()?;
 
             Some(Target::Channel {
                 channel,
@@ -875,102 +935,113 @@ fn target(
             })
         }
         Command::Numeric(RPL_TOPIC | RPL_TOPICWHOTIME, params) => {
-            let channel =
-                target::Channel::parse(params.get(1)?, chantypes, statusmsg, casemapping).ok()?;
+            let channel = target::Channel::parse(
+                params.get(1)?,
+                chantypes,
+                statusmsg,
+                casemapping,
+            )
+            .ok()?;
             Some(Target::Channel {
                 channel,
-                source: Source::Server(Some(source::Server::new(Kind::ReplyTopic, None))),
+                source: Source::Server(Some(source::Server::new(
+                    Kind::ReplyTopic,
+                    None,
+                ))),
             })
         }
         Command::Numeric(RPL_CHANNELMODEIS, params) => {
-            let channel =
-                target::Channel::parse(params.get(1)?, chantypes, statusmsg, casemapping).ok()?;
+            let channel = target::Channel::parse(
+                params.get(1)?,
+                chantypes,
+                statusmsg,
+                casemapping,
+            )
+            .ok()?;
             Some(Target::Channel {
                 channel,
                 source: Source::Server(None),
             })
         }
         Command::Numeric(RPL_AWAY, params) => {
-            let query =
-                target::Query::parse(params.get(1)?, chantypes, statusmsg, casemapping).ok()?;
+            let query = target::Query::parse(
+                params.get(1)?,
+                chantypes,
+                statusmsg,
+                casemapping,
+            )
+            .ok()?;
 
             Some(Target::Query {
                 query,
                 source: Source::Action(None),
             })
         }
-        Command::PRIVMSG(target, text) => {
+        Command::PRIVMSG(target, text) | Command::NOTICE(target, text) => {
             let is_action = is_action(&text);
-            let source = |user| {
-                if is_action {
-                    Source::Action(Some(user))
+
+            // CTCP Handling.
+            if ctcp::is_query(&text) && !is_action {
+                let user = user?;
+                let target = User::from(Nick::from(target));
+
+                // We want to show both requests, and responses in query with the client.
+                let user = if user.nickname() == *our_nick {
+                    target
                 } else {
-                    Source::User(user)
-                }
-            };
+                    user
+                };
 
-            match (
-                target::Target::parse(&target, chantypes, statusmsg, casemapping),
-                user,
-            ) {
-                (target::Target::Channel(channel), Some(user)) => {
-                    let source = source(resolve_attributes(&user, &channel).unwrap_or(user));
-                    Some(Target::Channel { channel, source })
-                }
-                (target::Target::Query(query), Some(user)) => {
-                    let query = if user.nickname() == *our_nick {
-                        // Message from ourself, from another client.
-                        query
-                    } else {
-                        // Message from conversation partner.
-                        target::Query::parse(user.as_str(), chantypes, statusmsg, casemapping)
-                            .ok()?
-                    };
-
-                    Some(Target::Query {
-                        query,
-                        source: source(user),
-                    })
-                }
-                _ => None,
-            }
-        }
-        Command::NOTICE(target, text) => {
-            let is_action = is_action(&text);
-            let source = |user| {
-                if is_action {
-                    Source::Action(Some(user))
-                } else {
-                    Source::User(user)
-                }
-            };
-
-            match (
-                target::Target::parse(&target, chantypes, statusmsg, casemapping),
-                user,
-            ) {
-                (target::Target::Channel(channel), Some(user)) => {
-                    let source = source(resolve_attributes(&user, &channel).unwrap_or(user));
-                    Some(Target::Channel { channel, source })
-                }
-                (target::Target::Query(query), Some(user)) => {
-                    let query = if user.nickname() == *our_nick {
-                        // Notice from ourself, from another client.
-                        query
-                    } else {
-                        // Notice from conversation partner.
-                        target::Query::parse(user.as_str(), chantypes, statusmsg, casemapping)
-                            .ok()?
-                    };
-
-                    Some(Target::Query {
-                        query,
-                        source: source(user),
-                    })
-                }
-                _ => Some(Target::Server {
+                Some(Target::Query {
+                    query: target::Query::from_user(&user, casemapping),
                     source: Source::Server(None),
-                }),
+                })
+            } else {
+                let source = |user| {
+                    if is_action {
+                        Source::Action(Some(user))
+                    } else {
+                        Source::User(user)
+                    }
+                };
+
+                match (
+                    target::Target::parse(
+                        &target,
+                        chantypes,
+                        statusmsg,
+                        casemapping,
+                    ),
+                    user,
+                ) {
+                    (target::Target::Channel(channel), Some(user)) => {
+                        let source = source(
+                            resolve_attributes(&user, &channel).unwrap_or(user),
+                        );
+                        Some(Target::Channel { channel, source })
+                    }
+                    (target::Target::Query(query), Some(user)) => {
+                        let query = if user.nickname() == *our_nick {
+                            // Message from ourself, from another client.
+                            query
+                        } else {
+                            // Message from conversation partner.
+                            target::Query::parse(
+                                user.as_str(),
+                                chantypes,
+                                statusmsg,
+                                casemapping,
+                            )
+                            .ok()?
+                        };
+
+                        Some(Target::Query {
+                            query,
+                            source: source(user),
+                        })
+                    }
+                    _ => None,
+                }
             }
         }
         Command::CHGHOST(_, _) => Some(Target::Server {
@@ -980,10 +1051,16 @@ fn target(
             ))),
         }),
         Command::Numeric(RPL_MONONLINE, _) => Some(Target::Server {
-            source: Source::Server(Some(source::Server::new(Kind::MonitoredOnline, None))),
+            source: Source::Server(Some(source::Server::new(
+                Kind::MonitoredOnline,
+                None,
+            ))),
         }),
         Command::Numeric(RPL_MONOFFLINE, _) => Some(Target::Server {
-            source: Source::Server(Some(source::Server::new(Kind::MonitoredOffline, None))),
+            source: Source::Server(Some(source::Server::new(
+                Kind::MonitoredOffline,
+                None,
+            ))),
         }),
         Command::FAIL(_, _, _, _) => Some(Target::Server {
             source: Source::Server(Some(source::Server::new(
@@ -1000,6 +1077,12 @@ fn target(
         Command::NOTE(_, _, _, _) => Some(Target::Server {
             source: Source::Server(Some(source::Server::new(
                 Kind::StandardReply(StandardReply::Note),
+                None,
+            ))),
+        }),
+        Command::WALLOPS(_) => Some(Target::Server {
+            source: Source::Server(Some(source::Server::new(
+                Kind::Wallops,
                 None,
             ))),
         }),
@@ -1033,7 +1116,6 @@ fn target(
         | Command::AWAY(_)
         | Command::REHASH
         | Command::RESTART
-        | Command::WALLOPS(_)
         | Command::USERHOST(_)
         | Command::CAP(_, _, _, _)
         | Command::AUTHENTICATE(_)
@@ -1090,10 +1172,15 @@ fn content<'a>(
     match &message.command {
         Command::TOPIC(target, topic) => {
             let raw_user = message.user()?;
-            let user = target::Channel::parse(target, chantypes, statusmsg, casemapping)
-                .ok()
-                .and_then(|channel| resolve_attributes(&raw_user, &channel))
-                .unwrap_or(raw_user);
+            let user = target::Channel::parse(
+                target,
+                chantypes,
+                statusmsg,
+                casemapping,
+            )
+            .ok()
+            .and_then(|channel| resolve_attributes(&raw_user, &channel))
+            .unwrap_or(raw_user);
 
             let topic = topic.as_ref()?;
 
@@ -1104,10 +1191,15 @@ fn content<'a>(
         }
         Command::PART(target, text) => {
             let raw_user = message.user()?;
-            let user = target::Channel::parse(target, chantypes, statusmsg, casemapping)
-                .ok()
-                .and_then(|channel| resolve_attributes(&raw_user, &channel))
-                .unwrap_or(raw_user);
+            let user = target::Channel::parse(
+                target,
+                chantypes,
+                statusmsg,
+                casemapping,
+            )
+            .ok()
+            .and_then(|channel| resolve_attributes(&raw_user, &channel))
+            .unwrap_or(raw_user);
 
             let text = text
                 .as_ref()
@@ -1117,23 +1209,32 @@ fn content<'a>(
             Some(parse_fragments_with_user(
                 format!(
                     "⟵ {} has left the channel{text}",
-                    user.formatted(config.buffer.server_messages.part.username_format)
+                    user.formatted(
+                        config.buffer.server_messages.part.username_format
+                    )
                 ),
                 &user,
             ))
         }
         Command::JOIN(target, _) => {
             let raw_user = message.user()?;
-            let user = target::Channel::parse(target, chantypes, statusmsg, casemapping)
-                .ok()
-                .and_then(|channel| resolve_attributes(&raw_user, &channel))
-                .unwrap_or(raw_user);
+            let user = target::Channel::parse(
+                target,
+                chantypes,
+                statusmsg,
+                casemapping,
+            )
+            .ok()
+            .and_then(|channel| resolve_attributes(&raw_user, &channel))
+            .unwrap_or(raw_user);
 
             (user.nickname() != *our_nick).then(|| {
                 parse_fragments_with_user(
                     format!(
                         "⟶ {} has joined the channel",
-                        user.formatted(config.buffer.server_messages.join.username_format)
+                        user.formatted(
+                            config.buffer.server_messages.join.username_format
+                        )
                     ),
                     &user,
                 )
@@ -1141,16 +1242,26 @@ fn content<'a>(
         }
         Command::KICK(channel, victim, comment) => {
             let raw_victim_user = User::try_from(victim.as_str()).ok()?;
-            let victim = target::Channel::parse(victim, chantypes, statusmsg, casemapping)
-                .ok()
-                .and_then(|channel| resolve_attributes(&raw_victim_user, &channel))
-                .unwrap_or(raw_victim_user);
+            let victim = target::Channel::parse(
+                victim,
+                chantypes,
+                statusmsg,
+                casemapping,
+            )
+            .ok()
+            .and_then(|channel| resolve_attributes(&raw_victim_user, &channel))
+            .unwrap_or(raw_victim_user);
 
             let raw_user = message.user()?;
-            let user = target::Channel::parse(channel, chantypes, statusmsg, casemapping)
-                .ok()
-                .and_then(|channel| resolve_attributes(&raw_user, &channel))
-                .unwrap_or(raw_user);
+            let user = target::Channel::parse(
+                channel,
+                chantypes,
+                statusmsg,
+                casemapping,
+            )
+            .ok()
+            .and_then(|channel| resolve_attributes(&raw_user, &channel))
+            .unwrap_or(raw_user);
 
             let comment = comment
                 .as_ref()
@@ -1164,7 +1275,10 @@ fn content<'a>(
             };
 
             Some(parse_fragments_with_users(
-                format!("⟵ {target} been kicked by {}{comment}", user.nickname()),
+                format!(
+                    "⟵ {target} been kicked by {}{comment}",
+                    user.nickname()
+                ),
                 vec![user, victim].as_slice(),
             ))
         }
@@ -1174,25 +1288,30 @@ fn content<'a>(
             target::Channel::parse(target, chantypes, statusmsg, casemapping)
                 .ok()
                 .map(|channel| {
-                    let user = resolve_attributes(&raw_user, &channel).unwrap_or(raw_user);
+                    let user = resolve_attributes(&raw_user, &channel)
+                        .unwrap_or(raw_user);
 
                     let modes = modes
                         .iter()
-                        .map(|mode| mode.to_string())
+                        .map(ToString::to_string)
                         .collect::<Vec<_>>()
                         .join(" ");
 
                     let args = args
                         .iter()
                         .flatten()
-                        .map(|arg| arg.to_string())
+                        .map(ToString::to_string)
                         .collect::<Vec<_>>()
                         .join(" ");
 
-                    let channel_users =
-                        target::Channel::parse(target, chantypes, statusmsg, casemapping)
-                            .map(|channel| channel_users(&channel))
-                            .unwrap_or_default();
+                    let channel_users = target::Channel::parse(
+                        target,
+                        chantypes,
+                        statusmsg,
+                        casemapping,
+                    )
+                    .map(|channel| channel_users(&channel))
+                    .unwrap_or_default();
 
                     parse_fragments_with_users(
                         format!("{} sets mode {modes} {args}", user.nickname()),
@@ -1200,12 +1319,18 @@ fn content<'a>(
                     )
                 })
         }
-        Command::PRIVMSG(target, text) => {
-            let channel_users = target::Channel::parse(target, chantypes, statusmsg, casemapping)
-                .map(|channel| channel_users(&channel))
-                .unwrap_or_default();
+        Command::PRIVMSG(target, text) | Command::NOTICE(target, text) => {
+            let channel_users = target::Channel::parse(
+                target,
+                chantypes,
+                statusmsg,
+                casemapping,
+            )
+            .map(|channel| channel_users(&channel))
+            .unwrap_or_default();
 
             // Check if a synthetic action message
+
             if let Some(nick) = message.user().as_ref().map(User::nickname) {
                 if let Some(action) = parse_action(
                     nick,
@@ -1219,18 +1344,23 @@ fn content<'a>(
                 }
             }
 
-            Some(parse_fragments_with_highlights(
-                text.clone(),
-                channel_users,
-                target,
-                Some(our_nick),
-                &config.highlights,
-            ))
-        }
-        Command::NOTICE(target, text) => {
-            let channel_users = target::Channel::parse(target, chantypes, statusmsg, casemapping)
-                .map(|channel| channel_users(&channel))
-                .unwrap_or_default();
+            if let Some(query) = ctcp::parse_query(text) {
+                let arrow = if target == our_nick.as_ref() {
+                    "⟵"
+                } else {
+                    "⟶"
+                };
+
+                let command = query.command.as_ref();
+
+                let text = if let Some(params) = query.params {
+                    [arrow, command, params].join(" ")
+                } else {
+                    [arrow, command].join(" ")
+                };
+
+                return Some(parse_fragments(text));
+            }
 
             Some(parse_fragments_with_highlights(
                 text.clone(),
@@ -1280,7 +1410,10 @@ fn content<'a>(
             let region = params.get(3)?;
 
             Some(parse_fragments_with_user(
-                format!("{} is connected on {server} ({region})", user.nickname()),
+                format!(
+                    "{} is connected on {server} ({region})",
+                    user.nickname()
+                ),
                 &user,
             ))
         }
@@ -1357,7 +1490,7 @@ fn content<'a>(
             let mode = params
                 .iter()
                 .skip(2)
-                .map(|s| s.as_str())
+                .map(String::as_str)
                 .collect::<Vec<_>>()
                 .join(" ");
 
@@ -1367,7 +1500,7 @@ fn content<'a>(
             let mode = params
                 .iter()
                 .skip(1)
-                .map(|s| s.as_str())
+                .map(String::as_str)
                 .collect::<Vec<_>>()
                 .join(" ");
 
@@ -1448,14 +1581,24 @@ fn content<'a>(
                 Some(plain(format!("{command} notice: {description}")))
             }
         }
-        Command::Numeric(_, responses) | Command::Unknown(_, responses) => Some(parse_fragments(
-            responses
-                .iter()
-                .map(|s| s.as_str())
-                .skip(1)
-                .collect::<Vec<_>>()
-                .join(" "),
-        )),
+        Command::WALLOPS(text) => {
+            let user = message.user()?;
+
+            Some(parse_fragments_with_user(
+                format!("WALLOPS from {}: {}", user.nickname(), text.clone()),
+                &user,
+            ))
+        }
+        Command::Numeric(_, responses) | Command::Unknown(_, responses) => {
+            Some(parse_fragments(
+                responses
+                    .iter()
+                    .map(String::as_str)
+                    .skip(1)
+                    .collect::<Vec<_>>()
+                    .join(" "),
+            ))
+        }
         _ => None,
     }
 }
@@ -1496,6 +1639,10 @@ fn parse_action(
     our_nick: Option<&Nick>,
     highlights: &Highlights,
 ) -> Option<Content> {
+    if !is_action(text) {
+        return None;
+    }
+
     let query = ctcp::parse_query(text)?;
 
     Some(action_text(
@@ -1522,7 +1669,13 @@ pub fn action_text(
         format!("{nick}")
     };
 
-    parse_fragments_with_highlights(text, channel_users, target, our_nick, highlights)
+    parse_fragments_with_highlights(
+        text,
+        channel_users,
+        target,
+        our_nick,
+        highlights,
+    )
 }
 
 fn monitored_targets_text(targets: Vec<String>) -> Option<String> {
@@ -1563,11 +1716,15 @@ impl MessageReferences {
             match message_reference_type {
                 isupport::MessageReferenceType::MessageId => {
                     if let Some(id) = &self.id {
-                        return isupport::MessageReference::MessageId(id.clone());
+                        return isupport::MessageReference::MessageId(
+                            id.clone(),
+                        );
                     }
                 }
                 isupport::MessageReferenceType::Timestamp => {
-                    return isupport::MessageReference::Timestamp(self.timestamp);
+                    return isupport::MessageReference::Timestamp(
+                        self.timestamp,
+                    );
                 }
             }
         }
@@ -1597,9 +1754,14 @@ impl PartialOrd for MessageReferences {
 }
 
 #[cfg(test)]
-mod test {
-    use self::formatting::Color;
-    use super::*;
+mod tests {
+    use super::{parse_fragments, parse_fragments_with_highlights};
+    use crate::User;
+    use crate::config::Highlights;
+    use crate::config::highlights::Nickname;
+    use crate::message::formatting::Color;
+    use crate::message::{Content, Formatting, Fragment};
+    use crate::user::Nick;
 
     #[test]
     fn fragment_parsing() {
@@ -1669,9 +1831,9 @@ mod test {
                 ],
             ),
             (
-                "https://www.reddit.com/r/witze/comments/1fcoz5a/ein_vampir_auf_einem_tandem_gerät_in_eine/",
+                "https://www.reddit.com/r/witze/comments/1fcoz5a/ein_vampir_auf_einem_tandem_gerät_in_eine/", // spellchecker:disable-line
                 vec![Fragment::Url(
-                    "https://www.reddit.com/r/witze/comments/1fcoz5a/ein_vampir_auf_einem_tandem_gerät_in_eine/"
+                    "https://www.reddit.com/r/witze/comments/1fcoz5a/ein_vampir_auf_einem_tandem_gerät_in_eine/" // spellchecker:disable-line
                     .parse()
                     .unwrap()
                 )],
@@ -1740,6 +1902,79 @@ mod test {
             let actual = parse_fragments(text.to_string());
 
             assert_eq!(Content::Fragments(expected), actual);
+        }
+    }
+
+    #[test]
+    fn fragment_highlight_parsing() {
+        let tests = [
+            (
+                (
+                    "Bob: I'm in #interesting with Greg, George_, &`Bill`. I hope @Dave doesn't notice.".to_string(),
+                    &Vec::from([
+                        User::try_from("Greg").unwrap(),
+                        User::try_from("Dave").unwrap(),
+                        User::try_from("Bob").unwrap(),
+                        User::try_from("George_").unwrap(),
+                        User::try_from("`Bill`").unwrap(),
+                    ]),
+                    "#interesting",
+                    Some(Nick::from("Bob")),
+                    &Highlights {
+                        nickname: Nickname {exclude: vec![], include: vec!["#interesting".into()]},
+                        matches: vec![],
+                    },
+                ),
+                vec![
+                    Fragment::HighlightNick(User::try_from("Bob").unwrap(), "Bob".into()),
+                    Fragment::Text(": I'm in ".into()),
+                    Fragment::Channel("#interesting".into()),
+                    Fragment::Text(" with ".into()),
+                    Fragment::User(User::try_from("Greg").unwrap(), "Greg".into()),
+                    Fragment::Text(", ".into()),
+                    Fragment::User(User::try_from("George_").unwrap(), "George_".into()),
+                    Fragment::Text(", &".into()),
+                    Fragment::User(User::try_from("`Bill`").unwrap(), "`Bill`".into()),
+                    Fragment::Text(". I hope @".into()),
+                    Fragment::User(User::try_from("Dave").unwrap(), "Dave".into()),
+                    Fragment::Text(" doesn't notice.".into()),
+                ],
+            ),
+            (
+                (
+                    "\u{3}14<\u{3}\u{3}04lurk_\u{3}\u{3}14/rx>\u{3} f_~oftc: > A��\u{1f}qj\u{14}��L�5�g���5�P��yn_?�i3g�1\u{7f}mE�\\X��� Xe�\u{5fa}{d�+�`@�^��NK��~~ޏ\u{7}\u{8}\u{15}\\�\u{4}A� \u{f}\u{1c}�N\u{11}6�r�\u{4}t��Q��\u{1c}�m\u{19}��".to_string(),
+                    &Vec::from([
+                        User::try_from("f_").unwrap(),
+                        User::try_from("rx").unwrap(),
+                    ]),
+                    "#funderscore-sucks",
+                    Some(Nick::from("f_")),
+                    &Highlights {
+                        nickname: Nickname {exclude: vec![], include: vec!["*".into()]},
+                        matches: vec![],
+                    },
+                ),
+                vec![
+                    Fragment::Text("\u{3}14<\u{3}\u{3}04lurk_\u{3}\u{3}14/rx>\u{3} ".into()),
+                    Fragment::HighlightNick(User::try_from("f_").unwrap(), "f_".into()),
+                    Fragment::Text("~oftc: > A��\u{1f}qj\u{14}��L�5�g���5�P��yn_?�i3g�1\u{7f}mE�\\X��� Xe�\u{5fa}{d�+�`@�^��NK��~~ޏ\u{7}\u{8}\u{15}\\�\u{4}A� \u{f}\u{1c}�N\u{11}6�r�\u{4}t��Q��\u{1c}�m\u{19}��".into())
+                ],
+            ),
+        ];
+        for ((text, channel_users, target, our_nick, highlights), expected) in
+            tests
+        {
+            if let Content::Fragments(actual) = parse_fragments_with_highlights(
+                text,
+                channel_users,
+                target,
+                our_nick.as_ref(),
+                highlights,
+            ) {
+                assert_eq!(expected, actual);
+            } else {
+                panic!("expected fragments with highlighting");
+            }
         }
     }
 }

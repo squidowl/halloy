@@ -73,7 +73,7 @@ pub fn parse_channel_from_target(
     chantypes: &[char],
     statusmsg_prefixes: &[char],
 ) -> Option<(Vec<char>, String)> {
-    // We parse the target by finding the first character in chantypes, and returing (even if that
+    // We parse the target by finding the first character in chantypes, and returning (even if that
     // character is in statusmsg_prefixes)
     // If the characters before the first chantypes character are all valid prefixes, then we have
     // a valid channel name with those prefixes.
@@ -105,7 +105,8 @@ mod tests {
     use super::*;
 
     // Reference: https://defs.ircdocs.horse/defs/chanmembers
-    const CHANNEL_MEMBERSHIP_PREFIXES: &[char] = &['~', '&', '!', '@', '%', '+'];
+    const CHANNEL_MEMBERSHIP_PREFIXES: &[char] =
+        &['~', '&', '!', '@', '%', '+'];
 
     #[test]
     fn is_channel_correct() {
@@ -143,6 +144,8 @@ mod tests {
     fn invalid_channels() {
         let chantypes = DEFAULT_CHANNEL_PREFIXES;
         let prefixes = CHANNEL_MEMBERSHIP_PREFIXES;
-        assert!(parse_channel_from_target("+%foo", chantypes, prefixes).is_none());
+        assert!(
+            parse_channel_from_target("+%foo", chantypes, prefixes).is_none()
+        );
     }
 }

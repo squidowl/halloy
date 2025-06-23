@@ -1,7 +1,7 @@
 # Migrating from YAML
 
 Halloy switched configuration file format from YAML to TOML ([PR-278](https://github.com/squidowl/halloy/pull/278))
-This page will help you migrate your old `config.yaml` to a new `config.toml` file. 
+This page will help you migrate your old `config.yaml` to a new `config.toml` file.
 
 The basic structure of a TOML file consists of key-value pairs, where keys are strings. There are no nested indentations like YAML, which makes it easier to read and write. Consider the following old YAML config with of two servers in Halloy:
 

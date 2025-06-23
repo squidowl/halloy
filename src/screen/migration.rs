@@ -1,7 +1,7 @@
-use data::environment::MIGRATION_WEBSITE;
 use data::Config;
+use data::environment::MIGRATION_WEBSITE;
 use iced::widget::{button, column, container, text, vertical_space};
-use iced::{alignment, Length};
+use iced::{Length, alignment};
 
 use crate::widget::Element;
 use crate::{font, theme};

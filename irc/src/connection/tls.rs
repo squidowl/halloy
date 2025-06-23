@@ -1,16 +1,13 @@
-use std::{io::Cursor, path::PathBuf, sync::Arc};
+use std::io::Cursor;
+use std::path::PathBuf;
+use std::sync::Arc;
 
 use bytes::Bytes;
 use tokio::fs;
-use tokio_rustls::{
-    client::TlsStream,
-    rustls::{
-        self,
-        client::danger::{self, ServerCertVerifier},
-        pki_types,
-    },
-    TlsConnector,
-};
+use tokio_rustls::TlsConnector;
+use tokio_rustls::client::TlsStream;
+use tokio_rustls::rustls::client::danger::{self, ServerCertVerifier};
+use tokio_rustls::rustls::{self, pki_types};
 
 use super::IrcStream;
 
@@ -52,8 +49,8 @@ pub async fn connect<'a>(
             cert_bytes.clone()
         };
 
-        let certs =
-            rustls_pemfile::certs(&mut Cursor::new(&cert_bytes)).collect::<Result<Vec<_>, _>>()?;
+        let certs = rustls_pemfile::certs(&mut Cursor::new(&cert_bytes))
+            .collect::<Result<Vec<_>, _>>()?;
         let key = rustls_pemfile::private_key(&mut Cursor::new(&key_bytes))?
             .ok_or(Error::BadPrivateKey)?;
 

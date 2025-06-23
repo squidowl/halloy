@@ -4,7 +4,8 @@ use std::collections::HashSet;
 use chrono::{DateTime, Utc};
 
 use super::{
-    parse_fragments_with_user, parse_fragments_with_users, plain, source, Content, Direction, Message, Source, Target
+    Content, Direction, Message, Source, Target, parse_fragments_with_user,
+    parse_fragments_with_users, plain, source,
 };
 use crate::config::buffer::UsernameFormat;
 use crate::time::Posix;
@@ -42,7 +43,9 @@ fn expand(
 
     let source = match cause {
         Cause::Server(server) => Source::Server(server),
-        Cause::Status(status) => Source::Internal(source::Internal::Status(status)),
+        Cause::Status(status) => {
+            Source::Internal(source::Internal::Status(status))
+        }
     };
 
     channels
@@ -100,7 +103,10 @@ pub fn connected(sent_time: DateTime<Utc>) -> Vec<Message> {
     )
 }
 
-pub fn connection_failed(error: String, sent_time: DateTime<Utc>) -> Vec<Message> {
+pub fn connection_failed(
+    error: String,
+    sent_time: DateTime<Utc>,
+) -> Vec<Message> {
     let content = plain(format!("connection to server failed ({error})"));
     expand(
         [],
@@ -192,9 +198,15 @@ pub fn nickname(
     let new_user = User::from(new_nick.clone());
 
     let content = if ourself {
-        parse_fragments_with_user(format!("You're now known as {new_nick}"), &new_user)
+        parse_fragments_with_user(
+            format!("You're now known as {new_nick}"),
+            &new_user,
+        )
     } else {
-        parse_fragments_with_users(format!("{old_nick} is now known as {new_nick}"), &[old_user, new_user])
+        parse_fragments_with_users(
+            format!("{old_nick} is now known as {new_nick}"),
+            &[old_user, new_user],
+        )
     };
 
     expand(

@@ -89,7 +89,7 @@ pub fn highlights<'a>() -> Text<'a> {
 }
 
 pub fn scroll_to_bottom<'a>() -> Text<'a> {
-    to_text('\u{E814}')
+    to_text('\u{F103}')
 }
 
 pub fn share<'a>() -> Text<'a> {
@@ -97,7 +97,11 @@ pub fn share<'a>() -> Text<'a> {
 }
 
 pub fn mark_as_read<'a>() -> Text<'a> {
-    to_text('\u{E815}')
+    to_text('\u{E817}')
+}
+
+pub fn config<'a>() -> Text<'a> {
+    to_text('\u{F1C9}')
 }
 
 fn to_text<'a>(unicode: char) -> Text<'a> {

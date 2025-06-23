@@ -1,18 +1,18 @@
 use chrono::{DateTime, Local, Utc};
 use serde::Deserialize;
 
-use crate::serde::default_bool_true;
-
 pub use self::away::Away;
 pub use self::channel::Channel;
+use crate::serde::default_bool_true;
 
 pub mod away;
 pub mod channel;
 
-use crate::{
-    buffer::{DateSeparators, Nickname, SkinTone, StatusMessagePrefix, TextInput, Timestamp},
-    message::source,
+use crate::buffer::{
+    DateSeparators, Nickname, SkinTone, StatusMessagePrefix, TextInput,
+    Timestamp,
 };
+use crate::message::source;
 
 #[derive(Debug, Default, Clone, Deserialize)]
 pub struct Buffer {
@@ -42,6 +42,8 @@ pub struct Buffer {
     pub emojis: Emojis,
     #[serde(default)]
     pub mark_as_read: MarkAsRead,
+    #[serde(default)]
+    pub url: Url,
 }
 
 #[derive(Debug, Clone, Deserialize, Default)]
@@ -60,6 +62,8 @@ pub struct Emojis {
     pub skin_tone: SkinTone,
     #[serde(default = "default_bool_true")]
     pub auto_replace: bool,
+    #[serde(default = "default_characters_to_trigger_picker")]
+    pub characters_to_trigger_picker: usize,
 }
 
 impl Default for Emojis {
@@ -68,8 +72,16 @@ impl Default for Emojis {
             show_picker: default_bool_true(),
             skin_tone: SkinTone::default(),
             auto_replace: default_bool_true(),
+            characters_to_trigger_picker: default_characters_to_trigger_picker(
+            ),
         }
     }
+}
+
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct Url {
+    #[serde(default)]
+    pub prompt_before_open: bool,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -80,6 +92,8 @@ pub struct MarkAsRead {
     pub on_buffer_close: bool,
     #[serde(default = "default_bool_true")]
     pub on_scroll_to_bottom: bool,
+    #[serde(default = "default_bool_true")]
+    pub on_message_sent: bool,
 }
 
 impl Default for MarkAsRead {
@@ -88,6 +102,7 @@ impl Default for MarkAsRead {
             on_application_exit: bool::default(),
             on_buffer_close: default_bool_true(),
             on_scroll_to_bottom: default_bool_true(),
+            on_message_sent: default_bool_true(),
         }
     }
 }
@@ -128,6 +143,8 @@ pub struct ServerMessages {
     pub standard_reply_warn: ServerMessage,
     #[serde(default)]
     pub standard_reply_note: ServerMessage,
+    #[serde(default)]
+    pub wallops: ServerMessage,
 }
 
 impl ServerMessages {
@@ -138,17 +155,22 @@ impl ServerMessages {
             source::server::Kind::Part => Some(&self.part),
             source::server::Kind::Quit => Some(&self.quit),
             source::server::Kind::ChangeHost => Some(&self.change_host),
-            source::server::Kind::MonitoredOnline => Some(&self.monitored_online),
-            source::server::Kind::MonitoredOffline => Some(&self.monitored_offline),
-            source::server::Kind::StandardReply(source::server::StandardReply::Fail) => {
-                Some(&self.standard_reply_fail)
+            source::server::Kind::MonitoredOnline => {
+                Some(&self.monitored_online)
             }
-            source::server::Kind::StandardReply(source::server::StandardReply::Warn) => {
-                Some(&self.standard_reply_warn)
+            source::server::Kind::MonitoredOffline => {
+                Some(&self.monitored_offline)
             }
-            source::server::Kind::StandardReply(source::server::StandardReply::Note) => {
-                Some(&self.standard_reply_note)
-            }
+            source::server::Kind::StandardReply(
+                source::server::StandardReply::Fail,
+            ) => Some(&self.standard_reply_fail),
+            source::server::Kind::StandardReply(
+                source::server::StandardReply::Warn,
+            ) => Some(&self.standard_reply_warn),
+            source::server::Kind::StandardReply(
+                source::server::StandardReply::Note,
+            ) => Some(&self.standard_reply_note),
+            source::server::Kind::Wallops => Some(&self.wallops),
         }
     }
 }
@@ -189,8 +211,9 @@ impl ServerMessage {
         let is_channel_filtered = |list: &Vec<String>, channel: &str| -> bool {
             let wildcards = ["*", "all"];
 
-            list.iter()
-                .any(|item| wildcards.contains(&item.as_str()) || item == channel)
+            list.iter().any(|item| {
+                wildcards.contains(&item.as_str()) || item == channel
+            })
         };
 
         let channel_included = is_channel_filtered(&self.include, channel);
@@ -258,7 +281,10 @@ pub enum UsernameFormat {
 }
 
 impl Buffer {
-    pub fn format_timestamp(&self, date_time: &DateTime<Utc>) -> Option<String> {
+    pub fn format_timestamp(
+        &self,
+        date_time: &DateTime<Utc>,
+    ) -> Option<String> {
         if self.timestamp.format.is_empty() {
             return None;
         }
@@ -272,4 +298,8 @@ impl Buffer {
             )
         ))
     }
+}
+
+fn default_characters_to_trigger_picker() -> usize {
+    2
 }

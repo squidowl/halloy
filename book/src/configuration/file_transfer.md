@@ -17,7 +17,7 @@ save_directory = "/Users/halloy/Downloads"
 
 ## `passive`
 
-If true, act as the "client" for the transfer. Requires the remote user act as the [server](#file_transferserver-section).
+If true, act as the "client" for the transfer. Requires the remote user act as the [server](#file_transferserver).
 
 ```toml
 # Type: boolean

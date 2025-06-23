@@ -1,13 +1,18 @@
+use std::path::PathBuf;
+
 use data::dashboard::BufferAction;
+use data::preview::{self, Previews};
 use data::target::{self, Target};
-use data::{buffer, history, message, preview, Config, Server};
+use data::{Config, Server, buffer, history, message};
 use iced::advanced::text;
 use iced::widget::{column, container, row, vertical_space};
 use iced::{Length, Task};
 
 use super::{input_view, scroll_view, user_context};
-use crate::widget::{message_content, message_marker, selectable_text, Element};
-use crate::{theme, Theme};
+use crate::widget::{
+    Element, message_content, message_marker, selectable_text,
+};
+use crate::{Theme, theme};
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -23,6 +28,8 @@ pub enum Event {
     PreviewChanged,
     HidePreview(history::Kind, message::Hash, url::Url),
     MarkAsRead(history::Kind),
+    OpenUrl(String),
+    ImagePreview(PathBuf, url::Url),
 }
 
 pub fn view<'a>(
@@ -41,30 +48,39 @@ pub fn view<'a>(
     let buffer = &state.buffer;
     let input = history.input(buffer);
 
-    let chathistory_state = clients.get_chathistory_state(server, &query.to_target());
+    let chathistory_state =
+        clients.get_chathistory_state(server, &query.to_target());
+
+    let previews = Some(Previews::new(
+        previews,
+        &query.to_target(),
+        &config.preview,
+        casemapping,
+    ));
 
     let messages = container(
         scroll_view::view(
             &state.scroll_view,
             scroll_view::Kind::Query(server, query),
             history,
-            Some(previews),
+            previews,
             chathistory_state,
             config,
             move |message, max_nick_width, _| {
-                let timestamp =
-                    config
-                        .buffer
-                        .format_timestamp(&message.server_time)
-                        .map(|timestamp| {
-                            selectable_text(timestamp).style(theme::selectable_text::timestamp)
-                        });
+                let timestamp = config
+                    .buffer
+                    .format_timestamp(&message.server_time)
+                    .map(|timestamp| {
+                        selectable_text(timestamp)
+                            .style(theme::selectable_text::timestamp)
+                    });
 
                 let space = selectable_text(" ");
 
                 match message.target.source() {
                     message::Source::User(user) => {
-                        let with_access_levels = config.buffer.nickname.show_access_levels;
+                        let with_access_levels =
+                            config.buffer.nickname.show_access_levels;
                         let mut text = selectable_text(
                             config
                                 .buffer
@@ -72,10 +88,16 @@ pub fn view<'a>(
                                 .brackets
                                 .format(user.display(with_access_levels)),
                         )
-                        .style(|theme| theme::selectable_text::nickname(theme, config, user));
+                        .style(|theme| {
+                            theme::selectable_text::nickname(
+                                theme, config, user,
+                            )
+                        });
 
                         if let Some(width) = max_nick_width {
-                            text = text.width(width).align_x(text::Alignment::Right);
+                            text = text
+                                .width(width)
+                                .align_x(text::Alignment::Right);
                         }
 
                         let nick = user_context::view(
@@ -98,12 +120,22 @@ pub fn view<'a>(
                             scroll_view::Message::Link,
                             theme::selectable_text::default,
                             move |link| match link {
-                                message::Link::User(_) => user_context::Entry::list(false, None),
+                                message::Link::User(_) => {
+                                    user_context::Entry::list(false, None)
+                                }
                                 _ => vec![],
                             },
                             move |link, entry, length| match link {
                                 message::Link::User(user) => entry
-                                    .view(server, casemapping, None, user, None, length, config)
+                                    .view(
+                                        server,
+                                        casemapping,
+                                        None,
+                                        user,
+                                        None,
+                                        length,
+                                        config,
+                                    )
                                     .map(scroll_view::Message::UserContext),
                                 _ => row![].into(),
                             },
@@ -116,7 +148,8 @@ pub fn view<'a>(
                         let text_container = container(message_content);
 
                         match &config.buffer.nickname.alignment {
-                            data::buffer::Alignment::Left | data::buffer::Alignment::Right => Some(
+                            data::buffer::Alignment::Left
+                            | data::buffer::Alignment::Right => Some(
                                 row![]
                                     .push(timestamp_nickname_row)
                                     .push(text_container)
@@ -132,10 +165,14 @@ pub fn view<'a>(
                     }
                     message::Source::Server(server) => {
                         let message_style = move |message_theme: &Theme| {
-                            theme::selectable_text::server(message_theme, server.as_ref())
+                            theme::selectable_text::server(
+                                message_theme,
+                                server.as_ref(),
+                            )
                         };
 
-                        let marker = message_marker(max_nick_width, message_style);
+                        let marker =
+                            message_marker(max_nick_width, message_style);
 
                         let message = message_content(
                             &message.content,
@@ -158,7 +195,10 @@ pub fn view<'a>(
                         )
                     }
                     message::Source::Action(_) => {
-                        let marker = message_marker(max_nick_width, theme::selectable_text::action);
+                        let marker = message_marker(
+                            max_nick_width,
+                            theme::selectable_text::action,
+                        );
 
                         let message_content = message_content(
                             &message.content,
@@ -182,12 +222,18 @@ pub fn view<'a>(
                             .into(),
                         )
                     }
-                    message::Source::Internal(message::source::Internal::Status(status)) => {
+                    message::Source::Internal(
+                        message::source::Internal::Status(status),
+                    ) => {
                         let message_style = move |message_theme: &Theme| {
-                            theme::selectable_text::status(message_theme, *status)
+                            theme::selectable_text::status(
+                                message_theme,
+                                *status,
+                            )
                         };
 
-                        let marker = message_marker(max_nick_width, message_style);
+                        let marker =
+                            message_marker(max_nick_width, message_style);
 
                         let message = message_content(
                             &message.content,
@@ -209,7 +255,9 @@ pub fn view<'a>(
                             .into(),
                         )
                     }
-                    message::Source::Internal(message::source::Internal::Logs) => None,
+                    message::Source::Internal(
+                        message::source::Internal::Logs,
+                    ) => None,
                 }
             },
         )
@@ -287,7 +335,9 @@ impl Query {
                 );
 
                 let event = event.and_then(|event| match event {
-                    scroll_view::Event::UserContext(event) => Some(Event::UserContext(event)),
+                    scroll_view::Event::UserContext(event) => {
+                        Some(Event::UserContext(event))
+                    }
                     scroll_view::Event::OpenBuffer(target, buffer_action) => {
                         Some(Event::OpenBuffers(vec![(target, buffer_action)]))
                     }
@@ -295,29 +345,45 @@ impl Query {
                     scroll_view::Event::RequestOlderChatHistory => {
                         Some(Event::RequestOlderChatHistory)
                     }
-                    scroll_view::Event::PreviewChanged => Some(Event::PreviewChanged),
+                    scroll_view::Event::PreviewChanged => {
+                        Some(Event::PreviewChanged)
+                    }
                     scroll_view::Event::HidePreview(kind, hash, url) => {
                         Some(Event::HidePreview(kind, hash, url))
                     }
                     scroll_view::Event::MarkAsRead => {
-                        history::Kind::from_buffer(data::Buffer::Upstream(self.buffer.clone()))
-                            .map(Event::MarkAsRead)
+                        history::Kind::from_buffer(data::Buffer::Upstream(
+                            self.buffer.clone(),
+                        ))
+                        .map(Event::MarkAsRead)
+                    }
+                    scroll_view::Event::OpenUrl(url) => {
+                        Some(Event::OpenUrl(url))
+                    }
+                    scroll_view::Event::ImagePreview(path, url) => {
+                        Some(Event::ImagePreview(path, url))
                     }
                 });
 
                 (command.map(Message::ScrollView), event)
             }
             Message::InputView(message) => {
-                let (command, event) =
-                    self.input_view
-                        .update(message, &self.buffer, clients, history, config);
+                let (command, event) = self.input_view.update(
+                    message,
+                    &self.buffer,
+                    clients,
+                    history,
+                    config,
+                );
                 let command = command.map(Message::InputView);
 
                 match event {
                     Some(input_view::Event::InputSent { history_task }) => {
                         let command = Task::batch(vec![
                             command,
-                            self.scroll_view.scroll_to_end().map(Message::ScrollView),
+                            self.scroll_view
+                                .scroll_to_end()
+                                .map(Message::ScrollView),
                         ]);
 
                         (command, Some(Event::History(history_task)))

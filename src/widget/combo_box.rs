@@ -1,15 +1,16 @@
-use iced::advanced::graphics::text::Paragraph;
-use iced::advanced::{
-    layout, mouse, overlay, renderer, text, widget, Clipboard, Layout, Shell, Widget,
-};
-use iced::overlay::menu;
-use iced::widget::text::LineHeight;
-use iced::widget::{text_input, TextInput};
-use iced::{keyboard, window, Event, Length, Padding, Rectangle, Vector};
-
 use std::cell::RefCell;
 use std::fmt::Display;
 use std::time::Instant;
+
+use iced::advanced::graphics::text::Paragraph;
+use iced::advanced::{
+    Clipboard, Layout, Shell, Widget, layout, mouse, overlay, renderer, text,
+    widget,
+};
+use iced::overlay::menu;
+use iced::widget::text::LineHeight;
+use iced::widget::{TextInput, text_input};
+use iced::{Event, Length, Padding, Rectangle, Vector, keyboard, window};
 
 use super::Element;
 use crate::Theme;
@@ -19,8 +20,13 @@ use crate::Theme;
 /// This widget is composed by a [`TextInput`] that can be filled with the text
 /// to search for corresponding values from the list of options that are displayed
 /// as a [`Menu`].
-pub struct ComboBox<'a, T, Message, Theme = crate::Theme, Renderer = super::Renderer>
-where
+pub struct ComboBox<
+    'a,
+    T,
+    Message,
+    Theme = crate::Theme,
+    Renderer = super::Renderer,
+> where
     Theme: Catalog,
     Renderer: text::Renderer,
 {
@@ -75,14 +81,20 @@ where
 
     /// Sets the message that should be produced when some text is typed into
     /// the [`TextInput`] of the [`ComboBox`].
-    pub fn on_input(mut self, on_input: impl Fn(String) -> Message + 'static) -> Self {
+    pub fn on_input(
+        mut self,
+        on_input: impl Fn(String) -> Message + 'static,
+    ) -> Self {
         self.on_input = Some(Box::new(on_input));
         self
     }
 
     /// Sets the message that will be produced when an option of the
     /// [`ComboBox`] is hovered using the arrow keys.
-    pub fn on_option_hovered(mut self, on_selection: impl Fn(T) -> Message + 'static) -> Self {
+    pub fn on_option_hovered(
+        mut self,
+        on_selection: impl Fn(T) -> Message + 'static,
+    ) -> Self {
         self.on_option_hovered = Some(Box::new(on_selection));
         self
     }
@@ -149,7 +161,8 @@ where
         style: impl Fn(&Theme, text_input::Status) -> text_input::Style + 'a,
     ) -> Self
     where
-        <Theme as text_input::Catalog>::Class<'a>: From<text_input::StyleFn<'a, Theme>>,
+        <Theme as text_input::Catalog>::Class<'a>:
+            From<text_input::StyleFn<'a, Theme>>,
     {
         self.text_input = self.text_input.style(style);
         self
@@ -157,7 +170,10 @@ where
 
     /// Sets the style of the menu of the [`ComboBox`].
     #[must_use]
-    pub fn menu_style(mut self, style: impl Fn(&Theme) -> menu::Style + 'a) -> Self
+    pub fn menu_style(
+        mut self,
+        style: impl Fn(&Theme) -> menu::Style + 'a,
+    ) -> Self
     where
         <Theme as menu::Catalog>::Class<'a>: From<menu::StyleFn<'a, Theme>>,
     {
@@ -177,7 +193,10 @@ where
 
     /// Sets the style class of the menu of the [`ComboBox`].
     #[must_use]
-    pub fn menu_class(mut self, class: impl Into<<Theme as menu::Catalog>::Class<'a>>) -> Self {
+    pub fn menu_class(
+        mut self,
+        class: impl Into<<Theme as menu::Catalog>::Class<'a>>,
+    ) -> Self {
         self.menu_class = class.into();
         self
     }
@@ -465,9 +484,13 @@ where
                 state.value = new_value;
 
                 state.filtered_options.update(
-                    search(&state.options, &state.option_matchers, &state.value)
-                        .cloned()
-                        .collect(),
+                    search(
+                        &state.options,
+                        &state.option_matchers,
+                        &state.value,
+                    )
+                    .cloned()
+                    .collect(),
                 );
             });
             shell.invalidate_layout();
@@ -477,23 +500,36 @@ where
         if self.state.is_focused() {
             self.state.with_inner(|state| {
                 if !started_focused {
-                    if let Some(on_option_hovered) = &mut self.on_option_hovered {
+                    if let Some(on_option_hovered) = &mut self.on_option_hovered
+                    {
                         let hovered_option = menu.hovered_option.unwrap_or(0);
 
-                        if let Some(option) = state.filtered_options.options.get(hovered_option) {
+                        if let Some(option) =
+                            state.filtered_options.options.get(hovered_option)
+                        {
                             shell.publish(on_option_hovered(option.clone()));
                             published_message_to_shell = true;
                         }
                     }
                 }
 
-                if let Event::Keyboard(keyboard::Event::KeyPressed { key, modifiers, .. }) = event {
+                if let Event::Keyboard(keyboard::Event::KeyPressed {
+                    key,
+                    modifiers,
+                    ..
+                }) = event
+                {
                     let shift_modifier = modifiers.shift();
 
                     match (key, shift_modifier) {
-                        (keyboard::Key::Named(keyboard::key::Named::Enter), _) => {
+                        (
+                            keyboard::Key::Named(keyboard::key::Named::Enter),
+                            _,
+                        ) => {
                             if let Some(index) = &menu.hovered_option {
-                                if let Some(option) = state.filtered_options.options.get(*index) {
+                                if let Some(option) =
+                                    state.filtered_options.options.get(*index)
+                                {
                                     menu.new_selection = Some(option.clone());
                                 }
                             }
@@ -501,11 +537,21 @@ where
                             shell.capture_event();
                             shell.request_redraw();
                         }
-                        (keyboard::Key::Named(keyboard::key::Named::ArrowUp), _)
-                        | (keyboard::Key::Named(keyboard::key::Named::Tab), true) => {
+                        (
+                            keyboard::Key::Named(keyboard::key::Named::ArrowUp),
+                            _,
+                        )
+                        | (
+                            keyboard::Key::Named(keyboard::key::Named::Tab),
+                            true,
+                        ) => {
                             if let Some(index) = &mut menu.hovered_option {
                                 if *index == 0 {
-                                    *index = state.filtered_options.options.len().saturating_sub(1);
+                                    *index = state
+                                        .filtered_options
+                                        .options
+                                        .len()
+                                        .saturating_sub(1);
                                 } else {
                                     *index = index.saturating_sub(1);
                                 }
@@ -513,13 +559,21 @@ where
                                 menu.hovered_option = Some(0);
                             }
 
-                            if let Some(on_option_selection) = &mut self.on_option_hovered {
-                                if let Some(option) = menu
-                                    .hovered_option
-                                    .and_then(|index| state.filtered_options.options.get(index))
+                            if let Some(on_option_selection) =
+                                &mut self.on_option_hovered
+                            {
+                                if let Some(option) =
+                                    menu.hovered_option.and_then(|index| {
+                                        state
+                                            .filtered_options
+                                            .options
+                                            .get(index)
+                                    })
                                 {
                                     // Notify the selection
-                                    shell.publish((on_option_selection)(option.clone()));
+                                    shell.publish((on_option_selection)(
+                                        option.clone(),
+                                    ));
                                     published_message_to_shell = true;
                                 }
                             }
@@ -527,28 +581,53 @@ where
                             shell.capture_event();
                             shell.request_redraw();
                         }
-                        (keyboard::Key::Named(keyboard::key::Named::ArrowDown), _)
-                        | (keyboard::Key::Named(keyboard::key::Named::Tab), false) => {
+                        (
+                            keyboard::Key::Named(
+                                keyboard::key::Named::ArrowDown,
+                            ),
+                            _,
+                        )
+                        | (
+                            keyboard::Key::Named(keyboard::key::Named::Tab),
+                            false,
+                        ) => {
                             if let Some(index) = &mut menu.hovered_option {
-                                if *index == state.filtered_options.options.len().saturating_sub(1)
+                                if *index
+                                    == state
+                                        .filtered_options
+                                        .options
+                                        .len()
+                                        .saturating_sub(1)
                                 {
                                     *index = 0;
                                 } else {
                                     *index = index.saturating_add(1).min(
-                                        state.filtered_options.options.len().saturating_sub(1),
+                                        state
+                                            .filtered_options
+                                            .options
+                                            .len()
+                                            .saturating_sub(1),
                                     );
                                 }
                             } else {
                                 menu.hovered_option = Some(0);
                             }
 
-                            if let Some(on_option_selection) = &mut self.on_option_hovered {
-                                if let Some(option) = menu
-                                    .hovered_option
-                                    .and_then(|index| state.filtered_options.options.get(index))
+                            if let Some(on_option_selection) =
+                                &mut self.on_option_hovered
+                            {
+                                if let Some(option) =
+                                    menu.hovered_option.and_then(|index| {
+                                        state
+                                            .filtered_options
+                                            .options
+                                            .get(index)
+                                    })
                                 {
                                     // Notify the selection
-                                    shell.publish((on_option_selection)(option.clone()));
+                                    shell.publish((on_option_selection)(
+                                        option.clone(),
+                                    ));
                                     published_message_to_shell = true;
                                 }
                             }
@@ -578,7 +657,9 @@ where
                 let mut tree = state.text_input_tree();
                 self.text_input.update(
                     &mut tree,
-                    &Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)),
+                    &Event::Mouse(mouse::Event::ButtonPressed(
+                        mouse::Button::Left,
+                    )),
                     layout,
                     mouse::Cursor::Unavailable,
                     renderer,
@@ -590,7 +671,10 @@ where
             }
         });
 
-        if started_focused && !self.state.is_focused() && !published_message_to_shell {
+        if started_focused
+            && !self.state.is_focused()
+            && !published_message_to_shell
+        {
             if let Some(message) = self.on_close.take() {
                 shell.publish(message);
             }
@@ -625,7 +709,8 @@ where
         cursor: mouse::Cursor,
         viewport: &Rectangle,
     ) {
-        let selection = if self.state.is_focused() || self.selection.is_empty() {
+        let selection = if self.state.is_focused() || self.selection.is_empty()
+        {
             None
         } else {
             Some(&self.selection)
@@ -641,6 +726,7 @@ where
         tree: &'b mut widget::Tree,
         layout: Layout<'_>,
         _renderer: &Renderer,
+        _viewport: &Rectangle,
         _translation: Vector,
     ) -> Option<overlay::Element<'b, Message, Theme, Renderer>> {
         let Menu {
@@ -723,7 +809,9 @@ where
 }
 
 /// Build matchers from given list of options.
-pub fn build_matchers<'a, T>(options: impl IntoIterator<Item = T> + 'a) -> Vec<String>
+pub fn build_matchers<'a, T>(
+    options: impl IntoIterator<Item = T> + 'a,
+) -> Vec<String>
 where
     T: Display + 'a,
 {

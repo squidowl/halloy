@@ -46,16 +46,23 @@ pub fn format(bytes: &[u8]) -> Option<Format> {
 }
 
 mod serde_format {
-    use super::Format;
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-    pub fn serialize<S: Serializer>(format: &Format, serializer: S) -> Result<S::Ok, S::Error> {
+    use super::Format;
+
+    pub fn serialize<S: Serializer>(
+        format: &Format,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error> {
         format.to_mime_type().serialize(serializer)
     }
 
-    pub fn deserialize<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Format, D::Error> {
+    pub fn deserialize<'de, D: Deserializer<'de>>(
+        deserializer: D,
+    ) -> Result<Format, D::Error> {
         let s = String::deserialize(deserializer)?;
 
-        Format::from_mime_type(s).ok_or(serde::de::Error::custom("invalid mime type"))
+        Format::from_mime_type(s)
+            .ok_or(serde::de::Error::custom("invalid mime type"))
     }
 }

@@ -1,7 +1,7 @@
 use serde::Deserialize;
 
 use crate::serde::default_bool_true;
-use crate::Target;
+use crate::{Target, isupport};
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct Preview {
@@ -32,7 +32,7 @@ pub struct Request {
     ///
     /// Some servers will only send opengraph metadata to
     /// browser-like user agents. We default to `WhatsApp/2`
-    /// for wide compatability
+    /// for wide compatibility
     #[serde(default = "default_user_agent")]
     pub user_agent: String,
     /// Request timeout in millisceonds
@@ -54,7 +54,7 @@ pub struct Request {
     /// Reduce this to prevent rate-limiting
     #[serde(default = "default_concurrency")]
     pub concurrency: usize,
-    /// Numer of milliseconds to wait before requesting another preview
+    /// Number of milliseconds to wait before requesting another preview
     /// when number of requested previews > `concurrency`
     #[serde(default = "default_delay_ms")]
     pub delay_ms: u64,
@@ -94,41 +94,66 @@ impl Default for Card {
 }
 
 impl Card {
-    pub fn visible(&self, target: &Target) -> bool {
-        is_visible(&self.include, &self.exclude, target)
+    pub fn visible(
+        &self,
+        target: &Target,
+        casemapping: isupport::CaseMap,
+    ) -> bool {
+        is_visible(&self.include, &self.exclude, target, casemapping)
     }
 }
 
 #[derive(Debug, Clone, Deserialize, Default)]
 pub struct Image {
     #[serde(default)]
+    pub action: ImageAction,
+    #[serde(default)]
     pub exclude: Vec<String>,
     #[serde(default)]
     pub include: Vec<String>,
 }
 
+#[derive(Debug, Clone, Deserialize, Default)]
+#[serde(rename_all = "kebab-case")]
+pub enum ImageAction {
+    OpenUrl,
+    #[default]
+    Preview,
+}
+
 impl Image {
-    pub fn visible(&self, target: &Target) -> bool {
-        is_visible(&self.include, &self.exclude, target)
+    pub fn visible(
+        &self,
+        target: &Target,
+        casemapping: isupport::CaseMap,
+    ) -> bool {
+        is_visible(&self.include, &self.exclude, target, casemapping)
     }
 }
 
-fn is_visible(include: &[String], exclude: &[String], target: &Target) -> bool {
-    match target {
-        Target::Query(_) => true,
-        Target::Channel(channel) => {
-            let is_channel_filtered = |list: &[String], channel: &str| -> bool {
-                let wildcards = ["*", "all"];
-                list.iter()
-                    .any(|item| wildcards.contains(&item.as_str()) || item == channel)
-            };
+fn is_visible(
+    include: &[String],
+    exclude: &[String],
+    target: &Target,
+    casemapping: isupport::CaseMap,
+) -> bool {
+    let target = match target {
+        Target::Query(user) => user.as_normalized_str(),
+        Target::Channel(channel) => channel.as_normalized_str(),
+    };
 
-            let channel_included = is_channel_filtered(include, channel.as_str());
-            let channel_excluded = is_channel_filtered(exclude, channel.as_str());
+    let is_target_filtered = |list: &[String], target: &str| -> bool {
+        let wildcards = ["*", "all"];
+        list.iter().any(|item| {
+            wildcards.contains(&item.as_str())
+                || casemapping.normalize(item) == target
+        })
+    };
 
-            channel_included || !channel_excluded
-        }
-    }
+    let target_included = is_target_filtered(include, target);
+    let target_excluded = is_target_filtered(exclude, target);
+
+    target_included || !target_excluded
 }
 
 fn default_user_agent() -> String {

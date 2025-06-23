@@ -2,13 +2,14 @@ use std::fmt;
 use std::path::PathBuf;
 use std::str::FromStr;
 
-use chrono::{format::SecondsFormat, DateTime, Utc};
+use chrono::format::SecondsFormat;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use tokio::fs;
 
-use crate::history::{dir_path, Error, Kind};
-use crate::message::{source, MessageReferences};
 use crate::Message;
+use crate::history::{Error, Kind, dir_path};
+use crate::message::{MessageReferences, source};
 
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct Metadata {
@@ -17,7 +18,18 @@ pub struct Metadata {
     pub chathistory_references: Option<MessageReferences>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default, Deserialize, Serialize)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Default,
+    Deserialize,
+    Serialize,
+)]
 pub struct ReadMarker(DateTime<Utc>);
 
 impl ReadMarker {
@@ -75,7 +87,7 @@ pub fn latest_can_reference(messages: &[Message]) -> Option<MessageReferences> {
         .iter()
         .rev()
         .find(|message| message.can_reference())
-        .map(|message| message.references())
+        .map(Message::references)
 }
 
 pub async fn load(kind: Kind) -> Result<Metadata, Error> {
@@ -106,13 +118,15 @@ pub async fn save(
     Ok(())
 }
 
-pub async fn update(kind: &Kind, read_marker: &ReadMarker) -> Result<(), Error> {
+pub async fn update(
+    kind: &Kind,
+    read_marker: &ReadMarker,
+) -> Result<(), Error> {
     let metadata = load(kind.clone()).await?;
 
-    if metadata
-        .read_marker
-        .is_some_and(|metadata_read_marker| metadata_read_marker >= *read_marker)
-    {
+    if metadata.read_marker.is_some_and(|metadata_read_marker| {
+        metadata_read_marker >= *read_marker
+    }) {
         return Ok(());
     }
 

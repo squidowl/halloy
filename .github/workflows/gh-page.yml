@@ -8,22 +8,28 @@ on:
 
 jobs:
   deploy:
+    name: Deploy
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Check links
+        id: lychee
+        uses: lycheeverse/lychee-action@v2
+        with:
+          args: --config ./.config/lychee.toml './**/*.md'
+          fail: true
 
       - name: Setup mdBook
         uses: peaceiris/actions-mdbook@v1
         with:
           mdbook-version: 'latest'
 
-      - name: Install mdbook plugins
-        run: cargo install mdbook-linkcheck
-
-      - run: mdbook build book
+      - name: Build book
+        run: mdbook build book
 
       - name: Publish book
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./book/book/html
+          publish_dir: ./book/book

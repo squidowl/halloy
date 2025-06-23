@@ -14,10 +14,11 @@ Buffer settings for Halloy.
 7. [Internal Messages](#bufferinternal_messages) - Internal messages are messages sent from Halloy itself
 8. [Mark as Read](#buffermark_as_read) - When to automatically mark a buffer as read
 9. [Nickname](#buffernickname) - Customize how nicknames are displayed within a buffer
-10. [Server Messages](#bufferserver_messages) - Server messages are messages sent from a irc server.
+10. [Server Messages](#bufferserver_messages) - Server messages are messages sent from an IRC server.
 11. [Status Message Prefix](#bufferstatus_message_prefix) - Status message prefix settings
 12. [Text Input](#buffertext_input) - Customize the text input for in buffers
 13. [Timestamp](#buffertimestamp) - Customize how timestamps are displayed within a buffer
+14. [Url](#bufferurl) - URLs in buffers
 
 ## `[buffer.away]`
 
@@ -173,7 +174,7 @@ Control if topic should be shown or not by default.
 ```toml
 # Type: boolean
 # Values: true, false
-# Default: true
+# Default: false
 
 [buffer.channel.topic]
 enabled = true
@@ -186,7 +187,7 @@ Amount of visible lines before you have to scroll in topic banner.
 ```toml
 # Type: integer
 # Values: any positive integer
-# Default: 2z
+# Default: 2
 
 [buffer.channel.topic]
 max_lines = 2
@@ -312,6 +313,20 @@ Automatically replace `:shortcode:` in text input with the corresponding emoji.
 auto_replace = true
 ```
 
+### `characters_to_trigger_picker`
+
+Minimum number of characters after `:` required for the emoji picker to show.
+E.g. `:D` will not show the emoji picker unless `characters_to_trigger_picker` is less than or equal to `1`.
+
+```toml
+# Type: integer
+# Values: any non-negative integer
+# Default: 2
+
+[buffer.emojis]
+characters_to_trigger_picker = 2
+```
+
 ## `[buffer.internal_messages]`
 
 Internal messages are messages sent from Halloy itself.
@@ -419,6 +434,19 @@ When scrolling to the bottom of a buffer.
 on_scroll_to_bottom = true
 ```
 
+### `on_message_sent`
+
+When sending a message to the buffer.
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: true
+
+[buffer.mark_as_read]
+on_message_sent = true
+```
+
 ## `[buffer.nickname]`
 
 Customize how nicknames are displayed within a buffer.
@@ -493,7 +521,7 @@ click = "open-query"
 
 ## `[buffer.server_messages]`
 
-Server messages are messages sent from a irc server.
+Server messages are messages sent from an IRC server.
 
 - **change_host** - Message is sent when a user changes host  
 - **join** - Message is sent when a user joins a channel  
@@ -504,7 +532,7 @@ Server messages are messages sent from a irc server.
 - **standard_reply_fail** - Message is sent when a command/function fails or an error with the session  
 - **standard_reply_note** - Message is sent when there is information about a command/function or session  
 - **standard_reply_warn** - Message is sent when there is feedback about a command/function or session  
-- **topic** - Message is sent when a user changes channel topic
+- **topic** - Message is sent when the client joins a channel to inform them of the current topic
 
 Example
 
@@ -643,9 +671,28 @@ auto_format = "markdown"
 
 Customize autocomplete.
 
+#### `order_by`
+
+Ordering that autocomplete uses to select from matching users.
+
+- `"recent"`: Autocomplete users by their last message in the channel;  the user with most recent message autocompletes first, then increasingly older messages.  Users with no seen messages are matched last, in the order specified by `sort_direction`.
+- `"alpha"`: Autocomplete users based on alphabetical ordering of potential matches.  Ordering is asecnding/descinding based on `sort_direction`.
+
+```toml
+# Type: string
+# Values: "alpha", "recent"
+# Default: "recent"
+
+[buffer.text_input.autocomplete]
+order_by = "recent"
+```
+
 #### `sort_direction`
 
-Sort direction when autocompleting.
+Sort direction when autocompleting alphabetically.
+
+- `"asc"`: ascending alphabetical (a→z)
+- `"desc"`: descending alphabetical (z→a)
 
 ```toml
 # Type: string
@@ -697,4 +744,21 @@ Brackets around timestamps.
 
 [buffer.timestamp]
 brackets = { left = "[", right = "]" }
+```
+
+## `[buffer.url]`
+
+Customize how urls behave in buffers
+
+### `prompt_before_open`
+
+Prompt before opening a hyperlink.
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: false
+
+[buffer.url]
+prompt_before_open = true
 ```

@@ -1,31 +1,23 @@
+use std::borrow::Cow;
+use std::sync::Arc;
+
 use iced::advanced::graphics::core::touch;
-use iced::advanced::layout;
-use iced::advanced::renderer;
 use iced::advanced::renderer::Quad;
-use iced::advanced::text::Highlight;
-use iced::advanced::text::{self, Paragraph, Span, Text};
-use iced::advanced::widget::tree::{self, Tree};
+use iced::advanced::text::{self, Highlight, Paragraph, Span, Text};
 use iced::advanced::widget::Operation;
-use iced::advanced::{Clipboard, Layout, Shell, Widget};
-use iced::alignment;
-use iced::mouse;
-use iced::widget;
+use iced::advanced::widget::tree::{self, Tree};
+use iced::advanced::{Clipboard, Layout, Shell, Widget, layout, renderer};
 use iced::widget::container;
 use iced::widget::text::{LineHeight, Shaping};
 use iced::widget::text_input::Value;
-use iced::Border;
-use iced::Length;
-use iced::Point;
-use iced::Shadow;
-use iced::Vector;
-use iced::{self, Background, Color, Element, Event, Pixels, Rectangle, Size};
+use iced::{
+    self, Background, Border, Color, Element, Event, Length, Pixels, Point,
+    Rectangle, Shadow, Size, Vector, alignment, mouse, widget,
+};
 use itertools::Itertools;
 
 use super::context_menu;
-use super::selectable_text::{selection, Catalog, Interaction, Style, StyleFn};
-
-use std::borrow::Cow;
-use std::sync::Arc;
+use super::selectable_text::{Catalog, Interaction, Style, StyleFn, selection};
 
 /// Creates a new [`Rich`] text widget with the provided spans.
 pub fn selectable_rich_text<'a, Message, Link, Entry, Theme, Renderer>(
@@ -41,8 +33,14 @@ where
 
 /// A bunch of [`Rich`] text.
 #[allow(missing_debug_implementations)]
-pub struct Rich<'a, Message, Link = (), Entry = (), Theme = iced::Theme, Renderer = iced::Renderer>
-where
+pub struct Rich<
+    'a,
+    Message,
+    Link = (),
+    Entry = (),
+    Theme = iced::Theme,
+    Renderer = iced::Renderer,
+> where
     Link: self::Link + 'static,
     Theme: Catalog,
     Renderer: text::Renderer,
@@ -61,13 +59,21 @@ where
     #[allow(clippy::type_complexity)]
     context_menu: Option<(
         Box<dyn Fn(&Link) -> Vec<Entry> + 'a>,
-        Arc<dyn Fn(&Link, Entry, Length) -> Element<'a, Message, Theme, Renderer> + 'a>,
+        Arc<
+            dyn Fn(
+                    &Link,
+                    Entry,
+                    Length,
+                ) -> Element<'a, Message, Theme, Renderer>
+                + 'a,
+        >,
     )>,
     cached_entries: Vec<Entry>,
     cached_menu: Option<Element<'a, Message, Theme, Renderer>>,
 }
 
-impl<'a, Message, Link, Entry, Theme, Renderer> Rich<'a, Message, Link, Entry, Theme, Renderer>
+impl<'a, Message, Link, Entry, Theme, Renderer>
+    Rich<'a, Message, Link, Entry, Theme, Renderer>
 where
     Link: self::Link + 'static,
     Theme: Catalog,
@@ -94,7 +100,9 @@ where
     }
 
     /// Creates a new [`Rich`] text with the given text spans.
-    pub fn with_spans(spans: impl Into<Cow<'a, [Span<'a, Link, Renderer::Font>]>>) -> Self {
+    pub fn with_spans(
+        spans: impl Into<Cow<'a, [Span<'a, Link, Renderer::Font>]>>,
+    ) -> Self {
         Self {
             spans: spans.into(),
             ..Self::new()
@@ -107,7 +115,7 @@ where
         self
     }
 
-    /// Sets the defualt [`LineHeight`] of the [`Rich`] text.
+    /// Sets the default [`LineHeight`] of the [`Rich`] text.
     pub fn line_height(mut self, line_height: impl Into<LineHeight>) -> Self {
         self.line_height = line_height.into();
         self
@@ -144,7 +152,10 @@ where
     }
 
     /// Sets the [`alignment::Vertical`] of the [`Rich`] text.
-    pub fn align_y(mut self, alignment: impl Into<alignment::Vertical>) -> Self {
+    pub fn align_y(
+        mut self,
+        alignment: impl Into<alignment::Vertical>,
+    ) -> Self {
         self.align_y = alignment.into();
         self
     }
@@ -189,7 +200,8 @@ where
     pub fn context_menu(
         self,
         link_entries: impl Fn(&Link) -> Vec<Entry> + 'a,
-        view: impl Fn(&Link, Entry, Length) -> Element<'a, Message, Theme, Renderer> + 'a,
+        view: impl Fn(&Link, Entry, Length) -> Element<'a, Message, Theme, Renderer>
+        + 'a,
     ) -> Self {
         Self {
             context_menu: Some((Box::new(link_entries), Arc::new(view))),
@@ -271,7 +283,8 @@ where
     Link: self::Link + 'static,
     Entry: Copy + 'a,
     Theme: 'a + container::Catalog + context_menu::Catalog + Catalog,
-    <Theme as container::Catalog>::Class<'a>: From<container::StyleFn<'a, Theme>>,
+    <Theme as container::Catalog>::Class<'a>:
+        From<container::StyleFn<'a, Theme>>,
     Renderer: text::Renderer + 'a,
 {
     fn tag(&self) -> tree::Tag {
@@ -365,7 +378,9 @@ where
         }
 
         match event {
-            iced::Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left))
+            iced::Event::Mouse(mouse::Event::ButtonPressed(
+                mouse::Button::Left,
+            ))
             | iced::Event::Touch(touch::Event::FingerPressed { .. }) => {
                 if let Some(position) = cursor.position_in(bounds) {
                     if let Some(span) = state.paragraph.hit_span(position) {
@@ -375,15 +390,18 @@ where
                 }
 
                 if let Some(cursor) = cursor.position() {
-                    state.interaction = Interaction::Selecting(selection::Raw {
-                        start: cursor,
-                        end: cursor,
-                    });
+                    state.interaction =
+                        Interaction::Selecting(selection::Raw {
+                            start: cursor,
+                            end: cursor,
+                        });
                 } else {
                     state.interaction = Interaction::Idle;
                 }
             }
-            iced::Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Left))
+            iced::Event::Mouse(mouse::Event::ButtonReleased(
+                mouse::Button::Left,
+            ))
             | iced::Event::Touch(touch::Event::FingerLifted { .. })
             | iced::Event::Touch(touch::Event::FingerLost { .. }) => {
                 if let Some(on_link_click) = self.on_link.as_ref() {
@@ -393,8 +411,10 @@ where
                         if let Some(position) = cursor.position_in(bounds) {
                             match state.paragraph.hit_span(position) {
                                 Some(span) if span == span_pressed => {
-                                    if let Some(link) =
-                                        self.spans.get(span).and_then(|span| span.link.clone())
+                                    if let Some(link) = self
+                                        .spans
+                                        .get(span)
+                                        .and_then(|span| span.link.clone())
                                     {
                                         shell.publish(on_link_click(link));
                                     }
@@ -414,7 +434,8 @@ where
             iced::Event::Mouse(mouse::Event::CursorMoved { .. })
             | iced::Event::Touch(touch::Event::FingerMoved { .. }) => {
                 if let Some(cursor) = cursor.position() {
-                    if let Interaction::Selecting(raw) = &mut state.interaction {
+                    if let Interaction::Selecting(raw) = &mut state.interaction
+                    {
                         raw.end = cursor;
                     }
                 }
@@ -431,7 +452,7 @@ where
                     align_x: self.align_x,
                     align_y: self.align_y,
                     shaping: Shaping::Advanced,
-                    wrapping: text::Wrapping::default(),
+                    wrapping: text::Wrapping::WordOrGlyph,
                 };
 
                 // Check spoiler
@@ -439,8 +460,11 @@ where
                     if state.shown_spoiler.is_none() {
                         // Find if spoiler is hovered
                         for (index, span) in state.spans.iter().enumerate() {
-                            if let Some((fg, highlight)) = span.color.zip(span.highlight) {
-                                let is_spoiler = highlight.background == Background::Color(fg);
+                            if let Some((fg, highlight)) =
+                                span.color.zip(span.highlight)
+                            {
+                                let is_spoiler = highlight.background
+                                    == Background::Color(fg);
 
                                 if is_spoiler
                                     && state
@@ -449,7 +473,8 @@ where
                                         .into_iter()
                                         .any(|bounds| bounds.contains(cursor))
                                 {
-                                    state.shown_spoiler = Some((index, fg, highlight));
+                                    state.shown_spoiler =
+                                        Some((index, fg, highlight));
                                     break;
                                 }
                             }
@@ -461,27 +486,35 @@ where
                             let span = &mut state.spans[index];
                             span.color = None;
                             span.highlight = None;
-                            state.paragraph = Renderer::Paragraph::with_spans(text_with_spans(
-                                state.spans.as_ref(),
-                            ));
+                            state.paragraph = Renderer::Paragraph::with_spans(
+                                text_with_spans(state.spans.as_ref()),
+                            );
                         }
                     }
                 }
                 // Hide spoiler
-                else if let Some((index, fg, highlight)) = state.shown_spoiler.take() {
+                else if let Some((index, fg, highlight)) =
+                    state.shown_spoiler.take()
+                {
                     if let Some(span) = state.spans.get_mut(index) {
                         span.color = Some(fg);
                         span.highlight = Some(highlight);
                     }
-                    state.paragraph =
-                        Renderer::Paragraph::with_spans(text_with_spans(state.spans.as_ref()));
+                    state.paragraph = Renderer::Paragraph::with_spans(
+                        text_with_spans(state.spans.as_ref()),
+                    );
                 }
             }
-            iced::Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Right)) => {
+            iced::Event::Mouse(mouse::Event::ButtonPressed(
+                mouse::Button::Right,
+            )) => {
                 if let Some(position) = cursor.position_in(bounds) {
                     if let Some((link_entries, _)) = &self.context_menu {
-                        if let Some((link, entries)) =
-                            state.spans.iter().enumerate().find_map(|(i, span)| {
+                        if let Some((link, entries)) = state
+                            .spans
+                            .iter()
+                            .enumerate()
+                            .find_map(|(i, span)| {
                                 if span.link.is_some()
                                     && state
                                         .paragraph
@@ -500,10 +533,11 @@ where
                                 None
                             })
                         {
-                            state.context_menu.status = context_menu::Status::Open(
-                                // Need absolute position. Infallible since we're within position_in
-                                cursor.position_over(bounds).unwrap(),
-                            );
+                            state.context_menu.status =
+                                context_menu::Status::Open(
+                                    // Need absolute position. Infallible since we're within position_in
+                                    cursor.position_over(bounds).unwrap(),
+                                );
                             state.context_menu_link = Some(link);
                             self.cached_entries = entries;
                         }
@@ -545,18 +579,30 @@ where
             .and_then(|position| state.paragraph.hit_span(position));
 
         for (index, span) in state.spans.iter().enumerate() {
-            let is_hovered_link = span.link.is_some() && Some(index) == hovered_span;
+            let is_hovered_link =
+                span.link.is_some() && Some(index) == hovered_span;
 
-            if span.highlight.is_some() || span.underline || span.strikethrough || is_hovered_link {
+            if span.highlight.is_some()
+                || span.underline
+                || span.strikethrough
+                || is_hovered_link
+            {
                 let translation = layout.position() - Point::ORIGIN;
                 let regions = state.paragraph.span_bounds(index);
 
                 if let Some(highlight) = span.highlight {
                     for bounds in &regions {
                         let bounds = Rectangle::new(
-                            bounds.position() - Vector::new(span.padding.left, span.padding.top),
+                            bounds.position()
+                                - Vector::new(
+                                    span.padding.left,
+                                    span.padding.top,
+                                ),
                             bounds.size()
-                                + Size::new(span.padding.horizontal(), span.padding.vertical()),
+                                + Size::new(
+                                    span.padding.horizontal(),
+                                    span.padding.vertical(),
+                                ),
                         );
 
                         renderer.fill_quad(
@@ -571,20 +617,30 @@ where
                 }
 
                 if span.underline || span.strikethrough || is_hovered_link {
-                    let size = span.size.or(self.size).unwrap_or(renderer.default_size());
+                    let size = span
+                        .size
+                        .or(self.size)
+                        .unwrap_or(renderer.default_size());
 
                     let line_height = span
                         .line_height
                         .unwrap_or(self.line_height)
                         .to_absolute(size);
 
-                    let color = span.color.or(style.color).unwrap_or(defaults.text_color);
+                    let color = span
+                        .color
+                        .or(style.color)
+                        .unwrap_or(defaults.text_color);
 
-                    let baseline =
-                        translation + Vector::new(0.0, size.0 + (line_height.0 - size.0) / 2.0);
+                    let baseline = translation
+                        + Vector::new(
+                            0.0,
+                            size.0 + (line_height.0 - size.0) / 2.0,
+                        );
 
                     if span.underline
-                        || (is_hovered_link && span.link.as_ref().unwrap().underline())
+                        || (is_hovered_link
+                            && span.link.as_ref().unwrap().underline())
                     {
                         for bounds in &regions {
                             renderer.fill_quad(
@@ -625,13 +681,13 @@ where
             .selection()
             .and_then(|raw| raw.resolve(bounds))
         {
-            let line_height = f32::from(
-                self.line_height
-                    .to_absolute(self.size.unwrap_or_else(|| renderer.default_size())),
-            );
+            let line_height = f32::from(self.line_height.to_absolute(
+                self.size.unwrap_or_else(|| renderer.default_size()),
+            ));
 
-            let baseline_y =
-                bounds.y + ((selection.start.y - bounds.y) / line_height).floor() * line_height;
+            let baseline_y = bounds.y
+                + ((selection.start.y - bounds.y) / line_height).floor()
+                    * line_height;
 
             let height = selection.end.y - baseline_y - 0.5;
             let rows = (height / line_height).ceil() as usize;
@@ -641,7 +697,8 @@ where
                     (
                         selection.start.x,
                         if rows == 1 {
-                            f32::min(selection.end.x, bounds.x + bounds.width) - selection.start.x
+                            f32::min(selection.end.x, bounds.x + bounds.width)
+                                - selection.start.x
                         } else {
                             bounds.x + bounds.width - selection.start.x
                         },
@@ -655,7 +712,10 @@ where
 
                 renderer.fill_quad(
                     Quad {
-                        bounds: Rectangle::new(Point::new(x, y), Size::new(width, line_height)),
+                        bounds: Rectangle::new(
+                            Point::new(x, y),
+                            Size::new(width, line_height),
+                        ),
                         border: Border {
                             radius: 0.0.into(),
                             width: 0.0,
@@ -713,13 +773,15 @@ where
             .downcast_mut::<State<Link, Renderer::Paragraph>>();
 
         let bounds = layout.bounds();
-        let value = Value::new(&self.spans.iter().map(|s| s.text.as_ref()).join(""));
+        let value =
+            Value::new(&self.spans.iter().map(|s| s.text.as_ref()).join(""));
         if let Some(selection) = state
             .interaction
             .selection()
             .and_then(|raw| selection(raw, bounds, &state.paragraph, &value))
         {
-            let mut content = value.select(selection.start, selection.end).to_string();
+            let mut content =
+                value.select(selection.start, selection.end).to_string();
             operation.custom(None, bounds, &mut content);
         }
 
@@ -732,8 +794,10 @@ where
         tree: &'b mut Tree,
         _layout: Layout<'_>,
         _renderer: &Renderer,
+        _viewport: &Rectangle,
         translation: Vector,
-    ) -> Option<iced::advanced::overlay::Element<'b, Message, Theme, Renderer>> {
+    ) -> Option<iced::advanced::overlay::Element<'b, Message, Theme, Renderer>>
+    {
         let state = tree
             .state
             .downcast_mut::<State<Link, Renderer::Paragraph>>();
@@ -800,7 +864,7 @@ where
             align_x,
             align_y,
             shaping: Shaping::Advanced,
-            wrapping: text::Wrapping::default(),
+            wrapping: text::Wrapping::WordOrGlyph,
         };
 
         if state.spans != spans {
@@ -814,8 +878,9 @@ where
                 }
             }
 
-            state.paragraph =
-                Renderer::Paragraph::with_spans(text_with_spans(state.spans.as_slice()));
+            state.paragraph = Renderer::Paragraph::with_spans(text_with_spans(
+                state.spans.as_slice(),
+            ));
         } else {
             match state.paragraph.compare(Text {
                 content: (),
@@ -826,14 +891,15 @@ where
                 align_x,
                 align_y,
                 shaping: Shaping::Advanced,
-                wrapping: text::Wrapping::default(),
+                wrapping: text::Wrapping::WordOrGlyph,
             }) {
                 text::Difference::None => {}
                 text::Difference::Bounds => {
                     state.paragraph.resize(bounds);
                 }
                 text::Difference::Shape => {
-                    state.spans = spans.iter().cloned().map(Span::to_static).collect();
+                    state.spans =
+                        spans.iter().cloned().map(Span::to_static).collect();
 
                     // Apply shown spoiler
                     if let Some((index, _, _)) = state.shown_spoiler {
@@ -843,8 +909,9 @@ where
                         }
                     }
 
-                    state.paragraph =
-                        Renderer::Paragraph::with_spans(text_with_spans(state.spans.as_slice()));
+                    state.paragraph = Renderer::Paragraph::with_spans(
+                        text_with_spans(state.spans.as_slice()),
+                    );
                 }
             }
         }
@@ -853,14 +920,17 @@ where
     })
 }
 
-impl<'a, Message, Link, Entry, Theme, Renderer> FromIterator<Span<'a, Link, Renderer::Font>>
+impl<'a, Message, Link, Entry, Theme, Renderer>
+    FromIterator<Span<'a, Link, Renderer::Font>>
     for Rich<'a, Message, Link, Entry, Theme, Renderer>
 where
     Link: self::Link + 'static,
     Theme: Catalog,
     Renderer: text::Renderer,
 {
-    fn from_iter<T: IntoIterator<Item = Span<'a, Link, Renderer::Font>>>(spans: T) -> Self {
+    fn from_iter<T: IntoIterator<Item = Span<'a, Link, Renderer::Font>>>(
+        spans: T,
+    ) -> Self {
         Self {
             spans: spans.into_iter().collect(),
             ..Self::new()
@@ -869,13 +939,15 @@ where
 }
 
 impl<'a, Message, Link, Entry, Theme, Renderer>
-    From<Rich<'a, Message, Link, Entry, Theme, Renderer>> for Element<'a, Message, Theme, Renderer>
+    From<Rich<'a, Message, Link, Entry, Theme, Renderer>>
+    for Element<'a, Message, Theme, Renderer>
 where
     Message: 'a,
     Link: self::Link + 'static,
     Entry: Copy + 'a,
     Theme: 'a + container::Catalog + context_menu::Catalog + Catalog,
-    <Theme as container::Catalog>::Class<'a>: From<container::StyleFn<'a, Theme>>,
+    <Theme as container::Catalog>::Class<'a>:
+        From<container::StyleFn<'a, Theme>>,
     Renderer: text::Renderer + 'a,
 {
     fn from(

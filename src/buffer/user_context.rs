@@ -1,10 +1,12 @@
 use data::dashboard::BufferAction;
 use data::user::Nick;
-use data::{config, isupport, target, Config, Server, User};
-use iced::widget::{button, column, container, horizontal_rule, row, text, Space};
-use iced::{padding, Length, Padding};
+use data::{Config, Server, User, config, ctcp, isupport, target};
+use iced::widget::{
+    Space, button, column, container, horizontal_rule, row, text,
+};
+use iced::{Length, Padding, padding};
 
-use crate::widget::{context_menu, double_pass, Element};
+use crate::widget::{Element, context_menu, double_pass};
 use crate::{theme, widget};
 
 #[derive(Debug, Clone, Copy)]
@@ -16,20 +18,28 @@ pub enum Entry {
     SendFile,
     UserInfo,
     HorizontalRule,
+    CtcpRequestTime,
+    CtcpRequestVersion,
 }
 
 impl Entry {
     pub fn list(is_channel: bool, our_user: Option<&User>) -> Vec<Self> {
         if is_channel {
-            if our_user.is_some_and(|u| u.has_access_level(data::user::AccessLevel::Oper)) {
+            if our_user.is_some_and(|u| {
+                u.has_access_level(data::user::AccessLevel::Oper)
+            }) {
                 vec![
                     Entry::UserInfo,
                     Entry::HorizontalRule,
                     Entry::Whois,
                     Entry::Query,
+                    Entry::SendFile,
+                    Entry::HorizontalRule,
                     Entry::ToggleAccessLevelOp,
                     Entry::ToggleAccessLevelVoice,
-                    Entry::SendFile,
+                    Entry::HorizontalRule,
+                    Entry::CtcpRequestVersion,
+                    Entry::CtcpRequestTime,
                 ]
             } else {
                 vec![
@@ -38,6 +48,9 @@ impl Entry {
                     Entry::Whois,
                     Entry::Query,
                     Entry::SendFile,
+                    Entry::HorizontalRule,
+                    Entry::CtcpRequestVersion,
+                    Entry::CtcpRequestTime,
                 ]
             }
         } else {
@@ -58,7 +71,11 @@ impl Entry {
         let nickname = user.nickname().to_owned();
 
         match self {
-            Entry::Whois => menu_button("Whois", Message::Whois(server.clone(), nickname), length),
+            Entry::Whois => menu_button(
+                "Whois",
+                Message::Whois(server.clone(), nickname),
+                length,
+            ),
             Entry::Query => menu_button(
                 "Message",
                 Message::Query(
@@ -131,11 +148,35 @@ impl Entry {
                 Message::SendFile(server.clone(), nickname),
                 length,
             ),
-            Entry::UserInfo => user_info(current_user, nickname, length, config),
+            Entry::UserInfo => {
+                user_info(current_user, nickname, length, config)
+            }
             Entry::HorizontalRule => match length {
-                Length::Fill => container(horizontal_rule(1)).padding([0, 6]).into(),
+                Length::Fill => {
+                    container(horizontal_rule(1)).padding([0, 6]).into()
+                }
                 _ => Space::new(length, 1).into(),
             },
+            Entry::CtcpRequestTime => menu_button(
+                "Local Time (TIME)",
+                Message::CtcpRequest(
+                    ctcp::Command::Time,
+                    server.clone(),
+                    nickname,
+                    None,
+                ),
+                length,
+            ),
+            Entry::CtcpRequestVersion => menu_button(
+                "Client (VERSION)",
+                Message::CtcpRequest(
+                    ctcp::Command::Version,
+                    server.clone(),
+                    nickname,
+                    None,
+                ),
+                length,
+            ),
         }
     }
 }
@@ -147,6 +188,7 @@ pub enum Message {
     ToggleAccessLevel(Server, target::Channel, Nick, String),
     SendFile(Server, Nick),
     InsertNickname(Nick),
+    CtcpRequest(ctcp::Command, Server, Nick, Option<String>),
 }
 
 #[derive(Debug, Clone)]
@@ -156,6 +198,7 @@ pub enum Event {
     ToggleAccessLevel(Server, target::Channel, Nick, String),
     SendFile(Server, Nick),
     InsertNickname(Nick),
+    CtcpRequest(ctcp::Command, Server, Nick, Option<String>),
 }
 
 pub fn update(message: Message) -> Event {
@@ -169,6 +212,9 @@ pub fn update(message: Message) -> Event {
         }
         Message::SendFile(server, nick) => Event::SendFile(server, nick),
         Message::InsertNickname(nick) => Event::InsertNickname(nick),
+        Message::CtcpRequest(command, server, nick, params) => {
+            Event::CtcpRequest(command, server, nick, params)
+        }
     }
 }
 
@@ -217,7 +263,11 @@ pub fn view<'a>(
     .into()
 }
 
-fn menu_button(content: &str, message: Message, length: Length) -> Element<'_, Message> {
+fn menu_button(
+    content: &str,
+    message: Message,
+    length: Length,
+) -> Element<'_, Message> {
     button(text(content).style(theme::text::primary))
         .padding(5)
         .width(length)
@@ -243,23 +293,31 @@ fn user_info<'a>(
                 None
             }
         }
-        None => Some(text("Offline").style(theme::text::secondary).width(length)),
+        None => {
+            Some(text("Offline").style(theme::text::secondary).width(length))
+        }
     };
 
     // Dimmed if away or offline.
-    let is_user_away = current_user.is_some_and(|u| u.is_away());
+    let is_user_away = current_user.is_some_and(User::is_away);
     let away_appearance = config.buffer.away.appearance(is_user_away);
     let seed = match config.buffer.nickname.color {
         data::buffer::Color::Solid => None,
         data::buffer::Color::Unique => Some(nickname.to_string()),
     };
 
-    column![container(
-        text(nickname.to_string())
-            .style(move |theme| theme::text::nickname(theme, seed.clone(), away_appearance))
-            .width(length)
-    )
-    .padding(right_justified_padding()),]
+    column![
+        container(
+            text(nickname.to_string())
+                .style(move |theme| theme::text::nickname(
+                    theme,
+                    seed.clone(),
+                    away_appearance
+                ))
+                .width(length)
+        )
+        .padding(right_justified_padding()),
+    ]
     .push_maybe(state.map(|s| container(s).padding(right_justified_padding())))
     .into()
 }

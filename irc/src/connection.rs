@@ -47,7 +47,9 @@ pub struct Config<'a> {
 impl<Codec> Connection<Codec> {
     pub async fn new(config: Config<'_>, codec: Codec) -> Result<Self, Error> {
         let stream = match config.proxy {
-            None => IrcStream::Tcp(TcpStream::connect((config.server, config.port)).await?),
+            None => IrcStream::Tcp(
+                TcpStream::connect((config.server, config.port)).await?,
+            ),
             Some(proxy) => proxy.connect(config.server, config.port).await?,
         };
 
@@ -88,7 +90,9 @@ impl<Codec> Connection<Codec> {
         let stream = IrcStream::Tcp(tcp);
 
         match security {
-            Security::Unsecured => Ok(Self::Unsecured(Framed::new(stream, codec))),
+            Security::Unsecured => {
+                Ok(Self::Unsecured(Framed::new(stream, codec)))
+            }
             Security::Secured { .. } => {
                 todo!();
             }
@@ -154,7 +158,10 @@ where
         delegate!(self.get_mut(), poll_ready_unpin(cx))
     }
 
-    fn start_send(self: std::pin::Pin<&mut Self>, item: Item) -> Result<(), Self::Error> {
+    fn start_send(
+        self: std::pin::Pin<&mut Self>,
+        item: Item,
+    ) -> Result<(), Self::Error> {
         delegate!(self.get_mut(), start_send_unpin(item))
     }
 

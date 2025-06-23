@@ -1,5 +1,7 @@
 use arti_client::{TorClient, TorClientConfig};
-use async_http_proxy::{http_connect_tokio, http_connect_tokio_with_basic_auth};
+use async_http_proxy::{
+    http_connect_tokio, http_connect_tokio_with_basic_auth,
+};
 use fast_socks5::client::{Config as Socks5Config, Socks5Stream};
 use thiserror::Error;
 use tokio::net::TcpStream;
@@ -24,7 +26,11 @@ pub enum Proxy {
 }
 
 impl Proxy {
-    pub async fn connect(&self, target_server: &str, target_port: u16) -> Result<IrcStream, Error> {
+    pub async fn connect(
+        &self,
+        target_server: &str,
+        target_port: u16,
+    ) -> Result<IrcStream, Error> {
         match self {
             Proxy::Http {
                 host,
@@ -58,7 +64,9 @@ impl Proxy {
                 )
                 .await
             }
-            Proxy::Tor => connect_tor(target_server.to_string(), target_port).await,
+            Proxy::Tor => {
+                connect_tor(target_server.to_string(), target_port).await
+            }
         }
     }
 }
@@ -120,7 +128,10 @@ pub async fn connect_socks5(
     Ok(IrcStream::Tcp(stream))
 }
 
-pub async fn connect_tor(target_server: String, target_port: u16) -> Result<IrcStream, Error> {
+pub async fn connect_tor(
+    target_server: String,
+    target_port: u16,
+) -> Result<IrcStream, Error> {
     let config = TorClientConfig::default();
     let tor_client = TorClient::create_bootstrapped(config).await?;
 

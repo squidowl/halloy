@@ -1,15 +1,16 @@
 //! Internal formatting specification
-use std::{convert::identity, fmt::Write};
+use std::convert::identity;
+use std::fmt::Write;
 
-use nom::{
-    branch::alt,
-    bytes::complete::tag,
-    character::complete::{anychar, char, satisfy},
-    combinator::{cond, cut, eof, map, map_opt, not, opt, peek, recognize, value, verify},
-    multi::{count, many_m_n, many_till},
-    sequence::{pair, preceded, tuple},
-    Finish, IResult,
+use nom::branch::alt;
+use nom::bytes::complete::tag;
+use nom::character::complete::{anychar, char, satisfy};
+use nom::combinator::{
+    cond, cut, eof, map, map_opt, not, opt, peek, recognize, value, verify,
 };
+use nom::multi::{count, many_m_n, many_till};
+use nom::sequence::{pair, preceded, tuple};
+use nom::{Finish, IResult};
 
 use super::{Color, Modifier};
 
@@ -36,7 +37,11 @@ fn parse(input: &str, markdown_only: bool) -> Option<Vec<Token>> {
         .map(|(_, (tokens, _))| tokens)
 }
 
-fn token<'a>(source: &'a str, input: &'a str, markdown_only: bool) -> IResult<&'a str, Token> {
+fn token<'a>(
+    source: &'a str,
+    input: &'a str,
+    markdown_only: bool,
+) -> IResult<&'a str, Token> {
     alt((
         map(escaped(markdown_only), Token::Escaped),
         map(markdown(source, markdown_only), Token::Markdown),
@@ -45,7 +50,9 @@ fn token<'a>(source: &'a str, input: &'a str, markdown_only: bool) -> IResult<&'
     ))(input)
 }
 
-fn escaped<'a>(markdown_only: bool) -> impl FnMut(&'a str) -> IResult<&'a str, char> {
+fn escaped<'a>(
+    markdown_only: bool,
+) -> impl FnMut(&'a str) -> IResult<&'a str, char> {
     alt((
         value('*', tag("\\*")),
         value('_', tag("\\_")),
@@ -77,11 +84,14 @@ fn markdown<'a>(
     // Prev char is whitespace or punctuation, not matching delimiter char
     let prev_is_ws_or_punc = move |d, i: &str| {
         // None == Start of input which is considered whitespace
-        prev(i).is_none_or(|c| c != d && (c.is_whitespace() || c.is_ascii_punctuation()))
+        prev(i).is_none_or(|c| {
+            c != d && (c.is_whitespace() || c.is_ascii_punctuation())
+        })
     };
     // Prev char is punctuation, not matching delimiter char
-    let prev_is_punc =
-        move |d, i: &str| prev(i).is_some_and(|c| c != d && c.is_ascii_punctuation());
+    let prev_is_punc = move |d, i: &str| {
+        prev(i).is_some_and(|c| c != d && c.is_ascii_punctuation())
+    };
 
     // A delimiter run is a sequence of one or more characters
     let delimiter_run = |d, n| count(char(d), n);
@@ -113,7 +123,7 @@ fn markdown<'a>(
     let right_flanking = move |d, n| {
         move |i: &'a str| {
             alt((
-                // delimiter run that is not preceded by Unicode whitespace or punctutation
+                // delimiter run that is not preceded by Unicode whitespace or punctuation
                 map(
                     verify(delimiter_run(d, n), move |_: &Vec<_>| {
                         !prev_is_ws_or_punc(d, i)
@@ -124,7 +134,9 @@ fn markdown<'a>(
                 // followed by Unicode whitespace or a Unicode punctuation character
                 map(
                     pair(
-                        verify(delimiter_run(d, n), move |_: &Vec<_>| prev_is_punc(d, i)),
+                        verify(delimiter_run(d, n), move |_: &Vec<_>| {
+                            prev_is_punc(d, i)
+                        }),
                         peek(alt((ws, punc(d)))),
                     ),
                     move |_| prev(i),
@@ -153,7 +165,9 @@ fn markdown<'a>(
                     pair(
                         peek(left_flanking(d, n)),
                         verify(right_flanking(d, n), move |c| {
-                            c.is_some_and(|c| c != d && c.is_ascii_punctuation())
+                            c.is_some_and(|c| {
+                                c != d && c.is_ascii_punctuation()
+                            })
                         }),
                     ),
                     |_| (),
@@ -222,11 +236,17 @@ fn markdown<'a>(
         alt((
             pair(
                 tag("` "),
-                many_till(move |input| token(source, input, markdown_only), tag(" `")),
+                many_till(
+                    move |input| token(source, input, markdown_only),
+                    tag(" `"),
+                ),
             ),
             pair(
                 tag("`"),
-                many_till(move |input| token(source, input, markdown_only), tag("`")),
+                many_till(
+                    move |input| token(source, input, markdown_only),
+                    tag("`"),
+                ),
             ),
         )),
         |(_, (tokens, _))| tokens,
@@ -427,10 +447,7 @@ mod test {
     #[test]
     fn internal_format() {
         let tests = [
-            (
-                ("_hello_", false),
-                String::from("\u{1d}hello\u{1d}"),
-            ),
+            (("_hello_", false), String::from("\u{1d}hello\u{1d}")),
             (
                 ("hello there friend!!", false),
                 String::from("hello there friend!!"),
@@ -470,10 +487,10 @@ mod test {
             (
                 (
                     "$c1,0black on white $c2now blue on white$r$b BOLD $i BOLD AND ITALIC$r $ccode yo",
-                    false
+                    false,
                 ),
                 String::from(
-                    "\u{3}1,0black on white \u{3}2now blue on white\u{f}\u{2} BOLD \u{1d} BOLD AND ITALIC\u{f} \u{3}code yo"
+                    "\u{3}1,0black on white \u{3}2now blue on white\u{f}\u{2} BOLD \u{1d} BOLD AND ITALIC\u{f} \u{3}code yo",
                 ),
             ),
         ];

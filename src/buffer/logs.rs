@@ -1,12 +1,14 @@
+use std::path::PathBuf;
+
 use data::dashboard::BufferAction;
 use data::target::Target;
-use data::{client, history, isupport, message, Config};
+use data::{Config, client, history, isupport, message};
 use iced::widget::container;
 use iced::{Length, Task};
 
 use super::{scroll_view, user_context};
-use crate::widget::{message_content, Element};
-use crate::{theme, Theme};
+use crate::widget::{Element, message_content};
+use crate::{Theme, theme};
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -18,6 +20,8 @@ pub enum Event {
     OpenBuffer(Target, BufferAction),
     History(Task<history::manager::Message>),
     MarkAsRead,
+    OpenUrl(String),
+    ImagePreview(PathBuf, url::Url),
 }
 
 pub fn view<'a>(
@@ -35,17 +39,19 @@ pub fn view<'a>(
             None,
             config,
             move |message, _, _| match message.target.source() {
-                message::Source::Internal(message::source::Internal::Logs) => Some(
-                    container(message_content(
-                        &message.content,
-                        isupport::CaseMap::default(),
-                        theme,
-                        scroll_view::Message::Link,
-                        theme::selectable_text::default,
-                        config,
-                    ))
-                    .into(),
-                ),
+                message::Source::Internal(message::source::Internal::Logs) => {
+                    Some(
+                        container(message_content(
+                            &message.content,
+                            isupport::CaseMap::default(),
+                            theme,
+                            scroll_view::Message::Link,
+                            theme::selectable_text::default,
+                            config,
+                        ))
+                        .into(),
+                    )
+                }
                 _ => None,
             },
         )
@@ -89,7 +95,9 @@ impl Logs {
                 );
 
                 let event = event.and_then(|event| match event {
-                    scroll_view::Event::UserContext(event) => Some(Event::UserContext(event)),
+                    scroll_view::Event::UserContext(event) => {
+                        Some(Event::UserContext(event))
+                    }
                     scroll_view::Event::OpenBuffer(target, buffer_action) => {
                         Some(Event::OpenBuffer(target, buffer_action))
                     }
@@ -98,6 +106,12 @@ impl Logs {
                     scroll_view::Event::PreviewChanged => None,
                     scroll_view::Event::HidePreview(..) => None,
                     scroll_view::Event::MarkAsRead => Some(Event::MarkAsRead),
+                    scroll_view::Event::OpenUrl(url) => {
+                        Some(Event::OpenUrl(url))
+                    }
+                    scroll_view::Event::ImagePreview(path, url) => {
+                        Some(Event::ImagePreview(path, url))
+                    }
                 });
 
                 (command.map(Message::ScrollView), event)

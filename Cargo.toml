@@ -75,13 +75,13 @@ open = "5.0.1"
 bytesize = "2.0.1"
 rodio = "0.20.1"
 humantime = "2.1.0"
-dark-light = { git = "https://github.com/rust-dark-light/dark-light", rev = "8e1f745f91e1e805fa772a83e4744afe95d70aa1" }
 strsim = "0.11.1"
 rfd = { version = "0.15.2", default-features = false, features = [
     "xdg-portal",
     "tokio",
 ] }
 uuid = { version = "1.15", features = ["v4"] }
+mundy = { version = "0.1.9", default-features = false, features = ["color-scheme", "tokio", "log"] }
 
 [target.'cfg(windows)'.dependencies]
 image = "0.24.6"
@@ -94,8 +94,8 @@ embed-resource = "3.0.2"
 windows_exe_info = "0.4"
 
 [patch.crates-io]
-iced = { git = "https://github.com/iced-rs/iced", rev = "1b22d7d5fcdf519a3cac7a3cfd14398a3108c3b8" }
-iced_core = { git = "https://github.com/iced-rs/iced", rev = "1b22d7d5fcdf519a3cac7a3cfd14398a3108c3b8" }
+iced = { git = "https://github.com/iced-rs/iced", rev = "aa633f6832c93d81fc829bcd351b369f0aada282" }
+iced_core = { git = "https://github.com/iced-rs/iced", rev = "aa633f6832c93d81fc829bcd351b369f0aada282" }
 
 [profile.ci]
 inherits = "dev"
@@ -117,6 +117,7 @@ items_after_statements = "deny"
 manual_is_variant_and = "deny"
 manual_string_new = "deny"
 map_unwrap_or = "deny"
+redundant_closure_for_method_calls = "deny"
 semicolon_if_nothing_returned = "deny"
 uninlined_format_args = "deny"
 unnecessary_wraps = "deny"
@@ -129,6 +130,16 @@ items_after_statements = "deny"
 manual_is_variant_and = "deny"
 manual_string_new = "deny"
 map_unwrap_or = "deny"
+redundant_closure_for_method_calls = "deny"
 semicolon_if_nothing_returned = "deny"
 uninlined_format_args = "deny"
 unnecessary_wraps = "deny"
+
+[workspace.metadata.typos.default]
+extend-ignore-re = [
+    "(?Rm)^.*(#|//)\\s*spellchecker:disable-line$", # Ignore lines with trailing spellchecker:disable-line
+]
+extend-ignore-identifiers-re = [
+    "ERR_[A-Z]+", # IRC Error Numeric
+    "RPL_[A-Z]+", # IRC Reply Numeric
+]

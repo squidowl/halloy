@@ -1,7 +1,5 @@
-use iced::{
-    widget::checkbox::{Catalog, Status, Style, StyleFn},
-    Border, Color,
-};
+use iced::widget::checkbox::{Catalog, Status, Style, StyleFn};
+use iced::{Border, Color};
 
 use super::Theme;
 
@@ -12,7 +10,11 @@ impl Catalog for Theme {
         Box::new(primary)
     }
 
-    fn style(&self, class: &Self::Class<'_>, status: iced::widget::checkbox::Status) -> Style {
+    fn style(
+        &self,
+        class: &Self::Class<'_>,
+        status: iced::widget::checkbox::Status,
+    ) -> Style {
         class(self, status)
     }
 }
