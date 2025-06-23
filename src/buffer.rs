@@ -61,7 +61,11 @@ pub enum Event {
     MarkAsRead(history::Kind),
     OpenUrl(String),
     ImagePreview(PathBuf, url::Url),
-    Reacted { msgid: message::Id, text: String, },
+    Reacted {
+        msgid: message::Id,
+        text: String,
+        unreacted: bool,
+    },
 }
 
 impl Buffer {
@@ -164,9 +168,15 @@ impl Buffer {
                     channel::Event::ImagePreview(path, url) => {
                         Event::ImagePreview(path, url)
                     }
-                    channel::Event::Reacted { msgid, text } => {
-                        Event::Reacted { msgid, text }
-                    }
+                    channel::Event::Reacted {
+                        msgid,
+                        text,
+                        unreacted,
+                    } => Event::Reacted {
+                        msgid,
+                        text,
+                        unreacted,
+                    },
                 });
 
                 (command.map(Message::Channel), event)
@@ -216,9 +226,15 @@ impl Buffer {
                     query::Event::ImagePreview(path, url) => {
                         Event::ImagePreview(path, url)
                     }
-                    query::Event::Reacted { msgid, text } => {
-                        Event::Reacted {  msgid, text }
-                    }
+                    query::Event::Reacted {
+                        msgid,
+                        text,
+                        unreacted,
+                    } => Event::Reacted {
+                        msgid,
+                        text,
+                        unreacted,
+                    },
                 });
 
                 (command.map(Message::Query), event)

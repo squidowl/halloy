@@ -46,6 +46,7 @@ pub enum Message {
     Reacted {
         msgid: message::Id,
         text: String,
+        unreacted: bool,
     },
     MarkAsRead,
 }
@@ -61,7 +62,11 @@ pub enum Event {
     MarkAsRead,
     OpenUrl(String),
     ImagePreview(PathBuf, url::Url),
-    Reacted { msgid: message::Id, text: String },
+    Reacted {
+        msgid: message::Id,
+        text: String,
+        unreacted: bool,
+    },
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -688,8 +693,19 @@ impl State {
             Message::ImagePreview(path, url) => {
                 return (Task::none(), Some(Event::ImagePreview(path, url)));
             }
-            Message::Reacted { msgid, text } => {
-                return (Task::none(), Some(Event::Reacted { msgid, text }));
+            Message::Reacted {
+                msgid,
+                text,
+                unreacted,
+            } => {
+                return (
+                    Task::none(),
+                    Some(Event::Reacted {
+                        msgid,
+                        text,
+                        unreacted,
+                    }),
+                );
             }
         }
 

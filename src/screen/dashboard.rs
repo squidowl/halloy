@@ -548,6 +548,7 @@ impl Dashboard {
                                 buffer::Event::Reacted {
                                     msgid,
                                     text,
+                                    unreacted,
                                 } => {
                                     let Some(upstream) =
                                         pane.buffer.data().and_then(|buffer| {
@@ -560,6 +561,7 @@ impl Dashboard {
                                         upstream.clone(),
                                         msgid,
                                         text,
+                                        unreacted,
                                     );
                                     let Some(encoded) = input.encoded() else {
                                         return (Task::none(), None);
@@ -567,7 +569,9 @@ impl Dashboard {
                                     clients.send(&input.buffer, encoded);
                                     // TODO(pounce) refactor
                                     // copied from src/buffer/input_view.rs:451 onwards
-                                    if let Some(nick) = clients.nickname(upstream.server()) {
+                                    if let Some(nick) =
+                                        clients.nickname(upstream.server())
+                                    {
                                         let mut user = nick.to_owned().into();
                                         let mut channel_users = &[][..];
 

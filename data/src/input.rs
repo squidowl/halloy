@@ -68,10 +68,15 @@ impl Input {
         buffer: buffer::Upstream,
         in_reply_to: message::Id,
         text: String,
+        unreact: bool,
     ) -> Self {
         Self {
             buffer,
-            content: Content::Reaction { in_reply_to, text },
+            content: Content::Reaction {
+                in_reply_to,
+                text,
+                unreact,
+            },
         }
     }
 
@@ -96,7 +101,12 @@ impl Input {
         };
 
         // first, suppose we are given a reaction
-        if let Content::Reaction { in_reply_to, text } = &self.content {
+        if let Content::Reaction {
+            in_reply_to,
+            text,
+            unreact,
+        } = &self.content
+        {
             return Some(vec![Decoded::Reaction(Reaction::sent(
                 message::Target::from_target(
                     self.buffer.target()?,
@@ -105,6 +115,7 @@ impl Input {
                 user.nickname().to_owned(),
                 in_reply_to.clone(),
                 text.clone(),
+                *unreact,
             ))]);
         }
 
@@ -190,7 +201,11 @@ impl Input {
 enum Content {
     Text(String),
     Command(command::Irc),
-    Reaction { in_reply_to: message::Id, text: String },
+    Reaction {
+        in_reply_to: message::Id,
+        text: String,
+        unreact: bool,
+    },
 }
 
 impl Content {
@@ -208,11 +223,20 @@ impl Content {
     fn proto(&self, buffer: &buffer::Upstream) -> Option<proto::Message> {
         // a reaction can't be represented as a mere command
         // since it holds quite a bit of tag data.
-        if let Self::Reaction { in_reply_to, text } = &self {
+        if let Self::Reaction {
+            in_reply_to,
+            text,
+            unreact,
+        } = &self
+        {
             Some(proto::Message {
                 tags: tags![
                     "+draft/reply" => &**in_reply_to,
-                    "+draft/react" => text
+                     if *unreact {
+                         "+draft/unreact"
+                     } else {
+                         "+draft/react"
+                     } => text,
                 ],
                 source: None,
                 command: proto::Command::TAGMSG(buffer.target()?.to_string()),

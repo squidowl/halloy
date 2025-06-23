@@ -15,24 +15,50 @@ pub fn reaction_row<'a, M>(
     our_nick: Option<NickRef<'a>>,
     reactions: &'a [Reaction],
     on_press: impl Fn(&'a str) -> M + 'a,
+    on_unreact: impl Fn(&'a str) -> M + 'a,
 ) -> Element<'a, M>
 where
     M: 'a + Clone,
 {
     // we need containers with deterministic order, so that the UI elements don't move around.
-    let mut map: BTreeMap<&str, BTreeSet<&str>> = BTreeMap::new();
+    let mut m: BTreeMap<&str, BTreeMap<&str, i16>> = BTreeMap::new();
     for r in reactions {
-        map.entry(&r.text).or_default().insert(r.sender.as_ref());
+        let reactions_for_sender = m
+            .entry(&r.text)
+            .or_default()
+            .entry(r.sender.as_ref())
+            .or_default();
+        if r.unreact {
+            *reactions_for_sender -= 1;
+        } else {
+            *reactions_for_sender += 1;
+        }
     }
+    // at this point, we find all the nicks that have reacted at least once
+    let m: BTreeMap<&str, BTreeSet<&str>> = m
+        .into_iter()
+        .map(|(react, nicks)| {
+            (
+                react,
+                nicks
+                    .into_iter()
+                    .filter_map(
+                        |(nick, count)| {
+                            if count >= 1 { Some(nick) } else { None }
+                        },
+                    )
+                    .collect::<BTreeSet<&str>>(),
+            )
+        })
+        .filter(|(_, set)| !set.is_empty())
+        .collect();
 
-    let row = Row::from_iter(map.iter().map(|(reaction_text, nicks)| {
+    let row = Row::from_iter(m.iter().map(|(reaction_text, nicks)| {
         // we reacted to this message already
         let selected =
             our_nick.is_some_and(|nick| nicks.contains(&nick.as_ref()));
         let on_press = if selected {
-            // TODO(pounce) add unreaction.
-            // currently useless as we do not support unreaction/redaction
-            None
+            Some(on_unreact(reaction_text))
         } else {
             Some(on_press(reaction_text))
         };

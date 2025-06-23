@@ -331,6 +331,12 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
                     // tracking
                     msgid: message.id.as_ref().unwrap().clone(),
                     text: text.to_owned(),
+                    unreacted: false,
+                },
+                |text| Message::Reacted {
+                    msgid: message.id.as_ref().unwrap().clone(),
+                    text: text.to_owned(),
+                    unreacted: true,
                 },
             );
             content = column![content, reactions].into();
