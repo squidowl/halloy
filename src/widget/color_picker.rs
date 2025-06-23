@@ -1,15 +1,13 @@
+use iced::Length::{self, *};
+use iced::advanced::Layout;
 use iced::advanced::renderer::{Quad, Renderer as _};
-use iced::widget::{column, container, row};
+use iced::widget::{Space, column, container, row};
 use iced::{
-    advanced, border, mouse, touch, Color,
-    Length::{self, *},
-    Point, Rectangle,
+    Color, Point, Rectangle, Size, Vector, advanced, border, mouse, touch,
 };
-use iced::{advanced::Layout, widget::Space};
-use iced::{Size, Vector};
 use palette::{Hsva, RgbHue};
 
-use super::{decorate, Container, Element, Renderer};
+use super::{Container, Element, Renderer, decorate};
 use crate::theme::Theme;
 
 const HANDLE_RADIUS: f32 = 10.0;
@@ -51,7 +49,9 @@ pub fn color_picker<'a, Message: 'a>(
     .into()
 }
 
-fn bordered<'a, Message: 'a>(element: impl Into<Element<'a, Message>>) -> Container<'a, Message> {
+fn bordered<'a, Message: 'a>(
+    element: impl Into<Element<'a, Message>>,
+) -> Container<'a, Message> {
     container(element)
         .padding(1)
         .style(|theme| container::Style {
@@ -170,7 +170,12 @@ enum Picker {
 }
 
 impl Picker {
-    fn handle_from_color(&self, color: Hsva, bounds: Rectangle, radius: f32) -> Rectangle {
+    fn handle_from_color(
+        &self,
+        color: Hsva,
+        bounds: Rectangle,
+        radius: f32,
+    ) -> Rectangle {
         let width = bounds.width - radius;
         let height = bounds.height - radius;
 
@@ -190,7 +195,12 @@ impl Picker {
         }
     }
 
-    fn handle_from_cursor(&self, cursor: Point, bounds: Rectangle, radius: f32) -> Rectangle {
+    fn handle_from_cursor(
+        &self,
+        cursor: Point,
+        bounds: Rectangle,
+        radius: f32,
+    ) -> Rectangle {
         match self {
             Picker::Slider(_) => Rectangle {
                 x: cursor.x.clamp(bounds.x, bounds.x + bounds.width) - radius,
@@ -207,9 +217,16 @@ impl Picker {
         }
     }
 
-    fn color_at_handle(&self, color: Hsva, handle: Rectangle, bounds: Rectangle) -> Hsva {
+    fn color_at_handle(
+        &self,
+        color: Hsva,
+        handle: Rectangle,
+        bounds: Rectangle,
+    ) -> Hsva {
         match self {
-            Picker::Slider(x) => x.color(color, (handle.center_x() - bounds.x) / bounds.width),
+            Picker::Slider(x) => {
+                x.color(color, (handle.center_x() - bounds.x) / bounds.width)
+            }
             Picker::Grid { x, y } => x.color(
                 y.color(color, (handle.center_y() - bounds.y) / bounds.height),
                 (handle.center_x() - bounds.x) / bounds.width,
@@ -217,7 +234,12 @@ impl Picker {
         }
     }
 
-    fn with_cells(&self, color: Hsva, bounds: Rectangle, mut f: impl FnMut(usize, usize, Hsva)) {
+    fn with_cells(
+        &self,
+        color: Hsva,
+        bounds: Rectangle,
+        mut f: impl FnMut(usize, usize, Hsva),
+    ) {
         match self {
             Picker::Slider(x_value) => {
                 let color = match x_value.component {
@@ -314,59 +336,90 @@ fn picker<'a, Message: 'a>(
                   shell: &mut advanced::Shell<'_, Message>,
                   _viewport: &iced::Rectangle| {
                 let bounds = layout.bounds();
-                let handle = picker.handle_from_color(color, bounds, handle_radius);
+                let handle =
+                    picker.handle_from_color(color, bounds, handle_radius);
 
                 match event {
-                    iced::Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left))
-                    | iced::Event::Touch(touch::Event::FingerPressed { .. })
-                        if state.is_none() =>
-                    {
+                    iced::Event::Mouse(mouse::Event::ButtonPressed(
+                        mouse::Button::Left,
+                    ))
+                    | iced::Event::Touch(touch::Event::FingerPressed {
+                        ..
+                    }) if state.is_none() => {
                         if cursor.is_over(handle) {
                             *state = Some(handle);
-                        } else if let Some(position) = cursor.position_over(bounds) {
-                            let new_handle =
-                                picker.handle_from_cursor(position, bounds, handle_radius);
-                            let color = picker.color_at_handle(color, new_handle, bounds);
+                        } else if let Some(position) =
+                            cursor.position_over(bounds)
+                        {
+                            let new_handle = picker.handle_from_cursor(
+                                position,
+                                bounds,
+                                handle_radius,
+                            );
+                            let color = picker
+                                .color_at_handle(color, new_handle, bounds);
 
-                            shell.publish((on_color)(data::appearance::theme::from_hsva(color)));
+                            shell.publish((on_color)(
+                                data::appearance::theme::from_hsva(color),
+                            ));
 
                             *state = Some(new_handle);
                         }
                     }
-                    iced::Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Left))
+                    iced::Event::Mouse(mouse::Event::ButtonReleased(
+                        mouse::Button::Left,
+                    ))
                     | iced::Event::Touch(touch::Event::FingerLost { .. })
                         if state.is_some() =>
                     {
                         if let Some(last_handle) = state.take() {
-                            let color = picker.color_at_handle(color, last_handle, bounds);
+                            let color = picker.color_at_handle(
+                                color,
+                                last_handle,
+                                bounds,
+                            );
 
-                            shell.publish((on_color)(data::appearance::theme::from_hsva(color)));
+                            shell.publish((on_color)(
+                                data::appearance::theme::from_hsva(color),
+                            ));
                         }
                     }
-                    iced::Event::Mouse(mouse::Event::CursorMoved { position })
-                    | iced::Event::Touch(touch::Event::FingerMoved { position, .. })
-                        if state.is_some() =>
-                    {
+                    iced::Event::Mouse(mouse::Event::CursorMoved {
+                        position,
+                    })
+                    | iced::Event::Touch(touch::Event::FingerMoved {
+                        position,
+                        ..
+                    }) if state.is_some() => {
                         if let Some(last_handle) = state.as_mut() {
                             match picker {
                                 Picker::Slider(_) => {
-                                    last_handle.x =
-                                        position.x.clamp(bounds.x, bounds.x + bounds.width)
-                                            - handle_radius;
+                                    last_handle.x = position.x.clamp(
+                                        bounds.x,
+                                        bounds.x + bounds.width,
+                                    ) - handle_radius;
                                 }
                                 Picker::Grid { .. } => {
-                                    last_handle.x =
-                                        position.x.clamp(bounds.x, bounds.x + bounds.width)
-                                            - handle_radius;
-                                    last_handle.y =
-                                        position.y.clamp(bounds.y, bounds.y + bounds.height)
-                                            - handle_radius;
+                                    last_handle.x = position.x.clamp(
+                                        bounds.x,
+                                        bounds.x + bounds.width,
+                                    ) - handle_radius;
+                                    last_handle.y = position.y.clamp(
+                                        bounds.y,
+                                        bounds.y + bounds.height,
+                                    ) - handle_radius;
                                 }
                             }
 
-                            let color = picker.color_at_handle(color, *last_handle, bounds);
+                            let color = picker.color_at_handle(
+                                color,
+                                *last_handle,
+                                bounds,
+                            );
 
-                            shell.publish((on_color)(data::appearance::theme::from_hsva(color)));
+                            shell.publish((on_color)(
+                                data::appearance::theme::from_hsva(color),
+                            ));
                         }
                     }
                     _ => {}
@@ -384,7 +437,8 @@ fn picker<'a, Message: 'a>(
                   _cursor: iced::advanced::mouse::Cursor,
                   viewport: &iced::Rectangle| {
                 let bounds = layout.bounds();
-                let handle = picker.handle_from_color(color, bounds, handle_radius);
+                let handle =
+                    picker.handle_from_color(color, bounds, handle_radius);
 
                 // Draw checkerboard for alpha slider
                 if matches!(
@@ -396,8 +450,10 @@ fn picker<'a, Message: 'a>(
                 ) {
                     const WIDTH: f32 = 5.0;
                     const HEIGHT: f32 = 5.0;
-                    const COLOR_EVEN: Color = Color::from_rgb(0.9803, 0.9882, 0.9922);
-                    const COLOR_ODD: Color = Color::from_rgb(0.7529, 0.7725, 0.8);
+                    const COLOR_EVEN: Color =
+                        Color::from_rgb(0.9803, 0.9882, 0.9922);
+                    const COLOR_ODD: Color =
+                        Color::from_rgb(0.7529, 0.7725, 0.8);
 
                     let num_rows = (bounds.height / HEIGHT) as usize + 1;
                     let num_columns = (bounds.width / WIDTH) as usize + 1;
@@ -408,7 +464,8 @@ fn picker<'a, Message: 'a>(
                             let y = row as f32 * HEIGHT;
                             let width = (bounds.width - x).min(WIDTH);
                             let height = (bounds.height - y).min(HEIGHT);
-                            let top_left = bounds.position() + Vector::new(x, y);
+                            let top_left =
+                                bounds.position() + Vector::new(x, y);
                             let color = if (row + col) % 2 == 0 {
                                 COLOR_EVEN
                             } else {
@@ -417,7 +474,10 @@ fn picker<'a, Message: 'a>(
 
                             renderer.fill_quad(
                                 Quad {
-                                    bounds: Rectangle::new(top_left, Size::new(width, height)),
+                                    bounds: Rectangle::new(
+                                        top_left,
+                                        Size::new(width, height),
+                                    ),
                                     border: iced::Border::default(),
                                     shadow: iced::Shadow::default(),
                                 },

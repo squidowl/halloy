@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 use std::sync::OnceLock;
 
-use data::{config, Config};
+use data::{Config, config};
 use iced::font;
 
 pub static MONO: Font = Font::new(false, false);
@@ -26,13 +26,14 @@ impl Font {
         }
     }
 
-    fn set(&self, name: String) {
+    fn set(
+        &self,
+        name: String,
+        weight: font::Weight,
+        bold_weight: font::Weight,
+    ) {
         let name = Box::leak(name.into_boxed_str());
-        let weight = if self.bold {
-            font::Weight::Bold
-        } else {
-            font::Weight::Normal
-        };
+        let weight = if self.bold { bold_weight } else { weight };
         let style = if self.italics {
             font::Style::Italic
         } else {
@@ -57,11 +58,26 @@ pub fn set(config: Option<&Config>) {
     let family = config
         .and_then(|config| config.font.family.clone())
         .unwrap_or_else(|| String::from("Iosevka Term"));
+    let weight =
+        config.map_or(font::Weight::Normal, |config| config.font.weight);
+    let bold_weight = config
+        .and_then(|config| config.font.bold_weight)
+        .unwrap_or(match weight {
+            font::Weight::Thin => font::Weight::Normal,
+            font::Weight::ExtraLight => font::Weight::Medium,
+            font::Weight::Light => font::Weight::Semibold,
+            font::Weight::Normal => font::Weight::Bold,
+            font::Weight::Medium => font::Weight::ExtraBold,
+            font::Weight::Semibold
+            | font::Weight::Bold
+            | font::Weight::ExtraBold
+            | font::Weight::Black => font::Weight::Black,
+        });
 
-    MONO.set(family.clone());
-    MONO_BOLD.set(family.clone());
-    MONO_ITALICS.set(family.clone());
-    MONO_BOLD_ITALICS.set(family);
+    MONO.set(family.clone(), weight, bold_weight);
+    MONO_BOLD.set(family.clone(), weight, bold_weight);
+    MONO_ITALICS.set(family.clone(), weight, bold_weight);
+    MONO_BOLD_ITALICS.set(family, weight, bold_weight);
 }
 
 pub fn load() -> Vec<Cow<'static, [u8]>> {
@@ -84,17 +100,14 @@ pub fn load() -> Vec<Cow<'static, [u8]>> {
 pub fn width_from_chars(len: usize, config: &config::Font) -> f32 {
     use iced::advanced::graphics::text::Paragraph;
     use iced::advanced::text::{self, Paragraph as _, Text};
-    use iced::{alignment, Size};
+    use iced::{Size, alignment};
 
     use crate::theme;
 
     Paragraph::with_text(Text {
         content: &" ".repeat(len),
         bounds: Size::INFINITY,
-        size: config
-            .size
-            .map_or(theme::TEXT_SIZE, f32::from)
-            .into(),
+        size: config.size.map_or(theme::TEXT_SIZE, f32::from).into(),
         line_height: text::LineHeight::default(),
         font: MONO.clone().into(),
         align_x: text::Alignment::Right,

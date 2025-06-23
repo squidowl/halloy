@@ -32,6 +32,7 @@ xdg = "2.5.2"
 flate2 = "1.0"
 hex = "0.4.3"
 iced_core = "0.14.0-dev"
+indexmap = { version = "2.9", features = ["std", "serde"] }
 seahash = "4.1.0"
 serde_json = "1.0"
 sha2 = "0.10.8"
@@ -50,7 +51,7 @@ path = "../irc"
 
 [dependencies.serde]
 version = "1.0"
-features = ["derive"]
+features = ["derive", "rc"]
 
 [lints]
 workspace = true

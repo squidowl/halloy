@@ -1,9 +1,8 @@
-use std::{marker::PhantomData, slice};
+use std::marker::PhantomData;
+use std::slice;
 
-use iced::{
-    advanced::{self, layout, Widget},
-    Element,
-};
+use iced::{Element, Rectangle};
+use iced::advanced::{self, Widget, layout};
 
 pub fn decorate<'a, Message, Theme, Renderer>(
     element: impl Into<Element<'a, Message, Theme, Renderer>>,
@@ -35,7 +34,9 @@ pub struct Decorate<
 }
 
 impl<'a, Message, Theme, Renderer> Decorate<'a, Message, Theme, Renderer> {
-    pub fn new(inner: impl Into<Element<'a, Message, Theme, Renderer>>) -> Self {
+    pub fn new(
+        inner: impl Into<Element<'a, Message, Theme, Renderer>>,
+    ) -> Self {
         Self {
             inner: inner.into(),
             update: (),
@@ -50,18 +51,18 @@ impl<'a, Message, Theme, Renderer> Decorate<'a, Message, Theme, Renderer> {
 }
 
 impl<
-        'a,
-        Message,
-        Theme,
-        Renderer,
-        Layout,
-        Update,
-        Draw,
-        MouseInteraction,
-        Operate,
-        Overlay,
-        State,
-    >
+    'a,
+    Message,
+    Theme,
+    Renderer,
+    Layout,
+    Update,
+    Draw,
+    MouseInteraction,
+    Operate,
+    Overlay,
+    State,
+>
     Decorate<
         'a,
         Message,
@@ -172,7 +173,19 @@ impl<
     pub fn mouse_interaction<T, U>(
         self,
         mouse_interaction: T,
-    ) -> Decorate<'a, Message, Theme, Renderer, Layout, Update, Draw, T, Operate, Overlay, U>
+    ) -> Decorate<
+        'a,
+        Message,
+        Theme,
+        Renderer,
+        Layout,
+        Update,
+        Draw,
+        T,
+        Operate,
+        Overlay,
+        U,
+    >
     where
         T: self::MouseInteraction<'a, Message, Theme, Renderer, U>,
     {
@@ -191,7 +204,19 @@ impl<
     pub fn operate<T, U>(
         self,
         operate: T,
-    ) -> Decorate<'a, Message, Theme, Renderer, Layout, Update, Draw, MouseInteraction, T, Overlay, U>
+    ) -> Decorate<
+        'a,
+        Message,
+        Theme,
+        Renderer,
+        Layout,
+        Update,
+        Draw,
+        MouseInteraction,
+        T,
+        Overlay,
+        U,
+    >
     where
         T: self::Operate<'a, Message, Theme, Renderer, U>,
     {
@@ -210,7 +235,19 @@ impl<
     pub fn overlay<T, U>(
         self,
         overlay: T,
-    ) -> Decorate<'a, Message, Theme, Renderer, Layout, Update, Draw, MouseInteraction, Operate, T, U>
+    ) -> Decorate<
+        'a,
+        Message,
+        Theme,
+        Renderer,
+        Layout,
+        Update,
+        Draw,
+        MouseInteraction,
+        Operate,
+        T,
+        U,
+    >
     where
         T: self::Operate<'a, Message, Theme, Renderer, U>,
     {
@@ -238,7 +275,8 @@ pub trait Layout<'a, Message, Theme, Renderer, State> {
     ) -> layout::Node;
 }
 
-impl<'a, Message, Theme, Renderer, State> Layout<'a, Message, Theme, Renderer, State> for ()
+impl<'a, Message, Theme, Renderer, State>
+    Layout<'a, Message, Theme, Renderer, State> for ()
 where
     Renderer: advanced::Renderer + 'a,
 {
@@ -254,7 +292,8 @@ where
     }
 }
 
-impl<'a, T, Message, Theme, Renderer, State> Layout<'a, Message, Theme, Renderer, State> for T
+impl<'a, T, Message, Theme, Renderer, State>
+    Layout<'a, Message, Theme, Renderer, State> for T
 where
     T: Fn(
             &mut State,
@@ -293,7 +332,8 @@ pub trait Update<'a, Message, Theme, Renderer, State> {
     );
 }
 
-impl<'a, Message, Theme, Renderer, State> Update<'a, Message, Theme, Renderer, State> for ()
+impl<'a, Message, Theme, Renderer, State>
+    Update<'a, Message, Theme, Renderer, State> for ()
 where
     Renderer: advanced::Renderer + 'a,
 {
@@ -316,7 +356,8 @@ where
     }
 }
 
-impl<'a, T, Message, Theme, Renderer, State> Update<'a, Message, Theme, Renderer, State> for T
+impl<'a, T, Message, Theme, Renderer, State>
+    Update<'a, Message, Theme, Renderer, State> for T
 where
     T: Fn(
             &mut State,
@@ -345,7 +386,8 @@ where
         viewport: &iced::Rectangle,
     ) {
         self(
-            state, inner, tree, event, layout, cursor, renderer, clipboard, shell, viewport,
+            state, inner, tree, event, layout, cursor, renderer, clipboard,
+            shell, viewport,
         );
     }
 }
@@ -365,7 +407,8 @@ pub trait Draw<'a, Message, Theme, Renderer, State> {
     );
 }
 
-impl<'a, Message, Theme, Renderer, State> Draw<'a, Message, Theme, Renderer, State> for ()
+impl<'a, Message, Theme, Renderer, State>
+    Draw<'a, Message, Theme, Renderer, State> for ()
 where
     Renderer: advanced::Renderer + 'a,
 {
@@ -387,7 +430,8 @@ where
     }
 }
 
-impl<'a, T, Message, Theme, Renderer, State> Draw<'a, Message, Theme, Renderer, State> for T
+impl<'a, T, Message, Theme, Renderer, State>
+    Draw<'a, Message, Theme, Renderer, State> for T
 where
     T: Fn(
             &State,
@@ -414,7 +458,8 @@ where
         viewport: &iced::Rectangle,
     ) {
         self(
-            state, inner, tree, renderer, theme, style, layout, cursor, viewport,
+            state, inner, tree, renderer, theme, style, layout, cursor,
+            viewport,
         );
     }
 }
@@ -432,8 +477,8 @@ pub trait MouseInteraction<'a, Message, Theme, Renderer, State> {
     ) -> advanced::mouse::Interaction;
 }
 
-impl<'a, Message, Theme, Renderer, State> MouseInteraction<'a, Message, Theme, Renderer, State>
-    for ()
+impl<'a, Message, Theme, Renderer, State>
+    MouseInteraction<'a, Message, Theme, Renderer, State> for ()
 where
     Renderer: advanced::Renderer + 'a,
 {
@@ -453,8 +498,8 @@ where
     }
 }
 
-impl<'a, T, Message, Theme, Renderer, State> MouseInteraction<'a, Message, Theme, Renderer, State>
-    for T
+impl<'a, T, Message, Theme, Renderer, State>
+    MouseInteraction<'a, Message, Theme, Renderer, State> for T
 where
     T: Fn(
             &State,
@@ -493,7 +538,8 @@ pub trait Operate<'a, Message, Theme, Renderer, State> {
     );
 }
 
-impl<'a, Message, Theme, Renderer, State> Operate<'a, Message, Theme, Renderer, State> for ()
+impl<'a, Message, Theme, Renderer, State>
+    Operate<'a, Message, Theme, Renderer, State> for ()
 where
     Renderer: advanced::Renderer + 'a,
 {
@@ -510,7 +556,8 @@ where
     }
 }
 
-impl<'a, T, Message, Theme, Renderer, State> Operate<'a, Message, Theme, Renderer, State> for T
+impl<'a, T, Message, Theme, Renderer, State>
+    Operate<'a, Message, Theme, Renderer, State> for T
 where
     T: Fn(
             &mut State,
@@ -542,11 +589,13 @@ pub trait Overlay<'a, Message, Theme, Renderer, State> {
         tree: &'b mut advanced::widget::Tree,
         layout: advanced::Layout<'_>,
         renderer: &Renderer,
+        viewport: &Rectangle,
         translation: iced::Vector,
     ) -> Option<advanced::overlay::Element<'b, Message, Theme, Renderer>>;
 }
 
-impl<'a, Message, Theme, Renderer, State> Overlay<'a, Message, Theme, Renderer, State> for ()
+impl<'a, Message, Theme, Renderer, State>
+    Overlay<'a, Message, Theme, Renderer, State> for ()
 where
     Renderer: advanced::Renderer + 'a,
 {
@@ -557,15 +606,17 @@ where
         tree: &'b mut advanced::widget::Tree,
         layout: advanced::Layout<'_>,
         renderer: &Renderer,
+        viewport: &Rectangle,
         translation: iced::Vector,
     ) -> Option<advanced::overlay::Element<'b, Message, Theme, Renderer>> {
         inner
             .as_widget_mut()
-            .overlay(tree, layout, renderer, translation)
+            .overlay(tree, layout, renderer, viewport, translation)
     }
 }
 
-impl<'a, T, Message, Theme, Renderer, State> Overlay<'a, Message, Theme, Renderer, State> for T
+impl<'a, T, Message, Theme, Renderer, State>
+    Overlay<'a, Message, Theme, Renderer, State> for T
 where
     T: for<'b> Fn(
             &'b mut State,
@@ -574,8 +625,9 @@ where
             advanced::Layout<'_>,
             &Renderer,
             iced::Vector,
-        ) -> Option<advanced::overlay::Element<'b, Message, Theme, Renderer>>
-        + 'a,
+        ) -> Option<
+            advanced::overlay::Element<'b, Message, Theme, Renderer>,
+        > + 'a,
 {
     fn overlay<'b>(
         &'b mut self,
@@ -584,6 +636,7 @@ where
         tree: &'b mut advanced::widget::Tree,
         layout: advanced::Layout<'_>,
         renderer: &Renderer,
+        _viewport: &Rectangle,
         translation: iced::Vector,
     ) -> Option<advanced::overlay::Element<'b, Message, Theme, Renderer>> {
         self(state, inner, tree, layout, renderer, translation)
@@ -591,18 +644,18 @@ where
 }
 
 impl<
-        'a,
-        Message,
-        Theme,
-        Renderer,
-        Layout,
-        Update,
-        Draw,
-        MouseInteraction,
-        Operate,
-        Overlay,
-        State,
-    > Widget<Message, Theme, Renderer>
+    'a,
+    Message,
+    Theme,
+    Renderer,
+    Layout,
+    Update,
+    Draw,
+    MouseInteraction,
+    Operate,
+    Overlay,
+    State,
+> Widget<Message, Theme, Renderer>
     for Decorate<
         'a,
         Message,
@@ -621,7 +674,8 @@ where
     Layout: self::Layout<'a, Message, Theme, Renderer, State>,
     Update: self::Update<'a, Message, Theme, Renderer, State>,
     Draw: self::Draw<'a, Message, Theme, Renderer, State>,
-    MouseInteraction: self::MouseInteraction<'a, Message, Theme, Renderer, State> + 'a,
+    MouseInteraction:
+        self::MouseInteraction<'a, Message, Theme, Renderer, State> + 'a,
     Operate: self::Operate<'a, Message, Theme, Renderer, State> + 'a,
     Overlay: self::Overlay<'a, Message, Theme, Renderer, State> + 'a,
     State: Default + 'static,
@@ -755,6 +809,7 @@ where
         tree: &'b mut advanced::widget::Tree,
         layout: advanced::Layout<'_>,
         renderer: &Renderer,
+        viewport: &Rectangle,
         translation: iced::Vector,
     ) -> Option<advanced::overlay::Element<'b, Message, Theme, Renderer>> {
         self.overlay.overlay(
@@ -763,24 +818,25 @@ where
             &mut tree.children[0],
             layout,
             renderer,
+            viewport,
             translation,
         )
     }
 }
 
 impl<
-        'a,
-        Message,
-        Theme,
-        Renderer,
-        Layout,
-        Update,
-        Draw,
-        MouseInteraction,
-        Operate,
-        Overlay,
-        State,
-    >
+    'a,
+    Message,
+    Theme,
+    Renderer,
+    Layout,
+    Update,
+    Draw,
+    MouseInteraction,
+    Operate,
+    Overlay,
+    State,
+>
     From<
         Decorate<
             'a,
@@ -803,7 +859,8 @@ where
     Layout: self::Layout<'a, Message, Theme, Renderer, State> + 'a,
     Update: self::Update<'a, Message, Theme, Renderer, State> + 'a,
     Draw: self::Draw<'a, Message, Theme, Renderer, State> + 'a,
-    MouseInteraction: self::MouseInteraction<'a, Message, Theme, Renderer, State> + 'a,
+    MouseInteraction:
+        self::MouseInteraction<'a, Message, Theme, Renderer, State> + 'a,
     Operate: self::Operate<'a, Message, Theme, Renderer, State> + 'a,
     Overlay: self::Overlay<'a, Message, Theme, Renderer, State> + 'a,
     State: Default + 'static,

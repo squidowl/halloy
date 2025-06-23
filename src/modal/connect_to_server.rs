@@ -1,12 +1,10 @@
 use data::config;
-use iced::{
-    alignment,
-    widget::{button, checkbox, column, container, text},
-    Length,
-};
+use iced::widget::{button, checkbox, column, container, text};
+use iced::{Length, alignment};
 
 use super::Message;
-use crate::{theme, widget::Element};
+use crate::theme;
+use crate::widget::Element;
 
 pub fn view<'a>(raw: &'a str, config: &config::Server) -> Element<'a, Message> {
     container(
@@ -19,7 +17,11 @@ pub fn view<'a>(raw: &'a str, config: &config::Server) -> Element<'a, Message> {
                 "Accept invalid certificates",
                 config.dangerously_accept_invalid_certs,
             )
-            .on_toggle(Message::DangerouslyAcceptInvalidCerts),
+            .on_toggle(|toggle| {
+                Message::ServerConnect(
+                    super::ServerConnect::DangerouslyAcceptInvalidCerts(toggle),
+                )
+            }),
         )
         .push(
             column![
@@ -30,8 +32,12 @@ pub fn view<'a>(raw: &'a str, config: &config::Server) -> Element<'a, Message> {
                 )
                 .padding(5)
                 .width(Length::Fixed(250.0))
-                .style(|theme, status| theme::button::secondary(theme, status, false))
-                .on_press(Message::AcceptNewServer),
+                .style(|theme, status| theme::button::secondary(
+                    theme, status, false
+                ))
+                .on_press(Message::ServerConnect(
+                    super::ServerConnect::AcceptNewServer
+                )),
                 button(
                     container(text("Close"))
                         .align_x(alignment::Horizontal::Center)
@@ -39,7 +45,9 @@ pub fn view<'a>(raw: &'a str, config: &config::Server) -> Element<'a, Message> {
                 )
                 .padding(5)
                 .width(Length::Fixed(250.0))
-                .style(|theme, status| theme::button::secondary(theme, status, false))
+                .style(|theme, status| theme::button::secondary(
+                    theme, status, false
+                ))
                 .on_press(Message::Cancel),
             ]
             .spacing(4),

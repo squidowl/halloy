@@ -1,8 +1,9 @@
-use crate::widget::combo_box;
-
 pub use data::appearance::theme::{
-    color_to_hex, hex_to_color, Buffer, Button, Buttons, Colors, General, ServerMessages, Text,
+    Buffer, Button, Buttons, Colors, General, ServerMessages, Text,
+    color_to_hex, hex_to_color,
 };
+
+use crate::widget::combo_box;
 
 pub mod button;
 pub mod checkbox;
@@ -16,6 +17,7 @@ pub mod scrollable;
 pub mod selectable_text;
 pub mod text;
 pub mod text_input;
+pub mod image;
 
 // TODO: If we use non-standard font sizes, we should consider
 // Config.font.size since it's user configurable
@@ -34,10 +36,12 @@ pub enum Theme {
 impl Theme {
     pub fn preview(&self, theme: data::Theme) -> Self {
         match self {
-            Theme::Selected(selected) | Theme::Preview { selected, .. } => Self::Preview {
-                selected: selected.clone(),
-                preview: theme,
-            },
+            Theme::Selected(selected) | Theme::Preview { selected, .. } => {
+                Self::Preview {
+                    selected: selected.clone(),
+                    preview: theme,
+                }
+            }
         }
     }
 
@@ -75,6 +79,10 @@ impl iced::theme::Base for Theme {
             background_color: self.colors().general.background,
             text_color: self.colors().text.primary,
         }
+    }
+    
+    fn palette(&self) -> Option<iced::theme::Palette> {
+        None
     }
 }
 

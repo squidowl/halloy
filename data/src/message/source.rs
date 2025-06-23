@@ -1,8 +1,7 @@
 use serde::{Deserialize, Serialize};
 
-use crate::User;
-
 pub use self::server::Server;
+use crate::User;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Source {
@@ -58,7 +57,9 @@ pub mod server {
         }
     }
 
-    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    #[derive(
+        Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize,
+    )]
     #[serde(rename_all = "lowercase")]
     pub enum Kind {
         Join,
@@ -69,9 +70,12 @@ pub mod server {
         MonitoredOnline,
         MonitoredOffline,
         StandardReply(StandardReply),
+        Wallops,
     }
 
-    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    #[derive(
+        Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize,
+    )]
     pub enum StandardReply {
         Fail,
         Warn,

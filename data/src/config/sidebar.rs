@@ -12,6 +12,8 @@ pub struct Sidebar {
     pub position: Position,
     #[serde(default = "default_bool_true")]
     pub show_user_menu: bool,
+    #[serde(default)]
+    pub order_by: OrderBy,
 }
 
 #[derive(Debug, Copy, Clone, Deserialize, Default)]
@@ -42,6 +44,14 @@ impl Position {
     }
 }
 
+#[derive(Debug, Copy, Clone, Deserialize, Default)]
+#[serde(rename_all = "kebab-case")]
+pub enum OrderBy {
+    #[default]
+    Alpha,
+    Config,
+}
+
 impl Default for Sidebar {
     fn default() -> Self {
         Sidebar {
@@ -49,6 +59,7 @@ impl Default for Sidebar {
             unread_indicator: UnreadIndicator::default(),
             position: Position::default(),
             show_user_menu: default_bool_true(),
+            order_by: OrderBy::default(),
         }
     }
 }

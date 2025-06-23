@@ -1,22 +1,18 @@
 use std::path::PathBuf;
 use std::{str, string};
 
+use iced_core::font;
+use indexmap::IndexMap;
 use rand::prelude::*;
 use rand_chacha::ChaCha8Rng;
-use serde::Deserialize;
+use serde::{Deserialize, Deserializer};
 use thiserror::Error;
-use tokio_stream::wrappers::ReadDirStream;
 use tokio_stream::StreamExt;
-
-use crate::appearance::theme::Colors;
-use crate::appearance::{self, Appearance};
-use crate::audio::{self, Sound};
-use crate::environment::config_dir;
-use crate::server::Map as ServerMap;
-use crate::{environment, Theme};
+use tokio_stream::wrappers::ReadDirStream;
 
 pub use self::actions::Actions;
 pub use self::buffer::Buffer;
+pub use self::ctcp::Ctcp;
 pub use self::file_transfer::FileTransfer;
 pub use self::highlights::Highlights;
 pub use self::keys::Keyboard;
@@ -26,9 +22,16 @@ pub use self::preview::Preview;
 pub use self::proxy::Proxy;
 pub use self::server::Server;
 pub use self::sidebar::Sidebar;
+use crate::appearance::theme::Colors;
+use crate::appearance::{self, Appearance};
+use crate::audio::{self, Sound};
+use crate::environment::config_dir;
+use crate::server::{Map as ServerMap, Server as ServerName};
+use crate::{Theme, environment};
 
 pub mod actions;
 pub mod buffer;
+pub mod ctcp;
 pub mod file_transfer;
 pub mod highlights;
 pub mod keys;
@@ -59,6 +62,7 @@ pub struct Config {
     pub preview: Preview,
     pub highlights: Highlights,
     pub actions: Actions,
+    pub ctcp: Ctcp,
 }
 
 #[derive(Debug, Clone, Copy, Deserialize)]
@@ -83,9 +87,67 @@ impl From<ScaleFactor> for f64 {
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub struct Font {
     pub family: Option<String>,
     pub size: Option<u8>,
+    #[serde(
+        default = "default_font_weight",
+        deserialize_with = "deserialize_font_weight_from_string"
+    )]
+    pub weight: font::Weight,
+    #[serde(
+        default,
+        deserialize_with = "deserialize_optional_font_weight_from_string"
+    )]
+    pub bold_weight: Option<font::Weight>,
+}
+
+fn deserialize_font_weight_from_string<'de, D>(
+    deserializer: D,
+) -> Result<font::Weight, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let string = String::deserialize(deserializer)?;
+
+    match string.as_ref() {
+        "thin" => Ok(font::Weight::Thin),
+        "extra-light" => Ok(font::Weight::ExtraLight),
+        "light" => Ok(font::Weight::Light),
+        "normal" => Ok(font::Weight::Normal),
+        "medium" => Ok(font::Weight::Medium),
+        "semibold" => Ok(font::Weight::Semibold),
+        "bold" => Ok(font::Weight::Bold),
+        "extra-bold" => Ok(font::Weight::ExtraBold),
+        "black" => Ok(font::Weight::Black),
+        _ => Err(serde::de::Error::invalid_value(
+            serde::de::Unexpected::Str(&string),
+            &"expected one of font weight names: \
+              \"thin\", \
+              \"extra-light\", \
+              \"light\", \
+              \"normal\", \
+              \"medium\", \
+              \"semibold\", \
+              \"bold\", \
+              \"extra-bold\", and \
+              \"black\"",
+        )),
+    }
+}
+
+fn deserialize_optional_font_weight_from_string<'de, D>(
+    deserializer: D,
+) -> Result<Option<font::Weight>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    Ok(Some(deserialize_font_weight_from_string(deserializer)?))
+}
+
+fn default_font_weight() -> font::Weight {
+    font::Weight::Normal
 }
 
 impl Config {
@@ -122,7 +184,7 @@ impl Config {
         dir
     }
 
-    fn path() -> PathBuf {
+    pub fn path() -> PathBuf {
         Self::config_dir().join(environment::CONFIG_FILE_NAME)
     }
 
@@ -155,7 +217,7 @@ impl Config {
         pub struct Configuration {
             #[serde(default)]
             pub theme: ThemeKeys,
-            pub servers: ServerMap,
+            pub servers: IndexMap<ServerName, Server>,
             pub proxy: Option<Proxy>,
             #[serde(default)]
             pub font: Font,
@@ -181,6 +243,8 @@ impl Config {
             pub highlights: Highlights,
             #[serde(default)]
             pub actions: Actions,
+            #[serde(default)]
+            pub ctcp: Ctcp,
         }
 
         let path = Self::path();
@@ -209,9 +273,16 @@ impl Config {
             pane,
             highlights,
             actions,
-        } = toml::from_str(content.as_ref()).map_err(|e| Error::Parse(e.to_string()))?;
+            ctcp,
+        } = toml::from_str(content.as_ref())
+            .map_err(|e| Error::Parse(e.to_string()))?;
 
-        servers.read_passwords().await?;
+        match sidebar.order_by {
+            sidebar::OrderBy::Alpha => servers.sort_keys(),
+            sidebar::OrderBy::Config => (),
+        }
+
+        let servers = ServerMap::new(servers).await?;
 
         let loaded_notifications = notifications.load_sounds()?;
 
@@ -235,10 +306,13 @@ impl Config {
             pane,
             highlights,
             actions,
+            ctcp,
         })
     }
 
-    async fn load_appearance(theme_keys: (&str, Option<&str>)) -> Result<Appearance, Error> {
+    async fn load_appearance(
+        theme_keys: (&str, Option<&str>),
+    ) -> Result<Appearance, Error> {
         use tokio::fs;
 
         #[derive(Deserialize)]
@@ -268,13 +342,15 @@ impl Config {
         let mut second_theme = theme_keys.1.map(|_| Theme::default());
         let mut has_halloy_theme = false;
 
-        let mut stream = ReadDirStream::new(fs::read_dir(Self::themes_dir()).await?);
+        let mut stream =
+            ReadDirStream::new(fs::read_dir(Self::themes_dir()).await?);
         while let Some(entry) = stream.next().await {
             let Ok(entry) = entry else {
                 continue;
             };
 
-            let Some(file_name) = entry.file_name().to_str().map(String::from) else {
+            let Some(file_name) = entry.file_name().to_str().map(String::from)
+            else {
                 continue;
             };
 
@@ -321,7 +397,8 @@ impl Config {
         let rand_nick = random_nickname();
 
         // Replace placeholder nick with unique nick
-        let config_string = CONFIG_TEMPLATE.replace("__NICKNAME__", rand_nick.as_str());
+        let config_string =
+            CONFIG_TEMPLATE.replace("__NICKNAME__", rand_nick.as_str());
         let config_bytes = config_string.as_bytes();
 
         // Create configuration path.
@@ -368,11 +445,17 @@ pub enum Error {
     StringUtf8Error(#[from] string::FromUtf8Error),
     #[error(transparent)]
     LoadSounds(#[from] audio::LoadError),
-    #[error("Only one of password, password_file and password_command can be set.")]
+    #[error(
+        "Only one of password, password_file and password_command can be set."
+    )]
     DuplicatePassword,
-    #[error("Only one of nick_password, nick_password_file and nick_password_command can be set.")]
+    #[error(
+        "Only one of nick_password, nick_password_file and nick_password_command can be set."
+    )]
     DuplicateNickPassword,
-    #[error("Exactly one of sasl.plain.password, sasl.plain.password_file or sasl.plain.password_command must be set.")]
+    #[error(
+        "Exactly one of sasl.plain.password, sasl.plain.password_file or sasl.plain.password_command must be set."
+    )]
     DuplicateSaslPassword,
     #[error("Config does not exist")]
     ConfigMissing { has_yaml_config: bool },

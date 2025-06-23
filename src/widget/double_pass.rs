@@ -28,7 +28,8 @@ struct Layout<'a, Message, Theme, Renderer> {
     first_pass: Element<'a, Message, Theme, Renderer>,
 }
 
-impl<'a, Message, Theme, Renderer> decorate::Layout<'a, Message, Theme, Renderer, ()>
+impl<'a, Message, Theme, Renderer>
+    decorate::Layout<'a, Message, Theme, Renderer, ()>
     for Layout<'a, Message, Theme, Renderer>
 where
     Message: 'a,

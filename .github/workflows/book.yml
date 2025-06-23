@@ -1,0 +1,39 @@
+name: Book
+
+on:
+  pull_request:
+    paths:
+      - 'book/**.md'
+      - 'book/book.toml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'book/**.md'
+      - 'book/book.toml'
+  merge_group:
+    paths:
+      - 'book/**.md'
+      - 'book/book.toml'
+
+jobs:
+  build-linkcheck:
+    name: Build & Link Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check links
+        id: lychee
+        uses: lycheeverse/lychee-action@v2
+        with:
+          args: --config ./.config/lychee.toml './**/*.md'
+          fail: true
+
+      - name: Setup mdBook
+        uses: peaceiris/actions-mdbook@v1
+        with:
+          mdbook-version: 'latest'
+
+      - name: Build book
+        run: mdbook build book

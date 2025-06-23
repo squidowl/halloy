@@ -1,13 +1,12 @@
 use iced::advanced::layout::{self, Layout};
-use iced::advanced::overlay;
-use iced::advanced::renderer;
 use iced::advanced::widget::{self, Widget};
-use iced::advanced::{self, Clipboard, Shell};
+use iced::advanced::{self, Clipboard, Shell, overlay, renderer};
 use iced::alignment::Alignment;
-use iced::keyboard;
 use iced::keyboard::key;
-use iced::mouse;
-use iced::{Color, Element, Event, Length, Point, Rectangle, Size, Vector};
+use iced::{
+    Color, Element, Event, Length, Point, Rectangle, Size, Vector, keyboard,
+    mouse,
+};
 
 pub fn modal<'a, Message, Theme, Renderer>(
     base: impl Into<Element<'a, Message, Theme, Renderer>>,
@@ -124,6 +123,7 @@ where
         state: &'b mut widget::Tree,
         layout: Layout<'_>,
         _renderer: &Renderer,
+        viewport: &Rectangle,
         translation: Vector,
     ) -> Option<overlay::Element<'b, Message, Theme, Renderer>> {
         Some(overlay::Element::new(Box::new(Overlay {
@@ -132,6 +132,7 @@ where
             tree: &mut state.children[1],
             size: layout.bounds().size(),
             on_blur: &self.on_blur,
+            viewport: *viewport,
         })))
     }
 
@@ -159,9 +160,12 @@ where
         renderer: &Renderer,
         operation: &mut dyn widget::Operation<()>,
     ) {
-        self.base
-            .as_widget()
-            .operate(&mut state.children[0], layout, renderer, operation);
+        self.base.as_widget().operate(
+            &mut state.children[0],
+            layout,
+            renderer,
+            operation,
+        );
     }
 }
 
@@ -171,6 +175,7 @@ struct Overlay<'a, 'b, Message, Theme, Renderer> {
     tree: &'b mut widget::Tree,
     size: Size,
     on_blur: &'b dyn Fn() -> Message,
+    viewport: Rectangle,
 }
 
 impl<Message, Theme, Renderer> overlay::Overlay<Message, Theme, Renderer>
@@ -189,7 +194,8 @@ where
             .layout(self.tree, renderer, &limits)
             .align(Alignment::Center, Alignment::Center, limits.max());
 
-        layout::Node::with_children(self.size, vec![child]).move_to(self.position)
+        layout::Node::with_children(self.size, vec![child])
+            .move_to(self.position)
     }
 
     fn update(
@@ -303,6 +309,7 @@ where
             self.tree,
             layout.children().next().unwrap(),
             renderer,
+            &self.viewport,
             Vector::ZERO,
         )
     }

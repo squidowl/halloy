@@ -5,7 +5,9 @@ use iced::{self, Subscription};
 #[cfg(target_os = "macos")]
 pub fn listen() -> Subscription<String> {
     use futures::stream::StreamExt;
-    use iced::advanced::graphics::futures::subscription::{Event, MacOS, PlatformSpecific};
+    use iced::advanced::graphics::futures::subscription::{
+        Event, MacOS, PlatformSpecific,
+    };
 
     struct OnUrl;
 

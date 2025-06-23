@@ -1,11 +1,14 @@
 use std::slice;
 
-use iced::advanced::widget::{operation, tree, Operation};
-use iced::advanced::{self, layout, overlay, renderer, widget, Clipboard, Layout, Shell, Widget};
-use iced::widget::{column, container};
-use iced::{mouse, Element, Event, Length, Point, Rectangle, Size, Task, Vector};
-
+use iced::advanced::widget::{Operation, operation, tree};
+use iced::advanced::{
+    self, Clipboard, Layout, Shell, Widget, layout, overlay, renderer, widget,
+};
 pub use iced::widget::container::{Style, StyleFn};
+use iced::widget::{column, container};
+use iced::{
+    Element, Event, Length, Point, Rectangle, Size, Task, Vector, mouse,
+};
 
 use super::double_pass;
 
@@ -81,7 +84,8 @@ where
     T: Copy + 'a,
     Message: 'a,
     Theme: 'a + container::Catalog + Catalog,
-    <Theme as container::Catalog>::Class<'a>: From<container::StyleFn<'a, Theme>>,
+    <Theme as container::Catalog>::Class<'a>:
+        From<container::StyleFn<'a, Theme>>,
     Renderer: advanced::Renderer + 'a,
 {
     fn size(&self) -> Size<Length> {
@@ -154,9 +158,12 @@ where
 
         operation.custom(None, layout.bounds(), state);
 
-        self.base
-            .as_widget()
-            .operate(&mut tree.children[0], layout, renderer, operation);
+        self.base.as_widget().operate(
+            &mut tree.children[0],
+            layout,
+            renderer,
+            operation,
+        );
     }
 
     fn update(
@@ -175,14 +182,20 @@ where
 
         let position = match self.activation_button {
             mouse::Button::Left => {
-                if let Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Left)) = event {
+                if let Event::Mouse(mouse::Event::ButtonReleased(
+                    mouse::Button::Left,
+                )) = event
+                {
                     cursor.position_over(layout.bounds())
                 } else {
                     None
                 }
             }
             mouse::Button::Right => {
-                if let Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Right)) = event {
+                if let Event::Mouse(mouse::Event::ButtonPressed(
+                    mouse::Button::Right,
+                )) = event
+                {
                     cursor.position_over(layout.bounds())
                 } else {
                     None
@@ -196,7 +209,8 @@ where
         }
 
         match (state.status, prev_status) {
-            (Status::Closed, Status::Open(_)) | (Status::Open(_), Status::Closed) => {
+            (Status::Closed, Status::Open(_))
+            | (Status::Open(_), Status::Closed) => {
                 shell.request_redraw();
             }
             _ => {}
@@ -233,13 +247,17 @@ where
         tree: &'b mut widget::Tree,
         layout: Layout<'_>,
         renderer: &Renderer,
+        viewport: &Rectangle,
         translation: Vector,
     ) -> Option<overlay::Element<'b, Message, Theme, Renderer>> {
         let base_state = tree.children.first_mut().unwrap();
-        let base = self
-            .base
-            .as_widget_mut()
-            .overlay(base_state, layout, renderer, translation);
+        let base = self.base.as_widget_mut().overlay(
+            base_state,
+            layout,
+            renderer,
+            viewport,
+            translation,
+        );
 
         let state = tree.state.downcast_mut::<State>();
 
@@ -254,7 +272,12 @@ where
         if base.is_none() && overlay.is_none() {
             None
         } else {
-            Some(overlay::Group::with_children(base.into_iter().chain(overlay).collect()).overlay())
+            Some(
+                overlay::Group::with_children(
+                    base.into_iter().chain(overlay).collect(),
+                )
+                .overlay(),
+            )
         }
     }
 }
@@ -267,16 +290,22 @@ where
     T: Copy + 'a,
     Message: 'a,
     Theme: 'a + container::Catalog + Catalog,
-    <Theme as container::Catalog>::Class<'a>: From<container::StyleFn<'a, Theme>>,
+    <Theme as container::Catalog>::Class<'a>:
+        From<container::StyleFn<'a, Theme>>,
     Renderer: advanced::Renderer + 'a,
 {
     let build_menu =
-        |length, view: &(dyn Fn(T, Length) -> Element<'a, Message, Theme, Renderer> + 'a)| {
+        |length,
+         view: &(
+              dyn Fn(T, Length) -> Element<'a, Message, Theme, Renderer> + 'a
+          )| {
             container(column(
                 entries.iter().copied().map(|entry| view(entry, length)),
             ))
             .padding(4)
-            .style(|theme| <Theme as Catalog>::style(theme, &<Theme as Catalog>::default()))
+            .style(|theme| {
+                <Theme as Catalog>::style(theme, &<Theme as Catalog>::default())
+            })
         };
 
     double_pass(
@@ -296,7 +325,8 @@ where
     T: Copy + 'a,
     Message: 'a,
     Theme: 'a + container::Catalog + Catalog,
-    <Theme as container::Catalog>::Class<'a>: From<container::StyleFn<'a, Theme>>,
+    <Theme as container::Catalog>::Class<'a>:
+        From<container::StyleFn<'a, Theme>>,
     Renderer: advanced::Renderer + 'a,
 {
     if entries.is_empty() {
@@ -372,16 +402,20 @@ pub fn close<Message: 'static + Send>(f: fn(bool) -> Message) -> Task<Message> {
     })
 }
 
-impl<'a, T, Message, Theme, Renderer> From<ContextMenu<'a, T, Message, Theme, Renderer>>
+impl<'a, T, Message, Theme, Renderer>
+    From<ContextMenu<'a, T, Message, Theme, Renderer>>
     for Element<'a, Message, Theme, Renderer>
 where
     T: Copy + 'a,
     Message: 'a,
     Theme: 'a + container::Catalog + Catalog,
-    <Theme as container::Catalog>::Class<'a>: From<container::StyleFn<'a, Theme>>,
+    <Theme as container::Catalog>::Class<'a>:
+        From<container::StyleFn<'a, Theme>>,
     Renderer: advanced::Renderer + 'a,
 {
-    fn from(context_menu: ContextMenu<'a, T, Message, Theme, Renderer>) -> Self {
+    fn from(
+        context_menu: ContextMenu<'a, T, Message, Theme, Renderer>,
+    ) -> Self {
         Element::new(context_menu)
     }
 }
@@ -402,16 +436,20 @@ where
             .width(Length::Fill)
             .height(Length::Fill);
 
-        let node = self
-            .menu
-            .as_widget()
-            .layout(&mut self.state.menu_tree, renderer, &limits);
+        let node = self.menu.as_widget().layout(
+            &mut self.state.menu_tree,
+            renderer,
+            &limits,
+        );
 
         // Small padding to ensure that we don't spawn context menu at the very edge of the viewport.
         let padding = 5.0;
         let viewport = Rectangle::new(
             Point::new(Point::ORIGIN.x + padding, Point::ORIGIN.y + padding),
-            Size::new(bounds.width - 2.0 * padding, bounds.height - 2.0 * padding),
+            Size::new(
+                bounds.width - 2.0 * padding,
+                bounds.height - 2.0 * padding,
+            ),
         );
         let mut bounds = Rectangle::new(self.position, node.size());
 
@@ -455,9 +493,12 @@ where
         renderer: &Renderer,
         operation: &mut dyn widget::Operation<()>,
     ) {
-        self.menu
-            .as_widget_mut()
-            .operate(&mut self.state.menu_tree, layout, renderer, operation);
+        self.menu.as_widget_mut().operate(
+            &mut self.state.menu_tree,
+            layout,
+            renderer,
+            operation,
+        );
     }
 
     fn update(
@@ -475,7 +516,9 @@ where
             }
         }
 
-        if let Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Left)) = &event {
+        if let Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Left)) =
+            &event
+        {
             if cursor.position_over(layout.bounds()).is_some() {
                 self.state.status = Status::Closed;
             }
@@ -513,7 +556,12 @@ where
         )
     }
 
-    fn is_over(&self, layout: Layout<'_>, _renderer: &Renderer, cursor_position: Point) -> bool {
+    fn is_over(
+        &self,
+        layout: Layout<'_>,
+        _renderer: &Renderer,
+        cursor_position: Point,
+    ) -> bool {
         layout.bounds().contains(cursor_position)
     }
 }

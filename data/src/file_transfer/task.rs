@@ -1,29 +1,25 @@
-use std::{
-    io,
-    net::IpAddr,
-    num::NonZeroU16,
-    path::PathBuf,
-    time::{Duration, Instant},
-};
+use std::io;
+use std::net::IpAddr;
+use std::num::NonZeroU16;
+use std::path::PathBuf;
+use std::time::{Duration, Instant};
 
 use bytes::{Bytes, BytesMut};
-use futures::{
-    channel::mpsc::{self, Receiver, Sender},
-    SinkExt, Stream,
-};
-use irc::{connection, proto::command, BytesCodec, Connection};
+use futures::channel::mpsc::{self, Receiver, Sender};
+use futures::{SinkExt, Stream};
+use irc::proto::command;
+use irc::{BytesCodec, Connection, connection};
 use sha2::{Digest, Sha256};
 use thiserror::Error;
-use tokio::{
-    fs::File,
-    io::{AsyncReadExt, AsyncWriteExt},
-    task::JoinHandle,
-    time,
-};
+use tokio::fs::File;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::task::JoinHandle;
+use tokio::time;
 use tokio_stream::StreamExt;
 
 use super::Id;
-use crate::{config, dcc, server, user::Nick};
+use crate::user::Nick;
+use crate::{config, dcc, server};
 
 /// 16 KiB
 pub const BUFFER_SIZE: usize = 16 * 1024;
@@ -137,7 +133,9 @@ impl Task {
                     )
                     .await
                     {
-                        let _ = update.send(Update::Failed(id, error.to_string())).await;
+                        let _ = update
+                            .send(Update::Failed(id, error.to_string()))
+                            .await;
                     }
                 }
                 Task::Send {
@@ -163,7 +161,9 @@ impl Task {
                     )
                     .await
                     {
-                        let _ = update.send(Update::Failed(id, error.to_string())).await;
+                        let _ = update
+                            .send(Update::Failed(id, error.to_string()))
+                            .await;
                     }
                 }
             }
@@ -242,7 +242,8 @@ async fn receive(
 
             let _ = update.send(Update::Queued(id)).await;
 
-            let Some(Action::PortAvailable { port }) = action.next().await else {
+            let Some(Action::PortAvailable { port }) = action.next().await
+            else {
                 unreachable!();
             };
 
@@ -310,7 +311,9 @@ async fn receive(
             // Write bytes to file
             file.write_all(&bytes).await?;
 
-            let ack = Bytes::from_iter(((transferred & 0xFFFFFFFF) as u32).to_be_bytes());
+            let ack = Bytes::from_iter(
+                ((transferred & 0xFFFFFFFF) as u32).to_be_bytes(),
+            );
             let _ = connection.send(ack).await;
 
             // Send progress at 60fps
@@ -386,9 +389,10 @@ async fn send(
             )
             .await;
 
-        let Some(Action::ReverseConfirmed { host, port }) = time::timeout(timeout, action.next())
-            .await
-            .map_err(|_| Error::TimeoutPassive)?
+        let Some(Action::ReverseConfirmed { host, port }) =
+            time::timeout(timeout, action.next())
+                .await
+                .map_err(|_| Error::TimeoutPassive)?
         else {
             unreachable!();
         };
@@ -497,7 +501,9 @@ async fn send(
         .send(command!(
             "PRIVMSG",
             remote_user.to_string(),
-            format!("Finished sending \"{sanitized_filename}\", sha256: {sha256}")
+            format!(
+                "Finished sending \"{sanitized_filename}\", sha256: {sha256}"
+            )
         ))
         .await;
 
@@ -514,9 +520,13 @@ async fn send(
 
 #[derive(Debug, Error)]
 enum Error {
-    #[error("sender requested passive send but [file_transfer.server] is not configured")]
+    #[error(
+        "sender requested passive send but [file_transfer.server] is not configured"
+    )]
     ReverseReceiveNoServerConfig,
-    #[error("[file_transfer.server] must be configured to send a file when passive is disabled")]
+    #[error(
+        "[file_transfer.server] must be configured to send a file when passive is disabled"
+    )]
     NonPassiveSendNoServerConfig,
     #[error("connection error: {0}")]
     Connection(#[from] connection::Error),

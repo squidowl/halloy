@@ -39,7 +39,7 @@ nick_password = ""
 
 ## `nick_password_file`
 
-Read nick_password from the file at the given path.[^1] [^2]
+Read `nick_password` from the file at the given path.[^1] [^2]
 
 ```toml
 # Type: string
@@ -48,6 +48,19 @@ Read nick_password from the file at the given path.[^1] [^2]
 
 [servers.<name>]
 nick_password_file = ""
+```
+
+## `nick_password_file_first_line_only`
+
+Read `nick_password` from the first line of `nick_password_file` only.
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: true
+
+[servers.<name>]
+nick_password_file_first_line_only = true
 ```
 
 ## `nick_password_command`
@@ -131,7 +144,7 @@ server = "irc.libera.chat"
 
 ## `port`
 
-The port to connect on.	
+The port to connect on. If you want to use a plain text port like 6667 you MUST also change the `use_tls` setting.
 
 ```toml
 # Type: integer
@@ -166,6 +179,19 @@ Read password from the file at the given path.[^1] [^2]
 
 [servers.<name>]
 password_file = ""
+```
+
+## `password_file_first_line_only`
+
+Read `password` from the first line of `password_file` only.
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: true
+
+[servers.<name>]
+password_file_first_line_only = true
 ```
 
 ## `password_command`
@@ -343,7 +369,7 @@ root_cert_path = ""
 
 ## `on_connect`
 
-Commands which are executed once connected. 
+Commands which are executed once connected, in the order they are specified. The `/delay <seconds>` command can be used to add a delay between commands.
 
 ```toml
 # Type: array of string
@@ -351,7 +377,7 @@ Commands which are executed once connected.
 # Default: not set
 
 [servers.<name>]
-on_connect = ["/msg NickServ IDENTIFY foo bar"]
+on_connect = ["/msg NickServ IDENTIFY foo bar", "/delay 2", "/join registered-club"]
 ```
   
 ## `who_poll_enabled`
@@ -450,6 +476,19 @@ Read `password` from the file at the given path.[^1] [^2]
 
 [servers.<name>.sasl.plain]
 password_file = ""
+```
+
+## `password_file_first_line_only`
+
+Read `password` from the first line of `password_file` only.
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: true
+
+[servers.<name>]
+password_file_first_line_only = true
 ```
 
 ### `password_command`

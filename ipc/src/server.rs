@@ -1,6 +1,5 @@
-use std::io;
 use std::path::PathBuf;
-use std::time;
+use std::{io, time};
 
 use interprocess::local_socket::tokio::LocalSocketListener;
 

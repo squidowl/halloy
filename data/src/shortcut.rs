@@ -42,7 +42,7 @@ pub enum Command {
     FileTransfers,
     Logs,
     ThemeEditor,
-    Highlight,
+    Highlights,
     QuitApplication,
     ScrollUpPage,
     ScrollDownPage,
@@ -67,7 +67,9 @@ macro_rules! default {
     ($name:ident, $k:literal, $m:expr) => {
         pub fn $name() -> KeyBind {
             KeyBind {
-                key_code: KeyCode(iced_core::keyboard::Key::Character($k.into())),
+                key_code: KeyCode(iced_core::keyboard::Key::Character(
+                    $k.into(),
+                )),
                 modifiers: $m,
             }
         }
@@ -121,6 +123,13 @@ impl Hash for KeyBind {
     }
 }
 
+// For defaults check the platform specific defaults:
+// macOS: https://support.apple.com/en-us/102650
+// Windows: https://support.microsoft.com/en-us/windows/keyboard-shortcuts-in-windows-dcc61a57-8ff0-cffe-9796-cb9706c75eec
+// Linux FreeDesktop (not ready yet): https://wiki.freedesktop.org/www/Specifications/default-keys-spec/
+// Linux - KDE: https://docs.kde.org/stable5/en/khelpcenter/fundamentals/kbd.html
+// Linux - Gnome: https://help.gnome.org/users/gnome-help/stable/keyboard-nav.html.en
+
 impl KeyBind {
     default!(move_up, ArrowUp, COMMAND | ALT);
     default!(move_down, ArrowDown, COMMAND | ALT);
@@ -135,13 +144,16 @@ impl KeyBind {
     default!(toggle_nick_list, "m", COMMAND | ALT);
     default!(toggle_sidebar, "b", COMMAND | ALT);
     default!(toggle_topic, "t", COMMAND | ALT);
-    default!(toggle_fullscreen, "f", CTRL | SHIFT);
+    #[cfg(target_os = "macos")]
+    default!(toggle_fullscreen, "f", COMMAND | CTRL);
+    #[cfg(not(target_os = "macos"))]
+    default!(toggle_fullscreen, F11);
     default!(command_bar, "k", COMMAND);
     default!(reload_configuration, "r", COMMAND);
     default!(file_transfers, "j", COMMAND);
     default!(logs, "l", COMMAND);
     default!(theme_editor, "t", COMMAND);
-    default!(highlight, "i", COMMAND);
+    default!(highlights, "i", COMMAND);
     default!(scroll_up_page, PageUp);
     default!(scroll_down_page, PageDown);
     // Don't use HOME / END since text input is always focused
@@ -162,7 +174,9 @@ impl KeyBind {
 }
 
 impl From<(keyboard::Key, keyboard::Modifiers)> for KeyBind {
-    fn from((key_code, modifiers): (keyboard::Key, keyboard::Modifiers)) -> Self {
+    fn from(
+        (key_code, modifiers): (keyboard::Key, keyboard::Modifiers),
+    ) -> Self {
         Self {
             key_code: KeyCode(key_code),
             modifiers: Modifiers(modifiers),
@@ -347,10 +361,13 @@ impl FromStr for KeyCode {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(Self(match s.to_ascii_lowercase().as_str() {
-            "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" | "0" | "a" | "b" | "c" | "d"
-            | "e" | "f" | "g" | "h" | "i" | "j" | "k" | "l" | "m" | "n" | "o" | "p" | "q" | "r"
-            | "s" | "t" | "u" | "v" | "w" | "x" | "y" | "z" | "`" | "-" | "=" | "[" | "]"
-            | "\\" | ";" | "'" | "," | "." | "/" => keyboard::Key::Character(s.into()),
+            "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" | "0" | "a"
+            | "b" | "c" | "d" | "e" | "f" | "g" | "h" | "i" | "j" | "k"
+            | "l" | "m" | "n" | "o" | "p" | "q" | "r" | "s" | "t" | "u"
+            | "v" | "w" | "x" | "y" | "z" | "`" | "-" | "=" | "[" | "]"
+            | "\\" | ";" | "'" | "," | "." | "/" => {
+                keyboard::Key::Character(s.into())
+            }
             "escape" | "esc" => keyboard::Key::Named(key::Named::Escape),
             "f1" => keyboard::Key::Named(key::Named::F1),
             "f2" => keyboard::Key::Named(key::Named::F2),
@@ -403,8 +420,12 @@ impl FromStr for KeyCode {
             "mute" => keyboard::Key::Named(key::Named::AudioVolumeMute),
             "mediastop" => keyboard::Key::Named(key::Named::MediaStop),
             "mediapause" => keyboard::Key::Named(key::Named::MediaPause),
-            "mediatracknext" => keyboard::Key::Named(key::Named::MediaTrackNext),
-            "mediatrackprev" => keyboard::Key::Named(key::Named::MediaTrackPrevious),
+            "mediatracknext" => {
+                keyboard::Key::Named(key::Named::MediaTrackNext)
+            }
+            "mediatrackprev" => {
+                keyboard::Key::Named(key::Named::MediaTrackPrevious)
+            }
             _ => return Err(ParseError::InvalidKeyCode(s.to_string())),
         }))
     }

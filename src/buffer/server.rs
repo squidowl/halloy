@@ -1,12 +1,14 @@
+use std::path::PathBuf;
+
 use data::dashboard::BufferAction;
 use data::target::Target;
-use data::{buffer, history, message, Config};
+use data::{Config, buffer, history, message};
 use iced::widget::{column, container, row, vertical_space};
 use iced::{Length, Task};
 
 use super::{input_view, scroll_view, user_context};
-use crate::widget::{message_content, selectable_text, Element};
-use crate::{theme, Theme};
+use crate::widget::{Element, message_content, selectable_text};
+use crate::{Theme, theme};
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -19,6 +21,8 @@ pub enum Event {
     OpenBuffers(Vec<(Target, BufferAction)>),
     History(Task<history::manager::Message>),
     MarkAsRead(history::Kind),
+    OpenUrl(String),
+    ImagePreview(PathBuf, url::Url),
 }
 
 pub fn view<'a>(
@@ -43,13 +47,13 @@ pub fn view<'a>(
             None,
             config,
             move |message, _, _| {
-                let timestamp =
-                    config
-                        .buffer
-                        .format_timestamp(&message.server_time)
-                        .map(|timestamp| {
-                            selectable_text(timestamp).style(theme::selectable_text::timestamp)
-                        });
+                let timestamp = config
+                    .buffer
+                    .format_timestamp(&message.server_time)
+                    .map(|timestamp| {
+                        selectable_text(timestamp)
+                            .style(theme::selectable_text::timestamp)
+                    });
 
                 match message.target.source() {
                     message::Source::Server(server) => {
@@ -58,23 +62,42 @@ pub fn view<'a>(
                             casemapping,
                             theme,
                             scroll_view::Message::Link,
-                            move |theme| theme::selectable_text::server(theme, server.as_ref()),
+                            move |theme| {
+                                theme::selectable_text::server(
+                                    theme,
+                                    server.as_ref(),
+                                )
+                            },
                             config,
                         );
 
-                        Some(container(row![].push_maybe(timestamp).push(message)).into())
+                        Some(
+                            container(
+                                row![].push_maybe(timestamp).push(message),
+                            )
+                            .into(),
+                        )
                     }
-                    message::Source::Internal(message::source::Internal::Status(status)) => {
+                    message::Source::Internal(
+                        message::source::Internal::Status(status),
+                    ) => {
                         let message = message_content(
                             &message.content,
                             casemapping,
                             theme,
                             scroll_view::Message::Link,
-                            move |theme| theme::selectable_text::status(theme, *status),
+                            move |theme| {
+                                theme::selectable_text::status(theme, *status)
+                            },
                             config,
                         );
 
-                        Some(container(row![].push_maybe(timestamp).push(message)).into())
+                        Some(
+                            container(
+                                row![].push_maybe(timestamp).push(message),
+                            )
+                            .into(),
+                        )
                     }
                     _ => None,
                 }
@@ -152,7 +175,9 @@ impl Server {
                 );
 
                 let event = event.and_then(|event| match event {
-                    scroll_view::Event::UserContext(event) => Some(Event::UserContext(event)),
+                    scroll_view::Event::UserContext(event) => {
+                        Some(Event::UserContext(event))
+                    }
                     scroll_view::Event::OpenBuffer(target, buffer_action) => {
                         Some(Event::OpenBuffers(vec![(target, buffer_action)]))
                     }
@@ -161,24 +186,38 @@ impl Server {
                     scroll_view::Event::PreviewChanged => None,
                     scroll_view::Event::HidePreview(..) => None,
                     scroll_view::Event::MarkAsRead => {
-                        history::Kind::from_buffer(data::Buffer::Upstream(self.buffer.clone()))
-                            .map(Event::MarkAsRead)
+                        history::Kind::from_buffer(data::Buffer::Upstream(
+                            self.buffer.clone(),
+                        ))
+                        .map(Event::MarkAsRead)
+                    }
+                    scroll_view::Event::OpenUrl(url) => {
+                        Some(Event::OpenUrl(url))
+                    }
+                    scroll_view::Event::ImagePreview(path, url) => {
+                        Some(Event::ImagePreview(path, url))
                     }
                 });
 
                 (command.map(Message::ScrollView), event)
             }
             Message::InputView(message) => {
-                let (command, event) =
-                    self.input_view
-                        .update(message, &self.buffer, clients, history, config);
+                let (command, event) = self.input_view.update(
+                    message,
+                    &self.buffer,
+                    clients,
+                    history,
+                    config,
+                );
                 let command = command.map(Message::InputView);
 
                 match event {
                     Some(input_view::Event::InputSent { history_task }) => (
                         Task::batch(vec![
                             command,
-                            self.scroll_view.scroll_to_end().map(Message::ScrollView),
+                            self.scroll_view
+                                .scroll_to_end()
+                                .map(Message::ScrollView),
                         ]),
                         Some(Event::History(history_task)),
                     ),

@@ -1,27 +1,23 @@
-use std::{
-    collections::HashMap,
-    io,
-    sync::{LazyLock, OnceLock},
-    time::Duration,
-};
+use std::collections::HashMap;
+use std::io;
+use std::sync::{LazyLock, OnceLock};
+use std::time::Duration;
 
 use fancy_regex::Regex;
 use log::debug;
 use reqwest::header::{self, HeaderValue};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use tokio::{
-    fs::{self, File},
-    io::AsyncWriteExt,
-    sync::Semaphore,
-    time,
-};
+use tokio::fs::{self, File};
+use tokio::io::AsyncWriteExt;
+use tokio::sync::Semaphore;
+use tokio::time;
 use url::Url;
-
-use crate::config;
 
 pub use self::card::Card;
 pub use self::image::Image;
+use crate::target::Target;
+use crate::{config, isupport};
 
 mod cache;
 pub mod card;
@@ -37,6 +33,41 @@ static OPENGRAPH_REGEX: LazyLock<Regex> = LazyLock::new(|| {
     )
     .expect("valid opengraph regex")
 });
+
+#[derive(Clone, Copy)]
+pub struct Previews<'a> {
+    collection: &'a Collection,
+    cards_are_visible: bool,
+    images_are_visible: bool,
+}
+
+impl<'a> Previews<'a> {
+    pub fn new(
+        collection: &'a Collection,
+        target: &Target,
+        config: &config::Preview,
+        casemapping: isupport::CaseMap,
+    ) -> Previews<'a> {
+        Self {
+            collection,
+            cards_are_visible: config.enabled
+                && config.card.visible(target, casemapping),
+            images_are_visible: config.enabled
+                && config.image.visible(target, casemapping),
+        }
+    }
+
+    pub fn get(&self, url: &Url) -> Option<&'a State> {
+        self.collection.get(url).filter(|state| match state {
+            State::Loading => true,
+            State::Loaded(preview) => match preview {
+                Preview::Card(_) => self.cards_are_visible,
+                Preview::Image(_) => self.images_are_visible,
+            },
+            State::Error(_) => true,
+        })
+    }
+}
 
 pub type Collection = HashMap<Url, State>;
 
@@ -54,7 +85,10 @@ pub enum State {
     Error(LoadError),
 }
 
-pub async fn load(url: Url, config: config::Preview) -> Result<Preview, LoadError> {
+pub async fn load(
+    url: Url,
+    config: config::Preview,
+) -> Result<Preview, LoadError> {
     if !config.enabled {
         return Err(LoadError::Disabled);
     }
@@ -80,7 +114,10 @@ pub async fn load(url: Url, config: config::Preview) -> Result<Preview, LoadErro
     }
 }
 
-async fn load_uncached(url: Url, config: &config::Preview) -> Result<Preview, LoadError> {
+async fn load_uncached(
+    url: Url,
+    config: &config::Preview,
+) -> Result<Preview, LoadError> {
     debug!("Loading preview for {url}");
 
     match fetch(url.clone(), config).await? {
@@ -93,7 +130,7 @@ async fn load_uncached(url: Url, config: &config::Preview) -> Result<Preview, Lo
 
             for captures in OPENGRAPH_REGEX
                 .captures_iter(&String::from_utf8_lossy(&bytes))
-                .filter_map(|r| r.ok())
+                .filter_map(Result::ok)
             {
                 let Some((((key_1, value_1), key_2), value_2)) = captures
                     .get(1)
@@ -116,14 +153,18 @@ async fn load_uncached(url: Url, config: &config::Preview) -> Result<Preview, Lo
                         .trim_end_matches(['\'', '"']),
                 );
 
-                let (property, content) =
-                    if (key_1 == "property" || key_1 == "name") && key_2 == "content" {
-                        (value_1, value_2)
-                    } else if key_1 == "content" && (key_2 == "property" || key_2 == "name") {
-                        (value_2, value_1)
-                    } else {
-                        continue;
-                    };
+                let (property, content) = if (key_1 == "property"
+                    || key_1 == "name")
+                    && key_2 == "content"
+                {
+                    (value_1, value_2)
+                } else if key_1 == "content"
+                    && (key_2 == "property" || key_2 == "name")
+                {
+                    (value_2, value_1)
+                } else {
+                    continue;
+                };
 
                 match property.as_str() {
                     "og:url" => canonical_url = Some(content.parse()?),
@@ -134,7 +175,8 @@ async fn load_uncached(url: Url, config: &config::Preview) -> Result<Preview, Lo
                 }
             }
 
-            let image_url = image_url.ok_or(LoadError::MissingProperty("image"))?;
+            let image_url =
+                image_url.ok_or(LoadError::MissingProperty("image"))?;
 
             let Fetched::Image(image) = fetch(image_url, config).await? else {
                 return Err(LoadError::NotImage);
@@ -142,7 +184,8 @@ async fn load_uncached(url: Url, config: &config::Preview) -> Result<Preview, Lo
 
             Ok(Preview::Card(Card {
                 url: url.clone(),
-                canonical_url: canonical_url.ok_or(LoadError::MissingProperty("url"))?,
+                canonical_url: canonical_url
+                    .ok_or(LoadError::MissingProperty("url"))?,
                 image,
                 title: title.ok_or(LoadError::MissingProperty("title"))?,
                 description,
@@ -156,7 +199,10 @@ enum Fetched {
     Other(Vec<u8>),
 }
 
-async fn fetch(url: Url, config: &config::Preview) -> Result<Fetched, LoadError> {
+async fn fetch(
+    url: Url,
+    config: &config::Preview,
+) -> Result<Fetched, LoadError> {
     // WARN: `concurrency` changes aren't picked up until app is relaunchd
     let _permit = RATE_LIMIT
         .get_or_init(|| Semaphore::new(config.request.concurrency))
@@ -226,7 +272,9 @@ async fn fetch(url: Url, config: &config::Preview) -> Result<Fetched, LoadError>
 
             while let Some(mut chunk) = resp.chunk().await? {
                 if buffer.len() + chunk.len() > max_scrape_size {
-                    buffer.extend(chunk.split_to(max_scrape_size.saturating_sub(buffer.len())));
+                    buffer.extend(chunk.split_to(
+                        max_scrape_size.saturating_sub(buffer.len()),
+                    ));
                     break;
                 } else {
                     buffer.extend(chunk);
@@ -237,7 +285,7 @@ async fn fetch(url: Url, config: &config::Preview) -> Result<Fetched, LoadError>
         }
     };
 
-    // Artifically wait before releasing this permit for rate limiting
+    // Artificially wait before releasing this permit for rate limiting
     time::sleep(Duration::from_millis(config.request.delay_ms)).await;
 
     Ok(fetched)

@@ -6,7 +6,9 @@ use irc::proto::format;
 use crate::buffer::{self, AutoFormat};
 use crate::message::formatting;
 use crate::target::Target;
-use crate::{command, isupport, message, Command, Config, Message, Server, User};
+use crate::{
+    Command, Config, Message, Server, User, command, isupport, message,
+};
 
 const INPUT_HISTORY_LENGTH: usize = 100;
 
@@ -75,21 +77,31 @@ impl Input {
         casemapping: isupport::CaseMap,
         config: &Config,
     ) -> Option<Vec<Message>> {
-        let to_target =
-            |target: &str, source| match Target::parse(target, chantypes, statusmsg, casemapping) {
-                Target::Channel(channel) => message::Target::Channel { channel, source },
-                Target::Query(query) => message::Target::Query { query, source },
-            };
+        let to_target = |target: &str, source| match Target::parse(
+            target,
+            chantypes,
+            statusmsg,
+            casemapping,
+        ) {
+            Target::Channel(channel) => {
+                message::Target::Channel { channel, source }
+            }
+            Target::Query(query) => message::Target::Query { query, source },
+        };
 
         let command = self.content.command(&self.buffer)?;
 
         match command {
-            command::Irc::Msg(targets, text) | command::Irc::Notice(targets, text) => Some(
+            command::Irc::Msg(targets, text)
+            | command::Irc::Notice(targets, text) => Some(
                 targets
                     .split(',')
                     .map(|target| {
                         Message::sent(
-                            to_target(target, message::Source::User(user.clone())),
+                            to_target(
+                                target,
+                                message::Source::User(user.clone()),
+                            ),
                             message::parse_fragments_with_highlights(
                                 text.clone(),
                                 channel_users,
@@ -111,6 +123,34 @@ impl Input {
                     None,
                     &config.highlights,
                 ),
+            )]),
+            _ => None,
+        }
+    }
+
+    pub fn targets(
+        &self,
+        chantypes: &[char],
+        statusmsg: &[char],
+        casemapping: isupport::CaseMap,
+    ) -> Option<Vec<Target>> {
+        let command = self.content.command(&self.buffer)?;
+
+        match command {
+            command::Irc::Msg(targets, _)
+            | command::Irc::Notice(targets, _) => Some(
+                targets
+                    .split(',')
+                    .map(|target| {
+                        Target::parse(target, chantypes, statusmsg, casemapping)
+                    })
+                    .collect(),
+            ),
+            command::Irc::Me(target, _) => Some(vec![Target::parse(
+                &target,
+                chantypes,
+                statusmsg,
+                casemapping,
             )]),
             _ => None,
         }
@@ -146,7 +186,7 @@ impl Content {
 }
 
 #[derive(Debug, Clone)]
-pub struct Draft {
+pub struct RawInput {
     pub buffer: buffer::Upstream,
     pub text: String,
 }
@@ -155,29 +195,40 @@ pub struct Draft {
 pub struct Storage {
     sent: HashMap<buffer::Upstream, Vec<String>>,
     draft: HashMap<buffer::Upstream, String>,
+    text: HashMap<buffer::Upstream, String>,
 }
 
 impl Storage {
     pub fn get<'a>(&'a self, buffer: &buffer::Upstream) -> Cache<'a> {
         Cache {
-            history: self.sent.get(buffer).map(Vec::as_slice).unwrap_or_default(),
+            history: self
+                .sent
+                .get(buffer)
+                .map(Vec::as_slice)
+                .unwrap_or_default(),
             draft: self
                 .draft
                 .get(buffer)
                 .map(AsRef::as_ref)
                 .unwrap_or_default(),
+            text: self.text.get(buffer).map(AsRef::as_ref).unwrap_or_default(),
         }
     }
 
     pub fn record(&mut self, buffer: &buffer::Upstream, text: String) {
         self.draft.remove(buffer);
+        self.text.remove(buffer);
         let history = self.sent.entry(buffer.clone()).or_default();
         history.insert(0, text);
         history.truncate(INPUT_HISTORY_LENGTH);
     }
 
-    pub fn store_draft(&mut self, draft: Draft) {
-        self.draft.insert(draft.buffer, draft.text);
+    pub fn store_draft(&mut self, raw_input: RawInput) {
+        self.draft.insert(raw_input.buffer, raw_input.text);
+    }
+
+    pub fn store_text(&mut self, raw_input: RawInput) {
+        self.text.insert(raw_input.buffer, raw_input.text);
     }
 }
 
@@ -186,6 +237,7 @@ impl Storage {
 pub struct Cache<'a> {
     pub history: &'a [String],
     pub draft: &'a str,
+    pub text: &'a str,
 }
 
 #[derive(Debug, thiserror::Error)]

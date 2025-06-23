@@ -3,7 +3,8 @@ use std::str::FromStr;
 use fancy_regex::Regex;
 use log::warn;
 
-use crate::{appearance::theme, config, Server};
+use crate::appearance::theme;
+use crate::{Server, config};
 
 #[derive(Debug, Clone)]
 pub enum Url {
@@ -25,7 +26,9 @@ impl std::fmt::Display for Url {
             f,
             "{}",
             match self {
-                Url::ServerConnect { url, .. } | Url::Theme { url, .. } | Url::Unknown(url) => url,
+                Url::ServerConnect { url, .. }
+                | Url::Theme { url, .. }
+                | Url::Unknown(url) => url,
             }
         )
     }
@@ -36,7 +39,10 @@ pub fn theme(colors: &theme::Colors) -> String {
 }
 
 pub fn theme_submit(colors: &theme::Colors) -> String {
-    format!("https://themes.halloy.chat/submit?e={}", colors.encode_base64())
+    format!(
+        "https://themes.halloy.chat/submit?e={}",
+        colors.encode_base64()
+    )
 }
 
 impl Url {
@@ -135,7 +141,7 @@ fn parse_server_config(url: &url::Url) -> Option<config::Server> {
         });
 
         if !url.path().is_empty() {
-            // We also consider path as channels seperated by ','.
+            // We also consider path as channels separated by ','.
             // Eg: [...]/channel1,channel2
             channels.extend(
                 url.path()[1..]

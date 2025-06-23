@@ -71,7 +71,10 @@ fn parameters(parameters: Vec<String>) -> String {
 }
 
 fn trailing(parameter: String) -> String {
-    if parameter.contains(' ') || parameter.is_empty() || parameter.starts_with(':') {
+    if parameter.contains(' ')
+        || parameter.is_empty()
+        || parameter.starts_with(':')
+    {
         format!(":{parameter}")
     } else {
         parameter
@@ -80,7 +83,7 @@ fn trailing(parameter: String) -> String {
 
 #[cfg(test)]
 mod test {
-    use crate::{command, format, Tag};
+    use crate::{Tag, command, format};
 
     #[test]
     fn commands() {

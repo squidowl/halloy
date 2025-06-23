@@ -265,7 +265,9 @@ impl Command {
 
     pub fn parameters(self) -> Vec<String> {
         match self {
-            Command::CAP(a, b, c, d) => a.into_iter().chain(Some(b)).chain(c).chain(d).collect(),
+            Command::CAP(a, b, c, d) => {
+                a.into_iter().chain(Some(b)).chain(c).chain(d).collect()
+            }
             Command::AUTHENTICATE(a) => vec![a],
             Command::PASS(a) => vec![a],
             Command::NICK(a) => vec![a],
@@ -281,11 +283,15 @@ impl Command {
             Command::NAMES(a) => vec![a],
             Command::LIST(a, b) => a.into_iter().chain(b).collect(),
             Command::INVITE(a, b) => vec![a, b],
-            Command::KICK(a, b, c) => std::iter::once(a).chain(Some(b)).chain(c).collect(),
+            Command::KICK(a, b, c) => {
+                std::iter::once(a).chain(Some(b)).chain(c).collect()
+            }
             Command::MOTD(a) => a.into_iter().collect(),
             Command::VERSION(a) => a.into_iter().collect(),
             Command::ADMIN(a) => a.into_iter().collect(),
-            Command::CONNECT(a, b, c) => std::iter::once(a).chain(b).chain(c).collect(),
+            Command::CONNECT(a, b, c) => {
+                std::iter::once(a).chain(b).chain(c).collect()
+            }
             Command::LUSERS => vec![],
             Command::TIME(a) => a.into_iter().collect(),
             Command::STATS(a, b) => std::iter::once(a).chain(b).collect(),
@@ -298,7 +304,9 @@ impl Command {
             Command::PRIVMSG(a, b) => vec![a, b],
             Command::NOTICE(a, b) => vec![a, b],
             Command::WHO(a, b, c) => std::iter::once(a)
-                .chain(b.map(|b| c.map_or_else(|| format!("%{b}"), |c| format!("%{b},{c}"))))
+                .chain(b.map(|b| {
+                    c.map_or_else(|| format!("%{b}"), |c| format!("%{b},{c}"))
+                }))
                 .collect(),
             Command::WHOIS(a, b) => a.into_iter().chain(Some(b)).collect(),
             Command::WHOWAS(a, b) => std::iter::once(a).chain(b).collect(),

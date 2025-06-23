@@ -1,6 +1,6 @@
 use data::Config;
 use iced::widget::{column, container, text};
-use iced::{alignment, Length};
+use iced::{Length, alignment};
 
 use crate::screen::dashboard::sidebar;
 use crate::widget::Element;
@@ -21,7 +21,10 @@ pub fn view<'a, Message: 'a>(
     };
 
     let content = column![]
-        .push(text(format!("{arrow} select buffer")).shaping(text::Shaping::Advanced))
+        .push(
+            text(format!("{arrow} select buffer"))
+                .shaping(text::Shaping::Advanced),
+        )
         .align_x(iced::Alignment::Center);
 
     container(content)
