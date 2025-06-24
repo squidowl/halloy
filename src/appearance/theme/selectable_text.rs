@@ -68,29 +68,30 @@ pub fn server(
     let styles = theme.styles().buffer.server_messages;
     let color = server
         .and_then(|server| match server.kind() {
-            Kind::Join => styles.join,
-            Kind::Part => styles.part,
-            Kind::Quit => styles.quit,
-            Kind::ReplyTopic => styles.reply_topic,
-            Kind::ChangeHost => styles.change_host,
-            Kind::ChangeMode => styles.change_mode,
-            Kind::ChangeNick => styles.change_nick,
-            Kind::MonitoredOnline => styles.monitored_online,
-            Kind::MonitoredOffline => styles.monitored_offline,
+            Kind::Join => styles.join.color,
+            Kind::Part => styles.part.color,
+            Kind::Quit => styles.quit.color,
+            Kind::ReplyTopic => styles.reply_topic.color,
+            Kind::ChangeHost => styles.change_host.color,
+            Kind::ChangeMode => styles.change_mode.color,
+            Kind::ChangeNick => styles.change_nick.color,
+            Kind::MonitoredOnline => styles.monitored_online.color,
+            Kind::MonitoredOffline => styles.monitored_offline.color,
             Kind::StandardReply(StandardReply::Fail) => styles
                 .standard_reply_fail
-                .or(Some(theme.styles().text.error)),
+                .color
+                .or(Some(theme.styles().text.error.color)),
             Kind::StandardReply(StandardReply::Warn) => styles
                 .standard_reply_warn
-                .or(theme.styles().text.warning)
-                .or(Some(theme.styles().text.error)),
+                .color
+                .or(theme.styles().text.warning.color)
+                .or(Some(theme.styles().text.error.color)),
             Kind::StandardReply(StandardReply::Note) => {
-                colors.standard_reply_note.or(theme.styles().text.info)
+                styles.standard_reply_note.color
             }
-            Kind::Wallops => styles.wallops,
+            Kind::Wallops => styles.wallops.color,
         })
-        .or(Some(styles.default))
-        .map(|style| style.color);
+        .or(Some(styles.default.color));
 
     Style {
         color,

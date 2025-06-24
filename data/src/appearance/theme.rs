@@ -149,31 +149,31 @@ pub struct Buffer {
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
 pub struct ServerMessages {
     #[serde(default)]
-    pub join: Option<TextStyle>,
+    pub join: OptionalTextStyle,
     #[serde(default)]
-    pub part: Option<TextStyle>,
+    pub part: OptionalTextStyle,
     #[serde(default)]
-    pub quit: Option<TextStyle>,
+    pub quit: OptionalTextStyle,
     #[serde(default)]
-    pub reply_topic: Option<TextStyle>,
+    pub reply_topic: OptionalTextStyle,
     #[serde(default)]
-    pub change_host: Option<TextStyle>,
+    pub change_host: OptionalTextStyle,
     #[serde(default)]
-    pub change_mode: Option<TextStyle>,
+    pub change_mode: OptionalTextStyle,
     #[serde(default)]
-    pub change_nick: Option<TextStyle>,
+    pub change_nick: OptionalTextStyle,
     #[serde(default)]
-    pub monitored_online: Option<TextStyle>,
+    pub monitored_online: OptionalTextStyle,
     #[serde(default)]
-    pub monitored_offline: Option<TextStyle>,
+    pub monitored_offline: OptionalTextStyle,
     #[serde(default)]
-    pub standard_reply_fail: Option<TextStyle>,
+    pub standard_reply_fail: OptionalTextStyle,
     #[serde(default)]
-    pub standard_reply_warn: Option<TextStyle>,
+    pub standard_reply_warn: OptionalTextStyle,
     #[serde(default)]
-    pub standard_reply_note: Option<TextStyle>,
+    pub standard_reply_note: OptionalTextStyle,
     #[serde(default)]
-    pub wallops: Option<TextStyle>,
+    pub wallops: OptionalTextStyle,
     #[serde(default)]
     pub default: TextStyle,
 }
@@ -206,17 +206,17 @@ impl Default for Styles {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct TextStyle {
     pub color: Color,
-    pub font_style: FontStyle,
+    pub font_style: Option<FontStyle>,
 }
 
 impl Default for TextStyle {
     fn default() -> Self {
         Self {
             color: Color::TRANSPARENT,
-            font_style: FontStyle::Normal,
+            font_style: None,
         }
     }
 }
@@ -233,14 +233,14 @@ impl<'de> Deserialize<'de> for TextStyle {
             #[serde(rename_all = "kebab-case")]
             Extended {
                 color: String,
-                font_style: FontStyle,
+                font_style: Option<FontStyle>,
             },
         }
 
         let data = Data::deserialize(deserializer)?;
 
         let (hex, font_style) = match data {
-            Data::Basic(color) => (color, FontStyle::Normal),
+            Data::Basic(color) => (color, None),
             Data::Extended { color, font_style } => (color, font_style),
         };
 
@@ -260,24 +260,88 @@ impl Serialize for TextStyle {
         #[serde(rename_all = "kebab-case")]
         struct Data {
             color: String,
-            font_style: FontStyle,
+            font_style: Option<FontStyle>,
         }
 
         let hex = color_to_hex(self.color);
 
-        if matches!(self.font_style, FontStyle::Normal) {
-            hex.serialize(serializer)
-        } else {
+        if self.font_style.is_some() {
             Data {
                 color: hex,
                 font_style: self.font_style,
             }
             .serialize(serializer)
+        } else {
+            hex.serialize(serializer)
         }
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Default)]
+#[derive(Clone, Copy, Debug, Default)]
+pub struct OptionalTextStyle {
+    pub color: Option<Color>,
+    pub font_style: Option<FontStyle>,
+}
+
+impl<'de> Deserialize<'de> for OptionalTextStyle {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum Data {
+            Basic(Option<String>),
+            #[serde(rename_all = "kebab-case")]
+            Extended {
+                color: Option<String>,
+                font_style: Option<FontStyle>,
+            },
+        }
+
+        let data = Data::deserialize(deserializer)?;
+
+        let (hex, font_style) = match data {
+            Data::Basic(color) => (color, None),
+            Data::Extended { color, font_style } => (color, font_style),
+        };
+
+        Ok(OptionalTextStyle {
+            color: hex.and_then(|hex| hex_to_color(&hex)),
+            font_style,
+        })
+    }
+}
+
+impl Serialize for OptionalTextStyle {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        #[derive(Serialize)]
+        #[serde(rename_all = "kebab-case")]
+        struct Data {
+            color: Option<String>,
+            font_style: Option<FontStyle>,
+        }
+
+        let hex = self.color.map(color_to_hex);
+
+        if self.font_style.is_some() {
+            Data {
+                color: hex,
+                font_style: self.font_style,
+            }
+            .serialize(serializer)
+        } else {
+            hex.serialize(serializer)
+        }
+    }
+}
+
+#[derive(
+    Debug, Clone, Copy, Eq, PartialEq, Serialize, Deserialize, Default,
+)]
 #[serde(rename_all = "kebab-case")]
 pub enum FontStyle {
     #[default]
@@ -298,6 +362,7 @@ impl FontStyle {
         }
     }
 }
+
 impl std::ops::Add<FontStyle> for FontStyle {
     type Output = FontStyle;
 
@@ -481,35 +546,11 @@ mod color_serde {
     }
 }
 
-pub fn set_optional_text_style_color(
-    style: &mut Option<TextStyle>,
-    color: Option<Color>,
-) {
-    if let Some(color) = color {
-        if let Some(style) = style {
-            style.color = color;
-        } else {
-            *style = Some(TextStyle {
-                color,
-                ..TextStyle::default()
-            });
-        }
-    } else if style
-        .is_some_and(|style| style.font_style == FontStyle::default())
-    {
-        *style = None;
-    } else if let Some(style) = style {
-        style.color = Color::TRANSPARENT;
-    }
-}
-
 mod binary {
     use iced_core::Color;
     use strum::{IntoEnumIterator, VariantArray};
 
-    use super::{
-        Buffer, Buttons, General, Styles, Text, set_optional_text_style_color,
-    };
+    use super::{Buffer, Buttons, General, Styles, Text};
 
     pub fn encode(styles: &Styles) -> Vec<u8> {
         let mut bytes = Vec::with_capacity(Tag::VARIANTS.len() * (1 + 4));
@@ -647,37 +688,37 @@ mod binary {
                 Tag::BufferTopic => styles.buffer.topic.color,
                 Tag::BufferUrl => styles.buffer.url.color,
                 Tag::BufferServerMessagesJoin => {
-                    styles.buffer.server_messages.join?.color
+                    styles.buffer.server_messages.join.color?
                 }
                 Tag::BufferServerMessagesPart => {
-                    styles.buffer.server_messages.part?.color
+                    styles.buffer.server_messages.part.color?
                 }
                 Tag::BufferServerMessagesQuit => {
-                    styles.buffer.server_messages.quit?.color
+                    styles.buffer.server_messages.quit.color?
                 }
                 Tag::BufferServerMessagesReplyTopic => {
-                    styles.buffer.server_messages.reply_topic?.color
+                    styles.buffer.server_messages.reply_topic.color?
                 }
                 Tag::BufferServerMessagesChangeHost => {
-                    styles.buffer.server_messages.change_host?.color
+                    styles.buffer.server_messages.change_host.color?
                 }
                 Tag::BufferServerMessagesMonitoredOnline => {
-                    styles.buffer.server_messages.monitored_online?.color
+                    styles.buffer.server_messages.monitored_online.color?
                 }
                 Tag::BufferServerMessagesMonitoredOffline => {
-                    styles.buffer.server_messages.monitored_offline?.color
+                    styles.buffer.server_messages.monitored_offline.color?
                 }
                 Tag::BufferServerMessagesStandardReplyFail => {
-                    styles.buffer.server_messages.standard_reply_fail?.color
+                    styles.buffer.server_messages.standard_reply_fail.color?
                 }
                 Tag::BufferServerMessagesStandardReplyWarn => {
-                    styles.buffer.server_messages.standard_reply_warn?.color
+                    styles.buffer.server_messages.standard_reply_warn.color?
                 }
                 Tag::BufferServerMessagesStandardReplyNote => {
-                    styles.buffer.server_messages.standard_reply_note?.color
+                    styles.buffer.server_messages.standard_reply_note.color?
                 }
                 Tag::BufferServerMessagesWallops => {
-                    styles.buffer.server_messages.wallops?.color
+                    styles.buffer.server_messages.wallops.color?
                 }
                 Tag::BufferServerMessagesChangeMode => {
                     colors.buffer.server_messages.change_mode?
@@ -778,70 +819,44 @@ mod binary {
                 Tag::BufferTopic => styles.buffer.topic.color = color,
                 Tag::BufferUrl => styles.buffer.url.color = color,
                 Tag::BufferServerMessagesJoin => {
-                    set_optional_text_style_color(
-                        &mut styles.buffer.server_messages.join,
-                        Some(color),
-                    );
+                    styles.buffer.server_messages.join.color = Some(color);
                 }
                 Tag::BufferServerMessagesPart => {
-                    set_optional_text_style_color(
-                        &mut styles.buffer.server_messages.part,
-                        Some(color),
-                    );
+                    styles.buffer.server_messages.part.color = Some(color);
                 }
                 Tag::BufferServerMessagesQuit => {
-                    set_optional_text_style_color(
-                        &mut styles.buffer.server_messages.quit,
-                        Some(color),
-                    );
+                    styles.buffer.server_messages.quit.color = Some(color);
                 }
                 Tag::BufferServerMessagesReplyTopic => {
-                    set_optional_text_style_color(
-                        &mut styles.buffer.server_messages.reply_topic,
-                        Some(color),
-                    );
+                    styles.buffer.server_messages.reply_topic.color =
+                        Some(color);
                 }
                 Tag::BufferServerMessagesChangeHost => {
-                    set_optional_text_style_color(
-                        &mut styles.buffer.server_messages.change_host,
-                        Some(color),
-                    );
+                    styles.buffer.server_messages.change_host.color =
+                        Some(color);
                 }
                 Tag::BufferServerMessagesMonitoredOnline => {
-                    set_optional_text_style_color(
-                        &mut styles.buffer.server_messages.monitored_online,
-                        Some(color),
-                    );
+                    styles.buffer.server_messages.monitored_online.color =
+                        Some(color);
                 }
                 Tag::BufferServerMessagesMonitoredOffline => {
-                    set_optional_text_style_color(
-                        &mut styles.buffer.server_messages.monitored_offline,
-                        Some(color),
-                    );
+                    styles.buffer.server_messages.monitored_offline.color =
+                        Some(color);
                 }
                 Tag::BufferServerMessagesStandardReplyFail => {
-                    set_optional_text_style_color(
-                        &mut styles.buffer.server_messages.standard_reply_fail,
-                        Some(color),
-                    );
+                    styles.buffer.server_messages.standard_reply_fail.color =
+                        Some(color);
                 }
                 Tag::BufferServerMessagesStandardReplyWarn => {
-                    set_optional_text_style_color(
-                        &mut styles.buffer.server_messages.standard_reply_warn,
-                        Some(color),
-                    );
+                    styles.buffer.server_messages.standard_reply_warn.color =
+                        Some(color);
                 }
                 Tag::BufferServerMessagesStandardReplyNote => {
-                    set_optional_text_style_color(
-                        &mut styles.buffer.server_messages.standard_reply_note,
-                        Some(color),
-                    );
+                    styles.buffer.server_messages.standard_reply_note.color =
+                        Some(color);
                 }
                 Tag::BufferServerMessagesWallops => {
-                    set_optional_text_style_color(
-                        &mut styles.buffer.server_messages.wallops,
-                        Some(color),
-                    );
+                    styles.buffer.server_messages.wallops.color = Some(color);
                 }
                 Tag::BufferServerMessagesChangeMode => {
                     set_optional_text_style_color(
