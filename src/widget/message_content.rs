@@ -13,7 +13,7 @@ pub fn message_content<'a, M: 'a>(
     theme: &'a Theme,
     on_link: impl Fn(message::Link) -> M + 'a,
     style: impl Fn(&Theme) -> selectable_text::Style + 'a,
-    font_style: impl Fn(&Theme) -> FontStyle,
+    font_style: impl Fn(&Theme) -> Option<FontStyle>,
     config: &Config,
 ) -> Element<'a, M> {
     message_content_impl::<(), M>(
@@ -34,7 +34,7 @@ pub fn with_context<'a, T: Copy + 'a, M: 'a>(
     theme: &'a Theme,
     on_link: impl Fn(message::Link) -> M + 'a,
     style: impl Fn(&Theme) -> selectable_text::Style + 'a,
-    font_style: impl Fn(&Theme) -> FontStyle,
+    font_style: impl Fn(&Theme) -> Option<FontStyle>,
     link_entries: impl Fn(&message::Link) -> Vec<T> + 'a,
     entry: impl Fn(&message::Link, T, Length) -> Element<'a, M> + 'a,
     config: &Config,
@@ -58,7 +58,7 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a>(
     theme: &'a Theme,
     on_link: impl Fn(message::Link) -> M + 'a,
     style: impl Fn(&Theme) -> selectable_text::Style + 'a,
-    font_style: impl Fn(&Theme) -> FontStyle,
+    font_style: impl Fn(&Theme) -> Option<FontStyle>,
     context_menu: Option<(
         impl Fn(&message::Link) -> Vec<T> + 'a,
         impl Fn(&message::Link, T, Length) -> Element<'a, M> + 'a,
@@ -174,12 +174,7 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a>(
                                 .underline(formatting.underline)
                                 .strikethrough(formatting.strikethrough);
 
-                            let mut formatted_style = FontStyle::new(
-                                formatting.bold,
-                                formatting.italics,
-                            );
-
-                            if formatting.monospace {
+                            let formatted_style = if formatting.monospace {
                                 span = span
                                     .padding([0, 4])
                                     .color(theme.styles().buffer.code.color)
@@ -191,12 +186,14 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a>(
                                             .width(1),
                                     );
 
-                                formatted_style = formatted_style
-                                    + theme.styles().buffer.code.font_style;
+                                theme.styles().buffer.code.font_style
                             } else {
-                                formatted_style =
-                                    formatted_style + font_style(theme);
+                                font_style(theme)
                             }
+                            .or(Some(FontStyle::new(
+                                formatting.bold,
+                                formatting.italics,
+                            )));
 
                             span.font_maybe(font::get(formatted_style))
                         }

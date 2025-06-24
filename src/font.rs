@@ -121,11 +121,11 @@ pub fn width_from_chars(len: usize, config: &config::Font) -> f32 {
     .width
 }
 
-pub fn get(font_style: FontStyle) -> Option<Font> {
-    match font_style {
+pub fn get(font_style: Option<FontStyle>) -> Option<Font> {
+    font_style.and_then(|font_style| match font_style {
         FontStyle::Normal => None,
         FontStyle::Bold => Some(MONO_BOLD.clone()),
         FontStyle::Italic => Some(MONO_ITALICS.clone()),
         FontStyle::ItalicBold => Some(MONO_BOLD_ITALICS.clone()),
-    }
+    })
 }
