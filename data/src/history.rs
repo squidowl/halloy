@@ -16,7 +16,7 @@ use crate::message::{self, MessageReferences, Source};
 use crate::target::{self, Target};
 use crate::user::Nick;
 use crate::{
-    Buffer, Message, Server, buffer, compression, environment, isupport,
+    Buffer, Message, Server, buffer, compression, config, environment, isupport,
 };
 
 pub mod manager;
@@ -320,8 +320,12 @@ impl History {
         }
     }
 
-    fn add_message(&mut self, message: Message) -> Option<ReadMarker> {
-        if message.triggers_unread() {
+    fn add_message(
+        &mut self,
+        message: Message,
+        config: &config::buffer::ServerMessages,
+    ) -> Option<ReadMarker> {
+        if !message.suppressed(config) && message.triggers_unread() {
             if let History::Partial {
                 max_triggers_unread,
                 ..
