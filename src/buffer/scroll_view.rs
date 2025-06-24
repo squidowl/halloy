@@ -17,7 +17,6 @@ use iced::{ContentFit, Length, Task, alignment, padding};
 
 use self::correct_viewport::correct_viewport;
 use self::keyed::keyed;
-use super::message_view::MessageFormat;
 use super::user_context;
 use crate::widget::{
     Element, MESSAGE_MARKER_TEXT, notify_visibility, selectable_text,
@@ -96,6 +95,33 @@ impl From<Kind<'_>> for history::Kind {
     }
 }
 
+pub trait LayoutMessage<'a> {
+    fn format(
+        &self,
+        msg: &'a data::Message,
+        max_nick_width: Option<f32>,
+        max_prefix_width: Option<f32>,
+    ) -> Option<Element<'a, Message>>;
+}
+
+impl<'a, T> LayoutMessage<'a> for T
+where
+    T: Fn(
+        &'a data::Message,
+        Option<f32>,
+        Option<f32>,
+    ) -> Option<Element<'a, Message>>,
+{
+    fn format(
+        &self,
+        msg: &'a data::Message,
+        max_nick_width: Option<f32>,
+        max_prefix_width: Option<f32>,
+    ) -> Option<Element<'a, Message>> {
+        self(msg, max_nick_width, max_prefix_width)
+    }
+}
+
 pub fn view<'a>(
     state: &State,
     kind: Kind,
@@ -103,7 +129,7 @@ pub fn view<'a>(
     previews: Option<Previews<'a>>,
     chathistory_state: Option<ChatHistoryState>,
     config: &'a Config,
-    formatter: impl MessageFormat<'a> + 'a
+    formatter: impl LayoutMessage<'a> + 'a,
 ) -> Element<'a, Message> {
     let divider_font_size =
         config.font.size.map_or(theme::TEXT_SIZE, f32::from) - 1.0;
@@ -173,11 +199,11 @@ pub fn view<'a>(
         messages
             .iter()
             .filter_map(|message| {
-                formatter.format(message, max_nick_width, max_prefix_width).map(
-                    |element| {
+                formatter
+                    .format(message, max_nick_width, max_prefix_width)
+                    .map(|element| {
                         (message, keyed(keyed::Key::message(message), element))
-                    },
-                )
+                    })
             })
             .scan(last_date, |last_date, (message, element)| {
                 let date =

@@ -6,50 +6,26 @@ use data::{Config, User, message};
 use iced::advanced::text;
 use iced::widget::{column, container, row};
 
+use super::scroll_view::LayoutMessage;
 use super::user_context;
 use crate::widget::{
     Element, message_content, message_marker, selectable_text,
 };
 use crate::{Theme, theme};
 
-pub trait MessageFormat<'a> {
-    fn format(
-        &self,
-        msg: &'a data::Message,
-        max_nick_width: Option<f32>,
-        max_prefix_width: Option<f32>,
-    ) -> Option<Element<'a, Message>>;
-}
-impl<'a, T> MessageFormat<'a> for T
-where
-    T: Fn(
-        &'a data::Message,
-        Option<f32>,
-        Option<f32>,
-    ) -> Option<Element<'a, Message>>,
-{
-    fn format(
-        &self,
-        msg: &'a data::Message,
-        max_nick_width: Option<f32>,
-        max_prefix_width: Option<f32>,
-    ) -> Option<Element<'a, Message>> {
-        self(msg, max_nick_width, max_prefix_width)
-    }
-}
-
 #[derive(Clone, Copy)]
-pub struct ChannelFormat<'a> {
+pub struct ChannelQueryLayout<'a> {
     pub config: &'a Config,
     pub users: &'a [User],
     pub casemapping: CaseMap,
     pub server: &'a Server,
+    // if we are laying out a query buffer, then this and our_user should be None
     pub channel: Option<&'a target::Channel>,
     pub our_user: Option<&'a User>,
     pub theme: &'a Theme,
 }
 
-impl<'a> ChannelFormat<'a> {
+impl<'a> ChannelQueryLayout<'a> {
     fn format_timestamp(
         &self,
         message: &'a data::Message,
@@ -229,7 +205,7 @@ impl<'a> ChannelFormat<'a> {
         )
     }
 }
-impl<'a> MessageFormat<'a> for ChannelFormat<'a> {
+impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
     fn format(
         &self,
         message: &'a data::Message,

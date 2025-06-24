@@ -9,7 +9,7 @@ use data::{Config, User, buffer, history, message};
 use iced::widget::{column, container, row};
 use iced::{Length, Task, padding};
 
-use super::message_view::ChannelFormat;
+use super::message_view::ChannelQueryLayout;
 use super::{input_view, scroll_view, user_context};
 use crate::widget::Element;
 use crate::Theme;
@@ -71,7 +71,7 @@ pub fn view<'a>(
         casemapping,
     ));
 
-    let message_formatter = ChannelFormat {
+    let message_formatter = ChannelQueryLayout {
         config,
         users,
         casemapping,
