@@ -53,9 +53,10 @@ pub fn view<'a>(
                     .format_timestamp(&message.server_time)
                     .map(|timestamp| {
                         selectable_text(timestamp)
-                            .font_maybe(font::get(
-                                theme::font_style::timestamp(theme),
-                            ))
+                            .font_maybe(
+                                theme::font_style::timestamp(theme)
+                                    .map(font::get),
+                            )
                             .style(theme::selectable_text::timestamp)
                     });
 

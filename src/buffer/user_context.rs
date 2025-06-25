@@ -284,7 +284,7 @@ fn menu_button<'a>(
     button(
         text(content)
             .style(theme::text::primary)
-            .font_maybe(font::get(theme::font_style::primary(theme))),
+            .font_maybe(theme::font_style::primary(theme).map(font::get)),
     )
     .padding(5)
     .width(length)
@@ -309,9 +309,9 @@ fn user_info<'a>(
                 Some(
                     text("Away")
                         .style(theme::text::secondary)
-                        .font_maybe(font::get(theme::font_style::secondary(
-                            theme,
-                        )))
+                        .font_maybe(
+                            theme::font_style::secondary(theme).map(font::get),
+                        )
                         .width(length),
                 )
             } else {
@@ -321,7 +321,7 @@ fn user_info<'a>(
         None => Some(
             text("Offline")
                 .style(theme::text::secondary)
-                .font_maybe(font::get(theme::font_style::secondary(theme)))
+                .font_maybe(theme::font_style::secondary(theme).map(font::get))
                 .width(length),
         ),
     };
@@ -338,7 +338,7 @@ fn user_info<'a>(
         .style(move |theme| {
             theme::text::nickname(theme, seed.clone(), away_appearance)
         })
-        .font_maybe(font::get(theme::font_style::nickname(theme)))
+        .font_maybe(theme::font_style::nickname(theme).map(font::get))
         .width(length);
 
     column![container(nickname).padding(right_justified_padding()),]

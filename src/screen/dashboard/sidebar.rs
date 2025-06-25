@@ -180,11 +180,12 @@ impl Sidebar {
                                             .shaping(text::Shaping::Advanced)
                                             .size(theme::TEXT_SIZE - 2.0)
                                             .style(theme::text::secondary)
-                                            .font_maybe(font::get(
+                                            .font_maybe(
                                                 theme::font_style::secondary(
                                                     theme,
-                                                ),
-                                            ))
+                                                )
+                                                .map(font::get),
+                                            )
                                     }))
                                     .spacing(8)
                                     .align_y(iced::Alignment::Center),
@@ -216,11 +217,11 @@ impl Sidebar {
                                     theme::text::tertiary
                                 })
                                 .font_maybe(if file_transfers.is_empty() {
-                                    font::get(theme::font_style::primary(theme))
+                                    theme::font_style::primary(theme)
+                                        .map(font::get)
                                 } else {
-                                    font::get(theme::font_style::tertiary(
-                                        theme,
-                                    ))
+                                    theme::font_style::tertiary(theme)
+                                        .map(font::get)
                                 }),
                             Some(&keyboard.file_transfers),
                             icon::file_transfer().style(
@@ -266,9 +267,10 @@ impl Sidebar {
                             true => context_button(
                                 text("New version available")
                                     .style(theme::text::tertiary)
-                                    .font_maybe(font::get(
-                                        theme::font_style::tertiary(theme),
-                                    )),
+                                    .font_maybe(
+                                        theme::font_style::tertiary(theme)
+                                            .map(font::get),
+                                    ),
                                 None,
                                 icon::megaphone().style(theme::text::tertiary),
                                 Message::OpenReleaseWebsite,
@@ -276,9 +278,10 @@ impl Sidebar {
                             false => container(
                                 text(format!("Halloy ({})", version.current))
                                     .style(theme::text::secondary)
-                                    .font_maybe(font::get(
-                                        theme::font_style::secondary(theme),
-                                    )),
+                                    .font_maybe(
+                                        theme::font_style::secondary(theme)
+                                            .map(font::get),
+                                    ),
                             )
                             .padding(5)
                             .into(),
@@ -655,7 +658,7 @@ fn upstream_buffer_button<'a>(
     } else {
         theme::text::primary
     };
-    let buffer_title_font = font::get(theme::font_style::primary(theme));
+    let buffer_title_font = theme::font_style::primary(theme).map(font::get);
 
     let row = match &buffer {
         buffer::Upstream::Server(server) => row![

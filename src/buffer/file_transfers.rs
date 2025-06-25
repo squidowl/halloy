@@ -29,7 +29,9 @@ pub fn view<'a>(
                     .style(theme::text::secondary),
                 text("No transfers found")
                     .style(theme::text::secondary)
-                    .font_maybe(font::get(theme::font_style::secondary(theme))),
+                    .font_maybe(
+                        theme::font_style::secondary(theme).map(font::get)
+                    ),
             ]
             .spacing(8)
             .align_x(iced::Alignment::Center),
@@ -141,9 +143,9 @@ mod transfer_row {
                             transfer.remote_user.nickname()
                         ))
                         .style(theme::text::secondary)
-                        .font_maybe(font::get(
-                            theme::font_style::secondary(theme),
-                        )),
+                        .font_maybe(
+                            theme::font_style::secondary(theme).map(font::get),
+                        ),
                     ),
                     file_transfer::Direction::Received => container(
                         text(format!(
@@ -151,9 +153,9 @@ mod transfer_row {
                             transfer.remote_user.nickname()
                         ))
                         .style(theme::text::secondary)
-                        .font_maybe(font::get(
-                            theme::font_style::secondary(theme),
-                        )),
+                        .font_maybe(
+                            theme::font_style::secondary(theme).map(font::get),
+                        ),
                     ),
                 }
             }
@@ -170,7 +172,9 @@ mod transfer_row {
                         transfer.remote_user.nickname(),
                     ))
                     .style(theme::text::secondary)
-                    .font_maybe(font::get(theme::font_style::secondary(theme))),
+                    .font_maybe(
+                        theme::font_style::secondary(theme).map(font::get),
+                    ),
                 )
             }
             file_transfer::Status::Ready => {
@@ -186,7 +190,9 @@ mod transfer_row {
                         transfer.remote_user.nickname()
                     ))
                     .style(theme::text::secondary)
-                    .font_maybe(font::get(theme::font_style::secondary(theme))),
+                    .font_maybe(
+                        theme::font_style::secondary(theme).map(font::get),
+                    ),
                 )
             }
             file_transfer::Status::Active {
@@ -235,7 +241,7 @@ mod transfer_row {
                             "{transferred} of {file_size} {transfer_speed_and_remaining_time}"
                         ))
                         .style(theme::text::secondary)
-                        .font_maybe(font::get(theme::font_style::secondary(theme))),
+                        .font_maybe(theme::font_style::secondary(theme).map(font::get)),
                         progress_bar
                     ]
                     .spacing(0),
@@ -261,13 +267,15 @@ mod transfer_row {
                         transfer.remote_user.nickname(),
                     ))
                     .style(theme::text::secondary)
-                    .font_maybe(font::get(theme::font_style::secondary(theme))),
+                    .font_maybe(
+                        theme::font_style::secondary(theme).map(font::get),
+                    ),
                 )
             }
             file_transfer::Status::Failed { error } => container(
                 text(format!("Failed: {error}"))
                     .style(theme::text::error)
-                    .font_maybe(font::get(theme::font_style::error(theme))),
+                    .font_maybe(theme::font_style::error(theme).map(font::get)),
             ),
         };
 
