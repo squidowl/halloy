@@ -55,18 +55,24 @@ pub fn view<'a>(
                         .format_timestamp(&message.server_time)
                         .map(|timestamp| {
                             selectable_text(timestamp)
-                                .font_maybe(font::get(
-                                    theme::font_style::timestamp(theme),
-                                ))
+                                .font_maybe(
+                                    theme::font_style::timestamp(theme)
+                                        .map(font::get),
+                                )
                                 .style(theme::selectable_text::timestamp)
                         });
 
                     let channel_text =
                         selectable_rich_text::<_, _, (), _, _>(vec![
                             span(channel.as_str())
-                                .font_maybe(font::get(
-                                    theme.styles().buffer.url.font_style,
-                                ))
+                                .font_maybe(
+                                    theme
+                                        .styles()
+                                        .buffer
+                                        .url
+                                        .font_style
+                                        .map(font::get),
+                                )
                                 .color(theme.styles().buffer.url.color)
                                 .link(message::Link::GoToMessage(
                                     server.clone(),
@@ -90,7 +96,9 @@ pub fn view<'a>(
                             .brackets
                             .format(user.display(with_access_levels)),
                     )
-                    .font_maybe(font::get(theme::font_style::nickname(theme)))
+                    .font_maybe(
+                        theme::font_style::nickname(theme).map(font::get),
+                    )
                     .style(|theme| {
                         theme::selectable_text::nickname(theme, config, user)
                     });
@@ -164,9 +172,10 @@ pub fn view<'a>(
                         .format_timestamp(&message.server_time)
                         .map(|timestamp| {
                             selectable_text(timestamp)
-                                .font_maybe(font::get(
-                                    theme::font_style::timestamp(theme),
-                                ))
+                                .font_maybe(
+                                    theme::font_style::timestamp(theme)
+                                        .map(font::get),
+                                )
                                 .style(theme::selectable_text::timestamp)
                         });
 

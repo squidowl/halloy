@@ -83,7 +83,7 @@ impl Help {
             .push(
                 text(self.error.to_string())
                     .style(theme::text::error)
-                    .font_maybe(font::get(theme::font_style::error(theme))),
+                    .font_maybe(theme::font_style::error(theme).map(font::get)),
             )
             .push(vertical_space().height(10))
             .push(

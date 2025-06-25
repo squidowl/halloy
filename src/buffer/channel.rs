@@ -91,6 +91,7 @@ pub fn view<'a>(
             previews,
             chathistory_state,
             config,
+            theme,
             message_formatter,
         )
         .map(Message::ScrollView),
@@ -374,7 +375,7 @@ mod nick_list {
             let content = selectable_text(
                 user.display(nicklist_config.show_access_levels),
             )
-            .font_maybe(font::get(theme::font_style::nickname(theme)))
+            .font_maybe(theme::font_style::nickname(theme).map(font::get))
             .style(|theme| {
                 theme::selectable_text::nicklist_nickname(theme, config, user)
             })

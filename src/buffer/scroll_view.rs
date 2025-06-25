@@ -306,9 +306,8 @@ pub fn view<'a>(
                                 .size(divider_font_size)
                                 .style(theme::text::secondary)
                                 .font_maybe(
-                                    font::get(theme::font_style::secondary(
-                                        theme
-                                    ))
+                                    theme::font_style::secondary(theme)
+                                        .map(font::get)
                                 ),
                                 container(horizontal_rule(1))
                                     .width(Length::Fill)
@@ -352,7 +351,7 @@ pub fn view<'a>(
             text("backlog")
                 .size(divider_font_size)
                 .style(theme::text::secondary)
-                .font_maybe(font::get(theme::font_style::error(theme))),
+                .font_maybe(theme::font_style::error(theme).map(font::get)),
             container(horizontal_rule(1))
                 .width(Length::Fill)
                 .padding(padding::left(6))
@@ -1130,17 +1129,19 @@ fn preview_row<'a>(
                             text(title)
                                 .shaping(text::Shaping::Advanced)
                                 .style(theme::text::primary)
-                                .font_maybe(font::get(
+                                .font_maybe(
                                     theme::font_style::primary(theme)
-                                ))
+                                        .map(font::get)
+                                )
                         ]
                         .push_maybe(description.as_ref().map(|description| {
                             text(description)
                                 .shaping(text::Shaping::Advanced)
                                 .style(theme::text::secondary)
-                                .font_maybe(font::get(
-                                    theme::font_style::secondary(theme),
-                                ))
+                                .font_maybe(
+                                    theme::font_style::secondary(theme)
+                                        .map(font::get),
+                                )
                         }))
                         .push_maybe(
                             config.preview.card.show_image.then_some(

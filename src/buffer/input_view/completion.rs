@@ -899,8 +899,9 @@ impl Command {
                     }
                 })
                 .font_maybe(
-                    font::get(theme::font_style::tertiary(theme))
-                        .filter(|_| index == active_arg),
+                    theme::font_style::tertiary(theme)
+                        .filter(|_| index == active_arg)
+                        .map(font::get),
                 );
 
             if let Some(arg_tooltip) = &arg.tooltip {
@@ -913,8 +914,9 @@ impl Command {
                         }
                     })
                     .font_maybe(
-                        font::get(theme::font_style::tertiary(theme))
-                            .filter(|_| index == active_arg),
+                        theme::font_style::tertiary(theme)
+                            .filter(|_| index == active_arg)
+                            .map(font::get),
                     )
                     .size(8);
 
@@ -933,13 +935,11 @@ impl Command {
                                     }
                                 })
                                 .font_maybe(if index == active_arg {
-                                    font::get(theme::font_style::tertiary(
-                                        theme,
-                                    ))
+                                    theme::font_style::tertiary(theme)
+                                        .map(font::get)
                                 } else {
-                                    font::get(theme::font_style::secondary(
-                                        theme,
-                                    ))
+                                    theme::font_style::secondary(theme)
+                                        .map(font::get)
                                 })
                         )
                         .style(theme::container::tooltip)
@@ -988,9 +988,10 @@ impl Command {
                         .map(|description| {
                             text(description)
                                 .style(theme::text::secondary)
-                                .font_maybe(font::get(
-                                    theme::font_style::secondary(theme),
-                                ))
+                                .font_maybe(
+                                    theme::font_style::secondary(theme)
+                                        .map(font::get),
+                                )
                         }),
                 )
                 .push(row(title.into_iter().chain(args))),

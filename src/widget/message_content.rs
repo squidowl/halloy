@@ -67,7 +67,7 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a>(
 ) -> Element<'a, M> {
     match content {
         data::message::Content::Plain(text) => selectable_text(text)
-            .font_maybe(font::get(font_style(theme)))
+            .font_maybe(font_style(theme).map(font::get))
             .style(style)
             .into(),
         data::message::Content::Fragments(fragments) => {
@@ -83,9 +83,14 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a>(
                     .map(|fragment| match fragment {
                         data::message::Fragment::Text(s) => span(s),
                         data::message::Fragment::Channel(s) => span(s.as_str())
-                            .font_maybe(font::get(
-                                theme.styles().buffer.url.font_style,
-                            ))
+                            .font_maybe(
+                                theme
+                                    .styles()
+                                    .buffer
+                                    .url
+                                    .font_style
+                                    .map(font::get),
+                            )
                             .color(theme.styles().buffer.url.color)
                             .link(message::Link::Channel(
                                 target::Channel::from_str(
@@ -113,9 +118,14 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a>(
                             };
 
                             span(text)
-                                .font_maybe(font::get(
-                                    theme.styles().buffer.nickname.font_style,
-                                ))
+                                .font_maybe(
+                                    theme
+                                        .styles()
+                                        .buffer
+                                        .nickname
+                                        .font_style
+                                        .map(font::get),
+                                )
                                 .color(color)
                                 .link(message::Link::User(user.clone()))
                         }
@@ -139,25 +149,40 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a>(
                             };
 
                             span(text)
-                                .font_maybe(font::get(
-                                    theme.styles().buffer.nickname.font_style,
-                                ))
+                                .font_maybe(
+                                    theme
+                                        .styles()
+                                        .buffer
+                                        .nickname
+                                        .font_style
+                                        .map(font::get),
+                                )
                                 .color(color)
                                 .background(theme.styles().buffer.highlight)
                                 .link(message::Link::User(user.clone()))
                         }
                         data::message::Fragment::HighlightMatch(text) => {
                             span(text.as_str())
-                                .font_maybe(font::get(
-                                    theme.styles().text.primary.font_style,
-                                ))
+                                .font_maybe(
+                                    theme
+                                        .styles()
+                                        .text
+                                        .primary
+                                        .font_style
+                                        .map(font::get),
+                                )
                                 .color(theme.styles().text.primary.color)
                                 .background(theme.styles().buffer.highlight)
                         }
                         data::message::Fragment::Url(s) => span(s.as_str())
-                            .font_maybe(font::get(
-                                theme.styles().buffer.url.font_style,
-                            ))
+                            .font_maybe(
+                                theme
+                                    .styles()
+                                    .buffer
+                                    .url
+                                    .font_style
+                                    .map(font::get),
+                            )
                             .color(theme.styles().buffer.url.color)
                             .link(message::Link::Url(s.as_str().to_string())),
                         data::message::Fragment::Formatted {
@@ -195,13 +220,13 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a>(
                                 formatting.italics,
                             )));
 
-                            span.font_maybe(font::get(formatted_style))
+                            span.font_maybe(formatted_style.map(font::get))
                         }
                     })
                     .collect::<Vec<_>>(),
             )
             .on_link(on_link)
-            .font_maybe(font::get(font_style(theme)))
+            .font_maybe(font_style(theme).map(font::get))
             .style(style);
 
             if let Some((link_entries, view)) = context_menu {

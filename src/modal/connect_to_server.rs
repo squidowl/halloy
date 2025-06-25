@@ -16,7 +16,7 @@ pub fn view<'a>(
             text("Connect to server?"),
             text(raw)
                 .style(theme::text::tertiary)
-                .font_maybe(font::get(theme::font_style::tertiary(theme))),
+                .font_maybe(theme::font_style::tertiary(theme).map(font::get)),
         ]
         .push(
             checkbox(

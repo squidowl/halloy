@@ -391,9 +391,9 @@ impl TitleBar {
         let title = container(
             text(value)
                 .style(theme::text::buffer_title_bar)
-                .font_maybe(font::get(theme::font_style::buffer_title_bar(
-                    theme,
-                )))
+                .font_maybe(
+                    theme::font_style::buffer_title_bar(theme).map(font::get),
+                )
                 .shaping(text::Shaping::Advanced),
         )
         .height(22)
