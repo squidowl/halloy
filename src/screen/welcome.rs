@@ -90,9 +90,9 @@ impl Welcome {
             .push(text("Halloy is configured through a config file."))
             .push(row![
                 text("You can find the "),
-                text("config.toml")
-                    .style(theme::text::action)
-                    .font_maybe(font::get(theme::font_style::action(theme))),
+                text("config.toml").style(theme::text::action).font_maybe(
+                    theme::font_style::action(theme).map(font::get)
+                ),
                 text(" file at the following path:"),
             ])
             .push(vertical_space().height(8))

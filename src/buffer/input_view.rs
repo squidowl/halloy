@@ -118,7 +118,7 @@ fn error<'a, 'b, Message: 'a>(
     container(
         text(error.to_string())
             .style(theme::text::error)
-            .font_maybe(font::get(theme::font_style::error(theme))),
+            .font_maybe(theme::font_style::error(theme).map(font::get)),
     )
     .padding(8)
     .style(theme::container::tooltip)

@@ -61,9 +61,10 @@ pub fn view<'a>(
                 let content = if let Some(user) = channel_user {
                     user_context::view(
                         selectable_text(user.nickname().to_string())
-                            .font_maybe(font::get(theme::font_style::nickname(
-                                theme,
-                            )))
+                            .font_maybe(
+                                theme::font_style::nickname(theme)
+                                    .map(font::get),
+                            )
                             .style(|theme| {
                                 theme::selectable_text::topic_nickname(
                                     theme, config, user,
@@ -81,9 +82,9 @@ pub fn view<'a>(
                     )
                 } else {
                     selectable_text(user.display(false))
-                        .font_maybe(font::get(theme::font_style::nickname(
-                            theme,
-                        )))
+                        .font_maybe(
+                            theme::font_style::nickname(theme).map(font::get),
+                        )
                         .style(move |theme| {
                             theme::selectable_text::topic_nickname(
                                 theme, config, &user,
@@ -95,15 +96,15 @@ pub fn view<'a>(
                 Some(
                     Element::new(row![
                         selectable_text("set by ")
-                            .font_maybe(font::get(theme::font_style::topic(
-                                theme
-                            ),))
+                            .font_maybe(
+                                theme::font_style::topic(theme).map(font::get)
+                            )
                             .style(theme::selectable_text::topic),
                         content,
                         selectable_text(format!(" at {}", time?.to_rfc2822()))
-                            .font_maybe(font::get(theme::font_style::topic(
-                                theme
-                            ),))
+                            .font_maybe(
+                                theme::font_style::topic(theme).map(font::get)
+                            )
                             .style(theme::selectable_text::topic),
                     ])
                     .map(Message::UserContext),

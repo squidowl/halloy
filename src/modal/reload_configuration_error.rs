@@ -12,7 +12,7 @@ pub fn view<'a>(error: &config::Error, theme: &Theme) -> Element<'a, Message> {
             text("Error reloading configuration file"),
             text(error.to_string())
                 .style(theme::text::error)
-                .font_maybe(font::get(theme::font_style::error(theme))),
+                .font_maybe(theme::font_style::error(theme).map(font::get)),
             button(
                 container(text("Close"))
                     .align_x(alignment::Horizontal::Center)

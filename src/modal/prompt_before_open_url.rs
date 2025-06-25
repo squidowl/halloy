@@ -1,10 +1,9 @@
-use iced::{
-    Length, alignment,
-    widget::{button, column, container, text, vertical_space},
-};
+use iced::widget::{button, column, container, text, vertical_space};
+use iced::{Length, alignment};
 
 use super::Message;
-use crate::{Theme, font, theme, widget::Element};
+use crate::widget::Element;
+use crate::{Theme, font, theme};
 
 pub fn view<'a>(payload: &'a str, theme: &'a Theme) -> Element<'a, Message> {
     container(
@@ -13,7 +12,7 @@ pub fn view<'a>(payload: &'a str, theme: &'a Theme) -> Element<'a, Message> {
                 text("This hyperlink will take you to"),
                 text(payload)
                     .style(theme::text::url)
-                    .font_maybe(font::get(theme::font_style::url(theme)))
+                    .font_maybe(theme::font_style::url(theme).map(font::get))
                     .wrapping(text::Wrapping::Glyph)
                     .width(Length::Shrink),
                 vertical_space().height(8),
