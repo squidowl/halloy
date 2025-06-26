@@ -14,15 +14,46 @@ use crate::widget::{
 use crate::{Theme, theme};
 
 #[derive(Clone, Copy)]
+pub enum TargetInfo<'a> {
+    Channel {
+        channel: &'a target::Channel,
+        our_user: Option<&'a User>,
+        users: &'a [User],
+    },
+    Query,
+}
+
+impl<'a> TargetInfo<'a> {
+    fn users(&self) -> &'a [User] {
+        match self {
+            TargetInfo::Channel { users, .. } => users,
+            TargetInfo::Query => &[],
+        }
+    }
+    fn our_user(&self) -> Option<&'a User> {
+        match self {
+            TargetInfo::Channel { our_user, .. } => *our_user,
+            TargetInfo::Query => None,
+        }
+    }
+    fn channel(&self) -> Option<&'a target::Channel> {
+        match self {
+            TargetInfo::Channel { channel, .. } => Some(channel),
+            TargetInfo::Query => None,
+        }
+    }
+    fn is_channel(&self) -> bool {
+        matches!(self, TargetInfo::Channel { .. })
+    }
+}
+
+#[derive(Clone, Copy)]
 pub struct ChannelQueryLayout<'a> {
     pub config: &'a Config,
-    pub users: &'a [User],
     pub casemapping: CaseMap,
     pub server: &'a Server,
-    // if we are laying out a query buffer, then this and our_user should be None
-    pub channel: Option<&'a target::Channel>,
-    pub our_user: Option<&'a User>,
     pub theme: &'a Theme,
+    pub target: TargetInfo<'a>,
 }
 
 impl<'a> ChannelQueryLayout<'a> {
@@ -85,8 +116,11 @@ impl<'a> ChannelQueryLayout<'a> {
     ) -> (Element<'a, Message>, Element<'a, Message>) {
         let fm = *self;
         let with_access_levels = self.config.buffer.nickname.show_access_levels;
-        let current_user: Option<&User> =
-            self.users.iter().find(|current_user| *current_user == user);
+        let current_user: Option<&User> = self
+            .target
+            .users()
+            .iter()
+            .find(|current_user| *current_user == user);
 
         let mut text = selectable_text(
             self.config
@@ -107,10 +141,10 @@ impl<'a> ChannelQueryLayout<'a> {
             text,
             self.server,
             self.casemapping,
-            self.channel,
+            self.target.channel(),
             user,
             current_user,
-            self.our_user,
+            self.target.our_user(),
             self.config,
             &self.config.buffer.nickname.click,
         )
@@ -123,9 +157,10 @@ impl<'a> ChannelQueryLayout<'a> {
             Message::Link,
             theme::selectable_text::default,
             move |link| match link {
-                message::Link::User(_) => {
-                    user_context::Entry::list(fm.channel.is_some(), fm.our_user)
-                }
+                message::Link::User(_) => user_context::Entry::list(
+                    fm.target.is_channel(),
+                    fm.target.our_user(),
+                ),
                 _ => vec![],
             },
             move |link, entry, length| match link {
@@ -133,7 +168,7 @@ impl<'a> ChannelQueryLayout<'a> {
                     .view(
                         fm.server,
                         fm.casemapping,
-                        fm.channel,
+                        fm.target.channel(),
                         user,
                         current_user,
                         length,
@@ -166,9 +201,10 @@ impl<'a> ChannelQueryLayout<'a> {
             Message::Link,
             message_style,
             move |link| match link {
-                message::Link::User(_) => {
-                    user_context::Entry::list(fm.channel.is_some(), fm.our_user)
-                }
+                message::Link::User(_) => user_context::Entry::list(
+                    fm.target.is_channel(),
+                    fm.target.our_user(),
+                ),
                 _ => vec![],
             },
             move |link, entry, length| match link {
@@ -176,9 +212,10 @@ impl<'a> ChannelQueryLayout<'a> {
                     .view(
                         fm.server,
                         fm.casemapping,
-                        fm.channel,
+                        fm.target.channel(),
                         user,
-                        fm.users
+                        fm.target
+                            .users()
                             .iter()
                             .find(|current_user| *current_user == user),
                         length,
@@ -212,7 +249,6 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
         max_nick_width: Option<f32>,
         max_prefix_width: Option<f32>,
     ) -> Option<Element<'a, Message>> {
-        //let fm = *self;
         let timestamp = self.format_timestamp(message);
         let prefixes =
             self.format_prefixes(message, max_nick_width, max_prefix_width);

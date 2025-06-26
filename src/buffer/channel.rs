@@ -9,7 +9,7 @@ use data::{Config, User, buffer, history, message};
 use iced::widget::{column, container, row};
 use iced::{Length, Task, padding};
 
-use super::message_view::ChannelQueryLayout;
+use super::message_view::{ChannelQueryLayout, TargetInfo};
 use super::{input_view, scroll_view, user_context};
 use crate::widget::Element;
 use crate::Theme;
@@ -73,12 +73,14 @@ pub fn view<'a>(
 
     let message_formatter = ChannelQueryLayout {
         config,
-        users,
         casemapping,
         server,
-        channel: Some(channel),
-        our_user,
         theme,
+        target: TargetInfo::Channel {
+            users,
+            channel,
+            our_user,
+        },
     };
 
     let messages = container(
