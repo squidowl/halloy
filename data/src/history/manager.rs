@@ -377,6 +377,34 @@ impl Manager {
             .collect::<Vec<_>>()
     }
 
+    pub fn server_kinds(&self, server: Server) -> Vec<history::Kind> {
+        self.data
+            .map
+            .iter()
+            .filter_map(|(kind, _)| {
+                if kind.server().is_some_and(|s| *s == server) {
+                    Some(kind.clone())
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
+
+    pub fn server_has_unread(&self, server: Server) -> bool {
+        self.data
+            .map
+            .iter()
+            .filter_map(|(kind, history)| {
+                if kind.server().is_some_and(|s| *s == server) {
+                    Some(history)
+                } else {
+                    None
+                }
+            })
+            .any(History::has_unread)
+    }
+
     pub fn has_unread(&self, kind: &history::Kind) -> bool {
         self.data.map.get(kind).is_some_and(History::has_unread)
     }
