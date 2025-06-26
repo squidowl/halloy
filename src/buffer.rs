@@ -27,6 +27,7 @@ pub mod query;
 mod scroll_view;
 pub mod server;
 pub mod user_context;
+mod message_view;
 
 #[derive(Clone, Debug)]
 pub enum Buffer {

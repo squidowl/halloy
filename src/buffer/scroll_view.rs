@@ -95,6 +95,33 @@ impl From<Kind<'_>> for history::Kind {
     }
 }
 
+pub trait LayoutMessage<'a> {
+    fn format(
+        &self,
+        msg: &'a data::Message,
+        max_nick_width: Option<f32>,
+        max_prefix_width: Option<f32>,
+    ) -> Option<Element<'a, Message>>;
+}
+
+impl<'a, T> LayoutMessage<'a> for T
+where
+    T: Fn(
+        &'a data::Message,
+        Option<f32>,
+        Option<f32>,
+    ) -> Option<Element<'a, Message>>,
+{
+    fn format(
+        &self,
+        msg: &'a data::Message,
+        max_nick_width: Option<f32>,
+        max_prefix_width: Option<f32>,
+    ) -> Option<Element<'a, Message>> {
+        self(msg, max_nick_width, max_prefix_width)
+    }
+}
+
 pub fn view<'a>(
     state: &State,
     kind: Kind,
@@ -102,12 +129,7 @@ pub fn view<'a>(
     previews: Option<Previews<'a>>,
     chathistory_state: Option<ChatHistoryState>,
     config: &'a Config,
-    format: impl Fn(
-        &'a data::Message,
-        Option<f32>,
-        Option<f32>,
-    ) -> Option<Element<'a, Message>>
-    + 'a,
+    formatter: impl LayoutMessage<'a> + 'a,
 ) -> Element<'a, Message> {
     let divider_font_size =
         config.font.size.map_or(theme::TEXT_SIZE, f32::from) - 1.0;
@@ -177,11 +199,11 @@ pub fn view<'a>(
         messages
             .iter()
             .filter_map(|message| {
-                format(message, max_nick_width, max_prefix_width).map(
-                    |element| {
+                formatter
+                    .format(message, max_nick_width, max_prefix_width)
+                    .map(|element| {
                         (message, keyed(keyed::Key::message(message), element))
-                    },
-                )
+                    })
             })
             .scan(last_date, |last_date, (message, element)| {
                 let date =
