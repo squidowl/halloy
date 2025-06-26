@@ -3,11 +3,12 @@
 Added:
 
 - Configuration option per toast type for showing content in toasts
+- Context menu item to server buffers to mark all messages on the server as read
 
 Thanks:
 
 - Bug reports: @darienm, @mercster
-- Feature requests: @rossburton
+- Feature requests: @rossburton, death916
 
 # 2025.6 (2025-06-14)
 
