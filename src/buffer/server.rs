@@ -46,7 +46,7 @@ pub fn view<'a>(
             None,
             None,
             config,
-            move |message, _, _| {
+            move |message: &'a data::Message, _, _| {
                 let timestamp = config
                     .buffer
                     .format_timestamp(&message.server_time)
