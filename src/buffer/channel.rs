@@ -11,8 +11,8 @@ use iced::{Length, Task, padding};
 
 use super::message_view::{ChannelQueryLayout, TargetInfo};
 use super::{input_view, scroll_view, user_context};
-use crate::widget::Element;
 use crate::Theme;
+use crate::widget::Element;
 
 mod topic;
 
@@ -75,6 +75,7 @@ pub fn view<'a>(
     let message_formatter = ChannelQueryLayout {
         config,
         casemapping,
+        prefix,
         server,
         theme,
         target: TargetInfo::Channel {
