@@ -827,7 +827,7 @@ impl ServerMessages {
             ServerMessages::StandardReplyNote => {
                 styles.standard_reply_note.color
             }
-            ServerMessages::Wallops => styles.wallops.color,
+            ServerMessages::WAllOps => styles.wallops.color,
             ServerMessages::Default => Some(styles.default.color),
         }
     }

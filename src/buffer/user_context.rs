@@ -294,11 +294,15 @@ fn menu_button(
     length: Length,
     theme: &Theme,
 ) -> Element<'static, Message> {
-    button(text(content).style(theme::text::primary))
-        .padding(5)
-        .width(length)
-        .on_press(message)
-        .into()
+    button(
+        text(content)
+            .style(theme::text::primary)
+            .font_maybe(theme::font_style::primary(theme).map(font::get)),
+    )
+    .padding(5)
+    .width(length)
+    .on_press(message)
+    .into()
 }
 
 fn right_justified_padding() -> Padding {
