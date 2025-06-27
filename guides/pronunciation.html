@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>YAML migration</title>
+        <title>Pronunciation</title>
 
 
         <!-- Custom HTML head -->
@@ -142,7 +142,7 @@
                         <a href="https://github.com/squidowl/halloy" title="Git repository" aria-label="Git repository">
                             <i id="git-repository-button" class="fa fa-github"></i>
                         </a>
-                        <a href="https://github.com/squidowl/halloy/edit/main/book/src/guides/migrating-from-yaml.md" title="Suggest an edit" aria-label="Suggest an edit">
+                        <a href="https://github.com/squidowl/halloy/edit/main/book/src/guides/pronunciation.md" title="Suggest an edit" aria-label="Suggest an edit">
                             <i id="git-edit-button" class="fa fa-edit"></i>
                         </a>
 
@@ -171,45 +171,18 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1 id="migrating-from-yaml"><a class="header" href="#migrating-from-yaml">Migrating from YAML</a></h1>
-<p>Halloy switched configuration file format from YAML to TOML (<a href="https://github.com/squidowl/halloy/pull/278">PR-278</a>)
-This page will help you migrate your old <code>config.yaml</code> to a new <code>config.toml</code> file.</p>
-<p>The basic structure of a TOML file consists of key-value pairs, where keys are strings. There are no nested indentations like YAML, which makes it easier to read and write. Consider the following old YAML config with of two servers in Halloy:</p>
-<pre><code class="language-yaml">servers:
-  libera:
-    nickname: foobar
-    server: irc.libera.chat
-  quakenet:
-    nickname: barbaz
-    server: underworld2.no.quakenet.org
-    port: 6667
-    use_tls: true
-</code></pre>
-<p>This now looks the following in TOML</p>
-<pre><code class="language-toml">[servers.libera]
-nickname = "foobar"
-server = "irc.libera.chat"
-
-[servers.quakenet]
-nickname = "barbaz"
-server = "underworld2.no.quakenet.org"
-port = 6667
-use_tls = true
-</code></pre>
-<blockquote>
-<p>💡 You can convert YAML to TOML using a converter tool like <a href="https://transform.tools/yaml-to-toml">this one</a>. Just note that a few keys and values have be renamed during the conversion process.</p>
-</blockquote>
-<p>To migrate, and ensure everything is working, make sure to read through the <a href="../configuration">Configuration</a> section of this book. Here, every configuration option is documented using TOML.</p>
+                        <h1 id="pronunciation"><a class="header" href="#pronunciation">Pronunciation</a></h1>
+<p>Halloy is an English transliteration of the Danish greeting halløj.  In other words, its pronunciation is close to the way most English speakers would guess based on its spelling. An approximate machine reading can be heard <a href="https://ipa-reader.com/?text=hal%C9%94j&amp;voice=Chantal">via IPA Reader</a>.</p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="../guides/monitor-users.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="../guides/migrating-from-yaml.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
 
-                            <a rel="next prefetch" href="../guides/pronunciation.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="../configuration/index.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
 
@@ -219,11 +192,11 @@ use_tls = true
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="../guides/monitor-users.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="../guides/migrating-from-yaml.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
 
-                    <a rel="next prefetch" href="../guides/pronunciation.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="../configuration/index.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
             </nav>
