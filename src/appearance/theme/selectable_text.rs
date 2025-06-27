@@ -1,7 +1,6 @@
 use data::config::buffer::away;
 use data::message::source::server::{Kind, StandardReply};
-use data::message::{self};
-use data::{Config, User};
+use data::{Config, User, message};
 
 use super::{Theme, text};
 use crate::widget::selectable_rich_text;
@@ -22,7 +21,7 @@ impl Catalog for Theme {
 pub fn default(theme: &Theme) -> Style {
     Style {
         color: None,
-        selection_color: theme.colors().buffer.selection,
+        selection_color: theme.styles().buffer.selection,
     }
 }
 
@@ -31,7 +30,7 @@ pub fn action(theme: &Theme) -> Style {
 
     Style {
         color,
-        selection_color: theme.colors().buffer.selection,
+        selection_color: theme.styles().buffer.selection,
     }
 }
 
@@ -40,7 +39,7 @@ pub fn tertiary(theme: &Theme) -> Style {
 
     Style {
         color,
-        selection_color: theme.colors().buffer.selection,
+        selection_color: theme.styles().buffer.selection,
     }
 }
 
@@ -49,7 +48,7 @@ pub fn timestamp(theme: &Theme) -> Style {
 
     Style {
         color,
-        selection_color: theme.colors().buffer.selection,
+        selection_color: theme.styles().buffer.selection,
     }
 }
 
@@ -58,7 +57,7 @@ pub fn topic(theme: &Theme) -> Style {
 
     Style {
         color,
-        selection_color: theme.colors().buffer.selection,
+        selection_color: theme.styles().buffer.selection,
     }
 }
 
@@ -66,32 +65,34 @@ pub fn server(
     theme: &Theme,
     server: Option<&message::source::Server>,
 ) -> Style {
-    let colors = theme.colors().buffer.server_messages;
+    let styles = theme.styles().buffer.server_messages;
     let color = server
         .and_then(|server| match server.kind() {
-            Kind::Join => colors.join,
-            Kind::Part => colors.part,
-            Kind::Quit => colors.quit,
-            Kind::ReplyTopic => colors.reply_topic,
-            Kind::ChangeHost => colors.change_host,
-            Kind::MonitoredOnline => colors.monitored_online,
-            Kind::MonitoredOffline => colors.monitored_offline,
-            Kind::StandardReply(StandardReply::Fail) => colors
+            Kind::Join => styles.join.color,
+            Kind::Part => styles.part.color,
+            Kind::Quit => styles.quit.color,
+            Kind::ReplyTopic => styles.reply_topic.color,
+            Kind::ChangeHost => styles.change_host.color,
+            Kind::MonitoredOnline => styles.monitored_online.color,
+            Kind::MonitoredOffline => styles.monitored_offline.color,
+            Kind::StandardReply(StandardReply::Fail) => styles
                 .standard_reply_fail
-                .or(Some(theme.colors().text.error)),
-            Kind::StandardReply(StandardReply::Warn) => colors
+                .color
+                .or(Some(theme.styles().text.error.color)),
+            Kind::StandardReply(StandardReply::Warn) => styles
                 .standard_reply_warn
-                .or(Some(theme.colors().text.error)),
+                .color
+                .or(Some(theme.styles().text.error.color)),
             Kind::StandardReply(StandardReply::Note) => {
-                colors.standard_reply_note
+                styles.standard_reply_note.color
             }
-            Kind::Wallops => colors.wallops,
+            Kind::Wallops => styles.wallops.color,
         })
-        .or(Some(colors.default));
+        .or(Some(styles.default.color));
 
     Style {
         color,
-        selection_color: theme.colors().buffer.selection,
+        selection_color: theme.styles().buffer.selection,
     }
 }
 
@@ -137,7 +138,7 @@ fn nickname_style(
 
     Style {
         color,
-        selection_color: theme.colors().buffer.selection,
+        selection_color: theme.styles().buffer.selection,
     }
 }
 
@@ -149,7 +150,7 @@ pub fn status(theme: &Theme, status: message::source::Status) -> Style {
 
     Style {
         color,
-        selection_color: theme.colors().buffer.selection,
+        selection_color: theme.styles().buffer.selection,
     }
 }
 

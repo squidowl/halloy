@@ -38,6 +38,7 @@ pub fn view<'a>(
             None,
             None,
             config,
+            theme,
             move |message: &'a data::Message, _, _| match message.target.source() {
                 message::Source::Internal(message::source::Internal::Logs) => {
                     Some(
@@ -47,6 +48,7 @@ pub fn view<'a>(
                             theme,
                             scroll_view::Message::Link,
                             theme::selectable_text::default,
+                            theme::font_style::default,
                             config,
                         ))
                         .into(),

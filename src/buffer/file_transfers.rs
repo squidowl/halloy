@@ -7,7 +7,7 @@ use iced::widget::{
 use iced::{Length, Task};
 
 use crate::widget::{Element, Text};
-use crate::{icon, theme};
+use crate::{Theme, font, icon, theme};
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -19,6 +19,7 @@ pub enum Message {
 pub fn view<'a>(
     _state: &FileTransfers,
     file_transfers: &'a file_transfer::Manager,
+    theme: &'a Theme,
 ) -> Element<'a, Message> {
     if file_transfers.is_empty() {
         return center(container(
@@ -26,7 +27,11 @@ pub fn view<'a>(
                 icon::file_transfer()
                     .size(theme::TEXT_SIZE + 3.0)
                     .style(theme::text::secondary),
-                text("No transfers found").style(theme::text::secondary)
+                text("No transfers found")
+                    .style(theme::text::secondary)
+                    .font_maybe(
+                        theme::font_style::secondary(theme).map(font::get)
+                    ),
             ]
             .spacing(8)
             .align_x(iced::Alignment::Center),
@@ -36,7 +41,7 @@ pub fn view<'a>(
 
     let column =
         column(file_transfers.list().enumerate().map(|(idx, transfer)| {
-            container(transfer_row::view(transfer, idx)).into()
+            container(transfer_row::view(transfer, idx, theme)).into()
         }))
         .spacing(1)
         .padding([0, 2]);
@@ -121,11 +126,12 @@ mod transfer_row {
     use super::Message;
     use crate::buffer::file_transfers::row_button;
     use crate::widget::Element;
-    use crate::{icon, theme};
+    use crate::{Theme, font, icon, theme};
 
     pub fn view<'a>(
         transfer: &FileTransfer,
         idx: usize,
+        theme: &'a Theme,
     ) -> Element<'a, Message> {
         let status = match &transfer.status {
             file_transfer::Status::PendingApproval
@@ -136,14 +142,20 @@ mod transfer_row {
                             "Transfer to {}. Waiting for them to accept.",
                             transfer.remote_user
                         ))
-                        .style(theme::text::secondary),
+                        .style(theme::text::secondary)
+                        .font_maybe(
+                            theme::font_style::secondary(theme).map(font::get),
+                        ),
                     ),
                     file_transfer::Direction::Received => container(
                         text(format!(
                             "Transfer from {}. Accept to begin.",
                             transfer.remote_user
                         ))
-                        .style(theme::text::secondary),
+                        .style(theme::text::secondary)
+                        .font_maybe(
+                            theme::font_style::secondary(theme).map(font::get),
+                        ),
                     ),
                 }
             }
@@ -158,7 +170,10 @@ mod transfer_row {
                         "Transfer {} {}. Waiting for open port.",
                         direction, transfer.remote_user,
                     ))
-                    .style(theme::text::secondary),
+                    .style(theme::text::secondary)
+                    .font_maybe(
+                        theme::font_style::secondary(theme).map(font::get),
+                    ),
                 )
             }
             file_transfer::Status::Ready => {
@@ -172,7 +187,10 @@ mod transfer_row {
                         "Transfer {} {}. Waiting for remote user to connect.",
                         direction, transfer.remote_user
                     ))
-                    .style(theme::text::secondary),
+                    .style(theme::text::secondary)
+                    .font_maybe(
+                        theme::font_style::secondary(theme).map(font::get),
+                    ),
                 )
             }
             file_transfer::Status::Active {
@@ -220,7 +238,8 @@ mod transfer_row {
                         text(format!(
                             "{transferred} of {file_size} {transfer_speed_and_remaining_time}"
                         ))
-                        .style(theme::text::secondary),
+                        .style(theme::text::secondary)
+                        .font_maybe(theme::font_style::secondary(theme).map(font::get)),
                         progress_bar
                     ]
                     .spacing(0),
@@ -244,11 +263,16 @@ mod transfer_row {
                         "Completed {} {} in {elapsed}. sha256: {sha256}",
                         direction, transfer.remote_user,
                     ))
-                    .style(theme::text::secondary),
+                    .style(theme::text::secondary)
+                    .font_maybe(
+                        theme::font_style::secondary(theme).map(font::get),
+                    ),
                 )
             }
             file_transfer::Status::Failed { error } => container(
-                text(format!("Failed: {error}")).style(theme::text::error),
+                text(format!("Failed: {error}"))
+                    .style(theme::text::error)
+                    .font_maybe(theme::font_style::error(theme).map(font::get)),
             ),
         };
 

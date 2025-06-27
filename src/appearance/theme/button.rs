@@ -69,8 +69,8 @@ pub fn sidebar_buffer(
     is_focused: bool,
     is_open: bool,
 ) -> Style {
-    let foreground = theme.colors().text.primary;
-    let button_colors = theme.colors().buttons.primary;
+    let foreground = theme.styles().text.primary.color;
+    let button_colors = theme.styles().buttons.primary;
 
     let background = match (is_focused, is_open) {
         (true, true) => button_colors.background_selected,
@@ -88,8 +88,8 @@ pub fn sidebar_buffer(
 }
 
 pub fn primary(theme: &Theme, status: Status, selected: bool) -> Style {
-    let foreground = theme.colors().text.primary;
-    let button_colors = theme.colors().buttons.primary;
+    let foreground = theme.styles().text.primary.color;
+    let button_colors = theme.styles().buttons.primary;
 
     let background = if selected {
         button_colors.background_selected
@@ -107,8 +107,8 @@ pub fn primary(theme: &Theme, status: Status, selected: bool) -> Style {
 }
 
 pub fn secondary(theme: &Theme, status: Status, selected: bool) -> Style {
-    let foreground = theme.colors().text.primary;
-    let button_colors = theme.colors().buttons.secondary;
+    let foreground = theme.styles().text.primary.color;
+    let button_colors = theme.styles().buttons.secondary;
 
     let background = if selected {
         button_colors.background_selected
