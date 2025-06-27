@@ -2,7 +2,7 @@ use std::fmt::Write;
 
 use itertools::Itertools;
 
-use crate::{Command, Message, Tag};
+use crate::{Command, Message, Tags};
 
 /// Most IRC servers limit messages to 512 bytes in length, including the trailing CR-LF characters.
 pub const BYTE_LIMIT: usize = 512;
@@ -30,29 +30,28 @@ pub fn message(message: Message) -> String {
     output
 }
 
-fn tags(tags: Vec<Tag>) -> String {
+fn tags(tags: Tags) -> String {
     tags.into_iter().map(tag).join(";")
 }
 
-fn tag(tag: Tag) -> String {
-    match tag.value {
-        Some(value) => {
-            let mappings = [
-                ('\\', r"\\"),
-                (';', r"\:"),
-                (' ', r"\s"),
-                ('\r', r"\r"),
-                ('\n', r"\n"),
-            ];
-
-            let escaped = mappings
-                .into_iter()
-                .fold(value, |value, (from, to)| value.replace(from, to));
-
-            format!("{}={escaped}", tag.key)
-        }
-        None => tag.key,
+fn tag((key, value): (String, String)) -> String {
+    if value.is_empty() {
+        return key;
     }
+
+    let mappings = [
+        ('\\', r"\\"),
+        (';', r"\:"),
+        (' ', r"\s"),
+        ('\r', r"\r"),
+        ('\n', r"\n"),
+    ];
+
+    let escaped = mappings
+        .into_iter()
+        .fold(value, |value, (from, to)| value.replace(from, to));
+
+    format!("{key}={escaped}")
 }
 
 fn parameters(parameters: Vec<String>) -> String {
@@ -83,7 +82,7 @@ fn trailing(parameter: String) -> String {
 
 #[cfg(test)]
 mod test {
-    use crate::{Tag, command, format};
+    use crate::{command, format};
 
     #[test]
     fn commands() {
@@ -120,21 +119,12 @@ mod test {
 
     #[test]
     fn tags() {
-        let test = vec![
-            Tag {
-                key: "tag".into(),
-                value: Some("as\\; \r\n".into()),
-            },
-            Tag {
-                key: "id".into(),
-                value: Some("234AB".into()),
-            },
-            Tag {
-                key: "test".into(),
-                value: None,
-            },
+        let test = tags![
+            "tag" => "as\\; \r\n",
+            "id" => "234AB",
+            "test" => "",
         ];
-        let expected = r"tag=as\\\:\s\r\n;id=234AB;test";
+        let expected = r"id=234AB;tag=as\\\:\s\r\n;test";
 
         let tags = super::tags(test);
         assert_eq!(tags, expected);
