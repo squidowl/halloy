@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+use data::appearance::theme::FontStyle;
 use iced::advanced::text;
 
 pub use self::anchored_overlay::anchored_overlay;
@@ -16,7 +17,7 @@ pub use self::selectable_rich_text::selectable_rich_text;
 pub use self::selectable_text::selectable_text;
 pub use self::shortcut::shortcut;
 pub use self::tooltip::tooltip;
-use crate::Theme;
+use crate::{Theme, font};
 
 pub mod anchored_overlay;
 pub mod collection;
@@ -53,7 +54,9 @@ pub type Button<'a, Message> = iced::widget::Button<'a, Message, Theme>;
 
 pub fn message_marker<'a, M: 'a>(
     width: Option<f32>,
+    theme: &'a Theme,
     style: impl Fn(&Theme) -> selectable_text::Style + 'a,
+    font_style: impl Fn(&Theme) -> Option<FontStyle>,
 ) -> Element<'a, M> {
     let marker = selectable_text(MESSAGE_MARKER_TEXT);
 
@@ -63,6 +66,7 @@ pub fn message_marker<'a, M: 'a>(
         marker
     }
     .style(style)
+    .font_maybe(font_style(theme).map(font::get))
     .into()
 }
 
