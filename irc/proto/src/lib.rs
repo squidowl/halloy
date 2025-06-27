@@ -27,6 +27,13 @@ pub struct Tag {
     pub value: Option<String>,
 }
 
+
+impl Tag {
+    // it should not be possible to distinguish between an empty string and a missing value
+    pub fn val(&self) -> &str {
+        self.value.as_deref().unwrap_or_default()
+    }
+}
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Source {
     Server(String),

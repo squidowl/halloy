@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 use data::dashboard::BufferAction;
+use data::message::MsgId;
 use data::preview::{self, Previews};
 use data::target::{self, Target};
 use data::{Config, Server, buffer, history, message};
@@ -9,8 +10,8 @@ use iced::{Length, Task};
 
 use super::message_view::{ChannelQueryLayout, TargetInfo};
 use super::{input_view, scroll_view, user_context};
-use crate::widget::Element;
 use crate::Theme;
+use crate::widget::Element;
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -28,6 +29,11 @@ pub enum Event {
     MarkAsRead(history::Kind),
     OpenUrl(String),
     ImagePreview(PathBuf, url::Url),
+    Reacted {
+        msgid: MsgId,
+        text: String,
+        unreacted: bool,
+    },
 }
 
 pub fn view<'a>(
@@ -176,6 +182,15 @@ impl Query {
                     scroll_view::Event::ImagePreview(path, url) => {
                         Some(Event::ImagePreview(path, url))
                     }
+                    scroll_view::Event::Reacted {
+                        msgid,
+                        text,
+                        unreacted,
+                    } => Some(Event::Reacted {
+                        msgid,
+                        text,
+                        unreacted,
+                    }),
                 });
 
                 (command.map(Message::ScrollView), event)

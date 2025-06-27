@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 pub use data::buffer::{Autocomplete, Internal, Settings, Upstream};
 use data::dashboard::BufferAction;
+use data::message::MsgId;
 use data::target::{self, Target};
 use data::user::Nick;
 use data::{Config, buffer, file_transfer, history, message, preview};
@@ -23,11 +24,11 @@ pub mod file_transfers;
 pub mod highlights;
 mod input_view;
 pub mod logs;
+mod message_view;
 pub mod query;
 mod scroll_view;
 pub mod server;
 pub mod user_context;
-mod message_view;
 
 #[derive(Clone, Debug)]
 pub enum Buffer {
@@ -61,6 +62,11 @@ pub enum Event {
     MarkAsRead(history::Kind),
     OpenUrl(String),
     ImagePreview(PathBuf, url::Url),
+    Reacted {
+        msgid: MsgId,
+        text: String,
+        unreacted: bool,
+    },
 }
 
 impl Buffer {
@@ -163,6 +169,9 @@ impl Buffer {
                     channel::Event::ImagePreview(path, url) => {
                         Event::ImagePreview(path, url)
                     }
+                    channel::Event::Reacted { msgid, text, unreacted } => {
+                        Event::Reacted { msgid, text, unreacted }
+                    }
                 });
 
                 (command.map(Message::Channel), event)
@@ -212,6 +221,15 @@ impl Buffer {
                     query::Event::ImagePreview(path, url) => {
                         Event::ImagePreview(path, url)
                     }
+                    query::Event::Reacted {
+                        msgid,
+                        text,
+                        unreacted,
+                    } => Event::Reacted {
+                        msgid,
+                        text,
+                        unreacted,
+                    },
                 });
 
                 (command.map(Message::Query), event)

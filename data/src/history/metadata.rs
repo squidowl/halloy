@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fmt;
 use std::path::PathBuf;
 use std::str::FromStr;
@@ -9,13 +10,15 @@ use tokio::fs;
 
 use crate::Message;
 use crate::history::{Error, Kind, dir_path};
-use crate::message::{MessageReferences, source};
+use crate::message::{source, MessageReferences, MsgId, Reaction};
 
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct Metadata {
     pub read_marker: Option<ReadMarker>,
     pub last_triggers_unread: Option<DateTime<Utc>>,
     pub chathistory_references: Option<MessageReferences>,
+    #[serde(default)]
+    pub reactions: HashMap<MsgId, Vec<Reaction>>,
 }
 
 #[derive(
@@ -104,11 +107,13 @@ pub async fn save(
     kind: &Kind,
     messages: &[Message],
     read_marker: Option<ReadMarker>,
+    reactions: HashMap<MsgId, Vec<Reaction>>,
 ) -> Result<(), Error> {
     let bytes = serde_json::to_vec(&Metadata {
         read_marker,
         last_triggers_unread: latest_triggers_unread(messages),
         chathistory_references: latest_can_reference(messages),
+        reactions,
     })?;
 
     let path = path(kind).await?;
@@ -122,19 +127,16 @@ pub async fn update(
     kind: &Kind,
     read_marker: &ReadMarker,
 ) -> Result<(), Error> {
-    let metadata = load(kind.clone()).await?;
+    let mut metadata = load(kind.clone()).await?;
 
     if metadata.read_marker.is_some_and(|metadata_read_marker| {
         metadata_read_marker >= *read_marker
     }) {
         return Ok(());
     }
+    metadata.read_marker = Some(*read_marker);
 
-    let bytes = serde_json::to_vec(&Metadata {
-        read_marker: Some(*read_marker),
-        last_triggers_unread: metadata.last_triggers_unread,
-        chathistory_references: metadata.chathistory_references,
-    })?;
+    let bytes = serde_json::to_vec(&metadata)?;
 
     let path = path(kind).await?;
 
