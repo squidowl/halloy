@@ -26,6 +26,7 @@ use chrono::Utc;
 use data::config::{self, Config};
 use data::history::manager::Broadcast;
 use data::target::{self, Target};
+use data::user::ChannelUsers;
 use data::version::Version;
 use data::{
     Notification, Server, Url, User, client, environment, history, server,
@@ -648,8 +649,8 @@ impl Halloy {
                                             .cloned()
                                     };
 
-                                let channel_users = |channel: &target::Channel| -> &[User] {
-                                    self.clients.get_channel_users(&server, channel)
+                                let channel_users = |channel: &target::Channel| -> &ChannelUsers {
+                                    self.clients.get_channel_users(&server, channel).unwrap_or_default()
                                 };
 
                                 let chantypes = self.clients.get_chantypes(&server);
@@ -992,10 +993,6 @@ impl Halloy {
                         })
                         .collect::<Vec<_>>();
 
-                    // Must be called after receiving message batches to ensure
-                    // user & channel lists are in sync
-                    self.clients.sync(&server);
-
                     Task::batch(commands)
                 }
                 stream::Update::Quit(server, reason) => {
@@ -1006,7 +1003,7 @@ impl Halloy {
                             if let Some(client) = self.clients.remove(&server) {
                                 let user = client.nickname().to_owned().into();
 
-                                let channels = client.channels().to_vec();
+                                let channels = client.channels().cloned().collect();
 
                                 dashboard
                                     .broadcast(
