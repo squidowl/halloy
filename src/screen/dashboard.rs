@@ -280,6 +280,7 @@ impl Dashboard {
                                                             .record_message(
                                                                 input.server(),
                                                                 message,
+                                                                config
                                                         ) {
                                                             tasks.push(Task::perform(
                                                                 task,
@@ -1333,7 +1334,7 @@ impl Dashboard {
                             ) {
                                 return (
                                     self.handle_file_transfer_event(
-                                        &server, &query, event,
+                                        config, &server, &query, event,
                                     ),
                                     None,
                                 );
@@ -1934,16 +1935,22 @@ impl Dashboard {
         &mut self,
         server: &Server,
         message: data::Message,
+        config: &Config,
     ) -> Task<Message> {
-        if let Some(task) = self.history.record_message(server, message) {
+        if let Some(task) = self.history.record_message(server, message, config)
+        {
             Task::perform(task, Message::History)
         } else {
             Task::none()
         }
     }
 
-    pub fn record_log(&mut self, record: data::log::Record) -> Task<Message> {
-        if let Some(task) = self.history.record_log(record) {
+    pub fn record_log(
+        &mut self,
+        record: data::log::Record,
+        config: &Config,
+    ) -> Task<Message> {
+        if let Some(task) = self.history.record_log(record, config) {
             Task::perform(task, Message::History)
         } else {
             Task::none()
@@ -1953,8 +1960,9 @@ impl Dashboard {
     pub fn record_highlight(
         &mut self,
         message: data::Message,
+        config: &Config,
     ) -> Task<Message> {
-        if let Some(task) = self.history.record_highlight(message) {
+        if let Some(task) = self.history.record_highlight(message, config) {
             Task::perform(task, Message::History)
         } else {
             Task::none()
@@ -2518,11 +2526,12 @@ impl Dashboard {
         )
         .ok()?;
 
-        Some(self.handle_file_transfer_event(server, &query, event))
+        Some(self.handle_file_transfer_event(config, server, &query, event))
     }
 
     pub fn handle_file_transfer_event(
         &mut self,
+        config: &Config,
         server: &Server,
         query: &target::Query,
         event: file_transfer::manager::Event,
@@ -2540,6 +2549,7 @@ impl Dashboard {
                                 query,
                                 &transfer.filename,
                             ),
+                            config,
                         ));
                     }
                     file_transfer::Direction::Sent => {
@@ -2550,6 +2560,7 @@ impl Dashboard {
                                 query,
                                 &transfer.filename,
                             ),
+                            config,
                         ));
                     }
                 }
