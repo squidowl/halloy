@@ -1575,7 +1575,7 @@ mod correct_viewport {
 
                     // Flip offset
                     if matches!(self.anchor, Anchor::End) {
-                        offset.y = (offset.y * -1.0)
+                        offset.y = (-offset.y)
                             .clamp(0.0, content_bounds.height - bounds.height);
                     } else {
                         let min_offset = 0.0 - translation.y;
