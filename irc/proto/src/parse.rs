@@ -1,14 +1,16 @@
 use nom::branch::alt;
 use nom::bytes::complete::tag;
 use nom::character::complete::{alpha1, char, crlf, none_of, one_of, satisfy};
-use nom::combinator::{cut, map, opt, peek, recognize, value, verify};
+use nom::combinator::{
+    complete, cut, map, opt, peek, recognize, value, verify,
+};
 use nom::multi::{
     many_m_n, many0, many0_count, many1, many1_count, separated_list1,
 };
 use nom::sequence::{preceded, terminated, tuple};
 use nom::{Finish, IResult};
 
-use crate::{Command, Message, Source, Tag, User};
+use crate::{Command, Message, Source, Tags, User};
 
 pub fn message_bytes(bytes: Vec<u8>) -> Result<Message, Error> {
     let input = String::from_utf8_lossy(&bytes);
@@ -18,7 +20,12 @@ pub fn message_bytes(bytes: Vec<u8>) -> Result<Message, Error> {
 /// Parses a single IRC message terminated by '\r\n`
 pub fn message(input: &str) -> Result<Message, Error> {
     let mut message = cut(terminated(
-        tuple((opt(tags), opt(source), command)),
+        // '@' <tags> <SPACE>
+        tuple((
+            opt(preceded(char('@'), terminated(tags, space))),
+            opt(source),
+            command,
+        )),
         // Discard addtl. \r if it exists, allow whitespace before
         preceded(many0(char(' ')), alt((preceded(char('\r'), crlf), crlf))),
     ));
@@ -26,7 +33,7 @@ pub fn message(input: &str) -> Result<Message, Error> {
     message(input)
         .finish()
         .map(|(_, (tags, source, command))| Message {
-            tags: tags.unwrap_or_default(),
+            tags: tags.unwrap_or_default().into_iter().collect(),
             source,
             command,
         })
@@ -36,7 +43,18 @@ pub fn message(input: &str) -> Result<Message, Error> {
         })
 }
 
-fn tags(input: &str) -> IResult<&str, Vec<Tag>> {
+/// Parses a list of tag-encoded values into a list of tags
+pub fn tagstr(input: &str) -> Result<Tags, Error> {
+    complete(tags)(input)
+        .finish()
+        .map(|(_, tags)| tags.into_iter().collect())
+        .map_err(|e| Error::Parse {
+            input: input.to_string(),
+            nom: e.to_string(),
+        })
+}
+
+fn tags(input: &str) -> IResult<&str, Vec<(String, String)>> {
     let escaped_char = alt((
         value(';', tag(r"\:")),
         value(' ', tag(r"\s")),
@@ -66,15 +84,10 @@ fn tags(input: &str) -> IResult<&str, Vec<Tag>> {
     // <key> ['=' <escaped value>]
     let tag = map(
         tuple((key, opt(preceded(char('='), escaped_value)))),
-        |(key, value): (&str, _)| Tag {
-            key: key.to_string(),
-            value,
-        },
+        |(key, value): (&str, _)| (key.to_string(), value.unwrap_or_default()),
     );
     // <tag> [';' <tag>]*
-    let tags = separated_list1(char(';'), tag);
-    // '@' <tags> <SPACE>
-    preceded(char('@'), terminated(tags, space))(input)
+    separated_list1(char(';'), tag)(input)
 }
 
 fn source(input: &str) -> IResult<&str, Source> {
@@ -185,7 +198,9 @@ mod test {
     use nom::combinator::all_consuming;
 
     use crate::command::Numeric::*;
-    use crate::{Command, Message, Source, Tag, User};
+    use crate::{Command, Message, Source, User};
+
+    use crate::tags;
 
     #[test]
     fn user() {
@@ -261,7 +276,7 @@ mod test {
             (
                 Vec::from(b":irc.example.com CAP LS * :multi-prefix extended-join sasl\r\n"),
                 Message {
-                    tags: vec![],
+                    tags: tags![],
                     source: Some(Source::Server("irc.example.com".to_string())),
                     command: Command::CAP(
                         Some("LS".to_string()),
@@ -274,10 +289,7 @@ mod test {
             (
                 Vec::from(b"@id=234AB :dan!d@localhost PRIVMSG #chan :Hey what's up! \r\n"),
                 Message {
-                    tags: vec![Tag {
-                        key: "id".to_string(),
-                        value: Some("234AB".to_string()),
-                    }],
+                    tags: tags!["id" => "234AB"],
                     source: Some(Source::User(User {
                         nickname: "dan".into(),
                         username: Some("d".into()),
@@ -292,7 +304,7 @@ mod test {
             (
                 Vec::from(b"CAP REQ :sasl\r\n"),
                 Message {
-                    tags: vec![],
+                    tags: tags![],
                     source: None,
                     command: Command::CAP(
                         Some("REQ".to_string()),
@@ -305,10 +317,7 @@ mod test {
             (
                 Vec::from(b"@tag=as\\\\\\:\\sdf\\z\\ UNKNOWN\r\n"),
                 Message {
-                    tags: vec![Tag {
-                        key: "tag".to_string(),
-                        value: Some("as\\; dfz".to_string()),
-                    }],
+                    tags: tags!["tag" => "as\\; dfz"],
                     source: None,
                     command: Command::Unknown("UNKNOWN".to_string(), vec![]),
                 },
@@ -316,10 +325,7 @@ mod test {
             (
                 Vec::from(b"@+1.1.1.1/wi2-asef-1=as\\\\\\:\\sdf\\z\\ UNKNOWN\r\n"),
                 Message {
-                    tags: vec![Tag {
-                        key: "+1.1.1.1/wi2-asef-1".to_string(),
-                        value: Some("as\\; dfz".to_string()),
-                    }],
+                    tags: tags!["+1.1.1.1/wi2-asef-1" => "as\\; dfz"],
                     source: None,
                     command: Command::Unknown("UNKNOWN".to_string(), vec![]),
                 },
@@ -327,7 +333,7 @@ mod test {
             (
                 Vec::from(b":test!test@5555:5555:0:55:5555:5555:5555:5555 396 test user/test :is now your visible host\r\n"),
                 Message {
-                    tags: vec![],
+                    tags: tags![],
                     source: Some(Source::User(User {
                         nickname: "test".into(),
                         username: Some("test".into()),
@@ -348,7 +354,7 @@ mod test {
             (
                 Vec::from(b":atw.hu.quakenet.org 001 test :Welcome to the QuakeNet IRC Network, test\r\n"),
                 Message {
-                    tags: vec![],
+                    tags: tags![],
                     source: Some(Source::Server(
                         "atw.hu.quakenet.org".to_string(),
                     )),
@@ -365,10 +371,7 @@ mod test {
             (
                 Vec::from(b"@time=2023-07-20T21:19:11.000Z :chat!test@user/test/bot/chat PRIVMSG ##chat :\\_o< quack!\r\n"),
                 Message {
-                    tags: vec![Tag {
-                        key: "time".to_string(),
-                        value: Some("2023-07-20T21:19:11.000Z".to_string()),
-                    }],
+                    tags: tags!["time" => "2023-07-20T21:19:11.000Z"],
                     source: Some(Source::User(User {
                         nickname: "chat".into(),
                         username: Some("test".into()),
@@ -384,22 +387,10 @@ mod test {
             (
                 Vec::from(b"@batch=JQlhpjWY7SYaBPQtXAfUQh;msgid=UGnor4DBoafs6ge0UgsHF7-aVdnYMbjbdTf9eEHQmPKWA;time=2024-11-07T12:04:28.361Z :foo!~foo@F3FF3610.5A633F24.29800D3F.IP JOIN #pixelcove * :foo\r\r\n"),
                 Message {
-                    tags: vec![
-                        Tag {
-                            key: "batch".to_string(),
-                            value: Some("JQlhpjWY7SYaBPQtXAfUQh".to_string()),
-                        },
-                        Tag {
-                            key: "msgid".to_string(),
-                            value: Some(
-                                "UGnor4DBoafs6ge0UgsHF7-aVdnYMbjbdTf9eEHQmPKWA"
-                                    .to_string(),
-                            ),
-                        },
-                        Tag {
-                            key: "time".to_string(),
-                            value: Some("2024-11-07T12:04:28.361Z".to_string()),
-                        },
+                    tags: tags![
+                        "batch" => "JQlhpjWY7SYaBPQtXAfUQh",
+                        "msgid" => "UGnor4DBoafs6ge0UgsHF7-aVdnYMbjbdTf9eEHQmPKWA",
+                        "time" => "2024-11-07T12:04:28.361Z",
                     ],
                     source: Some(Source::User(User {
                         nickname: "foo".into(),
@@ -416,22 +407,10 @@ mod test {
             (
                 Vec::from(b"@batch=AhaatzFmHPzct87cyiyxk4;time=2025-01-15T22:54:02.123Z;msgid=pgON6bxXjG7unoKIYwC3aV-KPRYjZhmCa3ZReibvMIrgw :atarians.dejatoons.net MODE #test +nt \r\n"),
                 Message {
-                    tags: vec![
-                        Tag {
-                            key: "batch".to_string(),
-                            value: Some("AhaatzFmHPzct87cyiyxk4".to_string()),
-                        },
-                        Tag {
-                            key: "time".to_string(),
-                            value: Some("2025-01-15T22:54:02.123Z".to_string()),
-                        },
-                        Tag {
-                            key: "msgid".to_string(),
-                            value: Some(
-                                "pgON6bxXjG7unoKIYwC3aV-KPRYjZhmCa3ZReibvMIrgw"
-                                    .to_string(),
-                            ),
-                        },
+                    tags: tags![
+                        "batch" => "AhaatzFmHPzct87cyiyxk4",
+                        "time" => "2025-01-15T22:54:02.123Z",
+                        "msgid" => "pgON6bxXjG7unoKIYwC3aV-KPRYjZhmCa3ZReibvMIrgw",
                     ],
                     source: Some(Source::Server(
                         "atarians.dejatoons.net".to_string(),
@@ -446,7 +425,7 @@ mod test {
             (
                 Vec::from(b":soju.bouncer FAIL * ACCOUNT_REQUIRED :Authentication required\r\n"),
                 Message {
-                    tags: vec![],
+                    tags: tags![],
                     source: Some(Source::Server("soju.bouncer".to_string())),
                     command: Command::FAIL(
                         "*".to_string(),
@@ -459,10 +438,7 @@ mod test {
             (
                 Vec::from(b"@id=invalid\x80utf8 :dan!d@localhost PRIVMSG #chan :Hello \xF0\x90\x80World\r\n"),
                 Message {
-                    tags: vec![Tag {
-                        key: "id".to_string(),
-                        value: Some("invalid�utf8".to_string()),
-                    }],
+                    tags: tags!["id" => "invalid�utf8"],
                     source: Some(Source::User(User {
                         nickname: "dan".into(),
                         username: Some("d".into()),
@@ -477,7 +453,7 @@ mod test {
             (
                 Vec::from(b":dan!d@localhost PART #halloy :My utf8 is br\xF4\x91\x87ken\r\n"),
                 Message {
-                    tags: vec![],
+                    tags: tags![],
                     source: Some(Source::User(User {
                         nickname: "dan".into(),
                         username: Some("d".into()),
@@ -493,6 +469,32 @@ mod test {
 
         for (test, expected) in tests {
             let message = super::message_bytes(test).unwrap();
+            assert_eq!(message, expected);
+        }
+    }
+
+    #[test]
+    fn tagstrs() {
+        // source: https://codeberg.org/emersion/soju/src/branch/master/doc/ext/bouncer-networks.md#examples
+        let tests = [
+            (
+                "name=OFTC;host=irc.oftc.net",
+                tags![
+                    "name" => "OFTC",
+                    "host" => "irc.oftc.net",
+                ],
+            ),
+            (
+                r"name=My\sAwesome\sNetwork;state=disconnected",
+                tags![
+                        "name" => "My Awesome Network",
+                        "state" => "disconnected",
+                ],
+            ),
+        ];
+
+        for (test, expected) in tests {
+            let message = super::tagstr(test).unwrap();
             assert_eq!(message, expected);
         }
     }
