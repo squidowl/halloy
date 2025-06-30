@@ -1,4 +1,5 @@
-use std::collections::HashSet;
+use std::borrow::Borrow;
+use std::collections::BTreeSet;
 use std::fmt;
 use std::hash::Hash;
 
@@ -18,17 +19,9 @@ pub struct User {
     username: Option<String>,
     hostname: Option<String>,
     accountname: Option<String>,
-    access_levels: HashSet<AccessLevel>,
+    access_levels: BTreeSet<AccessLevel>,
     away: bool,
 }
-
-impl PartialEq for User {
-    fn eq(&self, other: &Self) -> bool {
-        self.nickname.eq(&other.nickname)
-    }
-}
-
-impl Eq for User {}
 
 impl Hash for User {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
@@ -38,16 +31,175 @@ impl Hash for User {
 
 impl Ord for User {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.highest_access_level()
-            .cmp(&other.highest_access_level())
+        self.access()
+            .cmp(&other.access())
             .reverse()
-            .then_with(|| self.nickname().cmp(&other.nickname()))
+            .then_with(|| self.nick().cmp(&other.nick()))
     }
 }
-
 impl PartialOrd for User {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
+    }
+}
+impl PartialEq for User {
+    fn eq(&self, other: &Self) -> bool {
+        self.nick() == other.nick() && self.access() == other.access()
+    }
+}
+impl Eq for User {}
+
+#[derive(Debug, Default)]
+pub struct ChannelUsers(BTreeSet<User>);
+
+// this is silly, but some existing code expects it
+impl Default for &ChannelUsers {
+    fn default() -> Self {
+        static DEFAULT_USERS: ChannelUsers = ChannelUsers(BTreeSet::new());
+        &DEFAULT_USERS
+    }
+}
+
+impl FromIterator<User> for ChannelUsers {
+    fn from_iter<T>(iter: T) -> Self
+    where
+        T: IntoIterator<Item = User>,
+    {
+        Self(iter.into_iter().collect())
+    }
+}
+
+// XXX(pounce): here be dragons
+// essentially the problem is this: given a NickRef (or User, with possibly wrong attributes), we
+// need to find a `User` in our `ChannelUsers` who matches our user's nick.
+//
+// An easy way to do this is to query the set with a range user..as_owner() and user..as_member(),
+// but this requires one strcpy at best and we want to keep this code path pretty clean, as it's
+// referenced a lot in halloy.
+//
+// Instead, we need a Q, such that User: Borrow<Q>, and Q has the same Ord impl as User. Better
+// yet, the Q should be a `NickRef` so we can query without cloning `Nick`.
+//
+// The answer is: `Q` is a fat pointer (object) with all the methods required to generate the `Ord`
+// impl of `User`. See: https://stackoverflow.com/a/50486153/7903988
+//
+// Then we can generate another subobject containing the necessary data for indexing (`NickRef`)
+// without a `clone()`.
+trait UserRef {
+    fn nick<'a>(&'a self) -> NickRef<'a>;
+    fn access(&self) -> AccessLevel;
+}
+
+impl UserRef for User {
+    fn nick<'a>(&'a self) -> NickRef<'a> {
+        NickRef::from(&self.nickname)
+    }
+    fn access(&self) -> AccessLevel {
+        self.highest_access_level()
+    }
+}
+
+impl<'a> Borrow<dyn UserRef + 'a> for User {
+    fn borrow(&self) -> &(dyn UserRef + 'a) {
+        self
+    }
+}
+
+// this needs to match `User`
+impl Ord for dyn UserRef + '_ {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.access()
+            .cmp(&other.access())
+            .reverse()
+            .then_with(|| self.nick().cmp(&other.nick()))
+    }
+}
+impl PartialOrd for dyn UserRef + '_ {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+impl PartialEq for dyn UserRef + '_ {
+    fn eq(&self, other: &Self) -> bool {
+        self.nick() == other.nick() && self.access() == other.access()
+    }
+}
+impl Eq for dyn UserRef + '_ {}
+
+#[derive(PartialEq, Eq)]
+struct UserKey<'a> {
+    nick: NickRef<'a>,
+    access: AccessLevel,
+}
+
+impl UserRef for UserKey<'_> {
+    fn nick<'b>(&'b self) -> NickRef<'b> {
+        self.nick
+    }
+    fn access(&self) -> AccessLevel {
+        self.access
+    }
+}
+
+// ditto
+impl Ord for UserKey<'_> {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.access
+            .cmp(&other.access)
+            .reverse()
+            .then_with(|| self.nick.cmp(&other.nick))
+    }
+}
+impl PartialOrd for UserKey<'_> {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl ChannelUsers {
+    pub fn iter(&self) -> impl Iterator<Item = &'_ User> {
+        self.0.iter()
+    }
+
+    pub fn resolve(&self, user: &User) -> Option<&User> {
+        self.get_by_nick(user.nickname.as_nickref())
+    }
+
+    pub fn take(&mut self, user: &User) -> Option<User> {
+        self.0.take(user)
+    }
+
+    pub fn insert(&mut self, user: User) -> bool {
+        self.0.insert(user)
+    }
+
+    pub fn remove(&mut self, user: &User) -> bool {
+        self.0.remove(user)
+    }
+
+    pub fn get_by_nick(&self, nick: NickRef) -> Option<&User> {
+        // If we want to get a user only knowing the nick,
+        // we need to query a range of access levels.
+        for level in AccessLevel::levels() {
+            let key: &dyn UserRef = &UserKey {
+                nick,
+                access: level,
+            };
+            if let Some(elem) = self.0.get(key) {
+                return Some(elem);
+            }
+        }
+        None
+    }
+
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
     }
 }
 
@@ -86,7 +238,7 @@ impl<'a> TryFrom<&'a str> for User {
         let access_levels = access_levels
             .chars()
             .filter_map(|c| AccessLevel::try_from(c).ok())
-            .collect::<HashSet<_>>();
+            .collect::<BTreeSet<_>>();
 
         let (nickname, username, hostname) =
             match (rest.find('!'), rest.find('@')) {
@@ -153,7 +305,7 @@ impl From<Nick> for User {
             username: None,
             hostname: None,
             accountname: None,
-            access_levels: HashSet::default(),
+            access_levels: BTreeSet::default(),
             away: false,
         }
     }
@@ -174,7 +326,7 @@ impl User {
     }
 
     pub fn as_str(&self) -> &str {
-        self.nickname.as_ref()
+        self.nickname.0.as_ref()
     }
 
     pub fn is_away(&self) -> bool {
@@ -228,8 +380,8 @@ impl User {
 
     pub fn highest_access_level(&self) -> AccessLevel {
         self.access_levels
-            .iter()
-            .max()
+            // BTreeSet::last is the maximum element.
+            .last()
             .copied()
             .unwrap_or(AccessLevel::Member)
     }
@@ -283,7 +435,7 @@ impl From<proto::User> for User {
             username: user.username,
             hostname: user.hostname,
             accountname: None,
-            access_levels: HashSet::default(),
+            access_levels: BTreeSet::default(),
             away: false,
         }
     }
@@ -324,12 +476,23 @@ impl<'a> From<&'a str> for Nick {
     }
 }
 
+impl Nick {
+    pub fn as_nickref(&self) -> NickRef<'_> {
+        NickRef(self.0.as_ref())
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct NickRef<'a>(&'a str);
 
 impl<'a> From<&'a str> for NickRef<'a> {
     fn from(nick: &'a str) -> Self {
         NickRef(nick)
+    }
+}
+impl<'a> From<&'a Nick> for NickRef<'a> {
+    fn from(nick: &'a Nick) -> Self {
+        NickRef(nick.0.as_str())
     }
 }
 
@@ -353,7 +516,12 @@ impl AsRef<str> for NickRef<'_> {
 
 impl PartialOrd for NickRef<'_> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.0.to_lowercase().cmp(&other.0.to_lowercase()))
+        // TODO(pounce) casemapping
+        Some(
+            self.0
+                .to_ascii_lowercase()
+                .cmp(&other.0.to_ascii_lowercase()),
+        )
     }
 }
 
@@ -381,6 +549,7 @@ impl PartialEq<Nick> for NickRef<'_> {
     Serialize,
     Deserialize,
 )]
+
 pub enum AccessLevel {
     Member,
     Voice,
@@ -388,6 +557,13 @@ pub enum AccessLevel {
     Oper,
     Admin,
     Owner,
+}
+
+impl AccessLevel {
+    pub fn levels() -> impl Iterator<Item = Self> + 'static {
+        use AccessLevel::*;
+        [Member, Voice, HalfOp, Oper, Admin, Owner].into_iter()
+    }
 }
 
 impl std::fmt::Display for AccessLevel {
@@ -448,7 +624,7 @@ mod tests {
                     username: None,
                     hostname: None,
                     accountname: None,
-                    access_levels: HashSet::<AccessLevel>::from([
+                    access_levels: BTreeSet::<AccessLevel>::from([
                         AccessLevel::Oper,
                         AccessLevel::Voice,
                     ]),
@@ -462,7 +638,7 @@ mod tests {
                     username: Some("d".into()),
                     hostname: Some("localhost".into()),
                     accountname: None,
-                    access_levels: HashSet::<AccessLevel>::from([
+                    access_levels: BTreeSet::<AccessLevel>::from([
                         AccessLevel::Oper,
                     ]),
                     away: false,
@@ -475,7 +651,7 @@ mod tests {
                     username: None,
                     hostname: None,
                     accountname: None,
-                    access_levels: HashSet::<AccessLevel>::new(),
+                    access_levels: BTreeSet::<AccessLevel>::new(),
                     away: false,
                 },
                 "foobar",
@@ -488,7 +664,7 @@ mod tests {
                         "2201:12f1:2:1162:1242:1fg:he11:abde".into(),
                     ),
                     accountname: None,
-                    access_levels: HashSet::<AccessLevel>::new(),
+                    access_levels: BTreeSet::<AccessLevel>::new(),
                     away: false,
                 },
                 "foobar!8a027a9a4a@2201:12f1:2:1162:1242:1fg:he11:abde",
@@ -499,7 +675,7 @@ mod tests {
                     username: Some("~foobar".into()),
                     hostname: Some("12.521.212.521".into()),
                     accountname: None,
-                    access_levels: HashSet::<AccessLevel>::from([
+                    access_levels: BTreeSet::<AccessLevel>::from([
                         AccessLevel::Oper,
                         AccessLevel::Voice,
                     ]),
@@ -525,7 +701,7 @@ mod tests {
                     username: Some("d".into()),
                     hostname: Some("localhost".into()),
                     accountname: None,
-                    access_levels: HashSet::<AccessLevel>::new(),
+                    access_levels: BTreeSet::<AccessLevel>::new(),
                     away: false,
                 },
             ),
@@ -536,7 +712,7 @@ mod tests {
                     username: Some("the.flu".into()),
                     hostname: Some("in.you".into()),
                     accountname: None,
-                    access_levels: HashSet::<AccessLevel>::from([
+                    access_levels: BTreeSet::<AccessLevel>::from([
                         AccessLevel::Oper,
                     ]),
                     away: false,
@@ -549,7 +725,7 @@ mod tests {
                     username: Some("d".into()),
                     hostname: Some("localhost".into()),
                     accountname: None,
-                    access_levels: HashSet::<AccessLevel>::new(),
+                    access_levels: BTreeSet::<AccessLevel>::new(),
                     away: false,
                 },
             ),
@@ -560,7 +736,7 @@ mod tests {
                     username: Some("d".into()),
                     hostname: None,
                     accountname: None,
-                    access_levels: HashSet::<AccessLevel>::new(),
+                    access_levels: BTreeSet::<AccessLevel>::new(),
                     away: false,
                 },
             ),
@@ -571,7 +747,7 @@ mod tests {
                     username: None,
                     hostname: None,
                     accountname: None,
-                    access_levels: HashSet::<AccessLevel>::new(),
+                    access_levels: BTreeSet::<AccessLevel>::new(),
                     away: false,
                 },
             ),
@@ -594,6 +770,21 @@ mod tests {
                     expected.access_levels
                 )
             );
+        }
+    }
+    #[test]
+    fn chanmap() {
+        let users = &[
+            ("dan", "+@dan"),
+            ("d@n", "@d@n!d@localhost"),
+            ("foobar", "+@foobar!~foobar@12.521.212.521"),
+            ("*status", "*status"),
+        ]
+        .map(|(a, b)| (NickRef::from(a), User::try_from(b).unwrap()));
+        let channel_users: ChannelUsers =
+            users.iter().map(|(_, u)| u).cloned().collect();
+        for (nick, user) in users {
+            assert_eq!(channel_users.get_by_nick(*nick), Some(user));
         }
     }
 }

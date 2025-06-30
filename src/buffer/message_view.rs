@@ -2,6 +2,7 @@ use crate::buffer::scroll_view::Message;
 use data::isupport::CaseMap;
 use data::server::Server;
 use data::target::{self};
+use data::user::ChannelUsers;
 use data::{Config, User, message};
 use iced::advanced::text;
 use iced::widget::{column, container, row};
@@ -18,16 +19,16 @@ pub enum TargetInfo<'a> {
     Channel {
         channel: &'a target::Channel,
         our_user: Option<&'a User>,
-        users: &'a [User],
+        users: &'a ChannelUsers,
     },
     Query,
 }
 
 impl<'a> TargetInfo<'a> {
-    fn users(&self) -> &'a [User] {
+    fn users(&self) -> &'a ChannelUsers {
         match self {
             TargetInfo::Channel { users, .. } => users,
-            TargetInfo::Query => &[],
+            TargetInfo::Query => Default::default(),
         }
     }
     fn our_user(&self) -> Option<&'a User> {

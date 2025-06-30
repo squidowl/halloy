@@ -6,7 +6,7 @@ use std::sync::LazyLock;
 use chrono::{DateTime, Utc};
 use data::buffer::{OrderBy, SkinTone, SortDirection};
 use data::isupport::{self, find_target_limit};
-use data::user::{Nick, User};
+use data::user::{ChannelUsers, Nick};
 use data::{Config, target};
 use iced::Length;
 use iced::widget::{column, container, row, text, tooltip};
@@ -35,7 +35,7 @@ impl Completion {
     pub fn process(
         &mut self,
         input: &str,
-        users: &[User],
+        users: &ChannelUsers,
         last_seen: &HashMap<Nick, DateTime<Utc>>,
         channels: &[target::Channel],
         current_channel: Option<&target::Channel>,
@@ -1004,7 +1004,7 @@ impl Text {
         &mut self,
         input: &str,
         casemapping: isupport::CaseMap,
-        users: &[User],
+        users: &ChannelUsers,
         last_seen: &HashMap<Nick, DateTime<Utc>>,
         channels: &[target::Channel],
         current_channel: Option<&target::Channel>,
@@ -1025,7 +1025,7 @@ impl Text {
         &mut self,
         input: &str,
         casemapping: isupport::CaseMap,
-        users: &[User],
+        users: &ChannelUsers,
         last_seen: &HashMap<Nick, DateTime<Utc>>,
         config: &Config,
     ) {
@@ -1041,6 +1041,7 @@ impl Text {
 
         self.selected = None;
         self.prompt = rest.to_string();
+        // TODO(pounce) optimize
         self.filtered = users
             .iter()
             .sorted_by(|a, b| {

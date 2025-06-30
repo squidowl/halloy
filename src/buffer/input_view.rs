@@ -6,7 +6,7 @@ use data::history::{self, ReadMarker};
 use data::input::{self, Cache, RawInput};
 use data::message::server_time;
 use data::target::Target;
-use data::user::Nick;
+use data::user::{ChannelUsers, Nick};
 use data::{Config, client, command};
 use iced::Task;
 use iced::widget::{column, container, text, text_input};
@@ -155,18 +155,22 @@ impl State {
 
                 let users = buffer
                     .channel()
-                    .map(|channel| {
+                    .and_then(|channel| {
                         clients.get_channel_users(buffer.server(), channel)
                     })
                     .unwrap_or_default();
-                let channels = clients.get_channels(buffer.server());
+                // TODO(pounce) eliminate clones
+                let channels = clients
+                    .get_channels(buffer.server())
+                    .cloned()
+                    .collect::<Vec<_>>();
                 let isupport = clients.get_isupport(buffer.server());
 
                 self.completion.process(
                     &input,
                     users,
                     &history.get_last_seen(buffer),
-                    channels,
+                    &channels,
                     current_channel,
                     &isupport,
                     config,
@@ -450,7 +454,7 @@ impl State {
 
                     if let Some(nick) = clients.nickname(buffer.server()) {
                         let mut user = nick.to_owned().into();
-                        let mut channel_users = &[][..];
+                        let mut channel_users = &ChannelUsers::default();
 
                         let chantypes = clients.get_chantypes(buffer.server());
                         let statusmsg = clients.get_statusmsg(buffer.server());
@@ -461,8 +465,9 @@ impl State {
                         if let buffer::Upstream::Channel(server, channel) =
                             &buffer
                         {
-                            channel_users =
-                                clients.get_channel_users(server, channel);
+                            channel_users = clients
+                                .get_channel_users(server, channel)
+                                .unwrap_or_default();
 
                             if let Some(user_with_attributes) = clients
                                 .resolve_user_attributes(server, channel, &user)
@@ -529,18 +534,21 @@ impl State {
 
                     let users = buffer
                         .channel()
-                        .map(|channel| {
+                        .and_then(|channel| {
                             clients.get_channel_users(buffer.server(), channel)
                         })
                         .unwrap_or_default();
-                    let channels = clients.get_channels(buffer.server());
+                    let channels = clients
+                        .get_channels(buffer.server())
+                        .cloned()
+                        .collect::<Vec<_>>();
                     let isupport = clients.get_isupport(buffer.server());
 
                     self.completion.process(
                         &new_input,
                         users,
                         &history.get_last_seen(buffer),
-                        channels,
+                        &channels,
                         current_channel,
                         &isupport,
                         config,
@@ -572,19 +580,22 @@ impl State {
 
                         let users = buffer
                             .channel()
-                            .map(|channel| {
+                            .and_then(|channel| {
                                 clients
                                     .get_channel_users(buffer.server(), channel)
                             })
                             .unwrap_or_default();
-                        let channels = clients.get_channels(buffer.server());
+                        let channels = clients
+                            .get_channels(buffer.server())
+                            .cloned()
+                            .collect::<Vec<_>>();
                         let isupport = clients.get_isupport(buffer.server());
 
                         self.completion.process(
                             &new_input,
                             users,
                             &history.get_last_seen(buffer),
-                            channels,
+                            &channels,
                             current_channel,
                             &isupport,
                             config,

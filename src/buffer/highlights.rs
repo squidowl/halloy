@@ -47,7 +47,7 @@ pub fn view<'a>(
                     channel,
                     source: message::Source::User(user),
                 } => {
-                    let users = clients.get_channel_users(server, channel);
+                    let users = clients.get_channel_users(server, channel).unwrap_or_default();
 
                     let timestamp = config
                         .buffer
@@ -73,8 +73,7 @@ pub fn view<'a>(
                     let with_access_levels =
                         config.buffer.nickname.show_access_levels;
 
-                    let current_user =
-                        users.iter().find(|current_user| *current_user == user);
+                    let current_user = users.resolve(user);
 
                     let text = selectable_text(
                         config

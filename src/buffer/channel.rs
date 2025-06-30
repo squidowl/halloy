@@ -4,15 +4,15 @@ use data::dashboard::BufferAction;
 use data::preview::{self, Previews};
 use data::server::Server;
 use data::target::{self, Target};
-use data::user::Nick;
+use data::user::{ChannelUsers, Nick};
 use data::{Config, User, buffer, history, message};
 use iced::widget::{column, container, row};
 use iced::{Length, Task, padding};
 
 use super::message_view::{ChannelQueryLayout, TargetInfo};
 use super::{input_view, scroll_view, user_context};
-use crate::widget::Element;
 use crate::Theme;
+use crate::widget::Element;
 
 mod topic;
 
@@ -59,7 +59,9 @@ pub fn view<'a>(
             clients.resolve_user_attributes(&state.server, channel, &user)
         });
 
-    let users = clients.get_channel_users(&state.server, channel);
+    let users = clients
+        .get_channel_users(&state.server, channel)
+        .unwrap_or_default();
 
     let chathistory_state =
         clients.get_chathistory_state(server, &channel.to_target());
@@ -112,8 +114,8 @@ pub fn view<'a>(
         data::buffer::TextInputVisibility::Always => true,
     };
 
-    let channels = clients.get_channels(&state.server);
-    let is_connected_to_channel = channels.iter().any(|c| c == &state.target);
+    let mut channels = clients.get_channels(&state.server);
+    let is_connected_to_channel = channels.any(|c| c == &state.target);
 
     let text_input = show_text_input.then(move || {
         input_view::view(
@@ -286,7 +288,7 @@ impl Channel {
 fn topic<'a>(
     state: &'a Channel,
     clients: &'a data::client::Map,
-    users: &'a [User],
+    users: &'a ChannelUsers,
     our_user: Option<&'a User>,
     settings: Option<&'a buffer::Settings>,
     config: &'a Config,
@@ -324,6 +326,7 @@ fn topic<'a>(
 }
 
 mod nick_list {
+    use data::user::ChannelUsers;
     use data::{Config, Server, User, config, isupport, target};
     use iced::Length;
     use iced::advanced::text;
@@ -338,7 +341,7 @@ mod nick_list {
         server: &'a Server,
         casemapping: isupport::CaseMap,
         channel: &'a target::Channel,
-        users: &'a [User],
+        users: &'a ChannelUsers,
         our_user: Option<&'a User>,
         config: &'a Config,
     ) -> Element<'a, Message> {

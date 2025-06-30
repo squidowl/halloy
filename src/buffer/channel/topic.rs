@@ -1,4 +1,5 @@
 use chrono::{DateTime, Utc};
+use data::user::ChannelUsers;
 use data::{Config, Server, User, isupport, message, target};
 use iced::Length;
 use iced::widget::{
@@ -46,7 +47,7 @@ pub fn view<'a>(
     who: Option<&'a str>,
     time: Option<&'a DateTime<Utc>>,
     max_lines: u16,
-    users: &'a [User],
+    users: &'a ChannelUsers,
     our_user: Option<&'a User>,
     config: &'a Config,
     theme: &'a Theme,

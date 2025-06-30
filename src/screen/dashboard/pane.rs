@@ -63,6 +63,7 @@ impl Pane {
                 let server = &state.server;
                 let users = clients
                     .get_channel_users(&state.server, &state.target)
+                    .unwrap_or_default()
                     .len();
 
                 let mode = clients
