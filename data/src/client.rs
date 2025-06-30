@@ -221,6 +221,13 @@ impl Client {
     }
 
     fn quit(&mut self, reason: Option<String>) {
+        self.who_polls.retain(|who_poll| {
+            matches!(
+                who_poll.status,
+                WhoStatus::Requested(_, _, _) | WhoStatus::Receiving(_, _)
+            )
+        });
+
         if let Err(e) = if let Some(reason) = reason {
             self.handle.try_send(command!("QUIT", reason))
         } else {

@@ -14,6 +14,8 @@ use crate::server::Server;
 use crate::time::Posix;
 use crate::{config, message, server};
 
+const QUIT_REQUEST_TIMEOUT: Duration = Duration::from_millis(400);
+
 pub type Result<T = Update, E = Error> = std::result::Result<T, E>;
 
 #[derive(Debug)]
@@ -53,6 +55,7 @@ enum State {
         batch: Batch,
         ping_time: Interval,
         ping_timeout: Option<Interval>,
+        quit_requested: Option<(Instant, Option<String>)>,
     },
     Quit,
 }
@@ -63,6 +66,7 @@ enum Input {
     Send(proto::Message),
     Ping,
     PingTimeout,
+    Quit(Option<String>),
 }
 
 struct Stream {
@@ -136,6 +140,7 @@ async fn _run(
                             batch: Batch::new(),
                             ping_timeout: None,
                             ping_time: ping_time_interval(config.ping_time),
+                            quit_requested: None,
                         };
                     }
                     Err(e) => {
@@ -165,6 +170,7 @@ async fn _run(
                 batch,
                 ping_time,
                 ping_timeout,
+                quit_requested,
             } => {
                 let input = {
                     let mut select = stream::select_all([
@@ -188,6 +194,17 @@ async fn _run(
                         );
                     }
 
+                    if let Some((requested_at, reason)) = quit_requested {
+                        select.push(
+                            time::sleep_until(
+                                *requested_at + QUIT_REQUEST_TIMEOUT,
+                            )
+                            .into_stream()
+                            .map(|()| Input::Quit(reason.clone()))
+                            .boxed(),
+                        );
+                    }
+
                     select.next().await.expect("stream input")
                 };
 
@@ -207,17 +224,33 @@ async fn _run(
                             *ping_timeout = None;
                         }
                         proto::Command::ERROR(error) => {
-                            log::warn!("[{server}] disconnected: {error}");
-                            let _ =
-                                sender.unbounded_send(Update::Disconnected {
-                                    server: server.clone(),
-                                    is_initial,
-                                    error: Some(error),
-                                    sent_time: Utc::now(),
-                                });
-                            state = State::Disconnected {
-                                last_retry: Some(Instant::now()),
-                            };
+                            if let Some(reason) = quit_requested
+                                .as_ref()
+                                .map(|(_, reason)| reason)
+                            {
+                                // If QUIT was requested, then ERROR is
+                                // a valid acknowledgement
+                                // https://modern.ircdocs.horse/#quit-message
+                                let _ = sender.unbounded_send(Update::Quit(
+                                    server.clone(),
+                                    reason.clone(),
+                                ));
+
+                                state = State::Quit;
+                            } else {
+                                log::warn!("[{server}] disconnected: {error}");
+                                let _ = sender.unbounded_send(
+                                    Update::Disconnected {
+                                        server: server.clone(),
+                                        is_initial,
+                                        error: Some(error),
+                                        sent_time: Utc::now(),
+                                    },
+                                );
+                                state = State::Disconnected {
+                                    last_retry: Some(Instant::now()),
+                                };
+                            }
                         }
                         _ => {
                             batch.messages.push(message.into());
@@ -253,14 +286,10 @@ async fn _run(
                             let reason = reason.clone();
 
                             let _ = stream.connection.send(message).await;
-                            let _ = sender.unbounded_send(Update::Quit(
-                                server.clone(),
-                                reason,
-                            ));
 
                             log::info!("[{server}] quit");
 
-                            state = State::Quit;
+                            *quit_requested = Some((Instant::now(), reason));
                         } else {
                             let _ = stream.connection.send(message).await;
                         }
@@ -289,6 +318,14 @@ async fn _run(
                         state = State::Disconnected {
                             last_retry: Some(Instant::now()),
                         };
+                    }
+                    Input::Quit(reason) => {
+                        let _ = sender.unbounded_send(Update::Quit(
+                            server.clone(),
+                            reason,
+                        ));
+
+                        state = State::Quit;
                     }
                 }
             }
