@@ -1,4 +1,17 @@
+use std::collections::BTreeMap;
+
 pub use self::command::Command;
+
+pub type Tags = BTreeMap<String, String>;
+
+#[macro_export]
+macro_rules! tags {
+    () => { ::std::collections::BTreeMap::new() };
+    ($x:expr) => { $crate::parse::tagstr($x).unwrap() };
+    ($($key:expr => $value:expr),+ $(,)?) => {
+        ::std::collections::BTreeMap::from([ $((::std::string::String::from($key), ::std::string::String::from($value))),* ])
+    };
+}
 
 pub mod command;
 pub mod format;
@@ -6,7 +19,7 @@ pub mod parse;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Message {
-    pub tags: Vec<Tag>,
+    pub tags: Tags,
     pub source: Option<Source>,
     pub command: Command,
 }
@@ -14,17 +27,11 @@ pub struct Message {
 impl From<Command> for Message {
     fn from(command: Command) -> Self {
         Self {
-            tags: vec![],
+            tags: tags![],
             source: None,
             command,
         }
     }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Tag {
-    pub key: String,
-    pub value: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -42,7 +49,7 @@ pub struct User {
 
 pub fn command(command: &str, parameters: Vec<String>) -> Message {
     Message {
-        tags: vec![],
+        tags: tags![],
         source: None,
         command: Command::new(command, parameters),
     }
