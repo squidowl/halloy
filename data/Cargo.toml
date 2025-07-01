@@ -35,6 +35,7 @@ iced_core = "0.14.0-dev"
 indexmap = { version = "2.9", features = ["std", "serde"] }
 seahash = "4.1.0"
 serde_json = "1.0"
+serde_ignored = "0.1"
 sha2 = "0.10.8"
 toml = "0.8.11"
 reqwest = { version = "0.12", features = ["json"] }
