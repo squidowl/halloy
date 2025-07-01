@@ -1,4 +1,5 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, hash_map};
+use std::mem;
 
 use chrono::{DateTime, Utc};
 use futures::future::BoxFuture;
@@ -6,7 +7,7 @@ use futures::{Future, FutureExt, future};
 use tokio::time::Instant;
 
 use crate::history::{self, History, MessageReferences, ReadMarker};
-use crate::message::{self, Limit};
+use crate::message::{self, Decoded, Limit, Reaction};
 use crate::target::{self, Target};
 use crate::user::Nick;
 use crate::{
@@ -35,7 +36,7 @@ impl Resource {
 #[derive(Debug)]
 pub enum Message {
     LoadFull(history::Kind, Result<history::Loaded, history::Error>),
-    UpdatePartial(history::Kind, Result<history::Metadata, history::Error>),
+    UpdatePartial(history::Kind, Result<history::Metadata<'static>, history::Error>),
     UpdateReadMarker(
         history::Kind,
         history::ReadMarker,
@@ -195,7 +196,7 @@ impl Manager {
         mark_partial_as_read: bool,
         mark_full_as_read: bool,
     ) -> impl Future<Output = Message> + use<> {
-        let map = std::mem::take(&mut self.data).map;
+        let map = mem::take(&mut self.data).map;
 
         async move {
             let tasks = map.into_iter().map(|(kind, state)| {
@@ -234,9 +235,9 @@ impl Manager {
         ) {
             for message in messages {
                 if config.buffer.mark_as_read.on_message_sent {
-                    if let Some(kind) = history::Kind::from_server_message(
-                        input.server().clone(),
-                        &message,
+                    if let Some(kind) = history::Kind::from_server_target(
+                        input.server(),
+                        &message.target,
                     ) {
                         tasks.extend(
                             self.update_read_marker(
@@ -281,7 +282,7 @@ impl Manager {
         server: &Server,
         message: crate::Message,
     ) -> Option<impl Future<Output = Message> + use<>> {
-        history::Kind::from_server_message(server.clone(), &message)
+        history::Kind::from_server_target(server, &message.target)
             .and_then(|kind| self.data.add_message(kind, message))
     }
 
@@ -298,6 +299,30 @@ impl Manager {
         message: crate::Message,
     ) -> Option<impl Future<Output = Message> + use<>> {
         self.data.add_message(history::Kind::Highlights, message)
+    }
+
+    pub fn record_reaction(
+        &mut self,
+        server: &Server,
+        reaction: Reaction,
+    ) {
+        if let Some(kind) = history::Kind::from_server_target(server, &reaction.target) {
+            self.data.add_reaction(kind, reaction);
+        }
+    }
+
+    pub fn record_decoded(
+        &mut self,
+        server: &Server,
+        decoded: Decoded,
+    ) -> Option<impl Future<Output = Message> + use<>> {
+        match decoded {
+            Decoded::Message(message) => self.record_message(server, message),
+            Decoded::Reaction(reaction) => {
+                self.record_reaction(server, reaction);
+                None
+            }
+        }
     }
 
     pub fn update_read_marker<T: Into<history::Kind>>(
@@ -611,7 +636,7 @@ impl Data {
 
         let history::Loaded {
             mut messages,
-            metadata,
+            mut metadata,
         } = data;
 
         match self.map.entry(kind.clone()) {
@@ -621,6 +646,7 @@ impl Data {
                     last_updated_at,
                     read_marker: partial_read_marker,
                     last_seen,
+                    reactions: new_reactions,
                     ..
                 } => {
                     let read_marker =
@@ -630,13 +656,22 @@ impl Data {
 
                     let mut last_seen = last_seen.clone();
 
-                    std::mem::take(new_messages).into_iter().for_each(
-                        |message| {
-                            history::update_last_seen(&mut last_seen, &message);
+                    for message in mem::take(new_messages) {
+                        history::update_last_seen(&mut last_seen, &message);
 
-                            history::insert_message(&mut messages, message);
-                        },
-                    );
+                        history::insert_message(&mut messages, message);
+                    }
+                    for (id, mut reactions) in mem::take(new_reactions) {
+                        metadata.reactions.to_mut().entry(id)
+                            .and_modify(|v| {
+                                for r in reactions.drain(..) {
+                                    if !v.contains(&r) {
+                                        v.push(r);
+                                    }
+                                }
+                            })
+                            .or_insert(reactions);
+                    }
 
                     entry.insert(History::Full {
                         kind,
@@ -644,6 +679,7 @@ impl Data {
                         last_updated_at,
                         read_marker,
                         last_seen,
+                        reactions: metadata.reactions.into_owned(),
                     });
                 }
                 _ => {
@@ -655,6 +691,7 @@ impl Data {
                         last_updated_at: None,
                         read_marker: metadata.read_marker,
                         last_seen,
+                        reactions: metadata.reactions.into_owned(),
                     });
                 }
             },
@@ -667,6 +704,7 @@ impl Data {
                     last_updated_at: None,
                     read_marker: metadata.read_marker,
                     last_seen,
+                    reactions: metadata.reactions.into_owned(),
                 });
             }
         }
@@ -880,8 +918,6 @@ impl Data {
         kind: history::Kind,
         message: crate::Message,
     ) -> Option<impl Future<Output = Message> + use<>> {
-        use std::collections::hash_map;
-
         match self.map.entry(kind.clone()) {
             hash_map::Entry::Occupied(mut entry) => {
                 let read_marker = entry.get_mut().add_message(message);
@@ -907,6 +943,22 @@ impl Data {
                     }
                     .boxed(),
                 )
+            }
+        }
+    }
+    fn add_reaction(
+        &mut self,
+        kind: history::Kind,
+        reaction: Reaction,
+    ) {
+        match self.map.entry(kind.clone()) {
+            hash_map::Entry::Occupied(mut entry) => {
+                entry.get_mut().add_reaction(reaction);
+            }
+            hash_map::Entry::Vacant(entry) => {
+                entry
+                    .insert(History::partial(kind.clone()))
+                    .add_reaction(reaction);
             }
         }
     }

@@ -1,5 +1,5 @@
 use std::cmp::Ordering;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::time::Duration;
 use std::{fmt, io};
@@ -12,7 +12,7 @@ use tokio::time::Instant;
 
 pub use self::manager::{Manager, Resource};
 pub use self::metadata::{Metadata, ReadMarker};
-use crate::message::{self, MessageReferences, Source};
+use crate::message::{self, MessageReferences, Id, Reaction, Source};
 use crate::target::{self, Target};
 use crate::user::Nick;
 use crate::{
@@ -70,17 +70,17 @@ impl Kind {
         }
     }
 
-    pub fn from_server_message(
-        server: Server,
-        message: &Message,
+    pub fn from_server_target(
+        server: &Server,
+        target: &message::Target,
     ) -> Option<Self> {
-        match &message.target {
-            message::Target::Server { .. } => Some(Self::Server(server)),
+        match &target {
+            message::Target::Server { .. } => Some(Self::Server(server.clone())),
             message::Target::Channel { channel, .. } => {
-                Some(Self::Channel(server, channel.clone()))
+                Some(Self::Channel(server.clone(), channel.clone()))
             }
             message::Target::Query { query, .. } => {
-                Some(Self::Query(server, query.clone()))
+                Some(Self::Query(server.clone(), query.clone()))
             }
             message::Target::Logs => None,
             message::Target::Highlights { .. } => None,
@@ -164,7 +164,7 @@ impl From<Kind> for Buffer {
 #[derive(Debug)]
 pub struct Loaded {
     pub messages: Vec<Message>,
-    pub metadata: Metadata,
+    pub metadata: Metadata<'static>,
 }
 
 pub async fn load(kind: Kind) -> Result<Loaded, Error> {
@@ -180,9 +180,10 @@ pub async fn overwrite(
     kind: &Kind,
     messages: &[Message],
     read_marker: Option<ReadMarker>,
+    reactions: &HashMap<Id, Vec<Reaction>>
 ) -> Result<(), Error> {
     if messages.is_empty() {
-        return metadata::save(kind, messages, read_marker).await;
+        return metadata::save(kind, messages, read_marker, reactions).await;
     }
 
     let latest = &messages[messages.len().saturating_sub(MAX_MESSAGES)..];
@@ -191,8 +192,14 @@ pub async fn overwrite(
     let compressed = compression::compress(&latest)?;
 
     fs::write(path, &compressed).await?;
+    let msgids: HashSet<&str> = messages.iter().filter_map(|msg| msg.id.as_deref()).collect();
+    let reactions_for_messages: HashMap<Id, Vec<Reaction>> = reactions
+        .iter()
+        .filter(|(key, _)| msgids.contains(&key[..]))
+        .map(|(k, v)| (k.clone(), v.clone()))
+        .collect();
 
-    metadata::save(kind, latest, read_marker).await?;
+    metadata::save(kind, latest, read_marker, &reactions_for_messages).await?;
 
     Ok(())
 }
@@ -201,6 +208,7 @@ pub async fn append(
     kind: &Kind,
     messages: Vec<Message>,
     read_marker: Option<ReadMarker>,
+    reactions: HashMap<Id, Vec<Reaction>>,
 ) -> Result<(), Error> {
     let loaded = load(kind.clone()).await?;
 
@@ -208,8 +216,10 @@ pub async fn append(
     messages.into_iter().for_each(|message| {
         insert_message(&mut all_messages, message);
     });
+    let mut all_reactions = loaded.metadata.reactions.into_owned();
+    all_reactions.extend(reactions);
 
-    overwrite(kind, &all_messages, read_marker).await
+    overwrite(kind, &all_messages, read_marker, &all_reactions).await
 }
 
 async fn read_all(path: &PathBuf) -> Result<Vec<Message>, Error> {
@@ -254,6 +264,7 @@ pub enum History {
     Partial {
         kind: Kind,
         messages: Vec<Message>,
+        reactions: HashMap<Id, Vec<Reaction>>,
         last_updated_at: Option<Instant>,
         max_triggers_unread: Option<DateTime<Utc>>,
         read_marker: Option<ReadMarker>,
@@ -263,6 +274,7 @@ pub enum History {
     Full {
         kind: Kind,
         messages: Vec<Message>,
+        reactions: HashMap<Id, Vec<Reaction>>,
         last_updated_at: Option<Instant>,
         read_marker: Option<ReadMarker>,
         last_seen: HashMap<Nick, DateTime<Utc>>,
@@ -279,6 +291,7 @@ impl History {
             read_marker: None,
             chathistory_references: None,
             last_seen: HashMap::new(),
+            reactions: HashMap::new(),
         }
     }
 
@@ -364,6 +377,7 @@ impl History {
                 messages,
                 last_updated_at,
                 read_marker,
+                reactions,
                 ..
             } => {
                 if let Some(last_received) = *last_updated_at {
@@ -372,13 +386,14 @@ impl History {
                     if since >= FLUSH_AFTER_LAST_RECEIVED {
                         let kind = kind.clone();
                         let messages = std::mem::take(messages);
+                        let reactions = std::mem::take(reactions);
                         let read_marker = *read_marker;
 
                         *last_updated_at = None;
 
                         return Some(
                             async move {
-                                append(&kind, messages, read_marker).await
+                                append(&kind, messages, read_marker, reactions).await
                             }
                             .boxed(),
                         );
@@ -392,6 +407,7 @@ impl History {
                 messages,
                 last_updated_at,
                 read_marker,
+                reactions,
                 ..
             } => {
                 if let Some(last_received) = *last_updated_at {
@@ -412,10 +428,11 @@ impl History {
                         }
 
                         let messages = messages.clone();
+                        let reactions = reactions.clone();
 
                         return Some(
                             async move {
-                                overwrite(&kind, &messages, read_marker).await
+                                overwrite(&kind, &messages, read_marker, &reactions).await
                             }
                             .boxed(),
                         );
@@ -439,10 +456,12 @@ impl History {
                 messages,
                 read_marker,
                 last_seen,
+                reactions,
                 ..
             } => {
                 let kind = kind.clone();
                 let messages = std::mem::take(messages);
+                let reactions = std::mem::take(reactions);
 
                 let read_marker = if mark_as_read {
                     ReadMarker::latest(&messages).max(*read_marker)
@@ -463,11 +482,12 @@ impl History {
                     read_marker,
                     max_triggers_unread,
                     chathistory_references,
-                    last_seen: last_seen.clone(),
+                    last_seen: std::mem::take(last_seen),
+                    reactions: HashMap::new(),
                 };
 
                 Some(async move {
-                    overwrite(&kind, &messages, read_marker)
+                    overwrite(&kind, &messages, read_marker, &reactions)
                         .await
                         .map(|()| read_marker)
                 })
@@ -485,6 +505,7 @@ impl History {
                 messages,
                 read_marker,
                 max_triggers_unread,
+                reactions,
                 ..
             } => {
                 if mark_as_read {
@@ -493,11 +514,11 @@ impl History {
                             max_triggers_unread.map(ReadMarker::from_date_time),
                         );
 
-                    append(&kind, messages, read_marker).await?;
+                    append(&kind, messages, read_marker, reactions).await?;
 
                     Ok(read_marker)
                 } else {
-                    append(&kind, messages, read_marker).await?;
+                    append(&kind, messages, read_marker, reactions).await?;
 
                     Ok(None)
                 }
@@ -506,17 +527,18 @@ impl History {
                 kind,
                 messages,
                 read_marker,
+                reactions,
                 ..
             } => {
                 if mark_as_read {
                     let read_marker =
                         ReadMarker::latest(&messages).max(read_marker);
 
-                    overwrite(&kind, &messages, read_marker).await?;
+                    overwrite(&kind, &messages, read_marker, &reactions).await?;
 
                     Ok(read_marker)
                 } else {
-                    overwrite(&kind, &messages, read_marker).await?;
+                    overwrite(&kind, &messages, read_marker, &reactions).await?;
 
                     Ok(None)
                 }
@@ -650,6 +672,22 @@ impl History {
         match self {
             History::Partial { last_seen, .. }
             | History::Full { last_seen, .. } => last_seen.clone(),
+        }
+    }
+
+    fn reactions_mut(&mut self) -> &mut HashMap<Id, Vec<Reaction>> {
+        match self {
+            History::Partial { reactions, .. } | History::Full { reactions, .. } => reactions,
+        }
+    }
+
+    fn add_reaction(&mut self, reaction: Reaction) {
+        if let Some(v) = self.reactions_mut().get_mut(&reaction.in_reply_to) {
+            if !v.contains(&reaction) {
+                v.push(reaction);
+            }
+        } else {
+            self.reactions_mut().insert(reaction.in_reply_to.clone(), vec![reaction]);
         }
     }
 }

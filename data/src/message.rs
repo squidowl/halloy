@@ -2,13 +2,13 @@ use std::borrow::Cow;
 use std::collections::HashSet;
 use std::hash::{DefaultHasher, Hash as _, Hasher};
 use std::iter;
-use std::sync::LazyLock;
+use std::sync::{Arc, LazyLock};
 
 use chrono::{DateTime, Utc};
 use const_format::concatcp;
 use fancy_regex::{Regex, RegexBuilder};
-use irc::proto;
 use irc::proto::Command;
+use irc::proto::{self};
 use itertools::{Either, Itertools};
 use serde::{Deserialize, Serialize};
 use url::Url;
@@ -165,12 +165,45 @@ impl Target {
             Target::Highlights { source, .. } => source,
         }
     }
+
+    pub fn nick(&self) -> Option<NickRef> {
+        match self.source() {
+            Source::User(user) | Source::Action(Some(user)) => {
+                Some(user.nickname())
+            }
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum Direction {
     Sent,
     Received,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Reaction {
+    pub target: Target,
+    pub sender: Nick,
+    pub text: String,
+    pub id: Option<Id>,
+    pub in_reply_to: Id,
+}
+
+impl Reaction {
+    pub fn with_target(self, target: Target) -> Self {
+        Self { target, ..self }
+    }
+}
+
+// two reactions are essentially equal if their text, target and nick match
+impl PartialEq<Reaction> for Reaction {
+    fn eq(&self, other: &Reaction) -> bool {
+        self.sender == other.sender
+            && self.text == other.text
+            && self.in_reply_to == other.in_reply_to
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -180,10 +213,95 @@ pub struct Message {
     pub direction: Direction,
     pub target: Target,
     pub content: Content,
-    pub id: Option<String>,
+    pub id: Option<Id>,
     pub hash: Hash,
     pub hidden_urls: HashSet<Url>,
     pub is_echo: bool,
+}
+
+pub enum Decoded {
+    Message(Message),
+    Reaction(Reaction),
+}
+impl Decoded {
+    pub fn into_highlight(
+        &self,
+        server: &Server,
+    ) -> Option<(Message, Channel, User)> {
+        match self {
+            Self::Message(message) => message.into_highlight(server),
+            _ => None,
+        }
+    }
+    pub fn with_target(self, target: Target) -> Self {
+        match self {
+            Self::Message(message) => {
+                Self::Message(message.with_target(target))
+            }
+            Self::Reaction(reaction) => {
+                Self::Reaction(reaction.with_target(target))
+            }
+        }
+    }
+}
+pub fn decode<'a>(
+    encoded: Encoded,
+    our_nick: Nick,
+    config: &'a Config,
+    resolve_attributes: impl Fn(&User, &target::Channel) -> Option<User>,
+    channel_users: impl Fn(&target::Channel) -> &'a [User],
+    chantypes: &[char],
+    statusmsg: &[char],
+    casemapping: isupport::CaseMap,
+) -> Option<Decoded> {
+    let server_time = server_time(&encoded);
+    let id = message_id(&encoded);
+    let in_reply_to = in_reply_to(&encoded);
+    let is_echo = encoded
+        .user()
+        .is_some_and(|user| user.nickname() == our_nick);
+
+    let target = target(
+        &encoded,
+        &our_nick,
+        &resolve_attributes,
+        chantypes,
+        statusmsg,
+        casemapping,
+    )?;
+    if let Some(text) = encoded.0.tags.get("+draft/react").cloned() {
+        return Some(Decoded::Reaction(Reaction {
+            sender: target.nick()?.to_owned(),
+            target,
+            text,
+            id,
+            in_reply_to: in_reply_to?,
+        }));
+    }
+    let content = content(
+        &encoded,
+        &our_nick,
+        config,
+        &resolve_attributes,
+        &channel_users,
+        chantypes,
+        statusmsg,
+        casemapping,
+    )?;
+    let received_at = Posix::now();
+    let hash = Hash::new(&server_time, &content);
+
+    Some(Decoded::Message(Message {
+        received_at,
+        server_time,
+        direction: Direction::Received,
+        target,
+        content,
+        id,
+        hash,
+        hidden_urls: HashSet::default(),
+        is_echo,
+    }))
 }
 
 impl Message {
@@ -234,7 +352,7 @@ impl Message {
         }
     }
 
-    pub fn received<'a>(
+    pub fn _received<'a>(
         encoded: Encoded,
         our_nick: Nick,
         config: &'a Config,
@@ -260,7 +378,7 @@ impl Message {
             casemapping,
         )?;
         let target = target(
-            encoded,
+            &encoded,
             &our_nick,
             &resolve_attributes,
             chantypes,
@@ -407,7 +525,7 @@ impl Message {
 
     pub fn into_highlight(
         &self,
-        server: Server,
+        server: &Server,
     ) -> Option<(Self, Channel, User)> {
         if !self.is_echo && self.has_highlight_fragment() {
             let (channel, user, source) = match self.target.clone() {
@@ -426,7 +544,7 @@ impl Message {
 
             let message = Message {
                 target: Target::Highlights {
-                    server,
+                    server: server.clone(),
                     channel: channel.clone(),
                     source,
                 },
@@ -452,7 +570,7 @@ impl Serialize for Message {
             direction: &'a Direction,
             target: &'a Target,
             content: &'a Content,
-            id: &'a Option<String>,
+            id: Option<Id>,
             // Old field before we had fragments,
             // added for downgrade compatibility
             text: Cow<'a, str>,
@@ -466,7 +584,7 @@ impl Serialize for Message {
             direction: &self.direction,
             target: &self.target,
             content: &self.content,
-            id: &self.id,
+            id: self.id.clone(),
             text: self.content.text(),
             hidden_urls: &self.hidden_urls,
             is_echo: &self.is_echo,
@@ -491,7 +609,7 @@ impl<'de> Deserialize<'de> for Message {
             content: Option<Content>,
             // Old field before we had fragments
             text: Option<String>,
-            id: Option<String>,
+            id: Option<Id>,
             #[serde(default)]
             hidden_urls: HashSet<url::Url>,
             // New field, optional for upgrade compatibility
@@ -858,8 +976,15 @@ impl From<formatting::Fragment> for Fragment {
     }
 }
 
+fn command_is_action(c: &Command) -> bool {
+    match c {
+        Command::PRIVMSG(_, text) | Command::NOTICE(_, text) => is_action(text),
+        _ => false,
+    }
+}
+
 fn target(
-    message: Encoded,
+    message: &Encoded,
     our_nick: &Nick,
     resolve_attributes: &dyn Fn(&User, &target::Channel) -> Option<User>,
     chantypes: &[char],
@@ -870,11 +995,11 @@ fn target(
 
     let user = message.user();
 
-    match message.0.command {
+    match &message.0.command {
         // Channel
         Command::MODE(target, ..) => {
             let channel = target::Channel::parse(
-                &target,
+                target,
                 chantypes,
                 statusmsg,
                 casemapping,
@@ -888,7 +1013,7 @@ fn target(
         }
         Command::TOPIC(channel, _) | Command::KICK(channel, _, _) => {
             let channel = target::Channel::parse(
-                &channel,
+                channel,
                 chantypes,
                 statusmsg,
                 casemapping,
@@ -902,7 +1027,7 @@ fn target(
         }
         Command::PART(channel, _) => {
             let channel = target::Channel::parse(
-                &channel,
+                channel,
                 chantypes,
                 statusmsg,
                 casemapping,
@@ -919,7 +1044,7 @@ fn target(
         }
         Command::JOIN(channel, _) => {
             let channel = target::Channel::parse(
-                &channel,
+                channel,
                 chantypes,
                 statusmsg,
                 casemapping,
@@ -977,71 +1102,72 @@ fn target(
                 source: Source::Action(None),
             })
         }
-        Command::PRIVMSG(target, text) | Command::NOTICE(target, text) => {
-            let is_action = is_action(&text);
+        // CTCP Handling.
+        Command::PRIVMSG(target, text) | Command::NOTICE(target, text)
+            if !is_action(text) && ctcp::is_query(text) =>
+        {
+            let user = user?;
+            let target = User::from(Nick::from(&target[..]));
 
-            // CTCP Handling.
-            if ctcp::is_query(&text) && !is_action {
-                let user = user?;
-                let target = User::from(Nick::from(target));
-
-                // We want to show both requests, and responses in query with the client.
-                let user = if user.nickname() == *our_nick {
-                    target
-                } else {
-                    user
-                };
-
-                Some(Target::Query {
-                    query: target::Query::from_user(&user, casemapping),
-                    source: Source::Server(None),
-                })
+            // We want to show both requests, and responses in query with the client.
+            let user = if user.nickname() == *our_nick {
+                target
             } else {
-                let source = |user| {
-                    if is_action {
-                        Source::Action(Some(user))
-                    } else {
-                        Source::User(user)
-                    }
-                };
+                user
+            };
 
-                match (
-                    target::Target::parse(
-                        &target,
-                        chantypes,
-                        statusmsg,
-                        casemapping,
-                    ),
-                    user,
-                ) {
-                    (target::Target::Channel(channel), Some(user)) => {
-                        let source = source(
-                            resolve_attributes(&user, &channel).unwrap_or(user),
-                        );
-                        Some(Target::Channel { channel, source })
-                    }
-                    (target::Target::Query(query), Some(user)) => {
-                        let query = if user.nickname() == *our_nick {
-                            // Message from ourself, from another client.
-                            query
-                        } else {
-                            // Message from conversation partner.
-                            target::Query::parse(
-                                user.as_str(),
-                                chantypes,
-                                statusmsg,
-                                casemapping,
-                            )
-                            .ok()?
-                        };
-
-                        Some(Target::Query {
-                            query,
-                            source: source(user),
-                        })
-                    }
-                    _ => None,
+            Some(Target::Query {
+                query: target::Query::from_user(&user, casemapping),
+                source: Source::Server(None),
+            })
+        }
+        c @ (Command::PRIVMSG(target, _)
+        | Command::NOTICE(target, _)
+        | Command::TAGMSG(target)) => {
+            let source = |user| {
+                if command_is_action(c) {
+                    Source::Action(Some(user))
+                } else {
+                    Source::User(user)
                 }
+            };
+
+            match (
+                target::Target::parse(
+                    target,
+                    chantypes,
+                    statusmsg,
+                    casemapping,
+                ),
+                user,
+            ) {
+                (target::Target::Channel(channel), Some(user)) => {
+                    let source = source(
+                        resolve_attributes(&user, &channel).unwrap_or(user),
+                    );
+                    Some(Target::Channel { channel, source })
+                }
+                (target::Target::Query(query), Some(user)) => {
+                    let query = if user.nickname() == *our_nick {
+                        // Message from ourself, from another client.
+                        query
+                    } else {
+                        // Message from conversation partner.
+                        target::Query::parse(
+                            user.as_str(),
+                            chantypes,
+                            statusmsg,
+                            casemapping,
+                        )
+                        .ok()?
+                    };
+
+                    Some(Target::Query {
+                        query,
+                        source: source(user),
+                    })
+                }
+                _ => None,
             }
         }
         Command::CHGHOST(_, _) => Some(Target::Server {
@@ -1128,7 +1254,6 @@ fn target(
         | Command::MARKREAD(_, _)
         | Command::MONITOR(_, _)
         | Command::SETNAME(_)
-        | Command::TAGMSG(_)
         | Command::USERIP(_)
         | Command::HELP(_)
         | Command::Numeric(_, _)
@@ -1139,8 +1264,16 @@ fn target(
     }
 }
 
-pub fn message_id(message: &Encoded) -> Option<String> {
-    message.tags.get("msgid").cloned()
+pub type Id = Arc<str>;
+
+pub fn message_id(message: &Encoded) -> Option<Id> {
+    message.tags.get("msgid").map(|val| Id::from(&**val))
+}
+pub fn in_reply_to(message: &Encoded) -> Option<Id> {
+    message
+        .tags
+        .get("+draft/reply")
+        .map(|val| Id::from(&**val))
 }
 
 pub fn server_time(message: &Encoded) -> DateTime<Utc> {
@@ -1698,7 +1831,7 @@ pub enum Link {
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct MessageReferences {
     pub timestamp: DateTime<Utc>,
-    pub id: Option<String>,
+    pub id: Option<Id>,
 }
 
 impl MessageReferences {

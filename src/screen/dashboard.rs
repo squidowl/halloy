@@ -1942,6 +1942,18 @@ impl Dashboard {
         }
     }
 
+    pub fn record_decoded(
+        &mut self,
+        server: &Server,
+        message: data::message::Decoded,
+    ) -> Task<Message> {
+        if let Some(task) = self.history.record_decoded(server, message) {
+            Task::perform(task, Message::History)
+        } else {
+            Task::none()
+        }
+    }
+
     pub fn record_log(&mut self, record: data::log::Record) -> Task<Message> {
         if let Some(task) = self.history.record_log(record) {
             Task::perform(task, Message::History)
