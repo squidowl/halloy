@@ -38,7 +38,7 @@ pub fn view<'a>(
             None,
             None,
             config,
-            move |message: &'a data::Message, _, _| match message.target.source() {
+            move |message: &'a data::Message, _, _, _| match message.target.source() {
                 message::Source::Internal(message::source::Internal::Logs) => {
                     Some(
                         container(message_content(
@@ -112,6 +112,7 @@ impl Logs {
                     scroll_view::Event::ImagePreview(path, url) => {
                         Some(Event::ImagePreview(path, url))
                     }
+                    scroll_view::Event::Reacted{ .. } => None,
                 });
 
                 (command.map(Message::ScrollView), event)

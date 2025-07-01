@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use chrono::{DateTime, Local, NaiveDate, Utc};
 use data::dashboard::BufferAction;
 use data::isupport::ChatHistoryState;
-use data::message::{self, Limit};
+use data::message::{self, Limit, Reaction};
 use data::preview::{self, Previews};
 use data::server::Server;
 use data::target::{self, Target};
@@ -43,6 +43,10 @@ pub enum Message {
     PreviewHovered(message::Hash, usize),
     PreviewUnhovered(message::Hash, usize),
     HidePreview(message::Hash, url::Url),
+    Reacted {
+        msgid: message::Id,
+        text: String,
+    },
     MarkAsRead,
 }
 
@@ -57,6 +61,7 @@ pub enum Event {
     MarkAsRead,
     OpenUrl(String),
     ImagePreview(PathBuf, url::Url),
+    Reacted { msgid: message::Id, text: String },
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -99,6 +104,7 @@ pub trait LayoutMessage<'a> {
     fn format(
         &self,
         msg: &'a data::Message,
+        reactions: &'a [Reaction],
         max_nick_width: Option<f32>,
         max_prefix_width: Option<f32>,
     ) -> Option<Element<'a, Message>>;
@@ -108,6 +114,7 @@ impl<'a, T> LayoutMessage<'a> for T
 where
     T: Fn(
         &'a data::Message,
+        &'a [Reaction],
         Option<f32>,
         Option<f32>,
     ) -> Option<Element<'a, Message>>,
@@ -115,10 +122,11 @@ where
     fn format(
         &self,
         msg: &'a data::Message,
+        reactions: &'a [Reaction],
         max_nick_width: Option<f32>,
         max_prefix_width: Option<f32>,
     ) -> Option<Element<'a, Message>> {
-        self(msg, max_nick_width, max_prefix_width)
+        self(msg, reactions, max_nick_width, max_prefix_width)
     }
 }
 
@@ -141,6 +149,7 @@ pub fn view<'a>(
         new_messages,
         max_nick_chars,
         max_prefix_chars,
+        reactions,
         ..
     }) = history.get_messages(&kind.into(), Some(state.limit), &config.buffer)
     else {
@@ -200,7 +209,17 @@ pub fn view<'a>(
             .iter()
             .filter_map(|message| {
                 formatter
-                    .format(message, max_nick_width, max_prefix_width)
+                    .format(
+                        message,
+                        message
+                            .id
+                            .as_ref()
+                            .and_then(|id| reactions.get(id))
+                            .map(|v| &v[..])
+                            .unwrap_or_default(),
+                        max_nick_width,
+                        max_prefix_width,
+                    )
                     .map(|element| {
                         (message, keyed(keyed::Key::message(message), element))
                     })
@@ -668,6 +687,9 @@ impl State {
             }
             Message::ImagePreview(path, url) => {
                 return (Task::none(), Some(Event::ImagePreview(path, url)));
+            }
+            Message::Reacted { msgid, text } => {
+                return (Task::none(), Some(Event::Reacted { msgid, text }));
             }
         }
 

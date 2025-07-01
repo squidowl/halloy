@@ -237,22 +237,24 @@ impl Manager {
                 if config.buffer.mark_as_read.on_message_sent {
                     if let Some(kind) = history::Kind::from_server_target(
                         input.server(),
-                        &message.target,
+                        message.target(),
                     ) {
-                        tasks.extend(
-                            self.update_read_marker(
-                                kind,
-                                history::ReadMarker::from_date_time(
-                                    message.server_time,
-                                ),
-                            )
-                            .map(futures::FutureExt::boxed),
-                        );
+                        if let Decoded::Message(msg) = &message {
+                            tasks.extend(
+                                self.update_read_marker(
+                                    kind,
+                                    history::ReadMarker::from_date_time(
+                                        msg.server_time,
+                                    ),
+                                )
+                                .map(futures::FutureExt::boxed),
+                            );
+                        }
                     }
                 }
 
                 tasks.extend(
-                    self.record_message(input.server(), message)
+                    self.record_decoded(input.server(), message)
                         .map(futures::FutureExt::boxed),
                 );
             }
@@ -725,6 +727,7 @@ impl Data {
         let History::Full {
             messages,
             read_marker,
+            reactions,
             ..
         } = self.map.get(kind)?
         else {
@@ -910,6 +913,7 @@ impl Data {
             new_messages: new.to_vec(),
             max_nick_chars,
             max_prefix_chars,
+            reactions,
         })
     }
 

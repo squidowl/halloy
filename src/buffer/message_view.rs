@@ -1,10 +1,11 @@
 use crate::buffer::scroll_view::Message;
+use crate::widget::reaction_row::reaction_row;
 use data::isupport::CaseMap;
+use data::message::Reaction;
 use data::server::Server;
 use data::target::{self};
 use data::{Config, User, message};
-use iced::advanced::text;
-use iced::widget::{column, container, row};
+use iced::widget::{column, container, row, text};
 
 use super::scroll_view::LayoutMessage;
 use super::user_context;
@@ -246,6 +247,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
     fn format(
         &self,
         message: &'a data::Message,
+        reactions: &'a [Reaction],
         max_nick_width: Option<f32>,
         max_prefix_width: Option<f32>,
     ) -> Option<Element<'a, Message>> {
@@ -255,70 +257,86 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
 
         let space = selectable_text(" ");
 
-        let row = row![].push_maybe(timestamp).push_maybe(prefixes);
-
-        let (middle, content): (Element<'a, Message>, Element<'a, Message>) =
-            match message.target.source() {
-                message::Source::User(user) => Some(self.format_user_message(
+        let (middle, mut content): (
+            Element<'a, Message>,
+            Element<'a, Message>,
+        ) = match message.target.source() {
+            message::Source::User(user) => {
+                Some(self.format_user_message(message, max_nick_width, user))
+            }
+            message::Source::Server(server_message) => {
+                Some(self.format_server_message(
                     message,
                     max_nick_width,
-                    user,
-                )),
-                message::Source::Server(server_message) => {
-                    Some(self.format_server_message(
-                        message,
-                        max_nick_width,
-                        server_message.as_ref(),
-                    ))
-                }
-                message::Source::Action(_) => {
-                    let marker = message_marker(
-                        max_nick_width,
-                        theme::selectable_text::action,
-                    );
+                    server_message.as_ref(),
+                ))
+            }
+            message::Source::Action(_) => {
+                let marker = message_marker(
+                    max_nick_width,
+                    theme::selectable_text::action,
+                );
 
-                    let message_content = message_content(
-                        &message.content,
-                        self.casemapping,
-                        self.theme,
-                        Message::Link,
-                        theme::selectable_text::action,
-                        self.config,
-                    );
+                let message_content = message_content(
+                    &message.content,
+                    self.casemapping,
+                    self.theme,
+                    Message::Link,
+                    theme::selectable_text::action,
+                    self.config,
+                );
 
-                    let text_container = container(message_content);
+                let text_container = container(message_content);
 
-                    Some((marker, text_container.into()))
-                }
-                message::Source::Internal(
-                    message::source::Internal::Status(status),
-                ) => {
-                    let message_style = move |message_theme: &Theme| {
-                        theme::selectable_text::status(message_theme, *status)
-                    };
+                Some((marker, text_container.into()))
+            }
+            message::Source::Internal(message::source::Internal::Status(
+                status,
+            )) => {
+                let message_style = move |message_theme: &Theme| {
+                    theme::selectable_text::status(message_theme, *status)
+                };
 
-                    let marker = message_marker(max_nick_width, message_style);
+                let marker = message_marker(max_nick_width, message_style);
 
-                    let message = message_content(
-                        &message.content,
-                        self.casemapping,
-                        self.theme,
-                        Message::Link,
-                        message_style,
-                        self.config,
-                    );
+                let message = message_content(
+                    &message.content,
+                    self.casemapping,
+                    self.theme,
+                    Message::Link,
+                    message_style,
+                    self.config,
+                );
 
-                    Some((marker, message))
-                }
-                message::Source::Internal(message::source::Internal::Logs) => {
-                    None
-                }
-            }?;
-        let row = row.push(middle).push(space);
-        if self.content_on_new_line(message) {
-            Some(container(column![row, content]).into())
+                Some((marker, message))
+            }
+            message::Source::Internal(message::source::Internal::Logs) => None,
+        }?;
+
+        let initial = row![].push_maybe(timestamp).push_maybe(prefixes);
+
+        let nick = row![middle, space];
+        content = if self.content_on_new_line(message) {
+            column![nick, content].into()
         } else {
-            Some(container(row![row, content]).into())
+            row![nick, content].into()
+        };
+        if !reactions.is_empty() {
+            let reactions = reaction_row(
+                message,
+                self.target.our_user().map(|user| user.nickname()),
+                reactions,
+                |text| Message::Reacted {
+                    // SAFETY(pounce): our message must have an ID as it has reactions which we are
+                    // tracking
+                    msgid: message.id.as_ref().unwrap().clone(),
+                    text: text.to_owned(),
+                },
+            );
+            content = column![content, reactions].into();
         }
+        content = row![initial, content].into();
+
+        Some(container(content).into())
     }
 }

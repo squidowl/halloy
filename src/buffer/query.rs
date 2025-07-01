@@ -28,6 +28,7 @@ pub enum Event {
     MarkAsRead(history::Kind),
     OpenUrl(String),
     ImagePreview(PathBuf, url::Url),
+    Reacted { msgid: message::Id, text: String },
 }
 
 pub fn view<'a>(
@@ -175,6 +176,9 @@ impl Query {
                     }
                     scroll_view::Event::ImagePreview(path, url) => {
                         Some(Event::ImagePreview(path, url))
+                    }
+                    scroll_view::Event::Reacted { msgid, text } => {
+                        Some(Event::Reacted { msgid, text })
                     }
                 });
 

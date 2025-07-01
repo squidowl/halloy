@@ -174,6 +174,15 @@ impl Target {
             _ => None,
         }
     }
+
+    pub fn from_target(target: crate::Target, source: Source) -> Self {
+        match target {
+            crate::Target::Channel(channel) => {
+                Target::Channel { channel, source }
+            }
+            crate::Target::Query(query) => Target::Query { query, source },
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
@@ -194,6 +203,20 @@ pub struct Reaction {
 impl Reaction {
     pub fn with_target(self, target: Target) -> Self {
         Self { target, ..self }
+    }
+    pub fn sent(
+        target: Target,
+        my_nick: Nick,
+        in_reply_to: Id,
+        text: String,
+    ) -> Self {
+        Self {
+            sender: my_nick,
+            target,
+            in_reply_to,
+            text,
+            id: None,
+        }
     }
 }
 
@@ -241,6 +264,12 @@ impl Decoded {
             Self::Reaction(reaction) => {
                 Self::Reaction(reaction.with_target(target))
             }
+        }
+    }
+    pub fn target(&self) -> &Target {
+        match self {
+            Self::Message(message) => &message.target,
+            Self::Reaction(reaction) => &reaction.target,
         }
     }
 }

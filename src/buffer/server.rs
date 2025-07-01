@@ -46,7 +46,7 @@ pub fn view<'a>(
             None,
             None,
             config,
-            move |message: &'a data::Message, _, _| {
+            move |message: &'a data::Message, _, _, _| {
                 let timestamp = config
                     .buffer
                     .format_timestamp(&message.server_time)
@@ -197,6 +197,7 @@ impl Server {
                     scroll_view::Event::ImagePreview(path, url) => {
                         Some(Event::ImagePreview(path, url))
                     }
+                    scroll_view::Event::Reacted{ .. } => None,
                 });
 
                 (command.map(Message::ScrollView), event)

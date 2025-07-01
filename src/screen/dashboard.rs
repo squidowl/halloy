@@ -277,7 +277,7 @@ impl Dashboard {
                                                     for message in messages {
                                                         if let Some(task) = self
                                                             .history
-                                                            .record_message(
+                                                            .record_decoded(
                                                                 input.server(),
                                                                 message,
                                                         ) {
@@ -544,6 +544,70 @@ impl Dashboard {
                                         Task::none(),
                                         Some(Event::ImagePreview(path, url)),
                                     );
+                                }
+                                buffer::Event::Reacted {
+                                    msgid,
+                                    text,
+                                } => {
+                                    let Some(upstream) =
+                                        pane.buffer.data().and_then(|buffer| {
+                                            buffer.upstream().cloned()
+                                        })
+                                    else {
+                                        return (Task::none(), None);
+                                    };
+                                    let input = data::Input::reaction(
+                                        upstream.clone(),
+                                        msgid,
+                                        text,
+                                    );
+                                    let Some(encoded) = input.encoded() else {
+                                        return (Task::none(), None);
+                                    };
+                                    clients.send(&input.buffer, encoded);
+                                    // TODO(pounce) refactor
+                                    // copied from src/buffer/input_view.rs:451 onwards
+                                    if let Some(nick) = clients.nickname(upstream.server()) {
+                                        let mut user = nick.to_owned().into();
+                                        let mut channel_users = &[][..];
+
+                                        let chantypes = clients
+                                            .get_chantypes(upstream.server());
+                                        let statusmsg = clients
+                                            .get_statusmsg(upstream.server());
+                                        let casemapping = clients
+                                            .get_casemapping(upstream.server());
+
+                                        // Resolve our attributes if sending this message in a channel
+                                        if let buffer::Upstream::Channel(
+                                            server,
+                                            channel,
+                                        ) = &upstream
+                                        {
+                                            channel_users = clients
+                                                .get_channel_users(
+                                                    server, channel,
+                                                );
+
+                                            if let Some(user_with_attributes) =
+                                                clients.resolve_user_attributes(
+                                                    server, channel, &user,
+                                                )
+                                            {
+                                                user = user_with_attributes
+                                                    .clone();
+                                            }
+                                        }
+                                        self.history.record_input_message(
+                                            input,
+                                            user,
+                                            channel_users,
+                                            chantypes,
+                                            statusmsg,
+                                            casemapping,
+                                            config,
+                                        );
+                                    }
                                 }
                             }
 
@@ -1940,6 +2004,15 @@ impl Dashboard {
         } else {
             Task::none()
         }
+    }
+
+    pub fn record_reaction(
+        &mut self,
+        server: &Server,
+        reaction: data::message::Reaction,
+    ) -> Task<Message> {
+        self.history.record_reaction(server, reaction);
+        Task::none()
     }
 
     pub fn record_decoded(

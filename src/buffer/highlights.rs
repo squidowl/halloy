@@ -41,7 +41,7 @@ pub fn view<'a>(
             None,
             None,
             config,
-            move |message: &'a data::Message, _, _| match &message.target {
+            move |message: &'a data::Message, _, _, _| match &message.target {
                 message::Target::Highlights {
                     server,
                     channel,
@@ -248,6 +248,7 @@ impl Highlights {
                     scroll_view::Event::PreviewChanged => None,
                     scroll_view::Event::HidePreview(..) => None,
                     scroll_view::Event::MarkAsRead => None,
+                    scroll_view::Event::Reacted{ .. } => None,
                     scroll_view::Event::OpenUrl(url) => {
                         Some(Event::OpenUrl(url))
                     }

@@ -12,7 +12,7 @@ use tokio::time::Instant;
 
 pub use self::manager::{Manager, Resource};
 pub use self::metadata::{Metadata, ReadMarker};
-use crate::message::{self, MessageReferences, Id, Reaction, Source};
+use crate::message::{self, MessageReferences, Reaction, Source};
 use crate::target::{self, Target};
 use crate::user::Nick;
 use crate::{
@@ -180,7 +180,7 @@ pub async fn overwrite(
     kind: &Kind,
     messages: &[Message],
     read_marker: Option<ReadMarker>,
-    reactions: &HashMap<Id, Vec<Reaction>>
+    reactions: &HashMap<message::Id, Vec<Reaction>>
 ) -> Result<(), Error> {
     if messages.is_empty() {
         return metadata::save(kind, messages, read_marker, reactions).await;
@@ -193,7 +193,7 @@ pub async fn overwrite(
 
     fs::write(path, &compressed).await?;
     let msgids: HashSet<&str> = messages.iter().filter_map(|msg| msg.id.as_deref()).collect();
-    let reactions_for_messages: HashMap<Id, Vec<Reaction>> = reactions
+    let reactions_for_messages: HashMap<message::Id, Vec<Reaction>> = reactions
         .iter()
         .filter(|(key, _)| msgids.contains(&key[..]))
         .map(|(k, v)| (k.clone(), v.clone()))
@@ -208,7 +208,7 @@ pub async fn append(
     kind: &Kind,
     messages: Vec<Message>,
     read_marker: Option<ReadMarker>,
-    reactions: HashMap<Id, Vec<Reaction>>,
+    reactions: HashMap<message::Id, Vec<Reaction>>,
 ) -> Result<(), Error> {
     let loaded = load(kind.clone()).await?;
 
@@ -264,7 +264,7 @@ pub enum History {
     Partial {
         kind: Kind,
         messages: Vec<Message>,
-        reactions: HashMap<Id, Vec<Reaction>>,
+        reactions: HashMap<message::Id, Vec<Reaction>>,
         last_updated_at: Option<Instant>,
         max_triggers_unread: Option<DateTime<Utc>>,
         read_marker: Option<ReadMarker>,
@@ -274,7 +274,7 @@ pub enum History {
     Full {
         kind: Kind,
         messages: Vec<Message>,
-        reactions: HashMap<Id, Vec<Reaction>>,
+        reactions: HashMap<message::Id, Vec<Reaction>>,
         last_updated_at: Option<Instant>,
         read_marker: Option<ReadMarker>,
         last_seen: HashMap<Nick, DateTime<Utc>>,
@@ -675,7 +675,7 @@ impl History {
         }
     }
 
-    fn reactions_mut(&mut self) -> &mut HashMap<Id, Vec<Reaction>> {
+    fn reactions_mut(&mut self) -> &mut HashMap<message::Id, Vec<Reaction>> {
         match self {
             History::Partial { reactions, .. } | History::Full { reactions, .. } => reactions,
         }
@@ -881,6 +881,7 @@ pub struct View<'a> {
     pub new_messages: Vec<&'a Message>,
     pub max_nick_chars: Option<usize>,
     pub max_prefix_chars: Option<usize>,
+    pub reactions: &'a HashMap<message::Id, Vec<Reaction>>,
 }
 
 #[derive(Debug, thiserror::Error)]
