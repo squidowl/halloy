@@ -90,7 +90,6 @@ impl From<ScaleFactor> for f64 {
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
-#[serde(rename_all = "kebab-case")]
 pub struct Font {
     pub family: Option<String>,
     pub size: Option<u8>,
@@ -103,6 +102,7 @@ pub struct Font {
         default,
         deserialize_with = "deserialize_optional_font_weight_from_string"
     )]
+    #[serde(alias = "bold-weight")] // For backwards compatibility
     pub bold_weight: Option<font::Weight>,
 }
 
