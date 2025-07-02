@@ -134,6 +134,10 @@ pub struct ServerMessages {
     #[serde(default)]
     pub change_host: ServerMessage,
     #[serde(default)]
+    pub change_mode: ServerMessage,
+    #[serde(default)]
+    pub change_nick: ServerMessage,
+    #[serde(default)]
     pub monitored_online: ServerMessage,
     #[serde(default)]
     pub monitored_offline: ServerMessage,
@@ -155,6 +159,8 @@ impl ServerMessages {
             source::server::Kind::Part => Some(&self.part),
             source::server::Kind::Quit => Some(&self.quit),
             source::server::Kind::ChangeHost => Some(&self.change_host),
+            source::server::Kind::ChangeMode => Some(&self.change_mode),
+            source::server::Kind::ChangeNick => Some(&self.change_nick),
             source::server::Kind::MonitoredOnline => {
                 Some(&self.monitored_online)
             }

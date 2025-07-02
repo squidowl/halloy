@@ -3,6 +3,7 @@
 Added:
 
 - Configuration option per toast type for showing content in toasts
+- Configuration option to hide `nick` and `mode` change server messages
 - Context menu item to server buffers to mark all messages on the server as read
 
 Thanks:

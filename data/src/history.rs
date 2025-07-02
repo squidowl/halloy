@@ -790,6 +790,8 @@ fn has_matching_content(
                 }
                 message::source::server::Kind::ReplyTopic
                 | message::source::server::Kind::ChangeHost
+                | message::source::server::Kind::ChangeNick
+                | message::source::server::Kind::ChangeMode
                 | message::source::server::Kind::MonitoredOnline
                 | message::source::server::Kind::MonitoredOffline
                 | message::source::server::Kind::StandardReply(_)
