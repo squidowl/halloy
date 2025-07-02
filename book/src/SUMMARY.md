@@ -28,6 +28,7 @@
   - [Font](configuration/font.md)
   - [Highlights](configuration/highlights.md)
   - [Keyboard](configuration/keyboard.md)
+  - [Logs](configuration/logs.md)
   - [Notifications](configuration/notifications.md)
   - [Pane](configuration/pane.md)
   - [Proxy](configuration/proxy.md)
