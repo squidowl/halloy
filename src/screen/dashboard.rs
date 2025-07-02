@@ -824,7 +824,7 @@ impl Dashboard {
                 }
             }
             Message::DashboardSaved(Ok(())) => {
-                log::info!("dashboard saved");
+                log::debug!("dashboard saved");
             }
             Message::DashboardSaved(Err(error)) => {
                 log::warn!("error saving dashboard: {error}");
@@ -2735,7 +2735,7 @@ impl Dashboard {
                 if last_changed.is_some() {
                     match dashboard.save().await {
                         Ok(()) => {
-                            log::info!("dashboard saved");
+                            log::debug!("dashboard saved");
                         }
                         Err(error) => {
                             log::warn!("error saving dashboard: {error}");

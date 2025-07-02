@@ -82,7 +82,7 @@ impl Kind {
             message::Target::Query { query, .. } => {
                 Some(Self::Query(server, query.clone()))
             }
-            message::Target::Logs => None,
+            message::Target::Logs { .. } => None,
             message::Target::Highlights { .. } => None,
         }
     }

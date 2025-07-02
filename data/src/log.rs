@@ -1,9 +1,11 @@
+use std::cmp::Ordering;
 use std::path::PathBuf;
 use std::{fs, io};
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
+use crate::config::logs::LevelFilter;
 use crate::environment;
 
 pub fn file() -> Result<fs::File, Error> {
@@ -64,6 +66,63 @@ impl From<log::Level> for Level {
             log::Level::Info => Level::Info,
             log::Level::Debug => Level::Debug,
             log::Level::Trace => Level::Trace,
+        }
+    }
+}
+
+impl std::cmp::PartialOrd<LevelFilter> for Level {
+    fn partial_cmp(&self, other: &LevelFilter) -> Option<Ordering> {
+        Some(match self {
+            Level::Error => match other {
+                LevelFilter::Off => Ordering::Greater,
+                LevelFilter::Error => Ordering::Equal,
+                LevelFilter::Warn
+                | LevelFilter::Info
+                | LevelFilter::Debug
+                | LevelFilter::Trace => Ordering::Less,
+            },
+            Level::Warn => match other {
+                LevelFilter::Off | LevelFilter::Error => Ordering::Greater,
+                LevelFilter::Warn => Ordering::Equal,
+                LevelFilter::Info | LevelFilter::Debug | LevelFilter::Trace => {
+                    Ordering::Less
+                }
+            },
+            Level::Info => match other {
+                LevelFilter::Off | LevelFilter::Error | LevelFilter::Warn => {
+                    Ordering::Greater
+                }
+                LevelFilter::Info => Ordering::Equal,
+                LevelFilter::Debug | LevelFilter::Trace => Ordering::Less,
+            },
+            Level::Debug => match other {
+                LevelFilter::Off
+                | LevelFilter::Error
+                | LevelFilter::Warn
+                | LevelFilter::Info => Ordering::Greater,
+                LevelFilter::Debug => Ordering::Equal,
+                LevelFilter::Trace => Ordering::Less,
+            },
+            Level::Trace => match other {
+                LevelFilter::Off
+                | LevelFilter::Error
+                | LevelFilter::Warn
+                | LevelFilter::Info
+                | LevelFilter::Debug => Ordering::Greater,
+                LevelFilter::Trace => Ordering::Equal,
+            },
+        })
+    }
+}
+
+impl std::cmp::PartialEq<LevelFilter> for Level {
+    fn eq(&self, other: &LevelFilter) -> bool {
+        match self {
+            Level::Error => matches!(other, LevelFilter::Error),
+            Level::Warn => matches!(other, LevelFilter::Warn),
+            Level::Info => matches!(other, LevelFilter::Info),
+            Level::Debug => matches!(other, LevelFilter::Debug),
+            Level::Trace => matches!(other, LevelFilter::Trace),
         }
     }
 }
