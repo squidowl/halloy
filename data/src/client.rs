@@ -3301,6 +3301,10 @@ impl Map {
         })
     }
 
+    pub fn servers(&self) -> impl Iterator<Item = &Server> {
+        self.0.keys()
+    }
+
     pub fn iter(&self) -> std::collections::btree_map::Iter<Server, State> {
         self.0.iter()
     }
