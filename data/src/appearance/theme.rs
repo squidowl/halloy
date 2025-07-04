@@ -218,7 +218,6 @@ impl<'de> Deserialize<'de> for TextStyle {
         #[serde(untagged)]
         enum Data {
             Basic(String),
-            #[serde(rename_all = "kebab-case")]
             Extended {
                 color: String,
                 font_style: Option<FontStyle>,
@@ -245,7 +244,6 @@ impl Serialize for TextStyle {
         S: Serializer,
     {
         #[derive(Serialize)]
-        #[serde(rename_all = "kebab-case")]
         struct Data {
             color: String,
             font_style: Option<FontStyle>,
@@ -280,7 +278,6 @@ impl<'de> Deserialize<'de> for OptionalTextStyle {
         #[serde(untagged)]
         enum Data {
             Basic(Option<String>),
-            #[serde(rename_all = "kebab-case")]
             Extended {
                 color: Option<String>,
                 font_style: Option<FontStyle>,
@@ -307,7 +304,6 @@ impl Serialize for OptionalTextStyle {
         S: Serializer,
     {
         #[derive(Serialize)]
-        #[serde(rename_all = "kebab-case")]
         struct Data {
             color: Option<String>,
             font_style: Option<FontStyle>,
