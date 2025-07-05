@@ -33,6 +33,7 @@ pub mod selectable_rich_text;
 pub mod selectable_text;
 pub mod shortcut;
 pub mod tooltip;
+pub mod reaction_row;
 
 pub type Renderer = iced::Renderer;
 pub type Element<'a, Message> = iced::Element<'a, Message, Theme, Renderer>;

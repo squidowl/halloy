@@ -6,6 +6,7 @@ use chrono::format::SecondsFormat;
 use chrono::{DateTime, Utc};
 use irc::proto;
 
+use crate::message::Id;
 use crate::Message;
 use crate::target::Target;
 
@@ -882,7 +883,7 @@ pub struct CommandTargetLimit {
 #[derive(Clone, Debug, PartialEq)]
 pub enum MessageReference {
     Timestamp(DateTime<Utc>),
-    MessageId(String),
+    MessageId(Id),
     None,
 }
 
@@ -907,7 +908,7 @@ impl PartialEq<Message> for MessageReference {
                 other.server_time == *server_time
             }
             MessageReference::MessageId(id) => {
-                other.id.as_deref() == Some(id.as_str())
+                other.id.as_deref() == Some(id)
             }
             MessageReference::None => false,
         }
