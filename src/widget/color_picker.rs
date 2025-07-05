@@ -59,8 +59,9 @@ fn bordered<'a, Message: 'a>(
             background: None,
             border: border::rounded(2)
                 .width(1)
-                .color(theme.colors().general.border),
+                .color(theme.styles().general.border),
             shadow: iced::Shadow::default(),
+            snap: true,
         })
 }
 
@@ -81,6 +82,7 @@ fn preview<'a, Message: 'a>(color: Color) -> Element<'a, Message> {
                         bounds: layout.bounds(),
                         border: iced::Border::default(),
                         shadow: iced::Shadow::default(),
+                        snap: true,
                     },
                     color,
                 );
@@ -480,6 +482,7 @@ fn picker<'a, Message: 'a>(
                                     ),
                                     border: iced::Border::default(),
                                     shadow: iced::Shadow::default(),
+                                    snap: true,
                                 },
                                 color,
                             );
@@ -503,6 +506,7 @@ fn picker<'a, Message: 'a>(
                             },
                             border: iced::Border::default(),
                             shadow: iced::Shadow::default(),
+                            snap: true,
                         },
                         data::appearance::theme::from_hsva(color),
                     );
@@ -516,6 +520,7 @@ fn picker<'a, Message: 'a>(
                                 .color(Color::BLACK)
                                 .width(1.0),
                             shadow: iced::Shadow::default(),
+                            snap: true,
                         },
                         Color::WHITE,
                     );

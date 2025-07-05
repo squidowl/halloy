@@ -6,7 +6,7 @@ use palette::rgb::{Rgb, Rgba};
 use palette::{FromColor, Hsva, Okhsl, Srgba};
 use rand::prelude::*;
 use rand_chacha::ChaChaRng;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use thiserror::Error;
 use tokio::fs;
 
@@ -17,28 +17,28 @@ const DEFAULT_THEME_CONTENT: &str =
 #[derive(Debug, Clone)]
 pub struct Theme {
     pub name: String,
-    pub colors: Colors,
+    pub styles: Styles,
 }
 
 impl Default for Theme {
     fn default() -> Self {
         Self {
             name: DEFAULT_THEME_NAME.to_string(),
-            colors: Colors::default(),
+            styles: Styles::default(),
         }
     }
 }
 
 impl Theme {
-    pub fn new(name: String, colors: Colors) -> Self {
-        Theme { name, colors }
+    pub fn new(name: String, styles: Styles) -> Self {
+        Theme { name, styles }
     }
 }
 
 // IMPORTANT: Make sure any new components are added to the theme editor
 // and `binary` representation
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub struct Colors {
+pub struct Styles {
     #[serde(default)]
     pub general: General,
     #[serde(default)]
@@ -49,7 +49,7 @@ pub struct Colors {
     pub buttons: Buttons,
 }
 
-impl Colors {
+impl Styles {
     pub async fn save(self, path: PathBuf) -> Result<(), Error> {
         let content = toml::to_string(&self)?;
 
@@ -116,8 +116,8 @@ pub struct General {
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
 pub struct Buffer {
-    #[serde(default = "default_transparent", with = "color_serde")]
-    pub action: Color,
+    #[serde(default)]
+    pub action: TextStyle,
     #[serde(default = "default_transparent", with = "color_serde")]
     pub background: Color,
     #[serde(default = "default_transparent", with = "color_serde")]
@@ -128,69 +128,182 @@ pub struct Buffer {
     pub border: Color,
     #[serde(default = "default_transparent", with = "color_serde")]
     pub border_selected: Color,
-    #[serde(default = "default_transparent", with = "color_serde")]
-    pub code: Color,
+    #[serde(default)]
+    pub code: TextStyle,
     #[serde(default = "default_transparent", with = "color_serde")]
     pub highlight: Color,
-    #[serde(default = "default_transparent", with = "color_serde")]
-    pub nickname: Color,
+    #[serde(default)]
+    pub nickname: TextStyle,
     #[serde(default = "default_transparent", with = "color_serde")]
     pub selection: Color,
     #[serde(default)]
     pub server_messages: ServerMessages,
-    #[serde(default = "default_transparent", with = "color_serde")]
-    pub timestamp: Color,
-    #[serde(default = "default_transparent", with = "color_serde")]
-    pub topic: Color,
-    #[serde(default = "default_transparent", with = "color_serde")]
-    pub url: Color,
+    #[serde(default)]
+    pub timestamp: TextStyle,
+    #[serde(default)]
+    pub topic: TextStyle,
+    #[serde(default)]
+    pub url: TextStyle,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
 pub struct ServerMessages {
-    #[serde(default, with = "color_serde_maybe")]
-    pub join: Option<Color>,
-    #[serde(default, with = "color_serde_maybe")]
-    pub part: Option<Color>,
-    #[serde(default, with = "color_serde_maybe")]
-    pub quit: Option<Color>,
-    #[serde(default, with = "color_serde_maybe")]
-    pub reply_topic: Option<Color>,
-    #[serde(default, with = "color_serde_maybe")]
-    pub change_host: Option<Color>,
-    #[serde(default, with = "color_serde_maybe")]
-    pub monitored_online: Option<Color>,
-    #[serde(default, with = "color_serde_maybe")]
-    pub monitored_offline: Option<Color>,
-    #[serde(default, with = "color_serde_maybe")]
-    pub standard_reply_fail: Option<Color>,
-    #[serde(default, with = "color_serde_maybe")]
-    pub standard_reply_warn: Option<Color>,
-    #[serde(default, with = "color_serde_maybe")]
-    pub standard_reply_note: Option<Color>,
-    #[serde(default, with = "color_serde_maybe")]
-    pub wallops: Option<Color>,
-    #[serde(default = "default_transparent", with = "color_serde")]
-    pub default: Color,
+    #[serde(default)]
+    pub join: TextStyle,
+    #[serde(default)]
+    pub part: TextStyle,
+    #[serde(default)]
+    pub quit: TextStyle,
+    #[serde(default)]
+    pub reply_topic: TextStyle,
+    #[serde(default)]
+    pub change_host: TextStyle,
+    #[serde(default)]
+    pub monitored_online: TextStyle,
+    #[serde(default)]
+    pub monitored_offline: TextStyle,
+    #[serde(default)]
+    pub standard_reply_fail: TextStyle,
+    #[serde(default)]
+    pub standard_reply_warn: TextStyle,
+    #[serde(default)]
+    pub standard_reply_note: TextStyle,
+    #[serde(default)]
+    pub wallops: TextStyle,
+    #[serde(default)]
+    pub default: TextStyle,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
 pub struct Text {
-    #[serde(default = "default_transparent", with = "color_serde")]
-    pub primary: Color,
-    #[serde(default = "default_transparent", with = "color_serde")]
-    pub secondary: Color,
-    #[serde(default = "default_transparent", with = "color_serde")]
-    pub tertiary: Color,
-    #[serde(default = "default_transparent", with = "color_serde")]
-    pub success: Color,
-    #[serde(default = "default_transparent", with = "color_serde")]
-    pub error: Color,
+    #[serde(default)]
+    pub primary: TextStyle,
+    #[serde(default)]
+    pub secondary: TextStyle,
+    #[serde(default)]
+    pub tertiary: TextStyle,
+    #[serde(default)]
+    pub success: TextStyle,
+    #[serde(default)]
+    pub error: TextStyle,
 }
 
-impl Default for Colors {
+impl Default for Styles {
     fn default() -> Self {
         toml::from_str(DEFAULT_THEME_CONTENT).expect("parse default theme")
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+pub struct TextStyle {
+    pub color: Option<Color>,
+    pub font_style: Option<FontStyle>,
+}
+
+impl<'de> Deserialize<'de> for TextStyle {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum Data {
+            Basic(Option<String>),
+            Extended {
+                color: Option<String>,
+                font_style: Option<FontStyle>,
+            },
+        }
+
+        let data = Data::deserialize(deserializer)?;
+
+        let (hex, font_style) = match data {
+            Data::Basic(color) => (color, None),
+            Data::Extended { color, font_style } => (color, font_style),
+        };
+
+        Ok(TextStyle {
+            color: hex.and_then(|hex| hex_to_color(&hex)),
+            font_style,
+        })
+    }
+}
+
+impl Serialize for TextStyle {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        #[derive(Serialize)]
+        struct Data {
+            color: Option<String>,
+            font_style: Option<FontStyle>,
+        }
+
+        let hex = self.color.map(color_to_hex);
+
+        if self.font_style.is_some() {
+            Data {
+                color: hex,
+                font_style: self.font_style,
+            }
+            .serialize(serializer)
+        } else {
+            hex.serialize(serializer)
+        }
+    }
+}
+
+impl TextStyle {
+    pub fn color_or_default(&self) -> Color {
+        self.color.unwrap_or(Color::TRANSPARENT)
+    }
+}
+
+#[derive(
+    Debug, Clone, Copy, Eq, PartialEq, Serialize, Deserialize, Default,
+)]
+#[serde(rename_all = "kebab-case")]
+pub enum FontStyle {
+    #[default]
+    Normal,
+    Bold,
+    Italic,
+    #[serde(alias = "bold-italic")]
+    ItalicBold,
+}
+
+impl FontStyle {
+    pub fn new(bold: bool, italic: bool) -> Self {
+        match (bold, italic) {
+            (false, false) => FontStyle::Normal,
+            (false, true) => FontStyle::Italic,
+            (true, false) => FontStyle::Bold,
+            (true, true) => FontStyle::ItalicBold,
+        }
+    }
+}
+
+impl std::ops::Add<FontStyle> for FontStyle {
+    type Output = FontStyle;
+
+    fn add(self, rhs: FontStyle) -> FontStyle {
+        match self {
+            FontStyle::Normal => rhs,
+            FontStyle::Italic => match rhs {
+                FontStyle::Normal | FontStyle::Italic => FontStyle::Italic,
+                FontStyle::Bold | FontStyle::ItalicBold => {
+                    FontStyle::ItalicBold
+                }
+            },
+            FontStyle::Bold => match rhs {
+                FontStyle::Normal | FontStyle::Bold => FontStyle::Bold,
+                FontStyle::Italic | FontStyle::ItalicBold => {
+                    FontStyle::ItalicBold
+                }
+            },
+            FontStyle::ItalicBold => self,
+        }
     }
 }
 
@@ -354,42 +467,17 @@ mod color_serde {
     }
 }
 
-mod color_serde_maybe {
-    use iced_core::Color;
-    use serde::{Deserialize, Deserializer, Serialize, Serializer};
-
-    pub fn deserialize<'de, D>(
-        deserializer: D,
-    ) -> Result<Option<Color>, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        Ok(Option::<String>::deserialize(deserializer)?
-            .and_then(|hex| super::hex_to_color(&hex)))
-    }
-
-    pub fn serialize<S>(
-        color: &Option<Color>,
-        serializer: S,
-    ) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        color.map(super::color_to_hex).serialize(serializer)
-    }
-}
-
 mod binary {
     use iced_core::Color;
     use strum::{IntoEnumIterator, VariantArray};
 
-    use super::{Buffer, Buttons, Colors, General, Text};
+    use super::{Buffer, Buttons, General, Styles, Text};
 
-    pub fn encode(colors: &Colors) -> Vec<u8> {
+    pub fn encode(styles: &Styles) -> Vec<u8> {
         let mut bytes = Vec::with_capacity(Tag::VARIANTS.len() * (1 + 4));
 
         for tag in Tag::iter() {
-            if let Some(color) = tag.encode(colors) {
+            if let Some(color) = tag.encode(styles) {
                 bytes.push(tag as u8);
                 bytes.extend(color);
             }
@@ -398,8 +486,8 @@ mod binary {
         bytes
     }
 
-    pub fn decode(bytes: &[u8]) -> Colors {
-        let mut colors = Colors {
+    pub fn decode(bytes: &[u8]) -> Styles {
+        let mut styles = Styles {
             general: General::default(),
             text: Text::default(),
             buffer: Buffer::default(),
@@ -416,12 +504,12 @@ mod binary {
                         chunk[4] as f32 / 255.0,
                     );
 
-                    tag.update_colors(&mut colors, color);
+                    tag.update_color(&mut styles, color);
                 }
             }
         }
 
-        colors
+        styles
     }
 
     // IMPORTANT: Tags cannot be rearranged or deleted to preserve
@@ -482,197 +570,209 @@ mod binary {
     }
 
     impl Tag {
-        pub fn encode(&self, colors: &Colors) -> Option<[u8; 4]> {
+        pub fn encode(&self, styles: &Styles) -> Option<[u8; 4]> {
             let color = match self {
-                Tag::GeneralBackground => colors.general.background,
-                Tag::GeneralBorder => colors.general.border,
-                Tag::GeneralHorizontalRule => colors.general.horizontal_rule,
-                Tag::GeneralUnreadIndicator => colors.general.unread_indicator,
-                Tag::TextPrimary => colors.text.primary,
-                Tag::TextSecondary => colors.text.secondary,
-                Tag::TextTertiary => colors.text.tertiary,
-                Tag::TextSuccess => colors.text.success,
-                Tag::TextError => colors.text.error,
-                Tag::BufferAction => colors.buffer.action,
-                Tag::BufferBackground => colors.buffer.background,
+                Tag::GeneralBackground => styles.general.background,
+                Tag::GeneralBorder => styles.general.border,
+                Tag::GeneralHorizontalRule => styles.general.horizontal_rule,
+                Tag::GeneralUnreadIndicator => styles.general.unread_indicator,
+                Tag::TextPrimary => styles.text.primary.color_or_default(),
+                Tag::TextSecondary => styles.text.secondary.color_or_default(),
+                Tag::TextTertiary => styles.text.tertiary.color_or_default(),
+                Tag::TextSuccess => styles.text.success.color_or_default(),
+                Tag::TextError => styles.text.error.color_or_default(),
+                Tag::BufferAction => styles.buffer.action.color_or_default(),
+                Tag::BufferBackground => styles.buffer.background,
                 Tag::BufferBackgroundTextInput => {
-                    colors.buffer.background_text_input
+                    styles.buffer.background_text_input
                 }
                 Tag::BufferBackgroundTitleBar => {
-                    colors.buffer.background_title_bar
+                    styles.buffer.background_title_bar
                 }
-                Tag::BufferBorder => colors.buffer.border,
-                Tag::BufferBorderSelected => colors.buffer.border_selected,
-                Tag::BufferCode => colors.buffer.code,
-                Tag::BufferHighlight => colors.buffer.highlight,
-                Tag::BufferNickname => colors.buffer.nickname,
-                Tag::BufferSelection => colors.buffer.selection,
-                Tag::BufferTimestamp => colors.buffer.timestamp,
-                Tag::BufferTopic => colors.buffer.topic,
-                Tag::BufferUrl => colors.buffer.url,
+                Tag::BufferBorder => styles.buffer.border,
+                Tag::BufferBorderSelected => styles.buffer.border_selected,
+                Tag::BufferCode => styles.buffer.code.color_or_default(),
+                Tag::BufferHighlight => styles.buffer.highlight,
+                Tag::BufferNickname => {
+                    styles.buffer.nickname.color_or_default()
+                }
+                Tag::BufferSelection => styles.buffer.selection,
+                Tag::BufferTimestamp => {
+                    styles.buffer.timestamp.color_or_default()
+                }
+                Tag::BufferTopic => styles.buffer.topic.color_or_default(),
+                Tag::BufferUrl => styles.buffer.url.color_or_default(),
                 Tag::BufferServerMessagesJoin => {
-                    colors.buffer.server_messages.join?
+                    styles.buffer.server_messages.join.color?
                 }
                 Tag::BufferServerMessagesPart => {
-                    colors.buffer.server_messages.part?
+                    styles.buffer.server_messages.part.color?
                 }
                 Tag::BufferServerMessagesQuit => {
-                    colors.buffer.server_messages.quit?
+                    styles.buffer.server_messages.quit.color?
                 }
                 Tag::BufferServerMessagesReplyTopic => {
-                    colors.buffer.server_messages.reply_topic?
+                    styles.buffer.server_messages.reply_topic.color?
                 }
                 Tag::BufferServerMessagesChangeHost => {
-                    colors.buffer.server_messages.change_host?
+                    styles.buffer.server_messages.change_host.color?
                 }
                 Tag::BufferServerMessagesMonitoredOnline => {
-                    colors.buffer.server_messages.monitored_online?
+                    styles.buffer.server_messages.monitored_online.color?
                 }
                 Tag::BufferServerMessagesMonitoredOffline => {
-                    colors.buffer.server_messages.monitored_offline?
+                    styles.buffer.server_messages.monitored_offline.color?
                 }
                 Tag::BufferServerMessagesStandardReplyFail => {
-                    colors.buffer.server_messages.standard_reply_fail?
+                    styles.buffer.server_messages.standard_reply_fail.color?
                 }
                 Tag::BufferServerMessagesStandardReplyWarn => {
-                    colors.buffer.server_messages.standard_reply_warn?
+                    styles.buffer.server_messages.standard_reply_warn.color?
                 }
                 Tag::BufferServerMessagesStandardReplyNote => {
-                    colors.buffer.server_messages.standard_reply_note?
+                    styles.buffer.server_messages.standard_reply_note.color?
                 }
                 Tag::BufferServerMessagesWallops => {
-                    colors.buffer.server_messages.wallops?
+                    styles.buffer.server_messages.wallops.color?
                 }
                 Tag::BufferServerMessagesDefault => {
-                    colors.buffer.server_messages.default
+                    styles.buffer.server_messages.default.color_or_default()
                 }
                 Tag::ButtonsPrimaryBackground => {
-                    colors.buttons.primary.background
+                    styles.buttons.primary.background
                 }
                 Tag::ButtonsPrimaryBackgroundHover => {
-                    colors.buttons.primary.background_hover
+                    styles.buttons.primary.background_hover
                 }
                 Tag::ButtonsPrimaryBackgroundSelected => {
-                    colors.buttons.primary.background_selected
+                    styles.buttons.primary.background_selected
                 }
                 Tag::ButtonsPrimaryBackgroundSelectedHover => {
-                    colors.buttons.primary.background_selected_hover
+                    styles.buttons.primary.background_selected_hover
                 }
                 Tag::ButtonsSecondaryBackground => {
-                    colors.buttons.secondary.background
+                    styles.buttons.secondary.background
                 }
                 Tag::ButtonsSecondaryBackgroundHover => {
-                    colors.buttons.secondary.background_hover
+                    styles.buttons.secondary.background_hover
                 }
                 Tag::ButtonsSecondaryBackgroundSelected => {
-                    colors.buttons.secondary.background_selected
+                    styles.buttons.secondary.background_selected
                 }
                 Tag::ButtonsSecondaryBackgroundSelectedHover => {
-                    colors.buttons.secondary.background_selected_hover
+                    styles.buttons.secondary.background_selected_hover
                 }
             };
 
             Some(color.into_rgba8())
         }
 
-        pub fn update_colors(&self, colors: &mut Colors, color: Color) {
+        pub fn update_color(&self, styles: &mut Styles, color: Color) {
             match self {
-                Tag::GeneralBackground => colors.general.background = color,
-                Tag::GeneralBorder => colors.general.border = color,
+                Tag::GeneralBackground => {
+                    styles.general.background = color;
+                }
+                Tag::GeneralBorder => styles.general.border = color,
                 Tag::GeneralHorizontalRule => {
-                    colors.general.horizontal_rule = color;
+                    styles.general.horizontal_rule = color;
                 }
                 Tag::GeneralUnreadIndicator => {
-                    colors.general.unread_indicator = color;
+                    styles.general.unread_indicator = color;
                 }
-                Tag::TextPrimary => colors.text.primary = color,
-                Tag::TextSecondary => colors.text.secondary = color,
-                Tag::TextTertiary => colors.text.tertiary = color,
-                Tag::TextSuccess => colors.text.success = color,
-                Tag::TextError => colors.text.error = color,
-                Tag::BufferAction => colors.buffer.action = color,
-                Tag::BufferBackground => colors.buffer.background = color,
+                Tag::TextPrimary => styles.text.primary.color = Some(color),
+                Tag::TextSecondary => styles.text.secondary.color = Some(color),
+                Tag::TextTertiary => styles.text.tertiary.color = Some(color),
+                Tag::TextSuccess => styles.text.success.color = Some(color),
+                Tag::TextError => styles.text.error.color = Some(color),
+                Tag::BufferAction => styles.buffer.action.color = Some(color),
+                Tag::BufferBackground => styles.buffer.background = color,
                 Tag::BufferBackgroundTextInput => {
-                    colors.buffer.background_text_input = color;
+                    styles.buffer.background_text_input = color;
                 }
                 Tag::BufferBackgroundTitleBar => {
-                    colors.buffer.background_title_bar = color;
+                    styles.buffer.background_title_bar = color;
                 }
-                Tag::BufferBorder => colors.buffer.border = color,
+                Tag::BufferBorder => styles.buffer.border = color,
                 Tag::BufferBorderSelected => {
-                    colors.buffer.border_selected = color;
+                    styles.buffer.border_selected = color;
                 }
-                Tag::BufferCode => colors.buffer.code = color,
-                Tag::BufferHighlight => colors.buffer.highlight = color,
-                Tag::BufferNickname => colors.buffer.nickname = color,
-                Tag::BufferSelection => colors.buffer.selection = color,
-                Tag::BufferTimestamp => colors.buffer.timestamp = color,
-                Tag::BufferTopic => colors.buffer.topic = color,
-                Tag::BufferUrl => colors.buffer.url = color,
+                Tag::BufferCode => styles.buffer.code.color = Some(color),
+                Tag::BufferHighlight => styles.buffer.highlight = color,
+                Tag::BufferNickname => {
+                    styles.buffer.nickname.color = Some(color);
+                }
+                Tag::BufferSelection => styles.buffer.selection = color,
+                Tag::BufferTimestamp => {
+                    styles.buffer.timestamp.color = Some(color);
+                }
+                Tag::BufferTopic => styles.buffer.topic.color = Some(color),
+                Tag::BufferUrl => styles.buffer.url.color = Some(color),
                 Tag::BufferServerMessagesJoin => {
-                    colors.buffer.server_messages.join = Some(color);
+                    styles.buffer.server_messages.join.color = Some(color);
                 }
                 Tag::BufferServerMessagesPart => {
-                    colors.buffer.server_messages.part = Some(color);
+                    styles.buffer.server_messages.part.color = Some(color);
                 }
                 Tag::BufferServerMessagesQuit => {
-                    colors.buffer.server_messages.quit = Some(color);
+                    styles.buffer.server_messages.quit.color = Some(color);
                 }
                 Tag::BufferServerMessagesReplyTopic => {
-                    colors.buffer.server_messages.reply_topic = Some(color);
+                    styles.buffer.server_messages.reply_topic.color =
+                        Some(color);
                 }
                 Tag::BufferServerMessagesChangeHost => {
-                    colors.buffer.server_messages.change_host = Some(color);
+                    styles.buffer.server_messages.change_host.color =
+                        Some(color);
                 }
                 Tag::BufferServerMessagesMonitoredOnline => {
-                    colors.buffer.server_messages.monitored_online =
+                    styles.buffer.server_messages.monitored_online.color =
                         Some(color);
                 }
                 Tag::BufferServerMessagesMonitoredOffline => {
-                    colors.buffer.server_messages.monitored_offline =
+                    styles.buffer.server_messages.monitored_offline.color =
                         Some(color);
                 }
                 Tag::BufferServerMessagesStandardReplyFail => {
-                    colors.buffer.server_messages.standard_reply_fail =
+                    styles.buffer.server_messages.standard_reply_fail.color =
                         Some(color);
                 }
                 Tag::BufferServerMessagesStandardReplyWarn => {
-                    colors.buffer.server_messages.standard_reply_warn =
+                    styles.buffer.server_messages.standard_reply_warn.color =
                         Some(color);
                 }
                 Tag::BufferServerMessagesStandardReplyNote => {
-                    colors.buffer.server_messages.standard_reply_note =
+                    styles.buffer.server_messages.standard_reply_note.color =
                         Some(color);
                 }
                 Tag::BufferServerMessagesWallops => {
-                    colors.buffer.server_messages.wallops = Some(color);
+                    styles.buffer.server_messages.wallops.color = Some(color);
                 }
                 Tag::BufferServerMessagesDefault => {
-                    colors.buffer.server_messages.default = color;
+                    styles.buffer.server_messages.default.color = Some(color);
                 }
                 Tag::ButtonsPrimaryBackground => {
-                    colors.buttons.primary.background = color;
+                    styles.buttons.primary.background = color;
                 }
                 Tag::ButtonsPrimaryBackgroundHover => {
-                    colors.buttons.primary.background_hover = color;
+                    styles.buttons.primary.background_hover = color;
                 }
                 Tag::ButtonsPrimaryBackgroundSelected => {
-                    colors.buttons.primary.background_selected = color;
+                    styles.buttons.primary.background_selected = color;
                 }
                 Tag::ButtonsPrimaryBackgroundSelectedHover => {
-                    colors.buttons.primary.background_selected_hover = color;
+                    styles.buttons.primary.background_selected_hover = color;
                 }
                 Tag::ButtonsSecondaryBackground => {
-                    colors.buttons.secondary.background = color;
+                    styles.buttons.secondary.background = color;
                 }
                 Tag::ButtonsSecondaryBackgroundHover => {
-                    colors.buttons.secondary.background_hover = color;
+                    styles.buttons.secondary.background_hover = color;
                 }
                 Tag::ButtonsSecondaryBackgroundSelected => {
-                    colors.buttons.secondary.background_selected = color;
+                    styles.buttons.secondary.background_selected = color;
                 }
                 Tag::ButtonsSecondaryBackgroundSelectedHover => {
-                    colors.buttons.secondary.background_selected_hover = color;
+                    styles.buttons.secondary.background_selected_hover = color;
                 }
             }
         }

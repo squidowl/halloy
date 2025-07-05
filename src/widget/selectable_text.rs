@@ -2,7 +2,7 @@ use iced::advanced::renderer::Quad;
 use iced::advanced::text::{Paragraph, paragraph};
 use iced::advanced::widget::{Operation, Tree, operation, tree};
 use iced::advanced::{Layout, Widget, layout, mouse, renderer, text, widget};
-use iced::widget::text::{Fragment, IntoFragment, Wrapping};
+use iced::widget::text::{Format, Fragment, IntoFragment, Wrapping};
 use iced::widget::text_input::Value;
 use iced::{
     Border, Color, Element, Length, Pixels, Point, Rectangle, Shadow, Size,
@@ -30,15 +30,7 @@ where
     Theme: Catalog,
 {
     fragment: Fragment<'a>,
-    size: Option<Pixels>,
-    line_height: LineHeight,
-    width: Length,
-    height: Length,
-    align_x: text::Alignment,
-    align_y: alignment::Vertical,
-    font: Option<Renderer::Font>,
-    shaping: Shaping,
-    wrapping: Wrapping,
+    format: Format<Renderer::Font>,
     class: Theme::Class<'a>,
 }
 
@@ -50,34 +42,38 @@ where
     pub fn new(fragment: impl IntoFragment<'a>) -> Self {
         Text {
             fragment: fragment.into_fragment(),
-            size: None,
-            line_height: LineHeight::default(),
-            font: None,
-            width: Length::Shrink,
-            height: Length::Shrink,
-            align_x: text::Alignment::Left,
-            align_y: alignment::Vertical::Top,
-            #[cfg(debug_assertions)]
-            shaping: Shaping::Basic,
-            #[cfg(not(debug_assertions))]
-            shaping: Shaping::Advanced,
-            wrapping: Wrapping::WordOrGlyph,
+            format: Format {
+                #[cfg(debug_assertions)]
+                shaping: Shaping::Basic,
+                #[cfg(not(debug_assertions))]
+                shaping: Shaping::Advanced,
+                wrapping: Wrapping::WordOrGlyph,
+                ..Format::default()
+            },
             class: Theme::default(),
         }
     }
 
     pub fn size(mut self, size: impl Into<Pixels>) -> Self {
-        self.size = Some(size.into());
+        self.format.size = Some(size.into());
         self
     }
 
     pub fn line_height(mut self, line_height: impl Into<LineHeight>) -> Self {
-        self.line_height = line_height.into();
+        self.format.line_height = line_height.into();
         self
     }
 
     pub fn font(mut self, font: impl Into<Renderer::Font>) -> Self {
-        self.font = Some(font.into());
+        self.format.font = Some(font.into());
+        self
+    }
+
+    pub fn font_maybe(
+        mut self,
+        font: Option<impl Into<Renderer::Font>>,
+    ) -> Self {
+        self.format.font = font.map(Into::into);
         self
     }
 
@@ -90,27 +86,27 @@ where
     }
 
     pub fn width(mut self, width: impl Into<Length>) -> Self {
-        self.width = width.into();
+        self.format.width = width.into();
         self
     }
 
     pub fn height(mut self, height: impl Into<Length>) -> Self {
-        self.height = height.into();
+        self.format.height = height.into();
         self
     }
 
     pub fn align_x(mut self, alignment: text::Alignment) -> Self {
-        self.align_x = alignment;
+        self.format.align_x = alignment;
         self
     }
 
     pub fn align_y(mut self, alignment: alignment::Vertical) -> Self {
-        self.align_y = alignment;
+        self.format.align_y = alignment;
         self
     }
 
     pub fn shaping(mut self, shaping: Shaping) -> Self {
-        self.shaping = shaping;
+        self.format.shaping = shaping;
         self
     }
 
@@ -128,8 +124,8 @@ where
 {
     fn size(&self) -> Size<Length> {
         Size {
-            width: self.width,
-            height: self.height,
+            width: self.format.width,
+            height: self.format.height,
         }
     }
 
@@ -149,22 +145,24 @@ where
     ) -> layout::Node {
         let state = tree.state.downcast_mut::<State<Renderer::Paragraph>>();
 
-        layout::sized(limits, self.width, self.height, |limits| {
+        layout::sized(limits, self.format.width, self.format.height, |limits| {
             let bounds = limits.max();
 
-            let size = self.size.unwrap_or_else(|| renderer.default_size());
-            let font = self.font.unwrap_or_else(|| renderer.default_font());
+            let size =
+                self.format.size.unwrap_or_else(|| renderer.default_size());
+            let font =
+                self.format.font.unwrap_or_else(|| renderer.default_font());
 
             state.paragraph.update(text::Text {
                 content: &self.fragment,
-                size,
-                line_height: self.line_height,
                 bounds,
+                size,
+                line_height: self.format.line_height,
                 font,
-                align_x: self.align_x,
-                align_y: self.align_y,
-                shaping: self.shaping,
-                wrapping: self.wrapping,
+                align_x: self.format.align_x,
+                align_y: self.format.align_y,
+                shaping: self.format.shaping,
+                wrapping: self.format.wrapping,
             });
 
             state.paragraph.min_bounds()
@@ -260,8 +258,8 @@ where
             .selection()
             .and_then(|raw| raw.resolve(bounds))
         {
-            let line_height = f32::from(self.line_height.to_absolute(
-                self.size.unwrap_or_else(|| renderer.default_size()),
+            let line_height = f32::from(self.format.line_height.to_absolute(
+                self.format.size.unwrap_or_else(|| renderer.default_size()),
             ));
 
             let baseline_y = bounds.y
@@ -301,6 +299,7 @@ where
                             color: Color::TRANSPARENT,
                         },
                         shadow: Shadow::default(),
+                        snap: true,
                     },
                     appearance.selection_color,
                 );
@@ -427,25 +426,15 @@ fn draw<Renderer>(
     Renderer: text::Renderer,
 {
     let State { paragraph, .. } = &state;
-    let bounds = layout.bounds();
-
-    let x = match paragraph.align_x() {
-        text::Alignment::Default
-        | text::Alignment::Left
-        | text::Alignment::Justified => bounds.x,
-        text::Alignment::Center => bounds.center_x(),
-        text::Alignment::Right => bounds.x + bounds.width,
-    };
-
-    let y = match paragraph.align_y() {
-        alignment::Vertical::Top => bounds.y,
-        alignment::Vertical::Center => bounds.center_y(),
-        alignment::Vertical::Bottom => bounds.y + bounds.height,
-    };
+    let anchor = layout.bounds().anchor(
+        paragraph.min_bounds(),
+        paragraph.align_x(),
+        paragraph.align_y(),
+    );
 
     renderer.fill_paragraph(
         paragraph.raw(),
-        Point::new(x, y),
+        anchor,
         appearance.color.unwrap_or(style.text_color),
         *viewport,
     );

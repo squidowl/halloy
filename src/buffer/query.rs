@@ -72,6 +72,7 @@ pub fn view<'a>(
             previews,
             chathistory_state,
             config,
+            theme,
             message_formatter,
         )
         .map(Message::ScrollView),
@@ -91,7 +92,8 @@ pub fn view<'a>(
                 input,
                 is_focused,
                 !status.connected(),
-                config
+                config,
+                theme,
             )
             .map(Message::InputView)
         ]
