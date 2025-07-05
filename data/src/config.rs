@@ -261,7 +261,7 @@ impl Config {
 
         let Configuration {
             theme,
-            mut servers,
+            servers,
             font,
             proxy,
             scale_factor,
@@ -280,11 +280,6 @@ impl Config {
             log::warn!("[config.toml] Ignoring unknown setting: {ignored}");
         })
         .map_err(|e| Error::Parse(e.to_string()))?;
-
-        match sidebar.order_by {
-            sidebar::OrderBy::Alpha => servers.sort_keys(),
-            sidebar::OrderBy::Config => (),
-        }
 
         let servers = ServerMap::new(servers).await?;
 
