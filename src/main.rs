@@ -25,11 +25,12 @@ use appearance::{Theme, theme};
 use chrono::Utc;
 use data::config::{self, Config};
 use data::history::manager::Broadcast;
+use data::message::Decoded;
 use data::target::{self, Target};
 use data::version::Version;
 use data::{
-    Notification, Server, Url, User, client, environment, history, server,
-    version,
+    Notification, Server, Url, User, client, environment, history, message,
+    server, version,
 };
 use iced::widget::{column, container};
 use iced::{Length, Subscription, Task, padding};
@@ -343,8 +344,11 @@ impl Halloy {
                 Task::none()
             }
             Message::ScreenConfigReloaded(updated) => {
-                let (halloy, command) =
-                    Halloy::load_from_state(self.main_window.id, updated, self.current_mode);
+                let (halloy, command) = Halloy::load_from_state(
+                    self.main_window.id,
+                    updated,
+                    self.current_mode,
+                );
                 *self = halloy;
                 command
             }
@@ -379,10 +383,10 @@ impl Halloy {
                                     .collect::<Vec<_>>();
 
                                 self.servers = updated.servers.clone();
-                                self.theme = self.current_mode.theme(
-                                    &updated.appearance.selected,
-                                )
-                                .into();
+                                self.theme = self
+                                    .current_mode
+                                    .theme(&updated.appearance.selected)
+                                    .into();
                                 self.config = updated;
 
                                 for server in removed_servers {
@@ -658,7 +662,7 @@ impl Halloy {
 
                                 match event {
                                     data::client::Event::Single(encoded, our_nick) => {
-                                        if let Some(message) = data::Message::received(
+                                        if let Some(message) = message::decode(
                                             encoded,
                                             our_nick,
                                             &self.config,
@@ -670,7 +674,7 @@ impl Halloy {
                                         ) {
                                             commands.push(
                                                 dashboard
-                                                    .record_message(
+                                                    .record_decoded(
                                                         &server,
                                                         message,
                                                     )
@@ -683,7 +687,7 @@ impl Halloy {
                                         our_nick,
                                         highlight_notification_enabled,
                                     ) => {
-                                        if let Some(message) = data::Message::received(
+                                        if let Some(message) = message::decode(
                                             encoded,
                                             our_nick,
                                             &self.config,
@@ -694,7 +698,7 @@ impl Halloy {
                                             casemapping,
                                         ) {
                                             if let Some((message, channel, user)) =
-                                                message.into_highlight(server.clone())
+                                                message.into_highlight(&server)
                                             {
                                                 let message_text = message.text();
 
@@ -719,7 +723,7 @@ impl Halloy {
 
                                             commands.push(
                                                 dashboard
-                                                    .record_message(
+                                                    .record_decoded(
                                                         &server,
                                                         message,
                                                     )
@@ -728,7 +732,7 @@ impl Halloy {
                                         }
                                     }
                                     data::client::Event::WithTarget(encoded, our_nick, target) => {
-                                        if let Some(message) = data::Message::received(
+                                        if let Some(message) = message::decode(
                                             encoded,
                                             our_nick,
                                             &self.config,
@@ -740,7 +744,7 @@ impl Halloy {
                                         ) {
                                             commands.push(
                                                 dashboard
-                                                    .record_message(
+                                                    .record_decoded(
                                                         &server,
                                                         message.with_target(target),
                                                     )
@@ -925,7 +929,7 @@ impl Halloy {
                                         }
                                     }
                                     data::client::Event::DirectMessage(encoded, our_nick, user) => {
-                                        if let Some(message) = data::Message::received(
+                                        if let Some(decoded) = message::decode(
                                             encoded,
                                             our_nick,
                                             &self.config,
@@ -935,12 +939,12 @@ impl Halloy {
                                             statusmsg,
                                             casemapping,
                                         ) {
-                                            if let Ok(query) = target::Query::parse(
+                                            if let (Ok(query), Decoded::Message(message)) = (target::Query::parse(
                                                 user.as_str(),
                                                 chantypes,
                                                 statusmsg,
                                                 casemapping,
-                                            ) {
+                                            ), decoded) {
                                                 if dashboard.history().has_unread(
                                                     &history::Kind::Query(server.clone(), query),
                                                 ) || !self.main_window.focused
@@ -1202,7 +1206,10 @@ impl Halloy {
                     &self.config.appearance.selected
                 {
                     self.current_mode = mode;
-                    self.theme = self.current_mode.theme(&self.config.appearance.selected).into();
+                    self.theme = self
+                        .current_mode
+                        .theme(&self.config.appearance.selected)
+                        .into();
                 }
 
                 Task::none()

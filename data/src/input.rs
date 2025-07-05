@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 
-use irc::proto;
 use irc::proto::format;
+use irc::proto::{self, tags};
 
 use crate::buffer::{self, AutoFormat};
-use crate::message::formatting;
+use crate::message::{Decoded, Reaction, formatting};
 use crate::target::Target;
 use crate::{
     Command, Config, Message, Server, User, command, isupport, message,
@@ -64,6 +64,22 @@ impl Input {
         }
     }
 
+    pub fn reaction(
+        buffer: buffer::Upstream,
+        in_reply_to: message::Id,
+        text: String,
+        unreact: bool,
+    ) -> Self {
+        Self {
+            buffer,
+            content: Content::Reaction {
+                in_reply_to,
+                text,
+                unreact,
+            },
+        }
+    }
+
     pub fn server(&self) -> &Server {
         self.buffer.server()
     }
@@ -76,18 +92,32 @@ impl Input {
         statusmsg: &[char],
         casemapping: isupport::CaseMap,
         config: &Config,
-    ) -> Option<Vec<Message>> {
-        let to_target = |target: &str, source| match Target::parse(
-            target,
-            chantypes,
-            statusmsg,
-            casemapping,
-        ) {
-            Target::Channel(channel) => {
-                message::Target::Channel { channel, source }
-            }
-            Target::Query(query) => message::Target::Query { query, source },
+    ) -> Option<Vec<Decoded>> {
+        let to_target = |target: &str, source| {
+            message::Target::from_target(
+                Target::parse(target, chantypes, statusmsg, casemapping),
+                source,
+            )
         };
+
+        // first, suppose we are given a reaction
+        if let Content::Reaction {
+            in_reply_to,
+            text,
+            unreact,
+        } = &self.content
+        {
+            return Some(vec![Decoded::Reaction(Reaction::sent(
+                message::Target::from_target(
+                    self.buffer.target()?,
+                    message::Source::User(user.clone()),
+                ),
+                user.nickname().to_owned(),
+                in_reply_to.clone(),
+                text.clone(),
+                *unreact,
+            ))]);
+        }
 
         let command = self.content.command(&self.buffer)?;
 
@@ -111,19 +141,25 @@ impl Input {
                             ),
                         )
                     })
+                    .map(Decoded::Message)
                     .collect(),
             ),
-            command::Irc::Me(target, action) => Some(vec![Message::sent(
-                to_target(&target, message::Source::Action(Some(user.clone()))),
-                message::action_text(
-                    user.nickname(),
-                    Some(&action),
-                    channel_users,
-                    &target,
-                    None,
-                    &config.highlights,
-                ),
-            )]),
+            command::Irc::Me(target, action) => {
+                Some(vec![Decoded::Message(Message::sent(
+                    to_target(
+                        &target,
+                        message::Source::Action(Some(user.clone())),
+                    ),
+                    message::action_text(
+                        user.nickname(),
+                        Some(&action),
+                        channel_users,
+                        &target,
+                        None,
+                        &config.highlights,
+                    ),
+                ))])
+            }
             _ => None,
         }
     }
@@ -165,6 +201,11 @@ impl Input {
 enum Content {
     Text(String),
     Command(command::Irc),
+    Reaction {
+        in_reply_to: message::Id,
+        text: String,
+        unreact: bool,
+    },
 }
 
 impl Content {
@@ -175,13 +216,36 @@ impl Content {
                 Some(command::Irc::Msg(target.to_string(), text.clone()))
             }
             Self::Command(command) => Some(command.clone()),
+            Self::Reaction { .. } => None,
         }
     }
 
     fn proto(&self, buffer: &buffer::Upstream) -> Option<proto::Message> {
-        self.command(buffer)
-            .and_then(|command| proto::Command::try_from(command).ok())
-            .map(proto::Message::from)
+        // a reaction can't be represented as a mere command
+        // since it holds quite a bit of tag data.
+        if let Self::Reaction {
+            in_reply_to,
+            text,
+            unreact,
+        } = &self
+        {
+            Some(proto::Message {
+                tags: tags![
+                    "+draft/reply" => &**in_reply_to,
+                     if *unreact {
+                         "+draft/unreact"
+                     } else {
+                         "+draft/react"
+                     } => text,
+                ],
+                source: None,
+                command: proto::Command::TAGMSG(buffer.target()?.to_string()),
+            })
+        } else {
+            self.command(buffer)
+                .and_then(|command| proto::Command::try_from(command).ok())
+                .map(proto::Message::from)
+        }
     }
 }
 

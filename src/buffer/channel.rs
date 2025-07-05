@@ -11,8 +11,8 @@ use iced::{Length, Task, padding};
 
 use super::message_view::{ChannelQueryLayout, TargetInfo};
 use super::{input_view, scroll_view, user_context};
-use crate::widget::Element;
 use crate::Theme;
+use crate::widget::Element;
 
 mod topic;
 
@@ -34,6 +34,11 @@ pub enum Event {
     MarkAsRead(history::Kind),
     OpenUrl(String),
     ImagePreview(PathBuf, url::Url),
+    Reacted {
+        msgid: message::Id,
+        text: String,
+        unreacted: bool,
+    },
 }
 
 pub fn view<'a>(
@@ -221,6 +226,15 @@ impl Channel {
                     scroll_view::Event::ImagePreview(path, url) => {
                         Some(Event::ImagePreview(path, url))
                     }
+                    scroll_view::Event::Reacted {
+                        msgid,
+                        text,
+                        unreacted,
+                    } => Some(Event::Reacted {
+                        msgid,
+                        text,
+                        unreacted,
+                    }),
                 });
 
                 (command.map(Message::ScrollView), event)

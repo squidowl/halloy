@@ -23,11 +23,11 @@ pub mod file_transfers;
 pub mod highlights;
 mod input_view;
 pub mod logs;
+mod message_view;
 pub mod query;
 mod scroll_view;
 pub mod server;
 pub mod user_context;
-mod message_view;
 
 #[derive(Clone, Debug)]
 pub enum Buffer {
@@ -61,6 +61,11 @@ pub enum Event {
     MarkAsRead(history::Kind),
     OpenUrl(String),
     ImagePreview(PathBuf, url::Url),
+    Reacted {
+        msgid: message::Id,
+        text: String,
+        unreacted: bool,
+    },
 }
 
 impl Buffer {
@@ -163,6 +168,15 @@ impl Buffer {
                     channel::Event::ImagePreview(path, url) => {
                         Event::ImagePreview(path, url)
                     }
+                    channel::Event::Reacted {
+                        msgid,
+                        text,
+                        unreacted,
+                    } => Event::Reacted {
+                        msgid,
+                        text,
+                        unreacted,
+                    },
                 });
 
                 (command.map(Message::Channel), event)
@@ -212,6 +226,15 @@ impl Buffer {
                     query::Event::ImagePreview(path, url) => {
                         Event::ImagePreview(path, url)
                     }
+                    query::Event::Reacted {
+                        msgid,
+                        text,
+                        unreacted,
+                    } => Event::Reacted {
+                        msgid,
+                        text,
+                        unreacted,
+                    },
                 });
 
                 (command.map(Message::Query), event)

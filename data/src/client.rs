@@ -2088,7 +2088,9 @@ impl Client {
                 return Ok(vec![]);
             }
             Command::TAGMSG(_) => {
-                return Ok(vec![]);
+                return Ok(vec![
+                    Event::Single(message.clone(), self.nickname().to_owned()),
+                ]);
             }
             Command::ACCOUNT(accountname) => {
                 let old_user = ok!(message.user());
