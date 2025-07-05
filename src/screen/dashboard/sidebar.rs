@@ -305,7 +305,11 @@ impl Sidebar {
             let mut buffers = vec![];
             let mut client_enumeration = 0;
 
-            for server in config.servers.keys() {
+            for server in config.servers.keys().chain(
+                clients
+                    .servers()
+                    .filter(|key| !config.servers.contains(key)),
+            ) {
                 let button = |buffer: buffer::Upstream,
                               connected: bool,
                               server_has_unread: bool,
