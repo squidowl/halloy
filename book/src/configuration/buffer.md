@@ -523,16 +523,20 @@ click = "open-query"
 
 Server messages are messages sent from an IRC server.
 
-- **change_host** - Message is sent when a user changes host  
-- **join** - Message is sent when a user joins a channel  
-- **monitored_offline** - Message is sent when a monitored user goes offline  
-- **monitored_online** - Message is sent when a monitored user goes online  
-- **part** - Message is sent when a user leaves a channel  
-- **quit** - Message is sent when a user closes the connection to a channel or server  
-- **standard_reply_fail** - Message is sent when a command/function fails or an error with the session  
-- **standard_reply_note** - Message is sent when there is information about a command/function or session  
-- **standard_reply_warn** - Message is sent when there is feedback about a command/function or session  
-- **topic** - Message is sent when the client joins a channel to inform them of the current topic
+| **Event Type**            | **Description**                                                                 |
+|---------------------------|---------------------------------------------------------------------------------|
+| `change_host`             | Message is sent when a user changes host                                       |
+| `change_mode`             | Message is sent when a mode is set                                             |
+| `change_nick`             | Message is sent when a user changes nick                                       |
+| `join`                    | Message is sent when a user joins a channel                                    |
+| `monitored_offline`       | Message is sent when a monitored user goes offline                             |
+| `monitored_online`        | Message is sent when a monitored user goes online                              |
+| `part`                    | Message is sent when a user leaves a channel                                   |
+| `quit`                    | Message is sent when a user closes the connection to a channel or server       |
+| `standard_reply_fail`     | Message is sent when a command/function fails or an error with the session     |
+| `standard_reply_note`     | Message is sent when there is information about a command/function or session  |
+| `standard_reply_warn`     | Message is sent when there is feedback about a command/function or session     |
+| `topic`                   | Message is sent when the client joins a channel to inform them of the topic    |
 
 Example
 
