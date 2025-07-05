@@ -998,18 +998,21 @@ click = "open-query"
 </code></pre>
 <h2 id="bufferserver_messages"><a class="header" href="#bufferserver_messages"><code>[buffer.server_messages]</code></a></h2>
 <p>Server messages are messages sent from an IRC server.</p>
-<ul>
-<li><strong>change_host</strong> - Message is sent when a user changes host</li>
-<li><strong>join</strong> - Message is sent when a user joins a channel</li>
-<li><strong>monitored_offline</strong> - Message is sent when a monitored user goes offline</li>
-<li><strong>monitored_online</strong> - Message is sent when a monitored user goes online</li>
-<li><strong>part</strong> - Message is sent when a user leaves a channel</li>
-<li><strong>quit</strong> - Message is sent when a user closes the connection to a channel or server</li>
-<li><strong>standard_reply_fail</strong> - Message is sent when a command/function fails or an error with the session</li>
-<li><strong>standard_reply_note</strong> - Message is sent when there is information about a command/function or session</li>
-<li><strong>standard_reply_warn</strong> - Message is sent when there is feedback about a command/function or session</li>
-<li><strong>topic</strong> - Message is sent when the client joins a channel to inform them of the current topic</li>
-</ul>
+<div class="table-wrapper"><table><thead><tr><th><strong>Event Type</strong></th><th><strong>Description</strong></th></tr></thead><tbody>
+<tr><td><code>change_host</code></td><td>Message is sent when a user changes host</td></tr>
+<tr><td><code>change_mode</code></td><td>Message is sent when a mode is set</td></tr>
+<tr><td><code>change_nick</code></td><td>Message is sent when a user changes nick</td></tr>
+<tr><td><code>join</code></td><td>Message is sent when a user joins a channel</td></tr>
+<tr><td><code>monitored_offline</code></td><td>Message is sent when a monitored user goes offline</td></tr>
+<tr><td><code>monitored_online</code></td><td>Message is sent when a monitored user goes online</td></tr>
+<tr><td><code>part</code></td><td>Message is sent when a user leaves a channel</td></tr>
+<tr><td><code>quit</code></td><td>Message is sent when a user closes the connection to a channel or server</td></tr>
+<tr><td><code>standard_reply_fail</code></td><td>Message is sent when a command/function fails or an error with the session</td></tr>
+<tr><td><code>standard_reply_note</code></td><td>Message is sent when there is information about a command/function or session</td></tr>
+<tr><td><code>standard_reply_warn</code></td><td>Message is sent when there is feedback about a command/function or session</td></tr>
+<tr><td><code>topic</code></td><td>Message is sent when the client joins a channel to inform them of the topic</td></tr>
+</tbody></table>
+</div>
 <p>Example</p>
 <pre><code class="language-toml"># Hide all join messages except for `#halloy` channel:
 
