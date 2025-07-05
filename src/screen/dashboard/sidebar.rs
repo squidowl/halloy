@@ -9,6 +9,7 @@ use iced::widget::{
     vertical_space,
 };
 use iced::{Alignment, Length, Task, padding};
+use itertools::Either;
 use tokio::time;
 
 use super::{Focus, Panes, Server};
@@ -305,11 +306,18 @@ impl Sidebar {
             let mut buffers = vec![];
             let mut client_enumeration = 0;
 
-            for server in config.servers.keys().chain(
-                clients
-                    .servers()
-                    .filter(|key| !config.servers.contains(key)),
-            ) {
+            let servers = match config.sidebar.order_by {
+                sidebar::OrderBy::Alpha => Either::Left(clients.servers()),
+                sidebar::OrderBy::Config => Either::Right(
+                    config.servers.keys().chain(
+                        clients
+                            .servers()
+                            .filter(|key| !config.servers.contains(key)),
+                    ),
+                ),
+            };
+
+            for server in servers {
                 let button = |buffer: buffer::Upstream,
                               connected: bool,
                               server_has_unread: bool,
