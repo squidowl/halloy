@@ -145,7 +145,7 @@ impl Entry {
             }
             Entry::SendFile => menu_button(
                 "Send File",
-                Message::SendFile(server.clone(), nickname),
+                Message::SendFile(server.clone(), user.clone()),
                 length,
             ),
             Entry::UserInfo => {
@@ -186,7 +186,7 @@ pub enum Message {
     Whois(Server, Nick),
     Query(Server, target::Query, BufferAction),
     ToggleAccessLevel(Server, target::Channel, Nick, String),
-    SendFile(Server, Nick),
+    SendFile(Server, User),
     InsertNickname(Nick),
     CtcpRequest(ctcp::Command, Server, Nick, Option<String>),
 }
@@ -196,7 +196,7 @@ pub enum Event {
     SendWhois(Server, Nick),
     OpenQuery(Server, target::Query, BufferAction),
     ToggleAccessLevel(Server, target::Channel, Nick, String),
-    SendFile(Server, Nick),
+    SendFile(Server, User),
     InsertNickname(Nick),
     CtcpRequest(ctcp::Command, Server, Nick, Option<String>),
 }
@@ -210,7 +210,7 @@ pub fn update(message: Message) -> Event {
         Message::ToggleAccessLevel(server, target, nick, mode) => {
             Event::ToggleAccessLevel(server, target, nick, mode)
         }
-        Message::SendFile(server, nick) => Event::SendFile(server, nick),
+        Message::SendFile(server, user) => Event::SendFile(server, user),
         Message::InsertNickname(nick) => Event::InsertNickname(nick),
         Message::CtcpRequest(command, server, nick, params) => {
             Event::CtcpRequest(command, server, nick, params)
