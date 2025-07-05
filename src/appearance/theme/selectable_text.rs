@@ -78,17 +78,17 @@ pub fn server(
             Kind::StandardReply(StandardReply::Fail) => styles
                 .standard_reply_fail
                 .color
-                .or(Some(theme.styles().text.error.color)),
+                .or(Some(theme.styles().text.error.color_or_default())),
             Kind::StandardReply(StandardReply::Warn) => styles
                 .standard_reply_warn
                 .color
-                .or(Some(theme.styles().text.error.color)),
+                .or(Some(theme.styles().text.error.color_or_default())),
             Kind::StandardReply(StandardReply::Note) => {
                 styles.standard_reply_note.color
             }
             Kind::Wallops => styles.wallops.color,
         })
-        .or(Some(styles.default.color));
+        .or(Some(styles.default.color_or_default()));
 
     Style {
         color,

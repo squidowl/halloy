@@ -26,9 +26,9 @@ pub fn primary(theme: &Theme, status: Status) -> Style {
             color: Color::TRANSPARENT,
             // XXX Not currently displayed in application.
         },
-        icon: theme.styles().text.primary.color,
-        placeholder: theme.styles().text.secondary.color,
-        value: theme.styles().text.primary.color,
+        icon: theme.styles().text.primary.color_or_default(),
+        placeholder: theme.styles().text.secondary.color_or_default(),
+        value: theme.styles().text.primary.color_or_default(),
         selection: theme.styles().buffer.selection,
     };
 
@@ -40,7 +40,7 @@ pub fn primary(theme: &Theme, status: Status) -> Style {
             ),
             placeholder: Color {
                 a: 0.2,
-                ..theme.styles().text.secondary.color
+                ..theme.styles().text.secondary.color_or_default()
             },
             border: Border {
                 radius: 4.0.into(),
@@ -61,7 +61,7 @@ pub fn error(theme: &Theme, status: Status) -> Style {
             border: Border {
                 radius: 4.0.into(),
                 width: 1.0,
-                color: theme.styles().text.error.color,
+                color: theme.styles().text.error.color_or_default(),
             },
             ..primary
         },

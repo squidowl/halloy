@@ -17,9 +17,9 @@ impl Catalog for Theme {
 
 fn default(theme: &Theme, status: Status) -> Style {
     Style {
-        text_color: theme.styles().text.primary.color,
-        placeholder_color: theme.styles().text.primary.color,
-        handle_color: theme.styles().text.primary.color,
+        text_color: theme.styles().text.primary.color_or_default(),
+        placeholder_color: theme.styles().text.primary.color_or_default(),
+        handle_color: theme.styles().text.primary.color_or_default(),
         background: Background::Color(match status {
             Status::Active => theme.styles().buttons.secondary.background,
             Status::Hovered => {

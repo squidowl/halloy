@@ -533,11 +533,11 @@ pub enum Text {
 impl Text {
     fn color(&self, styles: &theme::Text) -> Color {
         match self {
-            Text::Primary => styles.primary.color,
-            Text::Secondary => styles.secondary.color,
-            Text::Tertiary => styles.tertiary.color,
-            Text::Success => styles.success.color,
-            Text::Error => styles.error.color,
+            Text::Primary => styles.primary.color_or_default(),
+            Text::Secondary => styles.secondary.color_or_default(),
+            Text::Tertiary => styles.tertiary.color_or_default(),
+            Text::Success => styles.success.color_or_default(),
+            Text::Error => styles.error.color_or_default(),
         }
     }
 
@@ -560,31 +560,31 @@ impl Text {
         match self {
             Text::Primary => {
                 if let Some(color) = color {
-                    styles.primary.color = color;
+                    styles.primary.color = Some(color);
                 }
                 styles.primary.font_style = font_style;
             }
             Text::Secondary => {
                 if let Some(color) = color {
-                    styles.secondary.color = color;
+                    styles.secondary.color = Some(color);
                 }
                 styles.secondary.font_style = font_style;
             }
             Text::Tertiary => {
                 if let Some(color) = color {
-                    styles.tertiary.color = color;
+                    styles.tertiary.color = Some(color);
                 }
                 styles.tertiary.font_style = font_style;
             }
             Text::Success => {
                 if let Some(color) = color {
-                    styles.success.color = color;
+                    styles.success.color = Some(color);
                 }
                 styles.success.font_style = font_style;
             }
             Text::Error => {
                 if let Some(color) = color {
-                    styles.error.color = color;
+                    styles.error.color = Some(color);
                 }
                 styles.error.font_style = font_style;
             }
@@ -617,22 +617,22 @@ pub enum Buffer {
 impl Buffer {
     fn color(&self, styles: &theme::Buffer) -> Option<Color> {
         match self {
-            Buffer::Action => Some(styles.action.color),
+            Buffer::Action => Some(styles.action.color_or_default()),
             Buffer::Background => Some(styles.background),
             Buffer::BackgroundTextInput => Some(styles.background_text_input),
             Buffer::BackgroundTitleBar => Some(styles.background_title_bar),
             Buffer::Border => Some(styles.border),
             Buffer::BorderSelected => Some(styles.border_selected),
-            Buffer::Code => Some(styles.code.color),
+            Buffer::Code => Some(styles.code.color_or_default()),
             Buffer::Highlight => Some(styles.highlight),
-            Buffer::Nickname => Some(styles.nickname.color),
+            Buffer::Nickname => Some(styles.nickname.color_or_default()),
             Buffer::Selection => Some(styles.selection),
             Buffer::ServerMessages(server_messages) => {
                 server_messages.color(&styles.server_messages)
             }
-            Buffer::Timestamp => Some(styles.timestamp.color),
-            Buffer::Topic => Some(styles.topic.color),
-            Buffer::Url => Some(styles.url.color),
+            Buffer::Timestamp => Some(styles.timestamp.color_or_default()),
+            Buffer::Topic => Some(styles.topic.color_or_default()),
+            Buffer::Url => Some(styles.url.color_or_default()),
         }
     }
 
@@ -666,7 +666,7 @@ impl Buffer {
         match self {
             Buffer::Action => {
                 if let Some(color) = color {
-                    styles.action.color = color;
+                    styles.action.color = Some(color);
                 }
                 styles.action.font_style = font_style;
             }
@@ -697,7 +697,7 @@ impl Buffer {
             }
             Buffer::Code => {
                 if let Some(color) = color {
-                    styles.code.color = color;
+                    styles.code.color = Some(color);
                 }
                 styles.code.font_style = font_style;
             }
@@ -708,7 +708,7 @@ impl Buffer {
             }
             Buffer::Nickname => {
                 if let Some(color) = color {
-                    styles.nickname.color = color;
+                    styles.nickname.color = Some(color);
                 }
                 styles.nickname.font_style = font_style;
             }
@@ -726,19 +726,19 @@ impl Buffer {
             }
             Buffer::Timestamp => {
                 if let Some(color) = color {
-                    styles.timestamp.color = color;
+                    styles.timestamp.color = Some(color);
                 }
                 styles.timestamp.font_style = font_style;
             }
             Buffer::Topic => {
                 if let Some(color) = color {
-                    styles.topic.color = color;
+                    styles.topic.color = Some(color);
                 }
                 styles.topic.font_style = font_style;
             }
             Buffer::Url => {
                 if let Some(color) = color {
-                    styles.url.color = color;
+                    styles.url.color = Some(color);
                 }
                 styles.url.font_style = font_style;
             }
@@ -786,7 +786,7 @@ impl ServerMessages {
                 styles.standard_reply_note.color
             }
             ServerMessages::Wallops => styles.wallops.color,
-            ServerMessages::Default => Some(styles.default.color),
+            ServerMessages::Default => Some(styles.default.color_or_default()),
         }
     }
 
@@ -870,7 +870,7 @@ impl ServerMessages {
             }
             ServerMessages::Default => {
                 if let Some(color) = color {
-                    styles.default.color = color;
+                    styles.default.color = Some(color);
                 }
                 styles.default.font_style = font_style;
             }

@@ -77,7 +77,7 @@ impl iced::theme::Base for Theme {
     fn base(&self) -> iced::theme::Style {
         iced::theme::Style {
             background_color: self.styles().general.background,
-            text_color: self.styles().text.primary.color,
+            text_color: self.styles().text.primary.color_or_default(),
         }
     }
 

@@ -91,7 +91,7 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a>(
                                     .font_style
                                     .map(font::get),
                             )
-                            .color(theme.styles().buffer.url.color)
+                            .color(theme.styles().buffer.url.color_or_default())
                             .link(message::Link::Channel(
                                 target::Channel::from_str(
                                     s.as_str(),
@@ -99,7 +99,11 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a>(
                                 ),
                             )),
                         data::message::Fragment::User(user, text) => {
-                            let color = theme.styles().buffer.nickname.color;
+                            let color = theme
+                                .styles()
+                                .buffer
+                                .nickname
+                                .color_or_default();
                             let seed = match &config
                                 .buffer
                                 .channel
@@ -114,7 +118,11 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a>(
 
                             let color = match seed {
                                 Some(seed) => randomize_color(color, seed),
-                                None => theme.styles().text.primary.color,
+                                None => theme
+                                    .styles()
+                                    .text
+                                    .primary
+                                    .color_or_default(),
                             };
 
                             span(text)
@@ -130,7 +138,11 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a>(
                                 .link(message::Link::User(user.clone()))
                         }
                         data::message::Fragment::HighlightNick(user, text) => {
-                            let color = theme.styles().buffer.nickname.color;
+                            let color = theme
+                                .styles()
+                                .buffer
+                                .nickname
+                                .color_or_default();
                             let seed = match &config
                                 .buffer
                                 .channel
@@ -145,7 +157,11 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a>(
 
                             let color = match seed {
                                 Some(seed) => randomize_color(color, seed),
-                                None => theme.styles().text.primary.color,
+                                None => theme
+                                    .styles()
+                                    .text
+                                    .primary
+                                    .color_or_default(),
                             };
 
                             span(text)
@@ -171,7 +187,13 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a>(
                                         .font_style
                                         .map(font::get),
                                 )
-                                .color(theme.styles().text.primary.color)
+                                .color(
+                                    theme
+                                        .styles()
+                                        .text
+                                        .primary
+                                        .color_or_default(),
+                                )
                                 .background(theme.styles().buffer.highlight)
                         }
                         data::message::Fragment::Url(s) => span(s.as_str())
@@ -183,7 +205,7 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a>(
                                     .font_style
                                     .map(font::get),
                             )
-                            .color(theme.styles().buffer.url.color)
+                            .color(theme.styles().buffer.url.color_or_default())
                             .link(message::Link::Url(s.as_str().to_string())),
                         data::message::Fragment::Formatted {
                             text,
@@ -202,7 +224,13 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a>(
                             let formatted_style = if formatting.monospace {
                                 span = span
                                     .padding([0, 4])
-                                    .color(theme.styles().buffer.code.color)
+                                    .color(
+                                        theme
+                                            .styles()
+                                            .buffer
+                                            .code
+                                            .color_or_default(),
+                                    )
                                     .border(
                                         border::rounded(3)
                                             .color(
@@ -249,7 +277,9 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a>(
                                 .font_style
                                 .map(font::get),
                         )
-                        .color(theme.styles().buffer.timestamp.color)
+                        .color(
+                            theme.styles().buffer.timestamp.color_or_default(),
+                        )
                 }),
             );
 
@@ -258,7 +288,7 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a>(
                     .font_maybe(
                         theme.styles().text.secondary.font_style.map(font::get),
                     )
-                    .color(theme.styles().text.secondary.color),
+                    .color(theme.styles().text.secondary.color_or_default()),
                 span(" "),
                 span(&record.message),
             ]);

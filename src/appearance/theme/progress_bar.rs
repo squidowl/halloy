@@ -20,7 +20,7 @@ pub fn primary(theme: &Theme) -> Style {
 
     Style {
         background: iced::Background::Color(general.background),
-        bar: iced::Background::Color(text.tertiary.color),
+        bar: iced::Background::Color(text.tertiary.color_or_default()),
         border: iced::Border {
             color: iced::Color::TRANSPARENT,
             width: 0.0,

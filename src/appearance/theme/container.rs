@@ -38,7 +38,7 @@ pub fn buffer_title_bar(theme: &Theme) -> Style {
 
     Style {
         background: Some(Background::Color(styles.background_title_bar)),
-        text_color: Some(theme.styles().text.secondary.color),
+        text_color: Some(theme.styles().text.secondary.color_or_default()),
         border: Border {
             radius: border::top_left(4).top_right(4),
             width: 1.0,
@@ -60,7 +60,7 @@ pub fn table(theme: &Theme, idx: usize) -> Style {
 
     Style {
         background: Some(Background::Color(background)),
-        text_color: Some(theme.styles().text.primary.color),
+        text_color: Some(theme.styles().text.primary.color_or_default()),
         ..Default::default()
     }
 }
@@ -88,7 +88,7 @@ pub fn primary_background_hover(theme: &Theme) -> Style {
 pub fn general(theme: &Theme) -> Style {
     Style {
         background: Some(Background::Color(theme.styles().general.background)),
-        text_color: Some(theme.styles().text.primary.color),
+        text_color: Some(theme.styles().text.primary.color_or_default()),
         ..Default::default()
     }
 }
@@ -130,7 +130,7 @@ pub fn error_tooltip(theme: &Theme) -> Style {
         border: Border {
             radius: 4.0.into(),
             width: 1.0,
-            color: text.error.color,
+            color: text.error.color_or_default(),
         },
         ..Default::default()
     }

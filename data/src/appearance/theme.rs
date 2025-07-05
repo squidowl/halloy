@@ -149,27 +149,27 @@ pub struct Buffer {
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
 pub struct ServerMessages {
     #[serde(default)]
-    pub join: OptionalTextStyle,
+    pub join: TextStyle,
     #[serde(default)]
-    pub part: OptionalTextStyle,
+    pub part: TextStyle,
     #[serde(default)]
-    pub quit: OptionalTextStyle,
+    pub quit: TextStyle,
     #[serde(default)]
-    pub reply_topic: OptionalTextStyle,
+    pub reply_topic: TextStyle,
     #[serde(default)]
-    pub change_host: OptionalTextStyle,
+    pub change_host: TextStyle,
     #[serde(default)]
-    pub monitored_online: OptionalTextStyle,
+    pub monitored_online: TextStyle,
     #[serde(default)]
-    pub monitored_offline: OptionalTextStyle,
+    pub monitored_offline: TextStyle,
     #[serde(default)]
-    pub standard_reply_fail: OptionalTextStyle,
+    pub standard_reply_fail: TextStyle,
     #[serde(default)]
-    pub standard_reply_warn: OptionalTextStyle,
+    pub standard_reply_warn: TextStyle,
     #[serde(default)]
-    pub standard_reply_note: OptionalTextStyle,
+    pub standard_reply_note: TextStyle,
     #[serde(default)]
-    pub wallops: OptionalTextStyle,
+    pub wallops: TextStyle,
     #[serde(default)]
     pub default: TextStyle,
 }
@@ -194,82 +194,13 @@ impl Default for Styles {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
-pub struct TextStyle {
-    pub color: Color,
-    pub font_style: Option<FontStyle>,
-}
-
-impl Default for TextStyle {
-    fn default() -> Self {
-        Self {
-            color: Color::TRANSPARENT,
-            font_style: None,
-        }
-    }
-}
-
-impl<'de> Deserialize<'de> for TextStyle {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        #[derive(Deserialize)]
-        #[serde(untagged)]
-        enum Data {
-            Basic(String),
-            Extended {
-                color: String,
-                font_style: Option<FontStyle>,
-            },
-        }
-
-        let data = Data::deserialize(deserializer)?;
-
-        let (hex, font_style) = match data {
-            Data::Basic(color) => (color, None),
-            Data::Extended { color, font_style } => (color, font_style),
-        };
-
-        Ok(TextStyle {
-            color: hex_to_color(&hex).unwrap_or(Color::TRANSPARENT),
-            font_style,
-        })
-    }
-}
-
-impl Serialize for TextStyle {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        #[derive(Serialize)]
-        struct Data {
-            color: String,
-            font_style: Option<FontStyle>,
-        }
-
-        let hex = color_to_hex(self.color);
-
-        if self.font_style.is_some() {
-            Data {
-                color: hex,
-                font_style: self.font_style,
-            }
-            .serialize(serializer)
-        } else {
-            hex.serialize(serializer)
-        }
-    }
-}
-
 #[derive(Clone, Copy, Debug, Default)]
-pub struct OptionalTextStyle {
+pub struct TextStyle {
     pub color: Option<Color>,
     pub font_style: Option<FontStyle>,
 }
 
-impl<'de> Deserialize<'de> for OptionalTextStyle {
+impl<'de> Deserialize<'de> for TextStyle {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
@@ -291,14 +222,14 @@ impl<'de> Deserialize<'de> for OptionalTextStyle {
             Data::Extended { color, font_style } => (color, font_style),
         };
 
-        Ok(OptionalTextStyle {
+        Ok(TextStyle {
             color: hex.and_then(|hex| hex_to_color(&hex)),
             font_style,
         })
     }
 }
 
-impl Serialize for OptionalTextStyle {
+impl Serialize for TextStyle {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -320,6 +251,12 @@ impl Serialize for OptionalTextStyle {
         } else {
             hex.serialize(serializer)
         }
+    }
+}
+
+impl TextStyle {
+    pub fn color_or_default(&self) -> Color {
+        self.color.unwrap_or(Color::TRANSPARENT)
     }
 }
 
@@ -639,12 +576,12 @@ mod binary {
                 Tag::GeneralBorder => styles.general.border,
                 Tag::GeneralHorizontalRule => styles.general.horizontal_rule,
                 Tag::GeneralUnreadIndicator => styles.general.unread_indicator,
-                Tag::TextPrimary => styles.text.primary.color,
-                Tag::TextSecondary => styles.text.secondary.color,
-                Tag::TextTertiary => styles.text.tertiary.color,
-                Tag::TextSuccess => styles.text.success.color,
-                Tag::TextError => styles.text.error.color,
-                Tag::BufferAction => styles.buffer.action.color,
+                Tag::TextPrimary => styles.text.primary.color_or_default(),
+                Tag::TextSecondary => styles.text.secondary.color_or_default(),
+                Tag::TextTertiary => styles.text.tertiary.color_or_default(),
+                Tag::TextSuccess => styles.text.success.color_or_default(),
+                Tag::TextError => styles.text.error.color_or_default(),
+                Tag::BufferAction => styles.buffer.action.color_or_default(),
                 Tag::BufferBackground => styles.buffer.background,
                 Tag::BufferBackgroundTextInput => {
                     styles.buffer.background_text_input
@@ -654,13 +591,17 @@ mod binary {
                 }
                 Tag::BufferBorder => styles.buffer.border,
                 Tag::BufferBorderSelected => styles.buffer.border_selected,
-                Tag::BufferCode => styles.buffer.code.color,
+                Tag::BufferCode => styles.buffer.code.color_or_default(),
                 Tag::BufferHighlight => styles.buffer.highlight,
-                Tag::BufferNickname => styles.buffer.nickname.color,
+                Tag::BufferNickname => {
+                    styles.buffer.nickname.color_or_default()
+                }
                 Tag::BufferSelection => styles.buffer.selection,
-                Tag::BufferTimestamp => styles.buffer.timestamp.color,
-                Tag::BufferTopic => styles.buffer.topic.color,
-                Tag::BufferUrl => styles.buffer.url.color,
+                Tag::BufferTimestamp => {
+                    styles.buffer.timestamp.color_or_default()
+                }
+                Tag::BufferTopic => styles.buffer.topic.color_or_default(),
+                Tag::BufferUrl => styles.buffer.url.color_or_default(),
                 Tag::BufferServerMessagesJoin => {
                     styles.buffer.server_messages.join.color?
                 }
@@ -695,7 +636,7 @@ mod binary {
                     styles.buffer.server_messages.wallops.color?
                 }
                 Tag::BufferServerMessagesDefault => {
-                    styles.buffer.server_messages.default.color
+                    styles.buffer.server_messages.default.color_or_default()
                 }
                 Tag::ButtonsPrimaryBackground => {
                     styles.buttons.primary.background
@@ -738,12 +679,12 @@ mod binary {
                 Tag::GeneralUnreadIndicator => {
                     styles.general.unread_indicator = color;
                 }
-                Tag::TextPrimary => styles.text.primary.color = color,
-                Tag::TextSecondary => styles.text.secondary.color = color,
-                Tag::TextTertiary => styles.text.tertiary.color = color,
-                Tag::TextSuccess => styles.text.success.color = color,
-                Tag::TextError => styles.text.error.color = color,
-                Tag::BufferAction => styles.buffer.action.color = color,
+                Tag::TextPrimary => styles.text.primary.color = Some(color),
+                Tag::TextSecondary => styles.text.secondary.color = Some(color),
+                Tag::TextTertiary => styles.text.tertiary.color = Some(color),
+                Tag::TextSuccess => styles.text.success.color = Some(color),
+                Tag::TextError => styles.text.error.color = Some(color),
+                Tag::BufferAction => styles.buffer.action.color = Some(color),
                 Tag::BufferBackground => styles.buffer.background = color,
                 Tag::BufferBackgroundTextInput => {
                     styles.buffer.background_text_input = color;
@@ -755,13 +696,17 @@ mod binary {
                 Tag::BufferBorderSelected => {
                     styles.buffer.border_selected = color;
                 }
-                Tag::BufferCode => styles.buffer.code.color = color,
+                Tag::BufferCode => styles.buffer.code.color = Some(color),
                 Tag::BufferHighlight => styles.buffer.highlight = color,
-                Tag::BufferNickname => styles.buffer.nickname.color = color,
+                Tag::BufferNickname => {
+                    styles.buffer.nickname.color = Some(color);
+                }
                 Tag::BufferSelection => styles.buffer.selection = color,
-                Tag::BufferTimestamp => styles.buffer.timestamp.color = color,
-                Tag::BufferTopic => styles.buffer.topic.color = color,
-                Tag::BufferUrl => styles.buffer.url.color = color,
+                Tag::BufferTimestamp => {
+                    styles.buffer.timestamp.color = Some(color);
+                }
+                Tag::BufferTopic => styles.buffer.topic.color = Some(color),
+                Tag::BufferUrl => styles.buffer.url.color = Some(color),
                 Tag::BufferServerMessagesJoin => {
                     styles.buffer.server_messages.join.color = Some(color);
                 }
@@ -803,7 +748,7 @@ mod binary {
                     styles.buffer.server_messages.wallops.color = Some(color);
                 }
                 Tag::BufferServerMessagesDefault => {
-                    styles.buffer.server_messages.default.color = color;
+                    styles.buffer.server_messages.default.color = Some(color);
                 }
                 Tag::ButtonsPrimaryBackground => {
                     styles.buttons.primary.background = color;

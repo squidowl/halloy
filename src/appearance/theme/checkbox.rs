@@ -26,30 +26,30 @@ pub fn primary(theme: &Theme, status: Status) -> Style {
     match status {
         Status::Active { .. } => Style {
             background: iced::Background::Color(general.background),
-            icon_color: text.primary.color,
+            icon_color: text.primary.color_or_default(),
             border: Border {
                 color: general.border,
                 width: 1.0,
                 radius: 4.0.into(),
             },
-            text_color: Some(text.primary.color),
+            text_color: Some(text.primary.color_or_default()),
         },
         Status::Hovered { .. } => Style {
             background: iced::Background::Color(general.background),
-            icon_color: text.primary.color,
+            icon_color: text.primary.color_or_default(),
             border: Border {
                 color: general.border,
                 width: 1.0,
                 radius: 4.0.into(),
             },
-            text_color: Some(text.primary.color),
+            text_color: Some(text.primary.color_or_default()),
         },
         Status::Disabled { .. } => Style {
             background: iced::Background::Color(general.background),
 
             icon_color: Color {
                 a: 0.2,
-                ..text.primary.color
+                ..text.primary.color_or_default()
             },
             border: Border {
                 color: Color::TRANSPARENT,
@@ -58,7 +58,7 @@ pub fn primary(theme: &Theme, status: Status) -> Style {
             },
             text_color: Some(Color {
                 a: 0.2,
-                ..text.primary.color
+                ..text.primary.color_or_default()
             }),
         },
     }

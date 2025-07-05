@@ -73,7 +73,13 @@ pub fn view<'a>(
                                         .font_style
                                         .map(font::get),
                                 )
-                                .color(theme.styles().buffer.url.color)
+                                .color(
+                                    theme
+                                        .styles()
+                                        .buffer
+                                        .url
+                                        .color_or_default(),
+                                )
                                 .link(message::Link::GoToMessage(
                                     server.clone(),
                                     channel.clone(),
@@ -182,7 +188,13 @@ pub fn view<'a>(
                     let channel_text =
                         selectable_rich_text::<_, _, (), _, _>(vec![
                             span(channel.as_str())
-                                .color(theme.styles().buffer.url.color)
+                                .color(
+                                    theme
+                                        .styles()
+                                        .buffer
+                                        .url
+                                        .color_or_default(),
+                                )
                                 .link(message::Link::GoToMessage(
                                     server.clone(),
                                     channel.clone(),

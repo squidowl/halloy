@@ -24,55 +24,55 @@ pub fn none(_theme: &Theme) -> Style {
 
 pub fn primary(theme: &Theme) -> Style {
     Style {
-        color: Some(theme.styles().text.primary.color),
+        color: Some(theme.styles().text.primary.color_or_default()),
     }
 }
 
 pub fn secondary(theme: &Theme) -> Style {
     Style {
-        color: Some(theme.styles().text.secondary.color),
+        color: Some(theme.styles().text.secondary.color_or_default()),
     }
 }
 
 pub fn tertiary(theme: &Theme) -> Style {
     Style {
-        color: Some(theme.styles().text.tertiary.color),
+        color: Some(theme.styles().text.tertiary.color_or_default()),
     }
 }
 
 pub fn error(theme: &Theme) -> Style {
     Style {
-        color: Some(theme.styles().text.error.color),
+        color: Some(theme.styles().text.error.color_or_default()),
     }
 }
 
 pub fn success(theme: &Theme) -> Style {
     Style {
-        color: Some(theme.styles().text.success.color),
+        color: Some(theme.styles().text.success.color_or_default()),
     }
 }
 
 pub fn action(theme: &Theme) -> Style {
     Style {
-        color: Some(theme.styles().buffer.action.color),
+        color: Some(theme.styles().buffer.action.color_or_default()),
     }
 }
 
 pub fn timestamp(theme: &Theme) -> Style {
     Style {
-        color: Some(theme.styles().buffer.timestamp.color),
+        color: Some(theme.styles().buffer.timestamp.color_or_default()),
     }
 }
 
 pub fn topic(theme: &Theme) -> Style {
     Style {
-        color: Some(theme.styles().buffer.topic.color),
+        color: Some(theme.styles().buffer.topic.color_or_default()),
     }
 }
 
 pub fn buffer_title_bar(theme: &Theme) -> Style {
     Style {
-        color: Some(theme.styles().buffer.topic.color),
+        color: Some(theme.styles().buffer.topic.color_or_default()),
     }
 }
 
@@ -84,7 +84,7 @@ pub fn unread_indicator(theme: &Theme) -> Style {
 
 pub fn url(theme: &Theme) -> Style {
     Style {
-        color: Some(theme.styles().buffer.url.color),
+        color: Some(theme.styles().buffer.url.color_or_default()),
     }
 }
 
@@ -115,10 +115,10 @@ pub fn nickname<T: AsRef<str>>(
     // If we have a seed we randomize the color based on the seed before adding any alpha value.
     let color = match seed {
         Some(seed) => calculate_alpha_color(randomize_color(
-            nickname.color,
+            nickname.color_or_default(),
             seed.as_ref(),
         )),
-        None => calculate_alpha_color(nickname.color),
+        None => calculate_alpha_color(nickname.color_or_default()),
     };
 
     Style { color: Some(color) }
