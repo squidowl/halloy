@@ -45,7 +45,7 @@ impl ReadMarker {
                 source::Source::Internal(source) => match source {
                     source::Internal::Status(_) => false,
                     // Logs are in their own buffer and this gives us backlog support there
-                    source::Internal::Logs => true,
+                    source::Internal::Logs(_) => true,
                 },
                 _ => true,
             })

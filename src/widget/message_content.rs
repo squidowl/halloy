@@ -196,21 +196,8 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a>(
             text.into()
         }
         data::message::Content::Log(record) => {
-            let mut spans: Vec<Span<'a, message::Link, _>> = vec![];
-
-            spans.extend(
-                config
-                    .buffer
-                    .format_timestamp(&record.timestamp)
-                    .map(|ts| span(ts).color(theme.colors().buffer.timestamp)),
-            );
-
-            spans.extend([
-                span(format!("{: <5}", record.level))
-                    .color(theme.colors().text.secondary),
-                span(" "),
-                span(&record.message),
-            ]);
+            let spans: Vec<Span<'a, message::Link, _>> =
+                vec![span(&record.message)];
 
             selectable_rich_text::<M, message::Link, T, Theme, Renderer>(spans)
                 .style(style)

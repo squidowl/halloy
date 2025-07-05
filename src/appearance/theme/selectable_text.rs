@@ -1,7 +1,6 @@
 use data::config::buffer::away;
 use data::message::source::server::{Kind, StandardReply};
-use data::message::{self};
-use data::{Config, User};
+use data::{Config, User, log, message};
 
 use super::{Theme, text};
 use crate::widget::selectable_rich_text;
@@ -151,6 +150,21 @@ pub fn status(theme: &Theme, status: message::source::Status) -> Style {
 
     Style {
         color,
+        selection_color: theme.colors().buffer.selection,
+    }
+}
+
+pub fn log_level(theme: &Theme, log_level: log::Level) -> Style {
+    let color = match log_level {
+        log::Level::Error => theme.colors().text.error,
+        log::Level::Warn => theme.colors().general.unread_indicator,
+        log::Level::Info => theme.colors().buffer.server_messages.default,
+        log::Level::Debug => theme.colors().buffer.code,
+        log::Level::Trace => theme.colors().text.secondary,
+    };
+
+    Style {
+        color: Some(color),
         selection_color: theme.colors().buffer.selection,
     }
 }

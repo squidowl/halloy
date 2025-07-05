@@ -25,7 +25,7 @@ pub mod metadata;
 // TODO: Make this configurable?
 /// Max # messages to persist
 const MAX_MESSAGES: usize = 10_000;
-/// # messages to tuncate after hitting [`MAX_MESSAGES`]
+/// # messages to truncate after hitting [`MAX_MESSAGES`]
 const TRUNC_COUNT: usize = 500;
 /// Duration to wait after receiving last message before flushing
 const FLUSH_AFTER_LAST_RECEIVED: Duration = Duration::from_secs(5);
@@ -82,7 +82,7 @@ impl Kind {
             message::Target::Query { query, .. } => {
                 Some(Self::Query(server, query.clone()))
             }
-            message::Target::Logs => None,
+            message::Target::Logs { .. } => None,
             message::Target::Highlights { .. } => None,
         }
     }

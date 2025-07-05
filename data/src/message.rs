@@ -131,7 +131,9 @@ pub enum Target {
         query: target::Query,
         source: Source,
     },
-    Logs,
+    Logs {
+        source: Source,
+    },
     Highlights {
         server: Server,
         channel: target::Channel,
@@ -151,7 +153,7 @@ impl Target {
                 }
             }
             Target::Query { .. } => None,
-            Target::Logs => None,
+            Target::Logs { .. } => None,
             Target::Highlights { .. } => None,
         }
     }
@@ -161,7 +163,7 @@ impl Target {
             Target::Server { source } => source,
             Target::Channel { source, .. } => source,
             Target::Query { source, .. } => source,
-            Target::Logs => &Source::Internal(source::Internal::Logs),
+            Target::Logs { source } => source,
             Target::Highlights { source, .. } => source,
         }
     }
@@ -202,7 +204,7 @@ impl Message {
                             | Kind::Wallops
                     )
                 }
-                Source::Internal(source::Internal::Logs) => true,
+                Source::Internal(source::Internal::Logs { .. }) => true,
                 _ => false,
             }
     }
@@ -372,6 +374,9 @@ impl Message {
     pub fn log(record: crate::log::Record) -> Self {
         let received_at = Posix::now();
         let server_time = record.timestamp;
+        let target = Target::Logs {
+            source: Source::Internal(source::Internal::Logs(record.level)),
+        };
         let content = Content::Log(record);
         let hash = Hash::new(&server_time, &content);
 
@@ -379,7 +384,7 @@ impl Message {
             received_at,
             server_time,
             direction: Direction::Received,
-            target: Target::Logs,
+            target,
             content,
             id: None,
             hash,
