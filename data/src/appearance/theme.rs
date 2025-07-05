@@ -190,6 +190,14 @@ pub struct Text {
     pub success: Color,
     #[serde(default = "default_transparent", with = "color_serde")]
     pub error: Color,
+    #[serde(default, with = "color_serde_maybe")]
+    pub warning: Option<Color>,
+    #[serde(default, with = "color_serde_maybe")]
+    pub info: Option<Color>,
+    #[serde(default, with = "color_serde_maybe")]
+    pub debug: Option<Color>,
+    #[serde(default, with = "color_serde_maybe")]
+    pub trace: Option<Color>,
 }
 
 impl Default for Colors {
@@ -483,6 +491,12 @@ mod binary {
         BufferServerMessagesStandardReplyWarn = 39,
         BufferServerMessagesStandardReplyNote = 40,
         BufferServerMessagesWallops = 41,
+        BufferServerMessagesChangeMode = 42,
+        BufferServerMessagesChangeNick = 43,
+        TextWarning = 44,
+        TextInfo = 45,
+        TextDebug = 46,
+        TextTrace = 47,
     }
 
     impl Tag {
@@ -497,6 +511,10 @@ mod binary {
                 Tag::TextTertiary => colors.text.tertiary,
                 Tag::TextSuccess => colors.text.success,
                 Tag::TextError => colors.text.error,
+                Tag::TextWarning => colors.text.warning?,
+                Tag::TextInfo => colors.text.info?,
+                Tag::TextDebug => colors.text.debug?,
+                Tag::TextTrace => colors.text.trace?,
                 Tag::BufferAction => colors.buffer.action,
                 Tag::BufferBackground => colors.buffer.background,
                 Tag::BufferBackgroundTextInput => {
@@ -547,6 +565,12 @@ mod binary {
                 Tag::BufferServerMessagesWallops => {
                     colors.buffer.server_messages.wallops?
                 }
+                Tag::BufferServerMessagesChangeMode => {
+                    colors.buffer.server_messages.change_mode?
+                }
+                Tag::BufferServerMessagesChangeNick => {
+                    colors.buffer.server_messages.change_nick?
+                }
                 Tag::BufferServerMessagesDefault => {
                     colors.buffer.server_messages.default
                 }
@@ -594,6 +618,10 @@ mod binary {
                 Tag::TextTertiary => colors.text.tertiary = color,
                 Tag::TextSuccess => colors.text.success = color,
                 Tag::TextError => colors.text.error = color,
+                Tag::TextWarning => colors.text.warning = Some(color),
+                Tag::TextInfo => colors.text.info = Some(color),
+                Tag::TextDebug => colors.text.debug = Some(color),
+                Tag::TextTrace => colors.text.trace = Some(color),
                 Tag::BufferAction => colors.buffer.action = color,
                 Tag::BufferBackground => colors.buffer.background = color,
                 Tag::BufferBackgroundTextInput => {
@@ -650,6 +678,12 @@ mod binary {
                 }
                 Tag::BufferServerMessagesWallops => {
                     colors.buffer.server_messages.wallops = Some(color);
+                }
+                Tag::BufferServerMessagesChangeMode => {
+                    colors.buffer.server_messages.change_mode = Some(color);
+                }
+                Tag::BufferServerMessagesChangeNick => {
+                    colors.buffer.server_messages.change_nick = Some(color);
                 }
                 Tag::BufferServerMessagesDefault => {
                     colors.buffer.server_messages.default = color;

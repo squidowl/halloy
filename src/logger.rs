@@ -25,7 +25,7 @@ pub fn setup(
         });
 
     let channel_level_filter = env_rust_log
-        .map_or(log::LevelFilter::Debug, |env| env.to_level_filter());
+        .map_or(log::LevelFilter::Trace, |env| env.to_level_filter());
 
     let mut io_sink = fern::Dispatch::new().format(|out, message, record| {
         out.finish(format_args!(

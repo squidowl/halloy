@@ -82,9 +82,10 @@ pub fn server(
                 .or(Some(theme.colors().text.error)),
             Kind::StandardReply(StandardReply::Warn) => colors
                 .standard_reply_warn
+                .or(theme.colors().text.warning)
                 .or(Some(theme.colors().text.error)),
             Kind::StandardReply(StandardReply::Note) => {
-                colors.standard_reply_note
+                colors.standard_reply_note.or(theme.colors().text.info)
             }
             Kind::Wallops => colors.wallops,
         })
@@ -157,10 +158,26 @@ pub fn status(theme: &Theme, status: message::source::Status) -> Style {
 pub fn log_level(theme: &Theme, log_level: log::Level) -> Style {
     let color = match log_level {
         log::Level::Error => theme.colors().text.error,
-        log::Level::Warn => theme.colors().general.unread_indicator,
-        log::Level::Info => theme.colors().buffer.server_messages.default,
-        log::Level::Debug => theme.colors().buffer.code,
-        log::Level::Trace => theme.colors().text.secondary,
+        log::Level::Warn => theme
+            .colors()
+            .text
+            .warning
+            .unwrap_or(theme.colors().general.unread_indicator),
+        log::Level::Info => theme
+            .colors()
+            .text
+            .info
+            .unwrap_or(theme.colors().buffer.server_messages.default),
+        log::Level::Debug => theme
+            .colors()
+            .text
+            .debug
+            .unwrap_or(theme.colors().buffer.code),
+        log::Level::Trace => theme
+            .colors()
+            .text
+            .trace
+            .unwrap_or(theme.colors().text.secondary),
     };
 
     Style {
