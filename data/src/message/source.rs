@@ -67,6 +67,8 @@ pub mod server {
         Quit,
         ReplyTopic,
         ChangeHost,
+        ChangeMode,
+        ChangeNick,
         MonitoredOnline,
         MonitoredOffline,
         StandardReply(StandardReply),

@@ -128,7 +128,7 @@ pub fn settings() -> Settings {
                 .ok(),
                 ..Default::default()
             },
-            None => Default::default(),
+            None => Settings::default(),
         },
         Err(_) => Settings {
             ..Default::default()

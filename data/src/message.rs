@@ -883,7 +883,10 @@ fn target(
 
             Some(Target::Channel {
                 channel,
-                source: Source::Server(None),
+                source: Source::Server(Some(source::Server::new(
+                    Kind::ChangeMode,
+                    Some(user?.nickname().to_owned()),
+                ))),
             })
         }
         Command::TOPIC(channel, _) | Command::KICK(channel, _, _) => {
