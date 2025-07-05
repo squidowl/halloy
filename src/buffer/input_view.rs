@@ -196,6 +196,9 @@ impl State {
                         input::Error::Command(
                             command::Error::MissingCommand,
                         ) => false,
+                        input::Error::Command(command::Error::NoModeString) => {
+                            false
+                        }
                         input::Error::Command(
                             command::Error::InvalidModeString,
                         ) => true,
@@ -534,6 +537,7 @@ impl State {
                         })
                         .unwrap_or_default();
                     let channels = clients.get_channels(buffer.server());
+
                     let isupport = clients.get_isupport(buffer.server());
 
                     self.completion.process(

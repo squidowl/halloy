@@ -1,5 +1,4 @@
-use crate::buffer::scroll_view::Message;
-use data::isupport::CaseMap;
+use data::isupport::{CaseMap, PrefixMap};
 use data::server::Server;
 use data::target::{self};
 use data::{Config, User, message};
@@ -8,6 +7,7 @@ use iced::widget::{column, container, row};
 
 use super::scroll_view::LayoutMessage;
 use super::user_context;
+use crate::buffer::scroll_view::Message;
 use crate::widget::{
     Element, message_content, message_marker, selectable_text,
 };
@@ -51,6 +51,7 @@ impl<'a> TargetInfo<'a> {
 pub struct ChannelQueryLayout<'a> {
     pub config: &'a Config,
     pub casemapping: CaseMap,
+    pub prefix: &'a [PrefixMap],
     pub server: &'a Server,
     pub theme: &'a Theme,
     pub target: TargetInfo<'a>,
@@ -141,6 +142,7 @@ impl<'a> ChannelQueryLayout<'a> {
             text,
             self.server,
             self.casemapping,
+            self.prefix,
             self.target.channel(),
             user,
             current_user,
@@ -168,6 +170,7 @@ impl<'a> ChannelQueryLayout<'a> {
                     .view(
                         fm.server,
                         fm.casemapping,
+                        fm.prefix,
                         fm.target.channel(),
                         user,
                         current_user,
@@ -212,6 +215,7 @@ impl<'a> ChannelQueryLayout<'a> {
                     .view(
                         fm.server,
                         fm.casemapping,
+                        fm.prefix,
                         fm.target.channel(),
                         user,
                         fm.target

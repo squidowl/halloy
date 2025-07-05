@@ -482,7 +482,7 @@ mod binary {
         BufferServerMessagesStandardReplyFail = 38,
         BufferServerMessagesStandardReplyWarn = 39,
         BufferServerMessagesStandardReplyNote = 40,
-        BufferServerMessagesWallops = 41,
+        BufferServerMessagesWAllOps = 41,
     }
 
     impl Tag {
@@ -544,7 +544,7 @@ mod binary {
                 Tag::BufferServerMessagesStandardReplyNote => {
                     colors.buffer.server_messages.standard_reply_note?
                 }
-                Tag::BufferServerMessagesWallops => {
+                Tag::BufferServerMessagesWAllOps => {
                     colors.buffer.server_messages.wallops?
                 }
                 Tag::BufferServerMessagesDefault => {
@@ -648,7 +648,7 @@ mod binary {
                     colors.buffer.server_messages.standard_reply_note =
                         Some(color);
                 }
-                Tag::BufferServerMessagesWallops => {
+                Tag::BufferServerMessagesWAllOps => {
                     colors.buffer.server_messages.wallops = Some(color);
                 }
                 Tag::BufferServerMessagesDefault => {

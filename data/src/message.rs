@@ -199,7 +199,7 @@ impl Message {
                         Kind::MonitoredOnline
                             | Kind::MonitoredOffline
                             | Kind::StandardReply(_)
-                            | Kind::Wallops
+                            | Kind::WAllOps
                     )
                 }
                 Source::Internal(source::Internal::Logs) => true,
@@ -1085,7 +1085,7 @@ fn target(
         }),
         Command::WALLOPS(_) => Some(Target::Server {
             source: Source::Server(Some(source::Server::new(
-                Kind::Wallops,
+                Kind::WAllOps,
                 None,
             ))),
         }),
