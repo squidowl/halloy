@@ -1,13 +1,10 @@
-use serde::{Deserialize, Deserializer};
+use serde::Deserialize;
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct Logs {
     #[serde(default = "default_file_level")]
     pub file_level: LevelFilter,
-    #[serde(
-        default = "default_pane_level",
-        deserialize_with = "restricted_deserialize_level_filter"
-    )]
+    #[serde(default = "default_pane_level")]
     pub pane_level: LevelFilter,
 }
 
@@ -29,31 +26,6 @@ pub enum LevelFilter {
     Info,
     Debug,
     Trace,
-}
-
-fn restricted_deserialize_level_filter<'de, D>(
-    deserializer: D,
-) -> Result<LevelFilter, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    #[derive(Deserialize)]
-    #[serde(rename_all = "kebab-case")]
-    pub enum Data {
-        Off,
-        Error,
-        Warn,
-        Info,
-        Debug,
-    }
-
-    Ok(match Data::deserialize(deserializer)? {
-        Data::Off => LevelFilter::Off,
-        Data::Error => LevelFilter::Error,
-        Data::Warn => LevelFilter::Warn,
-        Data::Info => LevelFilter::Info,
-        Data::Debug => LevelFilter::Debug,
-    })
 }
 
 impl From<LevelFilter> for log::LevelFilter {

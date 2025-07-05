@@ -31,7 +31,7 @@ Log messages that are not recorded to the Logs pane may still be found in the lo
 
 ```toml
 # Type: string
-# Values: "off", "error", "warn", "info", "debug"
+# Values: "off", "error", "warn", "info", "debug", "trace"
 # Default: "info"
 
 [logs]
