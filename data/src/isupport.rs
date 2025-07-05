@@ -15,6 +15,7 @@ use crate::target::Target;
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub enum Kind {
     AWAYLEN,
+    BOUNCER_NETID,
     CASEMAPPING,
     CHANLIMIT,
     CHANNELLEN,
@@ -81,6 +82,7 @@ impl FromStr for Operation {
                         "BOT" => Ok(Operation::Add(Parameter::BOT(
                             parse_required_letter(value, None)?,
                         ))),
+                        "BOUNCER_NETID" => Ok(Operation::Add(Parameter::BOUNCER_NETID(value.to_owned()))),
                         "CALLERID" => Ok(Operation::Add(Parameter::CALLERID(
                             parse_required_letter(
                                 value,
@@ -650,6 +652,7 @@ pub enum Parameter {
     ACCOUNTEXTBAN(Vec<String>),
     AWAYLEN(u16),
     BOT(char),
+    BOUNCER_NETID(String),
     CALLERID(char),
     CASEMAPPING(CaseMap),
     CHANLIMIT(Vec<ChannelLimit>),
@@ -731,6 +734,7 @@ impl Parameter {
             Parameter::USERIP => Some(Kind::USERIP),
             Parameter::UTF8ONLY => Some(Kind::UTF8ONLY),
             Parameter::WHOX => Some(Kind::WHOX),
+            Parameter::BOUNCER_NETID(_) => Some(Kind::BOUNCER_NETID),
             _ => None,
         }
     }

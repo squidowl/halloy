@@ -26,7 +26,7 @@ use crate::appearance::theme::Colors;
 use crate::appearance::{self, Appearance};
 use crate::audio::{self, Sound};
 use crate::environment::config_dir;
-use crate::server::{Map as ServerMap, Server as ServerName};
+use crate::server::{ConfigMap as ServerMap, ServerName};
 use crate::{Theme, environment};
 
 pub mod actions;
