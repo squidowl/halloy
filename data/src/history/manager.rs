@@ -953,7 +953,10 @@ impl Data {
     ) -> Option<impl Future<Output = Message> + use<>> {
         use std::collections::hash_map;
 
-        if filter_chain.is_some_and(|chain| chain.filter_message(&message)) {
+        let blocked =
+            filter_chain.is_some_and(|chain| chain.filter_message(&message));
+
+        if blocked {
             self.blocked_messages_index.entry(kind.clone()).and_modify(
                 |cache| {
                     cache.insert(message.hash);
@@ -963,7 +966,7 @@ impl Data {
 
         match self.map.entry(kind.clone()) {
             hash_map::Entry::Occupied(mut entry) => {
-                let read_marker = entry.get_mut().add_message(message);
+                let read_marker = entry.get_mut().add_message(message, blocked);
 
                 read_marker.map(|read_marker| {
                     async move {
@@ -975,7 +978,7 @@ impl Data {
             hash_map::Entry::Vacant(entry) => {
                 let _ = entry
                     .insert(History::partial(kind.clone()))
-                    .add_message(message);
+                    .add_message(message, blocked);
 
                 Some(
                     async move {
