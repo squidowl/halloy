@@ -205,7 +205,7 @@ pub fn nickname(
     } else {
         parse_fragments_with_users(
             format!("{old_nick} is now known as {new_nick}"),
-            &[old_user, new_user],
+            &[old_user, new_user.clone()],
         )
     };
 
@@ -213,7 +213,10 @@ pub fn nickname(
         channels,
         queries,
         false,
-        Cause::Server(None),
+        Cause::Server(Some(source::Server::new(
+            source::server::Kind::ChangeNick,
+            Some(new_user.nickname().to_owned()),
+        ))),
         content,
         sent_time,
     )

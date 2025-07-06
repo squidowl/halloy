@@ -9,9 +9,10 @@ use iced::widget::{
     vertical_space,
 };
 use iced::{Alignment, Length, Task, padding};
+use itertools::Either;
 use tokio::time;
 
-use super::{Focus, Panes};
+use super::{Focus, Panes, Server};
 use crate::widget::{Element, Text, context_menu, double_pass};
 use crate::{icon, theme, window};
 
@@ -36,6 +37,7 @@ pub enum Message {
     OpenConfigFile,
     ReloadComplete,
     MarkAsRead(buffer::Upstream),
+    MarkServerAsRead(Server),
 }
 
 #[derive(Debug, Clone)]
@@ -55,6 +57,7 @@ pub enum Event {
     OpenConfigFile,
     ConfigReloaded(Result<Config, config::Error>),
     MarkAsRead(buffer::Upstream),
+    MarkServerAsRead(Server),
 }
 
 #[derive(Clone)]
@@ -136,6 +139,9 @@ impl Sidebar {
             }
             Message::MarkAsRead(buffer) => {
                 (Task::none(), Some(Event::MarkAsRead(buffer)))
+            }
+            Message::MarkServerAsRead(server) => {
+                (Task::none(), Some(Event::MarkServerAsRead(server)))
             }
             Message::OpenConfigFile => {
                 (Task::none(), Some(Event::OpenConfigFile))
@@ -300,9 +306,21 @@ impl Sidebar {
             let mut buffers = vec![];
             let mut client_enumeration = 0;
 
-            for server in config.servers.keys() {
+            let servers = match config.sidebar.order_by {
+                sidebar::OrderBy::Alpha => Either::Left(clients.servers()),
+                sidebar::OrderBy::Config => Either::Right(
+                    config.servers.keys().chain(
+                        clients
+                            .servers()
+                            .filter(|key| !config.servers.contains(key)),
+                    ),
+                ),
+            };
+
+            for server in servers {
                 let button = |buffer: buffer::Upstream,
                               connected: bool,
+                              server_has_unread: bool,
                               has_unread: bool| {
                     upstream_buffer_button(
                         panes,
@@ -313,6 +331,7 @@ impl Sidebar {
                         config.actions.sidebar.focused_buffer,
                         config.sidebar.position,
                         config.sidebar.unread_indicator,
+                        server_has_unread,
                         has_unread,
                         width,
                     )
@@ -327,6 +346,7 @@ impl Sidebar {
                             buffers.push(button(
                                 buffer::Upstream::Server(server.clone()),
                                 false,
+                                history.server_has_unread(server.clone()),
                                 history.has_unread(&history::Kind::Server(
                                     server.clone(),
                                 )),
@@ -337,6 +357,7 @@ impl Sidebar {
                             buffers.push(button(
                                 buffer::Upstream::Server(server.clone()),
                                 true,
+                                history.server_has_unread(server.clone()),
                                 history.has_unread(&history::Kind::Server(
                                     server.clone(),
                                 )),
@@ -350,6 +371,7 @@ impl Sidebar {
                                         channel.clone(),
                                     ),
                                     true,
+                                    history.server_has_unread(server.clone()),
                                     history.has_unread(
                                         &history::Kind::Channel(
                                             server.clone(),
@@ -372,6 +394,7 @@ impl Sidebar {
                                         query.clone(),
                                     ),
                                     true,
+                                    history.server_has_unread(server.clone()),
                                     history.has_unread(&history::Kind::Query(
                                         server.clone(),
                                         query.clone(),
@@ -506,6 +529,7 @@ impl Menu {
 
 #[derive(Debug, Clone, Copy)]
 enum Entry {
+    MarkServerAsRead,
     MarkAsRead,
     NewPane,
     Popout,
@@ -517,28 +541,39 @@ enum Entry {
 
 impl Entry {
     fn list(
+        buffer: &buffer::Upstream,
         num_panes: usize,
         open: Option<(window::Id, pane_grid::Pane)>,
         focus: Focus,
     ) -> Vec<Self> {
-        match open {
-            None => vec![
-                Entry::MarkAsRead,
-                Entry::NewPane,
-                Entry::Popout,
-                Entry::Replace,
-                Entry::Leave,
-            ],
-            Some((window, pane)) => (num_panes > 1)
-                .then_some(Entry::Close(window, pane))
-                .into_iter()
-                .chain(
-                    (Focus { window, pane } != focus)
-                        .then_some(Entry::Swap(window, pane)),
-                )
-                .chain(Some(Entry::Leave))
-                .collect(),
-        }
+        [
+            match buffer {
+                buffer::Upstream::Server(_) => {
+                    vec![Entry::MarkServerAsRead]
+                }
+                buffer::Upstream::Channel(_, _) => vec![],
+                buffer::Upstream::Query(_, _) => vec![],
+            },
+            match open {
+                None => vec![
+                    Entry::MarkAsRead,
+                    Entry::NewPane,
+                    Entry::Popout,
+                    Entry::Replace,
+                    Entry::Leave,
+                ],
+                Some((window, pane)) => (num_panes > 1)
+                    .then_some(Entry::Close(window, pane))
+                    .into_iter()
+                    .chain(
+                        (Focus { window, pane } != focus)
+                            .then_some(Entry::Swap(window, pane)),
+                    )
+                    .chain(Some(Entry::Leave))
+                    .collect(),
+            },
+        ]
+        .concat()
     }
 }
 
@@ -551,6 +586,7 @@ fn upstream_buffer_button(
     focused_buffer_action: Option<BufferFocusedAction>,
     position: sidebar::Position,
     unread_indicator: sidebar::UnreadIndicator,
+    server_has_unread: bool,
     has_unread: bool,
     width: Length,
 ) -> Element<Message> {
@@ -684,7 +720,7 @@ fn upstream_buffer_button(
             }
         });
 
-    let entries = Entry::list(panes.len(), open, focus);
+    let entries = Entry::list(&buffer, panes.len(), open, focus);
 
     if entries.is_empty() || !connected {
         base.into()
@@ -695,8 +731,22 @@ fn upstream_buffer_button(
             entries,
             move |entry, length| {
                 let (content, message) = match entry {
+                    Entry::MarkServerAsRead => (
+                        "Mark entire server as read",
+                        if server_has_unread {
+                            Some(Message::MarkServerAsRead(
+                                buffer.server().clone(),
+                            ))
+                        } else {
+                            None
+                        },
+                    ),
                     Entry::MarkAsRead => (
-                        "Mark as Read",
+                        if matches!(&buffer, buffer::Upstream::Server(_)) {
+                            "Mark server buffer as read"
+                        } else {
+                            "Mark as read"
+                        },
                         if has_unread {
                             Some(Message::MarkAsRead(buffer.clone()))
                         } else {

@@ -693,6 +693,11 @@ impl Dashboard {
                         let _ = open::that_detached(WIKI_WEBSITE);
                         (Task::none(), None)
                     }
+                    sidebar::Event::MarkServerAsRead(server) => {
+                        self.mark_server_as_read(server, clients);
+
+                        (Task::none(), None)
+                    }
                     sidebar::Event::MarkAsRead(buffer) => {
                         if let Some(kind) = history::Kind::from_buffer(
                             data::Buffer::Upstream(buffer),
@@ -2790,6 +2795,16 @@ impl Dashboard {
 
     fn main_window(&self) -> window::Id {
         self.panes.main_window
+    }
+
+    fn mark_server_as_read(
+        &mut self,
+        server: Server,
+        clients: &mut data::client::Map,
+    ) {
+        for kind in self.history.server_kinds(server) {
+            self.mark_as_read(kind, clients);
+        }
     }
 
     fn mark_as_read(

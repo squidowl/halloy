@@ -38,7 +38,7 @@ pub fn view<'a>(
             None,
             None,
             config,
-            move |message, _, _| match message.target.source() {
+            move |message: &'a data::Message, _, _| match message.target.source() {
                 message::Source::Internal(message::source::Internal::Logs) => {
                     Some(
                         container(message_content(

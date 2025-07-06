@@ -236,10 +236,11 @@ where
         _viewport: &Rectangle,
         _renderer: &Renderer,
     ) -> mouse::Interaction {
-        cursor
-            .is_over(layout.bounds())
-            .then_some(mouse::Interaction::Pointer)
-            .unwrap_or_default()
+        if cursor.is_over(layout.bounds()) {
+            mouse::Interaction::Pointer
+        } else {
+            mouse::Interaction::default()
+        }
     }
 
     fn overlay<'b>(
