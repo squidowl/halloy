@@ -1387,7 +1387,7 @@ impl Dashboard {
             }
             Message::ConfigReloaded(config_result) => {
                 if let Ok(config) = config_result.as_ref() {
-                    self.history.apply_config(&config);
+                    self.history.apply_config(config);
                 };
                 return (
                     Task::none(),

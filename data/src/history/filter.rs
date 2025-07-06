@@ -40,7 +40,7 @@ impl FilterTarget {
                     Source::Action(Some(u.clone())),
                 ))
             })
-            .map_err(|e| FilterError::TryFromUserError(e))
+            .map_err(FilterError::TryFromUserError)
     }
 }
 
@@ -170,10 +170,7 @@ impl Filter {
     }
 
     pub fn is_user(&self) -> bool {
-        match self.target {
-            FilterTarget::User(_) => true,
-            _ => false,
-        }
+        matches!(self.target, FilterTarget::User(_))
     }
 }
 
