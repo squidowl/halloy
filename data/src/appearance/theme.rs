@@ -159,6 +159,10 @@ pub struct ServerMessages {
     #[serde(default, with = "color_serde_maybe")]
     pub change_host: Option<Color>,
     #[serde(default, with = "color_serde_maybe")]
+    pub change_mode: Option<Color>,
+    #[serde(default, with = "color_serde_maybe")]
+    pub change_nick: Option<Color>,
+    #[serde(default, with = "color_serde_maybe")]
     pub monitored_online: Option<Color>,
     #[serde(default, with = "color_serde_maybe")]
     pub monitored_offline: Option<Color>,

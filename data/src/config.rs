@@ -257,9 +257,11 @@ impl Config {
             .await
             .map_err(|e| Error::LoadConfigFile(e.to_string()))?;
 
+        let config = toml::Deserializer::new(content.as_ref());
+
         let Configuration {
             theme,
-            mut servers,
+            servers,
             font,
             proxy,
             scale_factor,
@@ -274,13 +276,10 @@ impl Config {
             highlights,
             actions,
             ctcp,
-        } = toml::from_str(content.as_ref())
-            .map_err(|e| Error::Parse(e.to_string()))?;
-
-        match sidebar.order_by {
-            sidebar::OrderBy::Alpha => servers.sort_keys(),
-            sidebar::OrderBy::Config => (),
-        }
+        } = serde_ignored::deserialize(config, |ignored| {
+            log::warn!("[config.toml] Ignoring unknown setting: {ignored}");
+        })
+        .map_err(|e| Error::Parse(e.to_string()))?;
 
         let servers = ServerMap::new(servers).await?;
 
