@@ -457,7 +457,7 @@ impl State {
                         }) = history.get_messages(
                             &kind.into(),
                             Some(self.limit),
-                            &config.buffer,
+                            &config,
                         ) {
                             if let Some(oldest) =
                                 old_messages.iter().chain(&new_messages).next()

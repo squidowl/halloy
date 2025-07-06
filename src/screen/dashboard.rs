@@ -628,6 +628,8 @@ impl Dashboard {
                     return (command.map(Message::Sidebar), None);
                 };
 
+                debug!("dashboard::sidebar {:?}", &event);
+
                 let (event_task, event) = match event {
                     sidebar::Event::New(buffer) => (
                         self.open_buffer(
@@ -1383,8 +1385,14 @@ impl Dashboard {
 
                 return (Task::batch(tasks), event);
             }
-            Message::ConfigReloaded(config) => {
-                return (Task::none(), Some(Event::ConfigReloaded(config)));
+            Message::ConfigReloaded(config_result) => {
+                if let Ok(config) = config_result.as_ref() {
+                    self.history.apply_config(&config);
+                };
+                return (
+                    Task::none(),
+                    Some(Event::ConfigReloaded(config_result)),
+                );
             }
             Message::Client(message) => match message {
                 client::Message::ChatHistoryRequest(server, subcommand) => {
@@ -2635,6 +2643,8 @@ impl Dashboard {
             previews: preview::Collection::default(),
             buffer_settings: data.buffer_settings.clone(),
         };
+
+        dashboard.history.apply_config(config);
 
         let mut tasks = vec![];
 
