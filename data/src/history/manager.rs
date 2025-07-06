@@ -182,7 +182,7 @@ impl Manager {
         log::debug!("Applying new config to history manager.");
         self.filters.clear();
         config.servers.entries().for_each(|entry| {
-            entry.config.filters.as_ref().map(|f| {
+            if let Some(f) = entry.config.filters.as_ref() {
                 f.ignore.iter().for_each(|filter_string| {
                     if let Ok(filter) = Filter::try_from_str_with_server(
                         &entry.server.clone(),
@@ -191,7 +191,7 @@ impl Manager {
                         self.filters.push(filter);
                     };
                 });
-            });
+            }
         });
     }
 
@@ -307,7 +307,7 @@ impl Manager {
         history::Kind::from_server_message(server.clone(), &message).and_then(
             |kind| {
                 let chain = FilterChain::borrow(&self.filters);
-                return self.data.add_message(kind, message, Some(chain));
+                self.data.add_message(kind, message, Some(chain))
             },
         )
     }
@@ -402,6 +402,7 @@ impl Manager {
             .map
             .keys()
             .filter_map(|kind| match kind {
+                #[allow(clippy::bool_comparison)]
                 history::Kind::Query(s, query) => (s == server
                     && self
                         .filters
@@ -618,7 +619,8 @@ impl Manager {
 
     fn rebuild_blocked_message_cache(&mut self, kind: history::Kind) {
         let chain = FilterChain::borrow(&self.filters);
-        self.data.map.get(&kind).map(|history| {
+
+        if let Some(history) = self.data.map.get(&kind) {
             let messages = match history {
                 History::Full { messages, .. } => messages,
                 History::Partial { messages, .. } => messages,
@@ -627,7 +629,7 @@ impl Manager {
             let blocked_message_index = messages
                 .iter()
                 .filter_map(|message| match chain.filter_message(message) {
-                    true => Some(message.hash.clone()),
+                    true => Some(message.hash),
                     false => None,
                 })
                 .collect();
@@ -636,7 +638,7 @@ impl Manager {
                 .blocked_messages_index
                 .entry(kind.clone())
                 .insert_entry(blocked_message_index);
-        });
+        };
 
         log::debug!("rebuilt blocked message index for {kind}");
     }
@@ -762,7 +764,7 @@ impl Data {
             .filter(|message| {
                 !self
                     .blocked_messages_index
-                    .get(&kind)
+                    .get(kind)
                     .is_some_and(|blocklist| blocklist.contains(&message.hash))
             })
             .filter(|message| match message.target.source() {
