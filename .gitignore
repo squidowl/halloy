@@ -19,4 +19,6 @@
 .vscode/
 .helix/
 
+# Flatpak generated files
 /assets/flatpak/generated-sources.json
+.flatpak-builder
