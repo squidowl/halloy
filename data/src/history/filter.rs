@@ -120,7 +120,6 @@ impl Filter {
             FilterTarget::User((Source::User(user), ..)) => {
                 user.as_str() == query.as_str()
             }
-            // FilterTarget::Any => true, // this could hav
             _ => false,
         }
     }
