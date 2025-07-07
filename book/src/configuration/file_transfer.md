@@ -133,6 +133,15 @@ nicks = ["nick1", "nick2"]
 
 If true, automatically accept incoming file transfers from these nicks. Matches are made against the full nickname (i.e. nickname, username, and hostname in the format `nickname!username@hostname`). Note `auto_accept` has to be enabled.
 
+<div class="warning">
+
+Use toml multi-line literal strings `'''\bfoo'd\b'''` when writing a regex. This allows you to write write the regex without
+escaping. You can also use a literal string `'\bfoo\b'`, but then you can't use `'` inside the string.
+
+Without literal strings, you'd have to write the above as `"\\bfoo'd\\b"`
+
+</div>
+
 ```toml
 # Type: array of strings
 # Values: array of any strings
