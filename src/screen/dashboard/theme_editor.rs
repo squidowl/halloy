@@ -404,7 +404,7 @@ impl Component {
     fn color(&self, colors: &Colors) -> Option<Color> {
         match self {
             Component::General(general) => Some(general.color(&colors.general)),
-            Component::Text(text) => Some(text.color(&colors.text)),
+            Component::Text(text) => text.color(&colors.text),
             Component::Buffer(buffer) => buffer.color(&colors.buffer),
             Component::Buttons(buttons) => Some(buttons.color(&colors.buttons)),
         }
@@ -475,16 +475,24 @@ pub enum Text {
     Tertiary,
     Success,
     Error,
+    Warning,
+    Info,
+    Debug,
+    Trace,
 }
 
 impl Text {
-    fn color(&self, colors: &theme::Text) -> Color {
+    fn color(&self, colors: &theme::Text) -> Option<Color> {
         match self {
-            Text::Primary => colors.primary,
-            Text::Secondary => colors.secondary,
-            Text::Tertiary => colors.tertiary,
-            Text::Success => colors.success,
-            Text::Error => colors.error,
+            Text::Primary => Some(colors.primary),
+            Text::Secondary => Some(colors.secondary),
+            Text::Tertiary => Some(colors.tertiary),
+            Text::Success => Some(colors.success),
+            Text::Error => Some(colors.error),
+            Text::Warning => colors.warning,
+            Text::Info => colors.info,
+            Text::Debug => colors.debug,
+            Text::Trace => colors.trace,
         }
     }
 
@@ -503,6 +511,10 @@ impl Text {
                 colors.success = color.unwrap_or(Color::TRANSPARENT);
             }
             Text::Error => colors.error = color.unwrap_or(Color::TRANSPARENT),
+            Text::Warning => colors.warning = color,
+            Text::Info => colors.info = color,
+            Text::Debug => colors.debug = color,
+            Text::Trace => colors.trace = color,
         }
     }
 }
@@ -612,6 +624,8 @@ pub enum ServerMessages {
     StandardReplyWarn,
     StandardReplyNote,
     Wallops,
+    ChangeMode,
+    ChangeNick,
     Default,
 }
 
@@ -629,6 +643,8 @@ impl ServerMessages {
             ServerMessages::StandardReplyWarn => colors.standard_reply_warn,
             ServerMessages::StandardReplyNote => colors.standard_reply_note,
             ServerMessages::Wallops => colors.wallops,
+            ServerMessages::ChangeMode => colors.change_mode,
+            ServerMessages::ChangeNick => colors.change_nick,
             ServerMessages::Default => Some(colors.default),
         }
     }
@@ -654,6 +670,8 @@ impl ServerMessages {
                 colors.standard_reply_note = color;
             }
             ServerMessages::Wallops => colors.wallops = color,
+            ServerMessages::ChangeMode => colors.change_mode = color,
+            ServerMessages::ChangeNick => colors.change_nick = color,
             ServerMessages::Default => {
                 colors.default = color.unwrap_or(Color::TRANSPARENT);
             }

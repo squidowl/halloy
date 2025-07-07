@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 pub use self::server::Server;
-use crate::User;
+use crate::{User, log};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Source {
@@ -14,7 +14,7 @@ pub enum Source {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Internal {
     Status(Status),
-    Logs,
+    Logs(log::Level),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]

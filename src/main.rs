@@ -60,7 +60,10 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Prepare notifications.
     notification::prepare();
 
-    let log_stream = logger::setup(is_debug).expect("setup logging");
+    let logs_config = Config::load_logs().unwrap_or_default();
+
+    let log_stream =
+        logger::setup(is_debug, logs_config).expect("setup logging");
     log::info!("halloy {} has started", environment::formatted_version());
     log::info!("config dir: {:?}", environment::config_dir());
     log::info!("data dir: {:?}", environment::data_dir());
@@ -343,8 +346,11 @@ impl Halloy {
                 Task::none()
             }
             Message::ScreenConfigReloaded(updated) => {
-                let (halloy, command) =
-                    Halloy::load_from_state(self.main_window.id, updated, self.current_mode);
+                let (halloy, command) = Halloy::load_from_state(
+                    self.main_window.id,
+                    updated,
+                    self.current_mode,
+                );
                 *self = halloy;
                 command
             }
@@ -379,10 +385,10 @@ impl Halloy {
                                     .collect::<Vec<_>>();
 
                                 self.servers = updated.servers.clone();
-                                self.theme = self.current_mode.theme(
-                                    &updated.appearance.selected,
-                                )
-                                .into();
+                                self.theme = self
+                                    .current_mode
+                                    .theme(&updated.appearance.selected)
+                                    .into();
                                 self.config = updated;
 
                                 for server in removed_servers {
@@ -1202,7 +1208,10 @@ impl Halloy {
                     &self.config.appearance.selected
                 {
                     self.current_mode = mode;
-                    self.theme = self.current_mode.theme(&self.config.appearance.selected).into();
+                    self.theme = self
+                        .current_mode
+                        .theme(&self.config.appearance.selected)
+                        .into();
                 }
 
                 Task::none()
@@ -1225,6 +1234,9 @@ impl Halloy {
                 Task::batch(
                     records
                         .into_iter()
+                        .filter(|record| {
+                            record.level <= self.config.logs.pane_level
+                        })
                         .map(|record| dashboard.record_log(record)),
                 )
                 .map(Message::Dashboard)
