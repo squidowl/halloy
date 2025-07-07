@@ -1277,7 +1277,7 @@ bind_address = "&lt;some ip&gt;"
 # Default: not set
 
 [file_transfer.server]
-bind_port_first = "1024"
+bind_port_first = 1024
 </code></pre>
 <h2 id="bind_port_last"><a class="header" href="#bind_port_last"><code>bind_port_last</code></a></h2>
 <p>Last port in port range to bind to.</p>
@@ -1286,7 +1286,45 @@ bind_port_first = "1024"
 # Default: not set
 
 [file_transfer.server]
-bind_port_last = "5000"
+bind_port_last = 5000
+</code></pre>
+<h1 id="file_transferauto_accept"><a class="header" href="#file_transferauto_accept"><code>[file_transfer.auto_accept]</code></a></h1>
+<p>Configuration for automatically accepting incoming file transfers.</p>
+<h2 id="enabled-5"><a class="header" href="#enabled-5"><code>enabled</code></a></h2>
+<p>If true, automatically accept incoming file transfers. Requires <code>save_directory</code> to be set.</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: false
+
+[file_transfer.auto_accept]
+enabled = false
+</code></pre>
+<h2 id="nicks"><a class="header" href="#nicks"><code>nicks</code></a></h2>
+<p>If true, automatically accept incoming file transfers from these nicks.
+Note <code>auto_accept</code> has to be enabled.</p>
+<pre><code class="language-toml"># Type: array of strings
+# Values: array of any strings
+# Default: []
+
+[file_transfer.auto_accept]
+nicks = ["nick1", "nick2"]
+</code></pre>
+<h2 id="masks"><a class="header" href="#masks"><code>masks</code></a></h2>
+<p>If true, automatically accept incoming file transfers from these nicks. Matches are made against the full nickname (i.e. nickname, username, and hostname in the format <code>nickname!username@hostname</code>). Note <code>auto_accept</code> has to be enabled.</p>
+<div class="warning">
+<p>Use toml multi-line literal strings <code>'''\bfoo'd\b'''</code> when writing a regex. This allows you to write write the regex without
+escaping. You can also use a literal string <code>'\bfoo\b'</code>, but then you can't use <code>'</code> inside the string.</p>
+<p>Without literal strings, you'd have to write the above as <code>"\\bfoo'd\\b"</code></p>
+</div>
+<pre><code class="language-toml"># Type: array of strings
+# Values: array of any strings
+# Default: []
+
+[file_transfer.auto_accept]
+masks = [
+    '''nick!ident@example\.com''',
+    '''.*@foobar\.com'''
+]
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="font"><a class="header" href="#font"><code>[font]</code></a></h1>
 <p>Application wide font settings.</p>
@@ -1701,7 +1739,7 @@ It accepts no further configuration.</p>
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="preview"><a class="header" href="#preview"><code>[preview]</code></a></h1>
 <p>URL preview settings for Halloy.</p>
-<h2 id="enabled-5"><a class="header" href="#enabled-5"><code>enabled</code></a></h2>
+<h2 id="enabled-6"><a class="header" href="#enabled-6"><code>enabled</code></a></h2>
 <p>Enable or disable previews globally</p>
 <pre><code class="language-toml"># Type: boolean
 # Values: true, false
