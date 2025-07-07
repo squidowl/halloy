@@ -1188,7 +1188,7 @@ impl Client {
                                 log::trace!("DCC Send => {request:?}");
                                 return Ok(vec![Event::FileTransferRequest(
                                     file_transfer::ReceiveRequest {
-                                        from: user.nickname().to_owned(),
+                                        from: user,
                                         dcc_send: request,
                                         server: self.server.clone(),
                                         server_handle: self.handle.clone(),
