@@ -5,8 +5,7 @@ use chrono::{DateTime, Utc};
 
 pub use self::manager::Manager;
 pub use self::task::Task;
-use crate::user::Nick;
-use crate::{Server, dcc, server};
+use crate::{Server, User, dcc, server};
 
 pub mod manager;
 pub mod task;
@@ -32,7 +31,7 @@ pub struct FileTransfer {
     pub server: Server,
     pub created_at: DateTime<Utc>,
     pub direction: Direction,
-    pub remote_user: Nick,
+    pub remote_user: User,
     pub filename: String,
     pub size: u64,
     pub status: Status,
@@ -93,7 +92,7 @@ pub enum Status {
 
 #[derive(Debug, Clone)]
 pub struct ReceiveRequest {
-    pub from: Nick,
+    pub from: User,
     pub dcc_send: dcc::Send,
     pub server: Server,
     pub server_handle: server::Handle,
@@ -101,7 +100,7 @@ pub struct ReceiveRequest {
 
 #[derive(Debug)]
 pub struct SendRequest {
-    pub to: Nick,
+    pub to: User,
     pub path: PathBuf,
     pub server: Server,
     pub server_handle: server::Handle,
