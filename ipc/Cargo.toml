@@ -9,6 +9,7 @@ edition.workspace = true
 url = { workspace = true }
 tokio = { workspace = true, features = ["rt", "fs", "process"] }
 futures = { workspace = true }
+log = { workspace = true, features = ['std'] }
 thiserror = { workspace = true }
 rand = { workspace = true }
 rand_chacha = { workspace = true }

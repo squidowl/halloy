@@ -49,6 +49,7 @@ pub fn setup(
         .level_for("panic", log::LevelFilter::Error)
         .level_for("iced_wgpu", log::LevelFilter::Info)
         .level_for("data", file_level_filter)
+        .level_for("ipc", file_level_filter)
         .level_for("halloy", file_level_filter);
 
     let (channel_sink, receiver) = channel_logger();
@@ -59,6 +60,7 @@ pub fn setup(
         .level_for("panic", log::LevelFilter::Error)
         .level_for("iced_wgpu", log::LevelFilter::Info)
         .level_for("data", channel_level_filter)
+        .level_for("ipc", channel_level_filter)
         .level_for("halloy", channel_level_filter);
 
     fern::Dispatch::new()
