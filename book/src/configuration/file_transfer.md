@@ -82,7 +82,7 @@ First port in port range to bind to.
 # Default: not set
 
 [file_transfer.server]
-bind_port_first = "1024"
+bind_port_first = 1024
 ```
 
 ## `bind_port_last`
@@ -95,7 +95,7 @@ Last port in port range to bind to.
 # Default: not set
 
 [file_transfer.server]
-bind_port_last = "5000"
+bind_port_last = 5000
 ```
 
 # `[file_transfer.auto_accept]`
@@ -131,8 +131,7 @@ nicks = ["nick1", "nick2"]
 
 ## `masks`
 
-If true, automatically accept incoming file transfers from these nicks. 
-Note `auto_accept` has to be enabled.
+If true, automatically accept incoming file transfers from these nicks. Matches are made against the full nickname (i.e. nickname, username, and hostname in the format `nickname!username@hostname`). Note `auto_accept` has to be enabled.
 
 ```toml
 # Type: array of strings
