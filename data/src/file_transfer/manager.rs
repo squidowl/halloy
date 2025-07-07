@@ -214,15 +214,12 @@ impl Manager {
                         |nicks| nicks.contains(&from.nickname().to_string()),
                     );
 
-                let mask_match =
-                    config.file_transfer.auto_accept.masks.as_ref().is_none_or(
-                        |masks| {
-                            let a = from.matches_masks(masks);
-                            println!("masks: {masks:?}");
-                            println!("matches user with mask {a}");
-                            a
-                        },
-                    );
+                let mask_match = config
+                    .file_transfer
+                    .auto_accept
+                    .masks
+                    .as_ref()
+                    .is_none_or(|masks| from.matches_masks(masks));
 
                 nickname_match && mask_match
             };
