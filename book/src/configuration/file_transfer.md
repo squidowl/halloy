@@ -139,5 +139,8 @@ If true, automatically accept incoming file transfers from these nicks. Matches 
 # Default: []
 
 [file_transfer.auto_accept]
-masks = ["nick!ident@example.com", ".*@foobar.com"]
+masks = [
+    '''nick!ident@example\.com''',
+    '''.*@foobar\.com'''
+]
 ```
