@@ -3,11 +3,11 @@ use std::path::PathBuf;
 use data::dashboard::BufferAction;
 use data::target::Target;
 use data::{Config, client, history, isupport, message};
-use iced::widget::container;
+use iced::widget::{container, row};
 use iced::{Length, Task};
 
 use super::{scroll_view, user_context};
-use crate::widget::{Element, message_content};
+use crate::widget::{Element, message_content, selectable_text};
 use crate::{Theme, theme};
 
 #[derive(Debug, Clone)]
@@ -38,18 +38,51 @@ pub fn view<'a>(
             None,
             None,
             config,
-            move |message: &'a data::Message, _, _| match message.target.source() {
-                message::Source::Internal(message::source::Internal::Logs) => {
+            move |message: &'a data::Message, _, _| match message
+                .target
+                .source()
+            {
+                message::Source::Internal(message::source::Internal::Logs(
+                    level,
+                )) => {
+                    let timestamp = config
+                        .buffer
+                        .format_timestamp(&message.server_time)
+                        .map(|timestamp| {
+                            selectable_text(timestamp)
+                                .style(theme::selectable_text::timestamp)
+                        });
+
+                    let log_level_style = move |message_theme: &Theme| {
+                        theme::selectable_text::log_level(message_theme, *level)
+                    };
+                    let log_level = selectable_text(
+                        // Infer left or right alignment preference from
+                        // nickname alignment setting
+                        if config.buffer.nickname.alignment.is_right() {
+                            format!("{level: >5}")
+                        } else {
+                            format!("{level: <5}")
+                        },
+                    )
+                    .style(log_level_style);
+
+                    let message = message_content(
+                        &message.content,
+                        isupport::CaseMap::default(),
+                        theme,
+                        scroll_view::Message::Link,
+                        theme::selectable_text::default,
+                        config,
+                    );
+
                     Some(
-                        container(message_content(
-                            &message.content,
-                            isupport::CaseMap::default(),
-                            theme,
-                            scroll_view::Message::Link,
-                            theme::selectable_text::default,
-                            config,
-                        ))
-                        .into(),
+                        row![]
+                            .push_maybe(timestamp)
+                            .push(log_level)
+                            .push(selectable_text(" "))
+                            .push(message)
+                            .into(),
                     )
                 }
                 _ => None,

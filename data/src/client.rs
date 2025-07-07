@@ -9,7 +9,7 @@ use anyhow::{Context as ErrorContext, Result, anyhow, bail};
 use chrono::{DateTime, Utc};
 use futures::channel::mpsc;
 use futures::{Future, FutureExt};
-use irc::proto::{self, command, tags, Command};
+use irc::proto::{self, Command, command, tags};
 use itertools::{Either, Itertools};
 use log::error;
 use tokio::fs;
@@ -2053,7 +2053,7 @@ impl Client {
                                             }
                                         }
                                     } else {
-                                        log::debug!(
+                                        log::info!(
                                             "[{}] ignoring ISUPPORT parameter: {:?}",
                                             self.server,
                                             parameter
@@ -2074,7 +2074,7 @@ impl Client {
                         }
                         Err(error) => {
                             if index != args_len - 1 {
-                                log::debug!(
+                                log::warn!(
                                     "[{}] unable to parse ISUPPORT parameter: {} ({})",
                                     self.server,
                                     arg,

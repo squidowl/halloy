@@ -1,4 +1,3 @@
-use crate::buffer::scroll_view::Message;
 use data::isupport::CaseMap;
 use data::server::Server;
 use data::target::{self};
@@ -8,6 +7,7 @@ use iced::widget::{column, container, row};
 
 use super::scroll_view::LayoutMessage;
 use super::user_context;
+use crate::buffer::scroll_view::Message;
 use crate::widget::{
     Element, message_content, message_marker, selectable_text,
 };
@@ -310,9 +310,9 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
 
                     Some((marker, message))
                 }
-                message::Source::Internal(message::source::Internal::Logs) => {
-                    None
-                }
+                message::Source::Internal(message::source::Internal::Logs(
+                    _,
+                )) => None,
             }?;
         let row = row.push(middle).push(space);
         if self.content_on_new_line(message) {

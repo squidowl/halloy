@@ -10,6 +10,10 @@ secondary = "#AB8A79"
 tertiary = "#d7bde2"
 success = "#b1b695"
 error = "#e06b75"
+warning = "#FFA07A"
+info = "#9CD1BB"
+debug = "#B4A7D6"
+trace = "#DCDCDC"
 
 [buffer]
 background = "#242226"

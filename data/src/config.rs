@@ -16,6 +16,7 @@ pub use self::ctcp::Ctcp;
 pub use self::file_transfer::FileTransfer;
 pub use self::highlights::Highlights;
 pub use self::keys::Keyboard;
+pub use self::logs::Logs;
 pub use self::notification::Notifications;
 pub use self::pane::Pane;
 pub use self::preview::Preview;
@@ -35,6 +36,7 @@ pub mod ctcp;
 pub mod file_transfer;
 pub mod highlights;
 pub mod keys;
+pub mod logs;
 pub mod notification;
 pub mod pane;
 pub mod preview;
@@ -63,6 +65,7 @@ pub struct Config {
     pub highlights: Highlights,
     pub actions: Actions,
     pub ctcp: Ctcp,
+    pub logs: Logs,
 }
 
 #[derive(Debug, Clone, Copy, Deserialize)]
@@ -87,7 +90,6 @@ impl From<ScaleFactor> for f64 {
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
-#[serde(rename_all = "kebab-case")]
 pub struct Font {
     pub family: Option<String>,
     pub size: Option<u8>,
@@ -100,6 +102,7 @@ pub struct Font {
         default,
         deserialize_with = "deserialize_optional_font_weight_from_string"
     )]
+    #[serde(alias = "bold-weight")] // For backwards compatibility
     pub bold_weight: Option<font::Weight>,
 }
 
@@ -245,6 +248,8 @@ impl Config {
             pub actions: Actions,
             #[serde(default)]
             pub ctcp: Ctcp,
+            #[serde(default)]
+            pub logs: Logs,
         }
 
         let path = Self::path();
@@ -276,6 +281,7 @@ impl Config {
             highlights,
             actions,
             ctcp,
+            logs,
         } = serde_ignored::deserialize(config, |ignored| {
             log::warn!("[config.toml] Ignoring unknown setting: {ignored}");
         })
@@ -306,6 +312,7 @@ impl Config {
             highlights,
             actions,
             ctcp,
+            logs,
         })
     }
 
@@ -383,6 +390,21 @@ impl Config {
         };
 
         Ok(Appearance { selected, all })
+    }
+
+    pub fn load_logs() -> Option<Logs> {
+        #[derive(Default, Deserialize)]
+        pub struct Configuration {
+            #[serde(default)]
+            pub logs: Logs,
+        }
+
+        let path = Self::path();
+        let content = std::fs::read_to_string(path).ok()?;
+
+        let Configuration { logs } = toml::from_str(content.as_ref()).ok()?;
+
+        Some(logs)
     }
 
     pub fn create_initial_config() {
