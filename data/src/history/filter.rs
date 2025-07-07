@@ -2,7 +2,7 @@ use regex::Regex;
 use thiserror::Error;
 
 use crate::{
-    Message, Server, Target, User, isupport,
+    Message, Server, User, isupport,
     message::{Content, Source},
     target::{Channel, Query},
     user::TryFromUserError,
@@ -90,42 +90,20 @@ impl Filter {
             FilterTarget::User((
                 Source::User(user),
                 Source::Action(action),
-            )) => match &message.content {
-                Content::Fragments(fragments) => {
-                    fragments.iter().any(|frag| match frag {
-                        crate::message::Fragment::User(u, _) => u == user,
-                        _ => false,
-                    })
-                }
-                Content::Plain(_) => match &message.target.source() {
-                    Source::Action(msg_action) => msg_action == action,
-                    Source::User(msg_user) => msg_user == user,
+            )) => match &message.target.source() {
+                Source::Action(msg_action) => msg_action == action,
+                Source::User(msg_user) => msg_user == user,
+                _ => match &message.content {
+                    Content::Fragments(fragments) => {
+                        fragments.iter().any(|frag| match frag {
+                            crate::message::Fragment::User(u, _) => u == user,
+                            _ => false,
+                        })
+                    }
                     _ => false,
                 },
-                _ => false,
             },
             // FilterTarget::Regex(re) => re.is_match(&message.text()),
-            FilterTarget::Any => true,
-            _ => false,
-        }
-    }
-
-    /// Tests a [`Target`] against the filter's predicate.
-    ///
-    /// This function returns `true` when the target matches predicate, false
-    /// otherwise.
-    ///
-    /// [`Target`]:crate::Target
-    pub fn match_target(&self, target: &Target) -> bool {
-        match &self.target {
-            FilterTarget::User((Source::User(user), _)) => {
-                if let Target::Query(q) = target {
-                    q.as_str() == user.as_str()
-                } else {
-                    false
-                }
-            }
-            // FilterTarget::Regex(re) => re.is_match(&target.as_str()),
             FilterTarget::Any => true,
             _ => false,
         }
@@ -183,10 +161,18 @@ impl<'f> FilterChain<'f> {
         Self { filters }
     }
 
+    pub fn filter_message_of_kind(
+        &self,
+        message: &Message,
+        kind: &Kind,
+    ) -> bool {
+        self.filters
+            .iter()
+            .filter(|f| f.match_kind(kind))
+            .any(|f| f.match_message(message))
+    }
+
     pub fn filter_message(&self, message: &Message) -> bool {
         self.filters.iter().any(|f| f.match_message(message))
-    }
-    pub fn filter_target(&self, target: &Target) -> bool {
-        self.filters.iter().any(|f| f.match_target(target))
     }
 }

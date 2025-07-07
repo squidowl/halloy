@@ -402,7 +402,7 @@ impl Manager {
             .map
             .keys()
             .filter_map(|kind| match kind {
-                #[allow(clippy::bool_comparison)]
+                #[allow(clippy::bool_comparison)] // easy to miss exclaimation
                 history::Kind::Query(s, query) => (s == server
                     && self
                         .filters
@@ -628,9 +628,10 @@ impl Manager {
 
             let blocked_message_index = messages
                 .iter()
-                .filter_map(|message| match chain.filter_message(message) {
-                    true => Some(message.hash),
-                    false => None,
+                .filter_map(|message| {
+                    chain
+                        .filter_message_of_kind(message, &kind)
+                        .then_some(message.hash)
                 })
                 .collect();
 
@@ -953,8 +954,8 @@ impl Data {
     ) -> Option<impl Future<Output = Message> + use<>> {
         use std::collections::hash_map;
 
-        let blocked =
-            filter_chain.is_some_and(|chain| chain.filter_message(&message));
+        let blocked = filter_chain
+            .is_some_and(|chain| chain.filter_message_of_kind(&message, &kind));
 
         if blocked {
             self.blocked_messages_index.entry(kind.clone()).and_modify(
