@@ -326,7 +326,7 @@ impl History {
         message: Message,
         blocked: bool,
     ) -> Option<ReadMarker> {
-        if message.triggers_unread() && blocked == false {
+        if message.triggers_unread() && !blocked {
             if let History::Partial {
                 max_triggers_unread,
                 ..
