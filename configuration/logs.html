@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Keyboard</title>
+        <title>Logs</title>
 
 
         <!-- Custom HTML head -->
@@ -142,7 +142,7 @@
                         <a href="https://github.com/squidowl/halloy" title="Git repository" aria-label="Git repository">
                             <i id="git-repository-button" class="fa fa-github"></i>
                         </a>
-                        <a href="https://github.com/squidowl/halloy/edit/main/book/src/configuration/keyboard.md" title="Suggest an edit" aria-label="Suggest an edit">
+                        <a href="https://github.com/squidowl/halloy/edit/main/book/src/configuration/logs.md" title="Suggest an edit" aria-label="Suggest an edit">
                             <i id="git-edit-button" class="fa fa-edit"></i>
                         </a>
 
@@ -171,55 +171,48 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1 id="keyboard"><a class="header" href="#keyboard"><code>[keyboard]</code></a></h1>
-<p>Customize keyboard shortcuts. Below is a list of all actions which can be mapped.</p>
-<p><strong>Example</strong></p>
-<pre><code class="language-toml">[keyboard]
-move_up = "alt+k"
-move_down = "alt+j"
-move_left = "alt+h"
-move_right = "alt+l"
+                        <h1 id="logs"><a class="header" href="#logs"><code>[logs]</code></a></h1>
+<p>Application-wide actions;  how user actions should be enacted.</p>
+<h1 id="file_level"><a class="header" href="#file_level"><code>file_level</code></a></h1>
+<p>The least urgent (most verbose) log level to record to the log file.
+E.g. a <code>file_level</code> setting of <code>"debug"</code> will record all <code>ERROR</code>, <code>WARN</code>, <code>INFO</code>, and <code>DEBUG</code> messages to the log file.
+The log file is overwritten on each launch (i.e. contains log messages for the last session only).  It can be accessed at:</p>
+<ul>
+<li>Windows: <code>%AppData%\Roaming\halloy\halloy.log</code></li>
+<li>Mac: <code>~/Library/Application Support/halloy/halloy.log</code> or <code>$HOME/.local/share/halloy/halloy.log</code></li>
+<li>Linux: <code>$XDG_DATA_HOME/halloy/halloy.log</code> or <code>$HOME/.local/share/halloy/halloy.log</code></li>
+</ul>
+<blockquote>
+<p>⚠️  Changes to file_level require an application restart to take effect.</p>
+</blockquote>
+<pre><code class="language-toml"># Type: string
+# Values: "off", "error", "warn", "info", "debug", "trace"
+# Default: "debug"
+
+[logs]
+file_level = "debug"
 </code></pre>
-<div class="table-wrapper"><table><thead><tr><th>Key</th><th>Description</th><th>Default MacOS</th><th>Default Other</th></tr></thead><tbody>
-<tr><td><code>move_up</code></td><td>Moves focus up</td><td><kbd>⌘</kbd> + <kbd>⌥</kbd> + <kbd>↑</kbd></td><td><kbd>ctrl</kbd> + <kbd>alt</kbd> + <kbd>↑</kbd></td></tr>
-<tr><td><code>move_down</code></td><td>Moves focus down</td><td><kbd>⌘</kbd> + <kbd>⌥</kbd> + <kbd>↓</kbd></td><td><kbd>ctrl</kbd> + <kbd>alt</kbd> + <kbd>↓</kbd></td></tr>
-<tr><td><code>move_left</code></td><td>Moves focus left</td><td><kbd>⌘</kbd> + <kbd>⌥</kbd> + <kbd>←</kbd></td><td><kbd>ctrl</kbd> + <kbd>alt</kbd> + <kbd>←</kbd></td></tr>
-<tr><td><code>move_right</code></td><td>Moves focus right</td><td><kbd>⌘</kbd> + <kbd>⌥</kbd> + <kbd>→</kbd></td><td><kbd>ctrl</kbd> + <kbd>alt</kbd> + <kbd>→</kbd></td></tr>
-<tr><td><code>close_buffer</code></td><td>Close focused buffer</td><td><kbd>⌘</kbd> + <kbd>w</kbd></td><td><kbd>ctrl</kbd> + <kbd>w</kbd></td></tr>
-<tr><td><code>maximize_buffer</code></td><td>Maximize focused buffer</td><td><kbd>⌘</kbd> + <kbd>shift</kbd> + <kbd>↑</kbd></td><td><kbd>ctrl</kbd> + <kbd>shift</kbd> + <kbd>↑</kbd></td></tr>
-<tr><td><code>restore_buffer</code></td><td>Restore focused buffer</td><td><kbd>⌘</kbd> + <kbd>shift</kbd> + <kbd>↓</kbd></td><td><kbd>ctrl</kbd> + <kbd>shift</kbd> + <kbd>↓</kbd></td></tr>
-<tr><td><code>cycle_next_buffer</code></td><td>Cycle to next buffer</td><td><kbd>ctrl</kbd> + <kbd>tab</kbd></td><td><kbd>ctrl</kbd> + <kbd>tab</kbd></td></tr>
-<tr><td><code>cycle_previous_buffer</code></td><td>Cycle to previous buffer</td><td><kbd>ctrl</kbd> + <kbd>shift</kbd> + <kbd>tab</kbd></td><td><kbd>ctrl</kbd> + <kbd>shift</kbd> + <kbd>tab</kbd></td></tr>
-<tr><td><code>cycle_next_unread_buffer</code></td><td>Cycle to next buffer</td><td><kbd>ctrl</kbd> + <kbd>tab</kbd></td><td><kbd>ctrl</kbd> + <kbd>tab</kbd></td></tr>
-<tr><td><code>cycle_previous_unread_buffer</code></td><td>Cycle to previous buffer</td><td><kbd>ctrl</kbd> + <kbd>shift</kbd> + <kbd>tab</kbd></td><td><kbd>ctrl</kbd> + <kbd>shift</kbd> + <kbd>tab</kbd></td></tr>
-<tr><td><code>scroll_up_page</code></td><td>Scroll buffer up a page</td><td><kbd>Fn</kbd> + <kbd>↑</kbd></td><td><kbd>pageup</kbd></td></tr>
-<tr><td><code>scroll_down_page</code></td><td>Scroll buffer down a page</td><td><kbd>Fn</kbd> + <kbd>↓</kbd></td><td><kbd>pagedown</kbd></td></tr>
-<tr><td><code>scroll_to_top</code></td><td>Scroll to top of buffer</td><td><kbd>⌘</kbd> + <kbd>↑</kbd></td><td><kbd>ctrl</kbd> + <kbd>↑</kbd></td></tr>
-<tr><td><code>scroll_to_bottom</code></td><td>Scroll to bottom of buffer</td><td><kbd>⌘</kbd> + <kbd>↓</kbd></td><td><kbd>ctrl</kbd> + <kbd>↓</kbd></td></tr>
-<tr><td><code>leave_buffer</code></td><td>Leave channel or close query</td><td><kbd>⌘</kbd> + <kbd>shift</kbd> + <kbd>w</kbd></td><td><kbd>ctrl</kbd> + <kbd>shift</kbd> + <kbd>w</kbd></td></tr>
-<tr><td><code>mark_as_read</code></td><td>Mark focused buffer as read</td><td><kbd>⌘</kbd> + <kbd>shift</kbd> + <kbd>m</kbd></td><td><kbd>ctrl</kbd> + <kbd>shift</kbd> + <kbd>m</kbd></td></tr>
-<tr><td><code>toggle_nick_list</code></td><td>Toggle nick list</td><td><kbd>⌘</kbd> + <kbd>⌥</kbd> + <kbd>m</kbd></td><td><kbd>ctrl</kbd> + <kbd>alt</kbd> + <kbd>m</kbd></td></tr>
-<tr><td><code>toggle_topic</code></td><td>Toggle topic</td><td><kbd>⌘</kbd> + <kbd>⌥</kbd> + <kbd>t</kbd></td><td><kbd>ctrl</kbd> + <kbd>alt</kbd> + <kbd>t</kbd></td></tr>
-<tr><td><code>toggle_sidebar</code></td><td>Toggle sidebar</td><td><kbd>⌘</kbd> + <kbd>⌥</kbd> + <kbd>b</kbd></td><td><kbd>ctrl</kbd> + <kbd>alt</kbd> + <kbd>b</kbd></td></tr>
-<tr><td><code>toggle_fullscreen</code></td><td>Toggle fullscreen</td><td><kbd>⌘</kbd> + <kbd>ctrl</kbd> + <kbd>f</kbd></td><td><kbd>F11</kbd></td></tr>
-<tr><td><code>command_bar</code></td><td>Toggle command bar</td><td><kbd>⌘</kbd> + <kbd>k</kbd></td><td><kbd>ctrl</kbd> + <kbd>k</kbd></td></tr>
-<tr><td><code>reload_configuration</code></td><td>Refresh configuration file</td><td><kbd>⌘</kbd> + <kbd>r</kbd></td><td><kbd>ctrl</kbd> + <kbd>r</kbd></td></tr>
-<tr><td><code>file_transfers</code></td><td>Toggle File Transfers Buffer</td><td><kbd>⌘</kbd> + <kbd>j</kbd></td><td><kbd>ctrl</kbd> + <kbd>j</kbd></td></tr>
-<tr><td><code>logs</code></td><td>Toggle Logs Buffer</td><td><kbd>⌘</kbd> + <kbd>l</kbd></td><td><kbd>ctrl</kbd> + <kbd>l</kbd></td></tr>
-<tr><td><code>theme_editor</code></td><td>Toggle Theme Editor Window</td><td><kbd>⌘</kbd> + <kbd>t</kbd></td><td><kbd>ctrl</kbd> + <kbd>t</kbd></td></tr>
-<tr><td><code>highlights</code></td><td>Toggle Highlights Window</td><td><kbd>⌘</kbd> + <kbd>i</kbd></td><td><kbd>ctrl</kbd> + <kbd>i</kbd></td></tr>
-<tr><td><code>quit_application</code></td><td>Quit Halloy</td><td>Not set</td><td>Not set</td></tr>
-</tbody></table>
-</div>
+<h1 id="pane_level"><a class="header" href="#pane_level"><code>pane_level</code></a></h1>
+<p>The least urgent (most verbose) log level to record to the Logs pane.
+E.g. a <code>pane_level</code> setting of <code>"info"</code> will record all <code>ERROR</code>, <code>WARN</code>, and <code>INFO</code> messages to the Logs pane.
+Log messages that are not recorded to the Logs pane may still be found in the log file.</p>
+<pre><code class="language-toml"># Type: string
+# Values: "off", "error", "warn", "info", "debug", "trace"
+# Default: "info"
+
+[logs]
+pane_level = "info"
+</code></pre>
+
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="../configuration/highlights.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="../configuration/keyboard.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
 
-                            <a rel="next prefetch" href="../configuration/logs.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="../configuration/notifications.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
 
@@ -229,11 +222,11 @@ move_right = "alt+l"
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="../configuration/highlights.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="../configuration/keyboard.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
 
-                    <a rel="next prefetch" href="../configuration/logs.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="../configuration/notifications.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
             </nav>
