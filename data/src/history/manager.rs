@@ -306,8 +306,13 @@ impl Manager {
     ) -> Option<impl Future<Output = Message> + use<>> {
         history::Kind::from_server_message(server.clone(), &message).and_then(
             |kind| {
-                let chain = FilterChain::borrow(&self.filters);
-                self.data.add_message(kind, message, Some(chain))
+                let blocked = FilterChain::borrow(&self.filters)
+                    .filter_message_of_kind(
+                        &message,
+                        &history::Kind::Highlights,
+                    );
+
+                self.data.add_message(kind, message, blocked)
             },
         )
     }
@@ -319,18 +324,22 @@ impl Manager {
         self.data.add_message(
             history::Kind::Logs,
             crate::Message::log(record),
-            None,
+            false,
         )
     }
 
     pub fn record_highlight(
         &mut self,
         message: crate::Message,
-    ) -> Option<impl Future<Output = Message> + use<>> {
-        let chain = FilterChain::borrow(&self.filters);
+    ) -> (Option<impl Future<Output = Message> + use<>>, bool) {
+        let blocked = FilterChain::borrow(&self.filters)
+            .filter_message_of_kind(&message, &history::Kind::Highlights);
 
-        self.data
-            .add_message(history::Kind::Highlights, message, Some(chain))
+        (
+            self.data
+                .add_message(history::Kind::Highlights, message, blocked),
+            blocked,
+        )
     }
 
     pub fn update_read_marker<T: Into<history::Kind>>(
@@ -443,7 +452,14 @@ impl Manager {
     }
 
     pub fn has_unread(&self, kind: &history::Kind) -> bool {
-        self.data.map.get(kind).is_some_and(History::has_unread)
+        let mut blocked = false;
+        if let history::Kind::Query(_, query) = kind {
+            blocked = FilterChain::borrow(&self.filters).filter_query(query);
+        };
+        self.data
+            .map
+            .get(kind)
+            .is_some_and(|history| !blocked && History::has_unread(history))
     }
 
     pub fn read_marker(
@@ -950,12 +966,9 @@ impl Data {
         &mut self,
         kind: history::Kind,
         message: crate::Message,
-        filter_chain: Option<FilterChain>,
+        blocked: bool,
     ) -> Option<impl Future<Output = Message> + use<>> {
         use std::collections::hash_map;
-
-        let blocked = filter_chain
-            .is_some_and(|chain| chain.filter_message_of_kind(&message, &kind));
 
         if blocked {
             self.blocked_messages_index.entry(kind.clone()).and_modify(
@@ -965,32 +978,27 @@ impl Data {
             );
         }
 
-        match self.map.entry(kind.clone()) {
-            hash_map::Entry::Occupied(mut entry) => {
-                let read_marker = entry.get_mut().add_message(message, blocked);
+        if let Some(history) = self.map.get_mut(&kind) {
+            let read_marker = history.add_message(message, blocked);
 
-                read_marker.map(|read_marker| {
-                    async move {
+            read_marker.map(|read_marker| {
+                async move {
                         Message::SentMessageUpdated(kind.clone(), read_marker)
                     }
                     .boxed()
-                })
-            }
-            hash_map::Entry::Vacant(entry) => {
-                let _ = entry
-                    .insert(History::partial(kind.clone()))
-                    .add_message(message, blocked);
+            })
+        } else {
+            let mut new_history = History::partial(kind.clone());
+            new_history.add_message(message, blocked);
+            self.map.insert(kind.clone(), new_history);
 
-                Some(
-                    async move {
-                        let loaded =
-                            history::metadata::load(kind.clone()).await;
-
-                        Message::UpdatePartial(kind, loaded)
-                    }
-                    .boxed(),
-                )
-            }
+            Some(
+                async move {
+                    let loaded = history::metadata::load(kind.clone()).await;
+                    Message::UpdatePartial(kind, loaded)
+                }
+                .boxed(),
+            )
         }
     }
 
