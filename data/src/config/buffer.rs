@@ -264,6 +264,18 @@ impl Default for InternalMessage {
     }
 }
 
+#[derive(Debug, Default, Clone, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum LevelFilter {
+    Off,
+    Error,
+    Warn,
+    #[default]
+    Info,
+    Debug,
+    Trace,
+}
+
 #[derive(Debug, Clone, Deserialize)]
 pub struct ChatHistory {
     #[serde(default = "default_bool_true")]

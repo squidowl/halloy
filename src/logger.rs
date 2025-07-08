@@ -3,19 +3,29 @@ use std::time::{Duration, Instant};
 use std::{env, mem, thread};
 
 use chrono::Utc;
+use data::config;
 pub use data::log::{Error, Record};
 use log::Log;
 use tokio::sync::mpsc as tokio_mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 
-pub fn setup(is_debug: bool) -> Result<ReceiverStream<Vec<Record>>, Error> {
-    let level_filter = env::var("RUST_LOG")
+pub fn setup(
+    is_debug: bool,
+    config: config::Logs,
+) -> Result<ReceiverStream<Vec<Record>>, Error> {
+    let env_rust_log = env::var("RUST_LOG")
         .ok()
         .as_deref()
         .map(str::parse::<log::Level>)
-        .transpose()?
-        .unwrap_or(log::Level::Debug)
-        .to_level_filter();
+        .transpose()?;
+
+    let file_level_filter = env_rust_log
+        .map_or(log::LevelFilter::from(config.file_level), |env| {
+            env.to_level_filter()
+        });
+
+    let channel_level_filter = env_rust_log
+        .map_or(log::LevelFilter::Trace, |env| env.to_level_filter());
 
     let mut io_sink = fern::Dispatch::new().format(|out, message, record| {
         out.finish(format_args!(
@@ -34,14 +44,24 @@ pub fn setup(is_debug: bool) -> Result<ReceiverStream<Vec<Record>>, Error> {
         io_sink = io_sink.chain(log_file);
     }
 
-    let (channel_sink, receiver) = channel_logger();
-
-    fern::Dispatch::new()
+    io_sink = io_sink
         .level(log::LevelFilter::Off)
         .level_for("panic", log::LevelFilter::Error)
         .level_for("iced_wgpu", log::LevelFilter::Info)
-        .level_for("data", level_filter)
-        .level_for("halloy", level_filter)
+        .level_for("data", file_level_filter)
+        .level_for("halloy", file_level_filter);
+
+    let (channel_sink, receiver) = channel_logger();
+
+    let channel_sink = fern::Dispatch::new()
+        .chain(channel_sink)
+        .level(log::LevelFilter::Off)
+        .level_for("panic", log::LevelFilter::Error)
+        .level_for("iced_wgpu", log::LevelFilter::Info)
+        .level_for("data", channel_level_filter)
+        .level_for("halloy", channel_level_filter);
+
+    fern::Dispatch::new()
         .chain(io_sink)
         .chain(channel_sink)
         .apply()?;

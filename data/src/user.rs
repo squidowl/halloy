@@ -274,6 +274,23 @@ impl User {
             },
         }
     }
+
+    /// Check if this user matches any of the provided mask patterns (regex).
+    /// The user is converted to a mask string format (nickname!username@hostname) for comparison.
+    pub fn matches_masks(&self, masks: &[String]) -> bool {
+        use fancy_regex::Regex;
+
+        let user_mask = String::from(self.clone());
+        println!("user_mask: {user_mask}");
+
+        masks.iter().any(|mask_pattern| {
+            if let Ok(regex) = Regex::new(mask_pattern) {
+                regex.is_match(&user_mask).unwrap_or(false)
+            } else {
+                false
+            }
+        })
+    }
 }
 
 impl From<proto::User> for User {
@@ -595,5 +612,36 @@ mod tests {
                 )
             );
         }
+    }
+
+    #[test]
+    fn matches_masks() {
+        let user = super::User::try_from("alice!alice@example.com ").unwrap();
+
+        // Test exact match
+        assert!(user.matches_masks(&["alice!alice@example.com".to_string()]));
+
+        // Test wildcard patterns
+        assert!(user.matches_masks(&[".*@example.com".to_string()]));
+        assert!(user.matches_masks(&["alice!.*@.*".to_string()]));
+        assert!(user.matches_masks(&[".*!.*@example.com".to_string()]));
+
+        // Test non-matching patterns
+        assert!(!user.matches_masks(&["bob!bob@example.com".to_string()]));
+        assert!(!user.matches_masks(&[".*@other.com".to_string()]));
+
+        // Test multiple patterns (should match if any pattern matches)
+        let patterns = vec![
+            "bob!bob@example.com".to_string(),
+            ".*@example.com".to_string(),
+            "charlie!charlie@other.com".to_string(),
+        ];
+        assert!(user.matches_masks(&patterns));
+
+        // Test empty patterns (should not match)
+        assert!(!user.matches_masks(&[]));
+
+        // Test invalid regex (should not match)
+        assert!(!user.matches_masks(&["[invalid".to_string()]));
     }
 }
