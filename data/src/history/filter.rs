@@ -160,6 +160,10 @@ impl<'f> FilterChain<'f> {
         Self { filters }
     }
 
+    pub fn filter_query(&self, kind: &Query) -> bool {
+        self.filters.iter().any(|f| f.match_query(kind))
+    }
+
     pub fn filter_message_of_kind(
         &self,
         message: &Message,
