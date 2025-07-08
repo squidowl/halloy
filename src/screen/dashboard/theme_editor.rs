@@ -789,21 +789,21 @@ impl Buffer {
 )]
 #[strum(serialize_all = "kebab-case")]
 pub enum ServerMessages {
+    Default,
     #[default]
     Join,
     Part,
     Quit,
     ReplyTopic,
     ChangeHost,
+    ChangeMode,
+    ChangeNick,
     MonitoredOnline,
     MonitoredOffline,
     StandardReplyFail,
     StandardReplyWarn,
     StandardReplyNote,
     Wallops,
-    ChangeMode,
-    ChangeNick,
-    Default,
 }
 
 impl ServerMessages {
@@ -814,6 +814,8 @@ impl ServerMessages {
             ServerMessages::Quit => styles.quit.color,
             ServerMessages::ReplyTopic => styles.reply_topic.color,
             ServerMessages::ChangeHost => styles.change_host.color,
+            ServerMessages::ChangeMode => styles.change_mode.color,
+            ServerMessages::ChangeNick => styles.change_nick.color,
             ServerMessages::MonitoredOnline => styles.monitored_online.color,
             ServerMessages::MonitoredOffline => styles.monitored_offline.color,
             ServerMessages::StandardReplyFail => {
@@ -826,8 +828,6 @@ impl ServerMessages {
                 styles.standard_reply_note.color
             }
             ServerMessages::Wallops => styles.wallops.color,
-            ServerMessages::ChangeMode => styles.change_mode.color,
-            ServerMessages::ChangeNick => styles.change_nick.color,
             ServerMessages::Default => Some(styles.default.color),
         }
     }
@@ -839,6 +839,8 @@ impl ServerMessages {
             ServerMessages::Quit => styles.quit.font_style,
             ServerMessages::ReplyTopic => styles.reply_topic.font_style,
             ServerMessages::ChangeHost => styles.change_host.font_style,
+            ServerMessages::ChangeMode => styles.change_mode.font_style,
+            ServerMessages::ChangeNick => styles.change_nick.font_style,
             ServerMessages::MonitoredOnline => {
                 styles.monitored_online.font_style
             }
@@ -855,8 +857,6 @@ impl ServerMessages {
                 styles.standard_reply_note.font_style
             }
             ServerMessages::Wallops => styles.wallops.font_style,
-            ServerMessages::ChangeMode => styles.change_mode.font_style,
-            ServerMessages::ChangeNick => styles.change_nick.font_style,
             ServerMessages::Default => styles.default.font_style,
         }
     }
@@ -888,6 +888,14 @@ impl ServerMessages {
                 styles.change_host.color = color;
                 styles.change_host.font_style = font_style;
             }
+            ServerMessages::ChangeMode => {
+                styles.change_mode.color = color;
+                styles.change_mode.font_style = font_style;
+            }
+            ServerMessages::ChangeNick => {
+                styles.change_nick.color = color;
+                styles.change_nick.font_style = font_style;
+            }
             ServerMessages::MonitoredOnline => {
                 styles.monitored_online.color = color;
                 styles.monitored_online.font_style = font_style;
@@ -911,14 +919,6 @@ impl ServerMessages {
             ServerMessages::Wallops => {
                 styles.wallops.color = color;
                 styles.wallops.font_style = font_style;
-            }
-            ServerMessages::ChangeMode => {
-                styles.change_mode.color = color;
-                styles.change_mode.font_style = font_style;
-            }
-            ServerMessages::ChangeNick => {
-                styles.change_nick.color = color;
-                styles.change_nick.font_style = font_style;
             }
             ServerMessages::Default => {
                 if let Some(color) = color {
