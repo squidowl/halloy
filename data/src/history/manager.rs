@@ -968,8 +968,6 @@ impl Data {
         message: crate::Message,
         blocked: bool,
     ) -> Option<impl Future<Output = Message> + use<>> {
-        use std::collections::hash_map;
-
         if blocked {
             self.blocked_messages_index.entry(kind.clone()).and_modify(
                 |cache| {
