@@ -42,3 +42,7 @@
   - [Tooltips](configuration/tooltips.md)
 - [URL Schemes](url-schemes.md)
 - [Commands](commands.md)
+
+# Development
+
+- [Contributing](development/contributing.md)
