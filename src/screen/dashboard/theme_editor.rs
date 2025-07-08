@@ -289,13 +289,23 @@ impl ThemeEditor {
             }
         });
 
-        let undo = icon(icon::undo(), "Revert Color", Message::Revert, theme);
+        let undo = icon(
+            icon::undo(),
+            if font_style.is_some() {
+                "Revert Color & Font Style"
+            } else {
+                "Revert Color"
+            },
+            Message::Revert,
+            theme,
+        );
 
         let save = match self.save_result {
             Some(is_success) => status_button(is_success),
             None => secondary_button("Save to Disk", Message::Save),
         };
-        let apply = secondary_button("Apply Colors", Message::Apply);
+        let apply =
+            secondary_button("Apply Colors & Font Styles", Message::Apply);
 
         let copy = if self.copied {
             success_icon()
@@ -542,10 +552,10 @@ impl Text {
             Text::Tertiary => Some(styles.tertiary.color),
             Text::Success => Some(styles.success.color),
             Text::Error => Some(styles.error.color),
-            Text::Warning => styles.warning.map(|style| style.color),
-            Text::Info => styles.info.map(|style| style.color),
-            Text::Debug => styles.debug.map(|style| style.color),
-            Text::Trace => styles.trace.map(|style| style.color),
+            Text::Warning => styles.warning.color,
+            Text::Info => styles.info.color,
+            Text::Debug => styles.debug.color,
+            Text::Trace => styles.trace.color,
         }
     }
 
@@ -556,6 +566,10 @@ impl Text {
             Text::Tertiary => styles.tertiary.font_style,
             Text::Success => styles.success.font_style,
             Text::Error => styles.error.font_style,
+            Text::Warning => styles.warning.font_style,
+            Text::Info => styles.info.font_style,
+            Text::Debug => styles.debug.font_style,
+            Text::Trace => styles.trace.font_style,
         }
     }
 
@@ -597,16 +611,20 @@ impl Text {
                 styles.error.font_style = font_style;
             }
             Text::Warning => {
-                set_optional_text_style_color(&mut styles.warning, color);
+                styles.warning.color = color;
+                styles.warning.font_style = font_style;
             }
             Text::Info => {
-                set_optional_text_style_color(&mut styles.info, color);
+                styles.info.color = color;
+                styles.info.font_style = font_style;
             }
             Text::Debug => {
-                set_optional_text_style_color(&mut styles.debug, color);
+                styles.debug.color = color;
+                styles.debug.font_style = font_style;
             }
             Text::Trace => {
-                set_optional_text_style_color(&mut styles.trace, color);
+                styles.trace.color = color;
+                styles.trace.font_style = font_style;
             }
         }
     }
@@ -808,6 +826,8 @@ impl ServerMessages {
                 styles.standard_reply_note.color
             }
             ServerMessages::Wallops => styles.wallops.color,
+            ServerMessages::ChangeMode => styles.change_mode.color,
+            ServerMessages::ChangeNick => styles.change_nick.color,
             ServerMessages::Default => Some(styles.default.color),
         }
     }
@@ -893,10 +913,12 @@ impl ServerMessages {
                 styles.wallops.font_style = font_style;
             }
             ServerMessages::ChangeMode => {
-                set_optional_text_style_color(&mut styles.change_mode, color);
+                styles.change_mode.color = color;
+                styles.change_mode.font_style = font_style;
             }
             ServerMessages::ChangeNick => {
-                set_optional_text_style_color(&mut styles.change_nick, color);
+                styles.change_nick.color = color;
+                styles.change_nick.font_style = font_style;
             }
             ServerMessages::Default => {
                 if let Some(color) = color {

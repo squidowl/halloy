@@ -125,7 +125,7 @@ pub fn view<'a>(
                         theme,
                         scroll_view::Message::Link,
                         theme::selectable_text::default,
-                        theme::font_style::default,
+                        theme::font_style::primary,
                         move |link| match link {
                             message::Link::User(_) => {
                                 user_context::Entry::list(true, None)

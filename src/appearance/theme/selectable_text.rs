@@ -159,32 +159,36 @@ pub fn status(theme: &Theme, status: message::source::Status) -> Style {
 
 pub fn log_level(theme: &Theme, log_level: log::Level) -> Style {
     let color = match log_level {
-        log::Level::Error => theme.colors().text.error,
+        log::Level::Error => theme.styles().text.error.color,
         log::Level::Warn => theme
-            .colors()
+            .styles()
             .text
             .warning
-            .unwrap_or(theme.colors().general.unread_indicator),
+            .color
+            .unwrap_or(theme.styles().general.unread_indicator),
         log::Level::Info => theme
-            .colors()
+            .styles()
             .text
             .info
-            .unwrap_or(theme.colors().buffer.server_messages.default),
+            .color
+            .unwrap_or(theme.styles().buffer.server_messages.default.color),
         log::Level::Debug => theme
-            .colors()
+            .styles()
             .text
             .debug
-            .unwrap_or(theme.colors().buffer.code),
+            .color
+            .unwrap_or(theme.styles().buffer.code.color),
         log::Level::Trace => theme
-            .colors()
+            .styles()
             .text
             .trace
-            .unwrap_or(theme.colors().text.secondary),
+            .color
+            .unwrap_or(theme.styles().text.secondary.color),
     };
 
     Style {
         color: Some(color),
-        selection_color: theme.colors().buffer.selection,
+        selection_color: theme.styles().buffer.selection,
     }
 }
 
