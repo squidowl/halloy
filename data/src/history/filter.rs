@@ -117,9 +117,10 @@ impl Filter {
     /// [`Query`]:crate::Query
     pub fn match_query(&self, query: &Query) -> bool {
         match &self.target {
-            FilterTarget::User((Source::User(user), ..)) => {
-                user.as_str() == query.as_str()
-            }
+            FilterTarget::User((Source::User(user), ..)) => match &self.class {
+                FilterClass::Channel((_, _)) => false,
+                _ => user.as_str() == query.as_str(),
+            },
             _ => false,
         }
     }
