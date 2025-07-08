@@ -13,7 +13,7 @@ use super::{
     Direction, FileTransfer, Id, ReceiveRequest, SendRequest, Status, Task,
     task,
 };
-use crate::{config, dcc};
+use crate::{Config, dcc};
 
 enum Item {
     Working {
@@ -43,8 +43,8 @@ pub enum Event {
     NewTransfer(FileTransfer, BoxStream<'static, task::Update>),
 }
 
+#[derive(Default)]
 pub struct Manager {
-    config: config::FileTransfer,
     items: HashMap<Id, Item>,
     /// Queued = waiting for port assignment
     queued: VecDeque<Id>,
@@ -52,15 +52,6 @@ pub struct Manager {
 }
 
 impl Manager {
-    pub fn new(config: config::FileTransfer) -> Self {
-        Self {
-            config,
-            items: HashMap::new(),
-            queued: VecDeque::new(),
-            used_ports: HashMap::new(),
-        }
-    }
-
     fn get_random_id(&self) -> Id {
         let mut rng = rand::rng();
 
@@ -73,17 +64,21 @@ impl Manager {
         }
     }
 
-    fn server(&self) -> Option<task::Server> {
-        self.config.server.as_ref().map(|server| task::Server {
-            public_address: server.public_address,
-            bind_address: server.bind_address,
-        })
+    fn server(&self, config: &Config) -> Option<task::Server> {
+        config
+            .file_transfer
+            .server
+            .as_ref()
+            .map(|server| task::Server {
+                public_address: server.public_address,
+                bind_address: server.bind_address,
+            })
     }
 
     pub fn send(
         &mut self,
         request: SendRequest,
-        proxy: Option<config::Proxy>,
+        config: &Config,
     ) -> Option<Event> {
         let SendRequest {
             to,
@@ -92,7 +87,7 @@ impl Manager {
             server_handle,
         } = request;
 
-        let reverse = self.config.passive;
+        let reverse = config.file_transfer.passive;
 
         let filename = path
             .file_name()
@@ -100,7 +95,10 @@ impl Manager {
             .unwrap_or_default()
             .replace(' ', "_");
 
-        log::debug!("File transfer send request to {to} for {filename:?}");
+        log::debug!(
+            "File transfer send request to {} for {filename:?}",
+            to.nickname()
+        );
 
         let id = self.get_random_id();
 
@@ -124,9 +122,9 @@ impl Manager {
 
         let task = Task::send(id, path, filename, to, reverse, server_handle);
         let (handle, stream) = task.spawn(
-            self.server(),
-            Duration::from_secs(self.config.timeout),
-            proxy,
+            self.server(config),
+            Duration::from_secs(config.file_transfer.timeout),
+            config.proxy.clone(),
         );
 
         self.items.insert(
@@ -143,7 +141,7 @@ impl Manager {
     pub fn receive(
         &mut self,
         request: ReceiveRequest,
-        proxy: Option<&config::Proxy>,
+        config: &Config,
     ) -> Option<Event> {
         let ReceiveRequest {
             from,
@@ -169,7 +167,8 @@ impl Manager {
                 {
                     if file_transfer.filename == *filename {
                         log::debug!(
-                            "File transfer received reverse confirmation from {from} for {:?}",
+                            "File transfer received reverse confirmation from {} for {:?}",
+                            from.nickname(),
                             filename,
                         );
                         task.confirm_reverse(*host, *port);
@@ -180,7 +179,8 @@ impl Manager {
         }
 
         log::debug!(
-            "File transfer request received from {from} for {:?}",
+            "File transfer request received from {} for {:?}",
+            from.nickname(),
             dcc_send.filename()
         );
 
@@ -198,12 +198,53 @@ impl Manager {
             status: Status::PendingApproval,
         };
 
-        let task = Task::receive(id, dcc_send, from, server_handle);
-        let (handle, stream) = task.spawn(
-            self.server(),
-            Duration::from_secs(self.config.timeout),
-            proxy.cloned(),
+        let task = Task::receive(id, dcc_send, from.clone(), server_handle);
+        let (mut handle, stream) = task.spawn(
+            self.server(config),
+            Duration::from_secs(config.file_transfer.timeout),
+            config.proxy.as_ref().cloned(),
         );
+
+        // Auto-accept if enabled and save directory is set
+        if config.file_transfer.auto_accept.enabled {
+            // Check if sender matches nickname or mask filters
+            let should_auto_accept = {
+                let nickname_match =
+                    config.file_transfer.auto_accept.nicks.as_ref().is_none_or(
+                        |nicks| nicks.contains(&from.nickname().to_string()),
+                    );
+
+                let mask_match = config
+                    .file_transfer
+                    .auto_accept
+                    .masks
+                    .as_ref()
+                    .is_none_or(|masks| from.matches_masks(masks));
+
+                nickname_match && mask_match
+            };
+
+            if should_auto_accept {
+                if let Some(save_directory) =
+                    &config.file_transfer.save_directory
+                {
+                    let save_path =
+                        save_directory.join(&file_transfer.filename);
+
+                    log::debug!(
+                        "Auto-accepting file transfer from {} for {:?}",
+                        from.nickname(),
+                        file_transfer.filename
+                    );
+
+                    handle.approve(save_path);
+                } else {
+                    log::warn!(
+                        "Auto-accept is enabled but save_directory is not set. File transfer will require manual approval."
+                    );
+                }
+            }
+        }
 
         self.items.insert(
             id,
@@ -216,7 +257,7 @@ impl Manager {
         Some(Event::NewTransfer(file_transfer, stream.boxed()))
     }
 
-    pub fn update(&mut self, update: task::Update) {
+    pub fn update(&mut self, update: task::Update, config: &Config) {
         match update {
             task::Update::Metadata(id, size) => {
                 if let Some(item) = self.items.get_mut(&id) {
@@ -224,7 +265,7 @@ impl Manager {
                 }
             }
             task::Update::Queued(id) => {
-                let available_port = self.get_available_port();
+                let available_port = self.get_available_port(config);
 
                 if let Some(Item::Working {
                     file_transfer,
@@ -260,7 +301,7 @@ impl Manager {
                             Direction::Sent => "to",
                             Direction::Received => "from",
                         },
-                        file_transfer.remote_user,
+                        file_transfer.remote_user.nickname(),
                         file_transfer.filename,
                         transferred as f32 / file_transfer.size as f32 * 100.0,
                     );
@@ -284,7 +325,7 @@ impl Manager {
                             Direction::Sent => "to",
                             Direction::Received => "from",
                         },
-                        &file_transfer.remote_user,
+                        &file_transfer.remote_user.nickname(),
                         &file_transfer.filename,
                         elapsed.as_secs_f32()
                     );
@@ -309,7 +350,7 @@ impl Manager {
                             Direction::Sent => "to",
                             Direction::Received => "from",
                         },
-                        &file_transfer.remote_user,
+                        &file_transfer.remote_user.nickname(),
                         &file_transfer.filename,
                     );
                     file_transfer.status = Status::Failed { error };
@@ -320,8 +361,8 @@ impl Manager {
         }
     }
 
-    fn get_available_port(&self) -> Option<NonZeroU16> {
-        let server = self.config.server.as_ref()?;
+    fn get_available_port(&self, config: &Config) -> Option<NonZeroU16> {
+        let server = config.file_transfer.server.as_ref()?;
 
         server
             .bind_ports

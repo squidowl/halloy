@@ -53,6 +53,10 @@ secondary = "<string>"
 tertiary = "<string>"
 success = "<string>"
 error = "<string>"
+warning = "<string>"
+info = "<string>"
+debug = "<string>"
+trace = "<string>"
 
 [buttons.primary]
 background = "<string>"
@@ -86,6 +90,8 @@ url = "<string>"
 # Otherwise simply set `default` to use that for all server messages.
 #
 # change_host = "<string>"
+# change_mode = "<string>"
+# change_nick = "<string>"
 # join = "<string>"
 # part = "<string>"
 # quit = "<string>"

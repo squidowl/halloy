@@ -10,9 +10,8 @@ use data::history::ReadMarker;
 use data::history::manager::Broadcast;
 use data::isupport::{self, ChatHistorySubcommand, MessageReference};
 use data::target::{self, Target};
-use data::user::Nick;
 use data::{
-    Config, Notification, Server, Version, client, command, config,
+    Config, Notification, Server, User, Version, client, command, config,
     environment, file_transfer, history, preview,
 };
 use iced::widget::pane_grid::{self, PaneGrid};
@@ -66,7 +65,7 @@ pub enum Message {
     Task(command_bar::Message),
     Shortcut(shortcut::Command),
     FileTransfer(file_transfer::task::Update),
-    SendFileSelected(Server, Nick, Option<PathBuf>),
+    SendFileSelected(Server, User, Option<PathBuf>),
     CloseContextMenu(window::Id, bool),
     ThemeEditor(theme_editor::Message),
     ConfigReloaded(Result<Config, config::Error>),
@@ -109,9 +108,7 @@ impl Dashboard {
             history: history::Manager::default(),
             last_changed: None,
             command_bar: None,
-            file_transfers: file_transfer::Manager::new(
-                config.file_transfer.clone(),
-            ),
+            file_transfers: file_transfer::Manager::default(),
             theme_editor: None,
             notifications: notification::Notifications::new(),
             previews: preview::Collection::default(),
@@ -824,7 +821,7 @@ impl Dashboard {
                 }
             }
             Message::DashboardSaved(Ok(())) => {
-                log::info!("dashboard saved");
+                log::debug!("dashboard saved");
             }
             Message::DashboardSaved(Err(error)) => {
                 log::warn!("error saving dashboard: {error}");
@@ -1310,14 +1307,14 @@ impl Dashboard {
                 }
             }
             Message::FileTransfer(update) => {
-                self.file_transfers.update(update);
+                self.file_transfers.update(update, config);
             }
             Message::SendFileSelected(server, to, path) => {
                 if let Some(server_handle) = clients.get_server_handle(&server)
                 {
                     if let Some(path) = path {
                         if let Ok(query) = target::Query::parse(
-                            to.as_ref(),
+                            to.nickname().as_ref(),
                             clients.get_chantypes(&server),
                             clients.get_statusmsg(&server),
                             clients.get_casemapping(&server),
@@ -1329,7 +1326,7 @@ impl Dashboard {
                                     server: server.clone(),
                                     server_handle: server_handle.clone(),
                                 },
-                                config.proxy.clone(),
+                                config,
                             ) {
                                 return (
                                     self.handle_file_transfer_event(
@@ -2512,14 +2509,12 @@ impl Dashboard {
         request: file_transfer::ReceiveRequest,
         config: &Config,
     ) -> Option<Task<Message>> {
-        let event = self
-            .file_transfers
-            .receive(request.clone(), config.proxy.as_ref())?;
+        let event = self.file_transfers.receive(request.clone(), config)?;
 
         self.notifications.notify(
             &config.notifications,
             &Notification::FileTransferRequest {
-                nick: request.from.clone(),
+                nick: request.from.nickname().to_owned(),
                 filename: match event {
                     file_transfer::manager::Event::NewTransfer(
                         ref transfer,
@@ -2531,7 +2526,7 @@ impl Dashboard {
         );
 
         let query = target::Query::parse(
-            request.from.as_ref(),
+            request.from.nickname().as_ref(),
             chantypes,
             statusmsg,
             casemapping,
@@ -2647,9 +2642,7 @@ impl Dashboard {
             history: history::Manager::default(),
             last_changed: None,
             command_bar: None,
-            file_transfers: file_transfer::Manager::new(
-                config.file_transfer.clone(),
-            ),
+            file_transfers: file_transfer::Manager::default(),
             theme_editor: None,
             notifications: notification::Notifications::new(),
             previews: preview::Collection::default(),
@@ -2757,7 +2750,7 @@ impl Dashboard {
                 if last_changed.is_some() {
                     match dashboard.save().await {
                         Ok(()) => {
-                            log::info!("dashboard saved");
+                            log::debug!("dashboard saved");
                         }
                         Err(error) => {
                             log::warn!("error saving dashboard: {error}");

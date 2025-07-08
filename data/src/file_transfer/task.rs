@@ -18,8 +18,7 @@ use tokio::time;
 use tokio_stream::StreamExt;
 
 use super::Id;
-use crate::user::Nick;
-use crate::{config, dcc, server};
+use crate::{User, config, dcc, server};
 
 /// 16 KiB
 pub const BUFFER_SIZE: usize = 16 * 1024;
@@ -56,13 +55,13 @@ pub enum Task {
         id: Id,
         dcc_send: dcc::Send,
         server_handle: server::Handle,
-        remote_user: Nick,
+        remote_user: User,
     },
     Send {
         id: Id,
         path: PathBuf,
         sanitized_filename: String,
-        remote_user: Nick,
+        remote_user: User,
         reverse: bool,
         server_handle: server::Handle,
     },
@@ -72,7 +71,7 @@ impl Task {
     pub fn receive(
         id: Id,
         dcc_send: dcc::Send,
-        remote_user: Nick,
+        remote_user: User,
         server_handle: server::Handle,
     ) -> Self {
         Self::Receive {
@@ -87,7 +86,7 @@ impl Task {
         id: Id,
         path: PathBuf,
         sanitized_filename: String,
-        remote_user: Nick,
+        remote_user: User,
         reverse: bool,
         server_handle: server::Handle,
     ) -> Self {
@@ -211,7 +210,7 @@ pub struct Server {
 async fn receive(
     id: Id,
     dcc_send: dcc::Send,
-    remote_user: Nick,
+    remote_user: User,
     mut server_handle: server::Handle,
     mut action: Receiver<Action>,
     mut update: Sender<Update>,
@@ -256,7 +255,7 @@ async fn receive(
                         size,
                         token,
                     }
-                    .encode(&remote_user),
+                    .encode(&remote_user.nickname()),
                 )
                 .await;
 
@@ -337,7 +336,7 @@ async fn receive(
     let _ = server_handle
         .send(command!(
             "PRIVMSG",
-            remote_user.to_string(),
+            remote_user.nickname().to_string(),
             format!("Finished receiving \"{filename}\", sha256: {sha256}")
         ))
         .await;
@@ -357,7 +356,7 @@ async fn send(
     id: Id,
     path: PathBuf,
     sanitized_filename: String,
-    remote_user: Nick,
+    remote_user: User,
     reverse: bool,
     mut server_handle: server::Handle,
     mut action: Receiver<Action>,
@@ -385,7 +384,7 @@ async fn send(
                     size,
                     token,
                 }
-                .encode(&remote_user),
+                .encode(&remote_user.nickname()),
             )
             .await;
 
@@ -426,7 +425,7 @@ async fn send(
                     port,
                     size,
                 }
-                .encode(&remote_user),
+                .encode(&remote_user.nickname()),
             )
             .await;
 
@@ -500,7 +499,7 @@ async fn send(
     let _ = server_handle
         .send(command!(
             "PRIVMSG",
-            remote_user.to_string(),
+            remote_user.nickname().to_string(),
             format!(
                 "Finished sending \"{sanitized_filename}\", sha256: {sha256}"
             )
