@@ -301,7 +301,7 @@ impl Buffer {
             )
             .map(Message::Query),
             Buffer::FileTransfers(state) => {
-                file_transfers::view(state, file_transfers)
+                file_transfers::view(state, file_transfers, theme)
                     .map(Message::FileTransfers)
             }
             Buffer::Logs(state) => {

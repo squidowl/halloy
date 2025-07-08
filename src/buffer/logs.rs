@@ -8,7 +8,7 @@ use iced::{Length, Task};
 
 use super::{scroll_view, user_context};
 use crate::widget::{Element, message_content, selectable_text};
-use crate::{Theme, theme};
+use crate::{Theme, font, theme};
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -38,6 +38,7 @@ pub fn view<'a>(
             None,
             None,
             config,
+            theme,
             move |message: &'a data::Message, _, _| match message
                 .target
                 .source()
@@ -51,6 +52,10 @@ pub fn view<'a>(
                         .map(|timestamp| {
                             selectable_text(timestamp)
                                 .style(theme::selectable_text::timestamp)
+                                .font_maybe(
+                                    theme::font_style::timestamp(theme)
+                                        .map(font::get),
+                                )
                         });
 
                     let log_level_style = move |message_theme: &Theme| {
@@ -65,7 +70,11 @@ pub fn view<'a>(
                             format!("{level: <5}")
                         },
                     )
-                    .style(log_level_style);
+                    .style(log_level_style)
+                    .font_maybe(
+                        theme::font_style::log_level(theme, *level)
+                            .map(font::get),
+                    );
 
                     let message = message_content(
                         &message.content,
@@ -73,6 +82,7 @@ pub fn view<'a>(
                         theme,
                         scroll_view::Message::Link,
                         theme::selectable_text::default,
+                        theme::font_style::primary,
                         config,
                     );
 

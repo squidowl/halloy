@@ -14,7 +14,7 @@ use tokio::time;
 
 use super::{Focus, Panes, Server};
 use crate::widget::{Element, Text, context_menu, double_pass};
-use crate::{icon, theme, window};
+use crate::{Theme, font, icon, theme, window};
 
 const CONFIG_RELOAD_DELAY: Duration = Duration::from_secs(1);
 
@@ -154,6 +154,7 @@ impl Sidebar {
         keyboard: &'a data::config::Keyboard,
         file_transfers: &'a file_transfer::Manager,
         version: &'a Version,
+        theme: &'a Theme,
     ) -> Element<'a, Message> {
         let base = button(icon::menu()).padding(5).width(Length::Shrink);
 
@@ -179,6 +180,12 @@ impl Sidebar {
                                             .shaping(text::Shaping::Advanced)
                                             .size(theme::TEXT_SIZE - 2.0)
                                             .style(theme::text::secondary)
+                                            .font_maybe(
+                                                theme::font_style::secondary(
+                                                    theme,
+                                                )
+                                                .map(font::get),
+                                            )
                                     }))
                                     .spacing(8)
                                     .align_y(iced::Alignment::Center),
@@ -203,13 +210,19 @@ impl Sidebar {
                             Message::ToggleCommandBar,
                         ),
                         Menu::FileTransfers => context_button(
-                            text("File Transfers").style(
-                                if file_transfers.is_empty() {
+                            text("File Transfers")
+                                .style(if file_transfers.is_empty() {
                                     theme::text::primary
                                 } else {
                                     theme::text::tertiary
-                                },
-                            ),
+                                })
+                                .font_maybe(if file_transfers.is_empty() {
+                                    theme::font_style::primary(theme)
+                                        .map(font::get)
+                                } else {
+                                    theme::font_style::tertiary(theme)
+                                        .map(font::get)
+                                }),
                             Some(&keyboard.file_transfers),
                             icon::file_transfer().style(
                                 if file_transfers.is_empty() {
@@ -253,14 +266,22 @@ impl Sidebar {
                         Menu::Version => match version.is_old() {
                             true => context_button(
                                 text("New version available")
-                                    .style(theme::text::tertiary),
+                                    .style(theme::text::tertiary)
+                                    .font_maybe(
+                                        theme::font_style::tertiary(theme)
+                                            .map(font::get),
+                                    ),
                                 None,
                                 icon::megaphone().style(theme::text::tertiary),
                                 Message::OpenReleaseWebsite,
                             ),
                             false => container(
                                 text(format!("Halloy ({})", version.current))
-                                    .style(theme::text::secondary),
+                                    .style(theme::text::secondary)
+                                    .font_maybe(
+                                        theme::font_style::secondary(theme)
+                                            .map(font::get),
+                                    ),
                             )
                             .padding(5)
                             .into(),
@@ -293,6 +314,7 @@ impl Sidebar {
         config: &'a Config,
         file_transfers: &'a file_transfer::Manager,
         version: &'a Version,
+        theme: &'a Theme,
     ) -> Option<Element<'a, Message>> {
         if self.hidden {
             return None;
@@ -300,7 +322,12 @@ impl Sidebar {
 
         let content = |width| {
             let user_menu_button = config.sidebar.show_user_menu.then(|| {
-                self.user_menu_button(&config.keyboard, file_transfers, version)
+                self.user_menu_button(
+                    &config.keyboard,
+                    file_transfers,
+                    version,
+                    theme,
+                )
             });
 
             let mut buffers = vec![];
@@ -334,6 +361,7 @@ impl Sidebar {
                         server_has_unread,
                         has_unread,
                         width,
+                        theme,
                     )
                 };
 
@@ -577,8 +605,8 @@ impl Entry {
     }
 }
 
-fn upstream_buffer_button(
-    panes: &Panes,
+fn upstream_buffer_button<'a>(
+    panes: &'a Panes,
     focus: Focus,
     buffer: buffer::Upstream,
     connected: bool,
@@ -589,7 +617,8 @@ fn upstream_buffer_button(
     server_has_unread: bool,
     has_unread: bool,
     width: Length,
-) -> Element<Message> {
+    theme: &'a Theme,
+) -> Element<'a, Message> {
     let open = panes.iter().find_map(|(window_id, pane, state)| {
         (state.buffer.upstream() == Some(&buffer)).then_some((window_id, pane))
     });
@@ -629,6 +658,7 @@ fn upstream_buffer_button(
     } else {
         theme::text::primary
     };
+    let buffer_title_font = theme::font_style::primary(theme).map(font::get);
 
     let row = match &buffer {
         buffer::Upstream::Server(server) => row![
@@ -643,6 +673,7 @@ fn upstream_buffer_button(
             }),
             text(server.to_string())
                 .style(buffer_title_style)
+                .font_maybe(buffer_title_font)
                 .shaping(text::Shaping::Advanced)
         ]
         .spacing(8)
@@ -656,6 +687,7 @@ fn upstream_buffer_button(
             .push(
                 text(channel.to_string())
                     .style(buffer_title_style)
+                    .font_maybe(buffer_title_font)
                     .shaping(text::Shaping::Advanced),
             )
             .push(horizontal_space().width(3))
@@ -669,6 +701,7 @@ fn upstream_buffer_button(
             .push(
                 text(query.to_string())
                     .style(buffer_title_style)
+                    .font_maybe(buffer_title_font)
                     .shaping(text::Shaping::Advanced),
             )
             .push(horizontal_space().width(3))

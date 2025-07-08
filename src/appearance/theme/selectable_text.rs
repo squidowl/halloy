@@ -21,7 +21,7 @@ impl Catalog for Theme {
 pub fn default(theme: &Theme) -> Style {
     Style {
         color: None,
-        selection_color: theme.colors().buffer.selection,
+        selection_color: theme.styles().buffer.selection,
     }
 }
 
@@ -30,7 +30,7 @@ pub fn action(theme: &Theme) -> Style {
 
     Style {
         color,
-        selection_color: theme.colors().buffer.selection,
+        selection_color: theme.styles().buffer.selection,
     }
 }
 
@@ -39,7 +39,7 @@ pub fn tertiary(theme: &Theme) -> Style {
 
     Style {
         color,
-        selection_color: theme.colors().buffer.selection,
+        selection_color: theme.styles().buffer.selection,
     }
 }
 
@@ -48,7 +48,7 @@ pub fn timestamp(theme: &Theme) -> Style {
 
     Style {
         color,
-        selection_color: theme.colors().buffer.selection,
+        selection_color: theme.styles().buffer.selection,
     }
 }
 
@@ -57,7 +57,7 @@ pub fn topic(theme: &Theme) -> Style {
 
     Style {
         color,
-        selection_color: theme.colors().buffer.selection,
+        selection_color: theme.styles().buffer.selection,
     }
 }
 
@@ -65,35 +65,37 @@ pub fn server(
     theme: &Theme,
     server: Option<&message::source::Server>,
 ) -> Style {
-    let colors = theme.colors().buffer.server_messages;
+    let styles = theme.styles().buffer.server_messages;
     let color = server
         .and_then(|server| match server.kind() {
-            Kind::Join => colors.join,
-            Kind::Part => colors.part,
-            Kind::Quit => colors.quit,
-            Kind::ReplyTopic => colors.reply_topic,
-            Kind::ChangeHost => colors.change_host,
-            Kind::ChangeMode => colors.change_mode,
-            Kind::ChangeNick => colors.change_nick,
-            Kind::MonitoredOnline => colors.monitored_online,
-            Kind::MonitoredOffline => colors.monitored_offline,
-            Kind::StandardReply(StandardReply::Fail) => colors
+            Kind::Join => styles.join.color,
+            Kind::Part => styles.part.color,
+            Kind::Quit => styles.quit.color,
+            Kind::ReplyTopic => styles.reply_topic.color,
+            Kind::ChangeHost => styles.change_host.color,
+            Kind::ChangeMode => styles.change_mode.color,
+            Kind::ChangeNick => styles.change_nick.color,
+            Kind::MonitoredOnline => styles.monitored_online.color,
+            Kind::MonitoredOffline => styles.monitored_offline.color,
+            Kind::StandardReply(StandardReply::Fail) => styles
                 .standard_reply_fail
-                .or(Some(theme.colors().text.error)),
-            Kind::StandardReply(StandardReply::Warn) => colors
+                .color
+                .or(Some(theme.styles().text.error.color)),
+            Kind::StandardReply(StandardReply::Warn) => styles
                 .standard_reply_warn
-                .or(theme.colors().text.warning)
-                .or(Some(theme.colors().text.error)),
+                .color
+                .or(theme.styles().text.warning.color)
+                .or(Some(theme.styles().text.error.color)),
             Kind::StandardReply(StandardReply::Note) => {
-                colors.standard_reply_note.or(theme.colors().text.info)
+                styles.standard_reply_note.color
             }
-            Kind::Wallops => colors.wallops,
+            Kind::Wallops => styles.wallops.color,
         })
-        .or(Some(colors.default));
+        .or(Some(styles.default.color));
 
     Style {
         color,
-        selection_color: theme.colors().buffer.selection,
+        selection_color: theme.styles().buffer.selection,
     }
 }
 
@@ -139,7 +141,7 @@ fn nickname_style(
 
     Style {
         color,
-        selection_color: theme.colors().buffer.selection,
+        selection_color: theme.styles().buffer.selection,
     }
 }
 
@@ -151,38 +153,42 @@ pub fn status(theme: &Theme, status: message::source::Status) -> Style {
 
     Style {
         color,
-        selection_color: theme.colors().buffer.selection,
+        selection_color: theme.styles().buffer.selection,
     }
 }
 
 pub fn log_level(theme: &Theme, log_level: log::Level) -> Style {
     let color = match log_level {
-        log::Level::Error => theme.colors().text.error,
+        log::Level::Error => theme.styles().text.error.color,
         log::Level::Warn => theme
-            .colors()
+            .styles()
             .text
             .warning
-            .unwrap_or(theme.colors().general.unread_indicator),
+            .color
+            .unwrap_or(theme.styles().general.unread_indicator),
         log::Level::Info => theme
-            .colors()
+            .styles()
             .text
             .info
-            .unwrap_or(theme.colors().buffer.server_messages.default),
+            .color
+            .unwrap_or(theme.styles().buffer.server_messages.default.color),
         log::Level::Debug => theme
-            .colors()
+            .styles()
             .text
             .debug
-            .unwrap_or(theme.colors().buffer.code),
+            .color
+            .unwrap_or(theme.styles().buffer.code.color),
         log::Level::Trace => theme
-            .colors()
+            .styles()
             .text
             .trace
-            .unwrap_or(theme.colors().text.secondary),
+            .color
+            .unwrap_or(theme.styles().text.secondary.color),
     };
 
     Style {
         color: Some(color),
-        selection_color: theme.colors().buffer.selection,
+        selection_color: theme.styles().buffer.selection,
     }
 }
 

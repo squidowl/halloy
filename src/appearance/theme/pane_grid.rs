@@ -16,7 +16,7 @@ impl Catalog for Theme {
 }
 
 pub fn primary(theme: &Theme) -> Style {
-    let general = theme.colors().general;
+    let general = theme.styles().general;
 
     Style {
         hovered_region: Highlight {

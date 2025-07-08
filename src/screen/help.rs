@@ -4,7 +4,7 @@ use iced::widget::{button, column, container, text, vertical_space};
 use iced::{Length, alignment};
 
 use crate::widget::Element;
-use crate::{icon, theme};
+use crate::{Theme, font, icon, theme};
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -44,7 +44,7 @@ impl Help {
         }
     }
 
-    pub fn view<'a>(&self) -> Element<'a, Message> {
+    pub fn view<'a>(&self, theme: &Theme) -> Element<'a, Message> {
         let config_button = button(
             container(text("Open Config Directory"))
                 .align_x(alignment::Horizontal::Center)
@@ -80,7 +80,11 @@ impl Help {
             .push(vertical_space().height(10))
             .push(text("Error reading configuration file"))
             .push(vertical_space().height(10))
-            .push(text(self.error.to_string()).style(theme::text::error))
+            .push(
+                text(self.error.to_string())
+                    .style(theme::text::error)
+                    .font_maybe(theme::font_style::error(theme).map(font::get)),
+            )
             .push(vertical_space().height(10))
             .push(
                 column![]
