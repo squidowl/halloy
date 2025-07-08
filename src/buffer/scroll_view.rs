@@ -351,7 +351,7 @@ pub fn view<'a>(
             text("backlog")
                 .size(divider_font_size)
                 .style(theme::text::secondary)
-                .font_maybe(theme::font_style::error(theme).map(font::get)),
+                .font_maybe(theme::font_style::secondary(theme).map(font::get)),
             container(horizontal_rule(1))
                 .width(Length::Fill)
                 .padding(padding::left(6))
