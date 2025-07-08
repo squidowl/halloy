@@ -191,13 +191,13 @@ pub struct Text {
     #[serde(default)]
     pub error: TextStyle,
     #[serde(default)]
-    pub warning: Option<TextStyle>,
+    pub warning: OptionalTextStyle,
     #[serde(default)]
-    pub info: Option<TextStyle>,
+    pub info: OptionalTextStyle,
     #[serde(default)]
-    pub debug: Option<TextStyle>,
+    pub debug: OptionalTextStyle,
     #[serde(default)]
-    pub trace: Option<TextStyle>,
+    pub trace: OptionalTextStyle,
 }
 
 impl Default for Styles {
@@ -662,10 +662,10 @@ mod binary {
                 Tag::TextTertiary => styles.text.tertiary.color,
                 Tag::TextSuccess => styles.text.success.color,
                 Tag::TextError => styles.text.error.color,
-                Tag::TextWarning => colors.text.warning?.color,
-                Tag::TextInfo => colors.text.info?.color,
-                Tag::TextDebug => colors.text.debug?.color,
-                Tag::TextTrace => colors.text.trace?.color,
+                Tag::TextWarning => styles.text.warning.color?,
+                Tag::TextInfo => styles.text.info.color?,
+                Tag::TextDebug => styles.text.debug.color?,
+                Tag::TextTrace => styles.text.trace.color?,
                 Tag::BufferAction => styles.buffer.action.color,
                 Tag::BufferBackground => styles.buffer.background,
                 Tag::BufferBackgroundTextInput => {
@@ -717,10 +717,10 @@ mod binary {
                     styles.buffer.server_messages.wallops.color?
                 }
                 Tag::BufferServerMessagesChangeMode => {
-                    colors.buffer.server_messages.change_mode?
+                    styles.buffer.server_messages.change_mode.color?
                 }
                 Tag::BufferServerMessagesChangeNick => {
-                    colors.buffer.server_messages.change_nick?
+                    styles.buffer.server_messages.change_nick.color?
                 }
                 Tag::BufferServerMessagesDefault => {
                     styles.buffer.server_messages.default.color
@@ -771,30 +771,10 @@ mod binary {
                 Tag::TextTertiary => styles.text.tertiary.color = color,
                 Tag::TextSuccess => styles.text.success.color = color,
                 Tag::TextError => styles.text.error.color = color,
-                Tag::TextWarning => {
-                    set_optional_text_style_color(
-                        &mut colors.text.warning,
-                        Some(color),
-                    );
-                }
-                Tag::TextInfo => {
-                    set_optional_text_style_color(
-                        &mut colors.text.info,
-                        Some(color),
-                    );
-                }
-                Tag::TextDebug => {
-                    set_optional_text_style_color(
-                        &mut colors.text.debug,
-                        Some(color),
-                    );
-                }
-                Tag::TextTrace => {
-                    set_optional_text_style_color(
-                        &mut colors.text.trace,
-                        Some(color),
-                    );
-                }
+                Tag::TextWarning => styles.text.warning.color = Some(color),
+                Tag::TextInfo => styles.text.info.color = Some(color),
+                Tag::TextDebug => styles.text.debug.color = Some(color),
+                Tag::TextTrace => styles.text.trace.color = Some(color),
                 Tag::BufferAction => styles.buffer.action.color = color,
                 Tag::BufferBackground => styles.buffer.background = color,
                 Tag::BufferBackgroundTextInput => {
@@ -855,16 +835,12 @@ mod binary {
                     styles.buffer.server_messages.wallops.color = Some(color);
                 }
                 Tag::BufferServerMessagesChangeMode => {
-                    set_optional_text_style_color(
-                        &mut colors.buffer.server_messages.change_mode,
-                        Some(color),
-                    );
+                    styles.buffer.server_messages.change_mode.color =
+                        Some(color);
                 }
                 Tag::BufferServerMessagesChangeNick => {
-                    set_optional_text_style_color(
-                        &mut colors.buffer.server_messages.change_nick,
-                        Some(color),
-                    );
+                    styles.buffer.server_messages.change_nick.color =
+                        Some(color);
                 }
                 Tag::BufferServerMessagesDefault => {
                     styles.buffer.server_messages.default.color = color;

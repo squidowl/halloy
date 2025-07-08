@@ -236,8 +236,10 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a>(
             text.into()
         }
         data::message::Content::Log(record) => {
-            let spans: Vec<Span<'a, message::Link, _>> =
-                vec![span(&record.message)];
+            let spans: Vec<Span<'a, message::Link, _>> = vec![
+                span(&record.message)
+                    .font_maybe(font_style(theme).map(font::get)),
+            ];
 
             selectable_rich_text::<M, message::Link, T, Theme, Renderer>(spans)
                 .style(style)

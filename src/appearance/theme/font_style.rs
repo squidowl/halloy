@@ -1,12 +1,8 @@
 use data::appearance::theme::FontStyle;
-use data::message;
 use data::message::source::server::{Kind, StandardReply};
+use data::{log, message};
 
 use super::Theme;
-
-pub fn default(_theme: &Theme) -> Option<FontStyle> {
-    None
-}
 
 pub fn primary(theme: &Theme) -> Option<FontStyle> {
     theme.styles().text.primary.font_style
@@ -40,6 +36,8 @@ pub fn server(
             Kind::Quit => styles.quit.font_style,
             Kind::ReplyTopic => styles.reply_topic.font_style,
             Kind::ChangeHost => styles.change_host.font_style,
+            Kind::ChangeMode => styles.change_mode.font_style,
+            Kind::ChangeNick => styles.change_nick.font_style,
             Kind::MonitoredOnline => styles.monitored_online.font_style,
             Kind::MonitoredOffline => styles.monitored_offline.font_style,
             Kind::StandardReply(StandardReply::Fail) => styles
@@ -90,4 +88,14 @@ pub fn buffer_title_bar(theme: &Theme) -> Option<FontStyle> {
 
 pub fn url(theme: &Theme) -> Option<FontStyle> {
     theme.styles().buffer.url.font_style
+}
+
+pub fn log_level(theme: &Theme, log_level: log::Level) -> Option<FontStyle> {
+    match log_level {
+        log::Level::Error => theme.styles().text.error.font_style,
+        log::Level::Warn => theme.styles().text.warning.font_style,
+        log::Level::Info => theme.styles().text.info.font_style,
+        log::Level::Debug => theme.styles().text.debug.font_style,
+        log::Level::Trace => theme.styles().text.trace.font_style,
+    }
 }

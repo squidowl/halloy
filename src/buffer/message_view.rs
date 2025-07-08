@@ -166,7 +166,7 @@ impl<'a> ChannelQueryLayout<'a> {
             self.theme,
             Message::Link,
             theme::selectable_text::default,
-            theme::font_style::default,
+            theme::font_style::primary,
             move |link| match link {
                 message::Link::User(_) => user_context::Entry::list(
                     fm.target.is_channel(),
