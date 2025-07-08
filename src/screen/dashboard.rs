@@ -1970,10 +1970,9 @@ impl Dashboard {
         let (task, blocked) = self.history.record_highlight(message);
 
         (
-            task.map_or_else(
-                || Task::none(),
-                |task| Task::perform(task, Message::History),
-            ),
+            task.map_or_else(Task::none, |task| {
+                Task::perform(task, Message::History)
+            }),
             blocked,
         )
     }

@@ -946,18 +946,15 @@ impl Halloy {
                                             ) {
                                                 if dashboard.history().has_unread(
                                                     &history::Kind::Query(server.clone(), query),
-                                                )
-                                                {
-                                                    if !self.main_window.focused {
-                                                        self.notifications.notify(
-                                                            &self.config.notifications,
-                                                            &Notification::DirectMessage{
-                                                                user,
-                                                                message: message.text(),
-                                                            },
-                                                            &server,
-                                                        );
-                                                    }
+                                                ) && !self.main_window.focused {
+                                                    self.notifications.notify(
+                                                        &self.config.notifications,
+                                                        &Notification::DirectMessage{
+                                                            user,
+                                                            message: message.text(),
+                                                        },
+                                                        &server,
+                                                    );
                                                 }
                                             }
                                         }
