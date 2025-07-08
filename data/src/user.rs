@@ -281,7 +281,6 @@ impl User {
         use fancy_regex::Regex;
 
         let user_mask = String::from(self.clone());
-        println!("user_mask: {user_mask}");
 
         masks.iter().any(|mask_pattern| {
             if let Ok(regex) = Regex::new(mask_pattern) {
