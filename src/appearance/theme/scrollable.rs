@@ -23,7 +23,7 @@ pub fn primary(theme: &Theme, status: Status) -> Style {
         background: None,
         border: Border::default(),
         scroller: Scroller {
-            color: theme.colors().general.horizontal_rule,
+            color: theme.styles().general.horizontal_rule,
             border: Border {
                 radius: 8.0.into(),
                 width: 0.0,
@@ -45,6 +45,7 @@ pub fn primary(theme: &Theme, status: Status) -> Style {
                     color: Color::TRANSPARENT,
                 },
                 shadow: Shadow::default(),
+                snap: true,
             },
             vertical_rail: rail,
             horizontal_rail: rail,
@@ -80,6 +81,7 @@ pub fn hidden(_theme: &Theme, status: Status) -> Style {
                     color: Color::TRANSPARENT,
                 },
                 shadow: Shadow::default(),
+                snap: true,
             },
             vertical_rail: rail,
             horizontal_rail: rail,

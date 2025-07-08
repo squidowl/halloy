@@ -597,7 +597,7 @@ impl Color {
 
     pub fn into_iced(
         self,
-        _colors: &theme::Colors,
+        _styles: &theme::Styles,
     ) -> Option<iced_core::Color> {
         // TODO: Theme aware 0 - 15 colors
         match self {

@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+use data::appearance::theme::FontStyle;
 use iced::advanced::text;
 
 pub use self::anchored_overlay::anchored_overlay;
@@ -7,6 +8,7 @@ pub use self::combo_box::combo_box;
 pub use self::context_menu::context_menu;
 pub use self::decorate::decorate;
 pub use self::double_pass::double_pass;
+pub use self::font_style_pick_list::font_style_pick_list;
 pub use self::key_press::key_press;
 pub use self::message_content::message_content;
 pub use self::modal::modal;
@@ -15,7 +17,7 @@ pub use self::selectable_rich_text::selectable_rich_text;
 pub use self::selectable_text::selectable_text;
 pub use self::shortcut::shortcut;
 pub use self::tooltip::tooltip;
-use crate::Theme;
+use crate::{Theme, font};
 
 pub mod anchored_overlay;
 pub mod collection;
@@ -25,10 +27,12 @@ pub mod context_menu;
 pub mod decorate;
 pub mod double_click;
 pub mod double_pass;
+pub mod font_style_pick_list;
 pub mod key_press;
 pub mod message_content;
 pub mod modal;
 pub mod notify_visibility;
+pub mod pick_list;
 pub mod selectable_rich_text;
 pub mod selectable_text;
 pub mod shortcut;
@@ -50,7 +54,9 @@ pub type Button<'a, Message> = iced::widget::Button<'a, Message, Theme>;
 
 pub fn message_marker<'a, M: 'a>(
     width: Option<f32>,
+    theme: &'a Theme,
     style: impl Fn(&Theme) -> selectable_text::Style + 'a,
+    font_style: impl Fn(&Theme) -> Option<FontStyle>,
 ) -> Element<'a, M> {
     let marker = selectable_text(MESSAGE_MARKER_TEXT);
 
@@ -60,6 +66,7 @@ pub fn message_marker<'a, M: 'a>(
         marker
     }
     .style(style)
+    .font_maybe(font_style(theme).map(font::get))
     .into()
 }
 

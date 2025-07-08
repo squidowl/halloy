@@ -246,7 +246,7 @@ where
     fn overlay<'b>(
         &'b mut self,
         tree: &'b mut widget::Tree,
-        layout: Layout<'_>,
+        layout: Layout<'b>,
         renderer: &Renderer,
         viewport: &Rectangle,
         translation: Vector,
@@ -545,25 +545,15 @@ where
         &self,
         layout: Layout<'_>,
         cursor: mouse::Cursor,
-        viewport: &Rectangle,
         renderer: &Renderer,
     ) -> iced::advanced::mouse::Interaction {
         self.menu.as_widget().mouse_interaction(
             &self.state.menu_tree,
             layout,
             cursor,
-            viewport,
+            &layout.bounds(),
             renderer,
         )
-    }
-
-    fn is_over(
-        &self,
-        layout: Layout<'_>,
-        _renderer: &Renderer,
-        cursor_position: Point,
-    ) -> bool {
-        layout.bounds().contains(cursor_position)
     }
 }
 

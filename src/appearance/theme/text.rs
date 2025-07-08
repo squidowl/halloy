@@ -24,67 +24,67 @@ pub fn none(_theme: &Theme) -> Style {
 
 pub fn primary(theme: &Theme) -> Style {
     Style {
-        color: Some(theme.colors().text.primary),
+        color: Some(theme.styles().text.primary.color),
     }
 }
 
 pub fn secondary(theme: &Theme) -> Style {
     Style {
-        color: Some(theme.colors().text.secondary),
+        color: Some(theme.styles().text.secondary.color),
     }
 }
 
 pub fn tertiary(theme: &Theme) -> Style {
     Style {
-        color: Some(theme.colors().text.tertiary),
+        color: Some(theme.styles().text.tertiary.color),
     }
 }
 
 pub fn error(theme: &Theme) -> Style {
     Style {
-        color: Some(theme.colors().text.error),
+        color: Some(theme.styles().text.error.color),
     }
 }
 
 pub fn success(theme: &Theme) -> Style {
     Style {
-        color: Some(theme.colors().text.success),
+        color: Some(theme.styles().text.success.color),
     }
 }
 
 pub fn action(theme: &Theme) -> Style {
     Style {
-        color: Some(theme.colors().buffer.action),
+        color: Some(theme.styles().buffer.action.color),
     }
 }
 
 pub fn timestamp(theme: &Theme) -> Style {
     Style {
-        color: Some(theme.colors().buffer.timestamp),
+        color: Some(theme.styles().buffer.timestamp.color),
     }
 }
 
 pub fn topic(theme: &Theme) -> Style {
     Style {
-        color: Some(theme.colors().buffer.topic),
+        color: Some(theme.styles().buffer.topic.color),
     }
 }
 
 pub fn buffer_title_bar(theme: &Theme) -> Style {
     Style {
-        color: Some(theme.colors().buffer.topic),
+        color: Some(theme.styles().buffer.topic.color),
     }
 }
 
 pub fn unread_indicator(theme: &Theme) -> Style {
     Style {
-        color: Some(theme.colors().general.unread_indicator),
+        color: Some(theme.styles().general.unread_indicator),
     }
 }
 
 pub fn url(theme: &Theme) -> Style {
     Style {
-        color: Some(theme.colors().buffer.url),
+        color: Some(theme.styles().buffer.url.color),
     }
 }
 
@@ -93,7 +93,7 @@ pub fn nickname<T: AsRef<str>>(
     seed: Option<T>,
     away_appearance: Option<away::Appearance>,
 ) -> Style {
-    let nickname = theme.colors().buffer.nickname;
+    let nickname = theme.styles().buffer.nickname;
     let calculate_alpha_color = |color| {
         if let Some(away::Appearance::Dimmed(alpha)) = away_appearance {
             match alpha {
@@ -101,7 +101,7 @@ pub fn nickname<T: AsRef<str>>(
                 None => alpha_color_calculate(
                     0.20,
                     0.61,
-                    theme.colors().buffer.background,
+                    theme.styles().buffer.background,
                     color,
                 ),
                 // Calculate alpha based on user defined alpha value.
@@ -114,10 +114,11 @@ pub fn nickname<T: AsRef<str>>(
 
     // If we have a seed we randomize the color based on the seed before adding any alpha value.
     let color = match seed {
-        Some(seed) => {
-            calculate_alpha_color(randomize_color(nickname, seed.as_ref()))
-        }
-        None => calculate_alpha_color(nickname),
+        Some(seed) => calculate_alpha_color(randomize_color(
+            nickname.color,
+            seed.as_ref(),
+        )),
+        None => calculate_alpha_color(nickname.color),
     };
 
     Style { color: Some(color) }

@@ -23,7 +23,7 @@ pub use self::preview::Preview;
 pub use self::proxy::Proxy;
 pub use self::server::Server;
 pub use self::sidebar::Sidebar;
-use crate::appearance::theme::Colors;
+use crate::appearance::theme::Styles;
 use crate::appearance::{self, Appearance};
 use crate::audio::{self, Sound};
 use crate::environment::config_dir;
@@ -328,7 +328,7 @@ impl Config {
                 #[serde(rename = "name")]
                 _name: String,
             },
-            V2(Colors),
+            V2(Styles),
         }
 
         let read_entry = |entry: fs::DirEntry| async move {

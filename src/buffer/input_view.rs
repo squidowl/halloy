@@ -13,8 +13,8 @@ use iced::widget::{column, container, text, text_input};
 use tokio::time;
 
 use self::completion::Completion;
-use crate::theme;
 use crate::widget::{Element, anchored_overlay, key_press};
+use crate::{Theme, font, theme};
 
 mod completion;
 
@@ -47,6 +47,7 @@ pub fn view<'a>(
     buffer_focused: bool,
     disabled: bool,
     config: &Config,
+    theme: &'a Theme,
 ) -> Element<'a, Message> {
     let style = if state.error.is_some() {
         theme::text_input::error
@@ -99,17 +100,29 @@ pub fn view<'a>(
 
     let overlay = column![]
         .spacing(4)
-        .push_maybe(state.completion.view(cache.text, config))
-        .push_maybe(state.error.as_deref().map(error));
+        .push_maybe(state.completion.view(cache.text, config, theme))
+        .push_maybe(
+            state
+                .error
+                .as_deref()
+                .map(|error_str| error(error_str, theme)),
+        );
 
     anchored_overlay(input, overlay, anchored_overlay::Anchor::AboveTop, 4.0)
 }
 
-fn error<'a, 'b, Message: 'a>(error: &'b str) -> Element<'a, Message> {
-    container(text(error.to_string()).style(theme::text::error))
-        .padding(8)
-        .style(theme::container::tooltip)
-        .into()
+fn error<'a, 'b, Message: 'a>(
+    error: &'b str,
+    theme: &'a Theme,
+) -> Element<'a, Message> {
+    container(
+        text(error.to_string())
+            .style(theme::text::error)
+            .font_maybe(theme::font_style::error(theme).map(font::get)),
+    )
+    .padding(8)
+    .style(theme::container::tooltip)
+    .into()
 }
 
 #[derive(Debug, Clone)]

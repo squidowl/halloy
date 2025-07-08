@@ -3,14 +3,16 @@ use iced::widget::{button, column, container, text};
 use iced::{Length, alignment};
 
 use super::Message;
-use crate::theme;
 use crate::widget::Element;
+use crate::{Theme, font, theme};
 
-pub fn view<'a>(error: &config::Error) -> Element<'a, Message> {
+pub fn view<'a>(error: &config::Error, theme: &Theme) -> Element<'a, Message> {
     container(
         column![
             text("Error reloading configuration file"),
-            text(error.to_string()).style(theme::text::error),
+            text(error.to_string())
+                .style(theme::text::error)
+                .font_maybe(theme::font_style::error(theme).map(font::get)),
             button(
                 container(text("Close"))
                     .align_x(alignment::Horizontal::Center)
