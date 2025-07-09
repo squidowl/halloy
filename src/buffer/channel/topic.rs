@@ -1,4 +1,4 @@
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Local, Utc};
 use data::{Config, Server, User, isupport, message, target};
 use iced::Length;
 use iced::widget::{
@@ -101,11 +101,14 @@ pub fn view<'a>(
                             )
                             .style(theme::selectable_text::topic),
                         content,
-                        selectable_text(format!(" at {}", time?.to_rfc2822()))
-                            .font_maybe(
-                                theme::font_style::topic(theme).map(font::get)
-                            )
-                            .style(theme::selectable_text::topic),
+                        selectable_text(format!(
+                            " at {}",
+                            time?.with_timezone(&Local).to_rfc2822()
+                        ))
+                        .font_maybe(
+                            theme::font_style::topic(theme).map(font::get)
+                        )
+                        .style(theme::selectable_text::topic),
                     ])
                     .map(Message::UserContext),
                 )
