@@ -1,5 +1,11 @@
 # Building for flatpak
 
+This guide will help you to build and/or test pre-released commits of Halloy
+for flatpak.
+
+If you haven't done so already, clone the [Halloy repository][halloy-repo] to
+your local machine.
+
 ## Requirements
 
 - [flatpak-builder][flatpak-builder]
@@ -61,6 +67,7 @@ with the updated files.
 See the pull request for the [2025.6 release][halloy-flathub-2025.6-pr] for an
 example.
 
+[halloy-repo]: https://github.com/squidowl/halloy
 [flatpak-builder]: https://docs.flatpak.org/en/latest/flatpak-builder.html
 [flatpak-cargo-generator]: https://github.com/flatpak/flatpak-builder-tools/tree/master/cargo
 [halloy-flathub-repo]: https://github.com/flathub/org.squidowl.halloy/
