@@ -51,7 +51,7 @@ pub fn server(
             Kind::StandardReply(StandardReply::Note) => {
                 styles.standard_reply_note.font_style
             }
-            Kind::Wallops => styles.wallops.font_style,
+            Kind::WAllOps => styles.wallops.font_style,
         })
         .or(styles.default.font_style)
 }

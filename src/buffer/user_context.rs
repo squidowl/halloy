@@ -62,6 +62,7 @@ impl Entry {
         self,
         server: &Server,
         casemapping: isupport::CaseMap,
+        prefix: &[isupport::PrefixMap],
         channel: Option<&target::Channel>,
         user: &User,
         current_user: Option<&User>,
@@ -73,13 +74,13 @@ impl Entry {
 
         match self {
             Entry::Whois => menu_button(
-                "Whois",
+                "Whois".to_string(),
                 Message::Whois(server.clone(), nickname),
                 length,
                 theme,
             ),
             Entry::Query => menu_button(
-                "Message",
+                "Message".to_string(),
                 Message::Query(
                     server.clone(),
                     target::Query::from_user(user, casemapping),
@@ -89,27 +90,32 @@ impl Entry {
                 theme,
             ),
             Entry::ToggleAccessLevelOp => {
-                if let Some(channel) = channel {
+                if let (Some(channel), Some(operator_mode)) = (
+                    channel,
+                    prefix.iter().find_map(|prefix_map| {
+                        (prefix_map.prefix == '@').then_some(prefix_map.mode)
+                    }),
+                ) {
                     if user.has_access_level(data::user::AccessLevel::Oper) {
                         menu_button(
-                            "Take Op (-o)",
+                            format!("Take Op (-{operator_mode})"),
                             Message::ToggleAccessLevel(
                                 server.clone(),
                                 channel.clone(),
                                 nickname,
-                                "-o".to_owned(),
+                                format!("-{operator_mode}"),
                             ),
                             length,
                             theme,
                         )
                     } else {
                         menu_button(
-                            "Give Op (+o)",
+                            format!("Give Op (+{operator_mode})"),
                             Message::ToggleAccessLevel(
                                 server.clone(),
                                 channel.clone(),
                                 nickname,
-                                "+o".to_owned(),
+                                format!("+{operator_mode}"),
                             ),
                             length,
                             theme,
@@ -120,27 +126,32 @@ impl Entry {
                 }
             }
             Entry::ToggleAccessLevelVoice => {
-                if let Some(channel) = channel {
+                if let (Some(channel), Some(voice_mode)) = (
+                    channel,
+                    prefix.iter().find_map(|prefix_map| {
+                        (prefix_map.prefix == '+').then_some(prefix_map.mode)
+                    }),
+                ) {
                     if user.has_access_level(data::user::AccessLevel::Voice) {
                         menu_button(
-                            "Take Voice (-v)",
+                            format!("Take Voice (-{voice_mode})"),
                             Message::ToggleAccessLevel(
                                 server.clone(),
                                 channel.clone(),
                                 nickname,
-                                "-v".to_owned(),
+                                format!("-{voice_mode}"),
                             ),
                             length,
                             theme,
                         )
                     } else {
                         menu_button(
-                            "Give Voice (+v)",
+                            format!("Give Voice (+{voice_mode})"),
                             Message::ToggleAccessLevel(
                                 server.clone(),
                                 channel.clone(),
                                 nickname,
-                                "+v".to_owned(),
+                                format!("+{voice_mode}"),
                             ),
                             length,
                             theme,
@@ -151,7 +162,7 @@ impl Entry {
                 }
             }
             Entry::SendFile => menu_button(
-                "Send File",
+                "Send File".to_string(),
                 Message::SendFile(server.clone(), user.clone()),
                 length,
                 theme,
@@ -166,7 +177,7 @@ impl Entry {
                 _ => Space::new(length, 1).into(),
             },
             Entry::CtcpRequestTime => menu_button(
-                "Local Time (TIME)",
+                "Local Time (TIME)".to_string(),
                 Message::CtcpRequest(
                     ctcp::Command::Time,
                     server.clone(),
@@ -177,7 +188,7 @@ impl Entry {
                 theme,
             ),
             Entry::CtcpRequestVersion => menu_button(
-                "Client (VERSION)",
+                "Client (VERSION)".to_string(),
                 Message::CtcpRequest(
                     ctcp::Command::Version,
                     server.clone(),
@@ -232,6 +243,7 @@ pub fn view<'a>(
     content: impl Into<Element<'a, Message>>,
     server: &'a Server,
     casemapping: isupport::CaseMap,
+    prefix: &'a [isupport::PrefixMap],
     channel: Option<&'a target::Channel>,
     user: &'a User,
     current_user: Option<&'a User>,
@@ -263,6 +275,7 @@ pub fn view<'a>(
             entry.view(
                 server,
                 casemapping,
+                prefix,
                 channel,
                 user,
                 current_user,
@@ -275,12 +288,12 @@ pub fn view<'a>(
     .into()
 }
 
-fn menu_button<'a>(
-    content: &'a str,
+fn menu_button(
+    content: String,
     message: Message,
     length: Length,
     theme: &Theme,
-) -> Element<'a, Message> {
+) -> Element<'static, Message> {
     button(
         text(content)
             .style(theme::text::primary)

@@ -89,7 +89,7 @@ pub fn server(
             Kind::StandardReply(StandardReply::Note) => {
                 styles.standard_reply_note.color
             }
-            Kind::Wallops => styles.wallops.color,
+            Kind::WAllOps => styles.wallops.color,
         })
         .or(Some(styles.default.color));
 

@@ -1,4 +1,4 @@
-use data::isupport::CaseMap;
+use data::isupport::{CaseMap, PrefixMap};
 use data::server::Server;
 use data::target::{self};
 use data::{Config, User, message};
@@ -51,6 +51,7 @@ impl<'a> TargetInfo<'a> {
 pub struct ChannelQueryLayout<'a> {
     pub config: &'a Config,
     pub casemapping: CaseMap,
+    pub prefix: &'a [PrefixMap],
     pub server: &'a Server,
     pub theme: &'a Theme,
     pub target: TargetInfo<'a>,
@@ -149,6 +150,7 @@ impl<'a> ChannelQueryLayout<'a> {
             text,
             self.server,
             self.casemapping,
+            self.prefix,
             self.target.channel(),
             user,
             current_user,
@@ -179,6 +181,7 @@ impl<'a> ChannelQueryLayout<'a> {
                     .view(
                         fm.server,
                         fm.casemapping,
+                        fm.prefix,
                         fm.target.channel(),
                         user,
                         current_user,
@@ -234,6 +237,7 @@ impl<'a> ChannelQueryLayout<'a> {
                     .view(
                         fm.server,
                         fm.casemapping,
+                        fm.prefix,
                         fm.target.channel(),
                         user,
                         fm.target

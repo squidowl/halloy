@@ -58,6 +58,7 @@ log = { workspace = true }
 
 data = { version = "0.1.0", path = "data" }
 ipc = { version = "0.1.0", path = "ipc" }
+irc = { version = "0.1.0", path = "irc" }
 
 notify-rust = "4.11"
 fern = "0.7.1"
@@ -73,6 +74,7 @@ iced = { version = "0.14.0-dev", default-features = false, features = [
 unicode-segmentation = "1.6"
 open = "5.0.1"
 bytesize = "2.0.1"
+const_format = "0.2.32"
 rodio = "0.20.1"
 humantime = "2.1.0"
 strsim = "0.11.1"

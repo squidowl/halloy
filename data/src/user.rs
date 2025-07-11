@@ -385,39 +385,43 @@ impl PartialEq<Nick> for NickRef<'_> {
     }
 }
 
-#[derive(
-    Debug,
-    Clone,
-    Copy,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    Serialize,
-    Deserialize,
-)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum AccessLevel {
     Member,
     Voice,
     HalfOp,
     Oper,
-    Admin,
-    Owner,
+    Protected(ProtectedPrefix),
+    Founder,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum ProtectedPrefix {
+    Standard,
+    Alternative,
 }
 
 impl std::fmt::Display for AccessLevel {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let access_level = match self {
-            AccessLevel::Owner => "~",
-            AccessLevel::Admin => "&",
-            AccessLevel::Oper => "@",
-            AccessLevel::HalfOp => "%",
-            AccessLevel::Voice => "+",
-            AccessLevel::Member => "",
+            AccessLevel::Founder => Some(proto::FOUNDER_PREFIX),
+            AccessLevel::Protected(prefix) => match prefix {
+                ProtectedPrefix::Standard => Some(proto::PROTECTED_PREFIX_STD),
+                ProtectedPrefix::Alternative => {
+                    Some(proto::PROTECTED_PREFIX_ALT)
+                }
+            },
+            AccessLevel::Oper => Some(proto::OPERATOR_PREFIX),
+            AccessLevel::HalfOp => Some(proto::HALF_OPERATOR_PREFIX),
+            AccessLevel::Voice => Some(proto::VOICED_PREFIX),
+            AccessLevel::Member => None,
         };
 
-        write!(f, "{access_level}")
+        if let Some(access_level) = access_level {
+            write!(f, "{access_level}")
+        } else {
+            write!(f, "")
+        }
     }
 }
 
@@ -426,11 +430,16 @@ impl TryFrom<char> for AccessLevel {
 
     fn try_from(c: char) -> Result<AccessLevel, ()> {
         match c {
-            '~' => Ok(AccessLevel::Owner),
-            '&' => Ok(AccessLevel::Admin),
-            '@' => Ok(AccessLevel::Oper),
-            '%' => Ok(AccessLevel::HalfOp),
-            '+' => Ok(AccessLevel::Voice),
+            proto::FOUNDER_PREFIX => Ok(AccessLevel::Founder),
+            proto::PROTECTED_PREFIX_STD => {
+                Ok(AccessLevel::Protected(ProtectedPrefix::Standard))
+            }
+            proto::PROTECTED_PREFIX_ALT => {
+                Ok(AccessLevel::Protected(ProtectedPrefix::Alternative))
+            }
+            proto::OPERATOR_PREFIX => Ok(AccessLevel::Oper),
+            proto::HALF_OPERATOR_PREFIX => Ok(AccessLevel::HalfOp),
+            proto::VOICED_PREFIX => Ok(AccessLevel::Voice),
             _ => Err(()),
         }
     }
@@ -441,10 +450,10 @@ impl TryFrom<mode::Channel> for AccessLevel {
 
     fn try_from(mode: mode::Channel) -> Result<Self, Self::Error> {
         Ok(match mode {
-            mode::Channel::Founder => Self::Owner,
-            mode::Channel::Admin => Self::Admin,
+            mode::Channel::Founder => Self::Founder,
+            mode::Channel::Protected(prefix) => Self::Protected(prefix),
             mode::Channel::Oper => Self::Oper,
-            mode::Channel::Halfop => Self::HalfOp,
+            mode::Channel::HalfOp => Self::HalfOp,
             mode::Channel::Voice => Self::Voice,
             _ => return Err(()),
         })

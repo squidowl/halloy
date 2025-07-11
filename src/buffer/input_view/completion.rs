@@ -1,15 +1,17 @@
 use std::cmp::Ordering;
 use std::collections::HashMap;
-use std::fmt;
 use std::sync::LazyLock;
+use std::{fmt, iter};
 
 use chrono::{DateTime, Utc};
+use const_format::concatcp;
 use data::buffer::{OrderBy, SkinTone, SortDirection};
 use data::isupport::{self, find_target_limit};
 use data::user::{Nick, User};
-use data::{Config, target};
+use data::{Config, mode, target};
 use iced::Length;
 use iced::widget::{column, container, row, text, tooltip};
+use irc::proto;
 use itertools::{Either, Itertools};
 use strsim::jaro_winkler;
 
@@ -455,26 +457,21 @@ impl Commands {
             },
             // MODE
             {
+                let chanmodes = isupport::get_chanmodes(isupport);
+                let prefix = isupport::get_prefix(isupport);
+                let mode_limit = isupport::get_mode_limit(isupport);
+
                 Command {
                     title: "MODE",
-                    args: vec![
-                        Arg {
-                            text: "target",
-                            optional: false,
-                            tooltip: None,
-                        },
-                        Arg {
-                            text: "modestring",
-                            optional: true,
-                            tooltip: None,
-                        },
-                        Arg {
-                            text: "arguments",
-                            optional: true,
-                            tooltip: None,
-                        },
-                    ],
-                    subcommands: None,
+                    args: vec![Arg {
+                        text: "target",
+                        optional: false,
+                        tooltip: Some(String::from("A channel or user")),
+                    }],
+                    subcommands: Some(vec![
+                        mode_channel_command(chanmodes, prefix, mode_limit),
+                        mode_user_command(mode_limit),
+                    ]),
                 }
             },
             // RAW
@@ -647,9 +644,29 @@ impl Commands {
                         .split_ascii_whitespace()
                         .nth(command.args.len() - 1)
                     {
-                        let subcmd =
+                        let subcmd = if command.title != "MODE" {
                             (String::from(command.title) + " " + subcmd)
-                                .to_lowercase();
+                                .to_lowercase()
+                        } else {
+                            let chantypes = isupport::get_chantypes(isupport);
+
+                            format!(
+                                "{} {}",
+                                command.title,
+                                Arg {
+                                    text: if proto::is_channel(
+                                        subcmd, chantypes,
+                                    ) {
+                                        "channel"
+                                    } else {
+                                        "user"
+                                    },
+                                    optional: false,
+                                    tooltip: None,
+                                }
+                            )
+                            .to_lowercase()
+                        };
 
                         let subcommand =
                             subcommands.iter().find(|subcommand| {
@@ -789,6 +806,11 @@ pub struct Command {
     subcommands: Option<Vec<Command>>,
 }
 
+const MODE_CHANNEL_PATTERN: &str =
+    concatcp!("mode ", REQUIRED_ARG_PREFIX, "channel", REQUIRED_ARG_SUFFIX);
+const MODE_USER_PATTERN: &str =
+    concatcp!("mode ", REQUIRED_ARG_PREFIX, "user", REQUIRED_ARG_SUFFIX);
+
 impl Command {
     fn description(&self) -> Option<&'static str> {
         Some(match self.title.to_lowercase().as_str() {
@@ -797,9 +819,9 @@ impl Command {
             }
             "join" => "Join channel(s) with optional key(s)",
             "me" => "Send an action message to the channel",
-            "mode" => {
-                "Set mode(s) on a target or retrieve the current mode(s) set. A target can be a channel or an user"
-            }
+            "mode" => "Set or retrieve target's mode(s)",
+            MODE_CHANNEL_PATTERN => "Set or retrieve channel's mode(s)",
+            MODE_USER_PATTERN => "Set or retrieve user's mode(s)",
             "monitor" => "System to notify when users become online/offline",
             "monitor +" => "Add user(s) to list being monitored",
             "monitor -" => "Remove user(s) from list being monitored",
@@ -959,23 +981,39 @@ impl Command {
                     .take(self.args.len() - 1)
                     .enumerate()
                     .map(|(index, arg)| arg_text(index, arg))
-                    .chain(std::iter::once(Element::from(row![text(
-                        subcommand
-                            .title
-                            .strip_prefix(self.title)
-                            .unwrap_or_default()
-                    )])))
+                    .chain(std::iter::once(Element::from(row![
+                        text(
+                            subcommand
+                                .title
+                                .strip_prefix(self.title)
+                                .unwrap_or_default()
+                        )
+                        .style(move |theme| {
+                            if 0 == active_arg {
+                                theme::text::tertiary(theme)
+                            } else {
+                                theme::text::none(theme)
+                            }
+                        })
+                    ])))
                     .chain(subcommand.args.iter().enumerate().map(
                         |(index, arg)| arg_text(self.args.len() + index, arg),
                     )),
             )
         } else {
-            Either::Right(
-                self.args
-                    .iter()
-                    .enumerate()
-                    .map(|(index, arg)| arg_text(index, arg)),
-            )
+            let args = self
+                .args
+                .iter()
+                .enumerate()
+                .map(|(index, arg)| arg_text(index, arg));
+
+            Either::Right(if self.subcommands.is_some() {
+                Either::Left(args.chain(iter::once(Element::from(row![
+                    text(" ...").style(theme::text::none)
+                ]))))
+            } else {
+                Either::Right(args)
+            })
         };
 
         container(
@@ -1010,12 +1048,19 @@ struct Arg {
     tooltip: Option<String>,
 }
 
+const REQUIRED_ARG_PREFIX: &str = "<";
+const REQUIRED_ARG_SUFFIX: &str = ">";
+
 impl fmt::Display for Arg {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if self.optional {
             write!(f, "[<{}>]", self.text)
         } else {
-            write!(f, "<{}>", self.text)
+            write!(
+                f,
+                "{}{}{}",
+                REQUIRED_ARG_PREFIX, self.text, REQUIRED_ARG_SUFFIX
+            )
         }
     }
 }
@@ -1811,6 +1856,134 @@ static MONITOR_STATUS_COMMAND: LazyLock<Command> = LazyLock::new(|| Command {
     subcommands: None,
 });
 
+fn mode_channel_command(
+    chanmodes: &[isupport::ModeKind],
+    prefix: &[isupport::PrefixMap],
+    mode_limit: Option<u16>,
+) -> Command {
+    let mut modestring_tooltip = String::new();
+
+    let mut unknown_modes = String::new();
+
+    for chanmode in chanmodes.iter() {
+        if !chanmode.modes.is_empty() {
+            if !modestring_tooltip.is_empty() {
+                modestring_tooltip.push('\n');
+            }
+
+            modestring_tooltip +=
+                &format!("Type {} Modes ({chanmode})", chanmode.kind);
+
+            for mode in chanmode.modes.chars() {
+                let channel_mode = mode::Channel::from(mode);
+
+                match channel_mode {
+                    mode::Channel::Unknown(_) => unknown_modes.push(mode),
+                    _ => {
+                        modestring_tooltip +=
+                            &format!("\n  {mode}: {channel_mode}");
+                    }
+                }
+            }
+
+            if let Some(unknown_mode) = unknown_modes.chars().next() {
+                let unknown_mode = mode::Channel::from(unknown_mode);
+
+                modestring_tooltip +=
+                    &format!("\n  {unknown_modes}: {unknown_mode}");
+                if unknown_modes.len() > 1 {
+                    modestring_tooltip.push('s');
+                }
+            }
+
+            unknown_modes.clear();
+        }
+    }
+
+    if !prefix.is_empty() {
+        if !modestring_tooltip.is_empty() {
+            modestring_tooltip.push('\n');
+        }
+
+        modestring_tooltip +=
+            "Membership Modes (requires nickname as argument)";
+    }
+
+    for prefix_map in prefix.iter() {
+        modestring_tooltip += &format!(
+            "\n  {}: {} ({})",
+            prefix_map.mode,
+            mode::Channel::from(prefix_map.prefix),
+            prefix_map.prefix
+        );
+    }
+
+    if !modestring_tooltip.is_empty() {
+        modestring_tooltip += "\nmode descriptions are standard and/or well-used meanings, and may be inaccurate\n";
+    }
+
+    if let Some(mode_limit) = mode_limit {
+        modestring_tooltip
+            .push_str(format!("up to {mode_limit} channel mode").as_str());
+        if mode_limit != 1 {
+            modestring_tooltip.push('s');
+        }
+    } else {
+        modestring_tooltip.push_str("unlimited channel modes");
+    }
+
+    Command {
+        title: concatcp!(
+            "MODE ",
+            REQUIRED_ARG_PREFIX,
+            "channel",
+            REQUIRED_ARG_SUFFIX
+        ),
+        args: vec![
+            Arg {
+                text: "modestring",
+                optional: true,
+                tooltip: Some(modestring_tooltip),
+            },
+            Arg {
+                text: "arguments",
+                optional: true,
+                tooltip: None,
+            },
+        ],
+        subcommands: None,
+    }
+}
+
+fn mode_user_command(mode_limit: Option<u16>) -> Command {
+    let mut modestring_tooltip = String::new();
+
+    if let Some(mode_limit) = mode_limit {
+        modestring_tooltip
+            .push_str(format!("up to {mode_limit} user mode").as_str());
+        if mode_limit != 1 {
+            modestring_tooltip.push('s');
+        }
+    } else {
+        modestring_tooltip.push_str("unlimited user modes");
+    }
+
+    Command {
+        title: concatcp!(
+            "MODE ",
+            REQUIRED_ARG_PREFIX,
+            "user",
+            REQUIRED_ARG_SUFFIX
+        ),
+        args: vec![Arg {
+            text: "modestring",
+            optional: true,
+            tooltip: Some(modestring_tooltip),
+        }],
+        subcommands: None,
+    }
+}
+
 fn msg_command(
     channel_membership_prefixes: &[char],
     target_limit: Option<u16>,
@@ -1820,18 +1993,16 @@ fn msg_command(
     );
 
     for channel_membership_prefix in channel_membership_prefixes {
-        match channel_membership_prefix {
-            '~' => targets_tooltip
+        match *channel_membership_prefix {
+            proto::FOUNDER_PREFIX => targets_tooltip
                 .push_str("\n~{channel}: all founders in channel"),
-            '&' => targets_tooltip
-                .push_str("\n&{channel}: all protected users in channel"),
-            '!' => targets_tooltip
-                .push_str("\n!{channel}: all protected users in channel"),
-            '@' => targets_tooltip
+            proto::PROTECTED_PREFIX_STD | proto::PROTECTED_PREFIX_ALT => targets_tooltip
+                .push_str("\n{channel_membership_prefix}{channel}: all protected users in channel"),
+            proto::OPERATOR_PREFIX => targets_tooltip
                 .push_str("\n@{channel}: all operators in channel"),
-            '%' => targets_tooltip
+            proto::HALF_OPERATOR_PREFIX => targets_tooltip
                 .push_str("\n%{channel}: all half-operators in channel"),
-            '+' => targets_tooltip
+            proto::VOICED_PREFIX => targets_tooltip
                 .push_str("\n+{channel}: all voiced users in channel"),
             _ => (),
         }
@@ -1909,18 +2080,16 @@ fn notice_command(
     );
 
     for channel_membership_prefix in channel_membership_prefixes {
-        match channel_membership_prefix {
-            '~' => targets_tooltip
+        match *channel_membership_prefix {
+            proto::FOUNDER_PREFIX => targets_tooltip
                 .push_str("\n~{channel}: all founders in channel"),
-            '&' => targets_tooltip
-                .push_str("\n&{channel}: all protected users in channel"),
-            '!' => targets_tooltip
-                .push_str("\n!{channel}: all protected users in channel"),
-            '@' => targets_tooltip
+            proto::PROTECTED_PREFIX_STD | proto::PROTECTED_PREFIX_ALT => targets_tooltip
+                .push_str("\n{channel_membership_prefix}{channel}: all protected users in channel"),
+            proto::OPERATOR_PREFIX => targets_tooltip
                 .push_str("\n@{channel}: all operators in channel"),
-            '%' => targets_tooltip
+            proto::HALF_OPERATOR_PREFIX => targets_tooltip
                 .push_str("\n%{channel}: all half-operators in channel"),
-            '+' => targets_tooltip
+            proto::VOICED_PREFIX => targets_tooltip
                 .push_str("\n+{channel}: all voiced users in channel"),
             _ => (),
         }
