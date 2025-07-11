@@ -68,6 +68,7 @@ Requirements:
 
 * [Rust toolchain](https://www.rust-lang.org/tools/install)
 * [Git version control system](https://git-scm.com/)
+* External dependencies: `openssl-devel`, `alsa-lib-devel`
 
 ```sh
 # Clone the repository

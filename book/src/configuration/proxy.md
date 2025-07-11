@@ -164,3 +164,18 @@ It accepts no further configuration.
 ```toml
 [proxy.tor]
 ```
+
+The default build will not allow this to work.  To get it to work,
+make the following change to `irc/Cargo.toml`:
+
+```
+arti-client = { version = "0.26", default-features = true, features = ["onion-service-client", "rustls", "compression", "tokio", "static-sqlite"] }
+```
+
+Pay special attention to `default-features = true` and `"onion-service-client"` added to `features`.
+
+Build with `--all-features`.
+
+```
+$ cargo build --release --all-features
+```
