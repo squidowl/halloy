@@ -1380,8 +1380,14 @@ impl Dashboard {
 
                 return (Task::batch(tasks), event);
             }
-            Message::ConfigReloaded(config) => {
-                return (Task::none(), Some(Event::ConfigReloaded(config)));
+            Message::ConfigReloaded(config_result) => {
+                if let Ok(config) = config_result.as_ref() {
+                    self.history.apply_config(config);
+                };
+                return (
+                    Task::none(),
+                    Some(Event::ConfigReloaded(config_result)),
+                );
             }
             Message::Client(message) => match message {
                 client::Message::ChatHistoryRequest(server, subcommand) => {
@@ -1948,15 +1954,28 @@ impl Dashboard {
         }
     }
 
+    // TODO: @root_goblin
+    //
+    // Returning a tuple here (and in Manager::record_highlight()) is a bodge,
+    // but it is the least violent way of lifting blocked status of the message.
+    // The filters reside in the dashboard.history struct, and the only way to
+    // know the status of blocked messages is to actually apply the filter.
+    //
+    // The other way is to pass on the blocked status in a Message that will be
+    // lifted up into main, which feels like a more elaborate way of doing the
+    // same as above.
     pub fn record_highlight(
         &mut self,
         message: data::Message,
-    ) -> Task<Message> {
-        if let Some(task) = self.history.record_highlight(message) {
-            Task::perform(task, Message::History)
-        } else {
-            Task::none()
-        }
+    ) -> (Task<Message>, bool) {
+        let (task, blocked) = self.history.record_highlight(message);
+
+        (
+            task.map_or_else(Task::none, |task| {
+                Task::perform(task, Message::History)
+            }),
+            blocked,
+        )
     }
 
     pub fn get_oldest_message_reference(
@@ -2629,6 +2648,8 @@ impl Dashboard {
             previews: preview::Collection::default(),
             buffer_settings: data.buffer_settings.clone(),
         };
+
+        dashboard.history.apply_config(config);
 
         let mut tasks = vec![];
 

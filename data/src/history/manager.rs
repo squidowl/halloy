@@ -6,12 +6,14 @@ use futures::{Future, FutureExt, future};
 use tokio::time::Instant;
 
 use crate::history::{self, History, MessageReferences, ReadMarker};
-use crate::message::{self, Limit};
+use crate::message::{self, Hash, Limit};
 use crate::target::{self, Target};
 use crate::user::Nick;
 use crate::{
     Config, Input, Server, User, buffer, config, input, isupport, server,
 };
+
+use super::filter::{Filter, FilterChain};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Resource {
@@ -65,6 +67,7 @@ pub enum Event {
 #[derive(Debug, Default)]
 pub struct Manager {
     resources: HashSet<Resource>,
+    filters: Vec<Filter>,
     data: Data,
 }
 
@@ -103,11 +106,12 @@ impl Manager {
     pub fn update(&mut self, message: Message) -> Option<Event> {
         match message {
             Message::LoadFull(kind, Ok(loaded)) => {
-                log::debug!(
-                    "loaded history for {kind}: {} messages",
-                    loaded.messages.len()
-                );
+                let len = loaded.messages.len();
                 self.data.load_full(kind.clone(), loaded);
+                log::debug!("loaded history for {kind}: {} messages", len);
+
+                self.rebuild_blocked_message_cache(kind.clone());
+
                 return Some(Event::Loaded(kind));
             }
             Message::LoadFull(kind, Err(error)) => {
@@ -131,7 +135,9 @@ impl Manager {
             }
             Message::UpdatePartial(kind, Ok(metadata)) => {
                 log::debug!("loaded metadata for {kind}");
-                self.data.update_partial(kind, metadata);
+                self.data.update_partial(kind.clone(), metadata);
+
+                self.rebuild_blocked_message_cache(kind.clone());
             }
             Message::UpdatePartial(kind, Err(error)) => {
                 log::warn!("failed to load metadata for {kind}: {error}");
@@ -166,10 +172,27 @@ impl Manager {
             }
             Message::SentMessageUpdated(kind, read_marker) => {
                 return Some(Event::SentMessageUpdated(kind, read_marker));
-            }
+            } // _ => {}
         }
 
         None
+    }
+
+    pub fn apply_config(&mut self, config: &Config) {
+        log::debug!("Applying new config to history manager.");
+        self.filters.clear();
+        config.servers.entries().for_each(|entry| {
+            if let Some(f) = entry.config.filters.as_ref() {
+                f.ignore.iter().for_each(|filter_string| {
+                    if let Ok(filter) = Filter::try_from_str_with_server(
+                        &entry.server.clone(),
+                        filter_string,
+                    ) {
+                        self.filters.push(filter);
+                    };
+                });
+            }
+        });
     }
 
     pub fn tick(&mut self, now: Instant) -> Vec<BoxFuture<'static, Message>> {
@@ -281,23 +304,42 @@ impl Manager {
         server: &Server,
         message: crate::Message,
     ) -> Option<impl Future<Output = Message> + use<>> {
-        history::Kind::from_server_message(server.clone(), &message)
-            .and_then(|kind| self.data.add_message(kind, message))
+        history::Kind::from_server_message(server.clone(), &message).and_then(
+            |kind| {
+                let blocked = FilterChain::borrow(&self.filters)
+                    .filter_message_of_kind(
+                        &message,
+                        &history::Kind::Highlights,
+                    );
+
+                self.data.add_message(kind, message, blocked)
+            },
+        )
     }
 
     pub fn record_log(
         &mut self,
         record: crate::log::Record,
     ) -> Option<impl Future<Output = Message> + use<>> {
-        self.data
-            .add_message(history::Kind::Logs, crate::Message::log(record))
+        self.data.add_message(
+            history::Kind::Logs,
+            crate::Message::log(record),
+            false,
+        )
     }
 
     pub fn record_highlight(
         &mut self,
         message: crate::Message,
-    ) -> Option<impl Future<Output = Message> + use<>> {
-        self.data.add_message(history::Kind::Highlights, message)
+    ) -> (Option<impl Future<Output = Message> + use<>>, bool) {
+        let blocked = FilterChain::borrow(&self.filters)
+            .filter_message_of_kind(&message, &history::Kind::Highlights);
+
+        (
+            self.data
+                .add_message(history::Kind::Highlights, message, blocked),
+            blocked,
+        )
     }
 
     pub fn update_read_marker<T: Into<history::Kind>>(
@@ -346,9 +388,9 @@ impl Manager {
         &self,
         kind: &history::Kind,
         limit: Option<Limit>,
-        buffer_config: &config::Buffer,
+        config: &Config,
     ) -> Option<history::View<'_>> {
-        self.data.history_view(kind, limit, buffer_config)
+        self.data.history_view(kind, limit, &config.buffer)
     }
 
     pub fn get_last_seen(
@@ -369,9 +411,13 @@ impl Manager {
             .map
             .keys()
             .filter_map(|kind| match kind {
-                history::Kind::Query(s, query) => {
-                    (s == server).then_some(query)
-                }
+                #[allow(clippy::bool_comparison)] // easy to miss exclaimation
+                history::Kind::Query(s, query) => (s == server
+                    && self
+                        .filters
+                        .iter()
+                        .all(|filter| filter.match_query(query) == false))
+                .then_some(query),
                 _ => None,
             })
             .collect::<Vec<_>>()
@@ -406,7 +452,14 @@ impl Manager {
     }
 
     pub fn has_unread(&self, kind: &history::Kind) -> bool {
-        self.data.map.get(kind).is_some_and(History::has_unread)
+        let mut blocked = false;
+        if let history::Kind::Query(_, query) = kind {
+            blocked = FilterChain::borrow(&self.filters).filter_query(query);
+        };
+        self.data
+            .map
+            .get(kind)
+            .is_some_and(|history| !blocked && History::has_unread(history))
     }
 
     pub fn read_marker(
@@ -579,6 +632,33 @@ impl Manager {
     ) {
         self.data.hide_preview(&kind.into(), message, url);
     }
+
+    fn rebuild_blocked_message_cache(&mut self, kind: history::Kind) {
+        let chain = FilterChain::borrow(&self.filters);
+
+        if let Some(history) = self.data.map.get(&kind) {
+            let messages = match history {
+                History::Full { messages, .. } => messages,
+                History::Partial { messages, .. } => messages,
+            };
+
+            let blocked_message_index = messages
+                .iter()
+                .filter_map(|message| {
+                    chain
+                        .filter_message_of_kind(message, &kind)
+                        .then_some(message.hash)
+                })
+                .collect();
+
+            self.data
+                .blocked_messages_index
+                .entry(kind.clone())
+                .insert_entry(blocked_message_index);
+        };
+
+        log::debug!("rebuilt blocked message index for {kind}");
+    }
 }
 
 fn with_limit<'a>(
@@ -602,6 +682,7 @@ fn with_limit<'a>(
 #[derive(Debug, Default)]
 struct Data {
     map: HashMap<history::Kind, History>,
+    blocked_messages_index: HashMap<history::Kind, HashSet<Hash>>,
     input: input::Storage,
 }
 
@@ -697,6 +778,12 @@ impl Data {
 
         let filtered = messages
             .iter()
+            .filter(|message| {
+                !self
+                    .blocked_messages_index
+                    .get(kind)
+                    .is_some_and(|blocklist| blocklist.contains(&message.hash))
+            })
             .filter(|message| match message.target.source() {
                 message::Source::Server(Some(source)) => {
                     if let Some(server_message) =
@@ -879,35 +966,37 @@ impl Data {
         &mut self,
         kind: history::Kind,
         message: crate::Message,
+        blocked: bool,
     ) -> Option<impl Future<Output = Message> + use<>> {
-        use std::collections::hash_map;
+        if blocked {
+            self.blocked_messages_index.entry(kind.clone()).and_modify(
+                |cache| {
+                    cache.insert(message.hash);
+                },
+            );
+        }
 
-        match self.map.entry(kind.clone()) {
-            hash_map::Entry::Occupied(mut entry) => {
-                let read_marker = entry.get_mut().add_message(message);
+        if let Some(history) = self.map.get_mut(&kind) {
+            let read_marker = history.add_message(message, blocked);
 
-                read_marker.map(|read_marker| {
-                    async move {
+            read_marker.map(|read_marker| {
+                async move {
                         Message::SentMessageUpdated(kind.clone(), read_marker)
                     }
                     .boxed()
-                })
-            }
-            hash_map::Entry::Vacant(entry) => {
-                let _ = entry
-                    .insert(History::partial(kind.clone()))
-                    .add_message(message);
+            })
+        } else {
+            let mut new_history = History::partial(kind.clone());
+            new_history.add_message(message, blocked);
+            self.map.insert(kind.clone(), new_history);
 
-                Some(
-                    async move {
-                        let loaded =
-                            history::metadata::load(kind.clone()).await;
-
-                        Message::UpdatePartial(kind, loaded)
-                    }
-                    .boxed(),
-                )
-            }
+            Some(
+                async move {
+                    let loaded = history::metadata::load(kind.clone()).await;
+                    Message::UpdatePartial(kind, loaded)
+                }
+                .boxed(),
+            )
         }
     }
 

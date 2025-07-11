@@ -704,13 +704,10 @@ impl Halloy {
                                             {
                                                 let message_text = message.text();
 
-                                                commands.push(
-                                                    dashboard
-                                                        .record_highlight(message)
-                                                        .map(Message::Dashboard),
-                                                );
+                                                let (task, blocked) = dashboard.record_highlight(message);
+                                                commands.push(task.map(Message::Dashboard));
 
-                                                if highlight_notification_enabled {
+                                                if !blocked && highlight_notification_enabled {
                                                     self.notifications.notify(
                                                         &self.config.notifications,
                                                         &Notification::Highlight {
@@ -949,8 +946,7 @@ impl Halloy {
                                             ) {
                                                 if dashboard.history().has_unread(
                                                     &history::Kind::Query(server.clone(), query),
-                                                ) || !self.main_window.focused
-                                                {
+                                                ) && !self.main_window.focused {
                                                     self.notifications.notify(
                                                         &self.config.notifications,
                                                         &Notification::DirectMessage{

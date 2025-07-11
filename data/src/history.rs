@@ -19,6 +19,7 @@ use crate::{
     Buffer, Message, Server, buffer, compression, environment, isupport,
 };
 
+pub mod filter;
 pub mod manager;
 pub mod metadata;
 
@@ -320,8 +321,12 @@ impl History {
         }
     }
 
-    fn add_message(&mut self, message: Message) -> Option<ReadMarker> {
-        if message.triggers_unread() {
+    fn add_message(
+        &mut self,
+        message: Message,
+        blocked: bool,
+    ) -> Option<ReadMarker> {
+        if message.triggers_unread() && !blocked {
             if let History::Partial {
                 max_triggers_unread,
                 ..
