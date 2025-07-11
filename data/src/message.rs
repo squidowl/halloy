@@ -4,7 +4,7 @@ use std::hash::{DefaultHasher, Hash as _, Hasher};
 use std::iter;
 use std::sync::LazyLock;
 
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Local, Utc};
 use const_format::concatcp;
 use fancy_regex::{Regex, RegexBuilder};
 use irc::proto;
@@ -1485,6 +1485,7 @@ fn content<'a>(
                 .map(Posix::from_seconds)
                 .as_ref()
                 .and_then(Posix::datetime)?
+                .with_timezone(&Local)
                 .to_rfc2822();
 
             Some(parse_fragments_with_user(
