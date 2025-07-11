@@ -9,8 +9,8 @@ use iced::{Length, Task};
 
 use super::message_view::{ChannelQueryLayout, TargetInfo};
 use super::{input_view, scroll_view, user_context};
-use crate::widget::Element;
 use crate::Theme;
+use crate::widget::Element;
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -41,6 +41,7 @@ pub fn view<'a>(
 ) -> Element<'a, Message> {
     let server = &state.server;
     let casemapping = clients.get_casemapping(server);
+    let prefix = clients.get_prefix(server);
     let query = &state.target;
     let status = clients.status(server);
     let buffer = &state.buffer;
@@ -59,6 +60,7 @@ pub fn view<'a>(
     let message_formatter = ChannelQueryLayout {
         config,
         casemapping,
+        prefix,
         server,
         theme,
         target: TargetInfo::Query,

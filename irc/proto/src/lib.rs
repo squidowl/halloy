@@ -107,13 +107,27 @@ macro_rules! command {
     );
 }
 
+// Reference: https://defs.ircdocs.horse/defs/chanmembers
+
+pub const FOUNDER_PREFIX: char = '~';
+pub const PROTECTED_PREFIX_STD: char = '&';
+pub const PROTECTED_PREFIX_ALT: char = '!';
+pub const OPERATOR_PREFIX: char = '@';
+pub const HALF_OPERATOR_PREFIX: char = '%';
+pub const VOICED_PREFIX: char = '+';
+
+pub const CHANNEL_MEMBERSHIP_PREFIXES: &[char] = &[
+    FOUNDER_PREFIX,
+    PROTECTED_PREFIX_STD,
+    PROTECTED_PREFIX_ALT,
+    OPERATOR_PREFIX,
+    HALF_OPERATOR_PREFIX,
+    VOICED_PREFIX,
+];
+
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    // Reference: https://defs.ircdocs.horse/defs/chanmembers
-    const CHANNEL_MEMBERSHIP_PREFIXES: &[char] =
-        &['~', '&', '!', '@', '%', '+'];
 
     #[test]
     fn is_channel_correct() {

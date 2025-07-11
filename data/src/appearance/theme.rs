@@ -641,7 +641,7 @@ mod binary {
         BufferServerMessagesStandardReplyFail = 38,
         BufferServerMessagesStandardReplyWarn = 39,
         BufferServerMessagesStandardReplyNote = 40,
-        BufferServerMessagesWallops = 41,
+        BufferServerMessagesWAllOps = 41,
         BufferServerMessagesChangeMode = 42,
         BufferServerMessagesChangeNick = 43,
         TextWarning = 44,
@@ -713,7 +713,7 @@ mod binary {
                 Tag::BufferServerMessagesStandardReplyNote => {
                     styles.buffer.server_messages.standard_reply_note.color?
                 }
-                Tag::BufferServerMessagesWallops => {
+                Tag::BufferServerMessagesWAllOps => {
                     styles.buffer.server_messages.wallops.color?
                 }
                 Tag::BufferServerMessagesChangeMode => {
@@ -831,7 +831,7 @@ mod binary {
                     styles.buffer.server_messages.standard_reply_note.color =
                         Some(color);
                 }
-                Tag::BufferServerMessagesWallops => {
+                Tag::BufferServerMessagesWAllOps => {
                     styles.buffer.server_messages.wallops.color = Some(color);
                 }
                 Tag::BufferServerMessagesChangeMode => {
