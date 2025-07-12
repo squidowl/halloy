@@ -39,7 +39,7 @@ nick_password = ""
 
 ## `nick_password_file`
 
-Read `nick_password` from the file at the given path.[^1] [^2]
+Read `nick_password` from the file at the given path.[^1]
 
 ```toml
 # Type: string
@@ -170,7 +170,7 @@ password = ""
 
 ## `password_file`
 
-Read password from the file at the given path.[^1] [^2]
+Read password from the file at the given path.[^1]
 
 ```toml
 # Type: string
@@ -339,7 +339,7 @@ dangerously_accept_invalid_certs = false
 
 ## `root_cert_path`
 
-The path to the root TLS certificate for this server in PEM format.[^1] [^2]
+The path to the root TLS certificate for this server in PEM format.[^1]
 
 ```toml
 # Type: string
@@ -450,7 +450,7 @@ password = "password"
 
 ### `password_file`
 
-Read `password` from the file at the given path.[^1] [^2]
+Read `password` from the file at the given path.[^1]
 
 ```toml
 # Type: string
@@ -493,7 +493,7 @@ External SASL auth uses a PEM encoded X509 certificate. [Reference](https://libe
 
 ### `cert`
 
-The path to PEM encoded X509 user certificate for external auth.[^1] [^2]
+The path to PEM encoded X509 user certificate for external auth.[^1]
 
 ```toml
 # Type: string
@@ -506,7 +506,7 @@ cert = "/path/to/your/certificate.pem"
 
 ### `key`
 
-The path to PEM encoded PKCS#8 private key for external auth (optional).[^1] [^2]
+The path to PEM encoded PKCS#8 private key for external auth (optional).[^1]
 
 ```toml
 # Type: string
@@ -517,5 +517,4 @@ The path to PEM encoded PKCS#8 private key for external auth (optional).[^1] [^2
 key = "/path/to/your/private_key.pem"
 ```
 
-[^1]: Shell expansions (e.g. `"~/"` → `"/home/user/"`) are not supported in path strings.
-[^2]: Windows path strings should usually be specified as literal strings (e.g. `'C:\Users\Default\'`), otherwise directory separators will need to be escaped (e.g. `"C:\\Users\\Default\\"`).
+[^1]: Windows path strings should usually be specified as literal strings (e.g. `'C:\Users\Default\'`), otherwise directory separators will need to be escaped (e.g. `"C:\\Users\\Default\\"`).
