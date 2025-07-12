@@ -4,7 +4,7 @@ use data::dashboard::BufferAction;
 use data::preview::{self, Previews};
 use data::server::Server;
 use data::target::{self, Target};
-use data::user::Nick;
+use data::user::{ChannelUsers, Nick};
 use data::{Config, User, buffer, history, message};
 use iced::widget::{column, container, row};
 use iced::{Length, Task, padding};
@@ -60,7 +60,8 @@ pub fn view<'a>(
             clients.resolve_user_attributes(&state.server, channel, &user)
         });
 
-    let users = clients.get_channel_users(&state.server, channel);
+    let users = clients
+        .get_channel_users(&state.server, channel);
 
     let chathistory_state =
         clients.get_chathistory_state(server, &channel.to_target());
@@ -123,8 +124,8 @@ pub fn view<'a>(
         data::buffer::TextInputVisibility::Always => true,
     };
 
-    let channels = clients.get_channels(&state.server);
-    let is_connected_to_channel = channels.iter().any(|c| c == &state.target);
+    let mut channels = clients.get_channels(&state.server);
+    let is_connected_to_channel = channels.any(|c| c == &state.target);
 
     let text_input = show_text_input.then(move || {
         input_view::view(
@@ -298,7 +299,7 @@ impl Channel {
 fn topic<'a>(
     state: &'a Channel,
     clients: &'a data::client::Map,
-    users: &'a [User],
+    users: Option<&'a ChannelUsers>,
     our_user: Option<&'a User>,
     settings: Option<&'a buffer::Settings>,
     config: &'a Config,
@@ -338,6 +339,7 @@ fn topic<'a>(
 }
 
 mod nick_list {
+    use data::user::ChannelUsers;
     use data::{Config, Server, User, config, isupport, target};
     use iced::Length;
     use iced::advanced::text;
@@ -353,7 +355,7 @@ mod nick_list {
         casemapping: isupport::CaseMap,
         prefix: &'a [isupport::PrefixMap],
         channel: &'a target::Channel,
-        users: &'a [User],
+        users: Option<&'a ChannelUsers>,
         our_user: Option<&'a User>,
         config: &'a Config,
         theme: &'a Theme,
@@ -364,7 +366,8 @@ mod nick_list {
             Some(width) => width,
             None => {
                 let max_nick_length = users
-                    .iter()
+                    .into_iter()
+                    .flatten()
                     .map(|user| {
                         user.display(nicklist_config.show_access_levels)
                             .chars()
@@ -377,7 +380,7 @@ mod nick_list {
             }
         };
 
-        let content = column(users.iter().map(|user| {
+        let content = column(users.into_iter().flatten().map(|user| {
             let content = selectable_text(
                 user.display(nicklist_config.show_access_levels),
             )

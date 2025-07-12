@@ -237,7 +237,7 @@ impl Dashboard {
 
                                             if let Some(nick) = clients.nickname(buffer.server()) {
                                                 let mut user = nick.to_owned().into();
-                                                let mut channel_users = &[][..];
+                                                let mut channel_users = None;
                                                 let chantypes =
                                                     clients.get_chantypes(buffer.server());
                                                 let statusmsg =
@@ -2754,7 +2754,7 @@ impl Dashboard {
         let buffer = buffer::Upstream::Channel(server.clone(), channel.clone());
 
         // Need to join channel
-        if !clients.get_channels(&server).contains(&channel) {
+        if !clients.contains_channel(&server, &channel) {
             clients.join(&server, slice::from_ref(&channel));
         }
 
@@ -2970,7 +2970,7 @@ fn all_buffers(
         .connected_servers()
         .flat_map(|server| {
             std::iter::once(buffer::Upstream::Server(server.clone()))
-                .chain(clients.get_channels(server).iter().map(|channel| {
+                .chain(clients.get_channels(server).map(|channel| {
                     buffer::Upstream::Channel(server.clone(), channel.clone())
                 }))
                 .chain(history.get_unique_queries(server).into_iter().map(
@@ -2993,7 +2993,7 @@ fn all_buffers_with_has_unread(
                 buffer::Upstream::Server(server.clone()),
                 history.has_unread(&history::Kind::Server(server.clone())),
             ))
-            .chain(clients.get_channels(server).iter().map(|channel| {
+            .chain(clients.get_channels(server).map(|channel| {
                 (
                     buffer::Upstream::Channel(server.clone(), channel.clone()),
                     history.has_unread(&history::Kind::Channel(
