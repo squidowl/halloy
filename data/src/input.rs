@@ -37,11 +37,9 @@ pub fn parse(
     if let Some(message_bytes) = content
         .proto(&buffer)
         .map(|message| format::message(message).len())
-    {
-        if message_bytes > format::BYTE_LIMIT {
+        && message_bytes > format::BYTE_LIMIT {
             return Err(Error::ExceedsByteLimit { message_bytes });
         }
-    }
 
     Ok(Parsed::Input(Input { buffer, content }))
 }

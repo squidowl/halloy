@@ -100,11 +100,10 @@ fn parse(url: url::Url) -> Result<Url, Error> {
 fn generate_server_name(host: &str) -> &str {
     let pattern = Regex::new(r"irc\.([^.]+)").unwrap();
 
-    if let Ok(Some(captures)) = pattern.captures(host) {
-        if let Some(matched) = captures.get(1) {
+    if let Ok(Some(captures)) = pattern.captures(host)
+        && let Some(matched) = captures.get(1) {
             return matched.as_str();
         }
-    }
 
     host
 }

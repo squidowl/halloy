@@ -360,8 +360,8 @@ impl Config {
                 continue;
             };
 
-            if let Some(file_name) = file_name.strip_suffix(".toml") {
-                if let Some(theme) = read_entry(entry).await {
+            if let Some(file_name) = file_name.strip_suffix(".toml")
+                && let Some(theme) = read_entry(entry).await {
                     if file_name == theme_keys.0 {
                         first_theme = theme.clone();
                     }
@@ -376,7 +376,6 @@ impl Config {
 
                     all.push(theme);
                 }
-            }
         }
 
         if !has_halloy_theme {

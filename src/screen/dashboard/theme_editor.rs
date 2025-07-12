@@ -380,7 +380,7 @@ fn success_icon<'a>() -> Element<'a, Message> {
         .into()
 }
 
-fn secondary_button(label: &str, message: Message) -> Element<Message> {
+fn secondary_button(label: &str, message: Message) -> Element<'_, Message> {
     button(
         container(label)
             .align_x(alignment::Horizontal::Center)

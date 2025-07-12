@@ -142,7 +142,7 @@ impl Server {
     pub fn connection(
         &self,
         proxy: Option<config::Proxy>,
-    ) -> connection::Config {
+    ) -> connection::Config<'_> {
         let security = if self.use_tls {
             connection::Security::Secured {
                 accept_invalid_certs: self.dangerously_accept_invalid_certs,

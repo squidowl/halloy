@@ -54,13 +54,11 @@ pub fn on_connect(
                         Command::Irc(command) => {
                             if let Ok(message) =
                                 message::Encoded::try_from(command)
-                            {
-                                if let Err(e) =
+                                && let Err(e) =
                                     handle.send(message.into()).await
                                 {
                                     log::warn!("Error sending message: {e}");
                                 }
-                            }
                             None
                         }
                         Command::Internal(cmd) => match cmd {

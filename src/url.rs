@@ -27,11 +27,10 @@ pub fn listen() -> Subscription<String> {
         ) -> BoxStream<'static, Self::Output> {
             input
                 .filter_map(move |event| {
-                    if let Event::Interaction { status, .. } = &event {
-                        if *status == iced::event::Status::Captured {
+                    if let Event::Interaction { status, .. } = &event
+                        && *status == iced::event::Status::Captured {
                             return futures::future::ready(None);
                         }
-                    }
 
                     let result = match event {
                         Event::PlatformSpecific(event) => match event {
