@@ -8,7 +8,7 @@ use tokio::time::Instant;
 use crate::history::{self, History, MessageReferences, ReadMarker};
 use crate::message::{self, Limit};
 use crate::target::{self, Target};
-use crate::user::Nick;
+use crate::user::{ChannelUsers, Nick};
 use crate::{
     Config, Input, Server, User, buffer, config, input, isupport, server,
 };
@@ -216,7 +216,7 @@ impl Manager {
         &mut self,
         input: Input,
         user: User,
-        channel_users: &[User],
+        channel_users: Option<&ChannelUsers>,
         chantypes: &[char],
         statusmsg: &[char],
         casemapping: isupport::CaseMap,
