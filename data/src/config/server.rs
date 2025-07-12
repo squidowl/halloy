@@ -1,12 +1,15 @@
 use std::collections::HashMap;
-use std::path::{self, PathBuf};
+use std::path::PathBuf;
 use std::time::Duration;
 
 use irc::connection;
 use serde::{Deserialize, Deserializer};
 
 use crate::config;
-use crate::serde::default_bool_true;
+use crate::serde::{
+    default_bool_true, deserialize_path_buf_with_tilde_expansion,
+    deserialize_path_buf_with_tilde_expansion_maybe,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct Server {
@@ -365,55 +368,4 @@ fn default_who_poll_interval() -> Duration {
 
 fn default_chathistory() -> bool {
     true
-}
-
-fn deserialize_path_buf_with_tilde_expansion<'de, D>(
-    deserializer: D,
-) -> Result<PathBuf, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let path_buf: PathBuf = Deserialize::deserialize(deserializer)?;
-
-    Ok(tilde_expansion(path_buf))
-}
-
-fn deserialize_path_buf_with_tilde_expansion_maybe<'de, D>(
-    deserializer: D,
-) -> Result<Option<PathBuf>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let path_buf: Option<PathBuf> = Deserialize::deserialize(deserializer)?;
-
-    if let Some(path_buf) = path_buf {
-        Ok(Some(tilde_expansion(path_buf)))
-    } else {
-        Ok(None)
-    }
-}
-
-fn tilde_expansion(path_buf: PathBuf) -> PathBuf {
-    let mut expanded_path_buf = PathBuf::new();
-
-    let mut components = path_buf.components();
-
-    if let Some(first_component) = components.next() {
-        match first_component {
-            path::Component::Normal(os_str) if os_str == "~" => {
-                if let Some(home_dir) = dirs_next::home_dir() {
-                    expanded_path_buf.push(home_dir);
-                } else {
-                    expanded_path_buf.push(first_component);
-                }
-            }
-            _ => {
-                expanded_path_buf.push(first_component);
-            }
-        }
-    }
-
-    components.for_each(|component| expanded_path_buf.push(component));
-
-    expanded_path_buf
 }
