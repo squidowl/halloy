@@ -1242,6 +1242,7 @@ pub fn get_chantypes_or_default(
 }
 
 // https://modern.ircdocs.horse/#modes-parameter
+// The value itself is optional, with None signifying unlimited
 pub fn get_mode_limit_or_default(
     isupport: &HashMap<Kind, Parameter>,
 ) -> Option<u16> {

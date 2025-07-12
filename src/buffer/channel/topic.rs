@@ -1,5 +1,5 @@
 use chrono::{DateTime, Local, Utc};
-use data::user::{ChannelUsers, Nick};
+use data::user::{ChannelUsers, NickRef};
 use data::{Config, Server, User, isupport, message, target};
 use iced::Length;
 use iced::widget::{
@@ -45,7 +45,7 @@ pub fn view<'a>(
     prefix: &'a [isupport::PrefixMap],
     channel: &'a target::Channel,
     content: &'a message::Content,
-    who: Option<Nick>,
+    who: Option<NickRef<'a>>,
     time: Option<&'a DateTime<Utc>>,
     max_lines: u16,
     users: Option<&'a ChannelUsers>,
@@ -53,7 +53,7 @@ pub fn view<'a>(
     config: &'a Config,
     theme: &'a Theme,
 ) -> Element<'a, Message> {
-    let set_by = who.map(User::from).and_then(|user| {
+    let set_by = who.map(NickRef::to_owned).map(User::from).and_then(|user| {
         let channel_user = users.and_then(|users| users.resolve(&user));
 
         // If user is in channel, we return user_context component.
