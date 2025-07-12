@@ -465,13 +465,12 @@ impl State {
                             &kind.into(),
                             Some(self.limit),
                             &config.buffer,
-                        ) {
-                            if let Some(oldest) =
+                        )
+                            && let Some(oldest) =
                                 old_messages.iter().chain(&new_messages).next()
                             {
                                 self.limit = Limit::Since(oldest.server_time);
                             }
-                        }
                     }
                     // Hit bottom, anchor it
                     _ if old_status.is_bottom(relative_offset) => {
@@ -995,15 +994,14 @@ mod keyed {
             bounds: Rectangle,
             state: &mut dyn std::any::Any,
         ) {
-            if self.active {
-                if let Some(key) = state.downcast_ref::<Key>() {
+            if self.active
+                && let Some(key) = state.downcast_ref::<Key>() {
                     if self.key == *key {
                         self.hit_bounds = Some(bounds);
                     } else if self.hit_bounds.is_none() {
                         self.prev_bounds = Some(bounds);
                     }
                 }
-            }
         }
 
         fn finish(&self) -> widget::operation::Outcome<Hit> {
@@ -1068,9 +1066,9 @@ mod keyed {
             bounds: Rectangle,
             state: &mut dyn std::any::Any,
         ) {
-            if self.active {
-                if let Some(key) = state.downcast_ref::<Key>() {
-                    if self.hit_bounds.is_none()
+            if self.active
+                && let Some(key) = state.downcast_ref::<Key>()
+                    && self.hit_bounds.is_none()
                         && self.scrollable.is_some_and(|scrollable| {
                             scrollable.viewport.intersects(
                                 &(bounds
@@ -1083,8 +1081,6 @@ mod keyed {
                     {
                         self.hit_bounds = Some((*key, bounds));
                     }
-                }
-            }
         }
 
         fn finish(&self) -> widget::operation::Outcome<Hit> {
@@ -1543,11 +1539,10 @@ mod correct_viewport {
                 _bounds: Rectangle,
                 state: &mut dyn Any,
             ) {
-                if id.is_some_and(|id| *id == self.target) {
-                    if let Some(is_scroll_to) = state.downcast_mut::<bool>() {
+                if id.is_some_and(|id| *id == self.target)
+                    && let Some(is_scroll_to) = state.downcast_mut::<bool>() {
                         *is_scroll_to = true;
                     }
-                }
             }
         }
 
@@ -1612,11 +1607,10 @@ mod correct_viewport {
                 _bounds: Rectangle,
                 state: &mut dyn Any,
             ) {
-                if id.is_some_and(|id| *id == self.target) {
-                    if let Some(is_scroll_to) = state.downcast_mut::<bool>() {
+                if id.is_some_and(|id| *id == self.target)
+                    && let Some(is_scroll_to) = state.downcast_mut::<bool>() {
                         *is_scroll_to = true;
                     }
-                }
             }
         }
 

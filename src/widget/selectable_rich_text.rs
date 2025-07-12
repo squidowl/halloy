@@ -373,17 +373,14 @@ where
         if let Some(position) = cursor.position_in(layout.bounds()) {
             state.hovered = true;
 
-            if self.on_link.is_some() {
-                if let Some(span) = state
+            if self.on_link.is_some()
+                && let Some(span) = state
                     .paragraph
                     .hit_span(position)
                     .and_then(|span| self.spans.get(span))
-                {
-                    if span.link.is_some() {
+                    && span.link.is_some() {
                         state.link_hovered = true;
                     }
-                }
-            }
         }
 
         match event {
@@ -391,12 +388,11 @@ where
                 mouse::Button::Left,
             ))
             | iced::Event::Touch(touch::Event::FingerPressed { .. }) => {
-                if let Some(position) = cursor.position_in(bounds) {
-                    if let Some(span) = state.paragraph.hit_span(position) {
+                if let Some(position) = cursor.position_in(bounds)
+                    && let Some(span) = state.paragraph.hit_span(position) {
                         state.span_pressed = Some(span);
                         shell.capture_event();
                     }
-                }
 
                 if let Some(cursor) = cursor.position() {
                     state.interaction =
@@ -413,8 +409,8 @@ where
             ))
             | iced::Event::Touch(touch::Event::FingerLifted { .. })
             | iced::Event::Touch(touch::Event::FingerLost { .. }) => {
-                if let Some(on_link_click) = self.on_link.as_ref() {
-                    if let Some(span_pressed) = state.span_pressed {
+                if let Some(on_link_click) = self.on_link.as_ref()
+                    && let Some(span_pressed) = state.span_pressed {
                         state.span_pressed = None;
 
                         if let Some(position) = cursor.position_in(bounds) {
@@ -432,7 +428,6 @@ where
                             }
                         }
                     }
-                }
 
                 if let Interaction::Selecting(raw) = state.interaction {
                     state.interaction = Interaction::Selected(raw);
@@ -442,12 +437,11 @@ where
             }
             iced::Event::Mouse(mouse::Event::CursorMoved { .. })
             | iced::Event::Touch(touch::Event::FingerMoved { .. }) => {
-                if let Some(cursor) = cursor.position() {
-                    if let Interaction::Selecting(raw) = &mut state.interaction
+                if let Some(cursor) = cursor.position()
+                    && let Interaction::Selecting(raw) = &mut state.interaction
                     {
                         raw.end = cursor;
                     }
-                }
 
                 let size = self.size.unwrap_or_else(|| renderer.default_size());
                 let font = self.font.unwrap_or_else(|| renderer.default_font());
@@ -517,9 +511,9 @@ where
             iced::Event::Mouse(mouse::Event::ButtonPressed(
                 mouse::Button::Right,
             )) => {
-                if let Some(position) = cursor.position_in(bounds) {
-                    if let Some((link_entries, _)) = &self.context_menu {
-                        if let Some((link, entries)) = state
+                if let Some(position) = cursor.position_in(bounds)
+                    && let Some((link_entries, _)) = &self.context_menu
+                        && let Some((link, entries)) = state
                             .spans
                             .iter()
                             .enumerate()
@@ -550,8 +544,6 @@ where
                             state.context_menu_link = Some(link);
                             self.cached_entries = entries;
                         }
-                    }
-                }
             }
             _ => {}
         }
@@ -881,12 +873,11 @@ where
             state.spans = spans.iter().cloned().map(Span::to_static).collect();
 
             // Apply shown spoiler
-            if let Some((index, _, _)) = state.shown_spoiler {
-                if let Some(span) = state.spans.get_mut(index) {
+            if let Some((index, _, _)) = state.shown_spoiler
+                && let Some(span) = state.spans.get_mut(index) {
                     span.color = None;
                     span.highlight = None;
                 }
-            }
 
             state.paragraph = Renderer::Paragraph::with_spans(text_with_spans(
                 state.spans.as_slice(),
@@ -912,12 +903,11 @@ where
                         spans.iter().cloned().map(Span::to_static).collect();
 
                     // Apply shown spoiler
-                    if let Some((index, _, _)) = state.shown_spoiler {
-                        if let Some(span) = state.spans.get_mut(index) {
+                    if let Some((index, _, _)) = state.shown_spoiler
+                        && let Some(span) = state.spans.get_mut(index) {
                             span.color = None;
                             span.highlight = None;
                         }
-                    }
 
                     state.paragraph = Renderer::Paragraph::with_spans(
                         text_with_spans(state.spans.as_slice()),
