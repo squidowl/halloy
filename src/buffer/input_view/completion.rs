@@ -7,7 +7,7 @@ use chrono::{DateTime, Utc};
 use const_format::concatcp;
 use data::buffer::{OrderBy, SkinTone, SortDirection};
 use data::isupport::{self, find_target_limit};
-use data::user::{Nick, User};
+use data::user::{ChannelUsers, Nick};
 use data::{Config, mode, target};
 use iced::Length;
 use iced::widget::{column, container, row, text, tooltip};
@@ -38,7 +38,7 @@ impl Completion {
     pub fn process(
         &mut self,
         input: &str,
-        users: &[User],
+        users: Option<&ChannelUsers>,
         last_seen: &HashMap<Nick, DateTime<Utc>>,
         channels: &[target::Channel],
         current_channel: Option<&target::Channel>,
@@ -1077,7 +1077,7 @@ impl Text {
         &mut self,
         input: &str,
         casemapping: isupport::CaseMap,
-        users: &[User],
+        users: Option<&ChannelUsers>,
         last_seen: &HashMap<Nick, DateTime<Utc>>,
         channels: &[target::Channel],
         current_channel: Option<&target::Channel>,
@@ -1098,7 +1098,7 @@ impl Text {
         &mut self,
         input: &str,
         casemapping: isupport::CaseMap,
-        users: &[User],
+        users: Option<&ChannelUsers>,
         last_seen: &HashMap<Nick, DateTime<Utc>>,
         config: &Config,
     ) {
@@ -1115,7 +1115,8 @@ impl Text {
         self.selected = None;
         self.prompt = rest.to_string();
         self.filtered = users
-            .iter()
+            .into_iter()
+            .flatten()
             .sorted_by(|a, b| {
                 if matches!(autocomplete.order_by, OrderBy::Recent) {
                     if let Some(a_last_seen) =

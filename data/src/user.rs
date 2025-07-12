@@ -1,7 +1,9 @@
-use std::collections::HashSet;
+use std::cmp::Reverse;
+use std::collections::BTreeSet;
 use std::fmt;
 use std::hash::Hash;
 
+use indexmap::{Equivalent, IndexSet};
 use irc::proto;
 use itertools::sorted;
 use serde::{Deserialize, Serialize};
@@ -18,7 +20,7 @@ pub struct User {
     username: Option<String>,
     hostname: Option<String>,
     accountname: Option<String>,
-    access_levels: HashSet<AccessLevel>,
+    access_levels: BTreeSet<AccessLevel>,
     away: bool,
 }
 
@@ -36,18 +38,65 @@ impl Hash for User {
     }
 }
 
-impl Ord for User {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.highest_access_level()
-            .cmp(&other.highest_access_level())
-            .reverse()
-            .then_with(|| self.nickname().cmp(&other.nickname()))
+// our list of users is essentially a hashmap with an order defined by access level
+#[derive(Debug, Default)]
+pub struct ChannelUsers(IndexSet<User>);
+
+impl FromIterator<User> for ChannelUsers {
+    fn from_iter<T>(iter: T) -> Self
+    where
+        T: IntoIterator<Item = User>,
+    {
+        let mut set: IndexSet<User> = iter.into_iter().collect();
+        // we can't use `.sort_by_cached_key` here since it borrows a user.
+        set.sort_by(|k1, k2| k1.key().cmp(&k2.key()));
+        Self(set)
+    }
+}
+impl<'a> IntoIterator for &'a ChannelUsers {
+    type Item = &'a User;
+    type IntoIter = indexmap::set::Iter<'a, User>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
     }
 }
 
-impl PartialOrd for User {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
+impl ChannelUsers {
+    pub fn iter(&self) -> indexmap::set::Iter<'_, User> {
+        self.0.iter()
+    }
+
+    pub fn resolve(&self, user: &User) -> Option<&User> {
+        self.0.get(user)
+    }
+
+    pub fn take(&mut self, user: &User) -> Option<User> {
+        self.0.shift_take(user)
+    }
+
+    pub fn insert(&mut self, user: User) -> bool {
+        // TODO(pounce) change to `insert_sorted_by_key` when merged
+        let (Ok(i) | Err(i)) =
+            self.0.binary_search_by_key(&user.key(), User::key);
+        self.0.insert_before(i, user).1
+    }
+
+    pub fn remove(&mut self, user: &User) -> bool {
+        self.0.shift_remove(user)
+    }
+
+    pub fn get_by_nick(&self, nick: NickRef) -> Option<&User> {
+        self.0.get(&nick)
+    }
+
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
     }
 }
 
@@ -86,7 +135,7 @@ impl<'a> TryFrom<&'a str> for User {
         let access_levels = access_levels
             .chars()
             .filter_map(|c| AccessLevel::try_from(c).ok())
-            .collect::<HashSet<_>>();
+            .collect::<BTreeSet<_>>();
 
         let (nickname, username, hostname) =
             match (rest.find('!'), rest.find('@')) {
@@ -153,13 +202,17 @@ impl From<Nick> for User {
             username: None,
             hostname: None,
             accountname: None,
-            access_levels: HashSet::default(),
+            access_levels: BTreeSet::default(),
             away: false,
         }
     }
 }
 
 impl User {
+    fn key(&self) -> (Reverse<AccessLevel>, &str) {
+        (Reverse(self.highest_access_level()), self.nickname.as_ref())
+    }
+
     pub fn seed(&self) -> &str {
         self.as_str()
     }
@@ -174,7 +227,7 @@ impl User {
     }
 
     pub fn as_str(&self) -> &str {
-        self.nickname.as_ref()
+        self.nickname.0.as_ref()
     }
 
     pub fn is_away(&self) -> bool {
@@ -228,8 +281,8 @@ impl User {
 
     pub fn highest_access_level(&self) -> AccessLevel {
         self.access_levels
-            .iter()
-            .max()
+            // BTreeSet::last is the maximum element.
+            .last()
             .copied()
             .unwrap_or(AccessLevel::Member)
     }
@@ -299,7 +352,7 @@ impl From<proto::User> for User {
             username: user.username,
             hostname: user.hostname,
             accountname: None,
-            access_levels: HashSet::default(),
+            access_levels: BTreeSet::default(),
             away: false,
         }
     }
@@ -340,7 +393,13 @@ impl<'a> From<&'a str> for Nick {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+impl Nick {
+    pub fn as_nickref(&self) -> NickRef<'_> {
+        NickRef(self.0.as_ref())
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct NickRef<'a>(&'a str);
 
 impl<'a> From<&'a str> for NickRef<'a> {
@@ -348,10 +407,21 @@ impl<'a> From<&'a str> for NickRef<'a> {
         NickRef(nick)
     }
 }
+impl<'a> From<&'a Nick> for NickRef<'a> {
+    fn from(nick: &'a Nick) -> Self {
+        NickRef(nick.0.as_str())
+    }
+}
 
 impl NickRef<'_> {
     pub fn to_owned(self) -> Nick {
         Nick(self.0.to_string())
+    }
+}
+
+impl Equivalent<User> for NickRef<'_> {
+    fn equivalent(&self, user: &User) -> bool {
+        self.0 == user.nickname.as_ref()
     }
 }
 
@@ -369,7 +439,12 @@ impl AsRef<str> for NickRef<'_> {
 
 impl PartialOrd for NickRef<'_> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.0.to_lowercase().cmp(&other.0.to_lowercase()))
+        // TODO(pounce) casemapping
+        Some(
+            self.0
+                .to_ascii_lowercase()
+                .cmp(&other.0.to_ascii_lowercase()),
+        )
     }
 }
 
@@ -473,7 +548,7 @@ mod tests {
                     username: None,
                     hostname: None,
                     accountname: None,
-                    access_levels: HashSet::<AccessLevel>::from([
+                    access_levels: BTreeSet::<AccessLevel>::from([
                         AccessLevel::Oper,
                         AccessLevel::Voice,
                     ]),
@@ -487,7 +562,7 @@ mod tests {
                     username: Some("d".into()),
                     hostname: Some("localhost".into()),
                     accountname: None,
-                    access_levels: HashSet::<AccessLevel>::from([
+                    access_levels: BTreeSet::<AccessLevel>::from([
                         AccessLevel::Oper,
                     ]),
                     away: false,
@@ -500,7 +575,7 @@ mod tests {
                     username: None,
                     hostname: None,
                     accountname: None,
-                    access_levels: HashSet::<AccessLevel>::new(),
+                    access_levels: BTreeSet::<AccessLevel>::new(),
                     away: false,
                 },
                 "foobar",
@@ -513,7 +588,7 @@ mod tests {
                         "2201:12f1:2:1162:1242:1fg:he11:abde".into(),
                     ),
                     accountname: None,
-                    access_levels: HashSet::<AccessLevel>::new(),
+                    access_levels: BTreeSet::<AccessLevel>::new(),
                     away: false,
                 },
                 "foobar!8a027a9a4a@2201:12f1:2:1162:1242:1fg:he11:abde",
@@ -524,7 +599,7 @@ mod tests {
                     username: Some("~foobar".into()),
                     hostname: Some("12.521.212.521".into()),
                     accountname: None,
-                    access_levels: HashSet::<AccessLevel>::from([
+                    access_levels: BTreeSet::<AccessLevel>::from([
                         AccessLevel::Oper,
                         AccessLevel::Voice,
                     ]),
@@ -550,7 +625,7 @@ mod tests {
                     username: Some("d".into()),
                     hostname: Some("localhost".into()),
                     accountname: None,
-                    access_levels: HashSet::<AccessLevel>::new(),
+                    access_levels: BTreeSet::<AccessLevel>::new(),
                     away: false,
                 },
             ),
@@ -561,7 +636,7 @@ mod tests {
                     username: Some("the.flu".into()),
                     hostname: Some("in.you".into()),
                     accountname: None,
-                    access_levels: HashSet::<AccessLevel>::from([
+                    access_levels: BTreeSet::<AccessLevel>::from([
                         AccessLevel::Oper,
                     ]),
                     away: false,
@@ -574,7 +649,7 @@ mod tests {
                     username: Some("d".into()),
                     hostname: Some("localhost".into()),
                     accountname: None,
-                    access_levels: HashSet::<AccessLevel>::new(),
+                    access_levels: BTreeSet::<AccessLevel>::new(),
                     away: false,
                 },
             ),
@@ -585,7 +660,7 @@ mod tests {
                     username: Some("d".into()),
                     hostname: None,
                     accountname: None,
-                    access_levels: HashSet::<AccessLevel>::new(),
+                    access_levels: BTreeSet::<AccessLevel>::new(),
                     away: false,
                 },
             ),
@@ -596,7 +671,7 @@ mod tests {
                     username: None,
                     hostname: None,
                     accountname: None,
-                    access_levels: HashSet::<AccessLevel>::new(),
+                    access_levels: BTreeSet::<AccessLevel>::new(),
                     away: false,
                 },
             ),
@@ -651,5 +726,21 @@ mod tests {
 
         // Test invalid regex (should not match)
         assert!(!user.matches_masks(&["[invalid".to_string()]));
+    }
+
+    #[test]
+    fn chanmap() {
+        let users = &[
+            ("dan", "+@dan"),
+            ("d@n", "@d@n!d@localhost"),
+            ("foobar", "+@foobar!~foobar@12.521.212.521"),
+            ("*status", "*status"),
+        ]
+        .map(|(a, b)| (NickRef::from(a), User::try_from(b).unwrap()));
+        let channel_users: ChannelUsers =
+            users.iter().map(|(_, u)| u).cloned().collect();
+        for (nick, user) in users {
+            assert_eq!(channel_users.get_by_nick(*nick), Some(user));
+        }
     }
 }

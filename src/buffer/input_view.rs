@@ -166,20 +166,21 @@ impl State {
                 // Reset selected history
                 self.selected_history = None;
 
-                let users = buffer
-                    .channel()
-                    .map(|channel| {
-                        clients.get_channel_users(buffer.server(), channel)
-                    })
-                    .unwrap_or_default();
-                let channels = clients.get_channels(buffer.server());
+                let users = buffer.channel().and_then(|channel| {
+                    clients.get_channel_users(buffer.server(), channel)
+                });
+                // TODO(pounce) eliminate clones
+                let channels = clients
+                    .get_channels(buffer.server())
+                    .cloned()
+                    .collect::<Vec<_>>();
                 let isupport = clients.get_isupport(buffer.server());
 
                 self.completion.process(
                     &input,
                     users,
                     &history.get_last_seen(buffer),
-                    channels,
+                    &channels,
                     current_channel,
                     &isupport,
                     config,
@@ -466,7 +467,7 @@ impl State {
 
                     if let Some(nick) = clients.nickname(buffer.server()) {
                         let mut user = nick.to_owned().into();
-                        let mut channel_users = &[][..];
+                        let mut channel_users = None;
 
                         let chantypes = clients.get_chantypes(buffer.server());
                         let statusmsg = clients.get_statusmsg(buffer.server());
@@ -545,19 +546,20 @@ impl State {
 
                     let users = buffer
                         .channel()
-                        .map(|channel| {
+                        .and_then(|channel| {
                             clients.get_channel_users(buffer.server(), channel)
-                        })
-                        .unwrap_or_default();
-                    let channels = clients.get_channels(buffer.server());
-
+                        });
+                    let channels = clients
+                        .get_channels(buffer.server())
+                        .cloned()
+                        .collect::<Vec<_>>();
                     let isupport = clients.get_isupport(buffer.server());
 
                     self.completion.process(
                         &new_input,
                         users,
                         &history.get_last_seen(buffer),
-                        channels,
+                        &channels,
                         current_channel,
                         &isupport,
                         config,
@@ -587,21 +589,20 @@ impl State {
                         let new_input =
                             cache.history.get(*index).unwrap().clone();
 
-                        let users = buffer
-                            .channel()
-                            .map(|channel| {
-                                clients
-                                    .get_channel_users(buffer.server(), channel)
-                            })
-                            .unwrap_or_default();
-                        let channels = clients.get_channels(buffer.server());
+                        let users = buffer.channel().and_then(|channel| {
+                            clients.get_channel_users(buffer.server(), channel)
+                        });
+                        let channels = clients
+                            .get_channels(buffer.server())
+                            .cloned()
+                            .collect::<Vec<_>>();
                         let isupport = clients.get_isupport(buffer.server());
 
                         self.completion.process(
                             &new_input,
                             users,
                             &history.get_last_seen(buffer),
-                            channels,
+                            &channels,
                             current_channel,
                             &isupport,
                             config,

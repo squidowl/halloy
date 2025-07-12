@@ -87,7 +87,7 @@ pub fn view<'a>(
                         config.buffer.nickname.show_access_levels;
 
                     let current_user =
-                        users.iter().find(|current_user| *current_user == user);
+                        users.and_then(|users| users.resolve(user));
 
                     let text = selectable_text(
                         config

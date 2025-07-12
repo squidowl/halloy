@@ -6,6 +6,7 @@ use irc::proto::format;
 use crate::buffer::{self, AutoFormat};
 use crate::message::formatting;
 use crate::target::Target;
+use crate::user::ChannelUsers;
 use crate::{
     Command, Config, Message, Server, User, command, isupport, message,
 };
@@ -71,7 +72,7 @@ impl Input {
     pub fn messages(
         &self,
         user: User,
-        channel_users: &[User],
+        channel_users: Option<&ChannelUsers>,
         chantypes: &[char],
         statusmsg: &[char],
         casemapping: isupport::CaseMap,

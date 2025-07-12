@@ -1,3 +1,4 @@
+use data::user::ChannelUsers;
 use data::{Config, file_transfer, history, preview};
 use iced::widget::{button, center, container, pane_grid, row, text};
 
@@ -63,7 +64,8 @@ impl Pane {
                 let server = &state.server;
                 let users = clients
                     .get_channel_users(&state.server, &state.target)
-                    .len();
+                    .map(ChannelUsers::len)
+                    .unwrap_or_default();
 
                 let mode = clients
                     .get_channel_mode(&state.server, &state.target)
