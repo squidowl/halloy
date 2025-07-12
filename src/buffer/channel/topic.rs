@@ -1,4 +1,5 @@
 use chrono::{DateTime, Local, Utc};
+use data::user::ChannelUsers;
 use data::{Config, Server, User, isupport, message, target};
 use iced::Length;
 use iced::widget::{
@@ -47,7 +48,7 @@ pub fn view<'a>(
     who: Option<&'a str>,
     time: Option<&'a DateTime<Utc>>,
     max_lines: u16,
-    users: &'a [User],
+    users: Option<&'a ChannelUsers>,
     our_user: Option<&'a User>,
     config: &'a Config,
     theme: &'a Theme,
@@ -55,7 +56,7 @@ pub fn view<'a>(
     let set_by =
         who.and_then(|who| User::try_from(who).ok())
             .and_then(|user| {
-                let channel_user = users.iter().find(|u| **u == user);
+                let channel_user = users.and_then(|users| users.resolve(&user));
 
                 // If user is in channel, we return user_context component.
                 // Otherwise selectable_text component.
