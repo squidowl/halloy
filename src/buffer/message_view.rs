@@ -1,6 +1,7 @@
 use data::isupport::{CaseMap, PrefixMap};
 use data::server::Server;
 use data::target::{self};
+use data::user::ChannelUsers;
 use data::{Config, User, message};
 use iced::advanced::text;
 use iced::widget::{column, container, row};
@@ -18,16 +19,16 @@ pub enum TargetInfo<'a> {
     Channel {
         channel: &'a target::Channel,
         our_user: Option<&'a User>,
-        users: &'a [User],
+        users: Option<&'a ChannelUsers>,
     },
     Query,
 }
 
 impl<'a> TargetInfo<'a> {
-    fn users(&self) -> &'a [User] {
+    fn users(&self) -> Option<&'a ChannelUsers> {
         match self {
-            TargetInfo::Channel { users, .. } => users,
-            TargetInfo::Query => &[],
+            TargetInfo::Channel { users, .. } => *users,
+            TargetInfo::Query => None,
         }
     }
     fn our_user(&self) -> Option<&'a User> {
@@ -127,7 +128,8 @@ impl<'a> ChannelQueryLayout<'a> {
         let current_user: Option<&User> = self
             .target
             .users()
-            .iter()
+            .into_iter()
+            .flatten()
             .find(|current_user| *current_user == user);
 
         let mut text = selectable_text(
@@ -240,10 +242,7 @@ impl<'a> ChannelQueryLayout<'a> {
                         fm.prefix,
                         fm.target.channel(),
                         user,
-                        fm.target
-                            .users()
-                            .iter()
-                            .find(|current_user| *current_user == user),
+                        fm.target.users().and_then(|users| users.resolve(user)),
                         length,
                         fm.config,
                         fm.theme,
