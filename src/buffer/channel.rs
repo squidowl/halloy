@@ -326,7 +326,7 @@ fn topic<'a>(
             prefix,
             &state.target,
             topic.content.as_ref()?,
-            topic.who.as_deref(),
+            topic.who.clone(),
             topic.time.as_ref(),
             config.buffer.channel.topic.max_lines,
             users,

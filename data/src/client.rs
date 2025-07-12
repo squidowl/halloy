@@ -1901,8 +1901,9 @@ impl Client {
                         self.casemapping(),
                     )))
                 {
+                    let prefix = isupport::get_prefix(&self.isupport);
                     for user in args[3].split(' ') {
-                        if let Ok(user) = User::try_from(user) {
+                        if let Ok(user) = User::parse(user, prefix) {
                             channel.users.insert(user);
                         }
                     }
@@ -1946,7 +1947,7 @@ impl Client {
                     }
 
                     channel.topic.who =
-                        message.user().map(|user| user.nickname().to_string());
+                        message.user().map(|user| user.nickname().to_owned());
                     channel.topic.time = Some(server_time(&message));
                 }
             }
@@ -1980,7 +1981,8 @@ impl Client {
                         self.casemapping(),
                     )))
                 {
-                    channel.topic.who = Some(ok!(args.get(2)).to_string());
+                    channel.topic.who =
+                        Some(Nick::from(ok!(args.get(2)).as_str()));
                     let timestamp =
                         Posix::from_seconds(ok!(args.get(3)).parse::<u64>()?);
                     channel.topic.time =
@@ -2155,7 +2157,7 @@ impl Client {
             Command::Numeric(RPL_MONONLINE, args) => {
                 let targets = ok!(args.get(1))
                     .split(',')
-                    .filter_map(|target| User::try_from(target).ok())
+                    .map(|target| User::from(Nick::from(target)))
                     .collect::<Vec<_>>();
 
                 return Ok(vec![
@@ -2859,23 +2861,23 @@ impl Client {
     }
 
     pub fn casemapping(&self) -> isupport::CaseMap {
-        isupport::get_casemapping(&self.isupport)
+        isupport::get_casemapping_or_default(&self.isupport)
     }
 
     pub fn chanmodes(&self) -> &[isupport::ModeKind] {
-        isupport::get_chanmodes(&self.isupport)
+        isupport::get_chanmodes_or_default(&self.isupport)
     }
 
     pub fn chantypes(&self) -> &[char] {
-        isupport::get_chantypes(&self.isupport)
+        isupport::get_chantypes_or_default(&self.isupport)
     }
 
     pub fn prefix(&self) -> &[isupport::PrefixMap] {
-        isupport::get_prefix(&self.isupport)
+        isupport::get_prefix_or_default(&self.isupport)
     }
 
     pub fn statusmsg(&self) -> &[char] {
-        isupport::get_statusmsg(&self.isupport)
+        isupport::get_statusmsg_or_default(&self.isupport)
     }
 
     pub fn is_channel(&self, target: &str) -> bool {
@@ -3457,7 +3459,7 @@ impl Channel {
 #[derive(Default, Debug, Clone)]
 pub struct Topic {
     pub content: Option<message::Content>,
-    pub who: Option<String>,
+    pub who: Option<Nick>,
     pub time: Option<DateTime<Utc>>,
 }
 
