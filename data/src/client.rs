@@ -1981,8 +1981,14 @@ impl Client {
                         self.casemapping(),
                     )))
                 {
-                    channel.topic.who =
-                        Some(Nick::from(ok!(args.get(2)).as_str()));
+                    channel.topic.who = Some(
+                        context!(User::parse(
+                            ok!(args.get(2)),
+                            isupport::get_prefix(&self.isupport),
+                        ))
+                        .nickname()
+                        .to_owned(),
+                    );
                     let timestamp =
                         Posix::from_seconds(ok!(args.get(3)).parse::<u64>()?);
                     channel.topic.time =
