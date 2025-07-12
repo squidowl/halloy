@@ -55,7 +55,7 @@ impl PartialOrd for User {
 pub enum TryFromUserError {
     #[error("nickname can't be empty")]
     NicknameEmpty,
-    #[error("nickname must start with alphabetic or [ \\ ] ^ _ ` {{ | }} *")]
+    #[error("nickname must start with alphanumeric or [ \\ ] ^ _ ` {{ | }} *")]
     NicknameInvalidCharacter,
 }
 
@@ -76,7 +76,7 @@ impl<'a> TryFrom<&'a str> for User {
         }
 
         let Some(index) = value.find(|c: char| {
-            c.is_alphabetic() || "[\\]^_`{|}*".find(c).is_some()
+            c.is_alphanumeric() || "[\\]^_`{|}*".find(c).is_some()
         }) else {
             return Err(Self::Error::NicknameInvalidCharacter);
         };
