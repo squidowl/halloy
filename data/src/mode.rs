@@ -412,8 +412,8 @@ mod test {
             let modes = parse::<Channel>(
                 modes,
                 &args,
-                isupport::get_chanmodes(&isupport),
-                isupport::get_prefix(&isupport),
+                isupport::get_chanmodes_or_default(&isupport),
+                isupport::get_prefix_or_default(&isupport),
             );
             assert_eq!(modes, expected);
         }

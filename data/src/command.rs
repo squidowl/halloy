@@ -257,9 +257,12 @@ pub fn parse(
                 if let Some(msg) = msg {
                     Ok(Command::Irc(Irc::Msg(targets, msg)))
                 } else {
-                    let casemapping = isupport::get_casemapping(isupport);
-                    let chantypes = isupport::get_chantypes(isupport);
-                    let statusmsg = isupport::get_statusmsg(isupport);
+                    let casemapping =
+                        isupport::get_casemapping_or_default(isupport);
+                    let chantypes =
+                        isupport::get_chantypes_or_default(isupport);
+                    let statusmsg =
+                        isupport::get_statusmsg_or_default(isupport);
 
                     Ok(Command::Internal(Internal::OpenBuffers(
                         targets
@@ -397,7 +400,8 @@ pub fn parse(
             Kind::Mode => validated::<1, 2, true>(
                 args,
                 |[target], [mode_string, mode_arguments]| {
-                    let mode_limit = isupport::get_mode_limit(isupport);
+                    let mode_limit =
+                        isupport::get_mode_limit_or_default(isupport);
 
                     if let Some(mode_string) = mode_string {
                         if mode_string == "+" || mode_string == "-" {
@@ -405,11 +409,14 @@ pub fn parse(
                         } else {
                             let mode_string_regex = if proto::is_channel(
                                 &target,
-                                isupport::get_chantypes(isupport),
+                                isupport::get_chantypes_or_default(isupport),
                             ) {
                                 let chanmodes =
-                                    isupport::get_chanmodes(isupport);
-                                let prefix = isupport::get_prefix(isupport);
+                                    isupport::get_chanmodes_or_default(
+                                        isupport,
+                                    );
+                                let prefix =
+                                    isupport::get_prefix_or_default(isupport);
 
                                 let mut channel_modes_regex =
                                     String::from(r"^((\+|\-)[");
@@ -543,9 +550,12 @@ pub fn parse(
                     if let Some(msg) = msg {
                         Ok(Command::Irc(Irc::Notice(targets, msg)))
                     } else {
-                        let casemapping = isupport::get_casemapping(isupport);
-                        let chantypes = isupport::get_chantypes(isupport);
-                        let statusmsg = isupport::get_statusmsg(isupport);
+                        let casemapping =
+                            isupport::get_casemapping_or_default(isupport);
+                        let chantypes =
+                            isupport::get_chantypes_or_default(isupport);
+                        let statusmsg =
+                            isupport::get_statusmsg_or_default(isupport);
 
                         Ok(Command::Internal(Internal::OpenBuffers(
                             targets

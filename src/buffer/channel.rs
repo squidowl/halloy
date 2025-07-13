@@ -60,8 +60,7 @@ pub fn view<'a>(
             clients.resolve_user_attributes(&state.server, channel, &user)
         });
 
-    let users = clients
-        .get_channel_users(&state.server, channel);
+    let users = clients.get_channel_users(&state.server, channel);
 
     let chathistory_state =
         clients.get_chathistory_state(server, &channel.to_target());
@@ -326,7 +325,7 @@ fn topic<'a>(
             prefix,
             &state.target,
             topic.content.as_ref()?,
-            topic.who.as_deref(),
+            topic.who.as_ref().map(Nick::as_nickref),
             topic.time.as_ref(),
             config.buffer.channel.topic.max_lines,
             users,

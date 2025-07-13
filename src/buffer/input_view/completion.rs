@@ -457,9 +457,9 @@ impl Commands {
             },
             // MODE
             {
-                let chanmodes = isupport::get_chanmodes(isupport);
-                let prefix = isupport::get_prefix(isupport);
-                let mode_limit = isupport::get_mode_limit(isupport);
+                let chanmodes = isupport::get_chanmodes_or_default(isupport);
+                let prefix = isupport::get_prefix_or_default(isupport);
+                let mode_limit = isupport::get_mode_limit_or_default(isupport);
 
                 Command {
                     title: "MODE",
@@ -648,7 +648,8 @@ impl Commands {
                             (String::from(command.title) + " " + subcmd)
                                 .to_lowercase()
                         } else {
-                            let chantypes = isupport::get_chantypes(isupport);
+                            let chantypes =
+                                isupport::get_chantypes_or_default(isupport);
 
                             format!(
                                 "{} {}",
