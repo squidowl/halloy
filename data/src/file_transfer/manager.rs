@@ -152,20 +152,17 @@ impl Manager {
 
         // Check if this is the response to a reverse send we sent
         if let Some(id) = dcc_send.token().and_then(|s| s.parse().ok().map(Id))
-        {
-            if let dcc::Send::Reverse {
+            && let dcc::Send::Reverse {
                 filename,
                 host,
                 port: Some(port),
                 ..
             } = &dcc_send
-            {
-                if let Some(Item::Working {
+                && let Some(Item::Working {
                     file_transfer,
                     task,
                 }) = self.items.get_mut(&id)
-                {
-                    if file_transfer.filename == *filename {
+                    && file_transfer.filename == *filename {
                         log::debug!(
                             "File transfer received reverse confirmation from {} for {:?}",
                             from.nickname(),
@@ -174,9 +171,6 @@ impl Manager {
                         task.confirm_reverse(*host, *port);
                         return None;
                     }
-                }
-            }
-        }
 
         log::debug!(
             "File transfer request received from {} for {:?}",
@@ -374,8 +368,8 @@ impl Manager {
     }
 
     fn recycle_port(&mut self, id: Id) {
-        if let Some(port) = self.used_ports.remove(&id) {
-            if let Some(Item::Working {
+        if let Some(port) = self.used_ports.remove(&id)
+            && let Some(Item::Working {
                 task,
                 file_transfer,
             }) = self
@@ -386,7 +380,6 @@ impl Manager {
                 task.port_available(port);
                 self.used_ports.insert(file_transfer.id, port);
             }
-        }
     }
 
     pub fn remove(&mut self, id: &Id) {

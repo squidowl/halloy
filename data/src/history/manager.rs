@@ -233,21 +233,21 @@ impl Manager {
             config,
         ) {
             for message in messages {
-                if config.buffer.mark_as_read.on_message_sent {
-                    if let Some(kind) = history::Kind::from_server_message(
+                if config.buffer.mark_as_read.on_message_sent
+                    && let Some(kind) = history::Kind::from_server_message(
                         input.server().clone(),
                         &message,
-                    ) {
-                        tasks.extend(
-                            self.update_read_marker(
-                                kind,
-                                history::ReadMarker::from_date_time(
-                                    message.server_time,
-                                ),
-                            )
-                            .map(futures::FutureExt::boxed),
-                        );
-                    }
+                    )
+                {
+                    tasks.extend(
+                        self.update_read_marker(
+                            kind,
+                            history::ReadMarker::from_date_time(
+                                message.server_time,
+                            ),
+                        )
+                        .map(futures::FutureExt::boxed),
+                    );
                 }
 
                 tasks.extend(
@@ -683,7 +683,7 @@ impl Data {
         kind: &history::Kind,
         limit: Option<Limit>,
         buffer_config: &config::Buffer,
-    ) -> Option<history::View> {
+    ) -> Option<history::View<'_>> {
         let History::Full {
             messages,
             read_marker,
@@ -705,12 +705,10 @@ impl Data {
                         // Check if target is a channel, and if included/excluded.
                         if let message::Target::Channel { channel, .. } =
                             &message.target
-                        {
-                            if !server_message
+                            && !server_message
                                 .should_send_message(channel.as_str())
-                            {
-                                return false;
-                            }
+                        {
+                            return false;
                         }
 
                         if let Some(seconds) = server_message.smart {

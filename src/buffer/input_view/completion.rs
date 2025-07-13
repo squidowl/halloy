@@ -697,8 +697,7 @@ impl Commands {
             highlighted: Some(index),
             filtered,
         } = self
-        {
-            if let Some(command) = filtered.get(*index).cloned() {
+            && let Some(command) = filtered.get(*index).cloned() {
                 *self = Self::Selected {
                     command: command.clone(),
                     subcommand: None,
@@ -706,7 +705,6 @@ impl Commands {
 
                 return Some(command);
             }
-        }
 
         None
     }
@@ -2352,14 +2350,12 @@ impl Emojis {
             highlighted: Some(index),
             filtered,
         } = self
-        {
-            if let Some(shortcode) = filtered.get(*index).copied() {
+            && let Some(shortcode) = filtered.get(*index).copied() {
                 *self = Self::Idle;
 
                 return pick_emoji(shortcode, config.buffer.emojis.skin_tone)
                     .map(ToString::to_string);
             }
-        }
 
         None
     }

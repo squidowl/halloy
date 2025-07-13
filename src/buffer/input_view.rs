@@ -194,8 +194,8 @@ impl State {
                     config.buffer.text_input.auto_format,
                     &input,
                     &clients.get_isupport(buffer.server()),
-                ) {
-                    if match error {
+                )
+                    && match error {
                         input::Error::ExceedsByteLimit { .. } => true,
                         input::Error::Command(
                             command::Error::IncorrectArgCount {
@@ -228,7 +228,6 @@ impl State {
                     } {
                         self.error = Some(error.to_string());
                     }
-                }
 
                 history.record_text(RawInput {
                     buffer: buffer.clone(),

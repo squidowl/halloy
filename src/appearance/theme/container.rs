@@ -52,7 +52,7 @@ pub fn table(theme: &Theme, idx: usize) -> Style {
     let general = theme.styles().general;
     let buffer = theme.styles().buffer;
 
-    let background = if idx % 2 != 0 {
+    let background = if !idx.is_multiple_of(2) {
         general.background
     } else {
         buffer.background

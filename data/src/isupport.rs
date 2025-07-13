@@ -228,15 +228,13 @@ impl FromStr for Operation {
                         }
                         "CLIENTVER" => {
                             if let Some((major, minor)) = value.split_once('.')
-                            {
-                                if let (Ok(major), Ok(minor)) =
+                                && let (Ok(major), Ok(minor)) =
                                     (major.parse::<u16>(), minor.parse::<u16>())
                                 {
                                     return Ok(Operation::Add(
                                         Parameter::CLIENTVER(major, minor),
                                     ));
                                 }
-                            }
 
                             Err(
                                 "value must be a <major>.<minor> version number",
@@ -339,21 +337,17 @@ impl FromStr for Operation {
                             value.split(',').for_each(|modes_limit| {
                                 if let Some((modes, limit)) =
                                     modes_limit.split_once(':')
-                                {
-                                    if !modes.is_empty()
+                                    && !modes.is_empty()
                                         && modes
                                             .chars()
                                             .all(|c| c.is_ascii_alphabetic())
-                                    {
-                                        if let Ok(limit) = limit.parse::<u16>()
+                                        && let Ok(limit) = limit.parse::<u16>()
                                         {
                                             modes_limits.push(ModesLimit {
                                                 modes: modes.to_string(),
                                                 limit,
                                             });
                                         }
-                                    }
-                                }
                             });
 
                             if !modes_limits.is_empty() {
@@ -457,8 +451,7 @@ impl FromStr for Operation {
                             value.split(',').for_each(|command_target_limit| {
                                 if let Some((command, limit)) =
                                     command_target_limit.split_once(':')
-                                {
-                                    if !command.is_empty()
+                                    && !command.is_empty()
                                         && command
                                             .chars()
                                             .all(|c| c.is_ascii_alphabetic())
@@ -485,7 +478,6 @@ impl FromStr for Operation {
                                             );
                                         }
                                     }
-                                }
                             });
 
                             if !command_target_limits.is_empty() {

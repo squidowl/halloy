@@ -468,7 +468,7 @@ fn picker<'a, Message: 'a>(
                             let height = (bounds.height - y).min(HEIGHT);
                             let top_left =
                                 bounds.position() + Vector::new(x, y);
-                            let color = if (row + col) % 2 == 0 {
+                            let color = if (row + col).is_multiple_of(2) {
                                 COLOR_EVEN
                             } else {
                                 COLOR_ODD
