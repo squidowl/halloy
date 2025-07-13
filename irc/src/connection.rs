@@ -2,6 +2,7 @@ use std::net::IpAddr;
 use std::path::PathBuf;
 use std::pin::Pin;
 
+#[cfg(feature = "tor")]
 use arti_client::DataStream as TorStream;
 use futures::{Sink, SinkExt, Stream, StreamExt};
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
@@ -17,6 +18,7 @@ mod tls;
 
 pub enum IrcStream {
     Tcp(TcpStream),
+    #[cfg(feature = "tor")]
     Tor(TorStream),
 }
 
@@ -188,6 +190,7 @@ impl AsyncRead for IrcStream {
     ) -> std::task::Poll<std::io::Result<()>> {
         match self.get_mut() {
             IrcStream::Tcp(s) => Pin::new(s).poll_read(cx, buf),
+            #[cfg(feature = "tor")]
             IrcStream::Tor(s) => Pin::new(s).poll_read(cx, buf),
         }
     }
@@ -197,6 +200,7 @@ impl AsyncWrite for IrcStream {
     fn is_write_vectored(&self) -> bool {
         match self {
             IrcStream::Tcp(s) => s.is_write_vectored(),
+            #[cfg(feature = "tor")]
             IrcStream::Tor(s) => s.is_write_vectored(),
         }
     }
@@ -206,6 +210,7 @@ impl AsyncWrite for IrcStream {
     ) -> std::task::Poll<Result<(), std::io::Error>> {
         match self.get_mut() {
             IrcStream::Tcp(s) => Pin::new(s).poll_flush(cx),
+            #[cfg(feature = "tor")]
             IrcStream::Tor(s) => Pin::new(s).poll_flush(cx),
         }
     }
@@ -215,6 +220,7 @@ impl AsyncWrite for IrcStream {
     ) -> std::task::Poll<Result<(), std::io::Error>> {
         match self.get_mut() {
             IrcStream::Tcp(s) => Pin::new(s).poll_shutdown(cx),
+            #[cfg(feature = "tor")]
             IrcStream::Tor(s) => Pin::new(s).poll_shutdown(cx),
         }
     }
@@ -225,6 +231,7 @@ impl AsyncWrite for IrcStream {
     ) -> std::task::Poll<Result<usize, std::io::Error>> {
         match self.get_mut() {
             IrcStream::Tcp(s) => Pin::new(s).poll_write(cx, buf),
+            #[cfg(feature = "tor")]
             IrcStream::Tor(s) => Pin::new(s).poll_write(cx, buf),
         }
     }
@@ -235,6 +242,7 @@ impl AsyncWrite for IrcStream {
     ) -> std::task::Poll<Result<usize, std::io::Error>> {
         match self.get_mut() {
             IrcStream::Tcp(s) => Pin::new(s).poll_write_vectored(cx, bufs),
+            #[cfg(feature = "tor")]
             IrcStream::Tor(s) => Pin::new(s).poll_write_vectored(cx, bufs),
         }
     }

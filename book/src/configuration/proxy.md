@@ -159,6 +159,8 @@ password = "password"
 Tor proxy settings. Utilizes the [arti](https://arti.torproject.org/) to integrate Tor natively.
 It accepts no further configuration.
 
+**Note:** Tor support is **not included by default**. You must build Halloy with the `tor` feature to use this proxy type. See [Optional Features](../guides/optional-features.md) for build instructions.
+
 ## Example
 
 ```toml
