@@ -46,7 +46,6 @@ const_format = "0.2.32"
 derive_more = { version = "2.0.1", features = ["full"] }
 image = "0.25.5"
 html-escape = "0.2.13"
-regex = "1.11.1"
 
 [dependencies.irc]
 path = "../irc"
