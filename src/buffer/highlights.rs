@@ -10,7 +10,7 @@ use super::{scroll_view, user_context};
 use crate::widget::{
     Element, message_content, selectable_rich_text, selectable_text,
 };
-use crate::{Theme, theme};
+use crate::{Theme, font, theme};
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -41,6 +41,7 @@ pub fn view<'a>(
             None,
             None,
             config,
+            theme,
             move |message: &'a data::Message, _, _| match &message.target {
                 message::Target::Highlights {
                     server,
@@ -54,13 +55,25 @@ pub fn view<'a>(
                         .format_timestamp(&message.server_time)
                         .map(|timestamp| {
                             selectable_text(timestamp)
+                                .font_maybe(
+                                    theme::font_style::timestamp(theme)
+                                        .map(font::get),
+                                )
                                 .style(theme::selectable_text::timestamp)
                         });
 
                     let channel_text =
                         selectable_rich_text::<_, _, (), _, _>(vec![
                             span(channel.as_str())
-                                .color(theme.colors().buffer.url)
+                                .font_maybe(
+                                    theme
+                                        .styles()
+                                        .buffer
+                                        .url
+                                        .font_style
+                                        .map(font::get),
+                                )
+                                .color(theme.styles().buffer.url.color)
                                 .link(message::Link::GoToMessage(
                                     server.clone(),
                                     channel.clone(),
@@ -74,7 +87,7 @@ pub fn view<'a>(
                         config.buffer.nickname.show_access_levels;
 
                     let current_user =
-                        users.iter().find(|current_user| *current_user == user);
+                        users.and_then(|users| users.resolve(user));
 
                     let text = selectable_text(
                         config
@@ -83,21 +96,27 @@ pub fn view<'a>(
                             .brackets
                             .format(user.display(with_access_levels)),
                     )
+                    .font_maybe(
+                        theme::font_style::nickname(theme).map(font::get),
+                    )
                     .style(|theme| {
                         theme::selectable_text::nickname(theme, config, user)
                     });
 
                     let casemapping = clients.get_casemapping(server);
+                    let prefix = clients.get_prefix(server);
 
                     let nick = user_context::view(
                         text,
                         server,
                         casemapping,
+                        prefix,
                         Some(channel),
                         user,
                         current_user,
                         None,
                         config,
+                        theme,
                         &config.buffer.nickname.click,
                     )
                     .map(scroll_view::Message::UserContext);
@@ -108,6 +127,7 @@ pub fn view<'a>(
                         theme,
                         scroll_view::Message::Link,
                         theme::selectable_text::default,
+                        theme::font_style::primary,
                         move |link| match link {
                             message::Link::User(_) => {
                                 user_context::Entry::list(true, None)
@@ -118,12 +138,14 @@ pub fn view<'a>(
                             message::Link::User(user) => entry
                                 .view(
                                     server,
-                                    clients.get_casemapping(server),
+                                    casemapping,
+                                    prefix,
                                     Some(channel),
                                     user,
                                     current_user,
                                     length,
                                     config,
+                                    theme,
                                 )
                                 .map(scroll_view::Message::UserContext),
                             _ => row![].into(),
@@ -153,13 +175,17 @@ pub fn view<'a>(
                         .format_timestamp(&message.server_time)
                         .map(|timestamp| {
                             selectable_text(timestamp)
+                                .font_maybe(
+                                    theme::font_style::timestamp(theme)
+                                        .map(font::get),
+                                )
                                 .style(theme::selectable_text::timestamp)
                         });
 
                     let channel_text =
                         selectable_rich_text::<_, _, (), _, _>(vec![
                             span(channel.as_str())
-                                .color(theme.colors().buffer.url)
+                                .color(theme.styles().buffer.url.color)
                                 .link(message::Link::GoToMessage(
                                     server.clone(),
                                     channel.clone(),
@@ -177,6 +203,7 @@ pub fn view<'a>(
                         theme,
                         scroll_view::Message::Link,
                         theme::selectable_text::action,
+                        theme::font_style::action,
                         config,
                     );
 

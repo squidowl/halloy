@@ -1,4 +1,5 @@
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Local, Utc};
+use data::user::ChannelUsers;
 use data::{Config, Server, User, isupport, message, target};
 use iced::Length;
 use iced::widget::{
@@ -7,7 +8,7 @@ use iced::widget::{
 
 use super::user_context;
 use crate::widget::{Element, double_pass, message_content, selectable_text};
-use crate::{Theme, theme};
+use crate::{Theme, font, theme};
 
 #[derive(Debug, Clone)]
 pub enum Event {
@@ -41,12 +42,13 @@ pub fn update(message: Message) -> Option<Event> {
 pub fn view<'a>(
     server: &'a Server,
     casemapping: isupport::CaseMap,
+    prefix: &'a [isupport::PrefixMap],
     channel: &'a target::Channel,
     content: &'a message::Content,
     who: Option<&'a str>,
     time: Option<&'a DateTime<Utc>>,
     max_lines: u16,
-    users: &'a [User],
+    users: Option<&'a ChannelUsers>,
     our_user: Option<&'a User>,
     config: &'a Config,
     theme: &'a Theme,
@@ -54,30 +56,38 @@ pub fn view<'a>(
     let set_by =
         who.and_then(|who| User::try_from(who).ok())
             .and_then(|user| {
-                let channel_user = users.iter().find(|u| **u == user);
+                let channel_user = users.and_then(|users| users.resolve(&user));
 
                 // If user is in channel, we return user_context component.
                 // Otherwise selectable_text component.
                 let content = if let Some(user) = channel_user {
                     user_context::view(
-                        selectable_text(user.nickname().to_string()).style(
-                            |theme| {
+                        selectable_text(user.nickname().to_string())
+                            .font_maybe(
+                                theme::font_style::nickname(theme)
+                                    .map(font::get),
+                            )
+                            .style(|theme| {
                                 theme::selectable_text::topic_nickname(
                                     theme, config, user,
                                 )
-                            },
-                        ),
+                            }),
                         server,
                         casemapping,
+                        prefix,
                         Some(channel),
                         user,
                         Some(user),
                         our_user,
                         config,
+                        theme,
                         &config.buffer.nickname.click,
                     )
                 } else {
                     selectable_text(user.display(false))
+                        .font_maybe(
+                            theme::font_style::nickname(theme).map(font::get),
+                        )
                         .style(move |theme| {
                             theme::selectable_text::topic_nickname(
                                 theme, config, &user,
@@ -89,10 +99,19 @@ pub fn view<'a>(
                 Some(
                     Element::new(row![
                         selectable_text("set by ")
+                            .font_maybe(
+                                theme::font_style::topic(theme).map(font::get)
+                            )
                             .style(theme::selectable_text::topic),
                         content,
-                        selectable_text(format!(" at {}", time?.to_rfc2822()))
-                            .style(theme::selectable_text::topic),
+                        selectable_text(format!(
+                            " at {}",
+                            time?.with_timezone(&Local).to_rfc2822()
+                        ))
+                        .font_maybe(
+                            theme::font_style::topic(theme).map(font::get)
+                        )
+                        .style(theme::selectable_text::topic),
                     ])
                     .map(Message::UserContext),
                 )
@@ -104,6 +123,7 @@ pub fn view<'a>(
         theme,
         Message::Link,
         theme::selectable_text::topic,
+        theme::font_style::topic,
         config,
     )]
     .push_maybe(set_by);

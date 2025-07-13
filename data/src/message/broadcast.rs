@@ -205,7 +205,7 @@ pub fn nickname(
     } else {
         parse_fragments_with_users(
             format!("{old_nick} is now known as {new_nick}"),
-            &[old_user, new_user.clone()],
+            Some(&[old_user, new_user.clone()].into_iter().collect()),
         )
     };
 

@@ -4,7 +4,7 @@ use std::hash::{DefaultHasher, Hash as _, Hasher};
 use std::iter;
 use std::sync::LazyLock;
 
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Local, Utc};
 use const_format::concatcp;
 use fancy_regex::{Regex, RegexBuilder};
 use irc::proto;
@@ -21,7 +21,7 @@ use crate::config::buffer::UsernameFormat;
 use crate::serde::fail_as_none;
 use crate::target::Channel;
 use crate::time::Posix;
-use crate::user::{Nick, NickRef};
+use crate::user::{ChannelUsers, Nick, NickRef};
 use crate::{Config, Server, User, ctcp, isupport, target};
 
 // References:
@@ -201,7 +201,7 @@ impl Message {
                         Kind::MonitoredOnline
                             | Kind::MonitoredOffline
                             | Kind::StandardReply(_)
-                            | Kind::Wallops
+                            | Kind::WAllOps
                     )
                 }
                 Source::Internal(source::Internal::Logs { .. }) => true,
@@ -241,7 +241,7 @@ impl Message {
         our_nick: Nick,
         config: &'a Config,
         resolve_attributes: impl Fn(&User, &target::Channel) -> Option<User>,
-        channel_users: impl Fn(&target::Channel) -> &'a [User],
+        channel_users: impl Fn(&target::Channel) -> Option<&'a ChannelUsers>,
         chantypes: &[char],
         statusmsg: &[char],
         casemapping: isupport::CaseMap,
@@ -566,7 +566,7 @@ pub fn plain(text: String) -> Content {
 
 pub fn parse_fragments_with_highlights(
     text: String,
-    channel_users: &[User],
+    channel_users: Option<&ChannelUsers>,
     target: &str,
     our_nick: Option<&Nick>,
     highlights: &Highlights,
@@ -618,13 +618,16 @@ pub fn parse_fragments_with_highlights(
 }
 
 pub fn parse_fragments_with_user(text: String, user: &User) -> Content {
-    let users: &[User] = std::slice::from_ref(user);
-    parse_fragments_with_users(text, users)
+    // XXX(pounce) annoying clone. Cow somewhere?
+    parse_fragments_with_users(
+        text,
+        Some(&[user.clone()].into_iter().collect()),
+    )
 }
 
 pub fn parse_fragments_with_users(
     text: String,
-    channel_users: &[User],
+    channel_users: Option<&ChannelUsers>,
 ) -> Content {
     let fragments = parse_fragments_with_users_inner(text, channel_users)
         .collect::<Vec<_>>();
@@ -656,20 +659,15 @@ pub fn parse_fragments(text: String) -> Content {
 
 fn parse_fragments_with_users_inner(
     text: String,
-    channel_users: &[User],
+    channel_users: Option<&ChannelUsers>,
 ) -> impl Iterator<Item = Fragment> + use<'_> {
     parse_fragments_inner(text).flat_map(move |fragment| {
         if let Fragment::Text(text) = &fragment {
             return Either::Left(
                 parse_regex_fragments(&USER_REGEX, text, |text| {
-                    channel_users
-                        .iter()
-                        .find(|user| {
-                            text.eq_ignore_ascii_case(user.nickname().as_ref())
-                        })
-                        .map(|user| {
-                            Fragment::User(user.clone(), text.to_owned())
-                        })
+                    channel_users?.get_by_nick(text.into()).map(|user| {
+                        Fragment::User(user.clone(), text.to_owned())
+                    })
                 })
                 .into_iter(),
             );
@@ -1094,7 +1092,7 @@ fn target(
         }),
         Command::WALLOPS(_) => Some(Target::Server {
             source: Source::Server(Some(source::Server::new(
-                Kind::Wallops,
+                Kind::WAllOps,
                 None,
             ))),
         }),
@@ -1168,7 +1166,7 @@ fn content<'a>(
     our_nick: &Nick,
     config: &Config,
     resolve_attributes: &dyn Fn(&User, &target::Channel) -> Option<User>,
-    channel_users: &dyn Fn(&target::Channel) -> &'a [User],
+    channel_users: impl Fn(&target::Channel) -> Option<&'a ChannelUsers>,
     chantypes: &[char],
     statusmsg: &[char],
     casemapping: isupport::CaseMap,
@@ -1285,7 +1283,7 @@ fn content<'a>(
                     "⟵ {target} been kicked by {}{comment}",
                     user.nickname()
                 ),
-                vec![user, victim].as_slice(),
+                Some(&[user, victim].into_iter().collect()),
             ))
         }
         Command::MODE(target, modes, args) => {
@@ -1316,8 +1314,8 @@ fn content<'a>(
                         statusmsg,
                         casemapping,
                     )
-                    .map(|channel| channel_users(&channel))
-                    .unwrap_or_default();
+                    .ok()
+                    .and_then(|channel| channel_users(&channel));
 
                     parse_fragments_with_users(
                         format!("{} sets mode {modes} {args}", user.nickname()),
@@ -1332,8 +1330,8 @@ fn content<'a>(
                 statusmsg,
                 casemapping,
             )
-            .map(|channel| channel_users(&channel))
-            .unwrap_or_default();
+            .ok()
+            .and_then(|channel| channel_users(&channel));
 
             // Check if a synthetic action message
 
@@ -1485,6 +1483,7 @@ fn content<'a>(
                 .map(Posix::from_seconds)
                 .as_ref()
                 .and_then(Posix::datetime)?
+                .with_timezone(&Local)
                 .to_rfc2822();
 
             Some(parse_fragments_with_user(
@@ -1640,7 +1639,7 @@ pub fn is_action(text: &str) -> bool {
 fn parse_action(
     nick: NickRef,
     text: &str,
-    channel_users: &[User],
+    channel_users: Option<&ChannelUsers>,
     target: &str,
     our_nick: Option<&Nick>,
     highlights: &Highlights,
@@ -1664,7 +1663,7 @@ fn parse_action(
 pub fn action_text(
     nick: NickRef,
     action: Option<&str>,
-    channel_users: &[User],
+    channel_users: Option<&ChannelUsers>,
     target: &str,
     our_nick: Option<&Nick>,
     highlights: &Highlights,
@@ -1767,7 +1766,7 @@ mod tests {
     use crate::config::highlights::Nickname;
     use crate::message::formatting::Color;
     use crate::message::{Content, Formatting, Fragment};
-    use crate::user::Nick;
+    use crate::user::{ChannelUsers, Nick};
 
     #[test]
     fn fragment_parsing() {
@@ -1917,13 +1916,13 @@ mod tests {
             (
                 (
                     "Bob: I'm in #interesting with Greg, George_, &`Bill`. I hope @Dave doesn't notice.".to_string(),
-                    &Vec::from([
-                        User::try_from("Greg").unwrap(),
-                        User::try_from("Dave").unwrap(),
-                        User::try_from("Bob").unwrap(),
-                        User::try_from("George_").unwrap(),
-                        User::try_from("`Bill`").unwrap(),
-                    ]),
+                    [
+                        "Greg",
+                        "Dave",
+                        "Bob",
+                        "George_",
+                        "`Bill`",
+                    ].into_iter().map(User::try_from).map(Result::unwrap).collect::<ChannelUsers>(),
                     "#interesting",
                     Some(Nick::from("Bob")),
                     &Highlights {
@@ -1949,10 +1948,10 @@ mod tests {
             (
                 (
                     "\u{3}14<\u{3}\u{3}04lurk_\u{3}\u{3}14/rx>\u{3} f_~oftc: > A��\u{1f}qj\u{14}��L�5�g���5�P��yn_?�i3g�1\u{7f}mE�\\X��� Xe�\u{5fa}{d�+�`@�^��NK��~~ޏ\u{7}\u{8}\u{15}\\�\u{4}A� \u{f}\u{1c}�N\u{11}6�r�\u{4}t��Q��\u{1c}�m\u{19}��".to_string(),
-                    &Vec::from([
-                        User::try_from("f_").unwrap(),
-                        User::try_from("rx").unwrap(),
-                    ]),
+                    [
+                        "f_",
+                        "rx",
+                    ].into_iter().map(User::try_from).map(Result::unwrap).collect(),
                     "#funderscore-sucks",
                     Some(Nick::from("f_")),
                     &Highlights {
@@ -1972,7 +1971,7 @@ mod tests {
         {
             if let Content::Fragments(actual) = parse_fragments_with_highlights(
                 text,
-                channel_users,
+                Some(&channel_users),
                 target,
                 our_nick.as_ref(),
                 highlights,

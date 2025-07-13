@@ -66,7 +66,7 @@ pub fn listen() -> futures::stream::BoxStream<'static, String> {
             State::Uninitialized => match spawn_server().await {
                 Ok(server) => Some((None, State::Waiting(server))),
                 Err(err) => {
-                    println!("error: {err:?}");
+                    log::error!("Unable to spawn server: {err:?}");
                     None
                 }
             },

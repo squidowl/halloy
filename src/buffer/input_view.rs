@@ -13,8 +13,8 @@ use iced::widget::{column, container, text, text_input};
 use tokio::time;
 
 use self::completion::Completion;
-use crate::theme;
 use crate::widget::{Element, anchored_overlay, key_press};
+use crate::{Theme, font, theme};
 
 mod completion;
 
@@ -47,6 +47,7 @@ pub fn view<'a>(
     buffer_focused: bool,
     disabled: bool,
     config: &Config,
+    theme: &'a Theme,
 ) -> Element<'a, Message> {
     let style = if state.error.is_some() {
         theme::text_input::error
@@ -99,17 +100,29 @@ pub fn view<'a>(
 
     let overlay = column![]
         .spacing(4)
-        .push_maybe(state.completion.view(cache.text, config))
-        .push_maybe(state.error.as_deref().map(error));
+        .push_maybe(state.completion.view(cache.text, config, theme))
+        .push_maybe(
+            state
+                .error
+                .as_deref()
+                .map(|error_str| error(error_str, theme)),
+        );
 
     anchored_overlay(input, overlay, anchored_overlay::Anchor::AboveTop, 4.0)
 }
 
-fn error<'a, 'b, Message: 'a>(error: &'b str) -> Element<'a, Message> {
-    container(text(error.to_string()).style(theme::text::error))
-        .padding(8)
-        .style(theme::container::tooltip)
-        .into()
+fn error<'a, 'b, Message: 'a>(
+    error: &'b str,
+    theme: &'a Theme,
+) -> Element<'a, Message> {
+    container(
+        text(error.to_string())
+            .style(theme::text::error)
+            .font_maybe(theme::font_style::error(theme).map(font::get)),
+    )
+    .padding(8)
+    .style(theme::container::tooltip)
+    .into()
 }
 
 #[derive(Debug, Clone)]
@@ -153,20 +166,21 @@ impl State {
                 // Reset selected history
                 self.selected_history = None;
 
-                let users = buffer
-                    .channel()
-                    .map(|channel| {
-                        clients.get_channel_users(buffer.server(), channel)
-                    })
-                    .unwrap_or_default();
-                let channels = clients.get_channels(buffer.server());
+                let users = buffer.channel().and_then(|channel| {
+                    clients.get_channel_users(buffer.server(), channel)
+                });
+                // TODO(pounce) eliminate clones
+                let channels = clients
+                    .get_channels(buffer.server())
+                    .cloned()
+                    .collect::<Vec<_>>();
                 let isupport = clients.get_isupport(buffer.server());
 
                 self.completion.process(
                     &input,
                     users,
                     &history.get_last_seen(buffer),
-                    channels,
+                    &channels,
                     current_channel,
                     &isupport,
                     config,
@@ -196,6 +210,9 @@ impl State {
                         input::Error::Command(
                             command::Error::MissingCommand,
                         ) => false,
+                        input::Error::Command(command::Error::NoModeString) => {
+                            false
+                        }
                         input::Error::Command(
                             command::Error::InvalidModeString,
                         ) => true,
@@ -450,7 +467,7 @@ impl State {
 
                     if let Some(nick) = clients.nickname(buffer.server()) {
                         let mut user = nick.to_owned().into();
-                        let mut channel_users = &[][..];
+                        let mut channel_users = None;
 
                         let chantypes = clients.get_chantypes(buffer.server());
                         let statusmsg = clients.get_statusmsg(buffer.server());
@@ -529,18 +546,20 @@ impl State {
 
                     let users = buffer
                         .channel()
-                        .map(|channel| {
+                        .and_then(|channel| {
                             clients.get_channel_users(buffer.server(), channel)
-                        })
-                        .unwrap_or_default();
-                    let channels = clients.get_channels(buffer.server());
+                        });
+                    let channels = clients
+                        .get_channels(buffer.server())
+                        .cloned()
+                        .collect::<Vec<_>>();
                     let isupport = clients.get_isupport(buffer.server());
 
                     self.completion.process(
                         &new_input,
                         users,
                         &history.get_last_seen(buffer),
-                        channels,
+                        &channels,
                         current_channel,
                         &isupport,
                         config,
@@ -570,21 +589,20 @@ impl State {
                         let new_input =
                             cache.history.get(*index).unwrap().clone();
 
-                        let users = buffer
-                            .channel()
-                            .map(|channel| {
-                                clients
-                                    .get_channel_users(buffer.server(), channel)
-                            })
-                            .unwrap_or_default();
-                        let channels = clients.get_channels(buffer.server());
+                        let users = buffer.channel().and_then(|channel| {
+                            clients.get_channel_users(buffer.server(), channel)
+                        });
+                        let channels = clients
+                            .get_channels(buffer.server())
+                            .cloned()
+                            .collect::<Vec<_>>();
                         let isupport = clients.get_isupport(buffer.server());
 
                         self.completion.process(
                             &new_input,
                             users,
                             &history.get_last_seen(buffer),
-                            channels,
+                            &channels,
                             current_channel,
                             &isupport,
                             config,

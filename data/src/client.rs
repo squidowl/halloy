@@ -9,6 +9,7 @@ use anyhow::{Context as ErrorContext, Result, anyhow, bail};
 use chrono::{DateTime, Utc};
 use futures::channel::mpsc;
 use futures::{Future, FutureExt};
+use indexmap::IndexMap;
 use irc::proto::{self, Command, command, tags};
 use itertools::{Either, Itertools};
 use log::error;
@@ -24,7 +25,7 @@ use crate::isupport::{
 use crate::message::{message_id, server_time, source};
 use crate::target::{self, Target};
 use crate::time::Posix;
-use crate::user::{Nick, NickRef};
+use crate::user::{ChannelUsers, Nick, NickRef};
 use crate::{
     Server, User, buffer, compression, config, ctcp, dcc, environment,
     file_transfer, isupport, message, mode, server,
@@ -128,9 +129,7 @@ pub struct Client {
     handle: server::Handle,
     alt_nick: Option<usize>,
     resolved_nick: Option<String>,
-    chanmap: BTreeMap<target::Channel, Channel>,
-    channels: Vec<target::Channel>,
-    users: HashMap<target::Channel, Vec<User>>,
+    chanmap: IndexMap<target::Channel, Channel>,
     resolved_queries: HashSet<target::Query>,
     labels: HashMap<String, Context>,
     batches: HashMap<Target, Batch>,
@@ -171,9 +170,7 @@ impl Client {
             handle: sender,
             resolved_nick: None,
             alt_nick: None,
-            chanmap: BTreeMap::default(),
-            channels: vec![],
-            users: HashMap::new(),
+            chanmap: IndexMap::default(),
             resolved_queries: HashSet::new(),
             labels: HashMap::new(),
             batches: HashMap::new(),
@@ -1427,12 +1424,14 @@ impl Client {
                 let user = ok!(message.user());
 
                 if user.nickname() == self.nickname() {
-                    self.chanmap.remove(&context!(target::Channel::parse(
-                        channel,
-                        self.chantypes(),
-                        self.statusmsg(),
-                        self.casemapping(),
-                    )));
+                    self.chanmap.shift_remove(&context!(
+                        target::Channel::parse(
+                            channel,
+                            self.chantypes(),
+                            self.statusmsg(),
+                            self.casemapping(),
+                        )
+                    ));
                 } else if let Some(channel) =
                     self.chanmap.get_mut(&context!(target::Channel::parse(
                         channel,
@@ -1455,8 +1454,19 @@ impl Client {
                 ));
 
                 if user.nickname() == self.nickname() {
-                    self.chanmap
-                        .insert(target_channel.clone(), Channel::default());
+                    // TODO(pounce) change to `insert_sorted_by` when merged
+                    let (Ok(i) | Err(i)) =
+                        self.chanmap.binary_search_by(|c, _| {
+                            self.compare_channels(
+                                c.as_normalized_str(),
+                                target_channel.as_normalized_str(),
+                            )
+                        });
+                    self.chanmap.insert_before(
+                        i,
+                        target_channel.clone(),
+                        Channel::default(),
+                    );
 
                     // Add channel to WHO poll queue
                     if !self
@@ -1492,12 +1502,14 @@ impl Client {
             }
             Command::KICK(channel, victim, _) => {
                 if victim == self.nickname().as_ref() {
-                    self.chanmap.remove(&context!(target::Channel::parse(
-                        channel,
-                        self.chantypes(),
-                        self.statusmsg(),
-                        self.casemapping(),
-                    )));
+                    self.chanmap.shift_remove(&context!(
+                        target::Channel::parse(
+                            channel,
+                            self.chantypes(),
+                            self.statusmsg(),
+                            self.casemapping(),
+                        )
+                    ));
                 } else if let Some(channel) =
                     self.chanmap.get_mut(&context!(target::Channel::parse(
                         channel,
@@ -1817,64 +1829,63 @@ impl Client {
                 }
             }
             Command::MODE(target, Some(modes), Some(args)) => {
-                match Target::parse(
+                if let Ok(channel) = target::Channel::parse(
                     target,
                     self.chantypes(),
                     self.statusmsg(),
                     self.casemapping(),
                 ) {
-                    Target::Channel(ref channel) => {
-                        if let Some(channel) = self.chanmap.get_mut(channel) {
-                            let modes =
-                                mode::parse::<mode::Channel>(modes, args);
+                    let modes = mode::parse::<mode::Channel>(
+                        modes,
+                        args,
+                        self.chanmodes(),
+                        self.prefix(),
+                    );
 
-                            for mode in modes {
-                                if let Some((op, lookup)) =
-                                    mode.operation().zip(mode.arg().map(
-                                        |nick| User::from(Nick::from(nick)),
-                                    ))
+                    if let Some(channel) = self.chanmap.get_mut(&channel) {
+                        for mode in modes {
+                            if let Some((op, lookup)) = mode.operation().zip(
+                                mode.arg()
+                                    .map(|nick| User::from(Nick::from(nick))),
+                            ) {
+                                if let Some(mut user) =
+                                    channel.users.take(&lookup)
                                 {
-                                    if let Some(mut user) =
-                                        channel.users.take(&lookup)
-                                    {
-                                        user.update_access_level(
-                                            op,
-                                            *mode.value(),
-                                        );
-                                        channel.users.insert(user);
-                                    }
+                                    user.update_access_level(op, *mode.value());
+                                    channel.users.insert(user);
                                 }
                             }
                         }
                     }
-                    Target::Query(_) => {
-                        // Only check for being logged in via mode if account-notify is not available,
-                        // since it is not standardized across networks.
+                } else {
+                    // Only check for being logged in via mode if account-notify is not available,
+                    // since it is not standardized across networks.
 
-                        if target == self.nickname().as_ref()
-                            && !self.supports_account_notify
-                            && !self.registration_required_channels.is_empty()
-                        {
-                            let modes = mode::parse::<mode::User>(modes, args);
+                    if target == self.nickname().as_ref()
+                        && !self.supports_account_notify
+                        && !self.registration_required_channels.is_empty()
+                    {
+                        let modes = mode::parse::<mode::User>(
+                            modes,
+                            args,
+                            self.chanmodes(),
+                            self.prefix(),
+                        );
 
-                            if modes.into_iter().any(|mode| {
-                                matches!(
-                                    mode,
-                                    mode::Mode::Add(
-                                        mode::User::Registered,
-                                        None
-                                    )
-                                )
-                            }) {
-                                for message in group_joins(
-                                    &self.registration_required_channels,
-                                    &self.config.channel_keys,
-                                ) {
-                                    self.handle.try_send(message)?;
-                                }
-
-                                self.registration_required_channels.clear();
+                        if modes.into_iter().any(|mode| {
+                            matches!(
+                                mode,
+                                mode::Mode::Add(mode::User::Registered, None)
+                            )
+                        }) {
+                            for message in group_joins(
+                                &self.registration_required_channels,
+                                &self.config.channel_keys,
+                            ) {
+                                self.handle.try_send(message)?;
                             }
+
+                            self.registration_required_channels.clear();
                         }
                     }
                 }
@@ -2685,32 +2696,8 @@ impl Client {
         .boxed()
     }
 
-    fn sync(&mut self) {
-        self.channels = self
-            .chanmap
-            .keys()
-            .cloned()
-            .sorted_by(|a, b| {
-                self.compare_channels(
-                    a.as_normalized_str(),
-                    b.as_normalized_str(),
-                )
-            })
-            .collect();
-        self.users = self
-            .chanmap
-            .iter()
-            .map(|(channel, state)| {
-                (
-                    channel.clone(),
-                    state.users.iter().sorted().cloned().collect(),
-                )
-            })
-            .collect();
-    }
-
-    pub fn channels(&self) -> &[target::Channel] {
-        &self.channels
+    pub fn channels(&self) -> impl Iterator<Item = &target::Channel> {
+        self.chanmap.keys()
     }
 
     fn topic<'a>(&'a self, channel: &target::Channel) -> Option<&'a Topic> {
@@ -2730,24 +2717,21 @@ impl Client {
     ) -> Option<&'a User> {
         self.chanmap
             .get(channel)
-            .and_then(|channel| channel.users.get(user))
+            .and_then(|channel| channel.users.resolve(user))
     }
 
-    pub fn users<'a>(&'a self, channel: &target::Channel) -> &'a [User] {
-        self.users
-            .get(channel)
-            .map(Vec::as_slice)
-            .unwrap_or_default()
+    pub fn users<'a>(
+        &'a self,
+        channel: &target::Channel,
+    ) -> Option<&'a ChannelUsers> {
+        self.chanmap.get(channel).map(|chanimpl| &chanimpl.users)
     }
 
     fn user_channels(&self, nick: NickRef) -> Vec<target::Channel> {
-        self.channels()
+        self.chanmap
             .iter()
-            .filter(|channel| {
-                self.users(channel)
-                    .iter()
-                    .any(|user| user.nickname() == nick)
-            })
+            .filter(|(_, chan)| chan.users.get_by_nick(nick).is_some())
+            .map(|(t, _)| t)
             .cloned()
             .collect()
     }
@@ -2878,8 +2862,16 @@ impl Client {
         isupport::get_casemapping(&self.isupport)
     }
 
+    pub fn chanmodes(&self) -> &[isupport::ModeKind] {
+        isupport::get_chanmodes(&self.isupport)
+    }
+
     pub fn chantypes(&self) -> &[char] {
         isupport::get_chantypes(&self.isupport)
+    }
+
+    pub fn prefix(&self) -> &[isupport::PrefixMap] {
+        isupport::get_prefix(&self.isupport)
     }
 
     pub fn statusmsg(&self) -> &[char] {
@@ -3037,12 +3029,6 @@ impl Map {
         }
     }
 
-    pub fn sync(&mut self, server: &Server) {
-        if let Some(State::Ready(client)) = self.0.get_mut(server) {
-            client.sync();
-        }
-    }
-
     pub fn send(
         &mut self,
         buffer: &buffer::Upstream,
@@ -3100,14 +3086,12 @@ impl Map {
             .and_then(|client| client.resolve_user_attributes(channel, user))
     }
 
-    pub fn get_channel_users<'a>(
-        &'a self,
+    pub fn get_channel_users(
+        &self,
         server: &Server,
         channel: &target::Channel,
-    ) -> &'a [User] {
-        self.client(server)
-            .map(|client| client.users(channel))
-            .unwrap_or_default()
+    ) -> Option<&ChannelUsers> {
+        self.client(server).and_then(|client| client.users(channel))
     }
 
     pub fn get_user_channels(
@@ -3143,10 +3127,20 @@ impl Map {
     pub fn get_channels<'a>(
         &'a self,
         server: &Server,
-    ) -> &'a [target::Channel] {
+    ) -> impl Iterator<Item = &'a target::Channel> {
         self.client(server)
             .map(Client::channels)
-            .unwrap_or_default()
+            .into_iter()
+            .flatten()
+    }
+
+    pub fn contains_channel(
+        &self,
+        server: &Server,
+        chan: &target::Channel,
+    ) -> bool {
+        self.client(server)
+            .is_some_and(|c| c.chanmap.contains_key(chan))
     }
 
     pub fn resolve_query<'a>(
@@ -3173,10 +3167,26 @@ impl Map {
             .unwrap_or_default()
     }
 
+    pub fn get_chanmodes<'a>(
+        &'a self,
+        server: &Server,
+    ) -> &'a [isupport::ModeKind] {
+        self.client(server)
+            .map(Client::chanmodes)
+            .unwrap_or_default()
+    }
+
     pub fn get_chantypes<'a>(&'a self, server: &Server) -> &'a [char] {
         self.client(server)
             .map(Client::chantypes)
             .unwrap_or_default()
+    }
+
+    pub fn get_prefix<'a>(
+        &'a self,
+        server: &Server,
+    ) -> &'a [isupport::PrefixMap] {
+        self.client(server).map(Client::prefix).unwrap_or_default()
     }
 
     pub fn get_statusmsg<'a>(&'a self, server: &Server) -> &'a [char] {
@@ -3409,7 +3419,7 @@ enum RegistrationStep {
 
 #[derive(Debug, Default)]
 pub struct Channel {
-    pub users: HashSet<User>,
+    pub users: ChannelUsers,
     pub topic: Topic,
     pub names_init: bool,
     pub who_init: bool,
