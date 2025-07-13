@@ -321,8 +321,8 @@ impl History {
     }
 
     fn add_message(&mut self, message: Message) -> Option<ReadMarker> {
-        if message.triggers_unread() {
-            if let History::Partial {
+        if message.triggers_unread()
+            && let History::Partial {
                 max_triggers_unread,
                 ..
             } = self
@@ -330,7 +330,6 @@ impl History {
                 *max_triggers_unread =
                     (*max_triggers_unread).max(Some(message.server_time));
             }
-        }
 
         match self {
             History::Partial {
@@ -635,15 +634,13 @@ impl History {
             last_updated_at,
             ..
         } = self
-        {
-            if let Some(message) =
+            && let Some(message) =
                 messages.iter_mut().find(|m| m.hash == message)
             {
                 message.hidden_urls.insert(url);
 
                 *last_updated_at = Some(Instant::now());
             }
-        }
     }
 
     pub fn last_seen(&self) -> HashMap<Nick, DateTime<Utc>> {

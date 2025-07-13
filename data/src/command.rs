@@ -178,8 +178,8 @@ pub fn parse(
                             }
                         }
 
-                        if let Some(max_len) = channel_len {
-                            if let Some(channel) = channels
+                        if let Some(max_len) = channel_len
+                            && let Some(channel) = channels
                                 .into_iter()
                                 .find(|channel| channel.len() > max_len)
                             {
@@ -189,11 +189,10 @@ pub fn parse(
                                     max_len,
                                 });
                             }
-                        }
                     }
 
-                    if let Some(ref chankeys) = chankeys {
-                        if let Some(isupport::Parameter::KEYLEN(max_len)) =
+                    if let Some(ref chankeys) = chankeys
+                        && let Some(isupport::Parameter::KEYLEN(max_len)) =
                             isupport.get(&isupport::Kind::KEYLEN)
                         {
                             let max_len = *max_len as usize;
@@ -210,7 +209,6 @@ pub fn parse(
                                 });
                             }
                         }
-                    }
 
                     Ok(Command::Irc(Irc::Join(chanlist, chankeys)))
                 })
@@ -342,8 +340,8 @@ pub fn parse(
             }
             Kind::Topic => {
                 validated::<1, 1, true>(args, |[channel], [topic]| {
-                    if let Some(ref topic) = topic {
-                        if let Some(isupport::Parameter::TOPICLEN(max_len)) =
+                    if let Some(ref topic) = topic
+                        && let Some(isupport::Parameter::TOPICLEN(max_len)) =
                             isupport.get(&isupport::Kind::TOPICLEN)
                         {
                             let max_len = *max_len as usize;
@@ -356,7 +354,6 @@ pub fn parse(
                                 });
                             }
                         }
-                    }
 
                     Ok(Command::Irc(Irc::Topic(channel, topic)))
                 })
@@ -378,8 +375,8 @@ pub fn parse(
                         }
                     }
 
-                    if let Some(ref comment) = comment {
-                        if let Some(isupport::Parameter::KICKLEN(max_len)) =
+                    if let Some(ref comment) = comment
+                        && let Some(isupport::Parameter::KICKLEN(max_len)) =
                             isupport.get(&isupport::Kind::KICKLEN)
                         {
                             let max_len = *max_len as usize;
@@ -392,7 +389,6 @@ pub fn parse(
                                 });
                             }
                         }
-                    }
 
                     Ok(Command::Irc(Irc::Kick(channel, users, comment)))
                 })
@@ -495,8 +491,8 @@ pub fn parse(
                 },
             ),
             Kind::Away => validated::<0, 1, true>(args, |_, [comment]| {
-                if let Some(ref comment) = comment {
-                    if let Some(isupport::Parameter::AWAYLEN(max_len)) =
+                if let Some(ref comment) = comment
+                    && let Some(isupport::Parameter::AWAYLEN(max_len)) =
                         isupport.get(&isupport::Kind::AWAYLEN)
                     {
                         let max_len = *max_len as usize;
@@ -509,7 +505,6 @@ pub fn parse(
                             });
                         }
                     }
-                }
 
                 Ok(Command::Irc(Irc::Away(comment)))
             }),

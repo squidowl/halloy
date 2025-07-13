@@ -31,13 +31,11 @@ where
                     modifiers: m,
                     ..
                 }) = &event
-                {
-                    if key == *k && modifiers == *m {
+                    && key == *k && modifiers == *m {
                         shell.publish(on_press.clone());
                         shell.capture_event();
                         return;
                     }
-                }
 
                 inner.as_widget_mut().update(
                     tree, event, layout, cursor, renderer, clipboard, shell,

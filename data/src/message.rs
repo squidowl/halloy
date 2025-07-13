@@ -214,16 +214,16 @@ impl Message {
             || matches!(self.target.source(), Source::Internal(_))
         {
             return false;
-        } else if let Source::Server(Some(source)) = self.target.source() {
-            if matches!(
+        } else if let Source::Server(Some(source)) = self.target.source()
+            && matches!(
                 source.kind(),
                 Kind::ReplyTopic
                     | Kind::MonitoredOnline
                     | Kind::MonitoredOffline
                     | Kind::ChangeHost
-            ) {
-                return false;
-            }
+            )
+        {
+            return false;
         }
 
         true
@@ -791,7 +791,7 @@ pub enum Content {
 }
 
 impl Content {
-    fn text(&self) -> Cow<str> {
+    fn text(&self) -> Cow<'_, str> {
         match self {
             Content::Plain(s) => s.into(),
             Content::Fragments(fragments) => {
@@ -1335,17 +1335,17 @@ fn content<'a>(
 
             // Check if a synthetic action message
 
-            if let Some(nick) = message.user().as_ref().map(User::nickname) {
-                if let Some(action) = parse_action(
+            if let Some(nick) = message.user().as_ref().map(User::nickname)
+                && let Some(action) = parse_action(
                     nick,
                     text,
                     channel_users,
                     target,
                     Some(our_nick),
                     &config.highlights,
-                ) {
-                    return Some(action);
-                }
+                )
+            {
+                return Some(action);
             }
 
             if let Some(query) = ctcp::parse_query(text) {

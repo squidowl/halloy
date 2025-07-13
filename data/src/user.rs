@@ -180,7 +180,7 @@ impl User {
         self.username.as_deref()
     }
 
-    pub fn nickname(&self) -> NickRef {
+    pub fn nickname(&self) -> NickRef<'_> {
         NickRef(&self.nickname.0)
     }
 
@@ -463,11 +463,7 @@ impl AsRef<str> for NickRef<'_> {
 impl PartialOrd for NickRef<'_> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         // TODO(pounce) casemapping
-        Some(
-            self.0
-                .to_ascii_lowercase()
-                .cmp(&other.0.to_ascii_lowercase()),
-        )
+        Some(self.cmp(other))
     }
 }
 

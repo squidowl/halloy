@@ -127,11 +127,10 @@ impl Modal {
                     None,
                 ),
                 ImagePreview::SavedImage(path) => {
-                    if path.is_some() {
-                        if let Modal::ImagePreview { timer, .. } = self {
+                    if path.is_some()
+                        && let Modal::ImagePreview { timer, .. } = self {
                             *timer = Some(Instant::now());
                         }
-                    }
 
                     (Task::none(), None)
                 }

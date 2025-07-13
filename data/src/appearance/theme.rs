@@ -570,17 +570,17 @@ mod binary {
         };
 
         for chunk in bytes.chunks(5) {
-            if chunk.len() == 5 {
-                if let Ok(tag) = Tag::try_from(chunk[0]) {
-                    let color = Color::from_rgba8(
-                        chunk[1],
-                        chunk[2],
-                        chunk[3],
-                        chunk[4] as f32 / 255.0,
-                    );
+            if chunk.len() == 5
+                && let Ok(tag) = Tag::try_from(chunk[0])
+            {
+                let color = Color::from_rgba8(
+                    chunk[1],
+                    chunk[2],
+                    chunk[3],
+                    chunk[4] as f32 / 255.0,
+                );
 
-                    tag.update_color(&mut styles, color);
-                }
+                tag.update_color(&mut styles, color);
             }
         }
 
