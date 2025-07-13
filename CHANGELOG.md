@@ -7,10 +7,14 @@ Added:
 - Context menu item to server buffers to mark all messages on the server as read
 - Auto-accept file transfer option with support for nick and mask filtering
 
+Changed:
+
+- Scrollbars now use dedicated `scrollbar` color instead of `horizontal_rule` color
+
 Thanks:
 
 - Bug reports: @darienm, @mercster
-- Feature requests: @rossburton, death916
+- Feature requests: @rossburton, death916, @Celeo
 
 # 2025.6 (2025-06-14)
 
