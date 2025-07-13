@@ -3,7 +3,7 @@ use std::sync::Arc;
 use std::thread;
 
 use data::audio::Sound;
-use rodio::{Decoder, OutputStream, OutputStreamBuilder, Sink};
+use rodio::{Decoder, OutputStreamBuilder, Sink};
 
 pub fn play(sound: Sound) {
     thread::spawn(move || {
