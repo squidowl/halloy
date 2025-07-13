@@ -1245,7 +1245,7 @@ fn content<'a>(
             })
         }
         Command::KICK(channel, victim, comment) => {
-            let raw_victim_user = User::try_from(victim.as_str()).ok()?;
+            let raw_victim_user = User::from(Nick::from(victim.as_str()));
             let victim = target::Channel::parse(
                 victim,
                 chantypes,
@@ -1384,7 +1384,7 @@ fn content<'a>(
             None
         }
         Command::Numeric(RPL_WHOISIDLE, params) => {
-            let user = User::try_from(params.get(1)?.as_str()).ok()?;
+            let user = User::from(Nick::from(params.get(1)?.as_str()));
 
             let idle = params.get(2)?.parse::<u64>().ok()?;
             let sign_on = params.get(3)?.parse::<u64>().ok()?;
@@ -1408,7 +1408,7 @@ fn content<'a>(
             ))
         }
         Command::Numeric(RPL_WHOISSERVER, params) => {
-            let user = User::try_from(params.get(1)?.as_str()).ok()?;
+            let user = User::from(Nick::from(params.get(1)?.as_str()));
 
             let server = params.get(2)?;
             let region = params.get(3)?;
@@ -1422,7 +1422,7 @@ fn content<'a>(
             ))
         }
         Command::Numeric(RPL_WHOISUSER, params) => {
-            let user = User::try_from(params.get(1)?.as_str()).ok()?;
+            let user = User::from(Nick::from(params.get(1)?.as_str()));
 
             let userhost = format!("{}@{}", params.get(2)?, params.get(3)?);
             let real_name = params.get(5)?;
@@ -1436,7 +1436,7 @@ fn content<'a>(
             ))
         }
         Command::Numeric(RPL_WHOISCHANNELS, params) => {
-            let user = User::try_from(params.get(1)?.as_str()).ok()?;
+            let user = User::from(Nick::from(params.get(1)?.as_str()));
             let channels = params.get(2)?;
 
             Some(parse_fragments_with_user(
@@ -1445,7 +1445,7 @@ fn content<'a>(
             ))
         }
         Command::Numeric(RPL_WHOISACTUALLY, params) => {
-            let user: User = User::try_from(params.get(1)?.as_str()).ok()?;
+            let user: User = User::from(Nick::from(params.get(1)?.as_str()));
             let ip = params.get(2)?;
             let status_text = params.get(3)?;
 
@@ -1455,7 +1455,7 @@ fn content<'a>(
             ))
         }
         Command::Numeric(RPL_WHOISSECURE, params) => {
-            let user: User = User::try_from(params.get(1)?.as_str()).ok()?;
+            let user: User = User::from(Nick::from(params.get(1)?.as_str()));
             let status_text = params.get(2)?;
 
             Some(parse_fragments_with_user(
@@ -1464,7 +1464,7 @@ fn content<'a>(
             ))
         }
         Command::Numeric(RPL_WHOISACCOUNT, params) => {
-            let user: User = User::try_from(params.get(1)?.as_str()).ok()?;
+            let user: User = User::from(Nick::from(params.get(1)?.as_str()));
             let account = params.get(2)?;
             let status_text = params.get(3)?;
 
@@ -1474,7 +1474,7 @@ fn content<'a>(
             ))
         }
         Command::Numeric(RPL_TOPICWHOTIME, params) => {
-            let user = User::try_from(params.get(2)?.as_str()).ok()?;
+            let user = User::from(Nick::from(params.get(2)?.as_str()));
 
             let datetime = params
                 .get(3)?
@@ -1512,7 +1512,7 @@ fn content<'a>(
             Some(parse_fragments(format!("User mode is {mode}")))
         }
         Command::Numeric(RPL_AWAY, params) => {
-            let user = User::try_from(params.get(1)?.as_str()).ok()?;
+            let user = User::from(Nick::from(params.get(1)?.as_str()));
             let away_message = params
                 .get(2)
                 .map(|away| format!(" ({away})"))
@@ -1527,7 +1527,7 @@ fn content<'a>(
             let targets = params
                 .get(1)?
                 .split(',')
-                .filter_map(|target| User::try_from(target).ok())
+                .map(|target| User::from(Nick::from(target)))
                 .map(|user| user.formatted(UsernameFormat::Full))
                 .collect::<Vec<_>>();
 
@@ -1922,7 +1922,7 @@ mod tests {
                         "Bob",
                         "George_",
                         "`Bill`",
-                    ].into_iter().map(User::try_from).map(Result::unwrap).collect::<ChannelUsers>(),
+                    ].into_iter().map(|nick| User::from(Nick::from(nick))).collect::<ChannelUsers>(),
                     "#interesting",
                     Some(Nick::from("Bob")),
                     &Highlights {
@@ -1931,17 +1931,17 @@ mod tests {
                     },
                 ),
                 vec![
-                    Fragment::HighlightNick(User::try_from("Bob").unwrap(), "Bob".into()),
+                    Fragment::HighlightNick(User::from(Nick::from("Bob")), "Bob".into()),
                     Fragment::Text(": I'm in ".into()),
                     Fragment::Channel("#interesting".into()),
                     Fragment::Text(" with ".into()),
-                    Fragment::User(User::try_from("Greg").unwrap(), "Greg".into()),
+                    Fragment::User(User::from(Nick::from("Greg")), "Greg".into()),
                     Fragment::Text(", ".into()),
-                    Fragment::User(User::try_from("George_").unwrap(), "George_".into()),
+                    Fragment::User(User::from(Nick::from("George_")), "George_".into()),
                     Fragment::Text(", &".into()),
-                    Fragment::User(User::try_from("`Bill`").unwrap(), "`Bill`".into()),
+                    Fragment::User(User::from(Nick::from("`Bill`")), "`Bill`".into()),
                     Fragment::Text(". I hope @".into()),
-                    Fragment::User(User::try_from("Dave").unwrap(), "Dave".into()),
+                    Fragment::User(User::from(Nick::from("Dave")), "Dave".into()),
                     Fragment::Text(" doesn't notice.".into()),
                 ],
             ),
@@ -1951,7 +1951,7 @@ mod tests {
                     [
                         "f_",
                         "rx",
-                    ].into_iter().map(User::try_from).map(Result::unwrap).collect(),
+                    ].into_iter().map(|nick| User::from(Nick::from(nick))).collect::<ChannelUsers>(),
                     "#funderscore-sucks",
                     Some(Nick::from("f_")),
                     &Highlights {
@@ -1961,7 +1961,7 @@ mod tests {
                 ),
                 vec![
                     Fragment::Text("\u{3}14<\u{3}\u{3}04lurk_\u{3}\u{3}14/rx>\u{3} ".into()),
-                    Fragment::HighlightNick(User::try_from("f_").unwrap(), "f_".into()),
+                    Fragment::HighlightNick(User::from(Nick::from("f_")), "f_".into()),
                     Fragment::Text("~oftc: > A��\u{1f}qj\u{14}��L�5�g���5�P��yn_?�i3g�1\u{7f}mE�\\X��� Xe�\u{5fa}{d�+�`@�^��NK��~~ޏ\u{7}\u{8}\u{15}\\�\u{4}A� \u{f}\u{1c}�N\u{11}6�r�\u{4}t��Q��\u{1c}�m\u{19}��".into())
                 ],
             ),

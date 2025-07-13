@@ -296,6 +296,8 @@ pub enum UsernameFormat {
     Short,
     #[default]
     Full,
+    #[serde(skip)]
+    Mask,
 }
 
 impl Buffer {
