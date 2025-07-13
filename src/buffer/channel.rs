@@ -4,15 +4,15 @@ use data::dashboard::BufferAction;
 use data::preview::{self, Previews};
 use data::server::Server;
 use data::target::{self, Target};
-use data::user::Nick;
+use data::user::{ChannelUsers, Nick};
 use data::{Config, User, buffer, history, message};
 use iced::widget::{column, container, row};
 use iced::{Length, Task, padding};
 
 use super::message_view::{ChannelQueryLayout, TargetInfo};
 use super::{input_view, scroll_view, user_context};
-use crate::widget::Element;
 use crate::Theme;
+use crate::widget::Element;
 
 mod topic;
 
@@ -48,6 +48,7 @@ pub fn view<'a>(
 ) -> Element<'a, Message> {
     let server = &state.server;
     let casemapping = clients.get_casemapping(server);
+    let prefix = clients.get_prefix(server);
     let channel = &state.target;
     let buffer = &state.buffer;
     let input = history.input(buffer);
@@ -59,7 +60,8 @@ pub fn view<'a>(
             clients.resolve_user_attributes(&state.server, channel, &user)
         });
 
-    let users = clients.get_channel_users(&state.server, channel);
+    let users = clients
+        .get_channel_users(&state.server, channel);
 
     let chathistory_state =
         clients.get_chathistory_state(server, &channel.to_target());
@@ -74,6 +76,7 @@ pub fn view<'a>(
     let message_formatter = ChannelQueryLayout {
         config,
         casemapping,
+        prefix,
         server,
         theme,
         target: TargetInfo::Channel {
@@ -91,6 +94,7 @@ pub fn view<'a>(
             previews,
             chathistory_state,
             config,
+            theme,
             message_formatter,
         )
         .map(Message::ScrollView),
@@ -98,9 +102,17 @@ pub fn view<'a>(
     .width(Length::FillPortion(2))
     .height(Length::Fill);
 
-    let nick_list =
-        nick_list::view(server, casemapping, channel, users, our_user, config)
-            .map(Message::UserContext);
+    let nick_list = nick_list::view(
+        server,
+        casemapping,
+        prefix,
+        channel,
+        users,
+        our_user,
+        config,
+        theme,
+    )
+    .map(Message::UserContext);
 
     // If topic toggles from None to Some then it messes with messages' scroll state,
     // so produce a zero-height placeholder when topic is None.
@@ -112,8 +124,8 @@ pub fn view<'a>(
         data::buffer::TextInputVisibility::Always => true,
     };
 
-    let channels = clients.get_channels(&state.server);
-    let is_connected_to_channel = channels.iter().any(|c| c == &state.target);
+    let mut channels = clients.get_channels(&state.server);
+    let is_connected_to_channel = channels.any(|c| c == &state.target);
 
     let text_input = show_text_input.then(move || {
         input_view::view(
@@ -122,6 +134,7 @@ pub fn view<'a>(
             is_focused,
             !is_connected_to_channel,
             config,
+            theme,
         )
         .map(Message::InputView)
     });
@@ -286,7 +299,7 @@ impl Channel {
 fn topic<'a>(
     state: &'a Channel,
     clients: &'a data::client::Map,
-    users: &'a [User],
+    users: Option<&'a ChannelUsers>,
     our_user: Option<&'a User>,
     settings: Option<&'a buffer::Settings>,
     config: &'a Config,
@@ -302,6 +315,7 @@ fn topic<'a>(
     }
 
     let casemapping = clients.get_casemapping(&state.server);
+    let prefix = clients.get_prefix(&state.server);
 
     let topic = clients.get_channel_topic(&state.server, &state.target)?;
 
@@ -309,6 +323,7 @@ fn topic<'a>(
         topic::view(
             &state.server,
             casemapping,
+            prefix,
             &state.target,
             topic.content.as_ref()?,
             topic.who.as_deref(),
@@ -324,6 +339,7 @@ fn topic<'a>(
 }
 
 mod nick_list {
+    use data::user::ChannelUsers;
     use data::{Config, Server, User, config, isupport, target};
     use iced::Length;
     use iced::advanced::text;
@@ -332,15 +348,17 @@ mod nick_list {
 
     use crate::buffer::user_context;
     use crate::widget::{Element, selectable_text};
-    use crate::{font, theme};
+    use crate::{Theme, font, theme};
 
     pub fn view<'a>(
         server: &'a Server,
         casemapping: isupport::CaseMap,
+        prefix: &'a [isupport::PrefixMap],
         channel: &'a target::Channel,
-        users: &'a [User],
+        users: Option<&'a ChannelUsers>,
         our_user: Option<&'a User>,
         config: &'a Config,
+        theme: &'a Theme,
     ) -> Element<'a, Message> {
         let nicklist_config = &config.buffer.channel.nicklist;
 
@@ -348,7 +366,8 @@ mod nick_list {
             Some(width) => width,
             None => {
                 let max_nick_length = users
-                    .iter()
+                    .into_iter()
+                    .flatten()
                     .map(|user| {
                         user.display(nicklist_config.show_access_levels)
                             .chars()
@@ -361,10 +380,11 @@ mod nick_list {
             }
         };
 
-        let content = column(users.iter().map(|user| {
+        let content = column(users.into_iter().flatten().map(|user| {
             let content = selectable_text(
                 user.display(nicklist_config.show_access_levels),
             )
+            .font_maybe(theme::font_style::nickname(theme).map(font::get))
             .style(|theme| {
                 theme::selectable_text::nicklist_nickname(theme, config, user)
             })
@@ -382,11 +402,13 @@ mod nick_list {
                 content,
                 server,
                 casemapping,
+                prefix,
                 Some(channel),
                 user,
                 Some(user),
                 our_user,
                 config,
+                theme,
                 &config.buffer.channel.nicklist.click,
             )
         }));

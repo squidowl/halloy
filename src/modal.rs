@@ -5,7 +5,7 @@ use data::{Server, config};
 use iced::Task;
 
 use crate::widget::Element;
-use crate::window;
+use crate::{Theme, window};
 
 pub mod connect_to_server;
 pub mod image_preview;
@@ -139,23 +139,23 @@ impl Modal {
         }
     }
 
-    pub fn view(&self) -> Element<Message> {
+    pub fn view<'a>(&'a self, theme: &'a Theme) -> Element<'a, Message> {
         match self {
             Modal::ReloadConfigurationError(error) => {
-                reload_configuration_error::view(error)
+                reload_configuration_error::view(error, theme)
             }
             Modal::ServerConnect {
                 url: raw, config, ..
-            } => connect_to_server::view(raw, config),
+            } => connect_to_server::view(raw, config, theme),
             Modal::PromptBeforeOpenUrl { url, window: _ } => {
-                prompt_before_open_url::view(url)
+                prompt_before_open_url::view(url, theme)
             }
             Modal::ImagePreview {
                 source,
                 url,
                 timer,
                 window: _,
-            } => image_preview::view(source, url, timer),
+            } => image_preview::view(source, url, timer, theme),
         }
     }
 }

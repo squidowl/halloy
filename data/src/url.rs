@@ -15,7 +15,7 @@ pub enum Url {
     },
     Theme {
         url: String,
-        colors: theme::Colors,
+        styles: theme::Styles,
     },
     Unknown(String),
 }
@@ -34,11 +34,11 @@ impl std::fmt::Display for Url {
     }
 }
 
-pub fn theme(colors: &theme::Colors) -> String {
+pub fn theme(colors: &theme::Styles) -> String {
     format!("halloy:///theme?e={}", colors.encode_base64())
 }
 
-pub fn theme_submit(colors: &theme::Colors) -> String {
+pub fn theme_submit(colors: &theme::Styles) -> String {
     format!(
         "https://themes.halloy.chat/submit?e={}",
         colors.encode_base64()
@@ -86,11 +86,11 @@ fn parse(url: url::Url) -> Result<Url, Error> {
                 .find(|(key, _)| key == "e")
                 .ok_or(Error::MissingQueryPair)?;
 
-            let colors = theme::Colors::decode_base64(&encoded)?;
+            let styles = theme::Styles::decode_base64(&encoded)?;
 
             Ok(Url::Theme {
                 url: url.into(),
-                colors,
+                styles,
             })
         }
         _ => Err(Error::Unknown),

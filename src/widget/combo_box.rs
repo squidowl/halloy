@@ -763,7 +763,11 @@ where
             // Spacing between text_input and menu
             let spacing = 4.0;
 
-            Some(menu.overlay(layout.position(), bounds.height + spacing))
+            Some(menu.overlay(
+                layout.position(),
+                layout.bounds(),
+                bounds.height + spacing,
+            ))
         } else {
             None
         }

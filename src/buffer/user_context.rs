@@ -7,7 +7,7 @@ use iced::widget::{
 use iced::{Length, Padding, padding};
 
 use crate::widget::{Element, context_menu, double_pass};
-use crate::{theme, widget};
+use crate::{Theme, font, theme, widget};
 
 #[derive(Debug, Clone, Copy)]
 pub enum Entry {
@@ -62,52 +62,63 @@ impl Entry {
         self,
         server: &Server,
         casemapping: isupport::CaseMap,
+        prefix: &[isupport::PrefixMap],
         channel: Option<&target::Channel>,
         user: &User,
         current_user: Option<&User>,
         length: Length,
         config: &Config,
+        theme: &Theme,
     ) -> Element<'a, Message> {
         let nickname = user.nickname().to_owned();
 
         match self {
             Entry::Whois => menu_button(
-                "Whois",
+                "Whois".to_string(),
                 Message::Whois(server.clone(), nickname),
                 length,
+                theme,
             ),
             Entry::Query => menu_button(
-                "Message",
+                "Message".to_string(),
                 Message::Query(
                     server.clone(),
                     target::Query::from_user(user, casemapping),
                     config.actions.buffer.message_user,
                 ),
                 length,
+                theme,
             ),
             Entry::ToggleAccessLevelOp => {
-                if let Some(channel) = channel {
+                if let (Some(channel), Some(operator_mode)) = (
+                    channel,
+                    prefix.iter().find_map(|prefix_map| {
+                        (prefix_map.prefix == '@').then_some(prefix_map.mode)
+                    }),
+                ) {
                     if user.has_access_level(data::user::AccessLevel::Oper) {
                         menu_button(
-                            "Take Op (-o)",
+                            format!("Take Op (-{operator_mode})"),
                             Message::ToggleAccessLevel(
                                 server.clone(),
                                 channel.clone(),
                                 nickname,
-                                "-o".to_owned(),
+                                format!("-{operator_mode}"),
                             ),
                             length,
+                            theme,
                         )
                     } else {
                         menu_button(
-                            "Give Op (+o)",
+                            format!("Give Op (+{operator_mode})"),
                             Message::ToggleAccessLevel(
                                 server.clone(),
                                 channel.clone(),
                                 nickname,
-                                "+o".to_owned(),
+                                format!("+{operator_mode}"),
                             ),
                             length,
+                            theme,
                         )
                     }
                 } else {
@@ -115,28 +126,35 @@ impl Entry {
                 }
             }
             Entry::ToggleAccessLevelVoice => {
-                if let Some(channel) = channel {
+                if let (Some(channel), Some(voice_mode)) = (
+                    channel,
+                    prefix.iter().find_map(|prefix_map| {
+                        (prefix_map.prefix == '+').then_some(prefix_map.mode)
+                    }),
+                ) {
                     if user.has_access_level(data::user::AccessLevel::Voice) {
                         menu_button(
-                            "Take Voice (-v)",
+                            format!("Take Voice (-{voice_mode})"),
                             Message::ToggleAccessLevel(
                                 server.clone(),
                                 channel.clone(),
                                 nickname,
-                                "-v".to_owned(),
+                                format!("-{voice_mode}"),
                             ),
                             length,
+                            theme,
                         )
                     } else {
                         menu_button(
-                            "Give Voice (+v)",
+                            format!("Give Voice (+{voice_mode})"),
                             Message::ToggleAccessLevel(
                                 server.clone(),
                                 channel.clone(),
                                 nickname,
-                                "+v".to_owned(),
+                                format!("+{voice_mode}"),
                             ),
                             length,
+                            theme,
                         )
                     }
                 } else {
@@ -144,12 +162,13 @@ impl Entry {
                 }
             }
             Entry::SendFile => menu_button(
-                "Send File",
+                "Send File".to_string(),
                 Message::SendFile(server.clone(), user.clone()),
                 length,
+                theme,
             ),
             Entry::UserInfo => {
-                user_info(current_user, nickname, length, config)
+                user_info(current_user, nickname, length, config, theme)
             }
             Entry::HorizontalRule => match length {
                 Length::Fill => {
@@ -158,7 +177,7 @@ impl Entry {
                 _ => Space::new(length, 1).into(),
             },
             Entry::CtcpRequestTime => menu_button(
-                "Local Time (TIME)",
+                "Local Time (TIME)".to_string(),
                 Message::CtcpRequest(
                     ctcp::Command::Time,
                     server.clone(),
@@ -166,9 +185,10 @@ impl Entry {
                     None,
                 ),
                 length,
+                theme,
             ),
             Entry::CtcpRequestVersion => menu_button(
-                "Client (VERSION)",
+                "Client (VERSION)".to_string(),
                 Message::CtcpRequest(
                     ctcp::Command::Version,
                     server.clone(),
@@ -176,6 +196,7 @@ impl Entry {
                     None,
                 ),
                 length,
+                theme,
             ),
         }
     }
@@ -222,11 +243,13 @@ pub fn view<'a>(
     content: impl Into<Element<'a, Message>>,
     server: &'a Server,
     casemapping: isupport::CaseMap,
+    prefix: &'a [isupport::PrefixMap],
     channel: Option<&'a target::Channel>,
     user: &'a User,
     current_user: Option<&'a User>,
     our_user: Option<&'a User>,
     config: &'a Config,
+    theme: &'a Theme,
     click: &'a config::buffer::NicknameClickAction,
 ) -> Element<'a, Message> {
     let entries = Entry::list(channel.is_some(), our_user);
@@ -252,11 +275,13 @@ pub fn view<'a>(
             entry.view(
                 server,
                 casemapping,
+                prefix,
                 channel,
                 user,
                 current_user,
                 length,
                 config,
+                theme,
             )
         },
     )
@@ -264,15 +289,20 @@ pub fn view<'a>(
 }
 
 fn menu_button(
-    content: &str,
+    content: String,
     message: Message,
     length: Length,
-) -> Element<'_, Message> {
-    button(text(content).style(theme::text::primary))
-        .padding(5)
-        .width(length)
-        .on_press(message)
-        .into()
+    theme: &Theme,
+) -> Element<'static, Message> {
+    button(
+        text(content)
+            .style(theme::text::primary)
+            .font_maybe(theme::font_style::primary(theme).map(font::get)),
+    )
+    .padding(5)
+    .width(length)
+    .on_press(message)
+    .into()
 }
 
 fn right_justified_padding() -> Padding {
@@ -284,18 +314,29 @@ fn user_info<'a>(
     nickname: Nick,
     length: Length,
     config: &Config,
+    theme: &Theme,
 ) -> Element<'a, Message> {
     let state = match current_user {
         Some(user) => {
             if user.is_away() {
-                Some(text("Away").style(theme::text::secondary).width(length))
+                Some(
+                    text("Away")
+                        .style(theme::text::secondary)
+                        .font_maybe(
+                            theme::font_style::secondary(theme).map(font::get),
+                        )
+                        .width(length),
+                )
             } else {
                 None
             }
         }
-        None => {
-            Some(text("Offline").style(theme::text::secondary).width(length))
-        }
+        None => Some(
+            text("Offline")
+                .style(theme::text::secondary)
+                .font_maybe(theme::font_style::secondary(theme).map(font::get))
+                .width(length),
+        ),
     };
 
     // Dimmed if away or offline.
@@ -306,18 +347,16 @@ fn user_info<'a>(
         data::buffer::Color::Unique => Some(nickname.to_string()),
     };
 
-    column![
-        container(
-            text(nickname.to_string())
-                .style(move |theme| theme::text::nickname(
-                    theme,
-                    seed.clone(),
-                    away_appearance
-                ))
-                .width(length)
+    let nickname = text(nickname.to_string())
+        .style(move |theme| {
+            theme::text::nickname(theme, seed.clone(), away_appearance)
+        })
+        .font_maybe(theme::font_style::nickname(theme).map(font::get))
+        .width(length);
+
+    column![container(nickname).padding(right_justified_padding()),]
+        .push_maybe(
+            state.map(|s| container(s).padding(right_justified_padding())),
         )
-        .padding(right_justified_padding()),
-    ]
-    .push_maybe(state.map(|s| container(s).padding(right_justified_padding())))
-    .into()
+        .into()
 }

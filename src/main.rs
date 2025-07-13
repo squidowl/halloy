@@ -26,6 +26,7 @@ use chrono::Utc;
 use data::config::{self, Config};
 use data::history::manager::Broadcast;
 use data::target::{self, Target};
+use data::user::ChannelUsers;
 use data::version::Version;
 use data::{
     Notification, Server, Url, User, client, environment, history, server,
@@ -316,11 +317,11 @@ impl Halloy {
                     config,
                 });
             }
-            data::Url::Theme { colors, .. } => {
+            data::Url::Theme { styles, .. } => {
                 if let Screen::Dashboard(dashboard) = &mut self.screen {
                     return dashboard
                         .preview_theme_in_editor(
-                            colors,
+                            styles,
                             &self.main_window,
                             &mut self.theme,
                         )
@@ -654,7 +655,7 @@ impl Halloy {
                                             .cloned()
                                     };
 
-                                let channel_users = |channel: &target::Channel| -> &[User] {
+                                let channel_users = |channel: &target::Channel| -> Option<&ChannelUsers> {
                                     self.clients.get_channel_users(&server, channel)
                                 };
 
@@ -994,10 +995,6 @@ impl Halloy {
                         })
                         .collect::<Vec<_>>();
 
-                    // Must be called after receiving message batches to ensure
-                    // user & channel lists are in sync
-                    self.clients.sync(&server);
-
                     Task::batch(commands)
                 }
                 stream::Update::Quit(server, reason) => {
@@ -1008,7 +1005,7 @@ impl Halloy {
                             if let Some(client) = self.clients.remove(&server) {
                                 let user = client.nickname().to_owned().into();
 
-                                let channels = client.channels().to_vec();
+                                let channels = client.channels().cloned().collect();
 
                                 dashboard
                                     .broadcast(
@@ -1287,9 +1284,9 @@ impl Halloy {
                         &self.theme,
                     )
                     .map(Message::Dashboard),
-                Screen::Help(help) => help.view().map(Message::Help),
+                Screen::Help(help) => help.view(&self.theme).map(Message::Help),
                 Screen::Welcome(welcome) => {
-                    welcome.view().map(Message::Welcome)
+                    welcome.view(&self.theme).map(Message::Welcome)
                 }
                 Screen::Migration(migration) => {
                     migration.view().map(Message::Migration)
@@ -1314,7 +1311,7 @@ impl Halloy {
                 {
                     widget::modal(
                         content,
-                        modal.view().map(Message::Modal),
+                        modal.view(&self.theme).map(Message::Modal),
                         || Message::Modal(modal::Message::Cancel),
                     )
                 }
@@ -1334,7 +1331,7 @@ impl Halloy {
             match &self.modal {
                 Some(modal) if modal.window_id() == Some(id) => widget::modal(
                     content,
-                    modal.view().map(Message::Modal),
+                    modal.view(&self.theme).map(Message::Modal),
                     || Message::Modal(modal::Message::Cancel),
                 ),
                 _ => column![content].into(),

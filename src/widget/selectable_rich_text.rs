@@ -127,6 +127,15 @@ where
         self
     }
 
+    /// Sets the default font of the [`Rich`] text, if `Some`.
+    pub fn font_maybe(
+        mut self,
+        font: Option<impl Into<Renderer::Font>>,
+    ) -> Self {
+        self.font = font.map(Into::into);
+        self
+    }
+
     /// Sets the width of the [`Rich`] text boundaries.
     pub fn width(mut self, width: impl Into<Length>) -> Self {
         self.width = width.into();
@@ -187,7 +196,7 @@ where
 
         self.style(move |_theme| Style {
             color,
-            selection_color: Color::WHITE,
+            ..Style::default()
         })
     }
 
@@ -575,7 +584,7 @@ where
         let style = <Theme as Catalog>::style(theme, &self.class);
 
         let hovered_span = cursor
-            .position_in(layout.bounds())
+            .position_in(bounds)
             .and_then(|position| state.paragraph.hit_span(position));
 
         for (index, span) in state.spans.iter().enumerate() {
@@ -722,6 +731,7 @@ where
                             color: Color::TRANSPARENT,
                         },
                         shadow: Shadow::default(),
+                        snap: true,
                     },
                     style.selection_color,
                 );
@@ -731,7 +741,7 @@ where
         widget::text::draw(
             renderer,
             defaults,
-            layout,
+            bounds,
             &state.paragraph,
             widget::text::Style { color: style.color },
             viewport,

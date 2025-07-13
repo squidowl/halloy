@@ -1,6 +1,7 @@
-use data::isupport::CaseMap;
+use data::isupport::{CaseMap, PrefixMap};
 use data::server::Server;
 use data::target::{self};
+use data::user::ChannelUsers;
 use data::{Config, User, message};
 use iced::advanced::text;
 use iced::widget::{column, container, row};
@@ -11,23 +12,23 @@ use crate::buffer::scroll_view::Message;
 use crate::widget::{
     Element, message_content, message_marker, selectable_text,
 };
-use crate::{Theme, theme};
+use crate::{Theme, font, theme};
 
 #[derive(Clone, Copy)]
 pub enum TargetInfo<'a> {
     Channel {
         channel: &'a target::Channel,
         our_user: Option<&'a User>,
-        users: &'a [User],
+        users: Option<&'a ChannelUsers>,
     },
     Query,
 }
 
 impl<'a> TargetInfo<'a> {
-    fn users(&self) -> &'a [User] {
+    fn users(&self) -> Option<&'a ChannelUsers> {
         match self {
-            TargetInfo::Channel { users, .. } => users,
-            TargetInfo::Query => &[],
+            TargetInfo::Channel { users, .. } => *users,
+            TargetInfo::Query => None,
         }
     }
     fn our_user(&self) -> Option<&'a User> {
@@ -51,6 +52,7 @@ impl<'a> TargetInfo<'a> {
 pub struct ChannelQueryLayout<'a> {
     pub config: &'a Config,
     pub casemapping: CaseMap,
+    pub prefix: &'a [PrefixMap],
     pub server: &'a Server,
     pub theme: &'a Theme,
     pub target: TargetInfo<'a>,
@@ -67,9 +69,13 @@ impl<'a> ChannelQueryLayout<'a> {
             .map(|timestamp| {
                 selectable_text(timestamp)
                     .style(theme::selectable_text::timestamp)
+                    .font_maybe(
+                        theme::font_style::timestamp(self.theme).map(font::get),
+                    )
             })
             .map(Element::from)
     }
+
     fn format_prefixes(
         &self,
         message: &'a data::Message,
@@ -96,7 +102,10 @@ impl<'a> ChannelQueryLayout<'a> {
                             .brackets
                             .format(String::from_iter(prefixes))
                     ))
-                    .style(theme::selectable_text::tertiary);
+                    .style(theme::selectable_text::tertiary)
+                    .font_maybe(
+                        theme::font_style::tertiary(self.theme).map(font::get),
+                    );
 
                     if let Some(width) = max_prefix_width {
                         Some(text.width(width).align_x(text::Alignment::Right))
@@ -114,12 +123,13 @@ impl<'a> ChannelQueryLayout<'a> {
         max_nick_width: Option<f32>,
         user: &'a User,
     ) -> (Element<'a, Message>, Element<'a, Message>) {
-        let fm = *self;
         let with_access_levels = self.config.buffer.nickname.show_access_levels;
+
         let current_user: Option<&User> = self
             .target
             .users()
-            .iter()
+            .into_iter()
+            .flatten()
             .find(|current_user| *current_user == user);
 
         let mut text = selectable_text(
@@ -131,7 +141,8 @@ impl<'a> ChannelQueryLayout<'a> {
         )
         .style(|theme| {
             theme::selectable_text::nickname(theme, self.config, user)
-        });
+        })
+        .font_maybe(theme::font_style::nickname(self.theme).map(font::get));
 
         if let Some(width) = max_nick_width {
             text = text.width(width).align_x(text::Alignment::Right);
@@ -141,21 +152,25 @@ impl<'a> ChannelQueryLayout<'a> {
             text,
             self.server,
             self.casemapping,
+            self.prefix,
             self.target.channel(),
             user,
             current_user,
             self.target.our_user(),
             self.config,
+            self.theme,
             &self.config.buffer.nickname.click,
         )
         .map(Message::UserContext);
 
+        let fm = *self;
         let message_content = message_content::with_context(
             &message.content,
             self.casemapping,
             self.theme,
             Message::Link,
             theme::selectable_text::default,
+            theme::font_style::primary,
             move |link| match link {
                 message::Link::User(_) => user_context::Entry::list(
                     fm.target.is_channel(),
@@ -168,11 +183,13 @@ impl<'a> ChannelQueryLayout<'a> {
                     .view(
                         fm.server,
                         fm.casemapping,
+                        fm.prefix,
                         fm.target.channel(),
                         user,
                         current_user,
                         length,
                         fm.config,
+                        fm.theme,
                     )
                     .map(Message::UserContext),
                 _ => row![].into(),
@@ -192,7 +209,16 @@ impl<'a> ChannelQueryLayout<'a> {
         let message_style = move |message_theme: &Theme| {
             theme::selectable_text::server(message_theme, server)
         };
-        let marker = message_marker(max_nick_width, message_style);
+        let message_font_style = move |message_theme: &Theme| {
+            theme::font_style::server(message_theme, server)
+        };
+        let marker = message_marker(
+            max_nick_width,
+            self.theme,
+            message_style,
+            message_font_style,
+        );
+
         let fm = *self;
         let message_content = message_content::with_context(
             &message.content,
@@ -200,6 +226,7 @@ impl<'a> ChannelQueryLayout<'a> {
             self.theme,
             Message::Link,
             message_style,
+            message_font_style,
             move |link| match link {
                 message::Link::User(_) => user_context::Entry::list(
                     fm.target.is_channel(),
@@ -212,14 +239,13 @@ impl<'a> ChannelQueryLayout<'a> {
                     .view(
                         fm.server,
                         fm.casemapping,
+                        fm.prefix,
                         fm.target.channel(),
                         user,
-                        fm.target
-                            .users()
-                            .iter()
-                            .find(|current_user| *current_user == user),
+                        fm.target.users().and_then(|users| users.resolve(user)),
                         length,
                         fm.config,
+                        fm.theme,
                     )
                     .map(Message::UserContext),
                 _ => row![].into(),
@@ -242,6 +268,7 @@ impl<'a> ChannelQueryLayout<'a> {
         )
     }
 }
+
 impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
     fn format(
         &self,
@@ -274,7 +301,9 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
                 message::Source::Action(_) => {
                     let marker = message_marker(
                         max_nick_width,
+                        self.theme,
                         theme::selectable_text::action,
+                        theme::font_style::action,
                     );
 
                     let message_content = message_content(
@@ -283,6 +312,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
                         self.theme,
                         Message::Link,
                         theme::selectable_text::action,
+                        theme::font_style::action,
                         self.config,
                     );
 
@@ -296,8 +326,16 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
                     let message_style = move |message_theme: &Theme| {
                         theme::selectable_text::status(message_theme, *status)
                     };
+                    let message_font_style = move |message_theme: &Theme| {
+                        theme::font_style::status(message_theme, *status)
+                    };
 
-                    let marker = message_marker(max_nick_width, message_style);
+                    let marker = message_marker(
+                        max_nick_width,
+                        self.theme,
+                        message_style,
+                        message_font_style,
+                    );
 
                     let message = message_content(
                         &message.content,
@@ -305,6 +343,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
                         self.theme,
                         Message::Link,
                         message_style,
+                        message_font_style,
                         self.config,
                     );
 
