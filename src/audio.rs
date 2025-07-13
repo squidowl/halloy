@@ -3,7 +3,7 @@ use std::sync::Arc;
 use std::thread;
 
 use data::audio::Sound;
-use rodio::{Decoder, OutputStream, Sink};
+use rodio::{Decoder, OutputStream, OutputStreamBuilder, Sink};
 
 pub fn play(sound: Sound) {
     thread::spawn(move || {
@@ -14,9 +14,8 @@ pub fn play(sound: Sound) {
 }
 
 fn _play(sound: Sound) -> Result<(), PlayError> {
-    let (_stream, stream_handle) = OutputStream::try_default()?;
-
-    let sink = Sink::try_new(&stream_handle)?;
+    let stream_handle = OutputStreamBuilder::open_default_stream()?;
+    let sink = Sink::connect_new(stream_handle.mixer());
 
     let source = Decoder::new(Cursor::new(sound))?;
 
