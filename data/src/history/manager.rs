@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, hash_map};
 
 use chrono::{DateTime, Utc};
 use futures::future::BoxFuture;
@@ -980,27 +980,31 @@ impl Data {
                 });
         }
 
-        if let Some(history) = self.map.get_mut(&kind) {
-            let read_marker = history.add_message(message, blocked);
+        match self.map.entry(kind.clone()) {
+            hash_map::Entry::Occupied(mut entry) => {
+                let read_marker = entry.get_mut().add_message(message, blocked);
 
-            read_marker.map(|read_marker| {
-                async move {
+                read_marker.map(|read_marker| {
+                    async move {
                         Message::SentMessageUpdated(kind.clone(), read_marker)
                     }
                     .boxed()
-            })
-        } else {
-            let mut new_history = History::partial(kind.clone());
-            new_history.add_message(message, blocked);
-            self.map.insert(kind.clone(), new_history);
+                })
+            }
+            hash_map::Entry::Vacant(entry) => {
+                let _ = entry
+                    .insert(History::partial(kind.clone()))
+                    .add_message(message, blocked);
 
-            Some(
-                async move {
-                    let loaded = history::metadata::load(kind.clone()).await;
-                    Message::UpdatePartial(kind, loaded)
-                }
-                .boxed(),
-            )
+                Some(
+                    async move {
+                        let loaded =
+                            history::metadata::load(kind.clone()).await;
+                        Message::UpdatePartial(kind, loaded)
+                    }
+                    .boxed(),
+                )
+            }
         }
     }
 
