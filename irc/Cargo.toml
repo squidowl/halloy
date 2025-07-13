@@ -5,16 +5,31 @@ authors.workspace = true
 license.workspace = true
 edition.workspace = true
 
+[features]
+default = []
+tor = ["arti-client"]
+
 [dependencies]
 thiserror = { workspace = true }
 futures = { workspace = true }
-tokio = { workspace = true,  features = ["full"] }
+tokio = { workspace = true, features = ["full"] }
 bytes = { workspace = true }
 
-arti-client = { version = "0.26", default-features = false, features = ["rustls", "compression", "tokio", "static-sqlite"] }
-async-http-proxy = { version = "1.2.5", features = ["runtime-tokio", "basic-auth"] }
+arti-client = { version = "0.26", default-features = false, features = [
+    "rustls",
+    "compression",
+    "tokio",
+    "static-sqlite",
+], optional = true }
+async-http-proxy = { version = "1.2.5", features = [
+    "runtime-tokio",
+    "basic-auth",
+] }
 fast-socks5 = "0.10.0"
-tokio-rustls = { version = "0.26.0", default-features = false, features = ["tls12", "ring"] }
+tokio-rustls = { version = "0.26.0", default-features = false, features = [
+    "tls12",
+    "ring",
+] }
 tokio-util = { version = "0.7", features = ["codec"] }
 rustls-native-certs = "0.8.1"
 rustls-pemfile = "2.1.1"

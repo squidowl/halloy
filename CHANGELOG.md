@@ -7,6 +7,10 @@ Added:
 - Context menu item to server buffers to mark all messages on the server as read
 - Auto-accept file transfer option with support for nick and mask filtering
 
+Changed:
+
+- Tor is now an optional feature. Build with `--features tor` to enable Tor proxy support.
+
 Thanks:
 
 - Bug reports: @darienm, @mercster
