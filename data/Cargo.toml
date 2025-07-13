@@ -12,7 +12,7 @@ dev = []
 thiserror = { workspace = true }
 futures = { workspace = true }
 tokio = { workspace = true, features = ["io-util", "fs"] }
-chrono = { workspace =  true }
+chrono = { workspace = true }
 bytes = { workspace = true }
 strum = { workspace = true }
 anyhow = { workspace = true }
@@ -28,7 +28,7 @@ log = { workspace = true }
 
 base64 = "0.22.1"
 dirs-next = "2.0.0"
-xdg = "2.5.2"
+xdg = "3.0.0"
 flate2 = "1.0"
 hex = "0.4.3"
 iced_core = "0.14.0-dev"
