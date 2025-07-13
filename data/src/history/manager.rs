@@ -68,6 +68,7 @@ pub enum Event {
 pub struct Manager {
     resources: HashSet<Resource>,
     filters: Vec<Filter>,
+    cached_channels: HashSet<history::Kind>,
     data: Data,
 }
 
@@ -110,7 +111,9 @@ impl Manager {
                 self.data.load_full(kind.clone(), loaded);
                 log::debug!("loaded history for {kind}: {} messages", len);
 
-                self.rebuild_blocked_message_cache(kind.clone());
+                if !self.cached_channels.contains(&kind) {
+                    self.rebuild_blocked_message_cache(kind.clone());
+                }
 
                 return Some(Event::Loaded(kind));
             }
@@ -136,8 +139,6 @@ impl Manager {
             Message::UpdatePartial(kind, Ok(metadata)) => {
                 log::debug!("loaded metadata for {kind}");
                 self.data.update_partial(kind.clone(), metadata);
-
-                self.rebuild_blocked_message_cache(kind.clone());
             }
             Message::UpdatePartial(kind, Err(error)) => {
                 log::warn!("failed to load metadata for {kind}: {error}");
@@ -178,21 +179,17 @@ impl Manager {
         None
     }
 
-    pub fn apply_config(&mut self, config: &Config) {
-        log::debug!("Applying new config to history manager.");
+    pub fn set_filters(&mut self, mut new_filters: Vec<Filter>) {
         self.filters.clear();
-        config.servers.entries().for_each(|entry| {
-            if let Some(f) = entry.config.filters.as_ref() {
-                f.ignore.iter().for_each(|filter_string| {
-                    if let Ok(filter) = Filter::try_from_str_with_server(
-                        &entry.server.clone(),
-                        filter_string,
-                    ) {
-                        self.filters.push(filter);
-                    };
-                });
-            }
-        });
+        self.filters.append(&mut new_filters);
+        self.cached_channels.clear();
+        log::debug!(
+            "set new filters to history manager, cleared all blocked message cache data."
+        );
+    }
+
+    pub fn get_filters(&mut self) -> &mut Vec<Filter> {
+        &mut self.filters
     }
 
     pub fn tick(&mut self, now: Instant) -> Vec<BoxFuture<'static, Message>> {
@@ -307,10 +304,12 @@ impl Manager {
         history::Kind::from_server_message(server.clone(), &message).and_then(
             |kind| {
                 let blocked = FilterChain::borrow(&self.filters)
-                    .filter_message_of_kind(
-                        &message,
-                        &history::Kind::Highlights,
-                    );
+                    .filter_message_of_kind(&message, &kind);
+
+                if blocked {
+                    // ensures newly joined channels will be recorded as cached
+                    self.cached_channels.insert(kind.clone());
+                }
 
                 self.data.add_message(kind, message, blocked)
             },
@@ -633,7 +632,7 @@ impl Manager {
         self.data.hide_preview(&kind.into(), message, url);
     }
 
-    fn rebuild_blocked_message_cache(&mut self, kind: history::Kind) {
+    pub fn rebuild_blocked_message_cache(&mut self, kind: history::Kind) {
         let chain = FilterChain::borrow(&self.filters);
 
         if let Some(history) = self.data.map.get(&kind) {
@@ -656,8 +655,8 @@ impl Manager {
                 .entry(kind.clone())
                 .insert_entry(blocked_message_index);
         };
-
-        log::debug!("rebuilt blocked message index for {kind}");
+        log::debug!("rebuilt blocked message cache for {kind}");
+        self.cached_channels.insert(kind);
     }
 }
 
@@ -969,11 +968,16 @@ impl Data {
         blocked: bool,
     ) -> Option<impl Future<Output = Message> + use<>> {
         if blocked {
-            self.blocked_messages_index.entry(kind.clone()).and_modify(
-                |cache| {
+            self.blocked_messages_index
+                .entry(kind.clone())
+                .and_modify(|cache| {
                     cache.insert(message.hash);
-                },
-            );
+                })
+                .or_insert_with(|| {
+                    let mut new_cache = HashSet::new();
+                    new_cache.insert(message.hash);
+                    new_cache
+                });
         }
 
         if let Some(history) = self.map.get_mut(&kind) {

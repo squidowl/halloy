@@ -7,6 +7,7 @@ use chrono::{DateTime, Utc};
 use data::dashboard::{self, BufferAction};
 use data::environment::{RELEASE_WEBSITE, WIKI_WEBSITE};
 use data::history::ReadMarker;
+use data::history::filter::Filter;
 use data::history::manager::Broadcast;
 use data::isupport::{self, ChatHistorySubcommand, MessageReference};
 use data::target::{self, Target};
@@ -1381,9 +1382,36 @@ impl Dashboard {
                 return (Task::batch(tasks), event);
             }
             Message::ConfigReloaded(config_result) => {
-                if let Ok(config) = config_result.as_ref() {
-                    self.history.apply_config(config);
-                };
+                if let Ok(config) = &config_result {
+                    self.history.set_filters(Filter::list_from_config(config));
+
+                    // get all channels that are open
+                    let open_pane_data: Vec<(data::Server, target::Channel)> =
+                        self.panes
+                            .iter()
+                            .filter_map(|(_window_id, _grid_pane, pane)| {
+                                match &pane.buffer {
+                                    Buffer::Channel(channel) => Some((
+                                        channel.server.clone(),
+                                        channel.target.clone(),
+                                    )),
+                                    _ => None,
+                                }
+                            })
+                            .collect();
+
+                    // rebuild cache for channels with open panes
+                    for (server, channel) in open_pane_data {
+                        self.history.rebuild_blocked_message_cache(
+                            history::Kind::Channel(server, channel),
+                        );
+                    }
+
+                    // always rebuild for highlights
+                    self.history.rebuild_blocked_message_cache(
+                        history::Kind::Highlights,
+                    );
+                }
                 return (
                     Task::none(),
                     Some(Event::ConfigReloaded(config_result)),
@@ -2649,7 +2677,9 @@ impl Dashboard {
             buffer_settings: data.buffer_settings.clone(),
         };
 
-        dashboard.history.apply_config(config);
+        dashboard
+            .history
+            .set_filters(Filter::list_from_config(config));
 
         let mut tasks = vec![];
 
@@ -2676,6 +2706,10 @@ impl Dashboard {
 
     pub fn history(&self) -> &history::Manager {
         &self.history
+    }
+
+    pub fn get_filters(&mut self) -> &mut Vec<Filter> {
+        self.history.get_filters()
     }
 
     pub fn handle_window_event(

@@ -24,6 +24,7 @@ use std::{env, mem};
 use appearance::{Theme, theme};
 use chrono::Utc;
 use data::config::{self, Config};
+use data::history::filter::FilterChain;
 use data::history::manager::Broadcast;
 use data::target::{self, Target};
 use data::user::ChannelUsers;
@@ -987,6 +988,15 @@ impl Halloy {
                                                     )
                                                 })
                                         );
+                                    }
+                                    data::client::Event::AddedIsupportParam(param) => {
+                                        if let data::isupport::Parameter::CASEMAPPING(casemapping) = param {
+                                            FilterChain::sync_channels(
+                                                dashboard.get_filters(),
+                                                &server,
+                                                casemapping
+                                            );
+                                        }
                                     }
                                 }
                             }

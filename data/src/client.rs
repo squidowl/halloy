@@ -110,6 +110,7 @@ pub enum Event {
     UpdateReadMarker(Target, ReadMarker),
     JoinedChannel(target::Channel, DateTime<Utc>),
     LoggedIn(DateTime<Utc>),
+    AddedIsupportParam(isupport::Parameter),
     ChatHistoryTargetReceived(Target, DateTime<Utc>),
     ChatHistoryTargetsReceived(DateTime<Utc>),
     DirectMessage(message::Encoded, Nick, User),
@@ -2063,6 +2064,11 @@ impl Client {
                                                     .try_send(message)?;
                                             }
                                         }
+                                        return Ok(vec![
+                                            Event::AddedIsupportParam(
+                                                parameter,
+                                            ),
+                                        ]);
                                     } else {
                                         log::info!(
                                             "[{}] ignoring ISUPPORT parameter: {:?}",
