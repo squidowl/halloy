@@ -167,6 +167,25 @@ impl Server {
             proxy: proxy.map(From::from),
         }
     }
+
+    pub fn bouncer_config(&self) -> Self {
+        Self {
+            // nickserv info not relevant to the bounced network
+            nick_password_file: Option::default(),
+            nick_password_command: Option::default(),
+            nick_identify_syntax: Option::default(),
+
+            // channels not relevant
+            channels: Vec::default(),
+            channel_keys: HashMap::default(),
+
+            // ghost sequence not relevant
+            should_ghost: Default::default(),
+            ghost_sequence: default_ghost_sequence(),
+
+            ..self.clone()
+        }
+    }
 }
 
 impl Default for Server {
