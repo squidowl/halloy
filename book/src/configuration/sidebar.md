@@ -69,3 +69,33 @@ Ordering that servers are listed in the sidebar uses to select from matching use
 [sidebar]
 order_by = "config"
 ```
+
+## `scrollbar`
+
+Scrollbar configuration.
+
+### width
+
+Width of the scrollbar.
+
+```toml
+# Type: integer
+# Values: any positive integer
+# Default: 5
+
+[sidebar.scrollbar]
+width = 5
+```
+
+### width
+
+Width of the scrollbar scroller.
+
+```toml
+# Type: integer
+# Values: any positive integer
+# Default: 5
+
+[sidebar.scrollbar]
+scroller_width = 5
+```
