@@ -1615,19 +1615,6 @@ pub enum Limit {
     Since(DateTime<Utc>),
 }
 
-impl Limit {
-    pub const DEFAULT_STEP: usize = 50;
-    pub const DEFAULT_COUNT: usize = 500;
-
-    pub fn top() -> Self {
-        Self::Top(Self::DEFAULT_COUNT)
-    }
-
-    pub fn bottom() -> Self {
-        Self::Bottom(Self::DEFAULT_COUNT)
-    }
-}
-
 pub fn is_action(text: &str) -> bool {
     if let Some(query) = ctcp::parse_query(text) {
         matches!(query.command, ctcp::Command::Action)
