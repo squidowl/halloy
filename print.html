@@ -36,6 +36,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "searchindex.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc.js"></script>
@@ -92,10 +93,13 @@
                 sidebar = sidebar || 'visible';
             } else {
                 sidebar = 'hidden';
+                sidebar_toggle.checked = false;
             }
-            sidebar_toggle.checked = sidebar === 'visible';
-            html.classList.remove('sidebar-visible');
-            html.classList.add("sidebar-" + sidebar);
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
         </script>
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
@@ -149,7 +153,12 @@
 
                 <div id="search-wrapper" class="hidden">
                     <form id="searchbar-outer" class="searchbar-outer">
-                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                        <div class="search-wrapper">
+                            <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <i class="fa fa-spinner fa-spin"></i>
+                            </div>
+                        </div>
                     </form>
                     <div id="searchresults-outer" class="searchresults-outer hidden">
                         <div id="searchresults-header" class="searchresults-header"></div>
@@ -1638,6 +1647,26 @@ include = ["HalloyUser1", "#halloy"]
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="pane"><a class="header" href="#pane"><code>[pane]</code></a></h1>
 <p>Pane settings for Halloy. A pane contains a <a href="configuration/../configuration//buffer.html">buffer</a>.</p>
+<h2 id="scrollbar"><a class="header" href="#scrollbar"><code>scrollbar</code></a></h2>
+<p>Scrollbar configuration.</p>
+<h3 id="width-1"><a class="header" href="#width-1">width</a></h3>
+<p>Width of the scrollbar.</p>
+<pre><code class="language-toml"># Type: integer
+# Values: any positive integer
+# Default: 5
+
+[pane.scrollbar]
+width = 5
+</code></pre>
+<h3 id="width-2"><a class="header" href="#width-2">width</a></h3>
+<p>Width of the scrollbar scroller.</p>
+<pre><code class="language-toml"># Type: integer
+# Values: any positive integer
+# Default: 5
+
+[pane.scrollbar]
+scroller_width = 5
+</code></pre>
 <h2 id="split_axis"><a class="header" href="#split_axis"><code>split_axis</code></a></h2>
 <p>Default axis used when splitting a pane (i.e. default orientation of the divider between panes).</p>
 <pre><code class="language-toml"># Type: string
@@ -2327,6 +2356,26 @@ show_menu_button = true
 [sidebar]
 order_by = "config"
 </code></pre>
+<h2 id="scrollbar-1"><a class="header" href="#scrollbar-1"><code>scrollbar</code></a></h2>
+<p>Scrollbar configuration.</p>
+<h3 id="width-3"><a class="header" href="#width-3">width</a></h3>
+<p>Width of the scrollbar.</p>
+<pre><code class="language-toml"># Type: integer
+# Values: any positive integer
+# Default: 5
+
+[sidebar.scrollbar]
+width = 5
+</code></pre>
+<h3 id="width-4"><a class="header" href="#width-4">width</a></h3>
+<p>Width of the scrollbar scroller.</p>
+<pre><code class="language-toml"># Type: integer
+# Values: any positive integer
+# Default: 5
+
+[sidebar.scrollbar]
+scroller_width = 5
+</code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="themes"><a class="header" href="#themes">Themes</a></h1>
 <h2 id="example-5"><a class="header" href="#example-5">Example</a></h2>
 <pre><code class="language-toml"># Static
@@ -2547,6 +2596,7 @@ A list of community created themes can be found <a href="./configuration/themes/
             window.setTimeout(window.print, 100);
         });
         </script>
+
 
     </div>
     </body>
