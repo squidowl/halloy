@@ -156,10 +156,12 @@ password = "password"
 
 ## `[proxy.tor]`
 
-Tor proxy settings. Utilizes the [arti](https://arti.torproject.org/) to integrate Tor natively.
+Tor proxy settings. Utilizes [Arti](https://arti.torproject.org/) to integrate Tor support directly into Halloy.
 It accepts no further configuration.
 
-**Note:** Tor support is **not included by default**. You must build Halloy with the `tor` feature to use this proxy type. See [Optional Features](../guides/optional-features.md) for build instructions.
+**Note:**
+- Does not integrate into a pre-existing Tor setup.  To utilize an existing Tor daemon, use [`[proxy.socks5]`](#proxysocks5) instead.
+- Tor support is **not included by default**. You must build Halloy with the `tor` feature to use this proxy type. See [Optional Features](../guides/optional-features.md) for build instructions.
 
 ## Example
 
