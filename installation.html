@@ -236,6 +236,12 @@
 <ul>
 <li><a href="https://www.rust-lang.org/tools/install">Rust toolchain</a></li>
 <li><a href="https://git-scm.com/">Git version control system</a></li>
+<li>Packages:
+<ul>
+<li>Fedora-based distributions: <code>alsa-lib-devel openssl-devel</code></li>
+<li>Debian-based distributions: <code>librust-alsa-sys-dev libssl-dev</code></li>
+</ul>
+</li>
 </ul>
 <pre><code class="language-sh"># Clone the repository
 git clone https://github.com/squidowl/halloy.git
@@ -245,6 +251,14 @@ cd halloy
 # Build and run
 cargo build --release
 cargo run --release
+</code></pre>
+<h4 id="install-from-source"><a class="header" href="#install-from-source">Install from Source</a></h4>
+<p>The script <code>install-linux.sh</code> in the <code>scripts</code> directory of the Halloy repository will build and install Halloy on Linux systems (with the same requirements as building from source).  By default the script will install Halloy in the <code>~/.local/</code> base directory (i.e. the executable will be put in <code>~/.local/bin/</code>).  To change the installation base directory, provide <code>install-linux.sh</code> with the long flag <nobr><code>--prefix=&lt;base/directory&gt;</code></nobr>.</p>
+<pre><code class="language-sh">git clone https://github.com/squidowl/halloy.git
+
+cd halloy
+
+./scripts/install-linux.sh --prefix=&lt;base/directory&gt;
 </code></pre>
 
                     </main>

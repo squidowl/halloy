@@ -277,6 +277,12 @@
 <ul>
 <li><a href="https://www.rust-lang.org/tools/install">Rust toolchain</a></li>
 <li><a href="https://git-scm.com/">Git version control system</a></li>
+<li>Packages:
+<ul>
+<li>Fedora-based distributions: <code>alsa-lib-devel openssl-devel</code></li>
+<li>Debian-based distributions: <code>librust-alsa-sys-dev libssl-dev</code></li>
+</ul>
+</li>
 </ul>
 <pre><code class="language-sh"># Clone the repository
 git clone https://github.com/squidowl/halloy.git
@@ -286,6 +292,14 @@ cd halloy
 # Build and run
 cargo build --release
 cargo run --release
+</code></pre>
+<h4 id="install-from-source"><a class="header" href="#install-from-source">Install from Source</a></h4>
+<p>The script <code>install-linux.sh</code> in the <code>scripts</code> directory of the Halloy repository will build and install Halloy on Linux systems (with the same requirements as building from source).  By default the script will install Halloy in the <code>~/.local/</code> base directory (i.e. the executable will be put in <code>~/.local/bin/</code>).  To change the installation base directory, provide <code>install-linux.sh</code> with the long flag <nobr><code>--prefix=&lt;base/directory&gt;</code></nobr>.</p>
+<pre><code class="language-sh">git clone https://github.com/squidowl/halloy.git
+
+cd halloy
+
+./scripts/install-linux.sh --prefix=&lt;base/directory&gt;
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="getting-started"><a class="header" href="#getting-started">Getting started</a></h1>
 <p>To get started with Halloy, you need to connect to at least one IRC server. The template config file has been set up with the <a href="https://libera.chat/">Libera</a> server. However, there are many other servers available: <a href="https://www.oftc.net/">OFTC</a>, <a href="https://www.undernet.org/">Undernet</a>, <a href="http://www.efnet.org">EFnet</a>, <a href="https://www.quakenet.org/">QuakeNet</a> and <a href="https://netsplit.de/networks/">many more</a>. Halloy can connect to multiple servers at the same time.</p>
@@ -2412,6 +2426,7 @@ theme = "foobar"
 background = "&lt;string&gt;"
 border = "&lt;string&gt;"
 horizontal_rule = "&lt;string&gt;"
+scrollbar = "&lt;string&gt;"
 unread_indicator = "&lt;string&gt;"
 
 [text]
