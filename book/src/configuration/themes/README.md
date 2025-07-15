@@ -45,6 +45,7 @@ theme = "foobar"
 background = "<string>"
 border = "<string>"
 horizontal_rule = "<string>"
+scrollbar = "<string>"
 unread_indicator = "<string>"
 
 [text]

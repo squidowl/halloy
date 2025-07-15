@@ -19,11 +19,17 @@ impl Catalog for Theme {
 }
 
 pub fn primary(theme: &Theme, status: Status) -> Style {
+    let scroller_color = theme
+        .styles()
+        .general
+        .scrollbar
+        .unwrap_or(theme.styles().general.horizontal_rule);
+
     let rail = Rail {
         background: None,
         border: Border::default(),
         scroller: Scroller {
-            color: theme.styles().general.horizontal_rule,
+            color: scroller_color,
             border: Border {
                 radius: 8.0.into(),
                 width: 0.0,

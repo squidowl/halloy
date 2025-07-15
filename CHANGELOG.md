@@ -8,10 +8,14 @@ Added:
 - Auto-accept file transfer option with support for nick and mask filtering
 - Configuration option to adjust scrollbar sizing
 
+Changed:
+
+- Scrollbars now use dedicated `scrollbar` color instead of `horizontal_rule` color
+
 Thanks:
 
 - Bug reports: @darienm, @mercster
-- Feature requests: @rossburton, death916
+- Feature requests: @rossburton, death916, @Celeo
 
 # 2025.6 (2025-06-14)
 
