@@ -373,8 +373,8 @@ pub fn view<'a>(
             .direction(scrollable::Direction::Vertical(
                 scrollable::Scrollbar::default()
                     .anchor(status.anchor())
-                    .width(5)
-                    .scroller_width(5),
+                    .width(config.pane.scrollbar.width)
+                    .scroller_width(config.pane.scrollbar.scroller_width),
             ))
             .on_scroll(move |viewport| Message::Scrolled {
                 has_more_older_messages,
@@ -465,12 +465,11 @@ impl State {
                             &kind.into(),
                             Some(self.limit),
                             &config.buffer,
-                        )
-                            && let Some(oldest) =
-                                old_messages.iter().chain(&new_messages).next()
-                            {
-                                self.limit = Limit::Since(oldest.server_time);
-                            }
+                        ) && let Some(oldest) =
+                            old_messages.iter().chain(&new_messages).next()
+                        {
+                            self.limit = Limit::Since(oldest.server_time);
+                        }
                     }
                     // Hit bottom, anchor it
                     _ if old_status.is_bottom(relative_offset) => {
@@ -995,13 +994,14 @@ mod keyed {
             state: &mut dyn std::any::Any,
         ) {
             if self.active
-                && let Some(key) = state.downcast_ref::<Key>() {
-                    if self.key == *key {
-                        self.hit_bounds = Some(bounds);
-                    } else if self.hit_bounds.is_none() {
-                        self.prev_bounds = Some(bounds);
-                    }
+                && let Some(key) = state.downcast_ref::<Key>()
+            {
+                if self.key == *key {
+                    self.hit_bounds = Some(bounds);
+                } else if self.hit_bounds.is_none() {
+                    self.prev_bounds = Some(bounds);
                 }
+            }
         }
 
         fn finish(&self) -> widget::operation::Outcome<Hit> {
@@ -1068,19 +1068,19 @@ mod keyed {
         ) {
             if self.active
                 && let Some(key) = state.downcast_ref::<Key>()
-                    && self.hit_bounds.is_none()
-                        && self.scrollable.is_some_and(|scrollable| {
-                            scrollable.viewport.intersects(
-                                &(bounds
-                                    - Vector::new(
-                                        scrollable.offset.x,
-                                        scrollable.offset.y,
-                                    )),
-                            )
-                        })
-                    {
-                        self.hit_bounds = Some((*key, bounds));
-                    }
+                && self.hit_bounds.is_none()
+                && self.scrollable.is_some_and(|scrollable| {
+                    scrollable.viewport.intersects(
+                        &(bounds
+                            - Vector::new(
+                                scrollable.offset.x,
+                                scrollable.offset.y,
+                            )),
+                    )
+                })
+            {
+                self.hit_bounds = Some((*key, bounds));
+            }
         }
 
         fn finish(&self) -> widget::operation::Outcome<Hit> {
@@ -1540,9 +1540,10 @@ mod correct_viewport {
                 state: &mut dyn Any,
             ) {
                 if id.is_some_and(|id| *id == self.target)
-                    && let Some(is_scroll_to) = state.downcast_mut::<bool>() {
-                        *is_scroll_to = true;
-                    }
+                    && let Some(is_scroll_to) = state.downcast_mut::<bool>()
+                {
+                    *is_scroll_to = true;
+                }
             }
         }
 
@@ -1608,9 +1609,10 @@ mod correct_viewport {
                 state: &mut dyn Any,
             ) {
                 if id.is_some_and(|id| *id == self.target)
-                    && let Some(is_scroll_to) = state.downcast_mut::<bool>() {
-                        *is_scroll_to = true;
-                    }
+                    && let Some(is_scroll_to) = state.downcast_mut::<bool>()
+                {
+                    *is_scroll_to = true;
+                }
             }
         }
 
