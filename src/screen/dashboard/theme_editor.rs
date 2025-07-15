@@ -497,6 +497,7 @@ pub enum General {
     Background,
     Border,
     HorizontalRule,
+    Scrollbar,
     UnreadIndicator,
 }
 
@@ -506,6 +507,9 @@ impl General {
             General::Background => styles.background,
             General::Border => styles.border,
             General::HorizontalRule => styles.horizontal_rule,
+            General::Scrollbar => {
+                styles.scrollbar.unwrap_or(styles.horizontal_rule)
+            }
             General::UnreadIndicator => styles.unread_indicator,
         }
     }
@@ -520,6 +524,9 @@ impl General {
             }
             General::HorizontalRule => {
                 styles.horizontal_rule = color;
+            }
+            General::Scrollbar => {
+                styles.scrollbar = Some(color);
             }
             General::UnreadIndicator => {
                 styles.unread_indicator = color;
