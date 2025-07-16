@@ -2,6 +2,8 @@
 use data::appearance::theme::FontStyle;
 use iced::advanced::text;
 
+use crate::{Theme, font};
+
 pub use self::anchored_overlay::anchored_overlay;
 pub use self::color_picker::color_picker;
 pub use self::combo_box::combo_box;
@@ -13,11 +15,11 @@ pub use self::key_press::key_press;
 pub use self::message_content::message_content;
 pub use self::modal::modal;
 pub use self::notify_visibility::notify_visibility;
+pub use self::on_resize::on_resize;
 pub use self::selectable_rich_text::selectable_rich_text;
 pub use self::selectable_text::selectable_text;
 pub use self::shortcut::shortcut;
 pub use self::tooltip::tooltip;
-use crate::{Theme, font};
 
 pub mod anchored_overlay;
 pub mod collection;
@@ -32,6 +34,7 @@ pub mod key_press;
 pub mod message_content;
 pub mod modal;
 pub mod notify_visibility;
+pub mod on_resize;
 pub mod pick_list;
 pub mod selectable_rich_text;
 pub mod selectable_text;
