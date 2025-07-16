@@ -151,8 +151,11 @@ impl From<Nick> for User {
 }
 
 impl User {
-    fn key(&self) -> (Reverse<AccessLevel>, &str) {
-        (Reverse(self.highest_access_level()), self.nickname.as_ref())
+    fn key(&self) -> (Reverse<AccessLevel>, NickRef) {
+        (
+            Reverse(self.highest_access_level()),
+            self.nickname.as_nickref(),
+        )
     }
 
     pub fn seed(&self) -> &str {
