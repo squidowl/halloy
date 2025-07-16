@@ -231,7 +231,7 @@ impl Server {
                         Task::batch(vec![
                             command,
                             self.scroll_view
-                                .scroll_to_end()
+                                .scroll_to_end(config)
                                 .map(Message::ScrollView),
                         ]),
                         Some(Event::History(history_task)),

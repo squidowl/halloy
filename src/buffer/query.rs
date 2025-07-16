@@ -199,7 +199,7 @@ impl Query {
                         let command = Task::batch(vec![
                             command,
                             self.scroll_view
-                                .scroll_to_end()
+                                .scroll_to_end(config)
                                 .map(Message::ScrollView),
                         ]);
 
