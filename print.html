@@ -551,6 +551,53 @@ use_tls = true
 <p>To migrate, and ensure everything is working, make sure to read through the <a href="guides/../configuration">Configuration</a> section of this book. Here, every configuration option is documented using TOML.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="pronunciation"><a class="header" href="#pronunciation">Pronunciation</a></h1>
 <p>Halloy is an English transliteration of the Danish greeting halløj.  In other words, its pronunciation is close to the way most English speakers would guess based on its spelling. An approximate machine reading can be heard <a href="https://ipa-reader.com/?text=hal%C9%94j&amp;voice=Chantal">via IPA Reader</a>.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="building-for-flatpak"><a class="header" href="#building-for-flatpak">Building for flatpak</a></h1>
+<p>This guide will help you to build and/or test pre-released commits of Halloy
+for flatpak.</p>
+<p>If you haven't done so already, clone the <a href="https://github.com/squidowl/halloy">Halloy repository</a> to
+your local machine.</p>
+<h2 id="requirements"><a class="header" href="#requirements">Requirements</a></h2>
+<ul>
+<li><a href="https://docs.flatpak.org/en/latest/flatpak-builder.html">flatpak-builder</a></li>
+<li><a href="https://github.com/flatpak/flatpak-builder-tools/tree/master/cargo">flatpak-cargo-generator</a></li>
+</ul>
+<p>Be sure to install all the dependencies for the above tools.</p>
+<h2 id="generating-flatpak-build-sources-file"><a class="header" href="#generating-flatpak-build-sources-file">Generating flatpak build sources file</a></h2>
+<p>To generate the <code>generated-sources.json</code> file that is used by the flatpak
+manifest, run the following command:</p>
+<pre><code class="language-bash">python3 &lt;flatpak-builder-tools-path&gt;/cargo/flatpak-cargo-generator.py -o &lt;halloy-checkout-path&gt;/assets/flatpak/generated-sources.json
+</code></pre>
+<h2 id="building-and-installing-flatpak-locally"><a class="header" href="#building-and-installing-flatpak-locally">Building and installing flatpak locally</a></h2>
+<p>Finally, to build and install the flatpak locally, run the following command:</p>
+<pre><code class="language-bash">flatpak-builder --force-clean --user --install-deps-from=flathub --repo=.flatpak-builder/repo --install .flatpak-builder/build &lt;halloy-checkout-path&gt;/assets/flatpak/org.squidowl.halloy.json
+</code></pre>
+<p>Your flatpak should now be built, installed locally and ready for use.</p>
+<p>Happy testing!</p>
+<h2 id="releasing-to-flathub"><a class="header" href="#releasing-to-flathub">Releasing to Flathub</a></h2>
+<p>Halloy's flatpaks are released via <a href="https://github.com/flathub/org.squidowl.halloy/">Flathub</a>.</p>
+<p>Start by cloning the flathub repo for Halloy.
+Every release has two requirements:</p>
+<ol>
+<li>The <code>generated-sources.json</code> file must be up to date. You can generate it
+from the latest release tag via the commands above.</li>
+<li>The flatpak manifest file (<code>org.squidowl.halloy.json</code>) must be updated to
+point to the latest release tag of Halloy.</li>
+</ol>
+<p>The caveat for #2: the version you're wanting to release must be tagged first.
+We use the sha256sum of the tagged tarball in the build manifest.</p>
+<p>For example, for release <code>2025.6</code>, we would need to:</p>
+<pre><code class="language-bash"># Download the tagged tarball
+wget https://github.com/squidowl/halloy/archive/refs/tags/2025.6.tar.gz
+
+# Get the sha256sum of the tarball
+sha256sum 2025.6.tar.gz | awk '{print $1}'
+</code></pre>
+<p>The <code>url</code> and the <code>sha256</code> fields for <code>modules.0.sources.0</code> in the manifest file
+should be updated along with an updated <code>generated-sources.json</code> file. After
+that, you can create a pull request to the <a href="https://github.com/flathub/org.squidowl.halloy/">Flathub repository</a>
+with the updated files.</p>
+<p>See the pull request for the <a href="https://github.com/flathub/org.squidowl.halloy/pull/26">2025.6 release</a> for an
+example.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="configuration-1"><a class="header" href="#configuration-1">Configuration</a></h1>
 <p>To edit configuration parameters, create a <code>config.toml</code> file located in your configuration directory:</p>
 <ul>
