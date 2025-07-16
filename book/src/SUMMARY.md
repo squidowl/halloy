@@ -18,6 +18,7 @@
 - [Monitor users](guides/monitor-users.md)
 - [YAML migration](guides/migrating-from-yaml.md)
 - [Pronunciation](guides/pronunciation.md)
+- [Building for flatpak](guides/flatpaks.md)
 
 # Configuration
 
