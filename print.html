@@ -396,6 +396,21 @@ password = "&lt;your-password&gt;"
 # https://halloy.chat/configuration/servers.html#port
 
 </code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="optional-features"><a class="header" href="#optional-features">Optional Features</a></h1>
+<p>Halloy supports optional features that can be enabled during compilation to add additional functionality. These features are not included by default to keep the binary size small and compilation fast.</p>
+<h2 id="building-with-features"><a class="header" href="#building-with-features">Building with features</a></h2>
+<p>To build Halloy with specific features, use the <code>--features</code> flag:</p>
+<pre><code class="language-bash"># Build with a feature
+cargo build --features tor
+
+# Build release with features
+cargo build --release --features tor
+</code></pre>
+<h2 id="available-features"><a class="header" href="#available-features">Available features</a></h2>
+<h3 id="tor"><a class="header" href="#tor"><code>tor</code></a></h3>
+<p>Enables Tor network support for anonymous IRC connections.
+Not enabled by default.</p>
+<p>See <a href="guides/../configuration/proxy.html#proxytor">Proxy Configuration</a> for usage details.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="portable-mode"><a class="header" href="#portable-mode">Portable mode</a></h1>
 <p>To enable portable mode for Halloy, simply place the <code>config.toml</code> file in the same directory as the running executable.</p>
 <pre><code>.
@@ -1804,8 +1819,13 @@ username = "username"
 password = "password"
 </code></pre>
 <h2 id="proxytor"><a class="header" href="#proxytor"><code>[proxy.tor]</code></a></h2>
-<p>Tor proxy settings. Utilizes the <a href="https://arti.torproject.org/">arti</a> to integrate Tor natively.
+<p>Tor proxy settings. Utilizes <a href="https://arti.torproject.org/">Arti</a> to integrate Tor support directly into Halloy.
 It accepts no further configuration.</p>
+<p><strong>Note:</strong></p>
+<ul>
+<li>Does not integrate into a pre-existing Tor setup.  To utilize an existing Tor daemon, use <a href="configuration/proxy.html#proxysocks5"><code>[proxy.socks5]</code></a> instead.</li>
+<li>Tor support is <strong>not included by default</strong>. You must build Halloy with the <code>tor</code> feature to use this proxy type. See <a href="configuration/../guides/optional-features.html">Optional Features</a> for build instructions.</li>
+</ul>
 <h2 id="example-2"><a class="header" href="#example-2">Example</a></h2>
 <pre><code class="language-toml">[proxy.tor]
 </code></pre>

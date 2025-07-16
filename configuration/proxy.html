@@ -294,8 +294,13 @@ username = "username"
 password = "password"
 </code></pre>
 <h2 id="proxytor"><a class="header" href="#proxytor"><code>[proxy.tor]</code></a></h2>
-<p>Tor proxy settings. Utilizes the <a href="https://arti.torproject.org/">arti</a> to integrate Tor natively.
+<p>Tor proxy settings. Utilizes <a href="https://arti.torproject.org/">Arti</a> to integrate Tor support directly into Halloy.
 It accepts no further configuration.</p>
+<p><strong>Note:</strong></p>
+<ul>
+<li>Does not integrate into a pre-existing Tor setup.  To utilize an existing Tor daemon, use <a href="#proxysocks5"><code>[proxy.socks5]</code></a> instead.</li>
+<li>Tor support is <strong>not included by default</strong>. You must build Halloy with the <code>tor</code> feature to use this proxy type. See <a href="../guides/optional-features.html">Optional Features</a> for build instructions.</li>
+</ul>
 <h2 id="example-2"><a class="header" href="#example-2">Example</a></h2>
 <pre><code class="language-toml">[proxy.tor]
 </code></pre>
