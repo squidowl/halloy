@@ -11,6 +11,7 @@ edition.workspace = true
 default = []
 debug = ["iced/debug"]
 dev = ["debug", "data/dev"]
+tor = ["data/tor"]
 
 [workspace]
 members = ["data", "ipc", "irc", "irc/proto"]

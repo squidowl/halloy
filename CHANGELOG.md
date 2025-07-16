@@ -12,6 +12,10 @@ Changed:
 
 - Scrollbars now use dedicated `scrollbar` color instead of `horizontal_rule` color
 
+Changed:
+
+- Tor is now an optional feature. Build with `--features tor` to enable Tor proxy support.
+
 Thanks:
 
 - Bug reports: @darienm, @mercster
