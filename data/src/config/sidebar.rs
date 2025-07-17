@@ -1,5 +1,6 @@
 use serde::Deserialize;
 
+use crate::config::Scrollbar;
 use crate::serde::default_bool_true;
 
 #[derive(Debug, Copy, Clone, Deserialize)]
@@ -14,6 +15,8 @@ pub struct Sidebar {
     pub show_user_menu: bool,
     #[serde(default)]
     pub order_by: OrderBy,
+    #[serde(default)]
+    pub scrollbar: Scrollbar,
 }
 
 #[derive(Debug, Copy, Clone, Deserialize, Default)]
@@ -60,6 +63,7 @@ impl Default for Sidebar {
             position: Position::default(),
             show_user_menu: default_bool_true(),
             order_by: OrderBy::default(),
+            scrollbar: Scrollbar::default(),
         }
     }
 }

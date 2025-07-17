@@ -216,12 +216,11 @@ where
             }
             iced::Event::Mouse(mouse::Event::CursorMoved { .. })
             | iced::Event::Touch(touch::Event::FingerMoved { .. }) => {
-                if let Some(cursor) = cursor.position() {
-                    if let Interaction::Selecting(raw) = &mut state.interaction
+                if let Some(cursor) = cursor.position()
+                    && let Interaction::Selecting(raw) = &mut state.interaction
                     {
                         raw.end = cursor;
                     }
-                }
             }
             _ => {}
         }

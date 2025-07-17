@@ -4,7 +4,7 @@ use crate::{
     Config, Message, Server, User, isupport,
     message::Source,
     target::{Channel, Query},
-    user::TryFromUserError,
+    user::Nick,
 };
 
 use super::Kind;
@@ -28,18 +28,16 @@ pub enum FilterTarget {
     Any,
 }
 
-impl FilterTarget {
-    pub fn user_try_from_str(nick: &str) -> Result<Self, FilterError> {
-        User::try_from(nick)
-            .map(|u| Self::User(Source::User(u.clone())))
-            .map_err(FilterError::TryFromUserError)
+impl From<&str> for FilterTarget {
+    fn from(nick: &str) -> Self {
+        Self::User(Source::User(User::from(Nick::from(nick))))
     }
 }
 
 #[derive(Error, Debug)]
 pub enum FilterError {
     #[error("Unable to generate filter from nickname {0:?}")]
-    TryFromUserError(TryFromUserError),
+    TryFromUserError(String),
 }
 
 impl Filter {
@@ -51,34 +49,29 @@ impl Filter {
             };
 
             for idx in 0..filters.ignore.len() {
-                if let Ok(filter) = Filter::try_from_str_with_server(
+                new_filters.push(Filter::from_str_with_server(
                     &entry.server,
                     &filters.ignore[idx],
-                ) {
-                    new_filters.push(filter);
-                }
+                ));
             }
         });
         new_filters
     }
 
-    fn try_from_str_with_server(
-        server: &Server,
-        value: &str,
-    ) -> Result<Self, FilterError> {
+    fn from_str_with_server(server: &Server, value: &str) -> Self {
         let (class, target) = match value.split_once(' ') {
             Some((channel, nick)) => {
                 let channel =
                     Channel::from_str(channel, isupport::CaseMap::default());
 
-                let target = FilterTarget::user_try_from_str(nick)?;
+                let target = FilterTarget::from(nick);
 
                 (FilterClass::Channel((server.clone(), channel)), target)
             }
-            None => (FilterClass::Any, FilterTarget::user_try_from_str(value)?),
+            None => (FilterClass::Any, FilterTarget::from(value)),
         };
 
-        Ok(Self { class, target })
+        Self { class, target }
     }
 
     /// Tests a [`Message`] against the filter's predicate.

@@ -9,17 +9,19 @@ use data::preview::{self, Previews};
 use data::server::Server;
 use data::target::{self, Target};
 use data::{Config, Preview, client, history};
+use iced::widget::text::LineHeight;
 use iced::widget::{
     Scrollable, button, center, column, container, horizontal_rule,
     horizontal_space, image, mouse_area, row, scrollable, text,
 };
-use iced::{ContentFit, Length, Task, alignment, padding};
+use iced::{ContentFit, Length, Size, Task, alignment, padding};
 
 use self::correct_viewport::correct_viewport;
 use self::keyed::keyed;
 use super::user_context;
+use crate::appearance::theme::TEXT_SIZE;
 use crate::widget::{
-    Element, MESSAGE_MARKER_TEXT, notify_visibility, selectable_text,
+    Element, MESSAGE_MARKER_TEXT, notify_visibility, on_resize, selectable_text,
 };
 use crate::{Theme, font, icon, theme};
 
@@ -44,6 +46,7 @@ pub enum Message {
     PreviewUnhovered(message::Hash, usize),
     HidePreview(message::Hash, url::Url),
     MarkAsRead,
+    Resized(Size),
 }
 
 #[derive(Debug, Clone)]
@@ -368,13 +371,16 @@ pub fn view<'a>(
         .push(keyed(keyed::Key::Divider, divider))
         .push(column(new));
 
-    correct_viewport(
-        Scrollable::new(container(content).width(Length::Fill).padding([0, 8]))
+    on_resize(
+        correct_viewport(
+            Scrollable::new(
+                container(content).width(Length::Fill).padding([0, 8]),
+            )
             .direction(scrollable::Direction::Vertical(
                 scrollable::Scrollbar::default()
                     .anchor(status.anchor())
-                    .width(5)
-                    .scroller_width(5),
+                    .width(config.pane.scrollbar.width)
+                    .scroller_width(config.pane.scrollbar.scroller_width),
             ))
             .on_scroll(move |viewport| Message::Scrolled {
                 has_more_older_messages,
@@ -385,14 +391,17 @@ pub fn view<'a>(
                 viewport,
             })
             .id(state.scrollable.clone()),
-        state.scrollable.clone(),
-        matches!(state.status, Status::Unlocked),
+            state.scrollable.clone(),
+            matches!(state.status, Status::Unlocked),
+        ),
+        Message::Resized,
     )
 }
 
 #[derive(Debug, Clone)]
 pub struct State {
     pub scrollable: scrollable::Id,
+    size: Size,
     limit: Limit,
     status: Status,
     pending_scroll_to: Option<message::Hash>,
@@ -404,7 +413,9 @@ impl Default for State {
     fn default() -> Self {
         Self {
             scrollable: scrollable::Id::unique(),
-            limit: Limit::bottom(),
+            size: Size::default(),
+            // Will get set initially via `Message::Resized`
+            limit: Limit::Bottom(0),
             status: Status::default(),
             pending_scroll_to: None,
             visible_url_messages: HashMap::new(),
@@ -437,6 +448,7 @@ impl State {
                 viewport,
             } => {
                 let relative_offset = viewport.relative_offset().y;
+                let height = self.size.height;
 
                 let mut tasks = vec![];
                 let mut event = None;
@@ -447,14 +459,17 @@ impl State {
                         && has_more_newer_messages =>
                     {
                         self.status = Status::Unlocked;
-                        self.limit = Limit::Top(count + Limit::DEFAULT_STEP);
+                        self.limit =
+                            Limit::Top(count + step_messages(height, config));
                     }
                     // Scrolling up from bottom & have more to load
                     _ if old_status.is_top(relative_offset)
                         && has_more_older_messages =>
                     {
                         self.status = Status::Unlocked;
-                        self.limit = Limit::Bottom(count + Limit::DEFAULT_STEP);
+                        self.limit = Limit::Bottom(
+                            count + step_messages(height, config),
+                        );
 
                         // Get new oldest message w/ new limit and use that w/ Since
                         if let Some(history::View {
@@ -465,12 +480,10 @@ impl State {
                             &kind.into(),
                             Some(self.limit),
                             config,
-                        ) {
-                            if let Some(oldest) =
-                                old_messages.iter().chain(&new_messages).next()
-                            {
-                                self.limit = Limit::Since(oldest.server_time);
-                            }
+                        ) && let Some(oldest) =
+                            old_messages.iter().chain(&new_messages).next()
+                        {
+                            self.limit = Limit::Since(oldest.server_time);
                         }
                     }
                     // Hit bottom, anchor it
@@ -484,7 +497,8 @@ impl State {
                         self.status = Status::Bottom;
 
                         if !matches!(self.limit, Limit::Bottom(_)) {
-                            self.limit = Limit::bottom();
+                            self.limit =
+                                Limit::Bottom(step_messages(height, config));
                         }
                     }
                     // Hit top
@@ -499,14 +513,15 @@ impl State {
                             self.limit = Limit::Top(
                                 clients.get_server_chathistory_limit(server)
                                     as usize
-                                    + Limit::DEFAULT_COUNT,
+                                    + step_messages(height, config),
                             );
                         } else {
                             // Anchor it
                             self.status = Status::Unlocked;
 
                             if !matches!(self.limit, Limit::Top(_)) {
-                                self.limit = Limit::top();
+                                self.limit =
+                                    Limit::Top(step_messages(height, config));
                             }
                         }
                     }
@@ -520,7 +535,10 @@ impl State {
                     // Normal scrolling, always unlocked
                     _ => {
                         self.status = Status::Unlocked;
-                        self.limit = Limit::Since(oldest);
+
+                        if !matches!(self.limit, Limit::Top(_)) {
+                            self.limit = Limit::Since(oldest);
+                        }
                     }
                 }
 
@@ -608,7 +626,10 @@ impl State {
                     self.status = Status::Bottom;
 
                     if !matches!(self.limit, Limit::Bottom(_)) {
-                        self.limit = Limit::bottom();
+                        self.limit = Limit::Bottom(step_messages(
+                            self.size.height,
+                            config,
+                        ));
                     }
 
                     return (
@@ -635,7 +656,7 @@ impl State {
                     self.status = Status::Unlocked;
                     self.limit = Limit::Top(
                         clients.get_server_chathistory_limit(server) as usize
-                            + Limit::DEFAULT_COUNT,
+                            + step_messages(self.size.height, config),
                     );
 
                     return (
@@ -676,6 +697,21 @@ impl State {
             Message::ImagePreview(path, url) => {
                 return (Task::none(), Some(Event::ImagePreview(path, url)));
             }
+            Message::Resized(size) => {
+                let step_messages = step_messages(size.height, config);
+
+                match self.limit {
+                    Limit::Top(x) if x < step_messages => {
+                        self.limit = Limit::Top(step_messages);
+                    }
+                    Limit::Bottom(x) if x < step_messages => {
+                        self.limit = Limit::Bottom(step_messages);
+                    }
+                    _ => {}
+                }
+
+                self.size = size;
+            }
         }
 
         (Task::none(), None)
@@ -703,18 +739,18 @@ impl State {
         )
     }
 
-    pub fn scroll_to_start(&mut self) -> Task<Message> {
+    pub fn scroll_to_start(&mut self, config: &Config) -> Task<Message> {
         self.status = Status::Unlocked;
-        self.limit = Limit::top();
+        self.limit = Limit::Top(step_messages(self.size.height, config));
         correct_viewport::scroll_to(
             self.scrollable.clone(),
             scrollable::AbsoluteOffset { x: 0.0, y: 0.0 },
         )
     }
 
-    pub fn scroll_to_end(&mut self) -> Task<Message> {
+    pub fn scroll_to_end(&mut self, config: &Config) -> Task<Message> {
         self.status = Status::Bottom;
-        self.limit = Limit::bottom();
+        self.limit = Limit::Bottom(step_messages(self.size.height, config));
         correct_viewport::scroll_to(
             self.scrollable.clone(),
             scrollable::AbsoluteOffset { x: 0.0, y: 0.0 },
@@ -758,7 +794,8 @@ impl State {
         // Get all messages from bottom until 1 before message
         let offset = total - pos + 1;
 
-        self.limit = Limit::Bottom(offset.max(Limit::DEFAULT_COUNT));
+        self.limit =
+            Limit::Bottom(offset.max(step_messages(self.size.height, config)));
 
         keyed::find(self.scrollable.clone(), keyed::Key::Message(message))
             .map(Message::ScrollTo)
@@ -790,7 +827,8 @@ impl State {
         // Get all messages from bottom until 1 before backlog
         let offset = total - old_messages.len() + 1;
 
-        self.limit = Limit::Bottom(offset.max(Limit::DEFAULT_COUNT));
+        self.limit =
+            Limit::Bottom(offset.max(step_messages(self.size.height, config)));
 
         keyed::find(self.scrollable.clone(), keyed::Key::Divider)
             .map(Message::ScrollTo)
@@ -852,6 +890,21 @@ impl Default for Status {
     fn default() -> Self {
         Self::Bottom
     }
+}
+
+fn step_messages(height: f32, config: &Config) -> usize {
+    let line_height = LineHeight::default()
+        .to_absolute(
+            if let Some(size) = config.font.size {
+                f32::from(size)
+            } else {
+                TEXT_SIZE
+            }
+            .into(),
+        )
+        .0;
+
+    (height / line_height) as usize
 }
 
 mod keyed {
@@ -995,13 +1048,13 @@ mod keyed {
             bounds: Rectangle,
             state: &mut dyn std::any::Any,
         ) {
-            if self.active {
-                if let Some(key) = state.downcast_ref::<Key>() {
-                    if self.key == *key {
-                        self.hit_bounds = Some(bounds);
-                    } else if self.hit_bounds.is_none() {
-                        self.prev_bounds = Some(bounds);
-                    }
+            if self.active
+                && let Some(key) = state.downcast_ref::<Key>()
+            {
+                if self.key == *key {
+                    self.hit_bounds = Some(bounds);
+                } else if self.hit_bounds.is_none() {
+                    self.prev_bounds = Some(bounds);
                 }
             }
         }
@@ -1068,22 +1121,20 @@ mod keyed {
             bounds: Rectangle,
             state: &mut dyn std::any::Any,
         ) {
-            if self.active {
-                if let Some(key) = state.downcast_ref::<Key>() {
-                    if self.hit_bounds.is_none()
-                        && self.scrollable.is_some_and(|scrollable| {
-                            scrollable.viewport.intersects(
-                                &(bounds
-                                    - Vector::new(
-                                        scrollable.offset.x,
-                                        scrollable.offset.y,
-                                    )),
-                            )
-                        })
-                    {
-                        self.hit_bounds = Some((*key, bounds));
-                    }
-                }
+            if self.active
+                && let Some(key) = state.downcast_ref::<Key>()
+                && self.hit_bounds.is_none()
+                && self.scrollable.is_some_and(|scrollable| {
+                    scrollable.viewport.intersects(
+                        &(bounds
+                            - Vector::new(
+                                scrollable.offset.x,
+                                scrollable.offset.y,
+                            )),
+                    )
+                })
+            {
+                self.hit_bounds = Some((*key, bounds));
             }
         }
 
@@ -1543,10 +1594,10 @@ mod correct_viewport {
                 _bounds: Rectangle,
                 state: &mut dyn Any,
             ) {
-                if id.is_some_and(|id| *id == self.target) {
-                    if let Some(is_scroll_to) = state.downcast_mut::<bool>() {
-                        *is_scroll_to = true;
-                    }
+                if id.is_some_and(|id| *id == self.target)
+                    && let Some(is_scroll_to) = state.downcast_mut::<bool>()
+                {
+                    *is_scroll_to = true;
                 }
             }
         }
@@ -1612,10 +1663,10 @@ mod correct_viewport {
                 _bounds: Rectangle,
                 state: &mut dyn Any,
             ) {
-                if id.is_some_and(|id| *id == self.target) {
-                    if let Some(is_scroll_to) = state.downcast_mut::<bool>() {
-                        *is_scroll_to = true;
-                    }
+                if id.is_some_and(|id| *id == self.target)
+                    && let Some(is_scroll_to) = state.downcast_mut::<bool>()
+                {
+                    *is_scroll_to = true;
                 }
             }
         }

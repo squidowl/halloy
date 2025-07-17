@@ -205,7 +205,7 @@ pub fn nickname(
     } else {
         parse_fragments_with_users(
             format!("{old_nick} is now known as {new_nick}"),
-            Some(&[old_user, new_user.clone()].into_iter().collect()),
+            Some(&[old_user.clone(), new_user].into_iter().collect()),
         )
     };
 
@@ -215,7 +215,7 @@ pub fn nickname(
         false,
         Cause::Server(Some(source::Server::new(
             source::server::Kind::ChangeNick,
-            Some(new_user.nickname().to_owned()),
+            Some(old_user.nickname().to_owned()),
         ))),
         content,
         sent_time,

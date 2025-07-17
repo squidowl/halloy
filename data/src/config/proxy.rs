@@ -15,6 +15,7 @@ pub enum Proxy {
         username: Option<String>,
         password: Option<String>,
     },
+    #[cfg(feature = "tor")]
     Tor,
 }
 
@@ -43,6 +44,7 @@ impl From<Proxy> for irc::connection::Proxy {
                 username,
                 password,
             },
+            #[cfg(feature = "tor")]
             Proxy::Tor => irc::connection::Proxy::Tor,
         }
     }

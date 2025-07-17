@@ -380,7 +380,7 @@ fn success_icon<'a>() -> Element<'a, Message> {
         .into()
 }
 
-fn secondary_button(label: &str, message: Message) -> Element<Message> {
+fn secondary_button(label: &str, message: Message) -> Element<'_, Message> {
     button(
         container(label)
             .align_x(alignment::Horizontal::Center)
@@ -497,6 +497,7 @@ pub enum General {
     Background,
     Border,
     HorizontalRule,
+    Scrollbar,
     UnreadIndicator,
 }
 
@@ -506,6 +507,9 @@ impl General {
             General::Background => styles.background,
             General::Border => styles.border,
             General::HorizontalRule => styles.horizontal_rule,
+            General::Scrollbar => {
+                styles.scrollbar.unwrap_or(styles.horizontal_rule)
+            }
             General::UnreadIndicator => styles.unread_indicator,
         }
     }
@@ -520,6 +524,9 @@ impl General {
             }
             General::HorizontalRule => {
                 styles.horizontal_rule = color;
+            }
+            General::Scrollbar => {
+                styles.scrollbar = Some(color);
             }
             General::UnreadIndicator => {
                 styles.unread_indicator = color;

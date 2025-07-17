@@ -6,11 +6,20 @@ Added:
 - Configuration option to hide `nick` and `mode` change server messages
 - Context menu item to server buffers to mark all messages on the server as read
 - Auto-accept file transfer option with support for nick and mask filtering
+- Configuration option to adjust scrollbar sizing
+
+Changed:
+
+- Scrollbars now use dedicated `scrollbar` color instead of `horizontal_rule` color
+
+Changed:
+
+- Tor is now an optional feature. Build with `--features tor` to enable Tor proxy support.
 
 Thanks:
 
 - Bug reports: @darienm, @mercster
-- Feature requests: @rossburton, death916
+- Feature requests: @rossburton, death916, @Celeo
 
 # 2025.6 (2025-06-14)
 

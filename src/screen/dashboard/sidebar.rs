@@ -461,8 +461,10 @@ impl Sidebar {
                         .direction(
                             scrollable::Direction::Vertical(
                                 scrollable::Scrollbar::default()
-                                    .width(2)
-                                    .scroller_width(2)
+                                    .width(config.sidebar.scrollbar.width)
+                                    .scroller_width(
+                                        config.sidebar.scrollbar.scroller_width
+                                    )
                             )
                         )
                     ];
@@ -480,8 +482,10 @@ impl Sidebar {
                         Scrollable::new(Row::with_children(buffers).spacing(2))
                             .direction(scrollable::Direction::Horizontal(
                                 scrollable::Scrollbar::default()
-                                    .width(2)
-                                    .scroller_width(2)
+                                    .width(config.sidebar.scrollbar.width)
+                                    .scroller_width(
+                                        config.sidebar.scrollbar.scroller_width
+                                    )
                             ))
                     ];
 

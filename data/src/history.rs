@@ -640,14 +640,12 @@ impl History {
             last_updated_at,
             ..
         } = self
-        {
-            if let Some(message) =
+            && let Some(message) =
                 messages.iter_mut().find(|m| m.hash == message)
-            {
-                message.hidden_urls.insert(url);
+        {
+            message.hidden_urls.insert(url);
 
-                *last_updated_at = Some(Instant::now());
-            }
+            *last_updated_at = Some(Instant::now());
         }
     }
 

@@ -10,11 +10,9 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::config::buffer::UsernameFormat;
-use crate::mode;
+use crate::{isupport, mode};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(into = "String")]
-#[serde(try_from = "String")]
+#[derive(Debug, Clone)]
 pub struct User {
     nickname: Nick,
     username: Option<String>,
@@ -100,98 +98,42 @@ impl ChannelUsers {
     }
 }
 
-#[derive(Error, Debug)]
-pub enum TryFromUserError {
-    #[error("nickname can't be empty")]
-    NicknameEmpty,
-    #[error("nickname must start with alphabetic or [ \\ ] ^ _ ` {{ | }} *")]
-    NicknameInvalidCharacter,
-}
-
-impl TryFrom<String> for User {
-    type Error = TryFromUserError;
-
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        Self::try_from(value.as_str())
-    }
-}
-
-impl<'a> TryFrom<&'a str> for User {
-    type Error = TryFromUserError;
-
-    fn try_from(value: &'a str) -> Result<Self, Self::Error> {
-        if value.is_empty() {
-            return Err(Self::Error::NicknameEmpty);
-        }
-
-        let Some(index) = value.find(|c: char| {
-            c.is_alphabetic() || "[\\]^_`{|}*".find(c).is_some()
-        }) else {
-            return Err(Self::Error::NicknameInvalidCharacter);
-        };
-
-        let (access_levels, rest) = (&value[..index], &value[index..]);
-
-        let access_levels = access_levels
-            .chars()
-            .filter_map(|c| AccessLevel::try_from(c).ok())
-            .collect::<BTreeSet<_>>();
-
-        let (nickname, username, hostname) =
-            match (rest.find('!'), rest.find('@')) {
-                (None, None) => (rest, None, None),
-                (Some(i), None) => {
-                    (&rest[..i], Some(rest[i + 1..].to_string()), None)
-                }
-                (None, Some(i)) => {
-                    (&rest[..i], None, Some(rest[i + 1..].to_string()))
-                }
-                (Some(i), Some(j)) => {
-                    if i < j {
-                        (
-                            &rest[..i],
-                            Some(rest[i + 1..j].to_string()),
-                            Some(rest[j + 1..].to_string()),
-                        )
-                    } else if let Some(k) = rest[i + 1..].find('@') {
-                        (
-                            &rest[..i],
-                            Some(rest[i + 1..i + k + 1].to_string()),
-                            Some(rest[i + k + 2..].to_string()),
-                        )
-                    } else {
-                        (&rest[..i], Some(rest[i + 1..].to_string()), None)
-                    }
-                }
-            };
-
-        Ok(User {
-            nickname: Nick::from(nickname),
-            username,
-            hostname,
-            accountname: None,
-            access_levels,
-            away: false,
-        })
-    }
-}
-
-impl From<User> for String {
-    fn from(user: User) -> Self {
-        let access_levels: String = sorted(user.access_levels.iter())
+impl Serialize for User {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let access_levels: String = sorted(self.access_levels.iter())
             .map(ToString::to_string)
             .collect();
-        let nickname = user.nickname();
-        let username = user
+        let nickname = self.nickname();
+        let username = self
             .username()
             .map(|username| format!("!{username}"))
             .unwrap_or_default();
-        let hostname = user
+        let hostname = self
             .hostname()
             .map(|hostname| format!("@{hostname}"))
             .unwrap_or_default();
 
         format!("{access_levels}{nickname}{username}{hostname}")
+            .serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for User {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = String::deserialize(deserializer)?;
+
+        User::parse(&value, None).map_err(|_| {
+            serde::de::Error::invalid_value(
+                serde::de::Unexpected::Str(&value),
+                &"{access_levels}{nickname}{username}{hostname}",
+            )
+        })
     }
 }
 
@@ -209,8 +151,11 @@ impl From<Nick> for User {
 }
 
 impl User {
-    fn key(&self) -> (Reverse<AccessLevel>, &str) {
-        (Reverse(self.highest_access_level()), self.nickname.as_ref())
+    fn key(&self) -> (Reverse<AccessLevel>, NickRef) {
+        (
+            Reverse(self.highest_access_level()),
+            self.nickname.as_nickref(),
+        )
     }
 
     pub fn seed(&self) -> &str {
@@ -238,7 +183,7 @@ impl User {
         self.username.as_deref()
     }
 
-    pub fn nickname(&self) -> NickRef {
+    pub fn nickname(&self) -> NickRef<'_> {
         NickRef(&self.nickname.0)
     }
 
@@ -325,6 +270,16 @@ impl User {
                 (Some(user), None) => format!("{nick} ({user})"),
                 (Some(user), Some(host)) => format!("{nick} ({user}@{host})"),
             },
+            UsernameFormat::Mask => format!(
+                "{}{}{}",
+                self.nickname(),
+                self.username()
+                    .map(|username| format!("!{username}"))
+                    .unwrap_or_default(),
+                self.hostname()
+                    .map(|hostname| format!("@{hostname}"))
+                    .unwrap_or_default()
+            ),
         }
     }
 
@@ -333,7 +288,7 @@ impl User {
     pub fn matches_masks(&self, masks: &[String]) -> bool {
         use fancy_regex::Regex;
 
-        let user_mask = String::from(self.clone());
+        let user_mask = self.formatted(UsernameFormat::Mask);
 
         masks.iter().any(|mask_pattern| {
             if let Ok(regex) = Regex::new(mask_pattern) {
@@ -343,6 +298,77 @@ impl User {
             }
         })
     }
+
+    pub fn parse(
+        value: &str,
+        prefix: Option<&[isupport::PrefixMap]>,
+    ) -> Result<Self, ParseUserError> {
+        if value.is_empty() {
+            return Err(ParseUserError::NicknameEmpty);
+        }
+
+        let index = if let Some(prefix) = prefix {
+            value.find(|c: char| {
+                prefix.iter().all(|prefix_map| c != prefix_map.prefix)
+            })
+        } else {
+            value.find(|c: char| AccessLevel::try_from(c).is_err())
+        };
+
+        let Some(index) = index else {
+            return Err(ParseUserError::NicknameEmpty);
+        };
+
+        let (access_levels, rest) = (&value[..index], &value[index..]);
+
+        let access_levels = access_levels
+            .chars()
+            .filter_map(|c| AccessLevel::try_from(c).ok())
+            .collect::<BTreeSet<_>>();
+
+        let (nickname, username, hostname) =
+            match (rest.find('!'), rest.find('@')) {
+                (None, None) => (rest, None, None),
+                (Some(i), None) => {
+                    (&rest[..i], Some(rest[i + 1..].to_string()), None)
+                }
+                (None, Some(i)) => {
+                    (&rest[..i], None, Some(rest[i + 1..].to_string()))
+                }
+                (Some(i), Some(j)) => {
+                    if i < j {
+                        (
+                            &rest[..i],
+                            Some(rest[i + 1..j].to_string()),
+                            Some(rest[j + 1..].to_string()),
+                        )
+                    } else if let Some(k) = rest[i + 1..].find('@') {
+                        (
+                            &rest[..i],
+                            Some(rest[i + 1..i + k + 1].to_string()),
+                            Some(rest[i + k + 2..].to_string()),
+                        )
+                    } else {
+                        (&rest[..i], Some(rest[i + 1..].to_string()), None)
+                    }
+                }
+            };
+
+        Ok(User {
+            nickname: Nick::from(nickname),
+            username,
+            hostname,
+            accountname: None,
+            access_levels,
+            away: false,
+        })
+    }
+}
+
+#[derive(Error, Debug)]
+pub enum ParseUserError {
+    #[error("nickname can't be empty")]
+    NicknameEmpty,
 }
 
 impl From<proto::User> for User {
@@ -440,11 +466,7 @@ impl AsRef<str> for NickRef<'_> {
 impl PartialOrd for NickRef<'_> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         // TODO(pounce) casemapping
-        Some(
-            self.0
-                .to_ascii_lowercase()
-                .cmp(&other.0.to_ascii_lowercase()),
-        )
+        Some(self.cmp(other))
     }
 }
 
@@ -540,7 +562,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn string_try_from() {
+    fn user_serde() {
+        use serde_test::{Token, assert_tokens};
+
         let tests = [
             (
                 User {
@@ -554,7 +578,18 @@ mod tests {
                     ]),
                     away: false,
                 },
-                "+@dan",
+                [Token::String("+@dan")],
+            ),
+            (
+                User {
+                    nickname: "dan".into(),
+                    username: Some("d".into()),
+                    hostname: Some("localhost".into()),
+                    accountname: None,
+                    access_levels: BTreeSet::<AccessLevel>::new(),
+                    away: false,
+                },
+                [Token::String("dan!d@localhost")],
             ),
             (
                 User {
@@ -567,7 +602,7 @@ mod tests {
                     ]),
                     away: false,
                 },
-                "@d@n!d@localhost",
+                [Token::String("@d@n!d@localhost")],
             ),
             (
                 User {
@@ -578,7 +613,7 @@ mod tests {
                     access_levels: BTreeSet::<AccessLevel>::new(),
                     away: false,
                 },
-                "foobar",
+                [Token::String("foobar")],
             ),
             (
                 User {
@@ -591,7 +626,9 @@ mod tests {
                     access_levels: BTreeSet::<AccessLevel>::new(),
                     away: false,
                 },
-                "foobar!8a027a9a4a@2201:12f1:2:1162:1242:1fg:he11:abde",
+                [Token::String(
+                    "foobar!8a027a9a4a@2201:12f1:2:1162:1242:1fg:he11:abde",
+                )],
             ),
             (
                 User {
@@ -605,32 +642,9 @@ mod tests {
                     ]),
                     away: false,
                 },
-                "+@foobar!~foobar@12.521.212.521",
-            ),
-        ];
-
-        for (test, expected) in tests {
-            let user = String::from(test);
-            assert_eq!(user, expected);
-        }
-    }
-
-    #[test]
-    fn user_try_from() {
-        let tests = [
-            (
-                "dan!d@localhost",
-                User {
-                    nickname: "dan".into(),
-                    username: Some("d".into()),
-                    hostname: Some("localhost".into()),
-                    accountname: None,
-                    access_levels: BTreeSet::<AccessLevel>::new(),
-                    away: false,
-                },
+                [Token::String("+@foobar!~foobar@12.521.212.521")],
             ),
             (
-                "$@H1N5!the.flu@in.you",
                 User {
                     nickname: "H1N5".into(),
                     username: Some("the.flu".into()),
@@ -641,31 +655,9 @@ mod tests {
                     ]),
                     away: false,
                 },
+                [Token::String("@H1N5!the.flu@in.you")],
             ),
             (
-                "d@n!d@localhost",
-                User {
-                    nickname: "d@n".into(),
-                    username: Some("d".into()),
-                    hostname: Some("localhost".into()),
-                    accountname: None,
-                    access_levels: BTreeSet::<AccessLevel>::new(),
-                    away: false,
-                },
-            ),
-            (
-                "d@n!d",
-                User {
-                    nickname: "d@n".into(),
-                    username: Some("d".into()),
-                    hostname: None,
-                    accountname: None,
-                    access_levels: BTreeSet::<AccessLevel>::new(),
-                    away: false,
-                },
-            ),
-            (
-                "*status",
                 User {
                     nickname: "*status".into(),
                     username: None,
@@ -674,32 +666,25 @@ mod tests {
                     access_levels: BTreeSet::<AccessLevel>::new(),
                     away: false,
                 },
+                [Token::String("*status")],
             ),
         ];
 
-        for (test, expected) in tests {
-            let user = super::User::try_from(test).unwrap();
-
-            assert_eq!(
-                (
-                    user.nickname,
-                    user.username,
-                    user.hostname,
-                    user.access_levels
-                ),
-                (
-                    expected.nickname,
-                    expected.username,
-                    expected.hostname,
-                    expected.access_levels
-                )
-            );
+        for (user, expected) in tests {
+            assert_tokens(&user, &expected);
         }
     }
 
     #[test]
     fn matches_masks() {
-        let user = super::User::try_from("alice!alice@example.com ").unwrap();
+        let user = User {
+            nickname: "alice".into(),
+            username: Some("alice".into()),
+            hostname: Some("example.com".into()),
+            accountname: None,
+            access_levels: BTreeSet::<AccessLevel>::new(),
+            away: false,
+        };
 
         // Test exact match
         assert!(user.matches_masks(&["alice!alice@example.com".to_string()]));
@@ -736,7 +721,7 @@ mod tests {
             ("foobar", "+@foobar!~foobar@12.521.212.521"),
             ("*status", "*status"),
         ]
-        .map(|(a, b)| (NickRef::from(a), User::try_from(b).unwrap()));
+        .map(|(a, b)| (NickRef::from(a), User::parse(b, None).unwrap()));
         let channel_users: ChannelUsers =
             users.iter().map(|(_, u)| u).cloned().collect();
         for (nick, user) in users {
