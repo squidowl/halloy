@@ -18,6 +18,7 @@ Changed:
 
 Thanks:
 
+- Contributions: @KaiKorla
 - Bug reports: @darienm, @mercster
 - Feature requests: @rossburton, death916, @Celeo
 
