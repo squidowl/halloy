@@ -330,15 +330,12 @@ impl Manager {
     pub fn record_highlight(
         &mut self,
         message: crate::Message,
-    ) -> (Option<impl Future<Output = Message> + use<>>, bool) {
+    ) -> Option<impl Future<Output = Message> + use<>> {
         let blocked = FilterChain::borrow(&self.filters)
             .filter_message_of_kind(&message, &history::Kind::Highlights);
 
-        (
-            self.data
-                .add_message(history::Kind::Highlights, message, blocked),
-            blocked,
-        )
+        self.data
+            .add_message(history::Kind::Highlights, message, blocked)
     }
 
     pub fn update_read_marker<T: Into<history::Kind>>(
@@ -451,14 +448,7 @@ impl Manager {
     }
 
     pub fn has_unread(&self, kind: &history::Kind) -> bool {
-        let mut blocked = false;
-        if let history::Kind::Query(_, query) = kind {
-            blocked = FilterChain::borrow(&self.filters).filter_query(query);
-        };
-        self.data
-            .map
-            .get(kind)
-            .is_some_and(|history| !blocked && History::has_unread(history))
+        self.data.map.get(kind).is_some_and(History::has_unread)
     }
 
     pub fn read_marker(
