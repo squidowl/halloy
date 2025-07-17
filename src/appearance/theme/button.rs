@@ -151,3 +151,48 @@ pub fn bare(_theme: &Theme, status: Status) -> Style {
         }
     }
 }
+
+pub fn preview_card(theme: &Theme, status: Status) -> Style {
+    let general = theme.styles().general;
+    let foreground = theme.styles().text.primary.color;
+    let background_hover = theme.styles().buttons.primary.background_hover;
+
+    let border = Border {
+        radius: 4.0.into(),
+        width: 1.0,
+        color: general.border,
+    };
+
+    match status {
+        Status::Active | Status::Pressed => Style {
+            background: Some(Background::Color(general.background)),
+            text_color: foreground,
+            border,
+            ..Default::default()
+        },
+        Status::Hovered => Style {
+            background: Some(Background::Color(background_hover)),
+            text_color: foreground,
+            border,
+            ..Default::default()
+        },
+        Status::Disabled => {
+            let active: Style = button(
+                foreground,
+                general.background,
+                background_hover,
+                Status::Active,
+            );
+
+            Style {
+                text_color: Color {
+                    a: 0.2,
+                    ..active.text_color
+                },
+                background: Some(Background::Color(general.background)),
+                border,
+                ..Default::default()
+            }
+        }
+    }
+}
