@@ -24,6 +24,7 @@ use std::{env, mem};
 use appearance::{Theme, theme};
 use chrono::Utc;
 use data::config::{self, Config};
+use data::history::filter::FilterChain;
 use data::history::manager::Broadcast;
 use data::target::{self, Target};
 use data::user::ChannelUsers;
@@ -703,15 +704,18 @@ impl Halloy {
                                             if let Some((message, channel, user)) =
                                                 message.into_highlight(server.clone())
                                             {
+                                                let blocked = FilterChain::borrow(dashboard.get_filters())
+                                                    .filter_message_of_kind(
+                                                        &message,
+                                                        &history::Kind::Channel(server.clone(), channel.clone())
+                                                    );
+
                                                 let message_text = message.text();
 
-                                                commands.push(
-                                                    dashboard
-                                                        .record_highlight(message)
-                                                        .map(Message::Dashboard),
-                                                );
+                                                let task  = dashboard.record_highlight(message);
+                                                commands.push(task.map(Message::Dashboard));
 
-                                                if highlight_notification_enabled {
+                                                if !blocked && highlight_notification_enabled {
                                                     self.notifications.notify(
                                                         &self.config.notifications,
                                                         &Notification::Highlight {
@@ -946,11 +950,11 @@ impl Halloy {
                                                 chantypes,
                                                 statusmsg,
                                                 casemapping,
-                                            )
-                                                && (dashboard.history().has_unread(
-                                                    &history::Kind::Query(server.clone(), query),
-                                                ) || !self.main_window.focused)
-                                                {
+                                            ) {
+                                                let blocked = FilterChain::borrow(dashboard.get_filters()).filter_query(&query);
+                                                let has_unread = dashboard.history().has_unread(&history::Kind::Query(server.clone(), query));
+
+                                                if !blocked && (has_unread || !self.main_window.focused) {
                                                     self.notifications.notify(
                                                         &self.config.notifications,
                                                         &Notification::DirectMessage{
@@ -960,6 +964,7 @@ impl Halloy {
                                                         &server,
                                                     );
                                                 }
+                                            }
                                     }
                                     data::client::Event::MonitoredOnline(users) => {
                                         self.notifications.notify(
@@ -988,6 +993,15 @@ impl Halloy {
                                                     )
                                                 })
                                         );
+                                    }
+                                    data::client::Event::AddedIsupportParam(param) => {
+                                        if let data::isupport::Parameter::CASEMAPPING(casemapping) = param {
+                                            FilterChain::sync_channels(
+                                                dashboard.get_filters(),
+                                                &server,
+                                                casemapping
+                                            );
+                                        }
                                     }
                                 }
                             }

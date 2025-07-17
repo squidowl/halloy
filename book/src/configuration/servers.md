@@ -207,6 +207,27 @@ Executes the command with `sh` (or equivalent) and reads `password` as the outpu
 password_command = ""
 ```
 
+## `filters`
+
+Filter messages based on various criteria.
+
+### `filters.ignore`
+
+A list of nicknames to ignore. Optionally, the nickname may be preceded by a channel name like so: `"#channel nickname"` - this will ignore the nickname for a specific channel only.
+
+```toml
+# Type: array of strings
+# Values: array of any strings
+# Default: not set
+
+[servers.<name>.filters]
+ignore = [
+"ignored_user", 
+"another_user",
+"#specific-channel user_only_for_channel"
+]
+```
+
 ## `channels`
 
 A list of channels to join on connection.
