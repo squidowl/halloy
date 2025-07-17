@@ -220,7 +220,6 @@ impl<'f> FilterChain<'f> {
             .iter_mut()
             .filter(|filter| filter.match_server(server))
             .for_each(|filter| {
-                log::debug!("{filter:?}");
                 filter.sync_casemapping(server, casemapping);
             });
     }
