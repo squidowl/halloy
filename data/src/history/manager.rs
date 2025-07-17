@@ -184,7 +184,7 @@ impl Manager {
         self.filters.append(&mut new_filters);
         self.cached_channels.clear();
         log::debug!(
-            "set new filters to history manager, cleared all blocked message cache data."
+            "set new filters to history manager, reset all cached channel flags."
         );
     }
 
