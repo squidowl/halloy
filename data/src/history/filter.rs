@@ -112,6 +112,20 @@ impl Filter {
         }
     }
 
+    /// Tests a [`history::Kind`] against the filter's predicate.
+    ///
+    /// This function returns `true` when the query matches predicate, false
+    /// otherwise.
+    ///
+    /// Note: matching against [`history::Kind::Server`] is not the same as
+    /// matching against [`Server`] - `history::Kind::Server` matches only for
+    /// messages from the server itself, not 'any message coming from a server'.
+    /// Use `Filter::match_server` if you need to test against 'any message from
+    /// a particular server'
+    ///
+    /// [`history::Kind`]:crate::history::Kind
+    /// [`history::Kind::Server`]:crate::history::Kind::Server
+    /// [`Server`]:crate::Server
     pub fn match_kind(&self, kind: &Kind) -> bool {
         match &self.class {
             FilterClass::Server(target_server) => match kind {
@@ -133,6 +147,12 @@ impl Filter {
         }
     }
 
+    /// Tests a [`Server`] against the filter's predicate.
+    ///
+    /// This function returns `true` when the query matches predicate, false
+    /// otherwise.
+    ///
+    /// [`Server`]:crate::Server
     pub fn match_server(&self, server: &Server) -> bool {
         match &self.class {
             FilterClass::Server(target_server)
