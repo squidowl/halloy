@@ -326,15 +326,15 @@ impl History {
         message: Message,
         blocked: bool,
     ) -> Option<ReadMarker> {
-        if message.triggers_unread() && !blocked {
-            if let History::Partial {
+        if message.triggers_unread()
+            && !blocked
+            && let History::Partial {
                 max_triggers_unread,
                 ..
             } = self
-            {
-                *max_triggers_unread =
-                    (*max_triggers_unread).max(Some(message.server_time));
-            }
+        {
+            *max_triggers_unread =
+                (*max_triggers_unread).max(Some(message.server_time));
         }
 
         match self {
