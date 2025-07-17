@@ -14,14 +14,15 @@ use iced::widget::{
     Scrollable, button, center, column, container, horizontal_rule,
     horizontal_space, image, mouse_area, row, scrollable, text,
 };
-use iced::{ContentFit, Length, Size, Task, alignment, padding};
+use iced::{ContentFit, Length, Padding, Size, Task, alignment, padding};
 
 use self::correct_viewport::correct_viewport;
 use self::keyed::keyed;
 use super::user_context;
 use crate::appearance::theme::TEXT_SIZE;
 use crate::widget::{
-    Element, MESSAGE_MARKER_TEXT, notify_visibility, on_resize, selectable_text,
+    Element, MESSAGE_MARKER_TEXT, notify_visibility, on_resize,
+    selectable_text, tooltip,
 };
 use crate::{Theme, font, icon, theme};
 
@@ -1183,8 +1184,9 @@ fn preview_row<'a>(
                                 .font_maybe(
                                     theme::font_style::primary(theme)
                                         .map(font::get)
-                                )
+                                ),
                         ]
+                        .spacing(8)
                         .push_maybe(description.as_ref().map(|description| {
                             text(description)
                                 .shaping(text::Shaping::Advanced)
@@ -1204,12 +1206,12 @@ fn preview_row<'a>(
                             )
                         ),
                     ]
-                    .max_width(400)
-                    .spacing(4),
+                    .max_width(400),
                 )
-                .padding(4)
-                .style(theme::container::image_card),
-            ),
+                .padding(8),
+            )
+            .style(theme::button::preview_card)
+            .on_press(Message::Link(message::Link::Url(url.to_string()))),
         ),
         data::Preview::Image(preview::Image { path, url, .. }) => keyed(
             keyed::Key::Preview(message.hash, idx),
@@ -1309,7 +1311,7 @@ fn preview_row<'a>(
     };
 
     let hide_button = if is_hovered {
-        Some(
+        container(tooltip(
             button(center(icon::cancel()))
                 .padding(5)
                 .width(22)
@@ -1318,21 +1320,24 @@ fn preview_row<'a>(
                 .style(|theme, status| {
                     theme::button::secondary(theme, status, false)
                 }),
-        )
+            config.tooltips.then_some("Hide Preview"),
+            tooltip::Position::Top,
+            theme,
+        ))
     } else {
-        None
+        container(horizontal_space().width(Length::Fixed(22.0)))
     };
 
-    mouse_area(
-        row![aligned_content]
-            .push_maybe(hide_button)
-            .align_y(alignment::Vertical::Top)
-            .width(Length::Fill)
-            .spacing(4),
-    )
-    .on_enter(Message::PreviewHovered(message.hash, idx))
-    .on_exit(Message::PreviewUnhovered(message.hash, idx))
-    .into()
+    let content = row![aligned_content, hide_button]
+        .align_y(alignment::Vertical::Top)
+        .width(Length::Fill)
+        .padding(Padding::default().top(4).bottom(4))
+        .spacing(4);
+
+    mouse_area(content)
+        .on_enter(Message::PreviewHovered(message.hash, idx))
+        .on_exit(Message::PreviewUnhovered(message.hash, idx))
+        .into()
 }
 
 mod correct_viewport {
