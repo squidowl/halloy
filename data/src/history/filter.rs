@@ -1,4 +1,3 @@
-use fancy_regex::Regex;
 use thiserror::Error;
 
 use crate::{
@@ -67,19 +66,12 @@ impl Filter {
         server: &Server,
         value: &str,
     ) -> Result<Self, FilterError> {
-        let channel_test = Regex::new("^[#&][^\x07, ]{1,49}").expect("Failed to compile static regex, if you see this, something has gone wrong.");
-        let (class, target) = match channel_test.find(value).expect("Failed to run static regex, if you see this, something has gone wrong.") {
-            Some(channel_match) => {
-                let offset = channel_match.end();
-                let channel = Channel::from_str(
-                    channel_match.as_str(),
-                    isupport::CaseMap::default()
-                );
+        let (class, target) = match value.split_once(' ') {
+            Some((channel, nick)) => {
+                let channel =
+                    Channel::from_str(channel, isupport::CaseMap::default());
 
-                let target = match value.get(offset..) {
-                    Some(nick) => FilterTarget::user_try_from_str(nick)?,
-                    None => FilterTarget::Any,
-                };
+                let target = FilterTarget::user_try_from_str(nick)?;
 
                 (FilterClass::Channel((server.clone(), channel)), target)
             }
