@@ -138,7 +138,7 @@ impl Manager {
             }
             Message::UpdatePartial(kind, Ok(metadata)) => {
                 log::debug!("loaded metadata for {kind}");
-                self.data.update_partial(kind.clone(), metadata);
+                self.data.update_partial(kind, metadata);
             }
             Message::UpdatePartial(kind, Err(error)) => {
                 log::warn!("failed to load metadata for {kind}: {error}");
@@ -173,7 +173,7 @@ impl Manager {
             }
             Message::SentMessageUpdated(kind, read_marker) => {
                 return Some(Event::SentMessageUpdated(kind, read_marker));
-            } // _ => {}
+            }
         }
 
         None
@@ -384,9 +384,9 @@ impl Manager {
         &self,
         kind: &history::Kind,
         limit: Option<Limit>,
-        config: &Config,
+        buffer_config: &config::Buffer,
     ) -> Option<history::View<'_>> {
-        self.data.history_view(kind, limit, &config.buffer)
+        self.data.history_view(kind, limit, &buffer_config)
     }
 
     pub fn get_last_seen(
