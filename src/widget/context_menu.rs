@@ -19,8 +19,24 @@ pub enum MouseButton {
     Right,
 }
 
+#[derive(Debug, Default, Clone, Copy)]
+pub enum Anchor {
+    #[default]
+    Cursor,
+    Widget,
+}
+
+#[derive(Debug, Default, Clone, Copy)]
+pub enum ToggleBehavior {
+    #[default]
+    KeepOpen,
+    Close,
+}
+
 pub fn context_menu<'a, T, Message, Theme, Renderer>(
     activation_button: MouseButton,
+    anchor: Anchor,
+    toggle_behavior: ToggleBehavior,
     base: impl Into<Element<'a, Message, Theme, Renderer>>,
     entries: Vec<T>,
     entry: impl Fn(T, Length) -> Element<'a, Message, Theme, Renderer> + 'a,
@@ -33,7 +49,8 @@ pub fn context_menu<'a, T, Message, Theme, Renderer>(
             MouseButton::Left => iced::mouse::Button::Left,
             MouseButton::Right => iced::mouse::Button::Right,
         },
-
+        anchor,
+        toggle_behavior,
         menu: None,
     }
 }
@@ -43,8 +60,9 @@ pub struct ContextMenu<'a, T, Message, Theme, Renderer> {
     entries: Vec<T>,
     entry: Box<dyn Fn(T, Length) -> Element<'a, Message, Theme, Renderer> + 'a>,
     activation_button: iced::mouse::Button,
-
-    // Cached, recreated during `overlay` if menu is open
+    anchor: Anchor,
+    toggle_behavior: ToggleBehavior,
+    // Cached, recreated during overlay if menu is open
     menu: Option<Element<'a, Message, Theme, Renderer>>,
 }
 
@@ -57,7 +75,7 @@ pub struct State {
 impl State {
     pub fn new() -> Self {
         State {
-            status: Status::Closed,
+            status: Status::Closed(false),
             menu_tree: widget::Tree::empty(),
         }
     }
@@ -65,14 +83,14 @@ impl State {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Status {
-    Closed,
+    Closed(bool),
     Open(Point),
 }
 
 impl Status {
     pub fn open(self) -> Option<Point> {
         match self {
-            Status::Closed => None,
+            Status::Closed(_) => None,
             Status::Open(position) => Some(position),
         }
     }
@@ -134,7 +152,7 @@ where
 
     fn state(&self) -> tree::State {
         tree::State::new(State {
-            status: Status::Closed,
+            status: Status::Closed(false),
             menu_tree: widget::Tree::empty(),
         })
     }
@@ -177,43 +195,76 @@ where
         shell: &mut Shell<'_, Message>,
         viewport: &Rectangle,
     ) {
-        let state = tree.state.downcast_mut::<State>();
-        let prev_status = state.status;
+        // is this a mouse event we are waiting for?
+        let is_mouse_event = matches!(
+            event,
+            Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left))
+                | Event::Mouse(mouse::Event::ButtonPressed(
+                    mouse::Button::Right
+                ))
+        );
 
-        let position = match self.activation_button {
-            mouse::Button::Left => {
-                if let Event::Mouse(mouse::Event::ButtonReleased(
-                    mouse::Button::Left,
-                )) = event
+        if is_mouse_event {
+            let state = tree.state.downcast_mut::<State>();
+            let prev_status = state.status;
+
+            // is this a mouse event for that we should do something?
+            let is_activation_mouse_event = *event
+                == Event::Mouse(mouse::Event::ButtonPressed(
+                    self.activation_button,
+                ));
+
+            let position = if is_activation_mouse_event {
+                match self.anchor {
+                    Anchor::Widget => {
+                        cursor.position_over(layout.bounds()).map(|_| {
+                            let widget = layout.bounds();
+                            Point::new(
+                                widget.x + widget.width,
+                                widget.y + widget.height,
+                            )
+                        })
+                    }
+                    Anchor::Cursor => {
+                        cursor.position_over(layout.bounds()).map(|cursor| {
+                            Point::new(cursor.x + 5.0, cursor.y + 5.0)
+                        })
+                    }
+                }
+            } else {
+                None
+            };
+
+            // determinate next status
+            let next_status = match (
+                is_activation_mouse_event,
+                prev_status,
+                self.toggle_behavior,
+                position,
+            ) {
+                (true, _, ToggleBehavior::KeepOpen, Some(position))
+                | (
+                    true,
+                    Status::Closed(false),
+                    ToggleBehavior::Close,
+                    Some(position),
+                ) => Status::Open(position),
+
+                (false, Status::Open(_), _, None)
+                | (true, Status::Open(_), _, None)
+                | (true, Status::Open(_), ToggleBehavior::Close, Some(_))
+                | (_, Status::Closed(true), _, _) => Status::Closed(false),
+                _ => prev_status, // keep status
+            };
+
+            if next_status != prev_status {
+                state.status = next_status;
+                if !matches!(next_status, Status::Closed(_))
+                    || !matches!(prev_status, Status::Closed(_))
                 {
-                    cursor.position_over(layout.bounds())
-                } else {
-                    None
+                    shell.request_redraw();
                 }
             }
-            mouse::Button::Right => {
-                if let Event::Mouse(mouse::Event::ButtonPressed(
-                    mouse::Button::Right,
-                )) = event
-                {
-                    cursor.position_over(layout.bounds())
-                } else {
-                    None
-                }
-            }
-            _ => None,
-        };
-
-        if let Some(position) = position {
-            state.status = Status::Open(position);
-        }
-
-        match (state.status, prev_status) {
-            (Status::Closed, Status::Open(_))
-            | (Status::Open(_), Status::Closed) => {
-                shell.request_redraw();
-            }
-            _ => {}
         }
 
         self.base.as_widget_mut().update(
@@ -344,7 +395,7 @@ where
                 *menu = Some(_menu);
             }
         },
-        Status::Closed => {
+        Status::Closed(_) => {
             *menu = None;
         }
     }
@@ -386,7 +437,7 @@ pub fn close<Message: 'static + Send>(f: fn(bool) -> Message) -> Task<Message> {
         ) {
             if let Some(state) = state.downcast_mut::<State>()
                 && let Status::Open(_) = state.status {
-                    state.status = Status::Closed;
+                    state.status = Status::Closed(true);
                     self.any_closed = true;
                 }
         }
@@ -510,19 +561,18 @@ where
         clipboard: &mut dyn Clipboard,
         shell: &mut Shell<'_, Message>,
     ) {
-        if let Event::Mouse(mouse::Event::ButtonPressed(_)) = &event
-            && cursor.position_over(layout.bounds()).is_none() {
-                self.state.status = Status::Closed;
+        if let Event::Mouse(mouse::Event::ButtonPressed(_)) = &event {
+            if cursor.position_over(layout.bounds()).is_none() {
+                self.state.status = Status::Closed(true);
             }
+        }
 
         if let Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Left)) =
             &event
-            && cursor.position_over(layout.bounds()).is_some() {
-                self.state.status = Status::Closed;
+        {
+            if cursor.position_over(layout.bounds()).is_some() {
+                self.state.status = Status::Closed(true);
             }
-
-        if matches!(self.state.status, Status::Closed) {
-            shell.request_redraw();
         }
 
         self.menu.as_widget_mut().update(
