@@ -704,9 +704,15 @@ impl Halloy {
                                             if let Some((message, channel, user)) =
                                                 message.into_highlight(server.clone())
                                             {
+                                                let blocked = FilterChain::borrow(dashboard.get_filters())
+                                                    .filter_message_of_kind(
+                                                        &message,
+                                                        &history::Kind::Channel(server.clone(), channel.clone())
+                                                    );
+
                                                 let message_text = message.text();
 
-                                                let (task, blocked) = dashboard.record_highlight(message);
+                                                let task  = dashboard.record_highlight(message);
                                                 commands.push(task.map(Message::Dashboard));
 
                                                 if !blocked && highlight_notification_enabled {
@@ -946,9 +952,11 @@ impl Halloy {
                                                 statusmsg,
                                                 casemapping,
                                             ) {
-                                                if dashboard.history().has_unread(
-                                                    &history::Kind::Query(server.clone(), query),
-                                                ) && !self.main_window.focused {
+                                                let blocked = FilterChain::borrow(dashboard.get_filters()).filter_query(&query);
+                                                let has_unread = dashboard.history().has_unread(&history::Kind::Query(server.clone(), query));
+
+                                                if !blocked && (has_unread || !self.main_window.focused)
+                                                {
                                                     self.notifications.notify(
                                                         &self.config.notifications,
                                                         &Notification::DirectMessage{
