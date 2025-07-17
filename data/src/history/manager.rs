@@ -386,7 +386,7 @@ impl Manager {
         limit: Option<Limit>,
         buffer_config: &config::Buffer,
     ) -> Option<history::View<'_>> {
-        self.data.history_view(kind, limit, &buffer_config)
+        self.data.history_view(kind, limit, buffer_config)
     }
 
     pub fn get_last_seen(
