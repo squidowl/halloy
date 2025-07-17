@@ -244,8 +244,7 @@ impl TitleBar {
             // Show topic button only if there is a topic to show
             if let Some(topic) =
                 clients.get_channel_topic(&state.server, &state.target)
-            {
-                if topic.content.is_some() {
+                && topic.content.is_some() {
                     let topic_enabled = settings.map_or(
                         config.buffer.channel.topic.enabled,
                         |settings| settings.channel.topic.enabled,
@@ -273,7 +272,6 @@ impl TitleBar {
 
                     controls = controls.push(topic_button_with_tooltip);
                 }
-            }
 
             let nicklist_enabled = settings
                 .map_or(config.buffer.channel.nicklist.enabled, |settings| {

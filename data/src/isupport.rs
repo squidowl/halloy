@@ -228,15 +228,13 @@ impl FromStr for Operation {
                         }
                         "CLIENTVER" => {
                             if let Some((major, minor)) = value.split_once('.')
-                            {
-                                if let (Ok(major), Ok(minor)) =
+                                && let (Ok(major), Ok(minor)) =
                                     (major.parse::<u16>(), minor.parse::<u16>())
                                 {
                                     return Ok(Operation::Add(
                                         Parameter::CLIENTVER(major, minor),
                                     ));
                                 }
-                            }
 
                             Err(
                                 "value must be a <major>.<minor> version number",
@@ -339,21 +337,17 @@ impl FromStr for Operation {
                             value.split(',').for_each(|modes_limit| {
                                 if let Some((modes, limit)) =
                                     modes_limit.split_once(':')
-                                {
-                                    if !modes.is_empty()
+                                    && !modes.is_empty()
                                         && modes
                                             .chars()
                                             .all(|c| c.is_ascii_alphabetic())
-                                    {
-                                        if let Ok(limit) = limit.parse::<u16>()
+                                        && let Ok(limit) = limit.parse::<u16>()
                                         {
                                             modes_limits.push(ModesLimit {
                                                 modes: modes.to_string(),
                                                 limit,
                                             });
                                         }
-                                    }
-                                }
                             });
 
                             if !modes_limits.is_empty() {
@@ -457,8 +451,7 @@ impl FromStr for Operation {
                             value.split(',').for_each(|command_target_limit| {
                                 if let Some((command, limit)) =
                                     command_target_limit.split_once(':')
-                                {
-                                    if !command.is_empty()
+                                    && !command.is_empty()
                                         && command
                                             .chars()
                                             .all(|c| c.is_ascii_alphabetic())
@@ -485,7 +478,6 @@ impl FromStr for Operation {
                                             );
                                         }
                                     }
-                                }
                             });
 
                             if !command_target_limits.is_empty() {
@@ -1194,7 +1186,9 @@ pub fn find_target_limit(
     }
 }
 
-pub fn get_casemapping(isupport: &HashMap<Kind, Parameter>) -> CaseMap {
+pub fn get_casemapping_or_default(
+    isupport: &HashMap<Kind, Parameter>,
+) -> CaseMap {
     if let Some(Parameter::CASEMAPPING(casemapping)) =
         isupport.get(&Kind::CASEMAPPING)
     {
@@ -1205,7 +1199,9 @@ pub fn get_casemapping(isupport: &HashMap<Kind, Parameter>) -> CaseMap {
 }
 
 // https://modern.ircdocs.horse/#chanmodes-parameter
-pub fn get_chanmodes(isupport: &HashMap<Kind, Parameter>) -> &[ModeKind] {
+pub fn get_chanmodes_or_default(
+    isupport: &HashMap<Kind, Parameter>,
+) -> &[ModeKind] {
     isupport
         .get(&Kind::CHANMODES)
         .and_then(|chanmodes| {
@@ -1220,7 +1216,9 @@ pub fn get_chanmodes(isupport: &HashMap<Kind, Parameter>) -> &[ModeKind] {
         .unwrap_or(DEFAULT_CHANMODES)
 }
 
-pub fn get_chantypes(isupport: &HashMap<Kind, Parameter>) -> &[char] {
+pub fn get_chantypes_or_default(
+    isupport: &HashMap<Kind, Parameter>,
+) -> &[char] {
     isupport
         .get(&Kind::CHANTYPES)
         .and_then(|chantypes| {
@@ -1236,7 +1234,10 @@ pub fn get_chantypes(isupport: &HashMap<Kind, Parameter>) -> &[char] {
 }
 
 // https://modern.ircdocs.horse/#modes-parameter
-pub fn get_mode_limit(isupport: &HashMap<Kind, Parameter>) -> Option<u16> {
+// The value itself is optional, with None signifying unlimited
+pub fn get_mode_limit_or_default(
+    isupport: &HashMap<Kind, Parameter>,
+) -> Option<u16> {
     isupport
         .get(&Kind::MODES)
         .and_then(|modes| {
@@ -1251,22 +1252,27 @@ pub fn get_mode_limit(isupport: &HashMap<Kind, Parameter>) -> Option<u16> {
         .unwrap_or(Some(3))
 }
 
-pub fn get_prefix(isupport: &HashMap<Kind, Parameter>) -> &[PrefixMap] {
-    isupport
-        .get(&Kind::PREFIX)
-        .and_then(|prefix| {
-            if let Parameter::PREFIX(prefix) = prefix {
-                Some(prefix.as_ref())
-            } else {
-                log::debug!("Corruption in isupport table.");
+pub fn get_prefix(isupport: &HashMap<Kind, Parameter>) -> Option<&[PrefixMap]> {
+    isupport.get(&Kind::PREFIX).and_then(|prefix| {
+        if let Parameter::PREFIX(prefix) = prefix {
+            Some(prefix.as_ref())
+        } else {
+            log::debug!("Corruption in isupport table.");
 
-                None
-            }
-        })
-        .unwrap_or(DEFAULT_PREFIX)
+            None
+        }
+    })
 }
 
-pub fn get_statusmsg(isupport: &HashMap<Kind, Parameter>) -> &[char] {
+pub fn get_prefix_or_default(
+    isupport: &HashMap<Kind, Parameter>,
+) -> &[PrefixMap] {
+    get_prefix(isupport).unwrap_or(DEFAULT_PREFIX)
+}
+
+pub fn get_statusmsg_or_default(
+    isupport: &HashMap<Kind, Parameter>,
+) -> &[char] {
     isupport.get(&Kind::STATUSMSG).map_or(&[], |statusmsg| {
         if let Parameter::STATUSMSG(prefixes) = statusmsg {
             prefixes.as_ref()

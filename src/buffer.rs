@@ -23,11 +23,11 @@ pub mod file_transfers;
 pub mod highlights;
 mod input_view;
 pub mod logs;
+mod message_view;
 pub mod query;
 mod scroll_view;
 pub mod server;
 pub mod user_context;
-mod message_view;
 
 #[derive(Clone, Debug)]
 pub enum Buffer {
@@ -456,64 +456,65 @@ impl Buffer {
         }
     }
 
-    pub fn scroll_to_start(&mut self) -> Task<Message> {
+    pub fn scroll_to_start(&mut self, config: &Config) -> Task<Message> {
         match self {
             Buffer::Empty | Buffer::FileTransfers(_) => Task::none(),
             Buffer::Channel(channel) => {
-                channel.scroll_view.scroll_to_start().map(|message| {
+                channel.scroll_view.scroll_to_start(config).map(|message| {
                     Message::Channel(channel::Message::ScrollView(message))
                 })
             }
             Buffer::Server(server) => {
-                server.scroll_view.scroll_to_start().map(|message| {
+                server.scroll_view.scroll_to_start(config).map(|message| {
                     Message::Server(server::Message::ScrollView(message))
                 })
             }
             Buffer::Query(query) => {
-                query.scroll_view.scroll_to_start().map(|message| {
+                query.scroll_view.scroll_to_start(config).map(|message| {
                     Message::Query(query::Message::ScrollView(message))
                 })
             }
             Buffer::Logs(log) => {
-                log.scroll_view.scroll_to_start().map(|message| {
+                log.scroll_view.scroll_to_start(config).map(|message| {
                     Message::Logs(logs::Message::ScrollView(message))
                 })
             }
-            Buffer::Highlights(highlights) => {
-                highlights.scroll_view.scroll_to_start().map(|message| {
+            Buffer::Highlights(highlights) => highlights
+                .scroll_view
+                .scroll_to_start(config)
+                .map(|message| {
                     Message::Highlights(highlights::Message::ScrollView(
                         message,
                     ))
-                })
-            }
+                }),
         }
     }
 
-    pub fn scroll_to_end(&mut self) -> Task<Message> {
+    pub fn scroll_to_end(&mut self, config: &Config) -> Task<Message> {
         match self {
             Buffer::Empty | Buffer::FileTransfers(_) => Task::none(),
             Buffer::Channel(channel) => {
-                channel.scroll_view.scroll_to_end().map(|message| {
+                channel.scroll_view.scroll_to_end(config).map(|message| {
                     Message::Channel(channel::Message::ScrollView(message))
                 })
             }
             Buffer::Server(server) => {
-                server.scroll_view.scroll_to_end().map(|message| {
+                server.scroll_view.scroll_to_end(config).map(|message| {
                     Message::Server(server::Message::ScrollView(message))
                 })
             }
             Buffer::Query(query) => {
-                query.scroll_view.scroll_to_end().map(|message| {
+                query.scroll_view.scroll_to_end(config).map(|message| {
                     Message::Query(query::Message::ScrollView(message))
                 })
             }
             Buffer::Logs(log) => {
-                log.scroll_view.scroll_to_end().map(|message| {
+                log.scroll_view.scroll_to_end(config).map(|message| {
                     Message::Logs(logs::Message::ScrollView(message))
                 })
             }
             Buffer::Highlights(highlights) => {
-                highlights.scroll_view.scroll_to_end().map(|message| {
+                highlights.scroll_view.scroll_to_end(config).map(|message| {
                     Message::Highlights(highlights::Message::ScrollView(
                         message,
                     ))

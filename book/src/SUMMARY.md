@@ -10,6 +10,7 @@
 
 - [Connect with soju](guides/connect-with-soju.md)
 - [Connect with ZNC](guides/connect-with-znc.md)
+- [Optional Features](guides/optional-features.md)
 - [Portable mode](guides/portable-mode.md)
 - [Multiple servers](guides/multiple-servers.md)
 - [Storing passwords in a File](guides/password-file.md)
@@ -17,6 +18,7 @@
 - [Monitor users](guides/monitor-users.md)
 - [YAML migration](guides/migrating-from-yaml.md)
 - [Pronunciation](guides/pronunciation.md)
+- [Building for flatpak](guides/flatpaks.md)
 
 # Configuration
 

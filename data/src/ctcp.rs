@@ -56,7 +56,7 @@ pub fn is_query(text: &str) -> bool {
     text.starts_with('\u{1}')
 }
 
-pub fn parse_query(text: &str) -> Option<Query> {
+pub fn parse_query(text: &str) -> Option<Query<'_>> {
     let query = text
         .strip_suffix('\u{1}')
         .unwrap_or(text)

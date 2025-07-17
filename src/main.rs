@@ -89,10 +89,10 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     font::set(config_load.as_ref().ok());
 
     let destination = data::Url::find_in(std::env::args());
-    if let Some(loc) = &destination {
-        if ipc::connect_and_send(loc.to_string()) {
-            return Ok(());
-        }
+    if let Some(loc) = &destination
+        && ipc::connect_and_send(loc.to_string())
+    {
+        return Ok(());
     }
 
     let settings = settings(&config_load);
@@ -893,8 +893,8 @@ impl Halloy {
                                         commands.push(command);
                                     }
                                     data::client::Event::LoggedIn(server_time) => {
-                                        if self.clients.get_server_supports_chathistory(&server) {
-                                            if let Some(command) = dashboard
+                                        if self.clients.get_server_supports_chathistory(&server)
+                                            && let Some(command) = dashboard
                                                 .load_chathistory_targets_timestamp(
                                                     &self.clients,
                                                     &server,
@@ -904,7 +904,6 @@ impl Halloy {
                                             {
                                                 commands.push(command);
                                             }
-                                        }
                                     }
                                     data::client::Event::ChatHistoryTargetReceived(
                                         target,
@@ -945,8 +944,8 @@ impl Halloy {
                                             chantypes,
                                             statusmsg,
                                             casemapping,
-                                        ) {
-                                            if let Ok(query) = target::Query::parse(
+                                        )
+                                            && let Ok(query) = target::Query::parse(
                                                 user.as_str(),
                                                 chantypes,
                                                 statusmsg,
@@ -955,8 +954,7 @@ impl Halloy {
                                                 let blocked = FilterChain::borrow(dashboard.get_filters()).filter_query(&query);
                                                 let has_unread = dashboard.history().has_unread(&history::Kind::Query(server.clone(), query));
 
-                                                if !blocked && (has_unread || !self.main_window.focused)
-                                                {
+                                                if !blocked && (has_unread || !self.main_window.focused) {
                                                     self.notifications.notify(
                                                         &self.config.notifications,
                                                         &Notification::DirectMessage{
@@ -967,7 +965,6 @@ impl Halloy {
                                                     );
                                                 }
                                             }
-                                        }
                                     }
                                     data::client::Event::MonitoredOnline(users) => {
                                         self.notifications.notify(
@@ -1023,7 +1020,8 @@ impl Halloy {
                             if let Some(client) = self.clients.remove(&server) {
                                 let user = client.nickname().to_owned().into();
 
-                                let channels = client.channels().cloned().collect();
+                                let channels =
+                                    client.channels().cloned().collect();
 
                                 dashboard
                                     .broadcast(
@@ -1285,7 +1283,7 @@ impl Halloy {
         }
     }
 
-    fn view(&self, id: window::Id) -> Element<Message> {
+    fn view(&self, id: window::Id) -> Element<'_, Message> {
         // The height margin varies across different operating systems due to design differences.
         // For instance, on macOS, the menubar is hidden, resulting in a need for additional padding to accommodate the
         // space occupied by the traffic light buttons.

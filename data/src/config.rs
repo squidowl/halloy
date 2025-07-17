@@ -89,6 +89,24 @@ impl From<ScaleFactor> for f64 {
     }
 }
 
+#[derive(Debug, Copy, Clone, Deserialize, Default)]
+pub struct Scrollbar {
+    /// Width of the scrollbar.
+    #[serde(default = "default_scrollbar_width")]
+    pub width: u32,
+    /// Width of the scrollbar scroller.
+    #[serde(default = "default_scrollbar_scroller_width")]
+    pub scroller_width: u32,
+}
+
+fn default_scrollbar_width() -> u32 {
+    5
+}
+
+fn default_scrollbar_scroller_width() -> u32 {
+    5
+}
+
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct Font {
     pub family: Option<String>,
@@ -360,22 +378,22 @@ impl Config {
                 continue;
             };
 
-            if let Some(file_name) = file_name.strip_suffix(".toml") {
-                if let Some(theme) = read_entry(entry).await {
-                    if file_name == theme_keys.0 {
-                        first_theme = theme.clone();
-                    }
-
-                    if Some(file_name) == theme_keys.1 {
-                        second_theme = Some(theme.clone());
-                    }
-
-                    if file_name.to_lowercase() == DEFAULT_THEME_NAME {
-                        has_halloy_theme = true;
-                    }
-
-                    all.push(theme);
+            if let Some(file_name) = file_name.strip_suffix(".toml")
+                && let Some(theme) = read_entry(entry).await
+            {
+                if file_name == theme_keys.0 {
+                    first_theme = theme.clone();
                 }
+
+                if Some(file_name) == theme_keys.1 {
+                    second_theme = Some(theme.clone());
+                }
+
+                if file_name.to_lowercase() == DEFAULT_THEME_NAME {
+                    has_halloy_theme = true;
+                }
+
+                all.push(theme);
             }
         }
 

@@ -110,6 +110,8 @@ pub struct General {
     pub border: Color,
     #[serde(default = "default_transparent", with = "color_serde")]
     pub horizontal_rule: Color,
+    #[serde(default, with = "color_serde_maybe")]
+    pub scrollbar: Option<Color>,
     #[serde(default = "default_transparent", with = "color_serde")]
     pub unread_indicator: Color,
 }
@@ -542,6 +544,33 @@ mod color_serde {
     }
 }
 
+mod color_serde_maybe {
+
+    use iced_core::Color;
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+    pub fn deserialize<'de, D>(
+        deserializer: D,
+    ) -> Result<Option<Color>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        Ok(Option::<String>::deserialize(deserializer)?
+            .and_then(|hex| super::hex_to_color(&hex)))
+    }
+
+    pub fn serialize<S>(
+        color: &Option<Color>,
+
+        serializer: S,
+    ) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        color.map(super::color_to_hex).serialize(serializer)
+    }
+}
+
 mod binary {
     use iced_core::Color;
     use strum::{IntoEnumIterator, VariantArray};
@@ -570,17 +599,17 @@ mod binary {
         };
 
         for chunk in bytes.chunks(5) {
-            if chunk.len() == 5 {
-                if let Ok(tag) = Tag::try_from(chunk[0]) {
-                    let color = Color::from_rgba8(
-                        chunk[1],
-                        chunk[2],
-                        chunk[3],
-                        chunk[4] as f32 / 255.0,
-                    );
+            if chunk.len() == 5
+                && let Ok(tag) = Tag::try_from(chunk[0])
+            {
+                let color = Color::from_rgba8(
+                    chunk[1],
+                    chunk[2],
+                    chunk[3],
+                    chunk[4] as f32 / 255.0,
+                );
 
-                    tag.update_color(&mut styles, color);
-                }
+                tag.update_color(&mut styles, color);
             }
         }
 
@@ -648,6 +677,7 @@ mod binary {
         TextInfo = 45,
         TextDebug = 46,
         TextTrace = 47,
+        GeneralScrollbar = 48,
     }
 
     impl Tag {
@@ -749,6 +779,7 @@ mod binary {
                 Tag::ButtonsSecondaryBackgroundSelectedHover => {
                     styles.buttons.secondary.background_selected_hover
                 }
+                Tag::GeneralScrollbar => styles.general.scrollbar?,
             };
 
             Some(color.into_rgba8())
@@ -869,6 +900,7 @@ mod binary {
                 Tag::ButtonsSecondaryBackgroundSelectedHover => {
                     styles.buttons.secondary.background_selected_hover = color;
                 }
+                Tag::GeneralScrollbar => styles.general.scrollbar = Some(color),
             }
         }
     }

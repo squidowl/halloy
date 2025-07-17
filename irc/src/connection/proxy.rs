@@ -1,3 +1,4 @@
+#[cfg(feature = "tor")]
 use arti_client::{TorClient, TorClientConfig};
 use async_http_proxy::{
     http_connect_tokio, http_connect_tokio_with_basic_auth,
@@ -22,6 +23,7 @@ pub enum Proxy {
         username: Option<String>,
         password: Option<String>,
     },
+    #[cfg(feature = "tor")]
     Tor,
 }
 
@@ -64,6 +66,7 @@ impl Proxy {
                 )
                 .await
             }
+            #[cfg(feature = "tor")]
             Proxy::Tor => {
                 connect_tor(target_server.to_string(), target_port).await
             }
@@ -128,6 +131,7 @@ pub async fn connect_socks5(
     Ok(IrcStream::Tcp(stream))
 }
 
+#[cfg(feature = "tor")]
 pub async fn connect_tor(
     target_server: String,
     target_port: u16,
@@ -148,6 +152,7 @@ pub enum Error {
     Io(#[from] std::io::Error),
     #[error("socks5 error: {0}")]
     Socks5(#[from] fast_socks5::SocksError),
+    #[cfg(feature = "tor")]
     #[error("tor error: {0}")]
     Tor(#[from] arti_client::Error),
 }

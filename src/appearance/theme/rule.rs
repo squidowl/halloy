@@ -17,7 +17,6 @@ impl Catalog for Theme {
 pub fn primary(theme: &Theme) -> Style {
     Style {
         color: theme.styles().general.horizontal_rule,
-        width: 1,
         radius: 0.0.into(),
         fill_mode: FillMode::Full,
         snap: true,

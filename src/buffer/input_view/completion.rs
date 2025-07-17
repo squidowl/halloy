@@ -457,9 +457,9 @@ impl Commands {
             },
             // MODE
             {
-                let chanmodes = isupport::get_chanmodes(isupport);
-                let prefix = isupport::get_prefix(isupport);
-                let mode_limit = isupport::get_mode_limit(isupport);
+                let chanmodes = isupport::get_chanmodes_or_default(isupport);
+                let prefix = isupport::get_prefix_or_default(isupport);
+                let mode_limit = isupport::get_mode_limit_or_default(isupport);
 
                 Command {
                     title: "MODE",
@@ -648,7 +648,8 @@ impl Commands {
                             (String::from(command.title) + " " + subcmd)
                                 .to_lowercase()
                         } else {
-                            let chantypes = isupport::get_chantypes(isupport);
+                            let chantypes =
+                                isupport::get_chantypes_or_default(isupport);
 
                             format!(
                                 "{} {}",
@@ -696,8 +697,7 @@ impl Commands {
             highlighted: Some(index),
             filtered,
         } = self
-        {
-            if let Some(command) = filtered.get(*index).cloned() {
+            && let Some(command) = filtered.get(*index).cloned() {
                 *self = Self::Selected {
                     command: command.clone(),
                     subcommand: None,
@@ -705,7 +705,6 @@ impl Commands {
 
                 return Some(command);
             }
-        }
 
         None
     }
@@ -2351,14 +2350,12 @@ impl Emojis {
             highlighted: Some(index),
             filtered,
         } = self
-        {
-            if let Some(shortcode) = filtered.get(*index).copied() {
+            && let Some(shortcode) = filtered.get(*index).copied() {
                 *self = Self::Idle;
 
                 return pick_emoji(shortcode, config.buffer.emojis.skin_tone)
                     .map(ToString::to_string);
             }
-        }
 
         None
     }

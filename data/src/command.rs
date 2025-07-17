@@ -178,8 +178,8 @@ pub fn parse(
                             }
                         }
 
-                        if let Some(max_len) = channel_len {
-                            if let Some(channel) = channels
+                        if let Some(max_len) = channel_len
+                            && let Some(channel) = channels
                                 .into_iter()
                                 .find(|channel| channel.len() > max_len)
                             {
@@ -189,11 +189,10 @@ pub fn parse(
                                     max_len,
                                 });
                             }
-                        }
                     }
 
-                    if let Some(ref chankeys) = chankeys {
-                        if let Some(isupport::Parameter::KEYLEN(max_len)) =
+                    if let Some(ref chankeys) = chankeys
+                        && let Some(isupport::Parameter::KEYLEN(max_len)) =
                             isupport.get(&isupport::Kind::KEYLEN)
                         {
                             let max_len = *max_len as usize;
@@ -210,7 +209,6 @@ pub fn parse(
                                 });
                             }
                         }
-                    }
 
                     Ok(Command::Irc(Irc::Join(chanlist, chankeys)))
                 })
@@ -257,9 +255,12 @@ pub fn parse(
                 if let Some(msg) = msg {
                     Ok(Command::Irc(Irc::Msg(targets, msg)))
                 } else {
-                    let casemapping = isupport::get_casemapping(isupport);
-                    let chantypes = isupport::get_chantypes(isupport);
-                    let statusmsg = isupport::get_statusmsg(isupport);
+                    let casemapping =
+                        isupport::get_casemapping_or_default(isupport);
+                    let chantypes =
+                        isupport::get_chantypes_or_default(isupport);
+                    let statusmsg =
+                        isupport::get_statusmsg_or_default(isupport);
 
                     Ok(Command::Internal(Internal::OpenBuffers(
                         targets
@@ -339,8 +340,8 @@ pub fn parse(
             }
             Kind::Topic => {
                 validated::<1, 1, true>(args, |[channel], [topic]| {
-                    if let Some(ref topic) = topic {
-                        if let Some(isupport::Parameter::TOPICLEN(max_len)) =
+                    if let Some(ref topic) = topic
+                        && let Some(isupport::Parameter::TOPICLEN(max_len)) =
                             isupport.get(&isupport::Kind::TOPICLEN)
                         {
                             let max_len = *max_len as usize;
@@ -353,7 +354,6 @@ pub fn parse(
                                 });
                             }
                         }
-                    }
 
                     Ok(Command::Irc(Irc::Topic(channel, topic)))
                 })
@@ -375,8 +375,8 @@ pub fn parse(
                         }
                     }
 
-                    if let Some(ref comment) = comment {
-                        if let Some(isupport::Parameter::KICKLEN(max_len)) =
+                    if let Some(ref comment) = comment
+                        && let Some(isupport::Parameter::KICKLEN(max_len)) =
                             isupport.get(&isupport::Kind::KICKLEN)
                         {
                             let max_len = *max_len as usize;
@@ -389,7 +389,6 @@ pub fn parse(
                                 });
                             }
                         }
-                    }
 
                     Ok(Command::Irc(Irc::Kick(channel, users, comment)))
                 })
@@ -397,7 +396,8 @@ pub fn parse(
             Kind::Mode => validated::<1, 2, true>(
                 args,
                 |[target], [mode_string, mode_arguments]| {
-                    let mode_limit = isupport::get_mode_limit(isupport);
+                    let mode_limit =
+                        isupport::get_mode_limit_or_default(isupport);
 
                     if let Some(mode_string) = mode_string {
                         if mode_string == "+" || mode_string == "-" {
@@ -405,11 +405,14 @@ pub fn parse(
                         } else {
                             let mode_string_regex = if proto::is_channel(
                                 &target,
-                                isupport::get_chantypes(isupport),
+                                isupport::get_chantypes_or_default(isupport),
                             ) {
                                 let chanmodes =
-                                    isupport::get_chanmodes(isupport);
-                                let prefix = isupport::get_prefix(isupport);
+                                    isupport::get_chanmodes_or_default(
+                                        isupport,
+                                    );
+                                let prefix =
+                                    isupport::get_prefix_or_default(isupport);
 
                                 let mut channel_modes_regex =
                                     String::from(r"^((\+|\-)[");
@@ -488,8 +491,8 @@ pub fn parse(
                 },
             ),
             Kind::Away => validated::<0, 1, true>(args, |_, [comment]| {
-                if let Some(ref comment) = comment {
-                    if let Some(isupport::Parameter::AWAYLEN(max_len)) =
+                if let Some(ref comment) = comment
+                    && let Some(isupport::Parameter::AWAYLEN(max_len)) =
                         isupport.get(&isupport::Kind::AWAYLEN)
                     {
                         let max_len = *max_len as usize;
@@ -502,7 +505,6 @@ pub fn parse(
                             });
                         }
                     }
-                }
 
                 Ok(Command::Irc(Irc::Away(comment)))
             }),
@@ -543,9 +545,12 @@ pub fn parse(
                     if let Some(msg) = msg {
                         Ok(Command::Irc(Irc::Notice(targets, msg)))
                     } else {
-                        let casemapping = isupport::get_casemapping(isupport);
-                        let chantypes = isupport::get_chantypes(isupport);
-                        let statusmsg = isupport::get_statusmsg(isupport);
+                        let casemapping =
+                            isupport::get_casemapping_or_default(isupport);
+                        let chantypes =
+                            isupport::get_chantypes_or_default(isupport);
+                        let statusmsg =
+                            isupport::get_statusmsg_or_default(isupport);
 
                         Ok(Command::Internal(Internal::OpenBuffers(
                             targets

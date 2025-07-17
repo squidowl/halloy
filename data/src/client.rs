@@ -1547,17 +1547,15 @@ impl Client {
                             .who_polls
                             .iter_mut()
                             .find(|who_poll| who_poll.channel == target_channel)
-                        {
-                            if let WhoStatus::Requested(source, _, None) =
+                            && let WhoStatus::Requested(source, _, None) =
                                 &who_poll.status
-                            {
-                                who_poll.status =
-                                    WhoStatus::Receiving(source.clone(), None);
-                                log::debug!(
-                                    "[{}] {channel} - WHO receiving...",
-                                    self.server
-                                );
-                            }
+                        {
+                            who_poll.status =
+                                WhoStatus::Receiving(source.clone(), None);
+                            log::debug!(
+                                "[{}] {channel} - WHO receiving...",
+                                self.server
+                            );
                         }
                     }
 
@@ -1591,84 +1589,77 @@ impl Client {
 
                     if let Some(client_channel) =
                         self.chanmap.get_mut(&target_channel)
-                    {
-                        if let Some(who_poll) = self
+                        && let Some(who_poll) = self
                             .who_polls
                             .iter_mut()
                             .find(|who_poll| who_poll.channel == target_channel)
-                        {
-                            match &who_poll.status {
-                                WhoStatus::Requested(
-                                    source,
-                                    _,
-                                    Some(request_token),
-                                ) if matches!(source, WhoSource::Poll) => {
-                                    if let Ok(token) =
-                                        ok!(args.get(1)).parse::<WhoToken>()
-                                    {
-                                        if *request_token == token {
-                                            who_poll.status =
-                                                WhoStatus::Receiving(
-                                                    source.clone(),
-                                                    Some(*request_token),
-                                                );
-                                            log::debug!(
-                                                "[{}] {channel} - WHO receiving...",
-                                                self.server
-                                            );
-                                        }
-                                    }
-                                }
-                                WhoStatus::Requested(
-                                    WhoSource::User,
-                                    _,
-                                    Some(request_token),
-                                ) => {
+                    {
+                        match &who_poll.status {
+                            WhoStatus::Requested(
+                                source,
+                                _,
+                                Some(request_token),
+                            ) if matches!(source, WhoSource::Poll) => {
+                                if let Ok(token) =
+                                    ok!(args.get(1)).parse::<WhoToken>()
+                                    && *request_token == token
+                                {
                                     who_poll.status = WhoStatus::Receiving(
-                                        WhoSource::User,
+                                        source.clone(),
                                         Some(*request_token),
                                     );
-
                                     log::debug!(
                                         "[{}] {channel} - WHO receiving...",
                                         self.server
                                     );
                                 }
-                                _ => (),
                             }
+                            WhoStatus::Requested(
+                                WhoSource::User,
+                                _,
+                                Some(request_token),
+                            ) => {
+                                who_poll.status = WhoStatus::Receiving(
+                                    WhoSource::User,
+                                    Some(*request_token),
+                                );
 
-                            if let WhoStatus::Receiving(
-                                WhoSource::Poll,
-                                Some(_),
-                            ) = &who_poll.status
+                                log::debug!(
+                                    "[{}] {channel} - WHO receiving...",
+                                    self.server
+                                );
+                            }
+                            _ => (),
+                        }
+
+                        if let WhoStatus::Receiving(WhoSource::Poll, Some(_)) =
+                            &who_poll.status
+                        {
+                            // Check token to ~ensure reply is to poll request
+                            if let Ok(token) =
+                                ok!(args.get(1)).parse::<WhoToken>()
                             {
-                                // Check token to ~ensure reply is to poll request
-                                if let Ok(token) =
-                                    ok!(args.get(1)).parse::<WhoToken>()
+                                if token == WhoXPollParameters::Default.token()
                                 {
-                                    if token
-                                        == WhoXPollParameters::Default.token()
-                                    {
-                                        client_channel.update_user_away(
-                                            ok!(args.get(3)),
-                                            ok!(args.get(4)),
-                                        );
-                                    } else if token
-                                        == WhoXPollParameters::WithAccountName
-                                            .token()
-                                    {
-                                        let user = ok!(args.get(3));
+                                    client_channel.update_user_away(
+                                        ok!(args.get(3)),
+                                        ok!(args.get(4)),
+                                    );
+                                } else if token
+                                    == WhoXPollParameters::WithAccountName
+                                        .token()
+                                {
+                                    let user = ok!(args.get(3));
 
-                                        client_channel.update_user_away(
-                                            user,
-                                            ok!(args.get(4)),
-                                        );
+                                    client_channel.update_user_away(
+                                        user,
+                                        ok!(args.get(4)),
+                                    );
 
-                                        client_channel.update_user_accountname(
-                                            user,
-                                            ok!(args.get(5)),
-                                        );
-                                    }
+                                    client_channel.update_user_accountname(
+                                        user,
+                                        ok!(args.get(5)),
+                                    );
                                 }
                             }
                         }
@@ -1709,12 +1700,11 @@ impl Client {
                     {
                         self.who_polls[pos].status = WhoStatus::Received;
 
-                        if let Some(who_poll) = self.who_polls.remove(pos) {
-                            if self.chanmap.contains_key(&target_channel)
-                                && self.config.who_poll_enabled
-                            {
-                                self.who_polls.push_back(who_poll);
-                            }
+                        if let Some(who_poll) = self.who_polls.remove(pos)
+                            && self.chanmap.contains_key(&target_channel)
+                            && self.config.who_poll_enabled
+                        {
+                            self.who_polls.push_back(who_poll);
                         }
 
                         // Prioritize WHO requests due to joining a channel
@@ -1731,12 +1721,11 @@ impl Client {
                             self.who_polls[pos].status =
                                 WhoStatus::Waiting(Instant::now());
 
-                            if pos != 0 {
-                                if let Some(who_poll) =
+                            if pos != 0
+                                && let Some(who_poll) =
                                     self.who_polls.remove(pos)
-                                {
-                                    self.who_polls.push_front(who_poll);
-                                }
+                            {
+                                self.who_polls.push_front(who_poll);
                             }
                         }
                     }
@@ -1848,13 +1837,11 @@ impl Client {
                             if let Some((op, lookup)) = mode.operation().zip(
                                 mode.arg()
                                     .map(|nick| User::from(Nick::from(nick))),
-                            ) {
-                                if let Some(mut user) =
-                                    channel.users.take(&lookup)
-                                {
-                                    user.update_access_level(op, *mode.value());
-                                    channel.users.insert(user);
-                                }
+                            ) && let Some(mut user) =
+                                channel.users.take(&lookup)
+                            {
+                                user.update_access_level(op, *mode.value());
+                                channel.users.insert(user);
                             }
                         }
                     }
@@ -1902,8 +1889,9 @@ impl Client {
                         self.casemapping(),
                     )))
                 {
+                    let prefix = isupport::get_prefix(&self.isupport);
                     for user in args[3].split(' ') {
-                        if let Ok(user) = User::try_from(user) {
+                        if let Ok(user) = User::parse(user, prefix) {
                             channel.users.insert(user);
                         }
                     }
@@ -1924,12 +1912,12 @@ impl Client {
                     self.casemapping(),
                 ));
 
-                if let Some(channel) = self.chanmap.get_mut(&target_channel) {
-                    if !channel.names_init {
-                        channel.names_init = true;
+                if let Some(channel) = self.chanmap.get_mut(&target_channel)
+                    && !channel.names_init
+                {
+                    channel.names_init = true;
 
-                        return Ok(vec![]);
-                    }
+                    return Ok(vec![]);
                 }
             }
             Command::TOPIC(channel, topic) => {
@@ -1947,7 +1935,7 @@ impl Client {
                     }
 
                     channel.topic.who =
-                        message.user().map(|user| user.nickname().to_string());
+                        message.user().map(|user| user.nickname().to_owned());
                     channel.topic.time = Some(server_time(&message));
                 }
             }
@@ -1981,7 +1969,14 @@ impl Client {
                         self.casemapping(),
                     )))
                 {
-                    channel.topic.who = Some(ok!(args.get(2)).to_string());
+                    channel.topic.who = Some(
+                        context!(User::parse(
+                            ok!(args.get(2)),
+                            isupport::get_prefix(&self.isupport),
+                        ))
+                        .nickname()
+                        .to_owned(),
+                    );
                     let timestamp =
                         Posix::from_seconds(ok!(args.get(3)).parse::<u64>()?);
                     channel.topic.time =
@@ -2161,7 +2156,7 @@ impl Client {
             Command::Numeric(RPL_MONONLINE, args) => {
                 let targets = ok!(args.get(1))
                     .split(',')
-                    .filter_map(|target| User::try_from(target).ok())
+                    .map(|target| User::from(Nick::from(target)))
                     .collect::<Vec<_>>();
 
                 return Ok(vec![
@@ -2386,14 +2381,14 @@ impl Client {
     }
 
     pub fn send_markread(&mut self, target: Target, read_marker: ReadMarker) {
-        if self.supports_read_marker {
-            if let Err(e) = self.handle.try_send(command!(
+        if self.supports_read_marker
+            && let Err(e) = self.handle.try_send(command!(
                 "MARKREAD",
                 target.as_str().to_string(),
                 format!("timestamp={read_marker}"),
-            )) {
-                log::warn!("Error sending markread: {e}");
-            }
+            ))
+        {
+            log::warn!("Error sending markread: {e}");
         }
     }
 
@@ -2442,10 +2437,9 @@ impl Client {
     pub fn chathistory_limit(&self) -> u16 {
         if let Some(isupport::Parameter::CHATHISTORY(server_limit)) =
             self.isupport.get(&isupport::Kind::CHATHISTORY)
+            && *server_limit != 0
         {
-            if *server_limit != 0 {
-                return std::cmp::min(*server_limit, CLIENT_CHATHISTORY_LIMIT);
-            }
+            return std::cmp::min(*server_limit, CLIENT_CHATHISTORY_LIMIT);
         }
 
         CLIENT_CHATHISTORY_LIMIT
@@ -2749,7 +2743,7 @@ impl Client {
         self.resolved_queries.get(query)
     }
 
-    pub fn nickname(&self) -> NickRef {
+    pub fn nickname(&self) -> NickRef<'_> {
         // TODO: Fallback nicks
         NickRef::from(
             self.resolved_nick
@@ -2865,23 +2859,23 @@ impl Client {
     }
 
     pub fn casemapping(&self) -> isupport::CaseMap {
-        isupport::get_casemapping(&self.isupport)
+        isupport::get_casemapping_or_default(&self.isupport)
     }
 
     pub fn chanmodes(&self) -> &[isupport::ModeKind] {
-        isupport::get_chanmodes(&self.isupport)
+        isupport::get_chanmodes_or_default(&self.isupport)
     }
 
     pub fn chantypes(&self) -> &[char] {
-        isupport::get_chantypes(&self.isupport)
+        isupport::get_chantypes_or_default(&self.isupport)
     }
 
     pub fn prefix(&self) -> &[isupport::PrefixMap] {
-        isupport::get_prefix(&self.isupport)
+        isupport::get_prefix_or_default(&self.isupport)
     }
 
     pub fn statusmsg(&self) -> &[char] {
-        isupport::get_statusmsg(&self.isupport)
+        isupport::get_statusmsg_or_default(&self.isupport)
     }
 
     pub fn is_channel(&self, target: &str) -> bool {
@@ -3321,7 +3315,7 @@ impl Map {
         self.0.keys()
     }
 
-    pub fn iter(&self) -> std::collections::btree_map::Iter<Server, State> {
+    pub fn iter(&self) -> std::collections::btree_map::Iter<'_, Server, State> {
         self.0.iter()
     }
 
@@ -3463,7 +3457,7 @@ impl Channel {
 #[derive(Default, Debug, Clone)]
 pub struct Topic {
     pub content: Option<message::Content>,
-    pub who: Option<String>,
+    pub who: Option<Nick>,
     pub time: Option<DateTime<Utc>>,
 }
 

@@ -1,6 +1,7 @@
 [general]
 background = "#2b292d"
 horizontal_rule = "#323034"
+scrollbar = "#323034"
 unread_indicator = "#ffa07a"
 border = "#4f474d"
 
