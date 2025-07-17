@@ -12,7 +12,7 @@ use data::isupport::{self, ChatHistorySubcommand, MessageReference};
 use data::target::{self, Target};
 use data::{
     Config, Notification, Server, User, Version, client, command, config,
-    environment, file_transfer, history, preview,
+    environment, file_transfer, history, preview, server,
 };
 use iced::widget::pane_grid::{self, PaneGrid};
 use iced::widget::{Space, column, container, row};
@@ -1520,6 +1520,7 @@ impl Dashboard {
 
     pub fn view<'a>(
         &'a self,
+        servers: &'a server::Map,
         clients: &'a client::Map,
         version: &'a Version,
         config: &'a Config,
@@ -1570,6 +1571,7 @@ impl Dashboard {
         let side_menu = self
             .side_menu
             .view(
+                servers,
                 clients,
                 &self.history,
                 &self.panes,
