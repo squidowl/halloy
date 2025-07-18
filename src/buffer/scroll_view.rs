@@ -12,7 +12,7 @@ use data::{Config, Preview, client, history};
 use iced::widget::text::LineHeight;
 use iced::widget::{
     Scrollable, button, center, column, container, horizontal_rule,
-    horizontal_space, image, mouse_area, row, scrollable, text,
+    horizontal_space, image, mouse_area, right, row, scrollable, stack, text,
 };
 use iced::{ContentFit, Length, Padding, Size, Task, alignment, padding};
 
@@ -1328,11 +1328,17 @@ fn preview_row<'a>(
         container(horizontal_space().width(Length::Fixed(22.0)))
     };
 
-    let content = row![aligned_content, hide_button]
+    // Iced hack: using a stack with right-aligned hide_button ensures the button always stays visible
+    // at the edge of the content, even when the parent container is resized to a smaller width.
+    let stack = stack![
+        container(aligned_content).padding(Padding::default().right(24)),
+        right(hide_button),
+    ];
+
+    let content = container(stack)
         .align_y(alignment::Vertical::Top)
         .width(Length::Fill)
-        .padding(Padding::default().top(4).bottom(4))
-        .spacing(4);
+        .padding(Padding::default().top(4).bottom(4));
 
     mouse_area(content)
         .on_enter(Message::PreviewHovered(message.hash, idx))
