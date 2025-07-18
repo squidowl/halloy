@@ -153,19 +153,19 @@ pub fn bare(_theme: &Theme, status: Status) -> Style {
 }
 
 pub fn preview_card(theme: &Theme, status: Status) -> Style {
-    let general = theme.styles().general;
     let foreground = theme.styles().text.primary.color;
-    let background_hover = theme.styles().buttons.primary.background_hover;
+    let background = theme.styles().buttons.secondary.background;
+    let background_hover = theme.styles().buttons.secondary.background_hover;
 
     let border = Border {
         radius: 4.0.into(),
         width: 1.0,
-        color: general.border,
+        color: theme.styles().general.border,
     };
 
     match status {
         Status::Active | Status::Pressed => Style {
-            background: Some(Background::Color(general.background)),
+            background: Some(Background::Color(background)),
             text_color: foreground,
             border,
             ..Default::default()
@@ -176,23 +176,7 @@ pub fn preview_card(theme: &Theme, status: Status) -> Style {
             border,
             ..Default::default()
         },
-        Status::Disabled => {
-            let active: Style = button(
-                foreground,
-                general.background,
-                background_hover,
-                Status::Active,
-            );
-
-            Style {
-                text_color: Color {
-                    a: 0.2,
-                    ..active.text_color
-                },
-                background: Some(Background::Color(general.background)),
-                border,
-                ..Default::default()
-            }
-        }
+        // Not possible to disable this button style.
+        Status::Disabled => self::primary(theme, status, false),
     }
 }
