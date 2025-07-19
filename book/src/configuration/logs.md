@@ -1,6 +1,6 @@
 # `[logs]`
 
-Application-wide actions;  how user actions should be enacted.
+Customize log buffer
 
 # `file_level`
 
