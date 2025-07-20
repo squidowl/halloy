@@ -5,7 +5,7 @@ Added:
 - Configuration options `logs.file_level` and `logs.pane_level` added to control log level filtering for the log buffer (<kbd>ctrl</kbd> + <kbd>l</kbd>)
 - Configuration option per toast type for showing content in toasts
 - Configuration option to hide `nick` and `mode` change server messages
-- Context menu item added to server buffers to mark all messages as read
+- Context menu item added to server-wide buffers to mark all messages as read
 - Auto-accept file transfer option with support for nick and mask filtering
 - Configuration option to adjust scrollbar sizing
 
