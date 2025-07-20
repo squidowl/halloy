@@ -2,19 +2,23 @@
 
 Added:
 
+- Configuration options `logs.file_level` and `logs.pane_level` added to control log level filtering for the log buffer (<kbd>ctrl</kbd> + <kbd>l</kbd>)
 - Configuration option per toast type for showing content in toasts
 - Configuration option to hide `nick` and `mode` change server messages
-- Context menu item to server buffers to mark all messages on the server as read
+- Context menu item added to server-wide buffers to mark all messages as read
 - Auto-accept file transfer option with support for nick and mask filtering
 - Configuration option to adjust scrollbar sizing
 
+Fixed:
+
+- Sidebar menu is now drawn with the correct offset
+
 Changed:
 
-- Scrollbars now use dedicated `scrollbar` color instead of `horizontal_rule` color
-
-Changed:
-
-- Tor is now an optional feature. Build with `--features tor` to enable Tor proxy support.
+- Colorize the level text in log buffer based on theme
+- Scrollbars now has a dedicated `scrollbar` color instead of `horizontal_rule` color
+- Tor is now an optional feature. Build with `--features tor` to enable Tor proxy support
+- Topic "set at" time is now shown with local timezone offset, instead of UTC's
 
 Thanks:
 
