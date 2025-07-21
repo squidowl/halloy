@@ -12,6 +12,7 @@ Added:
 Fixed:
 
 - Sidebar menu is now drawn with the correct offset
+- Prevent messages with previews from shifting position on hover
 
 Changed:
 
