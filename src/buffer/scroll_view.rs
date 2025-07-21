@@ -26,6 +26,8 @@ use crate::widget::{
 };
 use crate::{Theme, font, icon, theme};
 
+const HIDE_BUTTON_WIDTH: f32 = 22.0;
+
 #[derive(Debug, Clone)]
 pub enum Message {
     Scrolled {
@@ -1314,8 +1316,8 @@ fn preview_row<'a>(
         container(tooltip(
             button(center(icon::cancel()))
                 .padding(5)
-                .width(22)
-                .height(22)
+                .width(HIDE_BUTTON_WIDTH)
+                .height(HIDE_BUTTON_WIDTH)
                 .on_press(Message::HidePreview(message.hash, url.clone()))
                 .style(|theme, status| {
                     theme::button::secondary(theme, status, false)
@@ -1325,13 +1327,14 @@ fn preview_row<'a>(
             theme,
         ))
     } else {
-        container(horizontal_space().width(Length::Fixed(22.0)))
+        container(horizontal_space().width(Length::Fixed(HIDE_BUTTON_WIDTH)))
     };
 
     // Iced hack: using a stack with right-aligned hide_button ensures the button always stays visible
     // at the edge of the content, even when the parent container is resized to a smaller width.
     let stack = stack![
-        container(aligned_content).padding(Padding::default().right(24)),
+        container(aligned_content)
+            .padding(Padding::default().right(HIDE_BUTTON_WIDTH + 2.0)),
         right(hide_button),
     ];
 

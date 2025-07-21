@@ -151,7 +151,7 @@ impl From<Nick> for User {
 }
 
 impl User {
-    fn key(&self) -> (Reverse<AccessLevel>, NickRef) {
+    fn key(&'_ self) -> (Reverse<AccessLevel>, NickRef<'_>) {
         (
             Reverse(self.highest_access_level()),
             self.nickname.as_nickref(),
