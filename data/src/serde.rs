@@ -63,10 +63,6 @@ where
     Ok(Option::<T>::deserialize(intermediate).unwrap_or_default())
 }
 
-pub fn default_bool_true() -> bool {
-    true
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

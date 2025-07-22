@@ -1,5 +1,6 @@
+use std::io;
 use std::path::PathBuf;
-use std::{io, sync::Arc};
+use std::sync::Arc;
 
 use iced_core::{Point, Size};
 use serde::{Deserialize, Serialize};
@@ -13,10 +14,11 @@ pub mod position;
 pub mod size;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(default)]
 pub struct Window {
-    #[serde(default, with = "serde_position")]
+    #[serde(with = "serde_position")]
     pub position: Option<Point>,
-    #[serde(default = "default_size", with = "serde_size")]
+    #[serde(with = "serde_size")]
     pub size: Size,
 }
 
@@ -24,15 +26,11 @@ impl Default for Window {
     fn default() -> Self {
         Self {
             position: None,
-            size: default_size(),
+            size: Size {
+                width: 1024.0,
+                height: 768.0,
+            },
         }
-    }
-}
-
-pub fn default_size() -> Size {
-    Size {
-        width: 1024.0,
-        height: 768.0,
     }
 }
 

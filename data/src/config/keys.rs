@@ -3,63 +3,37 @@ use serde::Deserialize;
 use crate::shortcut::{KeyBind, Shortcut, shortcut};
 
 #[derive(Debug, Clone, Deserialize)]
+#[serde(default)]
 pub struct Keyboard {
-    #[serde(default = "KeyBind::move_up")]
     pub move_up: KeyBind,
-    #[serde(default = "KeyBind::move_down")]
     pub move_down: KeyBind,
-    #[serde(default = "KeyBind::move_left")]
     pub move_left: KeyBind,
-    #[serde(default = "KeyBind::move_right")]
     pub move_right: KeyBind,
-    #[serde(default = "KeyBind::close_buffer")]
     pub close_buffer: KeyBind,
-    #[serde(default = "KeyBind::maximize_buffer")]
     pub maximize_buffer: KeyBind,
-    #[serde(default = "KeyBind::restore_buffer")]
     pub restore_buffer: KeyBind,
-    #[serde(default = "KeyBind::cycle_next_buffer")]
     pub cycle_next_buffer: KeyBind,
-    #[serde(default = "KeyBind::cycle_previous_buffer")]
     pub cycle_previous_buffer: KeyBind,
-    #[serde(default = "KeyBind::leave_buffer")]
     pub leave_buffer: KeyBind,
-    #[serde(default = "KeyBind::toggle_nick_list")]
     pub toggle_nick_list: KeyBind,
-    #[serde(default = "KeyBind::toggle_topic")]
     pub toggle_topic: KeyBind,
-    #[serde(default = "KeyBind::toggle_sidebar")]
     pub toggle_sidebar: KeyBind,
-    #[serde(default = "KeyBind::toggle_fullscreen")]
     pub toggle_fullscreen: KeyBind,
-    #[serde(default = "KeyBind::command_bar")]
     pub command_bar: KeyBind,
-    #[serde(default = "KeyBind::reload_configuration")]
     pub reload_configuration: KeyBind,
-    #[serde(default = "KeyBind::file_transfers")]
     pub file_transfers: KeyBind,
-    #[serde(default = "KeyBind::logs")]
     pub logs: KeyBind,
-    #[serde(default = "KeyBind::theme_editor")]
     pub theme_editor: KeyBind,
     // Keep highlight as alias for backwards compatibility
-    #[serde(default = "KeyBind::highlights", alias = "highlight")]
+    #[serde(alias = "highlight")]
     pub highlights: KeyBind,
-    #[serde(default = "KeyBind::scroll_up_page")]
     pub scroll_up_page: KeyBind,
-    #[serde(default = "KeyBind::scroll_down_page")]
     pub scroll_down_page: KeyBind,
-    #[serde(default = "KeyBind::scroll_to_top")]
     pub scroll_to_top: KeyBind,
-    #[serde(default = "KeyBind::scroll_to_bottom")]
     pub scroll_to_bottom: KeyBind,
-    #[serde(default = "KeyBind::cycle_next_unread_buffer")]
     pub cycle_next_unread_buffer: KeyBind,
-    #[serde(default = "KeyBind::cycle_previous_unread_buffer")]
     pub cycle_previous_unread_buffer: KeyBind,
-    #[serde(default = "KeyBind::mark_as_read")]
     pub mark_as_read: KeyBind,
-    #[serde(default)]
     pub quit_application: Option<KeyBind>,
 }
 
