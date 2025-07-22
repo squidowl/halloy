@@ -1,22 +1,29 @@
 use serde::Deserialize;
 
 use crate::config::Scrollbar;
-use crate::serde::default_bool_true;
 
 #[derive(Debug, Copy, Clone, Deserialize)]
+#[serde(default)]
 pub struct Sidebar {
-    #[serde(default)]
     pub max_width: Option<u16>,
-    #[serde(default)]
     pub unread_indicator: UnreadIndicator,
-    #[serde(default)]
     pub position: Position,
-    #[serde(default = "default_bool_true")]
     pub show_user_menu: bool,
-    #[serde(default)]
     pub order_by: OrderBy,
-    #[serde(default)]
     pub scrollbar: Scrollbar,
+}
+
+impl Default for Sidebar {
+    fn default() -> Self {
+        Sidebar {
+            max_width: None,
+            unread_indicator: UnreadIndicator::default(),
+            position: Position::default(),
+            show_user_menu: true,
+            order_by: OrderBy::default(),
+            scrollbar: Scrollbar::default(),
+        }
+    }
 }
 
 #[derive(Debug, Copy, Clone, Deserialize, Default)]
@@ -53,17 +60,4 @@ pub enum OrderBy {
     #[default]
     Alpha,
     Config,
-}
-
-impl Default for Sidebar {
-    fn default() -> Self {
-        Sidebar {
-            max_width: None,
-            unread_indicator: UnreadIndicator::default(),
-            position: Position::default(),
-            show_user_menu: default_bool_true(),
-            order_by: OrderBy::default(),
-            scrollbar: Scrollbar::default(),
-        }
-    }
 }

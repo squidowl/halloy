@@ -3,7 +3,6 @@ use serde::Deserialize;
 
 pub use self::away::Away;
 pub use self::channel::Channel;
-use crate::serde::default_bool_true;
 
 pub mod away;
 pub mod channel;
@@ -15,34 +14,21 @@ use crate::buffer::{
 use crate::message::source;
 
 #[derive(Debug, Default, Clone, Deserialize)]
+#[serde(default)]
 pub struct Buffer {
-    #[serde(default)]
     pub away: Away,
-    #[serde(default)]
     pub timestamp: Timestamp,
-    #[serde(default)]
     pub nickname: Nickname,
-    #[serde(default)]
     pub text_input: TextInput,
-    #[serde(default)]
     pub channel: Channel,
-    #[serde(default)]
     pub server_messages: ServerMessages,
-    #[serde(default)]
     pub internal_messages: InternalMessages,
-    #[serde(default)]
     pub status_message_prefix: StatusMessagePrefix,
-    #[serde(default)]
     pub chathistory: ChatHistory,
-    #[serde(default)]
     pub date_separators: DateSeparators,
-    #[serde(default)]
     pub commands: Commands,
-    #[serde(default)]
     pub emojis: Emojis,
-    #[serde(default)]
     pub mark_as_read: MarkAsRead,
-    #[serde(default)]
     pub url: Url,
 }
 
@@ -55,25 +41,21 @@ pub enum NicknameClickAction {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[serde(default)]
 pub struct Emojis {
-    #[serde(default = "default_bool_true")]
     pub show_picker: bool,
-    #[serde(default)]
     pub skin_tone: SkinTone,
-    #[serde(default = "default_bool_true")]
     pub auto_replace: bool,
-    #[serde(default = "default_characters_to_trigger_picker")]
     pub characters_to_trigger_picker: usize,
 }
 
 impl Default for Emojis {
     fn default() -> Self {
         Self {
-            show_picker: default_bool_true(),
+            show_picker: true,
             skin_tone: SkinTone::default(),
-            auto_replace: default_bool_true(),
-            characters_to_trigger_picker: default_characters_to_trigger_picker(
-            ),
+            auto_replace: true,
+            characters_to_trigger_picker: 2,
         }
     }
 }
@@ -85,69 +67,54 @@ pub struct Url {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[serde(default)]
 pub struct MarkAsRead {
-    #[serde(default)]
     pub on_application_exit: bool,
-    #[serde(default = "default_bool_true")]
     pub on_buffer_close: bool,
-    #[serde(default = "default_bool_true")]
     pub on_scroll_to_bottom: bool,
-    #[serde(default = "default_bool_true")]
     pub on_message_sent: bool,
 }
 
 impl Default for MarkAsRead {
     fn default() -> Self {
         Self {
-            on_application_exit: bool::default(),
-            on_buffer_close: default_bool_true(),
-            on_scroll_to_bottom: default_bool_true(),
-            on_message_sent: default_bool_true(),
+            on_application_exit: false,
+            on_buffer_close: true,
+            on_scroll_to_bottom: true,
+            on_message_sent: true,
         }
     }
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[serde(default)]
 pub struct Commands {
-    #[serde(default = "default_bool_true")]
     pub show_description: bool,
 }
 
 impl Default for Commands {
     fn default() -> Self {
         Self {
-            show_description: default_bool_true(),
+            show_description: true,
         }
     }
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
+#[serde(default)]
 pub struct ServerMessages {
-    #[serde(default)]
     pub topic: ServerMessage,
-    #[serde(default)]
     pub join: ServerMessage,
-    #[serde(default)]
     pub part: ServerMessage,
-    #[serde(default)]
     pub quit: ServerMessage,
-    #[serde(default)]
     pub change_host: ServerMessage,
-    #[serde(default)]
     pub change_mode: ServerMessage,
-    #[serde(default)]
     pub change_nick: ServerMessage,
-    #[serde(default)]
     pub monitored_online: ServerMessage,
-    #[serde(default)]
     pub monitored_offline: ServerMessage,
-    #[serde(default)]
     pub standard_reply_fail: ServerMessage,
-    #[serde(default)]
     pub standard_reply_warn: ServerMessage,
-    #[serde(default)]
     pub standard_reply_note: ServerMessage,
-    #[serde(default)]
     pub wallops: ServerMessage,
 }
 
@@ -182,16 +149,12 @@ impl ServerMessages {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[serde(default)]
 pub struct ServerMessage {
-    #[serde(default = "default_bool_true")]
     pub enabled: bool,
-    #[serde(default)]
     pub smart: Option<i64>,
-    #[serde(default)]
     pub username_format: UsernameFormat,
-    #[serde(default)]
     pub exclude: Vec<String>,
-    #[serde(default)]
     pub include: Vec<String>,
 }
 
@@ -199,7 +162,7 @@ impl Default for ServerMessage {
     fn default() -> Self {
         Self {
             enabled: true,
-            smart: Option::default(),
+            smart: None,
             username_format: UsernameFormat::default(),
             exclude: Vec::default(),
             include: Vec::default(),
@@ -231,10 +194,9 @@ impl ServerMessage {
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
+#[serde(default)]
 pub struct InternalMessages {
-    #[serde(default)]
     pub success: InternalMessage,
-    #[serde(default)]
     pub error: InternalMessage,
 }
 
@@ -248,10 +210,9 @@ impl InternalMessages {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[serde(default)]
 pub struct InternalMessage {
-    #[serde(default = "default_bool_true")]
     pub enabled: bool,
-    #[serde(default)]
     pub smart: Option<i64>,
 }
 
@@ -259,7 +220,7 @@ impl Default for InternalMessage {
     fn default() -> Self {
         Self {
             enabled: true,
-            smart: Option::default(),
+            smart: None,
         }
     }
 }
@@ -277,8 +238,8 @@ pub enum LevelFilter {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[serde(default)]
 pub struct ChatHistory {
-    #[serde(default = "default_bool_true")]
     pub infinite_scroll: bool,
 }
 
@@ -318,8 +279,4 @@ impl Buffer {
             )
         ))
     }
-}
-
-fn default_characters_to_trigger_picker() -> usize {
-    2
 }
