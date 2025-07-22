@@ -88,6 +88,7 @@ pub fn view<'a>(
 
                     let current_user =
                         users.and_then(|users| users.resolve(user));
+                    let is_user_offline = current_user.is_none();
 
                     let text = selectable_text(
                         config
@@ -97,10 +98,16 @@ pub fn view<'a>(
                             .format(user.display(with_access_levels)),
                     )
                     .font_maybe(
-                        theme::font_style::nickname(theme).map(font::get),
+                        theme::font_style::nickname(theme, is_user_offline)
+                            .map(font::get),
                     )
-                    .style(|theme| {
-                        theme::selectable_text::nickname(theme, config, user)
+                    .style(move |theme| {
+                        theme::selectable_text::nickname(
+                            theme,
+                            config,
+                            user,
+                            is_user_offline,
+                        )
                     });
 
                     let casemapping = clients.get_casemapping(server);

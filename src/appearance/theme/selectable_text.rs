@@ -1,4 +1,4 @@
-use data::config::buffer::away;
+use data::config::buffer;
 use data::message::source::server::{Kind, StandardReply};
 use data::{Config, User, log, message};
 
@@ -19,6 +19,13 @@ impl Catalog for Theme {
 }
 
 pub fn default(theme: &Theme) -> Style {
+    Style {
+        color: None,
+        selection_color: theme.styles().buffer.selection,
+    }
+}
+
+pub fn logs(theme: &Theme) -> Style {
     Style {
         color: None,
         selection_color: theme.styles().buffer.selection,
@@ -104,16 +111,23 @@ pub fn nicklist_nickname(theme: &Theme, config: &Config, user: &User) -> Style {
         theme,
         config.buffer.channel.nicklist.color,
         user,
-        config.buffer.away.appearance(user.is_away()),
+        config.buffer.channel.nicklist.away.is_away(user.is_away()),
+        false,
     )
 }
 
-pub fn nickname(theme: &Theme, config: &Config, user: &User) -> Style {
+pub fn nickname(
+    theme: &Theme,
+    config: &Config,
+    user: &User,
+    is_user_offline: bool,
+) -> Style {
     nickname_style(
         theme,
         config.buffer.channel.message.nickname_color,
         user,
-        config.buffer.away.appearance(user.is_away()),
+        config.buffer.nickname.away.is_away(user.is_away()),
+        config.buffer.nickname.offline.is_offline(is_user_offline),
     )
 }
 
@@ -123,6 +137,7 @@ pub fn topic_nickname(theme: &Theme, config: &Config, user: &User) -> Style {
         config.buffer.channel.message.nickname_color,
         user,
         None,
+        false,
     )
 }
 
@@ -130,14 +145,15 @@ fn nickname_style(
     theme: &Theme,
     kind: data::buffer::Color,
     user: &User,
-    away_appearance: Option<away::Appearance>,
+    is_away: Option<buffer::Away>,
+    is_offline: bool,
 ) -> Style {
     let seed = match kind {
         data::buffer::Color::Solid => None,
         data::buffer::Color::Unique => Some(user.seed()),
     };
 
-    let color = text::nickname(theme, seed, away_appearance).color;
+    let color = text::nickname(theme, seed, is_away, is_offline).color;
 
     Style {
         color,

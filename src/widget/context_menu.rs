@@ -436,10 +436,11 @@ pub fn close<Message: 'static + Send>(f: fn(bool) -> Message) -> Task<Message> {
             state: &mut dyn std::any::Any,
         ) {
             if let Some(state) = state.downcast_mut::<State>()
-                && let Status::Open(_) = state.status {
-                    state.status = Status::Closed(true);
-                    self.any_closed = true;
-                }
+                && let Status::Open(_) = state.status
+            {
+                state.status = Status::Closed(true);
+                self.any_closed = true;
+            }
         }
 
         fn finish(&self) -> operation::Outcome<T> {
@@ -561,18 +562,17 @@ where
         clipboard: &mut dyn Clipboard,
         shell: &mut Shell<'_, Message>,
     ) {
-        if let Event::Mouse(mouse::Event::ButtonPressed(_)) = &event {
-            if cursor.position_over(layout.bounds()).is_none() {
-                self.state.status = Status::Closed(true);
-            }
+        if let Event::Mouse(mouse::Event::ButtonPressed(_)) = &event
+            && cursor.position_over(layout.bounds()).is_none()
+        {
+            self.state.status = Status::Closed(true);
         }
 
         if let Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Left)) =
             &event
+            && cursor.position_over(layout.bounds()).is_some()
         {
-            if cursor.position_over(layout.bounds()).is_some() {
-                self.state.status = Status::Closed(true);
-            }
+            self.state.status = Status::Closed(true);
         }
 
         self.menu.as_widget_mut().update(

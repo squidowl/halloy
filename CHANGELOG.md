@@ -2,12 +2,13 @@
 
 Added:
 
-- Configuration options `logs.file_level` and `logs.pane_level` added to control log level filtering for the log buffer (<kbd>ctrl</kbd> + <kbd>l</kbd>)
-- Configuration option per toast type for showing content in toasts
-- Configuration option to hide `nick` and `mode` change server messages
+- New option to customize the appearance of offline nicknames
+- Log level filtering for the log buffer (<kbd>ctrl</kbd> + <kbd>l</kbd>)
+- Per toast type setting for showing content in toasts
+- Ability to hide `nick` and `mode` change server messages
 - Context menu item added to server-wide buffers to mark all messages as read
-- Auto-accept file transfer option with support for nick and mask filtering
-- Configuration option to adjust scrollbar sizing
+- Auto-accept file transfers, with support for nick and mask filtering
+- Adjustable scrollbar sizing
 
 Fixed:
 
@@ -16,8 +17,9 @@ Fixed:
 
 Changed:
 
+- The `[buffer.away]` section has been split into `[buffer.channel.nicklist]` and `[buffer.nickname]` for greater flexibility
 - Colorize the level text in log buffer based on theme
-- Scrollbars now has a dedicated `scrollbar` color instead of `horizontal_rule` color
+- Scrollbars now use a dedicated `scrollbar` color instead of `horizontal_rule`
 - Tor is now an optional feature. Build with `--features tor` to enable Tor proxy support
 - Topic "set at" time is now shown with local timezone offset, instead of UTC's
 
@@ -25,7 +27,7 @@ Thanks:
 
 - Contributions: @KaiKorla
 - Bug reports: @darienm, @mercster
-- Feature requests: @rossburton, death916, @Celeo
+- Feature requests: @rossburton, death916, @Celeo, @TehPeGaSuS
 
 # 2025.6 (2025-06-14)
 

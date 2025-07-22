@@ -149,4 +149,5 @@ extend-ignore-re = [
 extend-ignore-identifiers-re = [
     "ERR_[A-Z]+", # IRC Error Numeric
     "RPL_[A-Z]+", # IRC Reply Numeric
+    "TehPeGaSuS",
 ]

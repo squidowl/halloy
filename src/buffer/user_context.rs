@@ -322,7 +322,7 @@ fn user_info<'a>(
         Some(user) => {
             if user.is_away() {
                 Some(
-                    text("Away")
+                    text("(Away)")
                         .style(theme::text::secondary)
                         .font_maybe(
                             theme::font_style::secondary(theme).map(font::get),
@@ -334,7 +334,7 @@ fn user_info<'a>(
             }
         }
         None => Some(
-            text("Offline")
+            text("(Offline)")
                 .style(theme::text::secondary)
                 .font_maybe(theme::font_style::secondary(theme).map(font::get))
                 .width(length),
@@ -342,23 +342,35 @@ fn user_info<'a>(
     };
 
     // Dimmed if away or offline.
-    let is_user_away = current_user.is_some_and(User::is_away);
-    let away_appearance = config.buffer.away.appearance(is_user_away);
+    let is_user_away = config
+        .buffer
+        .nickname
+        .away
+        .is_away(current_user.is_some_and(User::is_away));
+    let is_user_offline = config
+        .buffer
+        .nickname
+        .offline
+        .is_offline(current_user.is_none());
     let seed = match config.buffer.nickname.color {
         data::buffer::Color::Solid => None,
         data::buffer::Color::Unique => Some(nickname.to_string()),
     };
 
-    let nickname = text(nickname.to_string())
-        .style(move |theme| {
-            theme::text::nickname(theme, seed.clone(), away_appearance)
-        })
-        .font_maybe(theme::font_style::nickname(theme).map(font::get))
-        .width(length);
+    let style = theme::text::nickname(
+        theme,
+        seed.clone(),
+        is_user_away,
+        is_user_offline,
+    );
 
-    column![container(nickname).padding(right_justified_padding()),]
-        .push_maybe(
-            state.map(|s| container(s).padding(right_justified_padding())),
-        )
-        .into()
+    let nickname = text(nickname.to_string()).style(move |_| style).font_maybe(
+        theme::font_style::nickname(theme, is_user_offline).map(font::get),
+    );
+
+    column![
+        container(row![nickname].width(length).spacing(4).push_maybe(state))
+            .padding(right_justified_padding())
+    ]
+    .into()
 }

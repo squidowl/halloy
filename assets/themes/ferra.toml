@@ -29,6 +29,7 @@ nickname = "#f6b6c9"
 url = "#d1d1e0"
 selection = "#453d41"
 border_selected = "#7D6E76"
+nickname_offline = "#5a555c"
 
 [buffer.server_messages]
 default = "#f5d76e"
