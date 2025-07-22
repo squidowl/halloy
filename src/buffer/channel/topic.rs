@@ -62,7 +62,8 @@ pub fn view<'a>(
             user_context::view(
                 selectable_text(user.nickname().to_string())
                     .font_maybe(
-                        theme::font_style::nickname(theme).map(font::get),
+                        theme::font_style::nickname(theme, false)
+                            .map(font::get),
                     )
                     .style(|theme| {
                         theme::selectable_text::topic_nickname(
@@ -82,7 +83,9 @@ pub fn view<'a>(
             )
         } else {
             selectable_text(user.display(false))
-                .font_maybe(theme::font_style::nickname(theme).map(font::get))
+                .font_maybe(
+                    theme::font_style::nickname(theme, false).map(font::get),
+                )
                 .style(move |theme| {
                     theme::selectable_text::topic_nickname(theme, config, &user)
                 })

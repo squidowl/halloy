@@ -81,7 +81,7 @@ pub fn view<'a>(
                         isupport::CaseMap::default(),
                         theme,
                         scroll_view::Message::Link,
-                        theme::selectable_text::default,
+                        theme::selectable_text::logs,
                         theme::font_style::primary,
                         config,
                     );

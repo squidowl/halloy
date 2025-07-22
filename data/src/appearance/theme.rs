@@ -178,6 +178,7 @@ pub struct Buffer {
     pub timestamp: TextStyle,
     pub topic: TextStyle,
     pub url: TextStyle,
+    pub nickname_offline: Option<TextStyle>,
 }
 
 impl Default for Buffer {
@@ -197,6 +198,7 @@ impl Default for Buffer {
             timestamp: TextStyle::default(),
             topic: TextStyle::default(),
             url: TextStyle::default(),
+            nickname_offline: None,
         }
     }
 }

@@ -2,47 +2,22 @@
 
 Buffer settings for Halloy.
 
-1. [Away](#bufferaway) - Controls the appearance of away nicknames
-2. [Channel](#bufferchannel) - Channel specific settings
+1. [Channel](#bufferchannel) - Channel specific settings
    1. [Message](#bufferchannelmessage) - Message settings within a channel buffer
    2. [Nicklist](#bufferchannelnicklist) - Nicklist settings within a channel buffer
    3. [Topic](#bufferchanneltopic) - Topic settings within a channel buffer
-3. [Chathistory](#bufferchathistory) - IRCv3 Chat History extension settings
-4. [Commands](#buffercommands) - Commands settings
-5. [Date Separators](#bufferdate_separators) - Customize how date separators are displayed within a buffer
-6. [Emojis](#bufferemojis) - Emojis settings
-7. [Internal Messages](#bufferinternal_messages) - Internal messages are messages sent from Halloy itself
-8. [Mark as Read](#buffermark_as_read) - When to automatically mark a buffer as read
-9. [Nickname](#buffernickname) - Customize how nicknames are displayed within a buffer
-10. [Server Messages](#bufferserver_messages) - Server messages are messages sent from an IRC server.
-11. [Status Message Prefix](#bufferstatus_message_prefix) - Status message prefix settings
-12. [Text Input](#buffertext_input) - Customize the text input for in buffers
-13. [Timestamp](#buffertimestamp) - Customize how timestamps are displayed within a buffer
-14. [Url](#bufferurl) - URLs in buffers
-
-## `[buffer.away]`
-
-Controls the appearance of away nicknames.
-
-### `appearance`
-
-Controls the appearance of away nicknames in buffers.
-
-```toml
-# Type: string or object
-# Values: "dimmed", "solid" or { dimmed = float }
-# Default: "dimmed"
-[buffer.away]
-appearance = "dimmed"
-
-# with custom dimming alpha value (0.0-1.0)
-[buffer.away]
-appearance = { dimmed = 0.5 }
-
-# no away indication
-[buffer.away]
-appearance = "solid"
-```
+2. [Chathistory](#bufferchathistory) - IRCv3 Chat History extension settings
+3. [Commands](#buffercommands) - Commands settings
+4. [Date Separators](#bufferdate_separators) - Customize how date separators are displayed within a buffer
+5. [Emojis](#bufferemojis) - Emojis settings
+6. [Internal Messages](#bufferinternal_messages) - Internal messages are messages sent from Halloy itself
+7. [Mark as Read](#buffermark_as_read) - When to automatically mark a buffer as read
+8. [Nickname](#buffernickname) - Customize how nicknames are displayed within a buffer
+9. [Server Messages](#bufferserver_messages) - Server messages are messages sent from an IRC server.
+10. [Status Message Prefix](#bufferstatus_message_prefix) - Status message prefix settings
+11. [Text Input](#buffertext_input) - Customize the text input for in buffers
+12. [Timestamp](#buffertimestamp) - Customize how timestamps are displayed within a buffer
+13. [Url](#bufferurl) - URLs in buffers
 
 ## `[buffer.channel]`
 
@@ -80,6 +55,26 @@ Horizontal alignment of nicknames.
 
 [buffer.channel.nicklist]
 alignment = "left"
+```
+
+#### `away`
+
+Controls the appearance of away nicknames.
+
+```toml
+# Type: string or object
+# Values: "dimmed", "none" or { dimmed = float }
+# Default: "dimmed"
+[buffer.channel.nicklist]
+away = "dimmed"
+
+# with custom dimming alpha value (0.0-1.0)
+[buffer.channel.nicklist]
+away = { dimmed = 0.5 }
+
+# no away indication
+[buffer.channel.nicklist]
+away = "none"
 ```
 
 #### `color`
@@ -464,6 +459,26 @@ Horizontal alignment of nicknames.
 alignment = "right"
 ```
 
+### `away`
+
+Controls the appearance of away nicknames.
+
+```toml
+# Type: string or object
+# Values: "dimmed", "none" or { dimmed = float }
+# Default: "dimmed"
+[buffer.nickname]
+away = "dimmed"
+
+# with custom dimming alpha value (0.0-1.0)
+[buffer.nickname]
+away = { dimmed = 0.5 }
+
+# no away indication
+[buffer.nickname]
+away = "none"
+```
+
 ### `brackets`
 
 Brackets around nicknames.
@@ -488,6 +503,22 @@ Nickname colors in a channel buffer. `"unique"` generates colors by randomizing 
 
 [buffer.nickname]
 color = "unique"
+```
+
+#### `offline`
+
+Controls the appearance of offline nicknames.  
+
+```toml
+# Type: string or object
+# Values: "solid" or "none"
+# Default: "solid"
+[buffer.nickname]
+offline = "solid"
+
+# no offline indication
+[buffer.nickname]
+offline = "none"
 ```
 
 ### `show_access_levels`
@@ -523,20 +554,20 @@ click = "open-query"
 
 Server messages are messages sent from an IRC server.
 
-| **Event Type**            | **Description**                                                                 |
-|---------------------------|---------------------------------------------------------------------------------|
-| `change_host`             | Message is sent when a user changes host                                       |
-| `change_mode`             | Message is sent when a mode is set                                             |
-| `change_nick`             | Message is sent when a user changes nick                                       |
-| `join`                    | Message is sent when a user joins a channel                                    |
-| `monitored_offline`       | Message is sent when a monitored user goes offline                             |
-| `monitored_online`        | Message is sent when a monitored user goes online                              |
-| `part`                    | Message is sent when a user leaves a channel                                   |
-| `quit`                    | Message is sent when a user closes the connection to a channel or server       |
-| `standard_reply_fail`     | Message is sent when a command/function fails or an error with the session     |
-| `standard_reply_note`     | Message is sent when there is information about a command/function or session  |
-| `standard_reply_warn`     | Message is sent when there is feedback about a command/function or session     |
-| `topic`                   | Message is sent when the client joins a channel to inform them of the topic    |
+| **Event Type**        | **Description**                                                               |
+| --------------------- | ----------------------------------------------------------------------------- |
+| `change_host`         | Message is sent when a user changes host                                      |
+| `change_mode`         | Message is sent when a mode is set                                            |
+| `change_nick`         | Message is sent when a user changes nick                                      |
+| `join`                | Message is sent when a user joins a channel                                   |
+| `monitored_offline`   | Message is sent when a monitored user goes offline                            |
+| `monitored_online`    | Message is sent when a monitored user goes online                             |
+| `part`                | Message is sent when a user leaves a channel                                  |
+| `quit`                | Message is sent when a user closes the connection to a channel or server      |
+| `standard_reply_fail` | Message is sent when a command/function fails or an error with the session    |
+| `standard_reply_note` | Message is sent when there is information about a command/function or session |
+| `standard_reply_warn` | Message is sent when there is feedback about a command/function or session    |
+| `topic`               | Message is sent when the client joins a channel to inform them of the topic   |
 
 Example
 
