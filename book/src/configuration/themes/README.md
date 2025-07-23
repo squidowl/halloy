@@ -10,7 +10,7 @@ theme = "ferra"
 theme = { light = "ferra-light", dark = "ferra" }
 ```
 
-Note: `theme` is a root key, so it must be placed before any section.
+> ⚠️  `theme` is a root key, so it must be placed before every section.
 
 ## `theme`
 
