@@ -13,6 +13,8 @@ The specification for the configuration file format ([TOML](https://toml.io/)) c
 Example config for connecting to [Libera](https://libera.chat/):
 
 ```toml
+theme = "ferra"
+
 [servers.liberachat]
 nickname = "halloy-user"
 server = "irc.libera.chat"
