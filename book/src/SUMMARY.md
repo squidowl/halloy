@@ -20,6 +20,7 @@
 - [YAML migration](guides/migrating-from-yaml.md)
 - [Pronunciation](guides/pronunciation.md)
 - [Building for flatpak](guides/flatpaks.md)
+- [Building for macOS](guides/macos-application.md)
 
 # Configuration
 
