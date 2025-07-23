@@ -1,5 +1,3 @@
-use thiserror::Error;
-
 use crate::{
     Config, Message, Server, User, isupport,
     message::Source,
@@ -24,20 +22,14 @@ pub enum FilterClass {
 
 #[derive(Debug, Clone)]
 pub enum FilterTarget {
-    User(Source),
+    User(User),
     Any,
 }
 
 impl From<&str> for FilterTarget {
     fn from(nick: &str) -> Self {
-        Self::User(Source::User(User::from(Nick::from(nick))))
+        Self::User(User::from(Nick::from(nick)))
     }
-}
-
-#[derive(Error, Debug)]
-pub enum FilterError {
-    #[error("Unable to generate filter from nickname {0:?}")]
-    TryFromUserError(String),
 }
 
 impl Filter {
@@ -82,16 +74,13 @@ impl Filter {
     /// [`Message`]:crate::Message
     pub fn match_message(&self, message: &Message) -> bool {
         match &self.target {
-            FilterTarget::User(Source::User(user)) => {
-                match &message.target.source() {
-                    Source::Action(Some(msg_user)) | Source::User(msg_user) => {
-                        msg_user == user
-                    }
-                    _ => false,
+            FilterTarget::User(user) => match &message.target.source() {
+                Source::Action(Some(msg_user)) | Source::User(msg_user) => {
+                    msg_user == user
                 }
-            }
+                _ => false,
+            },
             FilterTarget::Any => true,
-            _ => false,
         }
     }
 
@@ -103,11 +92,10 @@ impl Filter {
     /// [`Query`]:crate::Query
     pub fn match_query(&self, query: &Query) -> bool {
         match &self.target {
-            FilterTarget::User(Source::User(user)) => match &self.class {
+            FilterTarget::User(user) => match &self.class {
                 FilterClass::Channel((_, _)) => false,
                 _ => user.as_str() == query.as_str(),
             },
-            FilterTarget::User(_) => false,
             FilterTarget::Any => false,
         }
     }
@@ -215,7 +203,7 @@ impl<'f> FilterChain<'f> {
         server: &Server,
         casemapping: isupport::CaseMap,
     ) {
-        log::debug!("updating casemap for {server:?}");
+        log::debug!("[{server}] updating filter casemapping");
         filters
             .iter_mut()
             .filter(|filter| filter.match_server(server))
