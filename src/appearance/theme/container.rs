@@ -93,20 +93,6 @@ pub fn general(theme: &Theme) -> Style {
     }
 }
 
-pub fn image_card(theme: &Theme) -> Style {
-    let general = theme.styles().general;
-
-    Style {
-        background: Some(Background::Color(general.background)),
-        border: Border {
-            radius: 4.0.into(),
-            width: 1.0,
-            color: general.border,
-        },
-        ..Default::default()
-    }
-}
-
 pub fn tooltip(theme: &Theme) -> Style {
     let general = theme.styles().general;
 
