@@ -444,6 +444,19 @@ nick_password_file = "~/.config/halloy/password"
 server = "irc.libera.chat"
 channels = ["#halloy"]
 </code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="single-pane"><a class="header" href="#single-pane">Single pane</a></h1>
+<p>The settings below will configure Halloy to have a single pane (or fixed number of panes) in regular use.  When needed, new panes can be opened via the context menu on sidebar items (e.g. right-click on a channel in the sidebar and select "Open in new pane").</p>
+<pre><code class="language-toml">[actions.buffer]
+click_channel_name = "replace-pane"
+click_highlight = "replace-pane"
+click_username = "replace-pane"
+local = "replace-pane"
+message_channel = "replace-pane"
+message_user = "replace-pane"
+
+[actions.sidebar]
+buffer = "replace-pane"
+</code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="text-formatting"><a class="header" href="#text-formatting">Text Formatting</a></h1>
 <p>Text can be formatted in Halloy by using the <code>/format</code> (or <code>/f</code>) command.</p>
 <h2 id="attributes"><a class="header" href="#attributes">Attributes</a></h2>
@@ -610,7 +623,9 @@ example.</p>
 </blockquote>
 <p>The specification for the configuration file format (<a href="https://toml.io/">TOML</a>) can be found at <a href="https://toml.io/">https://toml.io/</a>.</p>
 <p>Example config for connecting to <a href="https://libera.chat/">Libera</a>:</p>
-<pre><code class="language-toml">[servers.liberachat]
+<pre><code class="language-toml">theme = "ferra"
+
+[servers.liberachat]
 nickname = "halloy-user"
 server = "irc.libera.chat"
 channels = ["#halloy"]
@@ -2465,7 +2480,9 @@ theme = "ferra"
 # Dynamic
 theme = { light = "ferra-light", dark = "ferra" }
 </code></pre>
-<p>Note: <code>theme</code> is a root key, so it must be placed before any section.</p>
+<blockquote>
+<p>⚠️  <code>theme</code> is a root key, so it must be placed before every section.</p>
+</blockquote>
 <h2 id="theme"><a class="header" href="#theme"><code>theme</code></a></h2>
 <p>Specify the theme name(s) to use. The theme must correspond to a file located in the <code>themes</code> folder, which can be found in the Halloy configuration directory. The default theme in Halloy is <a href="https://github.com/casperstorm/ferra/">Ferra</a>.</p>
 <p>When a dynamic theme is used, Halloy will match the appearance of the OS.</p>
