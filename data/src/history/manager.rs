@@ -68,7 +68,6 @@ pub enum Event {
 pub struct Manager {
     resources: HashSet<Resource>,
     filters: Vec<Filter>,
-    cached_channels: HashSet<history::Kind>,
     data: Data,
 }
 
@@ -111,7 +110,7 @@ impl Manager {
                 self.data.load_full(kind.clone(), loaded);
                 log::debug!("loaded history for {kind}: {} messages", len);
 
-                if !self.cached_channels.contains(&kind) {
+                if !self.data.has_blocked_message_cache(&kind) {
                     self.rebuild_blocked_message_cache(kind.clone());
                 }
 
@@ -182,7 +181,7 @@ impl Manager {
     pub fn set_filters(&mut self, mut new_filters: Vec<Filter>) {
         self.filters.clear();
         self.filters.append(&mut new_filters);
-        self.cached_channels.clear();
+        self.data.clear_blocked_message_cache();
         log::debug!(
             "set new filters to history manager, reset all cached channel flags."
         );
@@ -305,11 +304,6 @@ impl Manager {
             |kind| {
                 let blocked = FilterChain::borrow(&self.filters)
                     .filter_message_of_kind(&message, &kind);
-
-                if blocked {
-                    // ensures newly joined channels will be recorded as cached
-                    self.cached_channels.insert(kind.clone());
-                }
 
                 self.data.add_message(kind, message, blocked)
             },
@@ -646,7 +640,6 @@ impl Manager {
                 .insert_entry(blocked_message_index);
         };
         log::debug!("rebuilt blocked message cache for {kind}");
-        self.cached_channels.insert(kind);
     }
 }
 
@@ -671,7 +664,7 @@ fn with_limit<'a>(
 #[derive(Debug, Default)]
 struct Data {
     map: HashMap<history::Kind, History>,
-    blocked_messages_index: HashMap<history::Kind, HashSet<Hash>>,
+    pub blocked_messages_index: HashMap<history::Kind, HashSet<Hash>>,
     input: input::Storage,
 }
 
@@ -1081,6 +1074,14 @@ impl Data {
 
     fn can_mark_as_read(&self, kind: &history::Kind) -> bool {
         self.map.get(kind).is_some_and(History::can_mark_as_read)
+    }
+
+    fn clear_blocked_message_cache(&mut self) {
+        self.blocked_messages_index.clear();
+    }
+
+    pub fn has_blocked_message_cache(&self, kind: &history::Kind) -> bool {
+        self.blocked_messages_index.contains_key(kind)
     }
 
     fn untrack(
