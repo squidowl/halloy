@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Building for flatpak</title>
+        <title>Building for macOS</title>
 
 
         <!-- Custom HTML head -->
@@ -146,7 +146,7 @@
                         <a href="https://github.com/squidowl/halloy" title="Git repository" aria-label="Git repository">
                             <i id="git-repository-button" class="fa fa-github"></i>
                         </a>
-                        <a href="https://github.com/squidowl/halloy/edit/main/book/src/guides/flatpaks.md" title="Suggest an edit" aria-label="Suggest an edit" rel="edit">
+                        <a href="https://github.com/squidowl/halloy/edit/main/book/src/guides/macos-application.md" title="Suggest an edit" aria-label="Suggest an edit" rel="edit">
                             <i id="git-edit-button" class="fa fa-edit"></i>
                         </a>
 
@@ -180,63 +180,60 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1 id="building-for-flatpak"><a class="header" href="#building-for-flatpak">Building for flatpak</a></h1>
-<p>This guide will help you to build and/or test pre-released commits of Halloy
-for flatpak.</p>
-<p>If you haven't done so already, clone the <a href="https://github.com/squidowl/halloy">Halloy repository</a> to
-your local machine.</p>
-<h2 id="requirements"><a class="header" href="#requirements">Requirements</a></h2>
+                        <h1 id="building-for-macos"><a class="header" href="#building-for-macos">Building for macOS</a></h1>
+<p>This guide explains how to build the Halloy <code>.app</code> for macOS. If you want to install a signed release version of Halloy on macOS, then you should consult the <a href="../installation.html">Installation</a> documentation instead.</p>
+<h2 id="prerequisites"><a class="header" href="#prerequisites">Prerequisites</a></h2>
 <ul>
-<li><a href="https://docs.flatpak.org/en/latest/flatpak-builder.html">flatpak-builder</a></li>
-<li><a href="https://github.com/flatpak/flatpak-builder-tools/tree/master/cargo">flatpak-cargo-generator</a></li>
+<li><strong>macOS 11.0 or later</strong></li>
+<li><a href="https://www.rust-lang.org/tools/install"><strong>Latest Rust toolchain</strong></a></li>
+<li><strong>Xcode Command Line Tools</strong> (<code>xcode-select --install</code> or <a href="https://developer.apple.com/download/all/">https://developer.apple.com/download/all/</a>)</li>
 </ul>
-<p>Be sure to install all the dependencies for the above tools.</p>
-<h2 id="generating-flatpak-build-sources-file"><a class="header" href="#generating-flatpak-build-sources-file">Generating flatpak build sources file</a></h2>
-<p>To generate the <code>generated-sources.json</code> file that is used by the flatpak
-manifest, run the following command:</p>
-<pre><code class="language-bash">python3 &lt;flatpak-builder-tools-path&gt;/cargo/flatpak-cargo-generator.py -o &lt;halloy-checkout-path&gt;/assets/flatpak/generated-sources.json
-</code></pre>
-<h2 id="building-and-installing-flatpak-locally"><a class="header" href="#building-and-installing-flatpak-locally">Building and installing flatpak locally</a></h2>
-<p>Finally, to build and install the flatpak locally, run the following command:</p>
-<pre><code class="language-bash">flatpak-builder --force-clean --user --install-deps-from=flathub --repo=.flatpak-builder/repo --install .flatpak-builder/build &lt;halloy-checkout-path&gt;/assets/flatpak/org.squidowl.halloy.json
-</code></pre>
-<p>Your flatpak should now be built, installed locally and ready for use.</p>
-<p>Happy testing!</p>
-<h2 id="releasing-to-flathub"><a class="header" href="#releasing-to-flathub">Releasing to Flathub</a></h2>
-<p>Halloy's flatpaks are released via <a href="https://github.com/flathub/org.squidowl.halloy/">Flathub</a>.</p>
-<p>Start by cloning the flathub repo for Halloy.
-Every release has two requirements:</p>
+<h2 id="steps"><a class="header" href="#steps">Steps</a></h2>
 <ol>
-<li>The <code>generated-sources.json</code> file must be up to date. You can generate it
-from the latest release tag via the commands above.</li>
-<li>The flatpak manifest file (<code>org.squidowl.halloy.json</code>) must be updated to
-point to the latest release tag of Halloy.</li>
-</ol>
-<p>The caveat for #2: the version you're wanting to release must be tagged first.
-We use the sha256sum of the tagged tarball in the build manifest.</p>
-<p>For example, for release <code>2025.6</code>, we would need to:</p>
-<pre><code class="language-bash"># Download the tagged tarball
-wget https://github.com/squidowl/halloy/archive/refs/tags/2025.6.tar.gz
-
-# Get the sha256sum of the tarball
-sha256sum 2025.6.tar.gz | awk '{print $1}'
+<li>
+<p><strong>Install Rust and Required Targets</strong></p>
+<p>Make sure you have Rust installed. Then, add the macOS targets for both Intel and Apple Silicon:</p>
+<pre><code class="language-sh">rustup target add x86_64-apple-darwin
+rustup target add aarch64-apple-darwin
 </code></pre>
-<p>The <code>url</code> and the <code>sha256</code> fields for <code>modules.0.sources.0</code> in the manifest file
-should be updated along with an updated <code>generated-sources.json</code> file. After
-that, you can create a pull request to the <a href="https://github.com/flathub/org.squidowl.halloy/">Flathub repository</a>
-with the updated files.</p>
-<p>See the pull request for the <a href="https://github.com/flathub/org.squidowl.halloy/pull/26">2025.6 release</a> for an
-example.</p>
+</li>
+<li>
+<p><strong>Clone the Repository</strong></p>
+<p>If you haven’t already, clone the Halloy repository:</p>
+<pre><code class="language-sh">git clone https://github.com/squidowl/halloy.git
+cd halloy
+</code></pre>
+</li>
+<li>
+<p><strong>Run the Build Script</strong></p>
+<p>Execute the <code>build-macos</code> script:</p>
+<pre><code class="language-sh">./scripts/build-macos.sh
+</code></pre>
+<p>This script will:</p>
+<ul>
+<li>Build the Halloy binary for both <code>x86_64</code> and <code>aarch64</code> architectures.</li>
+<li>Combine them into a universal binary using <code>lipo</code>.</li>
+<li>Copy the binary and resources into a macOS <code>.app</code> bundle template located at <code>assets/macos/Halloy.app</code>.</li>
+<li>Place the <code>.app</code> bundle in <code>target/release/macos</code>.</li>
+</ul>
+</li>
+<li>
+<p><strong>Locate the Built Application</strong></p>
+<p>After the script completes, you’ll find the generated <code>.app</code> bundle at:</p>
+<pre><code>target/release/macos/Halloy.app
+</code></pre>
+</li>
+</ol>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="../guides/pronunciation.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="../guides/flatpaks.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
 
-                            <a rel="next prefetch" href="../guides/macos-application.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="../configuration/index.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
 
@@ -246,11 +243,11 @@ example.</p>
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="../guides/pronunciation.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="../guides/flatpaks.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
 
-                    <a rel="next prefetch" href="../guides/macos-application.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="../configuration/index.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
             </nav>

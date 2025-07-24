@@ -611,6 +611,50 @@ that, you can create a pull request to the <a href="https://github.com/flathub/o
 with the updated files.</p>
 <p>See the pull request for the <a href="https://github.com/flathub/org.squidowl.halloy/pull/26">2025.6 release</a> for an
 example.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="building-for-macos"><a class="header" href="#building-for-macos">Building for macOS</a></h1>
+<p>This guide explains how to build the Halloy <code>.app</code> for macOS. If you want to install a signed release version of Halloy on macOS, then you should consult the <a href="guides/../installation.html">Installation</a> documentation instead.</p>
+<h2 id="prerequisites"><a class="header" href="#prerequisites">Prerequisites</a></h2>
+<ul>
+<li><strong>macOS 11.0 or later</strong></li>
+<li><a href="https://www.rust-lang.org/tools/install"><strong>Latest Rust toolchain</strong></a></li>
+<li><strong>Xcode Command Line Tools</strong> (<code>xcode-select --install</code> or <a href="https://developer.apple.com/download/all/">https://developer.apple.com/download/all/</a>)</li>
+</ul>
+<h2 id="steps"><a class="header" href="#steps">Steps</a></h2>
+<ol>
+<li>
+<p><strong>Install Rust and Required Targets</strong></p>
+<p>Make sure you have Rust installed. Then, add the macOS targets for both Intel and Apple Silicon:</p>
+<pre><code class="language-sh">rustup target add x86_64-apple-darwin
+rustup target add aarch64-apple-darwin
+</code></pre>
+</li>
+<li>
+<p><strong>Clone the Repository</strong></p>
+<p>If you haven’t already, clone the Halloy repository:</p>
+<pre><code class="language-sh">git clone https://github.com/squidowl/halloy.git
+cd halloy
+</code></pre>
+</li>
+<li>
+<p><strong>Run the Build Script</strong></p>
+<p>Execute the <code>build-macos</code> script:</p>
+<pre><code class="language-sh">./scripts/build-macos.sh
+</code></pre>
+<p>This script will:</p>
+<ul>
+<li>Build the Halloy binary for both <code>x86_64</code> and <code>aarch64</code> architectures.</li>
+<li>Combine them into a universal binary using <code>lipo</code>.</li>
+<li>Copy the binary and resources into a macOS <code>.app</code> bundle template located at <code>assets/macos/Halloy.app</code>.</li>
+<li>Place the <code>.app</code> bundle in <code>target/release/macos</code>.</li>
+</ul>
+</li>
+<li>
+<p><strong>Locate the Built Application</strong></p>
+<p>After the script completes, you’ll find the generated <code>.app</code> bundle at:</p>
+<pre><code>target/release/macos/Halloy.app
+</code></pre>
+</li>
+</ol>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="configuration-1"><a class="header" href="#configuration-1">Configuration</a></h1>
 <p>To edit configuration parameters, create a <code>config.toml</code> file located in your configuration directory:</p>
 <ul>
