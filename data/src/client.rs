@@ -16,6 +16,7 @@ use log::error;
 use tokio::fs;
 
 pub use self::on_connect::on_connect;
+use crate::bouncer::{self, BouncerNetwork};
 use crate::environment::{SOURCE_WEBSITE, VERSION};
 use crate::history::ReadMarker;
 use crate::isupport::{
@@ -116,6 +117,7 @@ pub enum Event {
     MonitoredOnline(Vec<User>),
     MonitoredOffline(Vec<Nick>),
     OnConnect(on_connect::Stream),
+    BouncerNetwork(Server, config::Server),
 }
 
 struct ChatHistoryRequest {
@@ -143,6 +145,7 @@ pub struct Client {
     supports_extended_join: bool,
     supports_read_marker: bool,
     supports_chathistory: bool,
+    supports_bouncer_networks: bool,
     chathistory_requests: HashMap<Target, ChatHistoryRequest>,
     chathistory_exhausted: HashMap<Target, bool>,
     chathistory_targets_request: Option<ChatHistoryRequest>,
@@ -151,6 +154,7 @@ pub struct Client {
     isupport: HashMap<isupport::Kind, isupport::Parameter>,
     who_polls: VecDeque<WhoPoll>,
     who_poll_interval: BackoffInterval,
+    resolved_netid: Option<String>,
 }
 
 impl fmt::Debug for Client {
@@ -184,6 +188,7 @@ impl Client {
             supports_extended_join: false,
             supports_read_marker: false,
             supports_chathistory: false,
+            supports_bouncer_networks: false,
             chathistory_requests: HashMap::new(),
             chathistory_exhausted: HashMap::new(),
             chathistory_targets_request: None,
@@ -195,8 +200,27 @@ impl Client {
             who_poll_interval: BackoffInterval::from_duration(
                 config.who_poll_interval,
             ),
+            resolved_netid: None,
             config,
         }
+    }
+
+    // For each bouncer, we reserve a primary (unbound) TCP connection for bouncer communication.
+    // This function returns true if we are that connection.
+    //
+    // The curious reader may wonder why we store the netID twice. The answer is that the netID in
+    // `self.server` is the netID that we are _requesting_, while `resolved_netid` is the netID
+    // that is received. Even if we do not request to be bound to a network, we may be bound
+    // nonetheless. For example, this happens in soju when one uses a `user/network` username.
+    //
+    // If we realize the server we connected to is bound, we could try to update this `Server`
+    // across the halloy structures... but this would be very difficult and error prone. Instead in
+    // this file we simply accept being a non-primary connection and forego any bouncer
+    // communication.
+    //
+    // If !is_primary holds, then resolved_netid and server.bouncer_netid() must match.
+    fn is_primary(&self) -> bool {
+        !self.server.is_bouncer_network() && self.resolved_netid.is_none()
     }
 
     pub fn connect(&mut self) -> Result<()> {
@@ -834,6 +858,33 @@ impl Client {
                     )]);
                 }
             }
+            Command::BOUNCER(subcommand, params) if subcommand == "NETWORK" => {
+                if !self.is_primary() {
+                    // we should only be receiving bouncer communication on the primary channel. Just for
+                    // safety and future proofing, ignore in bound networks.
+                    return Ok(vec![]);
+                }
+                let [netid, network] = params.as_slice() else {
+                    bail!(
+                        "Invalid BOUNCER NETWORKS message {:?}",
+                        &message.command
+                    );
+                };
+
+                let network = BouncerNetwork::parse(netid, network)?;
+                return Ok(vec![Event::BouncerNetwork(
+                    Server {
+                        network: Some(network.into()),
+                        ..self.server.clone()
+                    },
+                    self.config.bouncer_config(),
+                )]);
+            }
+            Command::CAP(_, sub, Some(_asterisk), Some(caps))
+                if sub == "LS" =>
+            {
+                self.listed_caps.extend(caps.split(' ').map(String::from));
+            }
             Command::CAP(_, sub, a, b) if sub == "LS" => {
                 let (caps, asterisk) = match (a, b) {
                     (Some(caps), None) => (caps, None),
@@ -913,6 +964,9 @@ impl Client {
                     if contains("setname") {
                         requested.push("setname");
                     }
+                    if contains("soju.im/bouncer-networks") {
+                        requested.push("soju.im/bouncer-networks");
+                    }
 
                     if !requested.is_empty() {
                         // Request
@@ -953,6 +1007,9 @@ impl Client {
                 }
                 if caps.contains(&"draft/read-marker") {
                     self.supports_read_marker = true;
+                }
+                if caps.contains(&"soju.im/bouncer-networks") {
+                    self.supports_bouncer_networks = true;
                 }
 
                 let supports_sasl = caps.iter().any(|cap| cap.contains("sasl"));
@@ -1063,6 +1120,9 @@ impl Client {
                 if newly_contains("setname") {
                     requested.push("setname");
                 }
+                if newly_contains("soju.im/bouncer-networks") {
+                    requested.push("soju.im/bouncer-networks");
+                }
 
                 if !requested.is_empty() {
                     for message in group_capability_requests(&requested) {
@@ -1100,6 +1160,9 @@ impl Client {
                 if del_caps.contains(&"draft/chathistory") {
                     self.supports_chathistory = false;
                 }
+                if del_caps.contains(&"soju.im/bouncer-networks") {
+                    self.supports_bouncer_networks = false;
+                }
 
                 self.listed_caps.retain(|cap| {
                     !del_caps.iter().any(|del_cap| del_cap == cap)
@@ -1116,6 +1179,11 @@ impl Client {
                     for param in sasl.params() {
                         self.handle
                             .try_send(command!("AUTHENTICATE", param))?;
+                    }
+                    // now that we are authenticated, we can connect to our desired network
+                    if let Some(id) = self.server.bouncer_netid() {
+                        self.handle
+                            .try_send(command!("BOUNCER", "BIND", id))?;
                     }
                 }
             }
@@ -1454,7 +1522,7 @@ impl Client {
                 ));
 
                 if user.nickname() == self.nickname() {
-                    // TODO(pounce) change to `insert_sorted_by` when merged
+                    // TODO(pounce, #1070) change to `insert_sorted_by` when merged
                     let (Ok(i) | Err(i)) =
                         self.chanmap.binary_search_by(|c, _| {
                             self.compare_channels(
@@ -2044,19 +2112,31 @@ impl Client {
                                             parameter.clone(),
                                         );
 
-                                        if let isupport::Parameter::MONITOR(
-                                            target_limit,
-                                        ) = parameter
-                                        {
-                                            let messages = group_monitors(
-                                                &self.config.monitor,
+                                        match parameter {
+                                            isupport::Parameter::MONITOR(
                                                 target_limit,
-                                            );
-
-                                            for message in messages {
-                                                self.handle
-                                                    .try_send(message)?;
+                                            ) => {
+                                                let messages = group_monitors(
+                                                    &self.config.monitor,
+                                                    target_limit,
+                                                );
+                                                for message in messages {
+                                                    self.handle
+                                                        .try_send(message)?;
+                                                }
                                             }
+                                            isupport::Parameter::BOUNCER_NETID(id) => {
+                                                match self.server.bouncer_netid() {
+                                                    Some(requested_id) if id != requested_id => {
+                                                        log::warn!("Requested bouncer id `{requested_id}`, but was connected to bouncer `{id}`");
+                                                        // quit on fatal error?
+                                                        self.quit(None);
+                                                    },
+                                                    _ => (),
+                                                }
+                                                self.resolved_netid = Some(id);
+                                            }
+                                            _ => (),
                                         }
                                     } else {
                                         log::info!(
@@ -2265,108 +2345,122 @@ impl Client {
                 // sent on successfully completing the registration process (after
                 // RPL_ISUPPORT message(s) are sent).
                 // https://modern.ircdocs.horse/#connection-registration
-                if self.registration_step == RegistrationStep::End {
-                    self.registration_step = RegistrationStep::Complete;
+                if self.registration_step != RegistrationStep::End {
+                    log::warn!(
+                        "Registration completed while in mode: {:?}",
+                        self.registration_step
+                    );
+                }
+                self.registration_step = RegistrationStep::Complete;
 
-                    // Send nick password & ghost
-                    if let Some(nick_pass) = self.config.nick_password.as_ref()
-                    {
-                        // Try ghost recovery if we couldn't claim our nick
-                        if self.config.should_ghost
-                            && self.resolved_nick
-                                == Some(self.config.nickname.clone())
-                        {
-                            for sequence in &self.config.ghost_sequence {
-                                self.handle.try_send(command!(
-                                    "PRIVMSG",
-                                    "NickServ",
-                                    format!(
-                                        "{sequence} {} {nick_pass}",
-                                        &self.config.nickname
-                                    )
-                                ))?;
-                            }
-                        }
-
-                        if let Some(identify_syntax) =
-                            &self.config.nick_identify_syntax
-                        {
-                            match identify_syntax {
-                                config::server::IdentifySyntax::PasswordNick => {
-                                    self.handle.try_send(command!(
-                                        "PRIVMSG",
-                                        "NickServ",
-                                        format!("IDENTIFY {nick_pass} {}", &self.config.nickname)
-                                    ))?;
-                                }
-                                config::server::IdentifySyntax::NickPassword => {
-                                    self.handle.try_send(command!(
-                                        "PRIVMSG",
-                                        "NickServ",
-                                        format!("IDENTIFY {} {nick_pass}", &self.config.nickname)
-                                    ))?;
-                                }
-                            }
-                        } else if self.resolved_nick
+                // Send nick password & ghost
+                if let Some(nick_pass) = self.config.nick_password.as_ref() {
+                    // Try ghost recovery if we couldn't claim our nick
+                    if self.config.should_ghost
+                        && self.resolved_nick
                             == Some(self.config.nickname.clone())
-                        {
-                            // Use nickname-less identification if possible, since it has
-                            // no possible argument order issues.
-                            self.handle.try_send(command!(
-                                "PRIVMSG",
-                                "NickServ",
-                                format!("IDENTIFY {nick_pass}")
-                            ))?;
-                        } else {
-                            // Default to most common syntax if unknown
+                    {
+                        for sequence in &self.config.ghost_sequence {
                             self.handle.try_send(command!(
                                 "PRIVMSG",
                                 "NickServ",
                                 format!(
-                                    "IDENTIFY {} {nick_pass}",
+                                    "{sequence} {} {nick_pass}",
                                     &self.config.nickname
                                 )
                             ))?;
                         }
                     }
 
-                    // Send user modestring
-                    if let (Some(nick), Some(modestring)) = (
-                        self.resolved_nick.clone(),
-                        self.config.umodes.as_ref(),
-                    ) {
-                        self.handle
-                            .try_send(command!("MODE", nick, modestring))?;
-                    }
-
-                    let channels = self
-                        .config
-                        .channels
-                        .iter()
-                        .filter_map(|channel| {
-                            target::Channel::parse(
-                                channel,
-                                self.chantypes(),
-                                self.statusmsg(),
-                                self.casemapping(),
-                            )
-                            .ok()
-                        })
-                        .collect::<Vec<_>>();
-
-                    // Send JOIN
-                    for message in
-                        group_joins(&channels, &self.config.channel_keys)
+                    if let Some(identify_syntax) =
+                        &self.config.nick_identify_syntax
                     {
-                        self.handle.try_send(message)?;
+                        match identify_syntax {
+                            config::server::IdentifySyntax::PasswordNick => {
+                                self.handle.try_send(command!(
+                                    "PRIVMSG",
+                                    "NickServ",
+                                    format!(
+                                        "IDENTIFY {nick_pass} {}",
+                                        &self.config.nickname
+                                    )
+                                ))?;
+                            }
+                            config::server::IdentifySyntax::NickPassword => {
+                                self.handle.try_send(command!(
+                                    "PRIVMSG",
+                                    "NickServ",
+                                    format!(
+                                        "IDENTIFY {} {nick_pass}",
+                                        &self.config.nickname
+                                    )
+                                ))?;
+                            }
+                        }
+                    } else if self.resolved_nick
+                        == Some(self.config.nickname.clone())
+                    {
+                        // Use nickname-less identification if possible, since it has
+                        // no possible argument order issues.
+                        self.handle.try_send(command!(
+                            "PRIVMSG",
+                            "NickServ",
+                            format!("IDENTIFY {nick_pass}")
+                        ))?;
+                    } else {
+                        // Default to most common syntax if unknown
+                        self.handle.try_send(command!(
+                            "PRIVMSG",
+                            "NickServ",
+                            format!(
+                                "IDENTIFY {} {nick_pass}",
+                                &self.config.nickname
+                            )
+                        ))?;
                     }
-
-                    return Ok(vec![Event::OnConnect(on_connect(
-                        self.handle.clone(),
-                        self.config.clone(),
-                        &self.isupport,
-                    ))]);
                 }
+
+                // Send user modestring
+                if let (Some(nick), Some(modestring)) =
+                    (self.resolved_nick.clone(), self.config.umodes.as_ref())
+                {
+                    self.handle.try_send(command!("MODE", nick, modestring))?;
+                }
+
+                // Request bouncer networks
+                // TODO(pounce) replace this with "bouncer-networks-notify" after the cap handling
+                // is cleaned up.
+                if self.is_primary() && self.supports_bouncer_networks {
+                    self.handle
+                        .try_send(command!("BOUNCER", "LISTNETWORKs"))?;
+                }
+
+                let channels = self
+                    .config
+                    .channels
+                    .iter()
+                    .filter_map(|channel| {
+                        target::Channel::parse(
+                            channel,
+                            self.chantypes(),
+                            self.statusmsg(),
+                            self.casemapping(),
+                        )
+                        .ok()
+                    })
+                    .collect::<Vec<_>>();
+
+                // Send JOIN
+                for message in group_joins(&channels, &self.config.channel_keys)
+                {
+                    self.handle.try_send(message)?;
+                }
+
+                return Ok(vec![Event::OnConnect(on_connect(
+                    self.handle.clone(),
+                    self.config.clone(),
+                    &self.isupport,
+                ))]);
             }
             _ => {}
         }
@@ -3643,4 +3737,6 @@ pub enum Error {
     SerdeJson(#[from] serde_json::Error),
     #[error(transparent)]
     Target(#[from] target::ParseError),
+    #[error(transparent)]
+    BouncerNetwork(#[from] bouncer::Error),
 }
