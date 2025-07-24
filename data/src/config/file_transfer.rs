@@ -6,67 +6,40 @@ use std::path::PathBuf;
 use serde::Deserialize;
 
 #[derive(Debug, Clone, Deserialize)]
+#[serde(default)]
 pub struct FileTransfer {
     /// Default directory to save files in. If not set, user will see a file dialog.
-    #[serde(default)]
     pub save_directory: Option<PathBuf>,
     /// If true, act as the "client" for the transfer. Requires the remote user act as the server.
-    #[serde(default = "default_passive")]
     pub passive: bool,
     /// Time in seconds to wait before timing out a transfer waiting to be accepted.
-    #[serde(default = "default_timeout")]
     pub timeout: u64,
     /// Auto-accept configuration for incoming file transfers.
-    #[serde(default)]
     pub auto_accept: AutoAccept,
     pub server: Option<Server>,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct AutoAccept {
-    /// If true, automatically accept incoming file transfers. Requires save_directory to be set.
-    #[serde(default = "default_auto_accept")]
-    pub enabled: bool,
-    /// Auto-accept incoming file transfers from these nicks. Requires enabled to be true.
-    #[serde(default)]
-    pub nicks: Option<Vec<String>>,
-    /// Auto-accept incoming file transfers from these masks (regex patterns). Requires enabled to be true.
-    #[serde(default)]
-    pub masks: Option<Vec<String>>,
 }
 
 impl Default for FileTransfer {
     fn default() -> Self {
         Self {
             save_directory: None,
-            passive: default_passive(),
-            timeout: default_timeout(),
+            passive: true,
+            timeout: 60 * 5,
             auto_accept: AutoAccept::default(),
             server: None,
         }
     }
 }
 
-impl Default for AutoAccept {
-    fn default() -> Self {
-        Self {
-            enabled: default_auto_accept(),
-            nicks: None,
-            masks: None,
-        }
-    }
-}
-
-fn default_passive() -> bool {
-    true
-}
-
-fn default_timeout() -> u64 {
-    60 * 5
-}
-
-fn default_auto_accept() -> bool {
-    false
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(default)]
+pub struct AutoAccept {
+    /// If true, automatically accept incoming file transfers. Requires save_directory to be set.
+    pub enabled: bool,
+    /// Auto-accept incoming file transfers from these nicks. Requires enabled to be true.
+    pub nicks: Option<Vec<String>>,
+    /// Auto-accept incoming file transfers from these masks (regex patterns). Requires enabled to be true.
+    pub masks: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone)]

@@ -5,16 +5,13 @@ use crate::audio::{self, Sound};
 pub type Loaded = Notification<Sound>;
 
 #[derive(Debug, Clone, Deserialize)]
+#[serde(default)]
 pub struct Notification<T = String> {
-    #[serde(default)]
     pub show_toast: bool,
-    #[serde(default)]
     pub show_content: bool,
     pub sound: Option<T>,
     pub delay: Option<u64>,
-    #[serde(default)]
     pub exclude: Vec<String>,
-    #[serde(default)]
     pub include: Vec<String>,
 }
 
@@ -49,22 +46,15 @@ impl<T> Notification<T> {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[serde(default)]
 pub struct Notifications<T = String> {
-    #[serde(default)]
     pub connected: Notification<T>,
-    #[serde(default)]
     pub disconnected: Notification<T>,
-    #[serde(default)]
     pub reconnected: Notification<T>,
-    #[serde(default)]
     pub direct_message: Notification<T>,
-    #[serde(default)]
     pub highlight: Notification<T>,
-    #[serde(default)]
     pub file_transfer_request: Notification<T>,
-    #[serde(default)]
     pub monitored_online: Notification<T>,
-    #[serde(default)]
     pub monitored_offline: Notification<T>,
 }
 

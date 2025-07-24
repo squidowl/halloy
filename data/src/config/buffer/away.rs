@@ -1,8 +1,8 @@
 use serde::{Deserialize, Deserializer};
 
 #[derive(Debug, Clone, Copy, Default, Deserialize)]
+#[serde(default)]
 pub struct Away {
-    #[serde(default)]
     pub appearance: Appearance,
 }
 

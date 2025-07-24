@@ -3,7 +3,6 @@ use core::fmt;
 use serde::{Deserialize, Serialize};
 
 use crate::config::buffer::NicknameClickAction;
-use crate::serde::default_bool_true;
 use crate::target::{self, Target};
 use crate::{Server, channel, config, message};
 
@@ -148,12 +147,10 @@ impl From<config::Buffer> for Settings {
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
+#[serde(default)]
 pub struct TextInput {
-    #[serde(default)]
     pub visibility: TextInputVisibility,
-    #[serde(default)]
     pub auto_format: AutoFormat,
-    #[serde(default)]
     pub autocomplete: Autocomplete,
 }
 
@@ -174,12 +171,10 @@ pub enum SortDirection {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[serde(default)]
 pub struct Autocomplete {
-    #[serde(default)]
     pub order_by: OrderBy,
-    #[serde(default)]
     pub sort_direction: SortDirection,
-    #[serde(default = "default_completion_suffixes")]
     pub completion_suffixes: [String; 2],
 }
 
@@ -188,7 +183,7 @@ impl Default for Autocomplete {
         Self {
             order_by: OrderBy::default(),
             sort_direction: SortDirection::default(),
-            completion_suffixes: default_completion_suffixes(),
+            completion_suffixes: [": ".to_string(), " ".to_string()],
         }
     }
 }
@@ -211,50 +206,44 @@ pub enum AutoFormat {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[serde(default)]
 pub struct Timestamp {
-    #[serde(default = "default_timestamp")]
     pub format: String,
-    #[serde(default)]
     pub brackets: Brackets,
 }
 
 impl Default for Timestamp {
     fn default() -> Self {
         Self {
-            format: default_timestamp(),
+            format: "%R".to_string(),
             brackets: Brackets::default(),
         }
     }
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[serde(default)]
 pub struct DateSeparators {
-    #[serde(default = "default_date_separators")]
     pub format: String,
-    #[serde(default = "default_bool_true")]
     pub show: bool,
 }
 
 impl Default for DateSeparators {
     fn default() -> Self {
         Self {
-            format: default_date_separators(),
+            format: "%A, %B %-d".to_string(),
             show: true,
         }
     }
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[serde(default)]
 pub struct Nickname {
-    #[serde(default)]
     pub color: Color,
-    #[serde(default)]
     pub brackets: Brackets,
-    #[serde(default)]
     pub alignment: Alignment,
-    #[serde(default = "default_bool_true")]
     pub show_access_levels: bool,
-    #[serde(default)]
     pub click: NicknameClickAction,
 }
 
@@ -264,15 +253,15 @@ impl Default for Nickname {
             color: Color::default(),
             brackets: Brackets::default(),
             alignment: Alignment::default(),
-            show_access_levels: default_bool_true(),
+            show_access_levels: true,
             click: NicknameClickAction::default(),
         }
     }
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
+#[serde(default)]
 pub struct StatusMessagePrefix {
-    #[serde(default)]
     pub brackets: Brackets,
 }
 
@@ -355,16 +344,4 @@ impl From<SkinTone> for emojis::SkinTone {
             SkinTone::Dark => emojis::SkinTone::Dark,
         }
     }
-}
-
-fn default_timestamp() -> String {
-    "%R".to_string()
-}
-
-fn default_date_separators() -> String {
-    "%A, %B %-d".to_string()
-}
-
-fn default_completion_suffixes() -> [String; 2] {
-    [": ".to_string(), " ".to_string()]
 }

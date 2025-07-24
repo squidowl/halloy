@@ -1,26 +1,21 @@
 use serde::Deserialize;
 
-use crate::serde::default_bool_true;
-
 #[derive(Debug, Clone, Deserialize)]
+#[serde(default)]
 pub struct Ctcp {
-    #[serde(default = "default_bool_true")]
     pub ping: bool,
-    #[serde(default = "default_bool_true")]
     pub source: bool,
-    #[serde(default = "default_bool_true")]
     pub time: bool,
-    #[serde(default = "default_bool_true")]
     pub version: bool,
 }
 
 impl Default for Ctcp {
     fn default() -> Self {
         Self {
-            ping: default_bool_true(),
-            source: default_bool_true(),
-            time: default_bool_true(),
-            version: default_bool_true(),
+            ping: true,
+            source: true,
+            time: true,
+            version: true,
         }
     }
 }
