@@ -1,12 +1,12 @@
 # Building for macOS
 
-This guide explains how to build the Halloy `.app` for macOS.
+This guide explains how to build the Halloy `.app` for macOS. If you want to install a signed release version of Halloy on macOS, then you should consult the [Installation](../installation.md) documentation instead.
 
 ## Prerequisites
 
 - **macOS 11.0 or later**
-- **Latest Rust toolchain**
-- **Xcode Command Line Tools** (xcode-select --install)
+- [**Latest Rust toolchain**](https://www.rust-lang.org/tools/install)
+- **Xcode Command Line Tools** (`xcode-select --install` or <https://developer.apple.com/download/all/>)
 
 ## Steps
 
