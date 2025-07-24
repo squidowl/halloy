@@ -89,39 +89,45 @@ impl From<ScaleFactor> for f64 {
     }
 }
 
-#[derive(Debug, Copy, Clone, Deserialize, Default)]
+#[derive(Debug, Copy, Clone, Deserialize)]
+#[serde(default)]
 pub struct Scrollbar {
     /// Width of the scrollbar.
-    #[serde(default = "default_scrollbar_width")]
     pub width: u32,
     /// Width of the scrollbar scroller.
-    #[serde(default = "default_scrollbar_scroller_width")]
     pub scroller_width: u32,
 }
 
-fn default_scrollbar_width() -> u32 {
-    5
+impl Default for Scrollbar {
+    fn default() -> Self {
+        Self {
+            width: 5,
+            scroller_width: 5,
+        }
+    }
 }
 
-fn default_scrollbar_scroller_width() -> u32 {
-    5
-}
-
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
+#[serde(default)]
 pub struct Font {
     pub family: Option<String>,
     pub size: Option<u8>,
-    #[serde(
-        default = "default_font_weight",
-        deserialize_with = "deserialize_font_weight_from_string"
-    )]
+    #[serde(deserialize_with = "deserialize_font_weight_from_string")]
     pub weight: font::Weight,
-    #[serde(
-        default,
-        deserialize_with = "deserialize_optional_font_weight_from_string"
-    )]
+    #[serde(deserialize_with = "deserialize_optional_font_weight_from_string")]
     #[serde(alias = "bold-weight")] // For backwards compatibility
     pub bold_weight: Option<font::Weight>,
+}
+
+impl Default for Font {
+    fn default() -> Self {
+        Self {
+            family: None,
+            size: None,
+            weight: font::Weight::Normal,
+            bold_weight: None,
+        }
+    }
 }
 
 fn deserialize_font_weight_from_string<'de, D>(
@@ -165,10 +171,6 @@ where
     D: Deserializer<'de>,
 {
     Ok(Some(deserialize_font_weight_from_string(deserializer)?))
-}
-
-fn default_font_weight() -> font::Weight {
-    font::Weight::Normal
 }
 
 impl Config {
@@ -235,39 +237,49 @@ impl Config {
         }
 
         #[derive(Deserialize)]
+        #[serde(default)]
         pub struct Configuration {
-            #[serde(default)]
             pub theme: ThemeKeys,
             pub servers: IndexMap<ServerName, Server>,
             pub proxy: Option<Proxy>,
-            #[serde(default)]
             pub font: Font,
-            #[serde(default)]
             pub scale_factor: ScaleFactor,
-            #[serde(default)]
             pub buffer: Buffer,
-            #[serde(default)]
             pub pane: Pane,
-            #[serde(default)]
             pub sidebar: Sidebar,
-            #[serde(default)]
             pub keyboard: Keyboard,
-            #[serde(default)]
             pub notifications: Notifications,
-            #[serde(default)]
             pub file_transfer: FileTransfer,
-            #[serde(default = "default_tooltip")]
             pub tooltips: bool,
-            #[serde(default)]
             pub preview: Preview,
-            #[serde(default)]
             pub highlights: Highlights,
-            #[serde(default)]
             pub actions: Actions,
-            #[serde(default)]
             pub ctcp: Ctcp,
-            #[serde(default)]
             pub logs: Logs,
+        }
+
+        impl Default for Configuration {
+            fn default() -> Self {
+                Self {
+                    theme: ThemeKeys::default(),
+                    servers: IndexMap::<ServerName, Server>::default(),
+                    proxy: None,
+                    font: Font::default(),
+                    scale_factor: ScaleFactor::default(),
+                    buffer: Buffer::default(),
+                    pane: Pane::default(),
+                    sidebar: Sidebar::default(),
+                    keyboard: Keyboard::default(),
+                    notifications: Notifications::default(),
+                    file_transfer: FileTransfer::default(),
+                    tooltips: true,
+                    preview: Preview::default(),
+                    highlights: Highlights::default(),
+                    actions: Actions::default(),
+                    ctcp: Ctcp::default(),
+                    logs: Logs::default(),
+                }
+            }
         }
 
         let path = Self::path();
@@ -412,8 +424,8 @@ impl Config {
 
     pub fn load_logs() -> Option<Logs> {
         #[derive(Default, Deserialize)]
+        #[serde(default)]
         pub struct Configuration {
-            #[serde(default)]
             pub logs: Logs,
         }
 
@@ -462,10 +474,6 @@ pub fn random_nickname_with_seed<R: Rng>(rng: &mut R) -> String {
 /// Has YAML configuration file.
 fn has_yaml_config() -> Result<bool, Error> {
     Ok(config_dir().join("config.yaml").try_exists()?)
-}
-
-fn default_tooltip() -> bool {
-    true
 }
 
 #[derive(Debug, Error, Clone)]

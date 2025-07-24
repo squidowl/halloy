@@ -1,18 +1,17 @@
 use serde::Deserialize;
 
 #[derive(Debug, Clone, Deserialize)]
+#[serde(default)]
 pub struct Logs {
-    #[serde(default = "default_file_level")]
     pub file_level: LevelFilter,
-    #[serde(default = "default_pane_level")]
     pub pane_level: LevelFilter,
 }
 
 impl Default for Logs {
     fn default() -> Self {
         Self {
-            file_level: default_file_level(),
-            pane_level: default_pane_level(),
+            file_level: LevelFilter::Debug,
+            pane_level: LevelFilter::Info,
         }
     }
 }
@@ -39,12 +38,4 @@ impl From<LevelFilter> for log::LevelFilter {
             LevelFilter::Trace => log::LevelFilter::Trace,
         }
     }
-}
-
-fn default_file_level() -> LevelFilter {
-    LevelFilter::Debug
-}
-
-fn default_pane_level() -> LevelFilter {
-    LevelFilter::Info
 }

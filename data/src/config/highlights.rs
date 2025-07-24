@@ -3,18 +3,17 @@ use itertools::Itertools;
 use serde::{Deserialize, Deserializer};
 
 #[derive(Debug, Clone, Deserialize, Default)]
+#[serde(default)]
 pub struct Highlights {
-    #[serde(default)]
     pub nickname: Nickname,
-    #[serde(rename = "match", default)]
+    #[serde(rename = "match")]
     pub matches: Vec<Match>,
 }
 
 #[derive(Debug, Clone, Deserialize, Default)]
+#[serde(default)]
 pub struct Nickname {
-    #[serde(default)]
     pub exclude: Vec<String>,
-    #[serde(default)]
     pub include: Vec<String>,
 }
 

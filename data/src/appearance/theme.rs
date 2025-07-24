@@ -1,4 +1,5 @@
 use std::path::PathBuf;
+use std::sync::LazyLock;
 
 use base64::Engine;
 use iced_core::Color;
@@ -13,6 +14,10 @@ use tokio::fs;
 const DEFAULT_THEME_NAME: &str = "Ferra";
 const DEFAULT_THEME_CONTENT: &str =
     include_str!("../../../assets/themes/ferra.toml");
+
+static DEFAULT_STYLES: LazyLock<Styles> = LazyLock::new(|| {
+    toml::from_str(DEFAULT_THEME_CONTENT).expect("parse default theme")
+});
 
 #[derive(Debug, Clone)]
 pub struct Theme {
@@ -37,6 +42,9 @@ impl Theme {
 
 // IMPORTANT: Make sure any new components are added to the theme editor
 // and `binary` representation
+// This struct cannot have #[serde(default)] attribute since it uses
+// deserialization in its Default implementation.  Its fields should
+// each be given the #[serde(default)] attribute instead.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct Styles {
     #[serde(default)]
@@ -47,6 +55,12 @@ pub struct Styles {
     pub buffer: Buffer,
     #[serde(default)]
     pub buttons: Buttons,
+}
+
+impl Default for Styles {
+    fn default() -> Self {
+        *DEFAULT_STYLES
+    }
 }
 
 impl Styles {
@@ -83,129 +97,141 @@ pub enum Error {
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
+#[serde(default)]
 pub struct Buttons {
-    #[serde(default)]
     pub primary: Button,
-    #[serde(default)]
     pub secondary: Button,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(default)]
 pub struct Button {
-    #[serde(default = "default_transparent", with = "color_serde")]
+    #[serde(with = "color_serde")]
     pub background: Color,
-    #[serde(default = "default_transparent", with = "color_serde")]
+    #[serde(with = "color_serde")]
     pub background_hover: Color,
-    #[serde(default = "default_transparent", with = "color_serde")]
+    #[serde(with = "color_serde")]
     pub background_selected: Color,
-    #[serde(default = "default_transparent", with = "color_serde")]
+    #[serde(with = "color_serde")]
     pub background_selected_hover: Color,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
+impl Default for Button {
+    fn default() -> Self {
+        Self {
+            background: Color::TRANSPARENT,
+            background_hover: Color::TRANSPARENT,
+            background_selected: Color::TRANSPARENT,
+            background_selected_hover: Color::TRANSPARENT,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(default)]
 pub struct General {
-    #[serde(default = "default_transparent", with = "color_serde")]
+    #[serde(with = "color_serde")]
     pub background: Color,
-    #[serde(default = "default_transparent", with = "color_serde")]
+    #[serde(with = "color_serde")]
     pub border: Color,
-    #[serde(default = "default_transparent", with = "color_serde")]
+    #[serde(with = "color_serde")]
     pub horizontal_rule: Color,
-    #[serde(default, with = "color_serde_maybe")]
+    #[serde(with = "color_serde_maybe")]
     pub scrollbar: Option<Color>,
-    #[serde(default = "default_transparent", with = "color_serde")]
+    #[serde(with = "color_serde")]
     pub unread_indicator: Color,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
+impl Default for General {
+    fn default() -> Self {
+        Self {
+            background: Color::TRANSPARENT,
+            border: Color::TRANSPARENT,
+            horizontal_rule: Color::TRANSPARENT,
+            scrollbar: None,
+            unread_indicator: Color::TRANSPARENT,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(default)]
 pub struct Buffer {
-    #[serde(default)]
     pub action: TextStyle,
-    #[serde(default = "default_transparent", with = "color_serde")]
+    #[serde(with = "color_serde")]
     pub background: Color,
-    #[serde(default = "default_transparent", with = "color_serde")]
+    #[serde(with = "color_serde")]
     pub background_text_input: Color,
-    #[serde(default = "default_transparent", with = "color_serde")]
+    #[serde(with = "color_serde")]
     pub background_title_bar: Color,
-    #[serde(default = "default_transparent", with = "color_serde")]
+    #[serde(with = "color_serde")]
     pub border: Color,
-    #[serde(default = "default_transparent", with = "color_serde")]
+    #[serde(with = "color_serde")]
     pub border_selected: Color,
-    #[serde(default)]
     pub code: TextStyle,
-    #[serde(default = "default_transparent", with = "color_serde")]
+    #[serde(with = "color_serde")]
     pub highlight: Color,
-    #[serde(default)]
     pub nickname: TextStyle,
-    #[serde(default = "default_transparent", with = "color_serde")]
+    #[serde(with = "color_serde")]
     pub selection: Color,
-    #[serde(default)]
     pub server_messages: ServerMessages,
-    #[serde(default)]
     pub timestamp: TextStyle,
-    #[serde(default)]
     pub topic: TextStyle,
-    #[serde(default)]
     pub url: TextStyle,
 }
 
+impl Default for Buffer {
+    fn default() -> Self {
+        Self {
+            action: TextStyle::default(),
+            background: Color::TRANSPARENT,
+            background_text_input: Color::TRANSPARENT,
+            background_title_bar: Color::TRANSPARENT,
+            border: Color::TRANSPARENT,
+            border_selected: Color::TRANSPARENT,
+            code: TextStyle::default(),
+            highlight: Color::TRANSPARENT,
+            nickname: TextStyle::default(),
+            selection: Color::TRANSPARENT,
+            server_messages: ServerMessages::default(),
+            timestamp: TextStyle::default(),
+            topic: TextStyle::default(),
+            url: TextStyle::default(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
+#[serde(default)]
 pub struct ServerMessages {
-    #[serde(default)]
     pub join: OptionalTextStyle,
-    #[serde(default)]
     pub part: OptionalTextStyle,
-    #[serde(default)]
     pub quit: OptionalTextStyle,
-    #[serde(default)]
     pub reply_topic: OptionalTextStyle,
-    #[serde(default)]
     pub change_host: OptionalTextStyle,
-    #[serde(default)]
     pub change_mode: OptionalTextStyle,
-    #[serde(default)]
     pub change_nick: OptionalTextStyle,
-    #[serde(default)]
     pub monitored_online: OptionalTextStyle,
-    #[serde(default)]
     pub monitored_offline: OptionalTextStyle,
-    #[serde(default)]
     pub standard_reply_fail: OptionalTextStyle,
-    #[serde(default)]
     pub standard_reply_warn: OptionalTextStyle,
-    #[serde(default)]
     pub standard_reply_note: OptionalTextStyle,
-    #[serde(default)]
     pub wallops: OptionalTextStyle,
-    #[serde(default)]
     pub default: TextStyle,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
+#[serde(default)]
 pub struct Text {
-    #[serde(default)]
     pub primary: TextStyle,
-    #[serde(default)]
     pub secondary: TextStyle,
-    #[serde(default)]
     pub tertiary: TextStyle,
-    #[serde(default)]
     pub success: TextStyle,
-    #[serde(default)]
     pub error: TextStyle,
-    #[serde(default)]
     pub warning: OptionalTextStyle,
-    #[serde(default)]
     pub info: OptionalTextStyle,
-    #[serde(default)]
     pub debug: OptionalTextStyle,
-    #[serde(default)]
     pub trace: OptionalTextStyle,
-}
-
-impl Default for Styles {
-    fn default() -> Self {
-        toml::from_str(DEFAULT_THEME_CONTENT).expect("parse default theme")
-    }
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -494,10 +520,6 @@ pub fn alpha_color(color: Color, alpha: f32) -> Color {
     Color { a: alpha, ..color }
 }
 
-fn default_transparent() -> Color {
-    Color::TRANSPARENT
-}
-
 fn to_rgb(color: Color) -> Rgb {
     Rgb {
         red: color.r,
@@ -545,7 +567,6 @@ mod color_serde {
 }
 
 mod color_serde_maybe {
-
     use iced_core::Color;
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
