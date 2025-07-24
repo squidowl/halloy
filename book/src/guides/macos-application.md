@@ -10,16 +10,7 @@ This guide explains how to build the Halloy `.app` for macOS. If you want to ins
 
 ## Steps
 
-1. **Install Rust and Required Targets**
-
-   Make sure you have Rust installed. Then, add the macOS targets for both Intel and Apple Silicon:
-
-   ```sh
-   rustup target add x86_64-apple-darwin
-   rustup target add aarch64-apple-darwin
-   ```
-
-2. **Clone the Repository**
+1. **Clone the Repository**
 
    If you haven’t already, clone the Halloy repository:
 
@@ -28,7 +19,7 @@ This guide explains how to build the Halloy `.app` for macOS. If you want to ins
    cd halloy
    ```
 
-3. **Run the Build Script**
+2. **Run the Build Script**
 
    Execute the `build-macos` script:
 
@@ -42,7 +33,7 @@ This guide explains how to build the Halloy `.app` for macOS. If you want to ins
    - Copy the binary and resources into a macOS `.app` bundle template located at `assets/macos/Halloy.app`.
    - Place the `.app` bundle in `target/release/macos`.
 
-4. **Locate the Built Application**
+3. **Locate the Built Application**
 
    After the script completes, you’ll find the generated `.app` bundle at:
 
