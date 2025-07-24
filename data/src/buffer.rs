@@ -2,8 +2,6 @@ use core::fmt;
 
 use serde::{Deserialize, Serialize};
 
-use crate::config::buffer::NicknameClickAction;
-use crate::serde::default_bool_true;
 use crate::target::{self, Target};
 use crate::{Server, channel, config, message};
 

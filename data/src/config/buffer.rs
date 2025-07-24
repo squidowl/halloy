@@ -3,7 +3,6 @@ use serde::{Deserialize, Deserializer};
 
 pub use self::channel::Channel;
 use crate::config::buffer::nickname::Nickname;
-use crate::serde::default_bool_true;
 
 pub mod channel;
 pub mod nickname;

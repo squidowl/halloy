@@ -4,7 +4,6 @@ use super::NicknameClickAction;
 use crate::buffer::Color;
 use crate::channel::Position;
 use crate::config::buffer::Away;
-use crate::serde::default_bool_true;
 
 #[derive(Debug, Clone, Default, Deserialize)]
 #[serde(default)]
