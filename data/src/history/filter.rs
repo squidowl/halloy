@@ -9,21 +9,19 @@ use super::Kind;
 
 #[derive(Debug, Clone)]
 pub struct Filter {
-    pub target: FilterTarget,
-    pub class: FilterClass,
+    target: FilterTarget,
+    class: FilterClass,
 }
 
 #[derive(Debug, Clone)]
-pub enum FilterClass {
-    Server(Server),
+enum FilterClass {
     Channel((Server, Channel)),
     Any,
 }
 
 #[derive(Debug, Clone)]
-pub enum FilterTarget {
+enum FilterTarget {
     User(User),
-    Any,
 }
 
 impl From<&str> for FilterTarget {
@@ -80,7 +78,6 @@ impl Filter {
                 }
                 _ => false,
             },
-            FilterTarget::Any => true,
         }
     }
 
@@ -96,7 +93,6 @@ impl Filter {
                 FilterClass::Channel((_, _)) => false,
                 _ => user.as_str() == query.as_str(),
             },
-            FilterTarget::Any => false,
         }
     }
 
@@ -116,13 +112,6 @@ impl Filter {
     /// [`Server`]:crate::Server
     pub fn match_kind(&self, kind: &Kind) -> bool {
         match &self.class {
-            FilterClass::Server(target_server) => match kind {
-                Kind::Channel(server, _ch) => target_server == server,
-                // history::Kind::Server narrows to server messages only,
-                Kind::Server(server) => target_server == server,
-                Kind::Highlights => true,
-                _ => false,
-            },
             FilterClass::Channel((target_server, target_channel)) => match kind
             {
                 Kind::Channel(server, channel) => {
@@ -143,8 +132,7 @@ impl Filter {
     /// [`Server`]:crate::Server
     pub fn match_server(&self, server: &Server) -> bool {
         match &self.class {
-            FilterClass::Server(target_server)
-            | FilterClass::Channel((target_server, ..)) => {
+            FilterClass::Channel((target_server, ..)) => {
                 target_server == server
             }
             FilterClass::Any => true,
