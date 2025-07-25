@@ -82,7 +82,7 @@ pub fn view<'a>(
                 &config.buffer.nickname.click,
             )
         } else {
-            selectable_text(user.display(false))
+            selectable_text(user.display(false, None))
                 .font_maybe(
                     theme::font_style::nickname(theme, false).map(font::get),
                 )

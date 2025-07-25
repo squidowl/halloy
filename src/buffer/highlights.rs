@@ -86,6 +86,7 @@ pub fn view<'a>(
 
                     let with_access_levels =
                         config.buffer.nickname.show_access_levels;
+                    let truncate = config.buffer.nickname.truncate;
 
                     let current_user =
                         users.and_then(|users| users.resolve(user));
@@ -100,7 +101,7 @@ pub fn view<'a>(
                             .buffer
                             .nickname
                             .brackets
-                            .format(user.display(with_access_levels)),
+                            .format(user.display(with_access_levels, truncate)),
                     )
                     .font_maybe(
                         theme::font_style::nickname(theme, is_user_offline)
