@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use data::config::buffer::nickname::ShownStatus;
 use data::dashboard::BufferAction;
 use data::target::{self, Target};
 use data::{Config, Server, history, message};
@@ -88,7 +89,11 @@ pub fn view<'a>(
 
                     let current_user =
                         users.and_then(|users| users.resolve(user));
-                    let is_user_offline = current_user.is_none();
+                    let is_user_offline =
+                        match config.buffer.nickname.shown_status {
+                            ShownStatus::Current => current_user.is_none(),
+                            ShownStatus::Historical => false,
+                        };
 
                     let text = selectable_text(
                         config
@@ -105,7 +110,12 @@ pub fn view<'a>(
                         theme::selectable_text::nickname(
                             theme,
                             config,
-                            user,
+                            match config.buffer.nickname.shown_status {
+                                ShownStatus::Current => {
+                                    current_user.unwrap_or(user)
+                                }
+                                ShownStatus::Historical => user,
+                            },
                             is_user_offline,
                         )
                     });

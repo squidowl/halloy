@@ -534,6 +534,18 @@ Show access levels in front of nicknames (`@`, `+`, `~`, etc.).
 show_access_levels = true
 ```
 
+### `shown_status`
+
+What status should be indicated (by either `away` or `offline` settings), the user's current status (`"current"`) or their status at the time of sending the message (`"historical"`).
+
+```toml
+# Type: string or object
+# Values: "current" or "historical"
+# Default: "current"
+[buffer.nickname]
+shown_status = "current"
+```
+
 ### `click`
 
 Click action for when interaction with nicknames.
