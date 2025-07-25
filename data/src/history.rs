@@ -19,6 +19,7 @@ use crate::{
     Buffer, Message, Server, buffer, compression, environment, isupport,
 };
 
+pub mod filter;
 pub mod manager;
 pub mod metadata;
 
@@ -320,16 +321,21 @@ impl History {
         }
     }
 
-    fn add_message(&mut self, message: Message) -> Option<ReadMarker> {
+    fn add_message(
+        &mut self,
+        message: Message,
+        blocked: bool,
+    ) -> Option<ReadMarker> {
         if message.triggers_unread()
+            && !blocked
             && let History::Partial {
                 max_triggers_unread,
                 ..
             } = self
-            {
-                *max_triggers_unread =
-                    (*max_triggers_unread).max(Some(message.server_time));
-            }
+        {
+            *max_triggers_unread =
+                (*max_triggers_unread).max(Some(message.server_time));
+        }
 
         match self {
             History::Partial {
@@ -636,11 +642,11 @@ impl History {
         } = self
             && let Some(message) =
                 messages.iter_mut().find(|m| m.hash == message)
-            {
-                message.hidden_urls.insert(url);
+        {
+            message.hidden_urls.insert(url);
 
-                *last_updated_at = Some(Instant::now());
-            }
+            *last_updated_at = Some(Instant::now());
+        }
     }
 
     pub fn last_seen(&self) -> HashMap<Nick, DateTime<Utc>> {

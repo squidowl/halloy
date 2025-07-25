@@ -110,6 +110,7 @@ pub enum Event {
     UpdateReadMarker(Target, ReadMarker),
     JoinedChannel(target::Channel, DateTime<Utc>),
     LoggedIn(DateTime<Utc>),
+    AddedIsupportParam(isupport::Parameter),
     ChatHistoryTargetReceived(Target, DateTime<Utc>),
     ChatHistoryTargetsReceived(DateTime<Utc>),
     DirectMessage(message::Encoded, Nick, User),
@@ -2025,6 +2026,7 @@ impl Client {
             }
             Command::Numeric(RPL_ISUPPORT, args) => {
                 let args_len = args.len();
+                let mut events: Vec<Event> = Vec::new();
                 for (index, arg) in args.iter().enumerate().skip(1) {
                     let operation = arg.parse::<isupport::Operation>();
 
@@ -2058,6 +2060,9 @@ impl Client {
                                                     .try_send(message)?;
                                             }
                                         }
+                                        events.push(Event::AddedIsupportParam(
+                                            parameter,
+                                        ));
                                     } else {
                                         log::info!(
                                             "[{}] ignoring ISUPPORT parameter: {:?}",
@@ -2091,7 +2096,7 @@ impl Client {
                     }
                 }
 
-                return Ok(vec![]);
+                return Ok(events);
             }
             Command::TAGMSG(_) => {
                 return Ok(vec![]);

@@ -53,6 +53,9 @@ pub struct Server {
     pub password_file_first_line_only: bool,
     /// The command which outputs a password to connect to the server.
     pub password_command: Option<String>,
+    /// Filter settings for the server, e.g. ignored nicks
+    #[serde(default)]
+    pub filters: Option<Filters>,
     /// A list of channels to join on connection.
     pub channels: Vec<String>,
     /// A mapping of channel names to keys for join-on-connect.
@@ -168,6 +171,7 @@ impl Default for Server {
             password_file: Option::default(),
             password_file_first_line_only: true,
             password_command: Option::default(),
+            filters: Option::default(),
             channels: Vec::default(),
             channel_keys: HashMap::default(),
             ping_time: 180,
@@ -299,6 +303,11 @@ impl Sasl {
             None
         }
     }
+}
+
+#[derive(PartialEq, Eq, Debug, Clone, Deserialize, Default)]
+pub struct Filters {
+    pub ignore: Vec<String>,
 }
 
 fn deserialize_duration_from_u64<'de, D>(
