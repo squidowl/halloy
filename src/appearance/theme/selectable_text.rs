@@ -126,7 +126,11 @@ pub fn nickname(
         theme,
         config.buffer.channel.message.nickname_color,
         user,
-        config.buffer.nickname.away.is_away(user.is_away()),
+        config
+            .buffer
+            .nickname
+            .away
+            .is_away(user.is_away() || is_user_offline),
         config.buffer.nickname.offline.is_offline(is_user_offline),
     )
 }
