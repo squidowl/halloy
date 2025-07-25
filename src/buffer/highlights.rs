@@ -9,7 +9,7 @@ use iced::{Length, Task};
 
 use super::{scroll_view, user_context};
 use crate::widget::{
-    Element, message_content, selectable_rich_text, selectable_text,
+    Element, message_content, selectable_rich_text, selectable_text, tooltip,
 };
 use crate::{Theme, font, theme};
 
@@ -124,20 +124,26 @@ pub fn view<'a>(
                     let casemapping = clients.get_casemapping(server);
                     let prefix = clients.get_prefix(server);
 
-                    let nick = user_context::view(
-                        text,
-                        server,
-                        casemapping,
-                        prefix,
-                        Some(channel),
-                        user,
-                        current_user,
-                        None,
-                        config,
+                    let nick = tooltip(
+                        user_context::view(
+                            text,
+                            server,
+                            casemapping,
+                            prefix,
+                            Some(channel),
+                            user,
+                            current_user,
+                            None,
+                            config,
+                            theme,
+                            &config.buffer.nickname.click,
+                        )
+                        .map(scroll_view::Message::UserContext),
+                        // We show the full nickname in the tooltip if truncation is enabled.
+                        truncate.map(|_| user.as_str()),
+                        tooltip::Position::Bottom,
                         theme,
-                        &config.buffer.nickname.click,
-                    )
-                    .map(scroll_view::Message::UserContext);
+                    );
 
                     let text = message_content::with_context(
                         &message.content,
