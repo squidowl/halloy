@@ -94,14 +94,6 @@ pub fn nickname<T: AsRef<str>>(
     is_away: Option<buffer::Away>,
     is_offline: bool,
 ) -> Style {
-    // If the user is offline, use the offline style if it exists
-    if is_offline && let Some(style) = theme.styles().buffer.nickname_offline {
-        return Style {
-            color: Some(style.color),
-        };
-    }
-
-    let nickname = theme.styles().buffer.nickname;
     let calculate_alpha_color = |color| {
         if let Some(buffer::Away::Dimmed(alpha)) = is_away {
             match alpha {
@@ -119,6 +111,15 @@ pub fn nickname<T: AsRef<str>>(
             color
         }
     };
+
+    // If the user is offline, use the offline style if it exists
+    if is_offline && let Some(style) = theme.styles().buffer.nickname_offline {
+        return Style {
+            color: Some(calculate_alpha_color(style.color)),
+        };
+    }
+
+    let nickname = theme.styles().buffer.nickname;
 
     // If we have a seed we randomize the color based on the seed before adding any alpha value.
     let color = match seed {

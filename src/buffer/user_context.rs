@@ -346,7 +346,7 @@ fn user_info<'a>(
         .buffer
         .nickname
         .away
-        .is_away(current_user.is_some_and(User::is_away));
+        .is_away(current_user.is_none_or(User::is_away));
     let is_user_offline = config
         .buffer
         .nickname
