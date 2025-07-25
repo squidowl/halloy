@@ -59,8 +59,8 @@ impl Default for Emojis {
 }
 
 #[derive(Debug, Clone, Deserialize, Default)]
+#[serde(default)]
 pub struct Url {
-    #[serde(default)]
     pub prompt_before_open: bool,
 }
 
