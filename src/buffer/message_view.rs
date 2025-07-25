@@ -1,3 +1,4 @@
+use data::config::buffer::nickname::ShownStatus;
 use data::isupport::{CaseMap, PrefixMap};
 use data::server::Server;
 use data::target::{self};
@@ -133,12 +134,18 @@ impl<'a> ChannelQueryLayout<'a> {
             .into_iter()
             .flatten()
             .find(|current_user| *current_user == user);
-        let is_user_offline = user_in_channel.is_none();
+        let is_user_offline = match self.config.buffer.nickname.shown_status {
+            ShownStatus::Current => user_in_channel.is_none(),
+            ShownStatus::Historical => false,
+        };
 
         let nickname_style = theme::selectable_text::nickname(
             self.theme,
             self.config,
-            user,
+            match self.config.buffer.nickname.shown_status {
+                ShownStatus::Current => user_in_channel.unwrap_or(user),
+                ShownStatus::Historical => user,
+            },
             is_user_offline,
         );
 

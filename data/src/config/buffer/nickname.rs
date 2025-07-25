@@ -13,6 +13,7 @@ pub struct Nickname {
     pub alignment: Alignment,
     pub show_access_levels: bool,
     pub click: NicknameClickAction,
+    pub shown_status: ShownStatus,
 }
 
 impl Default for Nickname {
@@ -25,6 +26,7 @@ impl Default for Nickname {
             alignment: Alignment::default(),
             show_access_levels: true,
             click: NicknameClickAction::default(),
+            shown_status: ShownStatus::default(),
         }
     }
 }
@@ -41,4 +43,12 @@ impl Offline {
     pub fn is_offline(&self, is_user_offline: bool) -> bool {
         is_user_offline && matches!(self, Offline::Solid)
     }
+}
+
+#[derive(Debug, Clone, Copy, Default, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ShownStatus {
+    #[default]
+    Current,
+    Historical,
 }
