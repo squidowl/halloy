@@ -383,7 +383,9 @@ mod nick_list {
             let content = selectable_text(
                 user.display(nicklist_config.show_access_levels),
             )
-            .font_maybe(theme::font_style::nickname(theme).map(font::get))
+            .font_maybe(
+                theme::font_style::nickname(theme, false).map(font::get),
+            )
             .style(|theme| {
                 theme::selectable_text::nicklist_nickname(theme, config, user)
             })

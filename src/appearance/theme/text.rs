@@ -1,7 +1,7 @@
 use data::appearance::theme::{
     alpha_color, alpha_color_calculate, randomize_color,
 };
-use data::config::buffer::away;
+use data::config::buffer;
 use iced::widget::text::{Catalog, Style, StyleFn};
 
 use super::Theme;
@@ -91,11 +91,11 @@ pub fn url(theme: &Theme) -> Style {
 pub fn nickname<T: AsRef<str>>(
     theme: &Theme,
     seed: Option<T>,
-    away_appearance: Option<away::Appearance>,
+    is_away: Option<buffer::Away>,
+    is_offline: bool,
 ) -> Style {
-    let nickname = theme.styles().buffer.nickname;
     let calculate_alpha_color = |color| {
-        if let Some(away::Appearance::Dimmed(alpha)) = away_appearance {
+        if let Some(buffer::Away::Dimmed(alpha)) = is_away {
             match alpha {
                 // Calculate alpha based on background and foreground.
                 None => alpha_color_calculate(
@@ -111,6 +111,15 @@ pub fn nickname<T: AsRef<str>>(
             color
         }
     };
+
+    // If the user is offline, use the offline style if it exists
+    if is_offline && let Some(style) = theme.styles().buffer.nickname_offline {
+        return Style {
+            color: Some(calculate_alpha_color(style.color)),
+        };
+    }
+
+    let nickname = theme.styles().buffer.nickname;
 
     // If we have a seed we randomize the color based on the seed before adding any alpha value.
     let color = match seed {
