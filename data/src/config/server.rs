@@ -54,7 +54,6 @@ pub struct Server {
     /// The command which outputs a password to connect to the server.
     pub password_command: Option<String>,
     /// Filter settings for the server, e.g. ignored nicks
-    #[serde(default)]
     pub filters: Option<Filters>,
     /// A list of channels to join on connection.
     pub channels: Vec<String>,
@@ -306,6 +305,7 @@ impl Sasl {
 }
 
 #[derive(PartialEq, Eq, Debug, Clone, Deserialize, Default)]
+#[serde(default)]
 pub struct Filters {
     pub ignore: Vec<String>,
 }
