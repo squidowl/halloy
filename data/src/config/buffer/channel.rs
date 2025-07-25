@@ -3,6 +3,7 @@ use serde::Deserialize;
 use super::NicknameClickAction;
 use crate::buffer::Color;
 use crate::channel::Position;
+use crate::config::buffer::Away;
 
 #[derive(Debug, Clone, Default, Deserialize)]
 #[serde(default)]
@@ -21,6 +22,7 @@ pub struct Message {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
 pub struct Nicklist {
+    pub away: Away,
     pub enabled: bool,
     pub position: Position,
     pub color: Color,
@@ -33,6 +35,7 @@ pub struct Nicklist {
 impl Default for Nicklist {
     fn default() -> Self {
         Self {
+            away: Away::default(),
             enabled: true,
             position: Position::default(),
             color: Color::default(),

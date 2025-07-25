@@ -2,7 +2,6 @@ use core::fmt;
 
 use serde::{Deserialize, Serialize};
 
-use crate::config::buffer::NicknameClickAction;
 use crate::target::{self, Target};
 use crate::{Server, channel, config, message};
 
@@ -233,28 +232,6 @@ impl Default for DateSeparators {
         Self {
             format: "%A, %B %-d".to_string(),
             show: true,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Deserialize)]
-#[serde(default)]
-pub struct Nickname {
-    pub color: Color,
-    pub brackets: Brackets,
-    pub alignment: Alignment,
-    pub show_access_levels: bool,
-    pub click: NicknameClickAction,
-}
-
-impl Default for Nickname {
-    fn default() -> Self {
-        Self {
-            color: Color::default(),
-            brackets: Brackets::default(),
-            alignment: Alignment::default(),
-            show_access_levels: true,
-            click: NicknameClickAction::default(),
         }
     }
 }

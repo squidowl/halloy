@@ -1,22 +1,20 @@
 use chrono::{DateTime, Local, Utc};
-use serde::Deserialize;
+use serde::{Deserialize, Deserializer};
 
-pub use self::away::Away;
 pub use self::channel::Channel;
+use crate::config::buffer::nickname::Nickname;
 
-pub mod away;
 pub mod channel;
+pub mod nickname;
 
 use crate::buffer::{
-    DateSeparators, Nickname, SkinTone, StatusMessagePrefix, TextInput,
-    Timestamp,
+    DateSeparators, SkinTone, StatusMessagePrefix, TextInput, Timestamp,
 };
 use crate::message::source;
 
 #[derive(Debug, Default, Clone, Deserialize)]
 #[serde(default)]
 pub struct Buffer {
-    pub away: Away,
     pub timestamp: Timestamp,
     pub nickname: Nickname,
     pub text_input: TextInput,
@@ -96,6 +94,55 @@ impl Default for Commands {
     fn default() -> Self {
         Self {
             show_description: true,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum Away {
+    Dimmed(Option<f32>),
+    None,
+}
+
+impl Away {
+    pub fn is_away(&self, is_user_away: bool) -> Option<Away> {
+        is_user_away.then_some(*self)
+    }
+}
+
+impl Default for Away {
+    fn default() -> Self {
+        Away::Dimmed(None)
+    }
+}
+
+impl<'de> Deserialize<'de> for Away {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum AppearanceRepr {
+            String(String),
+            Struct(DimmedStruct),
+        }
+
+        #[derive(Deserialize)]
+        struct DimmedStruct {
+            dimmed: Option<f32>,
+        }
+
+        let repr = AppearanceRepr::deserialize(deserializer)?;
+        match repr {
+            AppearanceRepr::String(s) => match s.as_str() {
+                "dimmed" => Ok(Away::Dimmed(None)),
+                "solid" | "none" => Ok(Away::None),
+                _ => Err(serde::de::Error::custom(format!(
+                    "unknown appearance: {s}",
+                ))),
+            },
+            AppearanceRepr::Struct(s) => Ok(Away::Dimmed(s.dimmed)),
         }
     }
 }

@@ -1,3 +1,4 @@
+use data::config::buffer::nickname::ShownStatus;
 use data::isupport::{CaseMap, PrefixMap};
 use data::server::Server;
 use data::target::{self};
@@ -31,18 +32,21 @@ impl<'a> TargetInfo<'a> {
             TargetInfo::Query => None,
         }
     }
+
     fn our_user(&self) -> Option<&'a User> {
         match self {
             TargetInfo::Channel { our_user, .. } => *our_user,
             TargetInfo::Query => None,
         }
     }
+
     fn channel(&self) -> Option<&'a target::Channel> {
         match self {
             TargetInfo::Channel { channel, .. } => Some(channel),
             TargetInfo::Query => None,
         }
     }
+
     fn is_channel(&self) -> bool {
         matches!(self, TargetInfo::Channel { .. })
     }
@@ -124,13 +128,26 @@ impl<'a> ChannelQueryLayout<'a> {
         user: &'a User,
     ) -> (Element<'a, Message>, Element<'a, Message>) {
         let with_access_levels = self.config.buffer.nickname.show_access_levels;
-
-        let current_user: Option<&User> = self
+        let user_in_channel = self
             .target
             .users()
             .into_iter()
             .flatten()
             .find(|current_user| *current_user == user);
+        let is_user_offline = match self.config.buffer.nickname.shown_status {
+            ShownStatus::Current => user_in_channel.is_none(),
+            ShownStatus::Historical => false,
+        };
+
+        let nickname_style = theme::selectable_text::nickname(
+            self.theme,
+            self.config,
+            match self.config.buffer.nickname.shown_status {
+                ShownStatus::Current => user_in_channel.unwrap_or(user),
+                ShownStatus::Historical => user,
+            },
+            is_user_offline,
+        );
 
         let mut text = selectable_text(
             self.config
@@ -139,10 +156,11 @@ impl<'a> ChannelQueryLayout<'a> {
                 .brackets
                 .format(user.display(with_access_levels)),
         )
-        .style(|theme| {
-            theme::selectable_text::nickname(theme, self.config, user)
-        })
-        .font_maybe(theme::font_style::nickname(self.theme).map(font::get));
+        .style(move |_| nickname_style)
+        .font_maybe(
+            theme::font_style::nickname(self.theme, is_user_offline)
+                .map(font::get),
+        );
 
         if let Some(width) = max_nick_width {
             text = text.width(width).align_x(text::Alignment::Right);
@@ -155,7 +173,7 @@ impl<'a> ChannelQueryLayout<'a> {
             self.prefix,
             self.target.channel(),
             user,
-            current_user,
+            user_in_channel,
             self.target.our_user(),
             self.config,
             self.theme,
@@ -164,6 +182,7 @@ impl<'a> ChannelQueryLayout<'a> {
         .map(Message::UserContext);
 
         let fm = *self;
+
         let message_content = message_content::with_context(
             &message.content,
             self.casemapping,
@@ -186,7 +205,7 @@ impl<'a> ChannelQueryLayout<'a> {
                         fm.prefix,
                         fm.target.channel(),
                         user,
-                        current_user,
+                        user_in_channel,
                         length,
                         fm.config,
                         fm.theme,
