@@ -2270,7 +2270,7 @@ impl Client {
                 // sent on successfully completing the registration process (after
                 // RPL_ISUPPORT message(s) are sent).
                 // https://modern.ircdocs.horse/#connection-registration
-                if self.registration_step == RegistrationStep::End {
+                if self.registration_step != RegistrationStep::Complete {
                     self.registration_step = RegistrationStep::Complete;
 
                     // Send nick password & ghost
