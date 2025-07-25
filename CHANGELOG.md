@@ -3,7 +3,7 @@
 Added:
 
 - New option to customize the appearance of offline nicknames
-- Log level filtering for the log buffer (<kbd>ctrl</kbd> + <kbd>l</kbd>)
+- Log level filtering for the log buffer (<kbd>ctrl</kbd> + <kbd>l</kbd>) and log file
 - Per toast type setting for showing content in toasts
 - Ability to hide `nick` and `mode` change server messages
 - Context menu item added to server-wide buffers to mark all messages as read
