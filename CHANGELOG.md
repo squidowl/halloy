@@ -28,9 +28,9 @@ Changed:
 
 Thanks:
 
-- Contributions: @KaiKorla
-- Bug reports: @darienm, @mercster
-- Feature requests: @rossburton, death916, @Celeo, @TehPeGaSuS
+- Contributions: @4e554c4c, @KE0VVT, @englut, @KaiKorla, @root-goblin
+- Bug reports: @darienm, @mercster, @ChrisRenfrow, @glguy
+- Feature requests: @rossburton, death916, @Celeo, @TehPeGaSuS, @gdluca, @darienm, @RealKindOne, @Tahomaru, @tribly
 
 # 2025.6 (2025-06-14)
 
