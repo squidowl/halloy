@@ -11,7 +11,7 @@ use super::scroll_view::LayoutMessage;
 use super::user_context;
 use crate::buffer::scroll_view::Message;
 use crate::widget::{
-    Element, message_content, message_marker, selectable_text,
+    Element, message_content, message_marker, selectable_text, tooltip,
 };
 use crate::{Theme, font, theme};
 
@@ -167,20 +167,26 @@ impl<'a> ChannelQueryLayout<'a> {
             text = text.width(width).align_x(text::Alignment::Right);
         }
 
-        let nick = user_context::view(
-            text,
-            self.server,
-            self.casemapping,
-            self.prefix,
-            self.target.channel(),
-            user,
-            user_in_channel,
-            self.target.our_user(),
-            self.config,
+        let nick = tooltip(
+            user_context::view(
+                text,
+                self.server,
+                self.casemapping,
+                self.prefix,
+                self.target.channel(),
+                user,
+                user_in_channel,
+                self.target.our_user(),
+                self.config,
+                self.theme,
+                &self.config.buffer.nickname.click,
+            )
+            .map(Message::UserContext),
+            // We show the full nickname in the tooltip if truncation is enabled.
+            truncate.map(|_| user.as_str()),
+            tooltip::Position::Bottom,
             self.theme,
-            &self.config.buffer.nickname.click,
-        )
-        .map(Message::UserContext);
+        );
 
         let fm = *self;
 
