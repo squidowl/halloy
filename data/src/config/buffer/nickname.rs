@@ -14,6 +14,7 @@ pub struct Nickname {
     pub show_access_levels: bool,
     pub click: NicknameClickAction,
     pub shown_status: ShownStatus,
+    pub truncate: Option<u16>,
 }
 
 impl Default for Nickname {
@@ -27,6 +28,7 @@ impl Default for Nickname {
             show_access_levels: true,
             click: NicknameClickAction::default(),
             shown_status: ShownStatus::default(),
+            truncate: None,
         }
     }
 }

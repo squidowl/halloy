@@ -368,7 +368,7 @@ mod nick_list {
                     .into_iter()
                     .flatten()
                     .map(|user| {
-                        user.display(nicklist_config.show_access_levels)
+                        user.display(nicklist_config.show_access_levels, None)
                             .chars()
                             .count()
                     })
@@ -381,7 +381,7 @@ mod nick_list {
 
         let content = column(users.into_iter().flatten().map(|user| {
             let content = selectable_text(
-                user.display(nicklist_config.show_access_levels),
+                user.display(nicklist_config.show_access_levels, None),
             )
             .font_maybe(
                 theme::font_style::nickname(theme, false).map(font::get),

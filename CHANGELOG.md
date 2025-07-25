@@ -3,6 +3,7 @@
 Added:
 
 - Ability to ignore nicknames on server level or on a per-channel basis
+- Ability to truncate nicknames in buffer
 - New option to customize the appearance of offline nicknames
 - Specify whether nicknames in buffers appear with the user's current status or status at time of sending the message
 - Log level filtering for the log buffer (<kbd>ctrl</kbd> + <kbd>l</kbd>) and log file
