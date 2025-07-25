@@ -768,7 +768,6 @@ focused_buffer = "close-pane"
 <div style="break-before: page; page-break-before: always;"></div><h1 id="buffer-1"><a class="header" href="#buffer-1"><code>[buffer]</code></a></h1>
 <p>Buffer settings for Halloy.</p>
 <ol>
-<li><a href="configuration/buffer.html#bufferaway">Away</a> - Controls the appearance of away nicknames</li>
 <li><a href="configuration/buffer.html#bufferchannel">Channel</a> - Channel specific settings
 <ol>
 <li><a href="configuration/buffer.html#bufferchannelmessage">Message</a> - Message settings within a channel buffer</li>
@@ -789,24 +788,6 @@ focused_buffer = "close-pane"
 <li><a href="configuration/buffer.html#buffertimestamp">Timestamp</a> - Customize how timestamps are displayed within a buffer</li>
 <li><a href="configuration/buffer.html#bufferurl">Url</a> - URLs in buffers</li>
 </ol>
-<h2 id="bufferaway"><a class="header" href="#bufferaway"><code>[buffer.away]</code></a></h2>
-<p>Controls the appearance of away nicknames.</p>
-<h3 id="appearance"><a class="header" href="#appearance"><code>appearance</code></a></h3>
-<p>Controls the appearance of away nicknames in buffers.</p>
-<pre><code class="language-toml"># Type: string or object
-# Values: "dimmed", "solid" or { dimmed = float }
-# Default: "dimmed"
-[buffer.away]
-appearance = "dimmed"
-
-# with custom dimming alpha value (0.0-1.0)
-[buffer.away]
-appearance = { dimmed = 0.5 }
-
-# no away indication
-[buffer.away]
-appearance = "solid"
-</code></pre>
 <h2 id="bufferchannel"><a class="header" href="#bufferchannel"><code>[buffer.channel]</code></a></h2>
 <p>Channel specific settings</p>
 <h3 id="bufferchannelmessage"><a class="header" href="#bufferchannelmessage"><code>[buffer.channel.message]</code></a></h3>
@@ -830,6 +811,22 @@ nickname_color = "unique"
 
 [buffer.channel.nicklist]
 alignment = "left"
+</code></pre>
+<h4 id="away"><a class="header" href="#away"><code>away</code></a></h4>
+<p>Controls the appearance of away nicknames.</p>
+<pre><code class="language-toml"># Type: string or object
+# Values: "dimmed", "none" or { dimmed = float }
+# Default: "dimmed"
+[buffer.channel.nicklist]
+away = "dimmed"
+
+# with custom dimming alpha value (0.0-1.0)
+[buffer.channel.nicklist]
+away = { dimmed = 0.5 }
+
+# no away indication
+[buffer.channel.nicklist]
+away = "none"
 </code></pre>
 <h4 id="color-1"><a class="header" href="#color-1"><code>color</code></a></h4>
 <p>Nickname colors in the nicklist. <code>"unique"</code> generates colors by randomizing the hue, while keeping the saturation and lightness from the theme's nickname color.</p>
@@ -1090,6 +1087,22 @@ on_message_sent = true
 [buffer.nickname]
 alignment = "right"
 </code></pre>
+<h3 id="away-1"><a class="header" href="#away-1"><code>away</code></a></h3>
+<p>Controls the appearance of away nicknames.</p>
+<pre><code class="language-toml"># Type: string or object
+# Values: "dimmed", "none" or { dimmed = float }
+# Default: "dimmed"
+[buffer.nickname]
+away = "dimmed"
+
+# with custom dimming alpha value (0.0-1.0)
+[buffer.nickname]
+away = { dimmed = 0.5 }
+
+# no away indication
+[buffer.nickname]
+away = "none"
+</code></pre>
 <h3 id="brackets"><a class="header" href="#brackets"><code>brackets</code></a></h3>
 <p>Brackets around nicknames.</p>
 <pre><code class="language-toml"># Type: string
@@ -1108,6 +1121,18 @@ brackets = { left = "&lt;", right = "&gt;" }
 [buffer.nickname]
 color = "unique"
 </code></pre>
+<h4 id="offline"><a class="header" href="#offline"><code>offline</code></a></h4>
+<p>Controls the appearance of offline nicknames.</p>
+<pre><code class="language-toml"># Type: string or object
+# Values: "solid" or "none"
+# Default: "solid"
+[buffer.nickname]
+offline = "solid"
+
+# no offline indication
+[buffer.nickname]
+offline = "none"
+</code></pre>
 <h3 id="show_access_levels-1"><a class="header" href="#show_access_levels-1"><code>show_access_levels</code></a></h3>
 <p>Show access levels in front of nicknames (<code>@</code>, <code>+</code>, <code>~</code>, etc.).</p>
 <pre><code class="language-toml"># Type: boolean
@@ -1116,6 +1141,14 @@ color = "unique"
 
 [buffer.nickname]
 show_access_levels = true
+</code></pre>
+<h3 id="shown_status"><a class="header" href="#shown_status"><code>shown_status</code></a></h3>
+<p>What status should be indicated (by either <code>away</code> or <code>offline</code> settings), the user's current status (<code>"current"</code>) or their status at the time of sending the message (<code>"historical"</code>).</p>
+<pre><code class="language-toml"># Type: string or object
+# Values: "current" or "historical"
+# Default: "current"
+[buffer.nickname]
+shown_status = "current"
 </code></pre>
 <h3 id="click-1"><a class="header" href="#click-1"><code>click</code></a></h3>
 <p>Click action for when interaction with nicknames.</p>
