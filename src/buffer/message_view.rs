@@ -128,6 +128,7 @@ impl<'a> ChannelQueryLayout<'a> {
         user: &'a User,
     ) -> (Element<'a, Message>, Element<'a, Message>) {
         let with_access_levels = self.config.buffer.nickname.show_access_levels;
+        let truncate = self.config.buffer.nickname.truncate;
         let user_in_channel = self
             .target
             .users()
@@ -154,7 +155,7 @@ impl<'a> ChannelQueryLayout<'a> {
                 .buffer
                 .nickname
                 .brackets
-                .format(user.display(with_access_levels)),
+                .format(user.display(with_access_levels, truncate)),
         )
         .style(move |_| nickname_style)
         .font_maybe(

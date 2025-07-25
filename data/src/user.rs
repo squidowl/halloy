@@ -162,13 +162,22 @@ impl User {
         self.as_str()
     }
 
-    pub fn display(&self, with_access_levels: bool) -> String {
-        match with_access_levels {
-            true => {
-                format!("{}{}", self.highest_access_level(), self.nickname())
-            }
-            false => self.nickname().to_string(),
+    pub fn display(
+        &self,
+        with_access_levels: bool,
+        truncate: Option<u16>,
+    ) -> String {
+        let mut nickname = if with_access_levels {
+            format!("{}{}", self.highest_access_level(), self.nickname())
+        } else {
+            self.nickname().to_string()
+        };
+
+        if let Some(len) = truncate {
+            nickname = nickname.chars().take(len as usize).collect();
         }
+
+        nickname
     }
 
     pub fn as_str(&self) -> &str {

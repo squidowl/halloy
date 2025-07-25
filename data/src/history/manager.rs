@@ -838,6 +838,7 @@ impl Data {
 
         let total = filtered.len();
         let with_access_levels = buffer_config.nickname.show_access_levels;
+        let truncate = buffer_config.nickname.truncate;
 
         let max_nick_chars =
             buffer_config.nickname.alignment.is_right().then(|| {
@@ -851,7 +852,12 @@ impl Data {
                                 buffer_config
                                     .nickname
                                     .brackets
-                                    .format(user.display(with_access_levels))
+                                    .format(
+                                        user.display(
+                                            with_access_levels,
+                                            truncate,
+                                        ),
+                                    )
                                     .chars()
                                     .count(),
                             )

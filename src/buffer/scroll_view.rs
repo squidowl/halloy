@@ -1275,31 +1275,32 @@ fn preview_row<'a>(
             );
 
             let space = selectable_text(" ");
+            let with_access_levels = config.buffer.nickname.show_access_levels;
+            let truncate = config.buffer.nickname.truncate;
 
-            let nick =
-                if let message::Source::User(user) = message.target.source() {
-                    let mut nick = selectable_text(
-                        " ".repeat(
-                            config
-                                .buffer
-                                .nickname
-                                .brackets
-                                .format(user.display(
-                                    config.buffer.nickname.show_access_levels,
-                                ))
-                                .chars()
-                                .count(),
-                        ),
-                    );
+            let nick = if let message::Source::User(user) =
+                message.target.source()
+            {
+                let mut nick = selectable_text(
+                    " ".repeat(
+                        config
+                            .buffer
+                            .nickname
+                            .brackets
+                            .format(user.display(with_access_levels, truncate))
+                            .chars()
+                            .count(),
+                    ),
+                );
 
-                    if let Some(width) = max_nick_width {
-                        nick = nick.width(width);
-                    }
+                if let Some(width) = max_nick_width {
+                    nick = nick.width(width);
+                }
 
-                    Some(nick)
-                } else {
-                    None
-                };
+                Some(nick)
+            } else {
+                None
+            };
 
             let timestamp_nickname_row = row![]
                 .push_maybe(timestamp_gap)
