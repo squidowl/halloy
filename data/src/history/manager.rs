@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, hash_map};
 
 use chrono::{DateTime, Utc};
 use futures::future::BoxFuture;
@@ -6,12 +6,14 @@ use futures::{Future, FutureExt, future};
 use tokio::time::Instant;
 
 use crate::history::{self, History, MessageReferences, ReadMarker};
-use crate::message::{self, Limit};
+use crate::message::{self, Hash, Limit};
 use crate::target::{self, Target};
 use crate::user::{ChannelUsers, Nick};
 use crate::{
     Config, Input, Server, User, buffer, config, input, isupport, server,
 };
+
+use super::filter::{Filter, FilterChain};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Resource {
@@ -65,6 +67,7 @@ pub enum Event {
 #[derive(Debug, Default)]
 pub struct Manager {
     resources: HashSet<Resource>,
+    filters: Vec<Filter>,
     data: Data,
 }
 
@@ -103,11 +106,14 @@ impl Manager {
     pub fn update(&mut self, message: Message) -> Option<Event> {
         match message {
             Message::LoadFull(kind, Ok(loaded)) => {
-                log::debug!(
-                    "loaded history for {kind}: {} messages",
-                    loaded.messages.len()
-                );
+                let len = loaded.messages.len();
                 self.data.load_full(kind.clone(), loaded);
+                log::debug!("loaded history for {kind}: {} messages", len);
+
+                if !self.data.has_blocked_message_cache(&kind) {
+                    self.rebuild_blocked_message_cache(kind.clone());
+                }
+
                 return Some(Event::Loaded(kind));
             }
             Message::LoadFull(kind, Err(error)) => {
@@ -170,6 +176,19 @@ impl Manager {
         }
 
         None
+    }
+
+    pub fn set_filters(&mut self, mut new_filters: Vec<Filter>) {
+        self.filters.clear();
+        self.filters.append(&mut new_filters);
+        self.data.clear_blocked_message_cache();
+        log::debug!(
+            "set new filters to history manager, reset all cached channel flags."
+        );
+    }
+
+    pub fn get_filters(&mut self) -> &mut Vec<Filter> {
+        &mut self.filters
     }
 
     pub fn tick(&mut self, now: Instant) -> Vec<BoxFuture<'static, Message>> {
@@ -281,23 +300,36 @@ impl Manager {
         server: &Server,
         message: crate::Message,
     ) -> Option<impl Future<Output = Message> + use<>> {
-        history::Kind::from_server_message(server.clone(), &message)
-            .and_then(|kind| self.data.add_message(kind, message))
+        history::Kind::from_server_message(server.clone(), &message).and_then(
+            |kind| {
+                let blocked = FilterChain::borrow(&self.filters)
+                    .filter_message_of_kind(&message, &kind);
+
+                self.data.add_message(kind, message, blocked)
+            },
+        )
     }
 
     pub fn record_log(
         &mut self,
         record: crate::log::Record,
     ) -> Option<impl Future<Output = Message> + use<>> {
-        self.data
-            .add_message(history::Kind::Logs, crate::Message::log(record))
+        self.data.add_message(
+            history::Kind::Logs,
+            crate::Message::log(record),
+            false,
+        )
     }
 
     pub fn record_highlight(
         &mut self,
         message: crate::Message,
     ) -> Option<impl Future<Output = Message> + use<>> {
-        self.data.add_message(history::Kind::Highlights, message)
+        let blocked = FilterChain::borrow(&self.filters)
+            .filter_message_of_kind(&message, &history::Kind::Highlights);
+
+        self.data
+            .add_message(history::Kind::Highlights, message, blocked)
     }
 
     pub fn update_read_marker<T: Into<history::Kind>>(
@@ -369,9 +401,13 @@ impl Manager {
             .map
             .keys()
             .filter_map(|kind| match kind {
-                history::Kind::Query(s, query) => {
-                    (s == server).then_some(query)
-                }
+                #[allow(clippy::bool_comparison)] // easy to miss exclaimation
+                history::Kind::Query(s, query) => (s == server
+                    && self
+                        .filters
+                        .iter()
+                        .all(|filter| filter.match_query(query) == false))
+                .then_some(query),
                 _ => None,
             })
             .collect::<Vec<_>>()
@@ -579,6 +615,32 @@ impl Manager {
     ) {
         self.data.hide_preview(&kind.into(), message, url);
     }
+
+    pub fn rebuild_blocked_message_cache(&mut self, kind: history::Kind) {
+        let chain = FilterChain::borrow(&self.filters);
+
+        if let Some(history) = self.data.map.get(&kind) {
+            let messages = match history {
+                History::Full { messages, .. } => messages,
+                History::Partial { messages, .. } => messages,
+            };
+
+            let blocked_message_index = messages
+                .iter()
+                .filter_map(|message| {
+                    chain
+                        .filter_message_of_kind(message, &kind)
+                        .then_some(message.hash)
+                })
+                .collect();
+
+            self.data
+                .blocked_messages_index
+                .entry(kind.clone())
+                .insert_entry(blocked_message_index);
+        };
+        log::debug!("rebuilt blocked message cache for {kind}");
+    }
 }
 
 fn with_limit<'a>(
@@ -602,6 +664,7 @@ fn with_limit<'a>(
 #[derive(Debug, Default)]
 struct Data {
     map: HashMap<history::Kind, History>,
+    pub blocked_messages_index: HashMap<history::Kind, HashSet<Hash>>,
     input: input::Storage,
 }
 
@@ -697,6 +760,12 @@ impl Data {
 
         let filtered = messages
             .iter()
+            .filter(|message| {
+                !self
+                    .blocked_messages_index
+                    .get(kind)
+                    .is_some_and(|blocklist| blocklist.contains(&message.hash))
+            })
             .filter(|message| match message.target.source() {
                 message::Source::Server(Some(source)) => {
                     if let Some(server_message) =
@@ -877,12 +946,24 @@ impl Data {
         &mut self,
         kind: history::Kind,
         message: crate::Message,
+        blocked: bool,
     ) -> Option<impl Future<Output = Message> + use<>> {
-        use std::collections::hash_map;
+        if blocked {
+            self.blocked_messages_index
+                .entry(kind.clone())
+                .and_modify(|cache| {
+                    cache.insert(message.hash);
+                })
+                .or_insert_with(|| {
+                    let mut new_cache = HashSet::new();
+                    new_cache.insert(message.hash);
+                    new_cache
+                });
+        }
 
         match self.map.entry(kind.clone()) {
             hash_map::Entry::Occupied(mut entry) => {
-                let read_marker = entry.get_mut().add_message(message);
+                let read_marker = entry.get_mut().add_message(message, blocked);
 
                 read_marker.map(|read_marker| {
                     async move {
@@ -894,13 +975,12 @@ impl Data {
             hash_map::Entry::Vacant(entry) => {
                 let _ = entry
                     .insert(History::partial(kind.clone()))
-                    .add_message(message);
+                    .add_message(message, blocked);
 
                 Some(
                     async move {
                         let loaded =
                             history::metadata::load(kind.clone()).await;
-
                         Message::UpdatePartial(kind, loaded)
                     }
                     .boxed(),
@@ -994,6 +1074,14 @@ impl Data {
 
     fn can_mark_as_read(&self, kind: &history::Kind) -> bool {
         self.map.get(kind).is_some_and(History::can_mark_as_read)
+    }
+
+    fn clear_blocked_message_cache(&mut self) {
+        self.blocked_messages_index.clear();
+    }
+
+    pub fn has_blocked_message_cache(&self, kind: &history::Kind) -> bool {
+        self.blocked_messages_index.contains_key(kind)
     }
 
     fn untrack(
