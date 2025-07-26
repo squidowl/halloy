@@ -1408,11 +1408,11 @@ impl Client {
             Command::QUIT(comment) => {
                 let user = ok!(message.user());
 
+                let channels = self.user_channels(user.nickname());
+
                 self.chanmap.values_mut().for_each(|channel| {
                     channel.users.remove(&user);
                 });
-
-                let channels = self.user_channels(user.nickname());
 
                 return Ok(vec![Event::Broadcast(Broadcast::Quit {
                     user,
