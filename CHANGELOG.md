@@ -1,5 +1,7 @@
 # Unreleased
 
+# 2025.7 (2025-07-26)
+
 Added:
 
 - Ability to ignore nicknames on server level or on a per-channel basis
