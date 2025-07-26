@@ -19,6 +19,7 @@ pub enum Command {
 #[derive(Debug, Clone)]
 pub enum Internal {
     OpenBuffers(Vec<Target>),
+    ClearBuffer,
     /// Part the current channel and join a new one.
     ///
     /// - Channel to join
@@ -68,6 +69,7 @@ enum Kind {
     Hop,
     Notice,
     Delay,
+    Clear,
     Raw,
 }
 
@@ -95,6 +97,7 @@ impl FromStr for Kind {
             "ctcp" => Ok(Kind::Ctcp),
             "hop" | "rejoin" => Ok(Kind::Hop),
             "delay" => Ok(Kind::Delay),
+            "clear" => Ok(Kind::Clear),
             _ => Err(()),
         }
     }
@@ -182,33 +185,33 @@ pub fn parse(
                             && let Some(channel) = channels
                                 .into_iter()
                                 .find(|channel| channel.len() > max_len)
-                            {
-                                return Err(Error::ArgTooLong {
-                                    name: "channel in chanlist",
-                                    len: channel.len(),
-                                    max_len,
-                                });
-                            }
+                        {
+                            return Err(Error::ArgTooLong {
+                                name: "channel in chanlist",
+                                len: channel.len(),
+                                max_len,
+                            });
+                        }
                     }
 
                     if let Some(ref chankeys) = chankeys
                         && let Some(isupport::Parameter::KEYLEN(max_len)) =
                             isupport.get(&isupport::Kind::KEYLEN)
+                    {
+                        let max_len = *max_len as usize;
+
+                        let keys = chankeys.split(',').collect::<Vec<_>>();
+
+                        if let Some(key) =
+                            keys.into_iter().find(|key| key.len() > max_len)
                         {
-                            let max_len = *max_len as usize;
-
-                            let keys = chankeys.split(',').collect::<Vec<_>>();
-
-                            if let Some(key) =
-                                keys.into_iter().find(|key| key.len() > max_len)
-                            {
-                                return Err(Error::ArgTooLong {
-                                    name: "key in chankeys",
-                                    len: key.len(),
-                                    max_len,
-                                });
-                            }
+                            return Err(Error::ArgTooLong {
+                                name: "key in chankeys",
+                                len: key.len(),
+                                max_len,
+                            });
                         }
+                    }
 
                     Ok(Command::Irc(Irc::Join(chanlist, chankeys)))
                 })
@@ -343,17 +346,17 @@ pub fn parse(
                     if let Some(ref topic) = topic
                         && let Some(isupport::Parameter::TOPICLEN(max_len)) =
                             isupport.get(&isupport::Kind::TOPICLEN)
-                        {
-                            let max_len = *max_len as usize;
+                    {
+                        let max_len = *max_len as usize;
 
-                            if topic.len() > max_len {
-                                return Err(Error::ArgTooLong {
-                                    name: "topic",
-                                    len: topic.len(),
-                                    max_len,
-                                });
-                            }
+                        if topic.len() > max_len {
+                            return Err(Error::ArgTooLong {
+                                name: "topic",
+                                len: topic.len(),
+                                max_len,
+                            });
                         }
+                    }
 
                     Ok(Command::Irc(Irc::Topic(channel, topic)))
                 })
@@ -378,17 +381,17 @@ pub fn parse(
                     if let Some(ref comment) = comment
                         && let Some(isupport::Parameter::KICKLEN(max_len)) =
                             isupport.get(&isupport::Kind::KICKLEN)
-                        {
-                            let max_len = *max_len as usize;
+                    {
+                        let max_len = *max_len as usize;
 
-                            if comment.len() > max_len {
-                                return Err(Error::ArgTooLong {
-                                    name: "comment",
-                                    len: comment.len(),
-                                    max_len,
-                                });
-                            }
+                        if comment.len() > max_len {
+                            return Err(Error::ArgTooLong {
+                                name: "comment",
+                                len: comment.len(),
+                                max_len,
+                            });
                         }
+                    }
 
                     Ok(Command::Irc(Irc::Kick(channel, users, comment)))
                 })
@@ -494,17 +497,17 @@ pub fn parse(
                 if let Some(ref comment) = comment
                     && let Some(isupport::Parameter::AWAYLEN(max_len)) =
                         isupport.get(&isupport::Kind::AWAYLEN)
-                    {
-                        let max_len = *max_len as usize;
+                {
+                    let max_len = *max_len as usize;
 
-                        if comment.len() > max_len {
-                            return Err(Error::ArgTooLong {
-                                name: "reason",
-                                len: comment.len(),
-                                max_len,
-                            });
-                        }
+                    if comment.len() > max_len {
+                        return Err(Error::ArgTooLong {
+                            name: "reason",
+                            len: comment.len(),
+                            max_len,
+                        });
                     }
+                }
 
                 Ok(Command::Irc(Irc::Away(comment)))
             }),
@@ -593,6 +596,9 @@ pub fn parse(
                     Ok(Command::Internal(Internal::Hop(channel, message)))
                 })
             }
+            Kind::Clear => validated::<0, 0, false>(args, |_, _| {
+                Ok(Command::Internal(Internal::ClearBuffer))
+            }),
             Kind::Delay => validated::<1, 0, false>(args, |[seconds], _| {
                 if let Ok(seconds) = seconds.parse::<u64>() {
                     if seconds > 0 {
