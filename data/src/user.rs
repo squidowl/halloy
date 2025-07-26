@@ -785,6 +785,22 @@ mod tests {
                 },
                 [Token::String("*status")],
             ),
+            (
+                User {
+                    nickname: Nick::from_str(
+                        "714user",
+                        isupport::CaseMap::default(),
+                    ),
+                    username: None,
+                    hostname: None,
+                    accountname: None,
+                    access_levels: BTreeSet::<AccessLevel>::from([
+                        AccessLevel::Oper,
+                    ]),
+                    away: false,
+                },
+                [Token::String("@714user")],
+            ),
         ];
 
         for (user, expected) in tests {
