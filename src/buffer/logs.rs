@@ -87,12 +87,13 @@ pub fn view<'a>(
                     );
 
                     Some(
-                        row![]
-                            .push_maybe(timestamp)
-                            .push(log_level)
-                            .push(selectable_text(" "))
-                            .push(message)
-                            .into(),
+                        row![
+                            timestamp,
+                            log_level,
+                            selectable_text(" "),
+                            message,
+                        ]
+                        .into(),
                     )
                 }
                 _ => None,

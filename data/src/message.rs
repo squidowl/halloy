@@ -1551,7 +1551,7 @@ fn content<'a>(
                     RPL_MONONLINE => format!("Monitored {targets} online"),
                     RPL_MONOFFLINE => format!("Monitored {targets} offline"),
                     _ => {
-                        log::debug!("Unexpected numeric {:?}", numeric);
+                        log::debug!("Unexpected numeric {numeric:?}");
                         format!("Monitored {targets}")
                     }
                 },

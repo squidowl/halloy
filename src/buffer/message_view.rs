@@ -308,7 +308,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
 
         let space = selectable_text(" ");
 
-        let row = row![].push_maybe(timestamp).push_maybe(prefixes);
+        let row = row![timestamp, prefixes];
 
         let (middle, content): (Element<'a, Message>, Element<'a, Message>) =
             match message.target.source() {
