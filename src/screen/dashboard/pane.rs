@@ -187,64 +187,66 @@ impl TitleBar {
         };
 
         // Pane controls.
-        let mut controls = row![].spacing(2);
+        let controls = row![
+            if maybe_buffer_kind.is_some() {
+                let mark_as_read_button = button(center(icon::mark_as_read()))
+                    .padding(5)
+                    .width(22)
+                    .height(22)
+                    .on_press_maybe(
+                        can_mark_as_read.then_some(Message::MarkAsRead),
+                    )
+                    .style(move |theme, status| {
+                        theme::button::secondary(theme, status, false)
+                    });
 
-        if maybe_buffer_kind.is_some() {
-            let mark_as_read_button = button(center(icon::mark_as_read()))
-                .padding(5)
-                .width(22)
-                .height(22)
-                .on_press_maybe(can_mark_as_read.then_some(Message::MarkAsRead))
-                .style(move |theme, status| {
-                    theme::button::secondary(theme, status, false)
-                });
-
-            let mark_as_read_button_with_tooltip = tooltip(
-                mark_as_read_button,
-                show_tooltips.then_some(if can_mark_as_read {
-                    "Mark messages as read"
-                } else {
-                    "No unread messages"
-                }),
-                tooltip::Position::Bottom,
-                theme,
-            );
-
-            controls = controls.push(mark_as_read_button_with_tooltip);
-        }
-
-        let can_scroll_to_bottom =
-            !buffer.is_scrolled_to_bottom().unwrap_or_default();
-
-        let scroll_to_bottom_button = button(center(icon::scroll_to_bottom()))
-            .padding(5)
-            .width(22)
-            .height(22)
-            .on_press_maybe(
-                can_scroll_to_bottom.then_some(Message::ScrollToBottom),
-            )
-            .style(|theme, status| {
-                theme::button::secondary(theme, status, false)
-            });
-
-        let scroll_to_bottom_button_with_tooltip = tooltip(
-            scroll_to_bottom_button,
-            show_tooltips.then_some(if can_scroll_to_bottom {
-                "Scroll to bottom"
+                let mark_as_read_button_with_tooltip = tooltip(
+                    mark_as_read_button,
+                    show_tooltips.then_some(if can_mark_as_read {
+                        "Mark messages as read"
+                    } else {
+                        "No unread messages"
+                    }),
+                    tooltip::Position::Bottom,
+                    theme,
+                );
+                Some(mark_as_read_button_with_tooltip)
             } else {
-                "Already at bottom"
-            }),
-            tooltip::Position::Bottom,
-            theme,
-        );
+                None
+            },
+            {
+                let can_scroll_to_bottom =
+                    !buffer.is_scrolled_to_bottom().unwrap_or_default();
+                let scroll_to_bottom_button =
+                    button(center(icon::scroll_to_bottom()))
+                        .padding(5)
+                        .width(22)
+                        .height(22)
+                        .on_press_maybe(
+                            can_scroll_to_bottom
+                                .then_some(Message::ScrollToBottom),
+                        )
+                        .style(|theme, status| {
+                            theme::button::secondary(theme, status, false)
+                        });
 
-        controls = controls.push(scroll_to_bottom_button_with_tooltip);
-
-        if let Buffer::Channel(state) = &buffer {
-            // Show topic button only if there is a topic to show
-            if let Some(topic) =
-                clients.get_channel_topic(&state.server, &state.target)
-                && topic.content.is_some() {
+                let scroll_to_bottom_button_with_tooltip = tooltip(
+                    scroll_to_bottom_button,
+                    show_tooltips.then_some(if can_scroll_to_bottom {
+                        "Scroll to bottom"
+                    } else {
+                        "Already at bottom"
+                    }),
+                    tooltip::Position::Bottom,
+                    theme,
+                );
+                Some(scroll_to_bottom_button_with_tooltip)
+            },
+            if let Buffer::Channel(state) = &buffer {
+                if let Some(topic) =
+                    clients.get_channel_topic(&state.server, &state.target)
+                    && topic.content.is_some()
+                {
                     let topic_enabled = settings.map_or(
                         config.buffer.channel.topic.enabled,
                         |settings| settings.channel.topic.enabled,
@@ -269,124 +271,129 @@ impl TitleBar {
                         tooltip::Position::Bottom,
                         theme,
                     );
-
-                    controls = controls.push(topic_button_with_tooltip);
-                }
-
-            let nicklist_enabled = settings
-                .map_or(config.buffer.channel.nicklist.enabled, |settings| {
-                    settings.channel.nicklist.enabled
-                });
-
-            let nicklist_button = button(center(icon::people()))
-                .padding(5)
-                .width(22)
-                .height(22)
-                .on_press(Message::ToggleShowUserList)
-                .style(move |theme, status| {
-                    theme::button::secondary(theme, status, nicklist_enabled)
-                });
-
-            let nicklist_button_with_tooltip = tooltip(
-                nicklist_button,
-                show_tooltips.then_some("Nicklist"),
-                tooltip::Position::Bottom,
-                theme,
-            );
-
-            controls = controls.push(nicklist_button_with_tooltip);
-        }
-
-        // If we have more than one pane open, show maximize button.
-        if panes > 1 {
-            let maximize_button = button(center(if maximized {
-                icon::restore()
-            } else {
-                icon::maximize()
-            }))
-            .padding(5)
-            .width(22)
-            .height(22)
-            .on_press(Message::MaximizePane)
-            .style(move |theme, status| {
-                theme::button::secondary(theme, status, maximized)
-            });
-
-            let maximize_button_with_tooltip = tooltip(
-                maximize_button,
-                show_tooltips.then_some(if maximized {
-                    "Restore"
+                    Some(topic_button_with_tooltip)
                 } else {
-                    "Maximize"
-                }),
-                tooltip::Position::Bottom,
-                theme,
-            );
+                    None
+                }
+            } else {
+                None
+            },
+            if matches!(buffer, Buffer::Channel(_)) {
+                let nicklist_enabled = settings.map_or(
+                    config.buffer.channel.nicklist.enabled,
+                    |settings| settings.channel.nicklist.enabled,
+                );
 
-            controls = controls.push(maximize_button_with_tooltip);
-        }
+                let nicklist_button = button(center(icon::people()))
+                    .padding(5)
+                    .width(22)
+                    .height(22)
+                    .on_press(Message::ToggleShowUserList)
+                    .style(move |theme, status| {
+                        theme::button::secondary(
+                            theme,
+                            status,
+                            nicklist_enabled,
+                        )
+                    });
 
-        // Button to merge popout back in to main window
-        if is_popout {
-            let merge_button = button(center(icon::popout()))
+                let nicklist_button_with_tooltip = tooltip(
+                    nicklist_button,
+                    show_tooltips.then_some("Nicklist"),
+                    tooltip::Position::Bottom,
+                    theme,
+                );
+                Some(nicklist_button_with_tooltip)
+            } else {
+                None
+            },
+            if panes > 1 {
+                let maximize_button = button(center(if maximized {
+                    icon::restore()
+                } else {
+                    icon::maximize()
+                }))
                 .padding(5)
                 .width(22)
                 .height(22)
-                .on_press(Message::Merge)
-                .style(|theme, status| {
-                    theme::button::secondary(theme, status, true)
+                .on_press(Message::MaximizePane)
+                .style(move |theme, status| {
+                    theme::button::secondary(theme, status, maximized)
                 });
 
-            let close_button_with_tooltip = tooltip(
-                merge_button,
-                show_tooltips.then_some("Merge"),
-                tooltip::Position::Bottom,
-                theme,
-            );
+                let maximize_button_with_tooltip = tooltip(
+                    maximize_button,
+                    show_tooltips.then_some(if maximized {
+                        "Restore"
+                    } else {
+                        "Maximize"
+                    }),
+                    tooltip::Position::Bottom,
+                    theme,
+                );
+                Some(maximize_button_with_tooltip)
+            } else {
+                None
+            },
+            if is_popout {
+                let merge_button = button(center(icon::popout()))
+                    .padding(5)
+                    .width(22)
+                    .height(22)
+                    .on_press(Message::Merge)
+                    .style(|theme, status| {
+                        theme::button::secondary(theme, status, true)
+                    });
 
-            controls = controls.push(close_button_with_tooltip);
-        }
-        // Allow pane to be pop'd out if we have >1 pane on main window
-        else if panes > 1 {
-            let popout_button = button(center(icon::popout()))
-                .padding(5)
-                .width(22)
-                .height(22)
-                .on_press(Message::Popout)
-                .style(|theme, status| {
-                    theme::button::secondary(theme, status, false)
-                });
+                let close_button_with_tooltip = tooltip(
+                    merge_button,
+                    show_tooltips.then_some("Merge"),
+                    tooltip::Position::Bottom,
+                    theme,
+                );
+                Some(close_button_with_tooltip)
+            } else if panes > 1 {
+                let popout_button = button(center(icon::popout()))
+                    .padding(5)
+                    .width(22)
+                    .height(22)
+                    .on_press(Message::Popout)
+                    .style(|theme, status| {
+                        theme::button::secondary(theme, status, false)
+                    });
 
-            let close_button_with_tooltip = tooltip(
-                popout_button,
-                show_tooltips.then_some("Pop Out"),
-                tooltip::Position::Bottom,
-                theme,
-            );
+                let close_button_with_tooltip = tooltip(
+                    popout_button,
+                    show_tooltips.then_some("Pop Out"),
+                    tooltip::Position::Bottom,
+                    theme,
+                );
+                Some(close_button_with_tooltip)
+            } else {
+                None
+            },
+            if !(is_popout || panes == 1 && matches!(buffer, Buffer::Empty)) {
+                let close_button = button(center(icon::cancel()))
+                    .padding(5)
+                    .width(22)
+                    .height(22)
+                    .on_press(Message::ClosePane)
+                    .style(|theme, status| {
+                        theme::button::secondary(theme, status, false)
+                    });
 
-            controls = controls.push(close_button_with_tooltip);
-        }
-
-        // Add delete as long as it's not a single empty buffer
-        if !(is_popout || panes == 1 && matches!(buffer, Buffer::Empty)) {
-            let close_button = button(center(icon::cancel()))
-                .padding(5)
-                .width(22)
-                .height(22)
-                .on_press(Message::ClosePane)
-                .style(|theme, status| {
-                    theme::button::secondary(theme, status, false)
-                });
-
-            let close_button_with_tooltip = tooltip(
-                close_button,
-                show_tooltips.then_some("Close"),
-                tooltip::Position::Bottom,
-                theme,
-            );
-
-            controls = controls.push(close_button_with_tooltip);
-        }
+                let close_button_with_tooltip = tooltip(
+                    close_button,
+                    show_tooltips.then_some("Close"),
+                    tooltip::Position::Bottom,
+                    theme,
+                );
+                Some(close_button_with_tooltip)
+            } else {
+                None
+            },
+        ]
+        .spacing(2);
 
         let title = container(
             text(value)

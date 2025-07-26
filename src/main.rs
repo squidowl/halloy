@@ -126,7 +126,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     .subscription(Halloy::subscription)
     .settings(settings)
     .run()
-    .inspect_err(|err| log::error!("{}", err))?;
+    .inspect_err(|err| log::error!("{err}"))?;
 
     Ok(())
 }
@@ -148,7 +148,7 @@ fn settings(config_load: &Result<Config, config::Error>) -> iced::Settings {
 }
 
 fn handle_irc_error(e: anyhow::Error) {
-    log::error!("{:#}", e);
+    log::error!("{e:#}");
 }
 
 struct Halloy {
@@ -1146,7 +1146,7 @@ impl Halloy {
                 command.map(Message::Modal)
             }
             Message::RouteReceived(route) => {
-                log::info!("RouteReceived: {:?}", route);
+                log::info!("RouteReceived: {route:?}");
 
                 if let Ok(url) = route.parse() {
                     return self.handle_url(url);
@@ -1212,7 +1212,7 @@ impl Halloy {
             }
             Message::WindowSettingsSaved(result) => {
                 if let Err(err) = result {
-                    log::error!("window settings failed to save: {:?}", err);
+                    log::error!("window settings failed to save: {err:?}");
                 }
 
                 Task::none()

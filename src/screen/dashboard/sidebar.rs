@@ -176,8 +176,10 @@ impl Sidebar {
                          icon: Text<'a>,
                          message: Message| {
                             button(
-                                row![icon.width(Length::Fixed(12.0)), title]
-                                    .push_maybe(keybind.map(|kb| {
+                                row![
+                                    icon.width(Length::Fixed(12.0)),
+                                    title,
+                                    keybind.map(|kb| {
                                         text(format!("({kb})"))
                                             .shaping(text::Shaping::Advanced)
                                             .size(theme::TEXT_SIZE - 2.0)
@@ -188,9 +190,10 @@ impl Sidebar {
                                                 )
                                                 .map(font::get),
                                             )
-                                    }))
-                                    .spacing(8)
-                                    .align_y(iced::Alignment::Center),
+                                    }),
+                                ]
+                                .spacing(8)
+                                .align_y(iced::Alignment::Center),
                             )
                             .width(length)
                             .padding(5)
@@ -472,9 +475,10 @@ impl Sidebar {
                     ];
 
                     // Wrap buffers in a column with user_menu_button
-                    let content =
-                        column![container(buffers).height(Length::Fill)]
-                            .push_maybe(user_menu_button);
+                    let content = column![
+                        container(buffers).height(Length::Fill),
+                        user_menu_button,
+                    ];
 
                     container(content)
                 }
@@ -492,9 +496,11 @@ impl Sidebar {
                     ];
 
                     // Wrap buffers in a row with user_menu_button
-                    let content = row![container(buffers).width(Length::Fill)]
-                        .push_maybe(user_menu_button)
-                        .align_y(Alignment::Center);
+                    let content = row![
+                        container(buffers).width(Length::Fill),
+                        user_menu_button,
+                    ]
+                    .align_y(Alignment::Center);
 
                     container(content)
                 }
@@ -684,34 +690,32 @@ fn upstream_buffer_button<'a>(
         ]
         .spacing(8)
         .align_y(iced::Alignment::Center),
-        buffer::Upstream::Channel(_, channel) => row![]
-            .push(horizontal_space().width(3))
-            .push_maybe(show_unread_indicator.then_some(
+        buffer::Upstream::Channel(_, channel) => row![
+            horizontal_space().width(3),
+            show_unread_indicator.then_some(
                 icon::dot().size(6).style(theme::text::unread_indicator),
-            ))
-            .push(unread_dot_indicator_spacing)
-            .push(
-                text(channel.to_string())
-                    .style(buffer_title_style)
-                    .font_maybe(buffer_title_font)
-                    .shaping(text::Shaping::Advanced),
-            )
-            .push(horizontal_space().width(3))
-            .align_y(iced::Alignment::Center),
-        buffer::Upstream::Query(_, query) => row![]
-            .push(horizontal_space().width(3))
-            .push_maybe(show_unread_indicator.then_some(
+            ),
+            unread_dot_indicator_spacing,
+            text(channel.to_string())
+                .style(buffer_title_style)
+                .font_maybe(buffer_title_font)
+                .shaping(text::Shaping::Advanced),
+            horizontal_space().width(3),
+        ]
+        .align_y(iced::Alignment::Center),
+        buffer::Upstream::Query(_, query) => row![
+            horizontal_space().width(3),
+            show_unread_indicator.then_some(
                 icon::dot().size(6).style(theme::text::unread_indicator),
-            ))
-            .push(unread_dot_indicator_spacing)
-            .push(
-                text(query.to_string())
-                    .style(buffer_title_style)
-                    .font_maybe(buffer_title_font)
-                    .shaping(text::Shaping::Advanced),
-            )
-            .push(horizontal_space().width(3))
-            .align_y(iced::Alignment::Center),
+            ),
+            unread_dot_indicator_spacing,
+            text(query.to_string())
+                .style(buffer_title_style)
+                .font_maybe(buffer_title_font)
+                .shaping(text::Shaping::Advanced),
+            horizontal_space().width(3),
+        ]
+        .align_y(iced::Alignment::Center),
     };
 
     let base = button(row.width(width))

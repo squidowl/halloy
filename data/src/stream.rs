@@ -278,8 +278,7 @@ async fn _run(
                     }
                     Input::Send(message) => {
                         log::trace!(
-                            "[{server}] Sending message => {:?}",
-                            message
+                            "[{server}] Sending message => {message:?}"
                         );
 
                         if let Command::QUIT(reason) = &message.command {
@@ -349,7 +348,7 @@ async fn connect(
 
     let mut client = Client::new(server, config, sender);
     if let Err(e) = client.connect() {
-        log::error!("Error when connecting client: {:?}", e);
+        log::error!("Error when connecting client: {e:?}");
     }
 
     Ok((

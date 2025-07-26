@@ -697,14 +697,15 @@ impl Commands {
             highlighted: Some(index),
             filtered,
         } = self
-            && let Some(command) = filtered.get(*index).cloned() {
-                *self = Self::Selected {
-                    command: command.clone(),
-                    subcommand: None,
-                };
+            && let Some(command) = filtered.get(*index).cloned()
+        {
+            *self = Self::Selected {
+                command: command.clone(),
+                subcommand: None,
+            };
 
-                return Some(command);
-            }
+            return Some(command);
+        }
 
         None
     }
@@ -1015,24 +1016,18 @@ impl Command {
             })
         };
 
-        container(
-            column![]
-                .push_maybe(
-                    subcommand
-                        .map_or(self.description(), |subcommand| {
-                            subcommand.description()
-                        })
-                        .map(|description| {
-                            text(description)
-                                .style(theme::text::secondary)
-                                .font_maybe(
-                                    theme::font_style::secondary(theme)
-                                        .map(font::get),
-                                )
-                        }),
-                )
-                .push(row(title.into_iter().chain(args))),
-        )
+        container(column![
+            subcommand
+                .map_or(self.description(), |subcommand| {
+                    subcommand.description()
+                })
+                .map(|description| {
+                    text(description).style(theme::text::secondary).font_maybe(
+                        theme::font_style::secondary(theme).map(font::get),
+                    )
+                }),
+            row(title.into_iter().chain(args)),
+        ])
         .style(theme::container::tooltip)
         .padding(8)
         .center_y(Length::Shrink)
@@ -2350,12 +2345,13 @@ impl Emojis {
             highlighted: Some(index),
             filtered,
         } = self
-            && let Some(shortcode) = filtered.get(*index).copied() {
-                *self = Self::Idle;
+            && let Some(shortcode) = filtered.get(*index).copied()
+        {
+            *self = Self::Idle;
 
-                return pick_emoji(shortcode, config.buffer.emojis.skin_tone)
-                    .map(ToString::to_string);
-            }
+            return pick_emoji(shortcode, config.buffer.emojis.skin_tone)
+                .map(ToString::to_string);
+        }
 
         None
     }

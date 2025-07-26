@@ -368,11 +368,12 @@ pub fn view<'a>(
         row![]
     };
 
-    let content = column![]
-        .push_maybe(top_row)
-        .push(column(old))
-        .push(keyed(keyed::Key::Divider, divider))
-        .push(column(new));
+    let content = column![
+        top_row,
+        column(old),
+        keyed(keyed::Key::Divider, divider),
+        column(new),
+    ];
 
     on_resize(
         correct_viewport(
@@ -1179,17 +1180,14 @@ fn preview_row<'a>(
             button(
                 container(
                     column![
-                        column![
-                            text(title)
-                                .shaping(text::Shaping::Advanced)
-                                .style(theme::text::primary)
-                                .font_maybe(
-                                    theme::font_style::primary(theme)
-                                        .map(font::get)
-                                ),
-                        ]
-                        .spacing(8)
-                        .push_maybe(description.as_ref().map(|description| {
+                        text(title)
+                            .shaping(text::Shaping::Advanced)
+                            .style(theme::text::primary)
+                            .font_maybe(
+                                theme::font_style::primary(theme)
+                                    .map(font::get)
+                            ),
+                        description.as_ref().map(|description| {
                             text(description)
                                 .shaping(text::Shaping::Advanced)
                                 .style(theme::text::secondary)
@@ -1197,17 +1195,15 @@ fn preview_row<'a>(
                                     theme::font_style::secondary(theme)
                                         .map(font::get),
                                 )
-                        }))
-                        .push_maybe(
-                            config.preview.card.show_image.then_some(
-                                container(
-                                    image(path)
-                                        .content_fit(ContentFit::ScaleDown)
-                                )
-                                .max_height(200)
+                        }),
+                        config.preview.card.show_image.then_some(
+                            container(
+                                image(path).content_fit(ContentFit::ScaleDown)
                             )
+                            .max_height(200)
                         ),
                     ]
+                    .spacing(8)
                     .max_width(400),
                 )
                 .padding(8),
@@ -1243,9 +1239,7 @@ fn preview_row<'a>(
         });
 
     let aligned_content = match &config.buffer.nickname.alignment {
-        data::buffer::Alignment::Left => {
-            row![].push_maybe(timestamp_gap).push(content).into()
-        }
+        data::buffer::Alignment::Left => row![timestamp_gap, content].into(),
         data::buffer::Alignment::Right => {
             let prefixes = message.target.prefixes().map_or(
                 max_nick_width.and_then(|_| {
@@ -1302,11 +1296,8 @@ fn preview_row<'a>(
                 None
             };
 
-            let timestamp_nickname_row = row![]
-                .push_maybe(timestamp_gap)
-                .push_maybe(prefixes)
-                .push_maybe(nick)
-                .push(space);
+            let timestamp_nickname_row =
+                row![timestamp_gap, prefixes, nick, space,];
 
             row![timestamp_nickname_row, content].into()
         }

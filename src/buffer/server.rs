@@ -82,12 +82,7 @@ pub fn view<'a>(
                             config,
                         );
 
-                        Some(
-                            container(
-                                row![].push_maybe(timestamp).push(message),
-                            )
-                            .into(),
-                        )
+                        Some(container(row![timestamp, message]).into())
                     }
                     message::Source::Internal(
                         message::source::Internal::Status(status),
@@ -106,12 +101,7 @@ pub fn view<'a>(
                             config,
                         );
 
-                        Some(
-                            container(
-                                row![].push_maybe(timestamp).push(message),
-                            )
-                            .into(),
-                        )
+                        Some(container(row![timestamp, message]).into())
                     }
                     _ => None,
                 }
@@ -142,9 +132,7 @@ pub fn view<'a>(
         .width(Length::Fill)
     });
 
-    let scrollable = column![messages]
-        .push_maybe(text_input)
-        .height(Length::Fill);
+    let scrollable = column![messages, text_input,].height(Length::Fill);
 
     container(scrollable)
         .width(Length::Fill)

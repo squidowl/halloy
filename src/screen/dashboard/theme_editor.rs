@@ -329,15 +329,16 @@ impl ThemeEditor {
         });
 
         let content = column![
-            row![]
-                .push(container(component).width(Fill))
-                .push(container(hex_input).width(80))
-                .push_maybe(font_style_pick_list)
-                .push(undo)
-                .push(copy)
-                .push(share)
-                .align_y(Vertical::Center)
-                .spacing(4),
+            row![
+                container(component).width(Fill),
+                container(hex_input).width(80),
+                font_style_pick_list,
+                undo,
+                copy,
+                share,
+            ]
+            .align_y(Vertical::Center)
+            .spacing(4),
             color_picker,
             row![apply, save].spacing(4),
         ]
