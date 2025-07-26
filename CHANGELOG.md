@@ -17,6 +17,7 @@ Fixed:
 
 - Sidebar menu is now drawn with the correct offset
 - Prevent messages with previews from shifting position on hover
+- Recognize registration completion on older servers without capability negotiation (i.e. send `on_connect`, `umodes`, etc.)
 
 Changed:
 
