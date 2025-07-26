@@ -3,7 +3,7 @@ pub fn prepare() {
     match notify_rust::set_application(data::environment::APPLICATION_ID) {
         Ok(()) => {}
         Err(error) => {
-            log::error!("{}", error.to_string());
+            log::error!("{error}");
         }
     }
 }
