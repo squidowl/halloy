@@ -245,6 +245,7 @@ impl Message {
         chantypes: &[char],
         statusmsg: &[char],
         casemapping: isupport::CaseMap,
+        prefix: &[isupport::PrefixMap],
     ) -> Option<Message> {
         let server_time = server_time(&encoded);
         let id = message_id(&encoded);
@@ -260,6 +261,7 @@ impl Message {
             chantypes,
             statusmsg,
             casemapping,
+            prefix,
         )?;
         let target = target(
             encoded,
@@ -1170,6 +1172,7 @@ fn content<'a>(
     chantypes: &[char],
     statusmsg: &[char],
     casemapping: isupport::CaseMap,
+    prefix: &[isupport::PrefixMap],
 ) -> Option<Content> {
     use irc::proto::command::Numeric::*;
 
@@ -1454,7 +1457,10 @@ fn content<'a>(
                 &user,
             ))
         }
-        Command::Numeric(RPL_WHOISSECURE, params) => {
+        Command::Numeric(
+            RPL_WHOISCERTFP | RPL_WHOISHOST | RPL_WHOISSECURE,
+            params,
+        ) => {
             let user: User = User::from(Nick::from(params.get(1)?.as_str()));
             let status_text = params.get(2)?;
 
@@ -1474,7 +1480,8 @@ fn content<'a>(
             ))
         }
         Command::Numeric(RPL_TOPICWHOTIME, params) => {
-            let user = User::from(Nick::from(params.get(2)?.as_str()));
+            let user =
+                User::parse(params.get(2)?.as_str(), Some(prefix)).ok()?;
 
             let datetime = params
                 .get(3)?
@@ -1523,28 +1530,33 @@ fn content<'a>(
                 &user,
             ))
         }
-        Command::Numeric(RPL_MONONLINE, params) => {
-            let targets = params
+        Command::Numeric(numeric, params)
+            if matches!(numeric, RPL_MONONLINE | RPL_MONOFFLINE) =>
+        {
+            let target_users = params
                 .get(1)?
                 .split(',')
                 .map(|target| User::from(Nick::from(target)))
+                .collect::<ChannelUsers>();
+
+            let target_usernames = target_users
+                .iter()
                 .map(|user| user.formatted(UsernameFormat::Full))
                 .collect::<Vec<_>>();
 
-            let targets = monitored_targets_text(targets)?;
+            let targets = monitored_targets_text(target_usernames)?;
 
-            Some(plain(format!("Monitored {targets} online")))
-        }
-        Command::Numeric(RPL_MONOFFLINE, params) => {
-            let targets = params
-                .get(1)?
-                .split(',')
-                .map(String::from)
-                .collect::<Vec<_>>();
-
-            let targets = monitored_targets_text(targets)?;
-
-            Some(plain(format!("Monitored {targets} offline")))
+            Some(parse_fragments_with_users(
+                match numeric {
+                    RPL_MONONLINE => format!("Monitored {targets} online"),
+                    RPL_MONOFFLINE => format!("Monitored {targets} offline"),
+                    _ => {
+                        log::debug!("Unexpected numeric {:?}", numeric);
+                        format!("Monitored {targets}")
+                    }
+                },
+                Some(&target_users),
+            ))
         }
         Command::CHATHISTORY(sub, args) => {
             if sub == "TARGETS" {
@@ -1592,6 +1604,17 @@ fn content<'a>(
             Some(parse_fragments_with_user(
                 format!("WALLOPS from {}: {}", user.nickname(), text.clone()),
                 &user,
+            ))
+        }
+        Command::Numeric(RPL_WELCOME, params) => {
+            Some(parse_fragments_with_user(
+                params
+                    .iter()
+                    .map(String::as_str)
+                    .skip(1)
+                    .collect::<Vec<_>>()
+                    .join(" "),
+                &User::from(our_nick.clone()),
             ))
         }
         Command::Numeric(_, responses) | Command::Unknown(_, responses) => {
@@ -1747,7 +1770,10 @@ impl PartialOrd for MessageReferences {
 
 #[cfg(test)]
 mod tests {
-    use super::{parse_fragments, parse_fragments_with_highlights};
+    use super::{
+        parse_fragments, parse_fragments_with_highlights,
+        parse_fragments_with_users,
+    };
     use crate::User;
     use crate::config::Highlights;
     use crate::config::highlights::Nickname;
@@ -1756,7 +1782,7 @@ mod tests {
     use crate::user::{ChannelUsers, Nick};
 
     #[test]
-    fn fragment_parsing() {
+    fn fragments_parsing() {
         let tests = [
             (
                 "Checkout https://foo.bar/asdf?1=2 now!",
@@ -1898,7 +1924,41 @@ mod tests {
     }
 
     #[test]
-    fn fragment_highlight_parsing() {
+    fn fragments_with_users_parsing() {
+        let tests = [(
+            (
+                "Hey Dave!~Dave@user/Dave have you seen &`Bill`?".to_string(),
+                ["Greg", "Dave", "Bob", "George_", "`Bill`"]
+                    .into_iter()
+                    .map(|nick| User::from(Nick::from(nick)))
+                    .collect::<ChannelUsers>(),
+            ),
+            vec![
+                Fragment::Text("Hey ".into()),
+                Fragment::User(User::from(Nick::from("Dave")), "Dave".into()),
+                Fragment::Text("!~".into()),
+                Fragment::User(User::from(Nick::from("Dave")), "Dave".into()),
+                Fragment::Text("@user/Dave have you seen &".into()),
+                Fragment::User(
+                    User::from(Nick::from("`Bill`")),
+                    "`Bill`".into(),
+                ),
+                Fragment::Text("?".into()),
+            ],
+        )];
+        for ((text, channel_users), expected) in tests {
+            if let Content::Fragments(actual) =
+                parse_fragments_with_users(text, Some(&channel_users))
+            {
+                assert_eq!(expected, actual);
+            } else {
+                panic!("expected fragments with users");
+            }
+        }
+    }
+
+    #[test]
+    fn fragments_with_highlights_parsing() {
         let tests = [
             (
                 (
