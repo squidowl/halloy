@@ -1454,7 +1454,10 @@ fn content<'a>(
                 &user,
             ))
         }
-        Command::Numeric(RPL_WHOISSECURE, params) => {
+        Command::Numeric(
+            RPL_WHOISCERTFP | RPL_WHOISHOST | RPL_WHOISSECURE,
+            params,
+        ) => {
             let user: User = User::from(Nick::from(params.get(1)?.as_str()));
             let status_text = params.get(2)?;
 
@@ -1523,28 +1526,33 @@ fn content<'a>(
                 &user,
             ))
         }
-        Command::Numeric(RPL_MONONLINE, params) => {
-            let targets = params
+        Command::Numeric(numeric, params)
+            if matches!(numeric, RPL_MONONLINE | RPL_MONOFFLINE) =>
+        {
+            let target_users = params
                 .get(1)?
                 .split(',')
                 .map(|target| User::from(Nick::from(target)))
+                .collect::<ChannelUsers>();
+
+            let target_usernames = target_users
+                .iter()
                 .map(|user| user.formatted(UsernameFormat::Full))
                 .collect::<Vec<_>>();
 
-            let targets = monitored_targets_text(targets)?;
+            let targets = monitored_targets_text(target_usernames)?;
 
-            Some(plain(format!("Monitored {targets} online")))
-        }
-        Command::Numeric(RPL_MONOFFLINE, params) => {
-            let targets = params
-                .get(1)?
-                .split(',')
-                .map(String::from)
-                .collect::<Vec<_>>();
-
-            let targets = monitored_targets_text(targets)?;
-
-            Some(plain(format!("Monitored {targets} offline")))
+            Some(parse_fragments_with_users(
+                match numeric {
+                    RPL_MONONLINE => format!("Monitored {targets} online"),
+                    RPL_MONOFFLINE => format!("Monitored {targets} offline"),
+                    _ => {
+                        log::debug!("Unexpected numeric {:?}", numeric);
+                        format!("Monitored {targets}")
+                    }
+                },
+                Some(&target_users),
+            ))
         }
         Command::CHATHISTORY(sub, args) => {
             if sub == "TARGETS" {
@@ -1592,6 +1600,17 @@ fn content<'a>(
             Some(parse_fragments_with_user(
                 format!("WALLOPS from {}: {}", user.nickname(), text.clone()),
                 &user,
+            ))
+        }
+        Command::Numeric(RPL_WELCOME, params) => {
+            Some(parse_fragments_with_user(
+                params
+                    .iter()
+                    .map(String::as_str)
+                    .skip(1)
+                    .collect::<Vec<_>>()
+                    .join(" "),
+                &User::from(our_nick.clone()),
             ))
         }
         Command::Numeric(_, responses) | Command::Unknown(_, responses) => {
