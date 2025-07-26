@@ -348,7 +348,7 @@ async fn connect(
 
     let mut client = Client::new(server, config, sender);
     if let Err(e) = client.connect() {
-        log::error!("Error when connecting client: {:?}", e);
+        log::error!("Error when connecting client: {e:?}");
     }
 
     Ok((
