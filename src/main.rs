@@ -663,6 +663,7 @@ impl Halloy {
                                 let chantypes = self.clients.get_chantypes(&server);
                                 let statusmsg = self.clients.get_statusmsg(&server);
                                 let casemapping = self.clients.get_casemapping(&server);
+                                let prefix = self.clients.get_prefix(&server);
 
                                 match event {
                                     data::client::Event::Single(encoded, our_nick) => {
@@ -675,6 +676,7 @@ impl Halloy {
                                             chantypes,
                                             statusmsg,
                                             casemapping,
+                                            prefix,
                                         ) {
                                             commands.push(
                                                 dashboard
@@ -700,6 +702,7 @@ impl Halloy {
                                             chantypes,
                                             statusmsg,
                                             casemapping,
+                                            prefix,
                                         ) {
                                             if let Some((message, channel, user)) =
                                                 message.into_highlight(server.clone())
@@ -748,6 +751,7 @@ impl Halloy {
                                             chantypes,
                                             statusmsg,
                                             casemapping,
+                                            prefix,
                                         ) {
                                             commands.push(
                                                 dashboard
@@ -944,6 +948,7 @@ impl Halloy {
                                             chantypes,
                                             statusmsg,
                                             casemapping,
+                                            prefix,
                                         )
                                             && let Ok(query) = target::Query::parse(
                                                 user.as_str(),
