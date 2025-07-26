@@ -245,6 +245,7 @@ impl Message {
         chantypes: &[char],
         statusmsg: &[char],
         casemapping: isupport::CaseMap,
+        prefix: &[isupport::PrefixMap],
     ) -> Option<Message> {
         let server_time = server_time(&encoded);
         let id = message_id(&encoded);
@@ -260,6 +261,7 @@ impl Message {
             chantypes,
             statusmsg,
             casemapping,
+            prefix,
         )?;
         let target = target(
             encoded,
@@ -1170,6 +1172,7 @@ fn content<'a>(
     chantypes: &[char],
     statusmsg: &[char],
     casemapping: isupport::CaseMap,
+    prefix: &[isupport::PrefixMap],
 ) -> Option<Content> {
     use irc::proto::command::Numeric::*;
 
@@ -1477,7 +1480,8 @@ fn content<'a>(
             ))
         }
         Command::Numeric(RPL_TOPICWHOTIME, params) => {
-            let user = User::from(Nick::from(params.get(2)?.as_str()));
+            let user =
+                User::parse(params.get(2)?.as_str(), Some(prefix)).ok()?;
 
             let datetime = params
                 .get(3)?
@@ -1766,7 +1770,10 @@ impl PartialOrd for MessageReferences {
 
 #[cfg(test)]
 mod tests {
-    use super::{parse_fragments, parse_fragments_with_highlights};
+    use super::{
+        parse_fragments, parse_fragments_with_highlights,
+        parse_fragments_with_users,
+    };
     use crate::User;
     use crate::config::Highlights;
     use crate::config::highlights::Nickname;
@@ -1775,7 +1782,7 @@ mod tests {
     use crate::user::{ChannelUsers, Nick};
 
     #[test]
-    fn fragment_parsing() {
+    fn fragments_parsing() {
         let tests = [
             (
                 "Checkout https://foo.bar/asdf?1=2 now!",
@@ -1917,7 +1924,41 @@ mod tests {
     }
 
     #[test]
-    fn fragment_highlight_parsing() {
+    fn fragments_with_users_parsing() {
+        let tests = [(
+            (
+                "Hey Dave!~Dave@user/Dave have you seen &`Bill`?".to_string(),
+                ["Greg", "Dave", "Bob", "George_", "`Bill`"]
+                    .into_iter()
+                    .map(|nick| User::from(Nick::from(nick)))
+                    .collect::<ChannelUsers>(),
+            ),
+            vec![
+                Fragment::Text("Hey ".into()),
+                Fragment::User(User::from(Nick::from("Dave")), "Dave".into()),
+                Fragment::Text("!~".into()),
+                Fragment::User(User::from(Nick::from("Dave")), "Dave".into()),
+                Fragment::Text("@user/Dave have you seen &".into()),
+                Fragment::User(
+                    User::from(Nick::from("`Bill`")),
+                    "`Bill`".into(),
+                ),
+                Fragment::Text("?".into()),
+            ],
+        )];
+        for ((text, channel_users), expected) in tests {
+            if let Content::Fragments(actual) =
+                parse_fragments_with_users(text, Some(&channel_users))
+            {
+                assert_eq!(expected, actual);
+            } else {
+                panic!("expected fragments with users");
+            }
+        }
+    }
+
+    #[test]
+    fn fragments_with_highlights_parsing() {
         let tests = [
             (
                 (
