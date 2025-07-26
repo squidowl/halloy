@@ -416,8 +416,16 @@ impl State {
 
                                     return (delayed_join_task, event);
                                 }
-                                // Ignore any delay command sent from input.
                                 command::Internal::Delay(_) => {
+                                    return (Task::none(), None);
+                                }
+                                command::Internal::ClearBuffer => {
+                                    let kind = history::Kind::from_input_buffer(
+                                        buffer.clone(),
+                                    );
+
+                                    history.clear_messages(kind);
+
                                     return (Task::none(), None);
                                 }
                             }

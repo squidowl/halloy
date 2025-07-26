@@ -528,6 +528,14 @@ impl Commands {
                     subcommands: None,
                 }
             },
+            // CLEAR
+            {
+                Command {
+                    title: "CLEAR",
+                    args: vec![],
+                    subcommands: None,
+                }
+            },
             // CTCP
             {
                 Command {
@@ -858,6 +866,7 @@ impl Command {
                 "Request the name and version of <nick>'s IRC client"
             }
             "hop" => "Parts the current channel and joins a new one",
+            "clear" => "Clears the buffer",
 
             _ => return None,
         })
@@ -878,7 +887,7 @@ impl Command {
             "whois" => vec![],
             "format" => vec!["f"],
             "hop" => vec!["rejoin"],
-
+            "clear" => vec![],
             _ => vec![],
         }
     }

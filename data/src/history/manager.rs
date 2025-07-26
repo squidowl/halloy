@@ -71,6 +71,23 @@ pub struct Manager {
 }
 
 impl Manager {
+    pub fn clear_messages(&mut self, kind: history::Kind) {
+        log::debug!("cleared messages for {kind}");
+
+        if let Some(history) = self.data.map.get_mut(&kind) {
+            match history {
+                History::Full { messages, .. } => {
+                    messages.clear();
+                }
+                History::Partial { messages, .. } => {
+                    messages.clear();
+                }
+            }
+        }
+
+        self.data.blocked_messages_index.remove(&kind);
+    }
+
     pub fn track(
         &mut self,
         new_resources: HashSet<Resource>,
