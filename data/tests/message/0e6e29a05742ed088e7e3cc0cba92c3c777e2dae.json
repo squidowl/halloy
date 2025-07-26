@@ -1,0 +1,1246 @@
+[
+  {
+    "received_at": 1754204149995932099,
+    "server_time": "2023-07-20T21:19:11Z",
+    "direction": "Received",
+    "target": {
+      "Channel": {
+        "channel": {
+          "prefixes": [],
+          "normalized": "##chat",
+          "raw": "##chat"
+        },
+        "source": {
+          "User": "chat"
+        }
+      }
+    },
+    "content": {
+      "Plain": "\\_o< quack!"
+    },
+    "id": null,
+    "text": "\\_o< quack!",
+    "hidden_urls": [],
+    "is_echo": false
+  },
+  {
+    "received_at": 1754204149995986502,
+    "server_time": "2025-08-03T06:55:49.995967339Z",
+    "direction": "Received",
+    "target": {
+      "Channel": {
+        "channel": {
+          "prefixes": [],
+          "normalized": "#chan",
+          "raw": "#chan"
+        },
+        "source": {
+          "User": "dan"
+        }
+      }
+    },
+    "content": {
+      "Plain": "Hey what's up! "
+    },
+    "id": null,
+    "text": "Hey what's up! ",
+    "hidden_urls": [],
+    "is_echo": false
+  },
+  {
+    "received_at": 1754204149996028665,
+    "server_time": "2025-02-11T20:28:47.354Z",
+    "direction": "Received",
+    "target": {
+      "Channel": {
+        "channel": {
+          "prefixes": [],
+          "normalized": "#test-chan",
+          "raw": "#test-chan"
+        },
+        "source": {
+          "Action": "our_nick"
+        }
+      }
+    },
+    "content": {
+      "Fragments": [
+        {
+          "HighlightNick": [
+            "our_nick",
+            "our_nick"
+          ]
+        },
+        {
+          "Text": " wants to generate an action message for testing XD"
+        }
+      ]
+    },
+    "id": null,
+    "text": "our_nick wants to generate an action message for testing XD",
+    "hidden_urls": [],
+    "is_echo": true
+  },
+  {
+    "received_at": 1754204149996152192,
+    "server_time": "2025-08-03T06:55:49.996038058Z",
+    "direction": "Received",
+    "target": {
+      "Channel": {
+        "channel": {
+          "prefixes": [],
+          "normalized": "#halloy",
+          "raw": "#halloy"
+        },
+        "source": {
+          "User": "our_nick"
+        }
+      }
+    },
+    "content": {
+      "Fragments": [
+        {
+          "Text": "check out "
+        },
+        {
+          "Url": "https://unstable.halloy.squidowl.org/"
+        },
+        {
+          "Text": ", when you're building from source"
+        }
+      ]
+    },
+    "id": null,
+    "text": "check out https://unstable.halloy.squidowl.org/, when you're building from source",
+    "hidden_urls": [],
+    "is_echo": true
+  },
+  {
+    "received_at": 1754204149996171303,
+    "server_time": "2025-08-03T06:55:49.996162527Z",
+    "direction": "Received",
+    "target": {
+      "Channel": {
+        "channel": {
+          "prefixes": [],
+          "normalized": "#chan-chan",
+          "raw": "#chan-chan"
+        },
+        "source": {
+          "User": "dan"
+        }
+      }
+    },
+    "content": {
+      "Fragments": [
+        {
+          "Formatted": {
+            "text": "how",
+            "formatting": {
+              "bold": false,
+              "italics": false,
+              "underline": true,
+              "strikethrough": false,
+              "monospace": false,
+              "fg": null,
+              "bg": null
+            }
+          }
+        }
+      ]
+    },
+    "id": null,
+    "text": "how",
+    "hidden_urls": [],
+    "is_echo": false
+  },
+  {
+    "received_at": 1754204149996200153,
+    "server_time": "2025-08-03T06:55:49.996177426Z",
+    "direction": "Received",
+    "target": {
+      "Channel": {
+        "channel": {
+          "prefixes": [],
+          "normalized": "#twilight_zone",
+          "raw": "#Twilight_zone"
+        },
+        "source": {
+          "Server": {
+            "kind": "join",
+            "nick": "WiZ"
+          }
+        }
+      }
+    },
+    "content": {
+      "Fragments": [
+        {
+          "Text": "⟶ "
+        },
+        {
+          "User": [
+            "WiZ",
+            "WiZ"
+          ]
+        },
+        {
+          "Text": " has joined the channel"
+        }
+      ]
+    },
+    "id": null,
+    "text": "⟶ WiZ has joined the channel",
+    "hidden_urls": [],
+    "is_echo": false
+  },
+  {
+    "received_at": 1754204149996229593,
+    "server_time": "2025-08-03T06:55:49.996206395Z",
+    "direction": "Received",
+    "target": {
+      "Channel": {
+        "channel": {
+          "prefixes": [],
+          "normalized": "#test",
+          "raw": "#test"
+        },
+        "source": {
+          "Server": {
+            "kind": "part",
+            "nick": "`whammer`"
+          }
+        }
+      }
+    },
+    "content": {
+      "Fragments": [
+        {
+          "Text": "⟵ "
+        },
+        {
+          "User": [
+            "`whammer`!warhammer@40k",
+            "`whammer`"
+          ]
+        },
+        {
+          "Text": " (warhammer@40k) has left the channel"
+        }
+      ]
+    },
+    "id": null,
+    "text": "⟵ `whammer` (warhammer@40k) has left the channel",
+    "hidden_urls": [],
+    "is_echo": false
+  },
+  {
+    "received_at": 1754204149996240590,
+    "server_time": "2025-08-03T06:55:49.996239561Z",
+    "direction": "Received",
+    "target": {
+      "Server": {
+        "source": {
+          "Server": {
+            "kind": {
+              "standardreply": "Fail"
+            },
+            "nick": null
+          }
+        }
+      }
+    },
+    "content": {
+      "Plain": "* failed: Authentication required"
+    },
+    "id": null,
+    "text": "* failed: Authentication required",
+    "hidden_urls": [],
+    "is_echo": false
+  },
+  {
+    "received_at": 1754204149996263774,
+    "server_time": "2025-08-03T06:55:49.996246028Z",
+    "direction": "Received",
+    "target": {
+      "Channel": {
+        "channel": {
+          "prefixes": [],
+          "normalized": "#토끼세계",
+          "raw": "#토끼세계"
+        },
+        "source": {
+          "Server": {
+            "kind": "changemode",
+            "nick": "rabbit"
+          }
+        }
+      }
+    },
+    "content": {
+      "Plain": "rabbit sets mode +o bunny"
+    },
+    "id": null,
+    "text": "rabbit sets mode +o bunny",
+    "hidden_urls": [],
+    "is_echo": false
+  },
+  {
+    "received_at": 1754204149996278652,
+    "server_time": "2025-08-03T06:55:49.996277415Z",
+    "direction": "Received",
+    "target": {
+      "Server": {
+        "source": {
+          "Internal": {
+            "Status": "Success"
+          }
+        }
+      }
+    },
+    "content": {
+      "Plain": "connecting to server..."
+    },
+    "id": null,
+    "text": "connecting to server...",
+    "hidden_urls": [],
+    "is_echo": false
+  },
+  {
+    "received_at": 1754204149996284802,
+    "server_time": "2025-08-03T06:55:49.996284450Z",
+    "direction": "Received",
+    "target": {
+      "Server": {
+        "source": {
+          "Internal": {
+            "Status": "Success"
+          }
+        }
+      }
+    },
+    "content": {
+      "Plain": "connected"
+    },
+    "id": null,
+    "text": "connected",
+    "hidden_urls": [],
+    "is_echo": false
+  },
+  {
+    "received_at": 1754204149996287979,
+    "server_time": "2025-08-03T06:55:49.996287158Z",
+    "direction": "Received",
+    "target": {
+      "Server": {
+        "source": {
+          "Internal": {
+            "Status": "Error"
+          }
+        }
+      }
+    },
+    "content": {
+      "Plain": "connection to server failed (a TLS error occurred: io error: received fatal alert: HandshakeFailure)"
+    },
+    "id": null,
+    "text": "connection to server failed (a TLS error occurred: io error: received fatal alert: HandshakeFailure)",
+    "hidden_urls": [],
+    "is_echo": false
+  },
+  {
+    "received_at": 1754204149996293320,
+    "server_time": "2025-08-03T06:55:49.996290073Z",
+    "direction": "Received",
+    "target": {
+      "Channel": {
+        "channel": {
+          "prefixes": [],
+          "normalized": "##chat",
+          "raw": "##chat"
+        },
+        "source": {
+          "Internal": {
+            "Status": "Error"
+          }
+        }
+      }
+    },
+    "content": {
+      "Plain": "connection to server lost"
+    },
+    "id": null,
+    "text": "connection to server lost",
+    "hidden_urls": [],
+    "is_echo": false
+  },
+  {
+    "received_at": 1754204149996293562,
+    "server_time": "2025-08-03T06:55:49.996290073Z",
+    "direction": "Received",
+    "target": {
+      "Channel": {
+        "channel": {
+          "prefixes": [],
+          "normalized": "#halloy",
+          "raw": "#halloy"
+        },
+        "source": {
+          "Internal": {
+            "Status": "Error"
+          }
+        }
+      }
+    },
+    "content": {
+      "Plain": "connection to server lost"
+    },
+    "id": null,
+    "text": "connection to server lost",
+    "hidden_urls": [],
+    "is_echo": false
+  },
+  {
+    "received_at": 1754204149996293708,
+    "server_time": "2025-08-03T06:55:49.996290073Z",
+    "direction": "Received",
+    "target": {
+      "Channel": {
+        "channel": {
+          "prefixes": [],
+          "normalized": "#libera",
+          "raw": "#libera"
+        },
+        "source": {
+          "Internal": {
+            "Status": "Error"
+          }
+        }
+      }
+    },
+    "content": {
+      "Plain": "connection to server lost"
+    },
+    "id": null,
+    "text": "connection to server lost",
+    "hidden_urls": [],
+    "is_echo": false
+  },
+  {
+    "received_at": 1754204149996294002,
+    "server_time": "2025-08-03T06:55:49.996290073Z",
+    "direction": "Received",
+    "target": {
+      "Channel": {
+        "channel": {
+          "prefixes": [],
+          "normalized": "&test-chan",
+          "raw": "&test-chan"
+        },
+        "source": {
+          "Internal": {
+            "Status": "Error"
+          }
+        }
+      }
+    },
+    "content": {
+      "Plain": "connection to server lost"
+    },
+    "id": null,
+    "text": "connection to server lost",
+    "hidden_urls": [],
+    "is_echo": false
+  },
+  {
+    "received_at": 1754204149996294724,
+    "server_time": "2025-08-03T06:55:49.996290073Z",
+    "direction": "Received",
+    "target": {
+      "Query": {
+        "query": {
+          "normalized": "dan",
+          "raw": "dan"
+        },
+        "source": {
+          "Internal": {
+            "Status": "Error"
+          }
+        }
+      }
+    },
+    "content": {
+      "Plain": "connection to server lost"
+    },
+    "id": null,
+    "text": "connection to server lost",
+    "hidden_urls": [],
+    "is_echo": false
+  },
+  {
+    "received_at": 1754204149996294946,
+    "server_time": "2025-08-03T06:55:49.996290073Z",
+    "direction": "Received",
+    "target": {
+      "Query": {
+        "query": {
+          "normalized": "wiz",
+          "raw": "WiZ"
+        },
+        "source": {
+          "Internal": {
+            "Status": "Error"
+          }
+        }
+      }
+    },
+    "content": {
+      "Plain": "connection to server lost"
+    },
+    "id": null,
+    "text": "connection to server lost",
+    "hidden_urls": [],
+    "is_echo": false
+  },
+  {
+    "received_at": 1754204149996291163,
+    "server_time": "2025-08-03T06:55:49.996290073Z",
+    "direction": "Received",
+    "target": {
+      "Server": {
+        "source": {
+          "Internal": {
+            "Status": "Error"
+          }
+        }
+      }
+    },
+    "content": {
+      "Plain": "connection to server lost"
+    },
+    "id": null,
+    "text": "connection to server lost",
+    "hidden_urls": [],
+    "is_echo": false
+  },
+  {
+    "received_at": 1754204149996299018,
+    "server_time": "2025-08-03T06:55:49.996298317Z",
+    "direction": "Received",
+    "target": {
+      "Channel": {
+        "channel": {
+          "prefixes": [],
+          "normalized": "##chat",
+          "raw": "##chat"
+        },
+        "source": {
+          "Internal": {
+            "Status": "Success"
+          }
+        }
+      }
+    },
+    "content": {
+      "Plain": "connection to server restored"
+    },
+    "id": null,
+    "text": "connection to server restored",
+    "hidden_urls": [],
+    "is_echo": false
+  },
+  {
+    "received_at": 1754204149996299233,
+    "server_time": "2025-08-03T06:55:49.996298317Z",
+    "direction": "Received",
+    "target": {
+      "Channel": {
+        "channel": {
+          "prefixes": [],
+          "normalized": "#halloy",
+          "raw": "#halloy"
+        },
+        "source": {
+          "Internal": {
+            "Status": "Success"
+          }
+        }
+      }
+    },
+    "content": {
+      "Plain": "connection to server restored"
+    },
+    "id": null,
+    "text": "connection to server restored",
+    "hidden_urls": [],
+    "is_echo": false
+  },
+  {
+    "received_at": 1754204149996299494,
+    "server_time": "2025-08-03T06:55:49.996298317Z",
+    "direction": "Received",
+    "target": {
+      "Channel": {
+        "channel": {
+          "prefixes": [],
+          "normalized": "#libera",
+          "raw": "#libera"
+        },
+        "source": {
+          "Internal": {
+            "Status": "Success"
+          }
+        }
+      }
+    },
+    "content": {
+      "Plain": "connection to server restored"
+    },
+    "id": null,
+    "text": "connection to server restored",
+    "hidden_urls": [],
+    "is_echo": false
+  },
+  {
+    "received_at": 1754204149996299660,
+    "server_time": "2025-08-03T06:55:49.996298317Z",
+    "direction": "Received",
+    "target": {
+      "Channel": {
+        "channel": {
+          "prefixes": [],
+          "normalized": "&test-chan",
+          "raw": "&test-chan"
+        },
+        "source": {
+          "Internal": {
+            "Status": "Success"
+          }
+        }
+      }
+    },
+    "content": {
+      "Plain": "connection to server restored"
+    },
+    "id": null,
+    "text": "connection to server restored",
+    "hidden_urls": [],
+    "is_echo": false
+  },
+  {
+    "received_at": 1754204149996299825,
+    "server_time": "2025-08-03T06:55:49.996298317Z",
+    "direction": "Received",
+    "target": {
+      "Query": {
+        "query": {
+          "normalized": "dan",
+          "raw": "dan"
+        },
+        "source": {
+          "Internal": {
+            "Status": "Success"
+          }
+        }
+      }
+    },
+    "content": {
+      "Plain": "connection to server restored"
+    },
+    "id": null,
+    "text": "connection to server restored",
+    "hidden_urls": [],
+    "is_echo": false
+  },
+  {
+    "received_at": 1754204149996299985,
+    "server_time": "2025-08-03T06:55:49.996298317Z",
+    "direction": "Received",
+    "target": {
+      "Query": {
+        "query": {
+          "normalized": "wiz",
+          "raw": "WiZ"
+        },
+        "source": {
+          "Internal": {
+            "Status": "Success"
+          }
+        }
+      }
+    },
+    "content": {
+      "Plain": "connection to server restored"
+    },
+    "id": null,
+    "text": "connection to server restored",
+    "hidden_urls": [],
+    "is_echo": false
+  },
+  {
+    "received_at": 1754204149996298638,
+    "server_time": "2025-08-03T06:55:49.996298317Z",
+    "direction": "Received",
+    "target": {
+      "Server": {
+        "source": {
+          "Internal": {
+            "Status": "Success"
+          }
+        }
+      }
+    },
+    "content": {
+      "Plain": "connection to server restored"
+    },
+    "id": null,
+    "text": "connection to server restored",
+    "hidden_urls": [],
+    "is_echo": false
+  },
+  {
+    "received_at": 1754204149996327590,
+    "server_time": "2025-08-03T06:55:49.996302551Z",
+    "direction": "Received",
+    "target": {
+      "Channel": {
+        "channel": {
+          "prefixes": [],
+          "normalized": "##chat",
+          "raw": "##chat"
+        },
+        "source": {
+          "Server": {
+            "kind": "quit",
+            "nick": "nieve"
+          }
+        }
+      }
+    },
+    "content": {
+      "Fragments": [
+        {
+          "Text": "⟵ "
+        },
+        {
+          "User": [
+            "+nieve!snow@yeti",
+            "nieve"
+          ]
+        },
+        {
+          "Text": " (snow@yeti) has quit (see you later our_nick)"
+        }
+      ]
+    },
+    "id": null,
+    "text": "⟵ nieve (snow@yeti) has quit (see you later our_nick)",
+    "hidden_urls": [],
+    "is_echo": false
+  },
+  {
+    "received_at": 1754204149996328465,
+    "server_time": "2025-08-03T06:55:49.996302551Z",
+    "direction": "Received",
+    "target": {
+      "Channel": {
+        "channel": {
+          "prefixes": [],
+          "normalized": "#halloy",
+          "raw": "#halloy"
+        },
+        "source": {
+          "Server": {
+            "kind": "quit",
+            "nick": "nieve"
+          }
+        }
+      }
+    },
+    "content": {
+      "Fragments": [
+        {
+          "Text": "⟵ "
+        },
+        {
+          "User": [
+            "+nieve!snow@yeti",
+            "nieve"
+          ]
+        },
+        {
+          "Text": " (snow@yeti) has quit (see you later our_nick)"
+        }
+      ]
+    },
+    "id": null,
+    "text": "⟵ nieve (snow@yeti) has quit (see you later our_nick)",
+    "hidden_urls": [],
+    "is_echo": false
+  },
+  {
+    "received_at": 1754204149996347613,
+    "server_time": "2025-08-03T06:55:49.996332241Z",
+    "direction": "Received",
+    "target": {
+      "Channel": {
+        "channel": {
+          "prefixes": [],
+          "normalized": "##chat",
+          "raw": "##chat"
+        },
+        "source": {
+          "Server": {
+            "kind": "changenick",
+            "nick": "dan"
+          }
+        }
+      }
+    },
+    "content": {
+      "Fragments": [
+        {
+          "User": [
+            "dan",
+            "dan"
+          ]
+        },
+        {
+          "Text": " is now known as "
+        },
+        {
+          "User": [
+            "dandadan",
+            "dandadan"
+          ]
+        },
+        {
+          "Text": ""
+        }
+      ]
+    },
+    "id": null,
+    "text": "dan is now known as dandadan",
+    "hidden_urls": [],
+    "is_echo": false
+  },
+  {
+    "received_at": 1754204149996348456,
+    "server_time": "2025-08-03T06:55:49.996332241Z",
+    "direction": "Received",
+    "target": {
+      "Channel": {
+        "channel": {
+          "prefixes": [],
+          "normalized": "#halloy",
+          "raw": "#halloy"
+        },
+        "source": {
+          "Server": {
+            "kind": "changenick",
+            "nick": "dan"
+          }
+        }
+      }
+    },
+    "content": {
+      "Fragments": [
+        {
+          "User": [
+            "dan",
+            "dan"
+          ]
+        },
+        {
+          "Text": " is now known as "
+        },
+        {
+          "User": [
+            "dandadan",
+            "dandadan"
+          ]
+        },
+        {
+          "Text": ""
+        }
+      ]
+    },
+    "id": null,
+    "text": "dan is now known as dandadan",
+    "hidden_urls": [],
+    "is_echo": false
+  },
+  {
+    "received_at": 1754204149996349563,
+    "server_time": "2025-08-03T06:55:49.996332241Z",
+    "direction": "Received",
+    "target": {
+      "Query": {
+        "query": {
+          "normalized": "dan",
+          "raw": "dan"
+        },
+        "source": {
+          "Server": {
+            "kind": "changenick",
+            "nick": "dan"
+          }
+        }
+      }
+    },
+    "content": {
+      "Fragments": [
+        {
+          "User": [
+            "dan",
+            "dan"
+          ]
+        },
+        {
+          "Text": " is now known as "
+        },
+        {
+          "User": [
+            "dandadan",
+            "dandadan"
+          ]
+        },
+        {
+          "Text": ""
+        }
+      ]
+    },
+    "id": null,
+    "text": "dan is now known as dandadan",
+    "hidden_urls": [],
+    "is_echo": false
+  },
+  {
+    "received_at": 1754204149996365969,
+    "server_time": "2025-08-03T06:55:49.996352461Z",
+    "direction": "Received",
+    "target": {
+      "Channel": {
+        "channel": {
+          "prefixes": [],
+          "normalized": "##chat",
+          "raw": "##chat"
+        },
+        "source": {
+          "Server": {
+            "kind": "changenick",
+            "nick": "our_old_nick"
+          }
+        }
+      }
+    },
+    "content": {
+      "Fragments": [
+        {
+          "Text": "You're now known as "
+        },
+        {
+          "User": [
+            "our_new_nick",
+            "our_new_nick"
+          ]
+        },
+        {
+          "Text": ""
+        }
+      ]
+    },
+    "id": null,
+    "text": "You're now known as our_new_nick",
+    "hidden_urls": [],
+    "is_echo": false
+  },
+  {
+    "received_at": 1754204149996366848,
+    "server_time": "2025-08-03T06:55:49.996352461Z",
+    "direction": "Received",
+    "target": {
+      "Channel": {
+        "channel": {
+          "prefixes": [],
+          "normalized": "#halloy",
+          "raw": "#halloy"
+        },
+        "source": {
+          "Server": {
+            "kind": "changenick",
+            "nick": "our_old_nick"
+          }
+        }
+      }
+    },
+    "content": {
+      "Fragments": [
+        {
+          "Text": "You're now known as "
+        },
+        {
+          "User": [
+            "our_new_nick",
+            "our_new_nick"
+          ]
+        },
+        {
+          "Text": ""
+        }
+      ]
+    },
+    "id": null,
+    "text": "You're now known as our_new_nick",
+    "hidden_urls": [],
+    "is_echo": false
+  },
+  {
+    "received_at": 1754204149996368009,
+    "server_time": "2025-08-03T06:55:49.996352461Z",
+    "direction": "Received",
+    "target": {
+      "Query": {
+        "query": {
+          "normalized": "dan",
+          "raw": "dan"
+        },
+        "source": {
+          "Server": {
+            "kind": "changenick",
+            "nick": "our_old_nick"
+          }
+        }
+      }
+    },
+    "content": {
+      "Fragments": [
+        {
+          "Text": "You're now known as "
+        },
+        {
+          "User": [
+            "our_new_nick",
+            "our_new_nick"
+          ]
+        },
+        {
+          "Text": ""
+        }
+      ]
+    },
+    "id": null,
+    "text": "You're now known as our_new_nick",
+    "hidden_urls": [],
+    "is_echo": false
+  },
+  {
+    "received_at": 1754204149996368683,
+    "server_time": "2025-08-03T06:55:49.996352461Z",
+    "direction": "Received",
+    "target": {
+      "Query": {
+        "query": {
+          "normalized": "wiz",
+          "raw": "WiZ"
+        },
+        "source": {
+          "Server": {
+            "kind": "changenick",
+            "nick": "our_old_nick"
+          }
+        }
+      }
+    },
+    "content": {
+      "Fragments": [
+        {
+          "Text": "You're now known as "
+        },
+        {
+          "User": [
+            "our_new_nick",
+            "our_new_nick"
+          ]
+        },
+        {
+          "Text": ""
+        }
+      ]
+    },
+    "id": null,
+    "text": "You're now known as our_new_nick",
+    "hidden_urls": [],
+    "is_echo": false
+  },
+  {
+    "received_at": 1754204149996389629,
+    "server_time": "2025-08-03T06:55:49.996371254Z",
+    "direction": "Received",
+    "target": {
+      "Channel": {
+        "channel": {
+          "prefixes": [],
+          "normalized": "##chat",
+          "raw": "##chat"
+        },
+        "source": {
+          "Server": null
+        }
+      }
+    },
+    "content": {
+      "Fragments": [
+        {
+          "User": [
+            "`whammer`",
+            "`whammer`"
+          ]
+        },
+        {
+          "Text": " invited you to join "
+        },
+        {
+          "Channel": "#40k"
+        }
+      ]
+    },
+    "id": null,
+    "text": "`whammer` invited you to join #40k",
+    "hidden_urls": [],
+    "is_echo": false
+  },
+  {
+    "received_at": 1754204149996390638,
+    "server_time": "2025-08-03T06:55:49.996371254Z",
+    "direction": "Received",
+    "target": {
+      "Channel": {
+        "channel": {
+          "prefixes": [],
+          "normalized": "#halloy",
+          "raw": "#halloy"
+        },
+        "source": {
+          "Server": null
+        }
+      }
+    },
+    "content": {
+      "Fragments": [
+        {
+          "User": [
+            "`whammer`",
+            "`whammer`"
+          ]
+        },
+        {
+          "Text": " invited you to join "
+        },
+        {
+          "Channel": "#40k"
+        }
+      ]
+    },
+    "id": null,
+    "text": "`whammer` invited you to join #40k",
+    "hidden_urls": [],
+    "is_echo": false
+  },
+  {
+    "received_at": 1754204149996395110,
+    "server_time": "2025-08-03T06:55:49.996394467Z",
+    "direction": "Received",
+    "target": {
+      "Server": {
+        "source": {
+          "Server": {
+            "kind": "changehost",
+            "nick": "our_nick"
+          }
+        }
+      }
+    },
+    "content": {
+      "Plain": "You've changed host to new_user@new_host"
+    },
+    "id": null,
+    "text": "You've changed host to new_user@new_host",
+    "hidden_urls": [],
+    "is_echo": false
+  },
+  {
+    "received_at": 1754204149996413354,
+    "server_time": "2025-08-03T06:55:49.996397312Z",
+    "direction": "Received",
+    "target": {
+      "Channel": {
+        "channel": {
+          "prefixes": [],
+          "normalized": "##chat",
+          "raw": "##chat"
+        },
+        "source": {
+          "Server": {
+            "kind": "changehost",
+            "nick": "nieve"
+          }
+        }
+      }
+    },
+    "content": {
+      "Fragments": [
+        {
+          "User": [
+            "+nieve!snow@yeti",
+            "nieve"
+          ]
+        },
+        {
+          "Text": " (snow@yeti) changed host to lava@troll"
+        }
+      ]
+    },
+    "id": null,
+    "text": "nieve (snow@yeti) changed host to lava@troll",
+    "hidden_urls": [],
+    "is_echo": false
+  },
+  {
+    "received_at": 1754204149996414144,
+    "server_time": "2025-08-03T06:55:49.996397312Z",
+    "direction": "Received",
+    "target": {
+      "Channel": {
+        "channel": {
+          "prefixes": [],
+          "normalized": "#halloy",
+          "raw": "#halloy"
+        },
+        "source": {
+          "Server": {
+            "kind": "changehost",
+            "nick": "nieve"
+          }
+        }
+      }
+    },
+    "content": {
+      "Fragments": [
+        {
+          "User": [
+            "+nieve!snow@yeti",
+            "nieve"
+          ]
+        },
+        {
+          "Text": " (snow@yeti) changed host to lava@troll"
+        }
+      ]
+    },
+    "id": null,
+    "text": "nieve (snow@yeti) changed host to lava@troll",
+    "hidden_urls": [],
+    "is_echo": false
+  }
+]
