@@ -109,16 +109,18 @@ pub fn view<'a>(
         )
     });
 
-    let content = column![message_content(
-        content,
-        casemapping,
-        theme,
-        Message::Link,
-        theme::selectable_text::topic,
-        theme::font_style::topic,
-        config,
-    )]
-    .push_maybe(set_by);
+    let content = column![
+        message_content(
+            content,
+            casemapping,
+            theme,
+            Message::Link,
+            theme::selectable_text::topic,
+            theme::font_style::topic,
+            config,
+        ),
+        set_by
+    ];
 
     let scrollable = Scrollable::new(
         container(content).width(Length::Fill).padding(padding()),

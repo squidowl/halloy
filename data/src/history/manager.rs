@@ -5,6 +5,7 @@ use futures::future::BoxFuture;
 use futures::{Future, FutureExt, future};
 use tokio::time::Instant;
 
+use super::filter::{Filter, FilterChain};
 use crate::history::{self, History, MessageReferences, ReadMarker};
 use crate::message::{self, Hash, Limit};
 use crate::target::{self, Target};
@@ -12,8 +13,6 @@ use crate::user::{ChannelUsers, Nick};
 use crate::{
     Config, Input, Server, User, buffer, config, input, isupport, server,
 };
-
-use super::filter::{Filter, FilterChain};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Resource {
@@ -108,7 +107,7 @@ impl Manager {
             Message::LoadFull(kind, Ok(loaded)) => {
                 let len = loaded.messages.len();
                 self.data.load_full(kind.clone(), loaded);
-                log::debug!("loaded history for {kind}: {} messages", len);
+                log::debug!("loaded history for {kind}: {len} messages");
 
                 if !self.data.has_blocked_message_cache(&kind) {
                     self.rebuild_blocked_message_cache(kind.clone());

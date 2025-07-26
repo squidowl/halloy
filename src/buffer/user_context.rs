@@ -369,7 +369,7 @@ fn user_info<'a>(
     );
 
     column![
-        container(row![nickname].width(length).spacing(4).push_maybe(state))
+        container(row![nickname, state].width(length).spacing(4))
             .padding(right_justified_padding())
     ]
     .into()

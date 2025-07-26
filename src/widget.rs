@@ -2,8 +2,6 @@
 use data::appearance::theme::FontStyle;
 use iced::advanced::text;
 
-use crate::{Theme, font};
-
 pub use self::anchored_overlay::anchored_overlay;
 pub use self::color_picker::color_picker;
 pub use self::combo_box::combo_box;
@@ -20,9 +18,9 @@ pub use self::selectable_rich_text::selectable_rich_text;
 pub use self::selectable_text::selectable_text;
 pub use self::shortcut::shortcut;
 pub use self::tooltip::tooltip;
+use crate::{Theme, font};
 
 pub mod anchored_overlay;
-pub mod collection;
 pub mod color_picker;
 pub mod combo_box;
 pub mod context_menu;
