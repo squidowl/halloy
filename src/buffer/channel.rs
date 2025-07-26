@@ -153,9 +153,7 @@ pub fn view<'a>(
         }
         .spacing(4);
 
-    let body = column![]
-        .push(container(content).height(Length::Fill))
-        .push_maybe(text_input)
+    let body = column![container(content).height(Length::Fill), text_input]
         .spacing(4)
         .height(Length::Fill);
 

@@ -96,30 +96,29 @@ pub fn view<'a>(
                             ShownStatus::Historical => false,
                         };
 
-                    let text = selectable_text(
-                        config
-                            .buffer
-                            .nickname
-                            .brackets
-                            .format(user.display(with_access_levels, truncate)),
-                    )
-                    .font_maybe(
-                        theme::font_style::nickname(theme, is_user_offline)
-                            .map(font::get),
-                    )
-                    .style(move |theme| {
-                        theme::selectable_text::nickname(
-                            theme,
-                            config,
-                            match config.buffer.nickname.shown_status {
-                                ShownStatus::Current => {
-                                    current_user.unwrap_or(user)
-                                }
-                                ShownStatus::Historical => user,
-                            },
-                            is_user_offline,
+                    let text =
+                        selectable_text(
+                            config.buffer.nickname.brackets.format(
+                                user.display(with_access_levels, truncate),
+                            ),
                         )
-                    });
+                        .font_maybe(
+                            theme::font_style::nickname(theme, is_user_offline)
+                                .map(font::get),
+                        )
+                        .style(move |theme| {
+                            theme::selectable_text::nickname(
+                                theme,
+                                config,
+                                match config.buffer.nickname.shown_status {
+                                    ShownStatus::Current => {
+                                        current_user.unwrap_or(user)
+                                    }
+                                    ShownStatus::Historical => user,
+                                },
+                                is_user_offline,
+                            )
+                        });
 
                     let casemapping = clients.get_casemapping(server);
                     let prefix = clients.get_prefix(server);
@@ -178,14 +177,13 @@ pub fn view<'a>(
                     );
 
                     Some(
-                        container(
-                            row![]
-                                .push_maybe(timestamp)
-                                .push(channel_text)
-                                .push(nick)
-                                .push(selectable_text(" "))
-                                .push(text),
-                        )
+                        container(row![
+                            timestamp,
+                            channel_text,
+                            nick,
+                            selectable_text(" "),
+                            text,
+                        ])
                         .into(),
                     )
                 }
@@ -231,15 +229,7 @@ pub fn view<'a>(
                         config,
                     );
 
-                    Some(
-                        container(
-                            row![]
-                                .push_maybe(timestamp)
-                                .push(channel_text)
-                                .push(text),
-                        )
-                        .into(),
-                    )
+                    Some(container(row![timestamp, channel_text, text]).into())
                 }
                 _ => None,
             },
