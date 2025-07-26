@@ -278,8 +278,7 @@ async fn _run(
                     }
                     Input::Send(message) => {
                         log::trace!(
-                            "[{server}] Sending message => {:?}",
-                            message
+                            "[{server}] Sending message => {message:?}"
                         );
 
                         if let Command::QUIT(reason) = &message.command {

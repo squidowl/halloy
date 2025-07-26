@@ -98,15 +98,14 @@ pub fn view<'a>(
         );
     }
 
-    let overlay = column![]
-        .spacing(4)
-        .push_maybe(state.completion.view(cache.text, config, theme))
-        .push_maybe(
-            state
-                .error
-                .as_deref()
-                .map(|error_str| error(error_str, theme)),
-        );
+    let overlay = column![
+        state.completion.view(cache.text, config, theme),
+        state
+            .error
+            .as_deref()
+            .map(|error_str| error(error_str, theme)),
+    ]
+    .spacing(4);
 
     anchored_overlay(input, overlay, anchored_overlay::Anchor::AboveTop, 4.0)
 }
@@ -194,40 +193,37 @@ impl State {
                     config.buffer.text_input.auto_format,
                     &input,
                     &clients.get_isupport(buffer.server()),
-                )
-                    && match error {
-                        input::Error::ExceedsByteLimit { .. } => true,
-                        input::Error::Command(
-                            command::Error::IncorrectArgCount {
-                                actual,
-                                max,
-                                ..
-                            },
-                        ) => actual > max,
-                        input::Error::Command(command::Error::MissingSlash) => {
-                            false
-                        }
-                        input::Error::Command(
-                            command::Error::MissingCommand,
-                        ) => false,
-                        input::Error::Command(command::Error::NoModeString) => {
-                            false
-                        }
-                        input::Error::Command(
-                            command::Error::InvalidModeString,
-                        ) => true,
-                        input::Error::Command(command::Error::ArgTooLong {
-                            ..
-                        }) => true,
-                        input::Error::Command(
-                            command::Error::TooManyTargets { .. },
-                        ) => true,
-                        input::Error::Command(
-                            command::Error::NotPositiveInteger,
-                        ) => true,
-                    } {
-                        self.error = Some(error.to_string());
+                ) && match error {
+                    input::Error::ExceedsByteLimit { .. } => true,
+                    input::Error::Command(
+                        command::Error::IncorrectArgCount {
+                            actual, max, ..
+                        },
+                    ) => actual > max,
+                    input::Error::Command(command::Error::MissingSlash) => {
+                        false
                     }
+                    input::Error::Command(command::Error::MissingCommand) => {
+                        false
+                    }
+                    input::Error::Command(command::Error::NoModeString) => {
+                        false
+                    }
+                    input::Error::Command(
+                        command::Error::InvalidModeString,
+                    ) => true,
+                    input::Error::Command(command::Error::ArgTooLong {
+                        ..
+                    }) => true,
+                    input::Error::Command(command::Error::TooManyTargets {
+                        ..
+                    }) => true,
+                    input::Error::Command(
+                        command::Error::NotPositiveInteger,
+                    ) => true,
+                } {
+                    self.error = Some(error.to_string());
+                }
 
                 history.record_text(RawInput {
                     buffer: buffer.clone(),
@@ -543,11 +539,9 @@ impl State {
                         .unwrap()
                         .clone();
 
-                    let users = buffer
-                        .channel()
-                        .and_then(|channel| {
-                            clients.get_channel_users(buffer.server(), channel)
-                        });
+                    let users = buffer.channel().and_then(|channel| {
+                        clients.get_channel_users(buffer.server(), channel)
+                    });
                     let channels = clients
                         .get_channels(buffer.server())
                         .cloned()
