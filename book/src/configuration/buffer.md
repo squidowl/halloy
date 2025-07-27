@@ -505,7 +505,7 @@ Nickname colors in a channel buffer. `"unique"` generates colors by randomizing 
 color = "unique"
 ```
 
-#### `offline`
+### `offline`
 
 Controls the appearance of offline nicknames.  
 
@@ -560,6 +560,19 @@ Click action for when interaction with nicknames.
 
 [buffer.nickname]
 click = "open-query"
+```
+
+### `truncate`
+
+Truncate nicknames in buffer to a maximum length
+
+```toml
+# Type: integer
+# Values: any positive integer
+# Default: not set
+
+[buffer.nickname]
+truncate = 10
 ```
 
 ## `[buffer.server_messages]`
