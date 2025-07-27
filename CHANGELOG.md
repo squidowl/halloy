@@ -1,5 +1,7 @@
 # Unreleased
 
+# 2025.7 (2025-07-26)
+
 Added:
 
 - Ability to ignore nicknames on server level or on a per-channel basis
@@ -21,6 +23,7 @@ Fixed:
 
 Changed:
 
+- Optimized message loading by implementing lazy loading: buffers now load only enough messages to fill the visible area instead of always loading 500+ messages.
 - The `[buffer.away]` section has been split into `[buffer.channel.nicklist]` and `[buffer.nickname]` for greater flexibility
 - Colorize the level text in log buffer based on theme
 - Scrollbars now use a dedicated `scrollbar` color instead of `horizontal_rule`
