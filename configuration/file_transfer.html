@@ -35,6 +35,7 @@
             const path_to_root = "../";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "../searchindex.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="../toc.js"></script>
@@ -91,10 +92,13 @@
                 sidebar = sidebar || 'visible';
             } else {
                 sidebar = 'hidden';
+                sidebar_toggle.checked = false;
             }
-            sidebar_toggle.checked = sidebar === 'visible';
-            html.classList.remove('sidebar-visible');
-            html.classList.add("sidebar-" + sidebar);
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
         </script>
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
@@ -142,7 +146,7 @@
                         <a href="https://github.com/squidowl/halloy" title="Git repository" aria-label="Git repository">
                             <i id="git-repository-button" class="fa fa-github"></i>
                         </a>
-                        <a href="https://github.com/squidowl/halloy/edit/main/book/src/configuration/file_transfer.md" title="Suggest an edit" aria-label="Suggest an edit">
+                        <a href="https://github.com/squidowl/halloy/edit/main/book/src/configuration/file_transfer.md" title="Suggest an edit" aria-label="Suggest an edit" rel="edit">
                             <i id="git-edit-button" class="fa fa-edit"></i>
                         </a>
 
@@ -151,7 +155,12 @@
 
                 <div id="search-wrapper" class="hidden">
                     <form id="searchbar-outer" class="searchbar-outer">
-                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                        <div class="search-wrapper">
+                            <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <i class="fa fa-spinner fa-spin"></i>
+                            </div>
+                        </div>
                     </form>
                     <div id="searchresults-outer" class="searchresults-outer hidden">
                         <div id="searchresults-header" class="searchresults-header"></div>
@@ -228,7 +237,7 @@ bind_address = "&lt;some ip&gt;"
 # Default: not set
 
 [file_transfer.server]
-bind_port_first = "1024"
+bind_port_first = 1024
 </code></pre>
 <h2 id="bind_port_last"><a class="header" href="#bind_port_last"><code>bind_port_last</code></a></h2>
 <p>Last port in port range to bind to.</p>
@@ -237,7 +246,45 @@ bind_port_first = "1024"
 # Default: not set
 
 [file_transfer.server]
-bind_port_last = "5000"
+bind_port_last = 5000
+</code></pre>
+<h1 id="file_transferauto_accept"><a class="header" href="#file_transferauto_accept"><code>[file_transfer.auto_accept]</code></a></h1>
+<p>Configuration for automatically accepting incoming file transfers.</p>
+<h2 id="enabled"><a class="header" href="#enabled"><code>enabled</code></a></h2>
+<p>If true, automatically accept incoming file transfers. Requires <code>save_directory</code> to be set.</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: false
+
+[file_transfer.auto_accept]
+enabled = false
+</code></pre>
+<h2 id="nicks"><a class="header" href="#nicks"><code>nicks</code></a></h2>
+<p>If true, automatically accept incoming file transfers from these nicks.
+Note <code>auto_accept</code> has to be enabled.</p>
+<pre><code class="language-toml"># Type: array of strings
+# Values: array of any strings
+# Default: []
+
+[file_transfer.auto_accept]
+nicks = ["nick1", "nick2"]
+</code></pre>
+<h2 id="masks"><a class="header" href="#masks"><code>masks</code></a></h2>
+<p>If true, automatically accept incoming file transfers from these nicks. Matches are made against the full nickname (i.e. nickname, username, and hostname in the format <code>nickname!username@hostname</code>). Note <code>auto_accept</code> has to be enabled.</p>
+<div class="warning">
+<p>Use toml multi-line literal strings <code>'''\bfoo'd\b'''</code> when writing a regex. This allows you to write write the regex without
+escaping. You can also use a literal string <code>'\bfoo\b'</code>, but then you can't use <code>'</code> inside the string.</p>
+<p>Without literal strings, you'd have to write the above as <code>"\\bfoo'd\\b"</code></p>
+</div>
+<pre><code class="language-toml"># Type: array of strings
+# Values: array of any strings
+# Default: []
+
+[file_transfer.auto_accept]
+masks = [
+    '''nick!ident@example\.com''',
+    '''.*@foobar\.com'''
+]
 </code></pre>
 
                     </main>
@@ -286,6 +333,7 @@ bind_port_last = "5000"
         <script src="../book.js"></script>
 
         <!-- Custom JS scripts -->
+
 
 
     </div>

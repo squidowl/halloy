@@ -35,6 +35,7 @@
             const path_to_root = "../";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "../searchindex.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="../toc.js"></script>
@@ -91,10 +92,13 @@
                 sidebar = sidebar || 'visible';
             } else {
                 sidebar = 'hidden';
+                sidebar_toggle.checked = false;
             }
-            sidebar_toggle.checked = sidebar === 'visible';
-            html.classList.remove('sidebar-visible');
-            html.classList.add("sidebar-" + sidebar);
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
         </script>
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
@@ -142,7 +146,7 @@
                         <a href="https://github.com/squidowl/halloy" title="Git repository" aria-label="Git repository">
                             <i id="git-repository-button" class="fa fa-github"></i>
                         </a>
-                        <a href="https://github.com/squidowl/halloy/edit/main/book/src/configuration/notifications.md" title="Suggest an edit" aria-label="Suggest an edit">
+                        <a href="https://github.com/squidowl/halloy/edit/main/book/src/configuration/notifications.md" title="Suggest an edit" aria-label="Suggest an edit" rel="edit">
                             <i id="git-edit-button" class="fa fa-edit"></i>
                         </a>
 
@@ -151,7 +155,12 @@
 
                 <div id="search-wrapper" class="hidden">
                     <form id="searchbar-outer" class="searchbar-outer">
-                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                        <div class="search-wrapper">
+                            <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <i class="fa fa-spinner fa-spin"></i>
+                            </div>
+                        </div>
                     </form>
                     <div id="searchresults-outer" class="searchresults-outer hidden">
                         <div id="searchresults-header" class="searchresults-header"></div>
@@ -182,15 +191,15 @@ sound = "dong"
 exclude = ["NickServ", "#halloy"]
 </code></pre>
 <p>Following notifications are available:</p>
-<div class="table-wrapper"><table><thead><tr><th>Name</th><th>Description</th></tr></thead><tbody>
-<tr><td><code>connected</code></td><td>Triggered when a server is connected</td></tr>
-<tr><td><code>direct_message</code></td><td>Triggered when a direct message is received</td></tr>
-<tr><td><code>disconnected</code></td><td>Triggered when a server disconnects</td></tr>
-<tr><td><code>file_transfer_request</code></td><td>Triggered when a file transfer request is received</td></tr>
-<tr><td><code>highlight</code></td><td>Triggered when you were highlighted in a buffer</td></tr>
-<tr><td><code>monitored_online</code></td><td>Triggered when a user you're monitoring is online</td></tr>
-<tr><td><code>monitored_offline</code></td><td>Triggered when a user you're monitoring is offline</td></tr>
-<tr><td><code>reconnected</code></td><td>Triggered when a server reconnects</td></tr>
+<div class="table-wrapper"><table><thead><tr><th>Name</th><th>Description</th><th><span id="content">Content</span></th></tr></thead><tbody>
+<tr><td><code>connected</code></td><td>Triggered when a server is connected</td><td>N/A</td></tr>
+<tr><td><code>direct_message</code></td><td>Triggered when a direct message is received</td><td>Message text</td></tr>
+<tr><td><code>disconnected</code></td><td>Triggered when a server disconnects</td><td>N/A</td></tr>
+<tr><td><code>file_transfer_request</code></td><td>Triggered when a file transfer request is received</td><td>File name</td></tr>
+<tr><td><code>highlight</code></td><td>Triggered when you were highlighted in a buffer</td><td>Message text</td></tr>
+<tr><td><code>monitored_online</code></td><td>Triggered when a user you're monitoring is online</td><td>N/A</td></tr>
+<tr><td><code>monitored_offline</code></td><td>Triggered when a user you're monitoring is offline</td><td>N/A</td></tr>
+<tr><td><code>reconnected</code></td><td>Triggered when a server reconnects</td><td>N/A</td></tr>
 </tbody></table>
 </div>
 <h2 id="sound"><a class="header" href="#sound"><code>sound</code></a></h2>
@@ -211,6 +220,15 @@ sound = "dong"
 
 [notifications.&lt;notification&gt;]
 show_toast = true
+</code></pre>
+<h2 id="show_content"><a class="header" href="#show_content"><code>show_content</code></a></h2>
+<p>Notification should show the content of the trigger (as described in the <a href="#content">table above</a>).</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: false
+
+[notifications.&lt;notification&gt;]
+show_content = true
 </code></pre>
 <h2 id="delay"><a class="header" href="#delay"><code>delay</code></a></h2>
 <p>Delay in milliseconds before triggering the next notification.</p>
@@ -259,7 +277,7 @@ include = ["HalloyUser1", "#halloy"]
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="../configuration/keyboard.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="../configuration/logs.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
 
@@ -273,7 +291,7 @@ include = ["HalloyUser1", "#halloy"]
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="../configuration/keyboard.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="../configuration/logs.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
 
@@ -301,6 +319,7 @@ include = ["HalloyUser1", "#halloy"]
         <script src="../book.js"></script>
 
         <!-- Custom JS scripts -->
+
 
 
     </div>

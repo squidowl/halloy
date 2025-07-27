@@ -35,6 +35,7 @@
             const path_to_root = "../../";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "../../searchindex.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="../../toc.js"></script>
@@ -91,10 +92,13 @@
                 sidebar = sidebar || 'visible';
             } else {
                 sidebar = 'hidden';
+                sidebar_toggle.checked = false;
             }
-            sidebar_toggle.checked = sidebar === 'visible';
-            html.classList.remove('sidebar-visible');
-            html.classList.add("sidebar-" + sidebar);
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
         </script>
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
@@ -142,7 +146,7 @@
                         <a href="https://github.com/squidowl/halloy" title="Git repository" aria-label="Git repository">
                             <i id="git-repository-button" class="fa fa-github"></i>
                         </a>
-                        <a href="https://github.com/squidowl/halloy/edit/main/book/src/configuration/themes/README.md" title="Suggest an edit" aria-label="Suggest an edit">
+                        <a href="https://github.com/squidowl/halloy/edit/main/book/src/configuration/themes/README.md" title="Suggest an edit" aria-label="Suggest an edit" rel="edit">
                             <i id="git-edit-button" class="fa fa-edit"></i>
                         </a>
 
@@ -151,7 +155,12 @@
 
                 <div id="search-wrapper" class="hidden">
                     <form id="searchbar-outer" class="searchbar-outer">
-                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                        <div class="search-wrapper">
+                            <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <i class="fa fa-spinner fa-spin"></i>
+                            </div>
+                        </div>
                     </form>
                     <div id="searchresults-outer" class="searchresults-outer hidden">
                         <div id="searchresults-header" class="searchresults-header"></div>
@@ -179,7 +188,9 @@ theme = "ferra"
 # Dynamic
 theme = { light = "ferra-light", dark = "ferra" }
 </code></pre>
-<p>Note: <code>theme</code> is a root key, so it must be placed before any section.</p>
+<blockquote>
+<p>⚠️  <code>theme</code> is a root key, so it must be placed before every section.</p>
+</blockquote>
 <h2 id="theme"><a class="header" href="#theme"><code>theme</code></a></h2>
 <p>Specify the theme name(s) to use. The theme must correspond to a file located in the <code>themes</code> folder, which can be found in the Halloy configuration directory. The default theme in Halloy is <a href="https://github.com/casperstorm/ferra/">Ferra</a>.</p>
 <p>When a dynamic theme is used, Halloy will match the appearance of the OS.</p>
@@ -207,6 +218,7 @@ theme = "foobar"
 background = "&lt;string&gt;"
 border = "&lt;string&gt;"
 horizontal_rule = "&lt;string&gt;"
+scrollbar = "&lt;string&gt;"
 unread_indicator = "&lt;string&gt;"
 
 [text]
@@ -215,6 +227,10 @@ secondary = "&lt;string&gt;"
 tertiary = "&lt;string&gt;"
 success = "&lt;string&gt;"
 error = "&lt;string&gt;"
+warning = "&lt;string&gt;"
+info = "&lt;string&gt;"
+debug = "&lt;string&gt;"
+trace = "&lt;string&gt;"
 
 [buttons.primary]
 background = "&lt;string&gt;"
@@ -248,6 +264,8 @@ url = "&lt;string&gt;"
 # Otherwise simply set `default` to use that for all server messages.
 #
 # change_host = "&lt;string&gt;"
+# change_mode = "&lt;string&gt;"
+# change_nick = "&lt;string&gt;"
 # join = "&lt;string&gt;"
 # part = "&lt;string&gt;"
 # quit = "&lt;string&gt;"
@@ -310,6 +328,7 @@ default = "&lt;string&gt;"
         <script src="../../book.js"></script>
 
         <!-- Custom JS scripts -->
+
 
 
     </div>
