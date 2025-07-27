@@ -536,7 +536,7 @@ brackets = { left = "&lt;", right = "&gt;" }
 [buffer.nickname]
 color = "unique"
 </code></pre>
-<h4 id="offline"><a class="header" href="#offline"><code>offline</code></a></h4>
+<h3 id="offline"><a class="header" href="#offline"><code>offline</code></a></h3>
 <p>Controls the appearance of offline nicknames.</p>
 <pre><code class="language-toml"># Type: string or object
 # Values: "solid" or "none"
@@ -577,6 +577,15 @@ shown_status = "current"
 
 [buffer.nickname]
 click = "open-query"
+</code></pre>
+<h3 id="truncate"><a class="header" href="#truncate"><code>truncate</code></a></h3>
+<p>Truncate nicknames in buffer to a maximum length</p>
+<pre><code class="language-toml"># Type: integer
+# Values: any positive integer
+# Default: not set
+
+[buffer.nickname]
+truncate = 10
 </code></pre>
 <h2 id="bufferserver_messages"><a class="header" href="#bufferserver_messages"><code>[buffer.server_messages]</code></a></h2>
 <p>Server messages are messages sent from an IRC server.</p>
