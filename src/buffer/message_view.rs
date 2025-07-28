@@ -50,6 +50,10 @@ impl<'a> TargetInfo<'a> {
     fn is_channel(&self) -> bool {
         matches!(self, TargetInfo::Channel { .. })
     }
+
+    fn is_query(&self) -> bool {
+        matches!(self, TargetInfo::Query)
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -135,9 +139,13 @@ impl<'a> ChannelQueryLayout<'a> {
             .into_iter()
             .flatten()
             .find(|current_user| *current_user == user);
-        let is_user_offline = match self.config.buffer.nickname.shown_status {
-            ShownStatus::Current => user_in_channel.is_none(),
-            ShownStatus::Historical => false,
+        let is_user_offline = if self.target.is_query() {
+            false
+        } else {
+            match self.config.buffer.nickname.shown_status {
+                ShownStatus::Current => user_in_channel.is_none(),
+                ShownStatus::Historical => false,
+            }
         };
 
         let nickname_style = theme::selectable_text::nickname(
