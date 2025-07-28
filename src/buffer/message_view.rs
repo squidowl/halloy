@@ -50,10 +50,6 @@ impl<'a> TargetInfo<'a> {
     fn is_channel(&self) -> bool {
         matches!(self, TargetInfo::Channel { .. })
     }
-
-    fn is_query(&self) -> bool {
-        matches!(self, TargetInfo::Query)
-    }
 }
 
 #[derive(Clone, Copy)]
