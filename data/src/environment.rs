@@ -69,6 +69,12 @@ fn platform_specific_config_dir() -> PathBuf {
 
 #[cfg(target_os = "macos")]
 fn xdg_config_dir() -> Option<PathBuf> {
-    xdg::BaseDirectories::with_prefix("halloy")
-        .find_config_file(CONFIG_FILE_NAME)
+    let config_path = xdg::BaseDirectories::new().config_home?;
+    let halloy_config_dir = config_path.join("halloy");
+
+    // if the config file exists, use the xdg config dir
+    halloy_config_dir
+        .join(CONFIG_FILE_NAME)
+        .is_file()
+        .then_some(halloy_config_dir)
 }
