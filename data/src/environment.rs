@@ -53,6 +53,9 @@ fn portable_dir() -> Option<PathBuf> {
 fn platform_specific_config_dir() -> PathBuf {
     #[cfg(target_os = "macos")]
     {
+        // Priority order for config directory on macOS:
+        // 1. XDG config dir (~/.config/halloy)
+        // 2. User config directory (~/Library/Application Support/halloy)
         xdg_config_dir().unwrap_or_else(|| {
             dirs_next::config_dir()
                 .expect("expected valid config dir")
