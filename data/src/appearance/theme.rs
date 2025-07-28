@@ -178,7 +178,7 @@ pub struct Buffer {
     pub timestamp: TextStyle,
     pub topic: TextStyle,
     pub url: TextStyle,
-    pub nickname_offline: Option<TextStyle>,
+    pub nickname_offline: OptionalTextStyle,
 }
 
 impl Default for Buffer {
@@ -198,7 +198,7 @@ impl Default for Buffer {
             timestamp: TextStyle::default(),
             topic: TextStyle::default(),
             url: TextStyle::default(),
-            nickname_offline: None,
+            nickname_offline: OptionalTextStyle::default(),
         }
     }
 }
@@ -701,6 +701,7 @@ mod binary {
         TextDebug = 46,
         TextTrace = 47,
         GeneralScrollbar = 48,
+        BufferNicknameOffline = 49,
     }
 
     impl Tag {
@@ -732,6 +733,9 @@ mod binary {
                 Tag::BufferCode => styles.buffer.code.color,
                 Tag::BufferHighlight => styles.buffer.highlight,
                 Tag::BufferNickname => styles.buffer.nickname.color,
+                Tag::BufferNicknameOffline => {
+                    styles.buffer.nickname_offline.color?
+                }
                 Tag::BufferSelection => styles.buffer.selection,
                 Tag::BufferTimestamp => styles.buffer.timestamp.color,
                 Tag::BufferTopic => styles.buffer.topic.color,
@@ -844,6 +848,9 @@ mod binary {
                 Tag::BufferCode => styles.buffer.code.color = color,
                 Tag::BufferHighlight => styles.buffer.highlight = color,
                 Tag::BufferNickname => styles.buffer.nickname.color = color,
+                Tag::BufferNicknameOffline => {
+                    styles.buffer.nickname_offline.color = Some(color);
+                }
                 Tag::BufferSelection => styles.buffer.selection = color,
                 Tag::BufferTimestamp => styles.buffer.timestamp.color = color,
                 Tag::BufferTopic => styles.buffer.topic.color = color,
