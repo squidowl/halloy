@@ -22,12 +22,7 @@ pub fn action(theme: &Theme) -> Option<FontStyle> {
 
 pub fn nickname(theme: &Theme, is_user_offline: bool) -> Option<FontStyle> {
     if is_user_offline {
-        theme
-            .styles()
-            .buffer
-            .nickname_offline
-            .as_ref()
-            .and_then(|s| s.font_style)
+        theme.styles().buffer.nickname_offline.font_style
     } else {
         theme.styles().buffer.nickname.font_style
     }

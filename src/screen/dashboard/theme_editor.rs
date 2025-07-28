@@ -652,6 +652,7 @@ pub enum Buffer {
     Code,
     Highlight,
     Nickname,
+    NicknameOffline,
     Selection,
     #[strum(to_string = "server-message-{0}")]
     ServerMessages(ServerMessages),
@@ -672,6 +673,7 @@ impl Buffer {
             Buffer::Code => Some(styles.code.color),
             Buffer::Highlight => Some(styles.highlight),
             Buffer::Nickname => Some(styles.nickname.color),
+            Buffer::NicknameOffline => styles.nickname_offline.color,
             Buffer::Selection => Some(styles.selection),
             Buffer::ServerMessages(server_messages) => {
                 server_messages.color(&styles.server_messages)
@@ -693,6 +695,7 @@ impl Buffer {
             Buffer::Code => Some(styles.code.font_style),
             Buffer::Highlight => None,
             Buffer::Nickname => Some(styles.nickname.font_style),
+            Buffer::NicknameOffline => Some(styles.nickname_offline.font_style),
             Buffer::Selection => None,
             Buffer::ServerMessages(server_messages) => {
                 Some(server_messages.font_style(&styles.server_messages))
@@ -757,6 +760,10 @@ impl Buffer {
                     styles.nickname.color = color;
                 }
                 styles.nickname.font_style = font_style;
+            }
+            Buffer::NicknameOffline => {
+                styles.nickname_offline.color = color;
+                styles.nickname_offline.font_style = font_style;
             }
             Buffer::Selection => {
                 if let Some(color) = color {

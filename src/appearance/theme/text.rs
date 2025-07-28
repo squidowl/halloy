@@ -113,9 +113,11 @@ pub fn nickname<T: AsRef<str>>(
     };
 
     // If the user is offline, use the offline style if it exists
-    if is_offline && let Some(style) = theme.styles().buffer.nickname_offline {
+    if is_offline
+        && let Some(color) = theme.styles().buffer.nickname_offline.color
+    {
         return Style {
-            color: Some(calculate_alpha_color(style.color)),
+            color: Some(calculate_alpha_color(color)),
         };
     }
 
