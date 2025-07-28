@@ -29,5 +29,8 @@
 
   cp -r "$git_root_dir/assets/linux/icons" "$prefix/share/"
 
+  mkdir -p "$prefix/share/metainfo"
+  cp "$git_root_dir/assets/linux/org.squidowl.halloy.appdata.xml" "$prefix/share/metainfo/"
+
   update-desktop-database "$prefix/share/applications"
   gtk-update-icon-cache -t "$prefix/share/icons/hicolor/"

@@ -1,4 +1,4 @@
-#!/bin/bash
+#! /usr/bin/env -S bash -e
 
 TARGET="halloy"
 ASSETS_DIR="assets"
