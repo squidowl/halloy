@@ -136,7 +136,9 @@ impl<'a> ChannelQueryLayout<'a> {
             .flatten()
             .find(|current_user| *current_user == user);
         let is_user_offline = match self.config.buffer.nickname.shown_status {
-            ShownStatus::Current => user_in_channel.is_none(),
+            ShownStatus::Current => {
+                self.target.is_channel() && user_in_channel.is_none()
+            }
             ShownStatus::Historical => false,
         };
 
