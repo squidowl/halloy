@@ -1,5 +1,9 @@
 # Unreleased
 
+Fixed:
+
+- Nicknames in query was always shown as offline
+
 # 2025.7 (2025-07-26)
 
 Added:
