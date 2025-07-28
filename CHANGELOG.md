@@ -3,6 +3,7 @@
 Fixed:
 
 - Nicknames in query was always shown as offline
+- macOS now properly prioritizes XDG config directory (~/.config/halloy) over user config directory (~/Library/Application Support/halloy)
 
 # 2025.7 (2025-07-26)
 
