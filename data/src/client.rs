@@ -147,6 +147,7 @@ pub struct Client {
     supports_read_marker: bool,
     supports_chathistory: bool,
     supports_bouncer_networks: bool,
+    sasl_succeeded: bool,
     chathistory_requests: HashMap<Target, ChatHistoryRequest>,
     chathistory_exhausted: HashMap<Target, bool>,
     chathistory_targets_request: Option<ChatHistoryRequest>,
@@ -190,6 +191,7 @@ impl Client {
             supports_read_marker: false,
             supports_chathistory: false,
             supports_bouncer_networks: false,
+            sasl_succeeded: false,
             chathistory_requests: HashMap::new(),
             chathistory_exhausted: HashMap::new(),
             chathistory_targets_request: None,
@@ -871,6 +873,16 @@ impl Client {
                         &message.command
                     );
                 };
+
+                if !self.sasl_succeeded {
+                    // our connection isn't currently SASL. We have to assume that SASL won't
+                    // succeed for any other bouncer networks, which means they won't be able to
+                    // connect. Don't add them.
+                    log::warn!(
+                        "We are able to add bouncer networks, but cannot because the connection is not SASL"
+                    );
+                    return Ok(vec![]);
+                }
 
                 let network = BouncerNetwork::parse(netid, network)?;
                 return Ok(vec![Event::BouncerNetwork(
@@ -2315,6 +2327,7 @@ impl Client {
                 return Ok(events);
             }
             Command::Numeric(RPL_SASLSUCCESS, _) => {
+                self.sasl_succeeded = true;
                 self.registration_step = RegistrationStep::End;
                 self.handle.try_send(command!("CAP", "END"))?;
             }
@@ -2357,6 +2370,11 @@ impl Client {
                     );
                 }
                 self.registration_step = RegistrationStep::Complete;
+
+                if let Some(id) = self.server.bouncer_netid() && self.resolved_netid.is_none() {
+                    // we want to be a bouncer network, but we never connected to one.
+                    bail!("Requested bouncer id {id}, but was not connected.");
+                }
 
                 // Send nick password & ghost
                 if let Some(nick_pass) = self.config.nick_password.as_ref() {
