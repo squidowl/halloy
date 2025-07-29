@@ -76,8 +76,11 @@ impl Manager {
 
         if let Some(history) = self.data.map.get_mut(&kind) {
             match history {
-                History::Full { messages, .. } => {
+                History::Full {
+                    messages, cleared, ..
+                } => {
                     messages.clear();
+                    *cleared = true;
                 }
                 History::Partial { messages, .. } => {
                     messages.clear();
@@ -723,6 +726,7 @@ impl Data {
                         last_updated_at,
                         read_marker,
                         last_seen,
+                        cleared: false,
                     });
                 }
                 _ => {
@@ -734,6 +738,7 @@ impl Data {
                         last_updated_at: None,
                         read_marker: metadata.read_marker,
                         last_seen,
+                        cleared: false,
                     });
                 }
             },
@@ -746,6 +751,7 @@ impl Data {
                     last_updated_at: None,
                     read_marker: metadata.read_marker,
                     last_seen,
+                    cleared: false,
                 });
             }
         }
@@ -766,6 +772,7 @@ impl Data {
         let History::Full {
             messages,
             read_marker,
+            cleared,
             ..
         } = self.map.get(kind)?
         else {
@@ -961,6 +968,7 @@ impl Data {
             new_messages: new.to_vec(),
             max_nick_chars,
             max_prefix_chars,
+            cleared: *cleared,
         })
     }
 
