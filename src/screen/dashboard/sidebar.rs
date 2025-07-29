@@ -5,7 +5,7 @@ use data::dashboard::{BufferAction, BufferFocusedAction};
 use data::{Version, buffer, file_transfer, history};
 use iced::widget::{
     Column, Row, Scrollable, Space, button, column, container, horizontal_rule,
-    horizontal_space, pane_grid, row, scrollable, text, vertical_rule,
+    horizontal_space, pane_grid, row, scrollable, stack, text, vertical_rule,
     vertical_space,
 };
 use iced::{Alignment, Length, Task, padding};
@@ -160,27 +160,32 @@ impl Sidebar {
 
         let menu = Menu::list();
 
+        // we show notification dot if theres a new version, or if theres transfers.
+        let show_notification_dot =
+            version.is_old() || !file_transfers.is_empty();
+
         if menu.is_empty() {
             base.into()
         } else {
-            context_menu(
-                context_menu::MouseButton::Left,
-                context_menu::Anchor::Widget,
-                context_menu::ToggleBehavior::Close,
-                base,
-                menu,
-                move |menu, length| {
-                    let context_button =
-                        |title: Text<'a>,
-                         keybind: Option<&data::shortcut::KeyBind>,
-                         icon: Text<'a>,
-                         message: Message| {
-                            button(
-                                row![
-                                    icon.width(Length::Fixed(12.0)),
-                                    title,
-                                    keybind.map(|kb| {
-                                        text(format!("({kb})"))
+            stack![
+                context_menu(
+                    context_menu::MouseButton::Left,
+                    context_menu::Anchor::Widget,
+                    context_menu::ToggleBehavior::Close,
+                    base,
+                    menu,
+                    move |menu, length| {
+                        let context_button =
+                            |title: Text<'a>,
+                             keybind: Option<&data::shortcut::KeyBind>,
+                             icon: Text<'a>,
+                             message: Message| {
+                                button(
+                                    row![
+                                        icon.width(Length::Fixed(12.0)),
+                                        title,
+                                        keybind.map(|kb| {
+                                            text(format!("({kb})"))
                                             .shaping(text::Shaping::Advanced)
                                             .size(theme::TEXT_SIZE - 2.0)
                                             .style(theme::text::secondary)
@@ -190,122 +195,137 @@ impl Sidebar {
                                                 )
                                                 .map(font::get),
                                             )
-                                    }),
-                                ]
-                                .spacing(8)
-                                .align_y(iced::Alignment::Center),
-                            )
-                            .width(length)
-                            .padding(5)
-                            .on_press(message)
-                            .into()
-                        };
+                                        }),
+                                    ]
+                                    .spacing(8)
+                                    .align_y(iced::Alignment::Center),
+                                )
+                                .width(length)
+                                .padding(5)
+                                .on_press(message)
+                                .into()
+                            };
 
-                    match menu {
-                        Menu::RefreshConfig => context_button(
-                            text("Reload config file"),
-                            Some(&keyboard.reload_configuration),
-                            icon::refresh(),
-                            Message::ReloadConfigFile,
-                        ),
-                        Menu::CommandBar => context_button(
-                            text("Command Bar"),
-                            Some(&keyboard.command_bar),
-                            icon::search(),
-                            Message::ToggleCommandBar,
-                        ),
-                        Menu::FileTransfers => context_button(
-                            text("File Transfers")
-                                .style(if file_transfers.is_empty() {
-                                    theme::text::primary
-                                } else {
-                                    theme::text::tertiary
-                                })
-                                .font_maybe(if file_transfers.is_empty() {
-                                    theme::font_style::primary(theme)
-                                        .map(font::get)
-                                } else {
-                                    theme::font_style::tertiary(theme)
-                                        .map(font::get)
-                                }),
-                            Some(&keyboard.file_transfers),
-                            icon::file_transfer().style(
-                                if file_transfers.is_empty() {
-                                    theme::text::primary
-                                } else {
-                                    theme::text::tertiary
-                                },
+                        match menu {
+                            Menu::RefreshConfig => context_button(
+                                text("Reload config file"),
+                                Some(&keyboard.reload_configuration),
+                                icon::refresh(),
+                                Message::ReloadConfigFile,
                             ),
-                            Message::ToggleInternalBuffer(
-                                buffer::Internal::FileTransfers,
+                            Menu::CommandBar => context_button(
+                                text("Command Bar"),
+                                Some(&keyboard.command_bar),
+                                icon::search(),
+                                Message::ToggleCommandBar,
                             ),
-                        ),
-                        Menu::Highlights => context_button(
-                            text("Highlights"),
-                            Some(&keyboard.highlights),
-                            icon::highlights(),
-                            Message::ToggleInternalBuffer(
-                                buffer::Internal::Highlights,
-                            ),
-                        ),
-                        Menu::Logs => context_button(
-                            text("Logs"),
-                            Some(&keyboard.logs),
-                            icon::logs(),
-                            Message::ToggleInternalBuffer(
-                                buffer::Internal::Logs,
-                            ),
-                        ),
-                        Menu::ThemeEditor => context_button(
-                            text("Theme Editor"),
-                            Some(&keyboard.theme_editor),
-                            icon::theme_editor(),
-                            Message::ToggleThemeEditor,
-                        ),
-                        Menu::HorizontalRule => match length {
-                            Length::Fill => container(horizontal_rule(1))
-                                .padding([0, 6])
-                                .into(),
-                            _ => Space::new(length, 1).into(),
-                        },
-                        Menu::Version => match version.is_old() {
-                            true => context_button(
-                                text("New version available")
-                                    .style(theme::text::tertiary)
-                                    .font_maybe(
+                            Menu::FileTransfers => context_button(
+                                text("File Transfers")
+                                    .style(if file_transfers.is_empty() {
+                                        theme::text::primary
+                                    } else {
+                                        theme::text::tertiary
+                                    })
+                                    .font_maybe(if file_transfers.is_empty() {
+                                        theme::font_style::primary(theme)
+                                            .map(font::get)
+                                    } else {
                                         theme::font_style::tertiary(theme)
-                                            .map(font::get),
-                                    ),
-                                None,
-                                icon::megaphone().style(theme::text::tertiary),
-                                Message::OpenReleaseWebsite,
+                                            .map(font::get)
+                                    }),
+                                Some(&keyboard.file_transfers),
+                                icon::file_transfer().style(
+                                    if file_transfers.is_empty() {
+                                        theme::text::primary
+                                    } else {
+                                        theme::text::tertiary
+                                    },
+                                ),
+                                Message::ToggleInternalBuffer(
+                                    buffer::Internal::FileTransfers,
+                                ),
                             ),
-                            false => container(
-                                text(format!("Halloy ({})", version.current))
+                            Menu::Highlights => context_button(
+                                text("Highlights"),
+                                Some(&keyboard.highlights),
+                                icon::highlights(),
+                                Message::ToggleInternalBuffer(
+                                    buffer::Internal::Highlights,
+                                ),
+                            ),
+                            Menu::Logs => context_button(
+                                text("Logs"),
+                                Some(&keyboard.logs),
+                                icon::logs(),
+                                Message::ToggleInternalBuffer(
+                                    buffer::Internal::Logs,
+                                ),
+                            ),
+                            Menu::ThemeEditor => context_button(
+                                text("Theme Editor"),
+                                Some(&keyboard.theme_editor),
+                                icon::theme_editor(),
+                                Message::ToggleThemeEditor,
+                            ),
+                            Menu::HorizontalRule => match length {
+                                Length::Fill => container(horizontal_rule(1))
+                                    .padding([0, 6])
+                                    .into(),
+                                _ => Space::new(length, 1).into(),
+                            },
+                            Menu::Version => match version.is_old() {
+                                true => context_button(
+                                    text("New version available")
+                                        .style(theme::text::tertiary)
+                                        .font_maybe(
+                                            theme::font_style::tertiary(theme)
+                                                .map(font::get),
+                                        ),
+                                    None,
+                                    icon::megaphone()
+                                        .style(theme::text::tertiary),
+                                    Message::OpenReleaseWebsite,
+                                ),
+                                false => container(
+                                    text(format!(
+                                        "Halloy ({})",
+                                        version.current
+                                    ))
                                     .style(theme::text::secondary)
                                     .font_maybe(
                                         theme::font_style::secondary(theme)
                                             .map(font::get),
                                     ),
-                            )
-                            .padding(5)
-                            .into(),
-                        },
-                        Menu::Documentation => context_button(
-                            text("Documentation"),
-                            None,
-                            icon::documentation(),
-                            Message::OpenDocumentation,
-                        ),
-                        Menu::OpenConfigFile => context_button(
-                            text("Open config file"),
-                            None,
-                            icon::config(),
-                            Message::OpenConfigFile,
-                        ),
-                    }
+                                )
+                                .padding(5)
+                                .into(),
+                            },
+                            Menu::Documentation => context_button(
+                                text("Documentation"),
+                                None,
+                                icon::documentation(),
+                                Message::OpenDocumentation,
+                            ),
+                            Menu::OpenConfigFile => context_button(
+                                text("Open config file"),
+                                None,
+                                icon::config(),
+                                Message::OpenConfigFile,
+                            ),
+                        }
+                    },
+                ),
+                if show_notification_dot {
+                    Some(
+                        container(
+                            icon::dot().style(theme::text::tertiary).size(8),
+                        )
+                        .padding(padding::left(13).top(2)),
+                    )
+                } else {
+                    None
                 },
-            )
+            ]
             .into()
         }
     }
