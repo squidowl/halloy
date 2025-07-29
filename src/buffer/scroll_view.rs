@@ -148,14 +148,16 @@ pub fn view<'a>(
         new_messages,
         max_nick_chars,
         max_prefix_chars,
+        cleared,
         ..
     }) = history.get_messages(&kind.into(), Some(state.limit), &config.buffer)
     else {
         return column![].into();
     };
 
-    let top_row = if let (false, Some(chathistory_state)) =
-        (has_more_older_messages, chathistory_state)
+    let top_row = if !cleared
+        && let (false, Some(chathistory_state)) =
+            (has_more_older_messages, chathistory_state)
     {
         let (content, message) = match chathistory_state {
             ChatHistoryState::Exhausted => {

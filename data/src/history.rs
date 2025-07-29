@@ -267,6 +267,7 @@ pub enum History {
         last_updated_at: Option<Instant>,
         read_marker: Option<ReadMarker>,
         last_seen: HashMap<Nick, DateTime<Utc>>,
+        cleared: bool,
     },
 }
 
@@ -848,6 +849,7 @@ pub struct View<'a> {
     pub new_messages: Vec<&'a Message>,
     pub max_nick_chars: Option<usize>,
     pub max_prefix_chars: Option<usize>,
+    pub cleared: bool,
 }
 
 #[derive(Debug, thiserror::Error)]
