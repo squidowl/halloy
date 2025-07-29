@@ -3,6 +3,7 @@
 Added:
 
 - Clear buffers with `/clear` command 
+- Notification indicator on sidebar menu for application updates and file transfers
 
 Fixed:
 
