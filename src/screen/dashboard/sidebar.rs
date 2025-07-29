@@ -663,7 +663,11 @@ fn upstream_buffer_button<'a>(
 
     let row = match &buffer {
         buffer::Upstream::Server(server) => row![
-            icon::connected().style(if connected {
+            if server.is_bouncer_network() {
+                icon::link()
+            } else {
+                icon::connected()
+            }.style(if connected {
                 if show_unread_indicator {
                     theme::text::unread_indicator
                 } else {
