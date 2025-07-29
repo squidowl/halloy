@@ -17,7 +17,7 @@ mod widget;
 mod window;
 
 use std::collections::HashSet;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use std::{env, mem};
 
@@ -30,8 +30,7 @@ use data::target::{self, Target};
 use data::user::ChannelUsers;
 use data::version::Version;
 use data::{
-    Notification, Server, Url, User, client, environment, history, server,
-    version,
+    client, environment, history, server, version, Notification, Server, Url, User
 };
 use iced::widget::{column, container};
 use iced::{Length, Subscription, Task, padding};
@@ -172,7 +171,6 @@ impl Halloy {
         current_mode: appearance::Mode,
     ) -> (Halloy, Task<Message>) {
         let main_window = Window::new(main_window);
-
         let load_dashboard = |config| match data::Dashboard::load() {
             Ok(dashboard) => {
                 screen::Dashboard::restore(dashboard, config, &main_window)
@@ -184,12 +182,14 @@ impl Halloy {
             }
         };
 
-        let (screen, config, command) = match config_load {
+        let (screen, servers, config, command) = match config_load {
             Ok(config) => {
-                let (screen, command) = load_dashboard(&config);
-
+                let servers = config.servers.clone().into();
+                let (mut screen, command) = load_dashboard(&config);
+                screen.init_filters(&servers);
                 (
                     Screen::Dashboard(screen),
+                    servers,
                     config,
                     command.map(Message::Dashboard),
                 )
@@ -200,6 +200,7 @@ impl Halloy {
                 has_yaml_config: true,
             }) => (
                 Screen::Migration(screen::Migration::new()),
+                server::Map::default(),
                 Config::default(),
                 Task::none(),
             ),
@@ -208,11 +209,13 @@ impl Halloy {
                 has_yaml_config: false,
             }) => (
                 Screen::Welcome(screen::Welcome::new()),
+                server::Map::default(),
                 Config::default(),
                 Task::none(),
             ),
             Err(error) => (
                 Screen::Help(screen::Help::new(error)),
+                server::Map::default(),
                 Config::default(),
                 Task::none(),
             ),
@@ -225,7 +228,7 @@ impl Halloy {
                 current_mode,
                 theme: current_mode.theme(&config.appearance.selected).into(),
                 clients: data::client::Map::default(),
-                servers: config.servers.clone(),
+                servers,
                 config,
                 modal: None,
                 main_window,
@@ -314,7 +317,7 @@ impl Halloy {
             } => {
                 self.modal = Some(Modal::ServerConnect {
                     url,
-                    server,
+                    server: server.into(),
                     config,
                 });
             }
@@ -379,22 +382,29 @@ impl Halloy {
                             Ok(updated) => {
                                 let removed_servers = self
                                     .servers
-                                    .keys()
-                                    .filter(|server| {
-                                        !updated.servers.contains(server)
+                                    .extract_if(|server, _| {
+                                        !updated.servers.contains(&server.name)
                                     })
-                                    .cloned()
                                     .collect::<Vec<_>>();
 
-                                self.servers = updated.servers.clone();
+                                for (server, config) in updated.servers.iter() {
+                                    let server = server.clone().into();
+                                    if !self.servers.contains(&server) {
+                                        self.servers.insert(server, config.clone());
+                                    }
+                                }
+
                                 self.theme = self
                                     .current_mode
                                     .theme(&updated.appearance.selected)
                                     .into();
                                 self.config = updated;
 
-                                for server in removed_servers {
+                                for (server, _) in removed_servers {
                                     self.clients.quit(&server, None);
+                                }
+                                if let Screen::Dashboard(dashboard) = &mut self.screen {
+                                    dashboard.update_filters(&self.servers);
                                 }
                             }
                             Err(error) => {
@@ -648,6 +658,7 @@ impl Halloy {
                             let mut commands = vec![];
 
                             for event in events {
+                                use data::client::Event;
                                 // Resolve a user using client state which stores attributes
                                 let resolve_user_attributes =
                                     |user: &User, channel: &target::Channel| {
@@ -666,7 +677,7 @@ impl Halloy {
                                 let prefix = self.clients.get_prefix(&server);
 
                                 match event {
-                                    data::client::Event::Single(encoded, our_nick) => {
+                                    Event::Single(encoded, our_nick) => {
                                         if let Some(message) = data::Message::received(
                                             encoded,
                                             our_nick,
@@ -688,7 +699,7 @@ impl Halloy {
                                             );
                                         }
                                     }
-                                    data::client::Event::PrivOrNotice(
+                                    Event::PrivOrNotice(
                                         encoded,
                                         our_nick,
                                         highlight_notification_enabled,
@@ -741,7 +752,7 @@ impl Halloy {
                                             );
                                         }
                                     }
-                                    data::client::Event::WithTarget(encoded, our_nick, target) => {
+                                    Event::WithTarget(encoded, our_nick, target) => {
                                         if let Some(message) = data::Message::received(
                                             encoded,
                                             our_nick,
@@ -763,7 +774,7 @@ impl Halloy {
                                             );
                                         }
                                     }
-                                    data::client::Event::Broadcast(broadcast) => match broadcast {
+                                    Event::Broadcast(broadcast) => match broadcast {
                                         data::client::Broadcast::Quit {
                                             user,
                                             comment,
@@ -859,7 +870,7 @@ impl Halloy {
                                             );
                                         }
                                     },
-                                    data::client::Event::FileTransferRequest(request) => {
+                                    Event::FileTransferRequest(request) => {
                                         if let Some(command) = dashboard.receive_file_transfer(
                                             &server,
                                             chantypes,
@@ -871,7 +882,7 @@ impl Halloy {
                                             commands.push(command.map(Message::Dashboard));
                                         }
                                     }
-                                    data::client::Event::UpdateReadMarker(target, read_marker) => {
+                                    Event::UpdateReadMarker(target, read_marker) => {
                                         commands.push(
                                             dashboard
                                                 .update_read_marker(
@@ -884,7 +895,7 @@ impl Halloy {
                                                 .map(Message::Dashboard),
                                         );
                                     }
-                                    data::client::Event::JoinedChannel(channel, server_time) => {
+                                    Event::JoinedChannel(channel, server_time) => {
                                         let command = dashboard
                                             .load_metadata(
                                                 &self.clients,
@@ -896,7 +907,7 @@ impl Halloy {
 
                                         commands.push(command);
                                     }
-                                    data::client::Event::LoggedIn(server_time) => {
+                                    Event::LoggedIn(server_time) => {
                                         if self.clients.get_server_supports_chathistory(&server)
                                             && let Some(command) = dashboard
                                                 .load_chathistory_targets_timestamp(
@@ -909,7 +920,7 @@ impl Halloy {
                                                 commands.push(command);
                                             }
                                     }
-                                    data::client::Event::ChatHistoryTargetReceived(
+                                    Event::ChatHistoryTargetReceived(
                                         target,
                                         server_time,
                                     ) => {
@@ -924,7 +935,7 @@ impl Halloy {
 
                                         commands.push(command);
                                     }
-                                    data::client::Event::ChatHistoryTargetsReceived(
+                                    Event::ChatHistoryTargetsReceived(
                                         server_time,
                                     ) => {
                                         if let Some(command) = dashboard
@@ -938,7 +949,7 @@ impl Halloy {
                                             commands.push(command);
                                         }
                                     }
-                                    data::client::Event::DirectMessage(encoded, our_nick, user) => {
+                                    Event::DirectMessage(encoded, our_nick, user) => {
                                         if let Some(message) = data::Message::received(
                                             encoded,
                                             our_nick,
@@ -971,21 +982,21 @@ impl Halloy {
                                                 }
                                             }
                                     }
-                                    data::client::Event::MonitoredOnline(users) => {
+                                    Event::MonitoredOnline(users) => {
                                         self.notifications.notify(
                                             &self.config.notifications,
                                             &Notification::MonitoredOnline(users),
                                             &server,
                                         );
                                     }
-                                    data::client::Event::MonitoredOffline(users) => {
+                                    Event::MonitoredOffline(users) => {
                                         self.notifications.notify(
                                             &self.config.notifications,
                                             &Notification::MonitoredOffline(users),
                                             &server,
                                         );
                                     }
-                                    data::client::Event::OnConnect(
+                                    Event::OnConnect(
                                         on_connect,
                                     ) => {
                                         let server = server.clone();
@@ -1007,6 +1018,9 @@ impl Halloy {
                                                 casemapping
                                             );
                                         }
+                                    }
+                                    Event::BouncerNetwork(server, config) => {
+                                        self.servers.insert(server, config.into());
                                     }
                                 }
                             }
@@ -1136,7 +1150,7 @@ impl Halloy {
                                             .collect::<Vec<_>>(),
                                     );
                                 } else {
-                                    self.servers.insert(server, config);
+                                    self.servers.insert(server, Arc::new(config));
                                 }
                             }
                         }
@@ -1299,6 +1313,7 @@ impl Halloy {
             let screen = match &self.screen {
                 Screen::Dashboard(dashboard) => dashboard
                     .view(
+                        &self.servers,
                         &self.clients,
                         &self.version,
                         &self.config,

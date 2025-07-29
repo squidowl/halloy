@@ -13,7 +13,7 @@ use data::isupport::{self, ChatHistorySubcommand, MessageReference};
 use data::target::{self, Target};
 use data::{
     Config, Notification, Server, User, Version, client, command, config,
-    environment, file_transfer, history, preview,
+    environment, file_transfer, history, preview, server,
 };
 use iced::widget::pane_grid::{self, PaneGrid};
 use iced::widget::{Space, column, container, row};
@@ -132,6 +132,38 @@ impl Dashboard {
         let tasks = Task::batch(vec![task, dashboard.track(config)]);
 
         (dashboard, tasks)
+    }
+
+    pub fn init_filters(&mut self, servers: &server::Map) {
+        self.history.set_filters(Filter::list_from_servers(servers));
+    }
+
+    pub fn update_filters(&mut self, servers: &server::Map) {
+        self.init_filters(servers);
+
+        // get all channels that are open
+        let open_pane_data: Vec<(data::Server, target::Channel)> = self
+            .panes
+            .iter()
+            .filter_map(|(_window_id, _grid_pane, pane)| match &pane.buffer {
+                Buffer::Channel(channel) => {
+                    Some((channel.server.clone(), channel.target.clone()))
+                }
+                _ => None,
+            })
+            .collect();
+
+        // rebuild cache for channels with open panes
+        for (server, channel) in open_pane_data {
+            self.history
+                .rebuild_blocked_message_cache(history::Kind::Channel(
+                    server, channel,
+                ));
+        }
+
+        // always rebuild for highlights
+        self.history
+            .rebuild_blocked_message_cache(history::Kind::Highlights);
     }
 
     pub fn update(
@@ -1362,36 +1394,6 @@ impl Dashboard {
                 return (Task::batch(tasks), event);
             }
             Message::ConfigReloaded(config_result) => {
-                if let Ok(config) = &config_result {
-                    self.history.set_filters(Filter::list_from_config(config));
-
-                    // get all channels that are open
-                    let open_pane_data: Vec<(data::Server, target::Channel)> =
-                        self.panes
-                            .iter()
-                            .filter_map(|(_window_id, _grid_pane, pane)| {
-                                match &pane.buffer {
-                                    Buffer::Channel(channel) => Some((
-                                        channel.server.clone(),
-                                        channel.target.clone(),
-                                    )),
-                                    _ => None,
-                                }
-                            })
-                            .collect();
-
-                    // rebuild cache for channels with open panes
-                    for (server, channel) in open_pane_data {
-                        self.history.rebuild_blocked_message_cache(
-                            history::Kind::Channel(server, channel),
-                        );
-                    }
-
-                    // always rebuild for highlights
-                    self.history.rebuild_blocked_message_cache(
-                        history::Kind::Highlights,
-                    );
-                }
                 return (
                     Task::none(),
                     Some(Event::ConfigReloaded(config_result)),
@@ -1554,6 +1556,7 @@ impl Dashboard {
 
     pub fn view<'a>(
         &'a self,
+        servers: &'a server::Map,
         clients: &'a client::Map,
         version: &'a Version,
         config: &'a Config,
@@ -1604,6 +1607,7 @@ impl Dashboard {
         let side_menu = self
             .side_menu
             .view(
+                servers,
                 clients,
                 &self.history,
                 &self.panes,
@@ -2639,10 +2643,6 @@ impl Dashboard {
             previews: preview::Collection::default(),
             buffer_settings: data.buffer_settings.clone(),
         };
-
-        dashboard
-            .history
-            .set_filters(Filter::list_from_config(config));
 
         let mut tasks = vec![];
 

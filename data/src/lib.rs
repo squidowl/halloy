@@ -21,6 +21,7 @@ pub use self::window::Window;
 
 pub mod appearance;
 pub mod audio;
+pub mod bouncer;
 pub mod buffer;
 pub mod channel;
 pub mod client;

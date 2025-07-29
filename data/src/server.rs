@@ -9,30 +9,73 @@ use serde::{Deserialize, Serialize};
 use tokio::fs;
 use tokio::process::Command;
 
-use crate::config;
+use crate::bouncer::BouncerNetwork;
 use crate::config::Error;
 use crate::config::server::Sasl;
+use crate::config::sidebar::OrderBy;
+use crate::config::{self, sidebar};
 
 pub type Handle = Sender<proto::Message>;
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Server(Arc<str>);
+pub type ServerName = Arc<str>;
 
-impl From<&str> for Server {
-    fn from(value: &str) -> Self {
-        Server(Arc::from(value))
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Server {
+    pub name: ServerName,
+    pub network: Option<Arc<BouncerNetwork>>,
+}
+impl Server {
+    pub fn is_bouncer_network(&self) -> bool {
+        self.network.is_some()
+    }
+
+    pub fn bouncer_netid(&self) -> Option<&str> {
+        self.network.as_ref().map(|network| &*network.id)
+    }
+
+    pub fn parent(&self) -> Option<Server> {
+        if self.network.is_some() {
+            Some(Self {
+                network: None,
+                ..self.clone()
+            })
+        } else {
+            None
+        }
+    }
+}
+
+impl From<ServerName> for Server {
+    fn from(name: ServerName) -> Self {
+        Self {
+            name,
+            network: None,
+        }
     }
 }
 
 impl fmt::Display for Server {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.0.fmt(f)
+        if let Some(network) = &self.network {
+            network.name.fmt(f)
+        } else {
+            self.name.fmt(f)
+        }
     }
 }
 
-impl AsRef<str> for Server {
-    fn as_ref(&self) -> &str {
-        &self.0
+// here is a machine-readable (not-friendly) representation of a server, which can be hashed and
+// used for history. Due to existing constraints this must be the server name if no bouncer network
+// exists
+// bouncer network exists (due to the constraint of existing history.
+impl fmt::Binary for Server {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.name)?;
+        if let Some(network) = &self.network {
+            // we insert a NUL to make sure no conflicts exist with existing networks
+            write!(f, "\0{}", network.name)?;
+        }
+        Ok(())
     }
 }
 
@@ -41,12 +84,13 @@ impl AsRef<str> for Server {
 impl Ord for Server {
     fn cmp(&self, other: &Self) -> cmp::Ordering {
         let case_insensitive_ordering =
-            self.0.to_lowercase().cmp(&other.0.to_lowercase());
+            self.name.to_lowercase().cmp(&other.name.to_lowercase());
 
-        match case_insensitive_ordering {
-            cmp::Ordering::Equal => self.0.cmp(&other.0),
-            _ => case_insensitive_ordering,
+        if !matches!(case_insensitive_ordering, cmp::Ordering::Equal) {
+            return case_insensitive_ordering;
         }
+
+        self.network.cmp(&other.network)
     }
 }
 
@@ -72,7 +116,7 @@ impl<'a> From<(&'a Server, &'a Arc<config::Server>)> for Entry {
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
-pub struct Map(IndexMap<Server, Arc<config::Server>>);
+pub struct ConfigMap(IndexMap<ServerName, Arc<config::Server>>);
 
 async fn read_from_command(pass_command: &str) -> Result<String, Error> {
     let output = if cfg!(target_os = "windows") {
@@ -99,9 +143,12 @@ async fn read_from_command(pass_command: &str) -> Result<String, Error> {
     }
 }
 
-impl Map {
+impl ConfigMap {
+    pub fn contains(&self, server: &ServerName) -> bool {
+        self.0.contains_key(server)
+    }
     pub async fn new(
-        iter: impl IntoIterator<Item = (Server, config::Server)>,
+        iter: impl IntoIterator<Item = (ServerName, config::Server)>,
     ) -> Result<Self, Error> {
         let inner = stream::iter(iter)
             .then(|(server, mut config)| async move {
@@ -207,8 +254,81 @@ impl Map {
         Ok(Self(inner))
     }
 
-    pub fn insert(&mut self, server: Server, config: config::Server) {
-        self.0.insert(server, Arc::new(config));
+    pub fn iter(
+        &self,
+    ) -> impl Iterator<Item = (&ServerName, &Arc<config::Server>)> {
+        self.0.iter()
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct Map(IndexMap<Server, Arc<config::Server>>, sidebar::OrderBy);
+
+impl From<ConfigMap> for Map {
+    fn from(config: ConfigMap) -> Self {
+        Self::new(config, OrderBy::Config)
+    }
+}
+
+impl Map {
+    pub fn new(config: ConfigMap, order: OrderBy) -> Self {
+        let mut map = IndexMap::from_iter(
+            config
+                .0
+                .into_iter()
+                .map(|(server, config)| (Server::from(server), config)),
+        );
+        if matches!(order, OrderBy::Alpha) {
+            map.sort_by(|s1, _, s2, _| s1.cmp(s2));
+        }
+        Self(map, order)
+    }
+
+    // We want to insert the new server into a "nice" location, based on the user's requested
+    // sorting method. There are essentially 3 cases here:
+    // 1: `OrderBy::alpha`
+    //    In this case, we simply insert the server alphabetically, ordered first by bouncer/server
+    //    name, then by bounced network name, if applicable.
+    // 2: `OrderBy::config`
+    //    In this case, we try to keep the original ordering as consistent as possible.
+    //    Furthermore, we keep bounced networks close to their parent. If we get a new bounced
+    //    network, we insert it alphabetically into the slice [bouncer..next network), so it
+    //    appears in a nice and consistent location.
+    //
+    //    If we get a new network that's not bounced (e.g. from an irc:// link) then it goes at the
+    //    end.
+    pub fn insert(&mut self, server: Server, config: Arc<config::Server>) {
+        let (slice, offset) = match self.1 {
+            OrderBy::Alpha => (self.0.as_slice(), 0),
+            OrderBy::Config => {
+                // this one is a little complicated.
+                let Some(parent) = server.parent() else {
+                    // it's a new server without a parent. yeet to the end
+                    self.0.insert(server, config);
+                    return;
+                };
+                let i = self.0.get_index_of(&parent).expect("Parent of server not found in map, when inserting bounced network");
+                let mut final_index = None;
+                for i2 in i..self.0.len() {
+                    let (s, _) = self.0.get_index(i2).unwrap();
+                    if s.name != server.name {
+                        // we've found the next server which isn't a bounced network of `parent`.
+                        final_index = Some(i2);
+                        break;
+                    }
+                }
+                if let Some(i2) = final_index {
+                    (self.0.get_range(i..i2).unwrap(), i)
+                } else {
+                    // we reached the end of the server list without finding another server
+                    // We need to binary search for a location for `server` in [parent..)
+                    (self.0.get_range(i..).unwrap(), i)
+                }
+            }
+        };
+        let (Ok(i) | Err(i)) =
+            slice.binary_search_by(|probe, _| probe.cmp(&server));
+        self.0.insert_before(i + offset, server, config);
     }
 
     pub fn remove(&mut self, server: &Server) {
@@ -229,5 +349,15 @@ impl Map {
 
     pub fn entries(&self) -> impl Iterator<Item = Entry> + '_ {
         self.0.iter().map(Entry::from)
+    }
+
+    pub fn extract_if<F>(
+        &mut self,
+        pred: F,
+    ) -> impl Iterator<Item = (Server, Arc<config::Server>)>
+    where
+        F: FnMut(&Server, &mut Arc<config::Server>) -> bool,
+    {
+        self.0.extract_if(0.., pred)
     }
 }

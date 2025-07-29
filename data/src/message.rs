@@ -1145,6 +1145,7 @@ fn target(
         | Command::HELP(_)
         | Command::Numeric(_, _)
         | Command::Unknown(_, _)
+        | Command::BOUNCER(_, _)
         | Command::Raw(_) => Some(Target::Server {
             source: Source::Server(None),
         }),
