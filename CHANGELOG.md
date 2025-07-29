@@ -1,5 +1,9 @@
 # Unreleased
 
+Added:
+
+- `soju.im/bouncer-networks` support
+
 Fixed:
 
 - Nicknames in query was always shown as offline
