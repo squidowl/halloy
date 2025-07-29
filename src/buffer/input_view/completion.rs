@@ -611,20 +611,29 @@ impl Commands {
         match self {
             // Command not fully typed, show filtered entries
             _ if !has_space => {
-                let filtered = command_list
-                    .into_iter()
-                    .filter(|command| {
-                        command
-                            .title
-                            .to_lowercase()
-                            .starts_with(&cmd.to_lowercase())
-                    })
-                    .collect();
+                if let Some(command) = command_list.iter().find(|command| {
+                    command.title.to_lowercase() == cmd.to_lowercase()
+                }) {
+                    *self = Self::Selected {
+                        command: command.clone(),
+                        subcommand: None,
+                    };
+                } else {
+                    let filtered = command_list
+                        .into_iter()
+                        .filter(|command| {
+                            command
+                                .title
+                                .to_lowercase()
+                                .starts_with(&cmd.to_lowercase())
+                        })
+                        .collect();
 
-                *self = Self::Selecting {
-                    highlighted: Some(0),
-                    filtered,
-                };
+                    *self = Self::Selecting {
+                        highlighted: Some(0),
+                        filtered,
+                    };
+                }
             }
             // Command fully typed, transition to showing known entry
             Self::Idle | Self::Selecting { .. } => {
