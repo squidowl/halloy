@@ -56,21 +56,22 @@ pub fn on_connect(
                                 message::Encoded::try_from(command)
                                 && let Err(e) =
                                     handle.send(message.into()).await
-                                {
-                                    log::warn!("Error sending message: {e}");
-                                }
+                            {
+                                log::warn!("Error sending message: {e}");
+                            }
                             None
                         }
                         Command::Internal(cmd) => match cmd {
                             command::Internal::OpenBuffers(targets) => {
                                 Some(Event::OpenBuffers(targets))
                             }
-                            // We don't handle hop when called from connected.
-                            command::Internal::Hop(_, _) => None,
                             command::Internal::Delay(seconds) => {
                                 time::sleep(Duration::from_secs(seconds)).await;
                                 None
                             }
+                            // We don't handle hop, clear-buffer when called from connected.
+                            command::Internal::ClearBuffer
+                            | command::Internal::Hop(_, _) => None,
                         },
                     }
                 }

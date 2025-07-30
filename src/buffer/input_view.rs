@@ -25,6 +25,9 @@ pub enum Event {
     OpenBuffers {
         targets: Vec<(Target, BufferAction)>,
     },
+    Cleared {
+        history_task: Task<history::manager::Message>,
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -416,9 +419,23 @@ impl State {
 
                                     return (delayed_join_task, event);
                                 }
-                                // Ignore any delay command sent from input.
                                 command::Internal::Delay(_) => {
                                     return (Task::none(), None);
+                                }
+                                command::Internal::ClearBuffer => {
+                                    let kind = history::Kind::from_input_buffer(
+                                        buffer.clone(),
+                                    );
+
+                                    let event = history
+                                        .clear_messages(kind)
+                                        .map(|history_task| Event::Cleared {
+                                            history_task: Task::future(
+                                                history_task,
+                                            ),
+                                        });
+
+                                    return (Task::none(), event);
                                 }
                             }
                         }

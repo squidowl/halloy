@@ -1,5 +1,9 @@
 # Unreleased
 
+Added:
+
+- Clear buffers with `/clear` command 
+
 Fixed:
 
 - Nicknames in query was always shown as offline
