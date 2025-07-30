@@ -71,6 +71,38 @@ pub struct Manager {
 }
 
 impl Manager {
+    pub fn clear_messages(
+        &mut self,
+        kind: history::Kind,
+    ) -> Option<BoxFuture<'static, Message>> {
+        if let Some(history) = self.data.map.get_mut(&kind) {
+            let task = history.flush(None);
+
+            match history {
+                History::Full {
+                    messages, cleared, ..
+                } => {
+                    messages.clear();
+                    *cleared = true;
+                }
+                History::Partial { messages, .. } => {
+                    messages.clear();
+                }
+            }
+
+            self.data.blocked_messages_index.remove(&kind);
+
+            log::debug!("cleared messages for {kind}");
+
+            return task.map(move |task| {
+                task.map(move |result| Message::Flushed(kind, result))
+                    .boxed()
+            });
+        }
+
+        None
+    }
+
     pub fn track(
         &mut self,
         new_resources: HashSet<Resource>,
@@ -706,6 +738,7 @@ impl Data {
                         last_updated_at,
                         read_marker,
                         last_seen,
+                        cleared: false,
                     });
                 }
                 _ => {
@@ -717,6 +750,7 @@ impl Data {
                         last_updated_at: None,
                         read_marker: metadata.read_marker,
                         last_seen,
+                        cleared: false,
                     });
                 }
             },
@@ -729,6 +763,7 @@ impl Data {
                     last_updated_at: None,
                     read_marker: metadata.read_marker,
                     last_seen,
+                    cleared: false,
                 });
             }
         }
@@ -749,6 +784,7 @@ impl Data {
         let History::Full {
             messages,
             read_marker,
+            cleared,
             ..
         } = self.map.get(kind)?
         else {
@@ -944,6 +980,7 @@ impl Data {
             new_messages: new.to_vec(),
             max_nick_chars,
             max_prefix_chars,
+            cleared: *cleared,
         })
     }
 
@@ -1111,7 +1148,7 @@ impl Data {
             .filter_map(|(kind, state)| {
                 let kind = kind.clone();
 
-                state.flush(now).map(move |task| {
+                state.flush(Some(now)).map(move |task| {
                     task.map(move |result| Message::Flushed(kind, result))
                         .boxed()
                 })

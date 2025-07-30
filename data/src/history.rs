@@ -267,6 +267,7 @@ pub enum History {
         last_updated_at: Option<Instant>,
         read_marker: Option<ReadMarker>,
         last_seen: HashMap<Nick, DateTime<Utc>>,
+        cleared: bool,
     },
 }
 
@@ -359,9 +360,11 @@ impl History {
         }
     }
 
+    // If now is None then history will be flushed regardless of time
+    // since last received
     fn flush(
         &mut self,
-        now: Instant,
+        now: Option<Instant>,
     ) -> Option<BoxFuture<'static, Result<(), Error>>> {
         match self {
             History::Partial {
@@ -372,9 +375,10 @@ impl History {
                 ..
             } => {
                 if let Some(last_received) = *last_updated_at {
-                    let since = now.duration_since(last_received);
-
-                    if since >= FLUSH_AFTER_LAST_RECEIVED {
+                    if now.is_none_or(|now| {
+                        now.duration_since(last_received)
+                            >= FLUSH_AFTER_LAST_RECEIVED
+                    }) {
                         let kind = kind.clone();
                         let messages = std::mem::take(messages);
                         let read_marker = *read_marker;
@@ -400,10 +404,10 @@ impl History {
                 ..
             } => {
                 if let Some(last_received) = *last_updated_at {
-                    let since = now.duration_since(last_received);
-
-                    if since >= FLUSH_AFTER_LAST_RECEIVED
-                        && !messages.is_empty()
+                    if now.is_none_or(|now| {
+                        now.duration_since(last_received)
+                            >= FLUSH_AFTER_LAST_RECEIVED
+                    }) && !messages.is_empty()
                     {
                         let kind = kind.clone();
                         let read_marker = *read_marker;
@@ -848,6 +852,7 @@ pub struct View<'a> {
     pub new_messages: Vec<&'a Message>,
     pub max_nick_chars: Option<usize>,
     pub max_prefix_chars: Option<usize>,
+    pub cleared: bool,
 }
 
 #[derive(Debug, thiserror::Error)]

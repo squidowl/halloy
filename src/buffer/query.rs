@@ -206,6 +206,9 @@ impl Query {
                     Some(input_view::Event::OpenBuffers { targets }) => {
                         (command, Some(Event::OpenBuffers(targets)))
                     }
+                    Some(input_view::Event::Cleared { history_task }) => {
+                        (command, Some(Event::History(history_task)))
+                    }
                     None => (command, None),
                 }
             }
