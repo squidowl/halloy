@@ -1,21 +1,21 @@
+use std::collections::HashMap;
+
 use serde::Deserialize;
 
-use crate::audio::{self, Sound};
-
-pub type Loaded = Notification<Sound>;
+use crate::audio::Sound;
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
-pub struct Notification<T = String> {
+pub struct Notification {
     pub show_toast: bool,
     pub show_content: bool,
-    pub sound: Option<T>,
+    pub sound: Option<String>,
     pub delay: Option<u64>,
     pub exclude: Vec<String>,
     pub include: Vec<String>,
 }
 
-impl<T> Default for Notification<T> {
+impl Default for Notification {
     fn default() -> Self {
         Self {
             show_toast: false,
@@ -28,7 +28,7 @@ impl<T> Default for Notification<T> {
     }
 }
 
-impl<T> Notification<T> {
+impl Notification {
     pub fn should_notify(&self, targets: Vec<String>) -> bool {
         let is_target_filtered =
             |list: &Vec<String>, targets: &Vec<String>| -> bool {
@@ -47,56 +47,63 @@ impl<T> Notification<T> {
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
-pub struct Notifications<T = String> {
-    pub connected: Notification<T>,
-    pub disconnected: Notification<T>,
-    pub reconnected: Notification<T>,
-    pub direct_message: Notification<T>,
-    pub highlight: Notification<T>,
-    pub file_transfer_request: Notification<T>,
-    pub monitored_online: Notification<T>,
-    pub monitored_offline: Notification<T>,
-}
-
-impl<T> Default for Notifications<T> {
-    fn default() -> Self {
-        Self {
-            connected: Notification::default(),
-            disconnected: Notification::default(),
-            reconnected: Notification::default(),
-            direct_message: Notification::default(),
-            highlight: Notification::default(),
-            file_transfer_request: Notification::default(),
-            monitored_online: Notification::default(),
-            monitored_offline: Notification::default(),
-        }
-    }
+#[derive(Default)]
+pub struct Notifications {
+    pub connected: Notification,
+    pub disconnected: Notification,
+    pub reconnected: Notification,
+    pub direct_message: Notification,
+    pub highlight: Notification,
+    pub file_transfer_request: Notification,
+    pub monitored_online: Notification,
+    pub monitored_offline: Notification,
 }
 
 impl Notifications {
-    pub fn load_sounds(
-        &self,
-    ) -> Result<Notifications<Sound>, audio::LoadError> {
-        let load = |notification: &Notification<String>| -> Result<_, audio::LoadError> {
-            Ok(Notification {
-                show_toast: notification.show_toast,
-                show_content: notification.show_content,
-                sound: notification.sound.as_deref().map(Sound::load).transpose()?,
-                delay: notification.delay,
-                exclude: notification.exclude.to_owned(),
-                include: notification.include.to_owned(),
-            })
-        };
+    pub fn load_sounds(&self) -> HashMap<String, Sound> {
+        let mut sounds = HashMap::new();
 
-        Ok(Notifications {
-            connected: load(&self.connected)?,
-            disconnected: load(&self.disconnected)?,
-            reconnected: load(&self.reconnected)?,
-            direct_message: load(&self.direct_message)?,
-            highlight: load(&self.highlight)?,
-            file_transfer_request: load(&self.file_transfer_request)?,
-            monitored_online: load(&self.monitored_online)?,
-            monitored_offline: load(&self.monitored_offline)?,
-        })
+        // Helper function to load a sound and add it to the map
+        let load_and_insert =
+            |name: &str, sounds: &mut HashMap<String, Sound>| {
+                if !sounds.contains_key(name) {
+                    match Sound::load(name) {
+                        Ok(sound) => {
+                            sounds.insert(name.to_string(), sound);
+                        }
+                        Err(e) => {
+                            log::warn!("Failed to load sound '{name}': {e}");
+                        }
+                    }
+                }
+            };
+
+        // Load sounds from each notification
+        if let Some(sound_name) = self.connected.sound.as_deref() {
+            load_and_insert(sound_name, &mut sounds);
+        }
+        if let Some(sound_name) = self.disconnected.sound.as_deref() {
+            load_and_insert(sound_name, &mut sounds);
+        }
+        if let Some(sound_name) = self.reconnected.sound.as_deref() {
+            load_and_insert(sound_name, &mut sounds);
+        }
+        if let Some(sound_name) = self.direct_message.sound.as_deref() {
+            load_and_insert(sound_name, &mut sounds);
+        }
+        if let Some(sound_name) = self.highlight.sound.as_deref() {
+            load_and_insert(sound_name, &mut sounds);
+        }
+        if let Some(sound_name) = self.file_transfer_request.sound.as_deref() {
+            load_and_insert(sound_name, &mut sounds);
+        }
+        if let Some(sound_name) = self.monitored_online.sound.as_deref() {
+            load_and_insert(sound_name, &mut sounds);
+        }
+        if let Some(sound_name) = self.monitored_offline.sound.as_deref() {
+            load_and_insert(sound_name, &mut sounds);
+        }
+
+        sounds
     }
 }
