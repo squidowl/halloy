@@ -218,6 +218,8 @@ impl Halloy {
             ),
         };
 
+        let notifications = Notifications::new(&config);
+
         (
             Halloy {
                 version: Version::new(),
@@ -230,7 +232,7 @@ impl Halloy {
                 modal: None,
                 main_window,
                 pending_logs: vec![],
-                notifications: Notifications::new(),
+                notifications,
             },
             command,
         )

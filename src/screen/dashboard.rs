@@ -107,7 +107,7 @@ impl Dashboard {
             command_bar: None,
             file_transfers: file_transfer::Manager::default(),
             theme_editor: None,
-            notifications: notification::Notifications::new(),
+            notifications: notification::Notifications::new(config),
             previews: preview::Collection::default(),
             buffer_settings: dashboard::BufferSettings::default(),
         };
@@ -2686,7 +2686,7 @@ impl Dashboard {
             command_bar: None,
             file_transfers: file_transfer::Manager::default(),
             theme_editor: None,
-            notifications: notification::Notifications::new(),
+            notifications: notification::Notifications::new(config),
             previews: preview::Collection::default(),
             buffer_settings: data.buffer_settings.clone(),
         };
