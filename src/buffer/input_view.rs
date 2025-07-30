@@ -25,6 +25,9 @@ pub enum Event {
     OpenBuffers {
         targets: Vec<(Target, BufferAction)>,
     },
+    Cleared {
+        history_task: Task<history::manager::Message>,
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -424,9 +427,15 @@ impl State {
                                         buffer.clone(),
                                     );
 
-                                    history.clear_messages(kind);
+                                    let event = history
+                                        .clear_messages(kind)
+                                        .map(|history_task| Event::Cleared {
+                                            history_task: Task::future(
+                                                history_task,
+                                            ),
+                                        });
 
-                                    return (Task::none(), None);
+                                    return (Task::none(), event);
                                 }
                             }
                         }

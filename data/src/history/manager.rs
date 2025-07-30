@@ -71,10 +71,13 @@ pub struct Manager {
 }
 
 impl Manager {
-    pub fn clear_messages(&mut self, kind: history::Kind) {
-        log::debug!("cleared messages for {kind}");
-
+    pub fn clear_messages(
+        &mut self,
+        kind: history::Kind,
+    ) -> Option<BoxFuture<'static, Message>> {
         if let Some(history) = self.data.map.get_mut(&kind) {
+            let task = history.flush(None);
+
             match history {
                 History::Full {
                     messages, cleared, ..
@@ -86,9 +89,18 @@ impl Manager {
                     messages.clear();
                 }
             }
+
+            self.data.blocked_messages_index.remove(&kind);
+
+            log::debug!("cleared messages for {kind}");
+
+            return task.map(move |task| {
+                task.map(move |result| Message::Flushed(kind, result))
+                    .boxed()
+            });
         }
 
-        self.data.blocked_messages_index.remove(&kind);
+        None
     }
 
     pub fn track(
@@ -1136,7 +1148,7 @@ impl Data {
             .filter_map(|(kind, state)| {
                 let kind = kind.clone();
 
-                state.flush(now).map(move |task| {
+                state.flush(Some(now)).map(move |task| {
                     task.map(move |result| Message::Flushed(kind, result))
                         .boxed()
                 })
