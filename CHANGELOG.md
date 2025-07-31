@@ -1,5 +1,7 @@
 # Unreleased
 
+# 2025.8 (2025-08-31)
+
 Added:
 
 - Clear buffers with `/clear` command 
