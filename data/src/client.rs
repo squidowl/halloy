@@ -3324,6 +3324,21 @@ impl Map {
             .unwrap_or_default()
     }
 
+    pub fn get_casemappings(&self) -> HashMap<Server, isupport::CaseMap> {
+        self.iter()
+            .map(|(server, state)| {
+                (
+                    server.clone(),
+                    if let State::Ready(client) = state {
+                        client.casemapping()
+                    } else {
+                        isupport::CaseMap::default()
+                    },
+                )
+            })
+            .collect()
+    }
+
     pub fn get_chanmodes<'a>(
         &'a self,
         server: &Server,
