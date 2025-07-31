@@ -322,13 +322,9 @@ impl History {
         }
     }
 
-    fn add_message(
-        &mut self,
-        message: Message,
-        blocked: bool,
-    ) -> Option<ReadMarker> {
+    fn add_message(&mut self, message: Message) -> Option<ReadMarker> {
         if message.triggers_unread()
-            && !blocked
+            && !message.blocked
             && let History::Partial {
                 max_triggers_unread,
                 ..
