@@ -18,6 +18,7 @@ pub use self::source::Source;
 pub use self::source::server::{Kind, StandardReply};
 use crate::config::Highlights;
 use crate::config::buffer::UsernameFormat;
+use crate::log::Level;
 use crate::serde::fail_as_none;
 use crate::target::Channel;
 use crate::time::Posix;
@@ -204,7 +205,12 @@ impl Message {
                             | Kind::WAllOps
                     )
                 }
-                Source::Internal(source::Internal::Logs { .. }) => true,
+                Source::Internal(source::Internal::Logs(level)) => {
+                    match level {
+                        Level::Warn | Level::Error => true,
+                        Level::Info | Level::Debug | Level::Trace => false,
+                    }
+                }
                 _ => false,
             }
     }
