@@ -19,7 +19,6 @@ use iced::widget::pane_grid::{self, PaneGrid};
 use iced::widget::{Space, column, container, row};
 use iced::window::get_position;
 use iced::{Length, Task, Vector, clipboard};
-use log::{debug, error};
 
 use self::command_bar::CommandBar;
 use self::pane::Pane;
@@ -1478,7 +1477,7 @@ impl Dashboard {
                 }
             },
             Message::LoadPreview((url, Ok(preview))) => {
-                debug!("Preview loaded for {url}");
+                log::debug!("Preview loaded for {url}");
                 if let hash_map::Entry::Occupied(mut entry) =
                     self.previews.entry(url)
                 {
@@ -1486,7 +1485,7 @@ impl Dashboard {
                 }
             }
             Message::LoadPreview((url, Err(error))) => {
-                error!("Failed to load preview for {url}: {error}");
+                log::info!("Failed to load preview for {url}: {error}");
                 if self.previews.contains_key(&url) {
                     self.previews.insert(url, preview::State::Error(error));
                 }

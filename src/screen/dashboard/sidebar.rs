@@ -152,6 +152,7 @@ impl Sidebar {
     fn user_menu_button<'a>(
         &self,
         keyboard: &'a data::config::Keyboard,
+        history: &'a history::Manager,
         file_transfers: &'a file_transfer::Manager,
         version: &'a Version,
         theme: &'a Theme,
@@ -160,9 +161,11 @@ impl Sidebar {
 
         let menu = Menu::list();
 
+        let logs_has_unread = history.has_unread(&history::Kind::Logs);
+
         // we show notification dot if theres a new version, or if theres transfers.
         let show_notification_dot =
-            version.is_old() || !file_transfers.is_empty();
+            version.is_old() || !file_transfers.is_empty() || logs_has_unread;
 
         if menu.is_empty() {
             base.into()
@@ -254,9 +257,25 @@ impl Sidebar {
                                 ),
                             ),
                             Menu::Logs => context_button(
-                                text("Logs"),
+                                text("Logs")
+                                    .style(if logs_has_unread {
+                                        theme::text::tertiary
+                                    } else {
+                                        theme::text::primary
+                                    })
+                                    .font_maybe(if logs_has_unread {
+                                        theme::font_style::tertiary(theme)
+                                            .map(font::get)
+                                    } else {
+                                        theme::font_style::primary(theme)
+                                            .map(font::get)
+                                    }),
                                 Some(&keyboard.logs),
-                                icon::logs(),
+                                icon::logs().style(if logs_has_unread {
+                                    theme::text::tertiary
+                                } else {
+                                    theme::text::primary
+                                }),
                                 Message::ToggleInternalBuffer(
                                     buffer::Internal::Logs,
                                 ),
@@ -349,6 +368,7 @@ impl Sidebar {
             let user_menu_button = config.sidebar.show_user_menu.then(|| {
                 self.user_menu_button(
                     &config.keyboard,
+                    history,
                     file_transfers,
                     version,
                     theme,
