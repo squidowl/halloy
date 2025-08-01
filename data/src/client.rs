@@ -2084,13 +2084,24 @@ impl Client {
                             };
                         }
                         Err(error) => {
+                            // Last argument is :are supported by this server
                             if index != args_len - 1 {
-                                log::warn!(
-                                    "[{}] unable to parse ISUPPORT parameter: {} ({})",
-                                    self.server,
-                                    arg,
-                                    error
-                                );
+                                if error == isupport::UNKNOWN_ISUPPORT_PARAMETER
+                                {
+                                    log::info!(
+                                        "[{}] unable to parse ISUPPORT parameter: {} ({})",
+                                        self.server,
+                                        arg,
+                                        error
+                                    );
+                                } else {
+                                    log::warn!(
+                                        "[{}] unable to parse ISUPPORT parameter: {} ({})",
+                                        self.server,
+                                        arg,
+                                        error
+                                    );
+                                }
                             }
                         }
                     }
