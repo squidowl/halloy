@@ -12,7 +12,8 @@ use crate::message::{self, Limit};
 use crate::target::{self, Target};
 use crate::user::{ChannelUsers, Nick};
 use crate::{
-    Config, Input, Server, User, buffer, config, input, isupport, server,
+    Config, Input, Server, User, buffer, client, config, input, isupport,
+    server,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -36,11 +37,7 @@ impl Resource {
 
 #[derive(Debug)]
 pub enum Message {
-    LoadFull(
-        history::Kind,
-        HashMap<Server, isupport::CaseMap>,
-        Result<history::Loaded, history::Error>,
-    ),
+    LoadFull(history::Kind, Result<history::Loaded, history::Error>),
     UpdatePartial(history::Kind, Result<history::Metadata, history::Error>),
     UpdateReadMarker(
         history::Kind,
@@ -100,23 +97,14 @@ impl Manager {
     pub fn track(
         &mut self,
         new_resources: HashSet<Resource>,
-        casemappings: HashMap<Server, isupport::CaseMap>,
     ) -> Vec<BoxFuture<'static, Message>> {
         let added = new_resources.difference(&self.resources).cloned();
         let removed = self.resources.difference(&new_resources).cloned();
 
         let added = added.into_iter().map(|resource| {
-            let casemappings_clone = casemappings.clone();
-
             async move {
                 history::load(resource.kind.clone())
-                    .map(move |result| {
-                        Message::LoadFull(
-                            resource.kind,
-                            casemappings_clone,
-                            result,
-                        )
-                    })
+                    .map(move |result| Message::LoadFull(resource.kind, result))
                     .await
             }
             .boxed()
@@ -136,18 +124,22 @@ impl Manager {
         tasks
     }
 
-    pub fn update(&mut self, message: Message) -> Option<Event> {
+    pub fn update(
+        &mut self,
+        message: Message,
+        clients: &client::Map,
+    ) -> Option<Event> {
         match message {
-            Message::LoadFull(kind, casemapping, Ok(loaded)) => {
+            Message::LoadFull(kind, Ok(loaded)) => {
                 let len = loaded.messages.len();
                 self.data.load_full(kind.clone(), loaded);
                 log::debug!("loaded history for {kind}: {len} messages");
 
-                self.block_messages(kind.clone(), casemapping);
+                self.block_messages(kind.clone(), clients);
 
                 return Some(Event::Loaded(kind));
             }
-            Message::LoadFull(kind, _, Err(error)) => {
+            Message::LoadFull(kind, Err(error)) => {
                 log::warn!("failed to load history for {kind}: {error}");
             }
             Message::Closed(kind, Ok(())) => {
@@ -535,7 +527,7 @@ impl Manager {
     pub fn block_messages(
         &mut self,
         kind: history::Kind,
-        casemappings: HashMap<Server, isupport::CaseMap>,
+        clients: &client::Map,
     ) {
         let chain = FilterChain::borrow(&self.filters);
 
@@ -553,12 +545,10 @@ impl Manager {
                             ..
                         } = &message.target
                         {
-                            casemappings.get(server)
+                            clients.get_casemapping(server)
                         } else {
-                            None
-                        }
-                        .copied()
-                        .unwrap_or_default();
+                            isupport::CaseMap::default()
+                        };
 
                         chain.filter_message_of_kind(
                             message,
@@ -570,8 +560,7 @@ impl Manager {
                 _ => {
                     let casemapping = kind
                         .server()
-                        .and_then(|server| casemappings.get(server))
-                        .copied()
+                        .map(|server| clients.get_casemapping(server))
                         .unwrap_or_default();
 
                     messages.iter_mut().for_each(|message| {
@@ -583,7 +572,8 @@ impl Manager {
                     });
                 }
             }
-        };
+        }
+
         log::debug!("ignored messages in {kind}");
     }
 }

@@ -115,7 +115,7 @@ impl Dashboard {
             buffer_settings: dashboard::BufferSettings::default(),
         };
 
-        let command = dashboard.track(&data::client::Map::default());
+        let command = dashboard.track();
 
         (dashboard, command)
     }
@@ -128,10 +128,7 @@ impl Dashboard {
         let (mut dashboard, task) =
             Dashboard::from_data(dashboard, config, main_window);
 
-        let tasks = Task::batch(vec![
-            task,
-            dashboard.track(&data::client::Map::default()),
-        ]);
+        let tasks = Task::batch(vec![task, dashboard.track()]);
 
         (dashboard, tasks)
     }
@@ -785,7 +782,7 @@ impl Dashboard {
                 }
             }
             Message::History(message) => {
-                if let Some(event) = self.history.update(message) {
+                if let Some(event) = self.history.update(message, clients) {
                     match event {
                         history::manager::Event::Loaded(kind) => {
                             let buffer = kind.into();
@@ -1418,12 +1415,8 @@ impl Dashboard {
             }
             Message::ConfigReloaded(config_result) => {
                 if let Ok(config) = &config_result {
-                    let casemappings = clients.get_casemappings();
-
-                    self.history.set_filters(Filter::list_from_config(
-                        config,
-                        casemappings.clone(),
-                    ));
+                    self.history
+                        .set_filters(Filter::list_from_config(config, clients));
 
                     // get all channels that are open
                     let open_pane_data: Vec<(data::Server, target::Channel)> =
@@ -1444,17 +1437,15 @@ impl Dashboard {
                     for (server, channel) in open_pane_data {
                         self.history.block_messages(
                             history::Kind::Channel(server, channel),
-                            casemappings.clone(),
+                            clients,
                         );
                     }
 
                     if self.panes.iter().any(|(_, _, pane)| {
                         matches!(pane.buffer, Buffer::Highlights(_))
                     }) {
-                        self.history.block_messages(
-                            history::Kind::Highlights,
-                            casemappings,
-                        );
+                        self.history
+                            .block_messages(history::Kind::Highlights, clients);
                     }
                 }
                 return (
@@ -2572,13 +2563,12 @@ impl Dashboard {
         }
     }
 
-    pub fn track(&mut self, clients: &client::Map) -> Task<Message> {
+    pub fn track(&mut self) -> Task<Message> {
         let resources = self.panes.resources().collect();
-        let casemappings = clients.get_casemappings();
 
         Task::batch(
             self.history
-                .track(resources, casemappings)
+                .track(resources)
                 .into_iter()
                 .map(|fut| Task::perform(fut, Message::History))
                 .collect::<Vec<_>>(),
@@ -2817,9 +2807,10 @@ impl Dashboard {
             buffer_settings: data.buffer_settings.clone(),
         };
 
-        dashboard
-            .history
-            .set_filters(Filter::list_from_config(config, HashMap::default()));
+        dashboard.history.set_filters(Filter::list_from_config(
+            config,
+            &data::client::Map::default(),
+        ));
 
         let mut tasks = vec![];
 

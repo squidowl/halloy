@@ -373,7 +373,7 @@ impl Halloy {
                 );
 
                 // Retrack after dashboard state changes
-                let track = dashboard.track(&self.clients);
+                let track = dashboard.track();
 
                 let event_task = match event {
                     Some(dashboard::Event::ConfigReloaded(config)) => {
