@@ -283,6 +283,7 @@ impl Dashboard {
                                                                 input.server(),
                                                                 casemapping,
                                                                 message,
+                                                                &config.buffer,
                                                         ) {
                                                             tasks.push(Task::perform(
                                                                 task,
@@ -782,7 +783,9 @@ impl Dashboard {
                 }
             }
             Message::History(message) => {
-                if let Some(event) = self.history.update(message, clients) {
+                if let Some(event) =
+                    self.history.update(message, clients, &config.buffer)
+                {
                     match event {
                         history::manager::Event::Loaded(kind) => {
                             let buffer = kind.into();
@@ -1366,6 +1369,7 @@ impl Dashboard {
                                 casemapping,
                                 &query,
                                 event,
+                                &config.buffer,
                             ),
                             None,
                         );
@@ -1438,14 +1442,18 @@ impl Dashboard {
                         self.history.block_messages(
                             history::Kind::Channel(server, channel),
                             clients,
+                            &config.buffer,
                         );
                     }
 
                     if self.panes.iter().any(|(_, _, pane)| {
                         matches!(pane.buffer, Buffer::Highlights(_))
                     }) {
-                        self.history
-                            .block_messages(history::Kind::Highlights, clients);
+                        self.history.block_messages(
+                            history::Kind::Highlights,
+                            clients,
+                            &config.buffer,
+                        );
                     }
                 }
                 return (
@@ -2069,10 +2077,14 @@ impl Dashboard {
         server: &Server,
         casemapping: isupport::CaseMap,
         message: data::Message,
+        buffer_config: &config::Buffer,
     ) -> Task<Message> {
-        if let Some(task) =
-            self.history.record_message(server, casemapping, message)
-        {
+        if let Some(task) = self.history.record_message(
+            server,
+            casemapping,
+            message,
+            buffer_config,
+        ) {
             Task::perform(task, Message::History)
         } else {
             Task::none()
@@ -2090,10 +2102,9 @@ impl Dashboard {
     pub fn record_highlight(
         &mut self,
         message: data::Message,
-        casemapping: isupport::CaseMap,
     ) -> Task<Message> {
         self.history
-            .record_highlight(message, casemapping)
+            .record_highlight(message)
             .map_or_else(Task::none, |task| {
                 Task::perform(task, Message::History)
             })
@@ -2188,6 +2199,17 @@ impl Dashboard {
                 .into_iter()
                 .map(|task| Task::perform(task, Message::History)),
         )
+    }
+
+    pub fn block_message(
+        &self,
+        message: &mut data::Message,
+        kind: &history::Kind,
+        casemapping: isupport::CaseMap,
+        buffer_config: &config::Buffer,
+    ) {
+        self.history
+            .block_message(message, kind, casemapping, buffer_config);
     }
 
     pub fn update_read_marker(
@@ -2688,6 +2710,7 @@ impl Dashboard {
             casemapping,
             &query,
             event,
+            &config.buffer,
         ))
     }
 
@@ -2697,6 +2720,7 @@ impl Dashboard {
         casemapping: isupport::CaseMap,
         query: &target::Query,
         event: file_transfer::manager::Event,
+        buffer_config: &config::Buffer,
     ) -> Task<Message> {
         let mut tasks = vec![];
 
@@ -2712,6 +2736,7 @@ impl Dashboard {
                                 query,
                                 &transfer.filename,
                             ),
+                            buffer_config,
                         ));
                     }
                     file_transfer::Direction::Sent => {
@@ -2723,6 +2748,7 @@ impl Dashboard {
                                 query,
                                 &transfer.filename,
                             ),
+                            buffer_config,
                         ));
                     }
                 }
