@@ -1,10 +1,8 @@
-use std::collections::HashMap;
-
 use super::Kind;
 use crate::message::Source;
 use crate::target::{Channel, Query};
 use crate::user::Nick;
-use crate::{Config, Message, Server, User, isupport};
+use crate::{Config, Message, Server, User, client, isupport};
 
 #[derive(Debug, Clone)]
 pub struct Filter {
@@ -32,7 +30,7 @@ impl FilterTarget {
 impl Filter {
     pub fn list_from_config(
         config: &Config,
-        casemappings: HashMap<Server, isupport::CaseMap>,
+        clients: &client::Map,
     ) -> Vec<Self> {
         let mut new_filters = Vec::new();
         config.servers.entries().for_each(|entry| {
@@ -41,10 +39,7 @@ impl Filter {
             };
 
             for idx in 0..filters.ignore.len() {
-                let casemapping = casemappings
-                    .get(&entry.server)
-                    .copied()
-                    .unwrap_or_default();
+                let casemapping = clients.get_casemapping(&entry.server);
 
                 new_filters.push(Filter::from_str_with_server(
                     &entry.server,
