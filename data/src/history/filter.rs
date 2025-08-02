@@ -1,11 +1,8 @@
-use crate::{
-    Config, Message, Server, User, isupport,
-    message::Source,
-    target::{Channel, Query},
-    user::Nick,
-};
-
 use super::Kind;
+use crate::message::Source;
+use crate::target::{Channel, Query};
+use crate::user::Nick;
+use crate::{Config, Message, Server, User, client, isupport};
 
 #[derive(Debug, Clone)]
 pub struct Filter {
@@ -24,14 +21,17 @@ enum FilterTarget {
     User(User),
 }
 
-impl From<&str> for FilterTarget {
-    fn from(nick: &str) -> Self {
-        Self::User(User::from(Nick::from(nick)))
+impl FilterTarget {
+    pub fn from_nick(nick: &str, casemapping: isupport::CaseMap) -> Self {
+        Self::User(User::from(Nick::from(casemapping.normalize(nick))))
     }
 }
 
 impl Filter {
-    pub fn list_from_config(config: &Config) -> Vec<Self> {
+    pub fn list_from_config(
+        config: &Config,
+        clients: &client::Map,
+    ) -> Vec<Self> {
         let mut new_filters = Vec::new();
         config.servers.entries().for_each(|entry| {
             let Some(filters) = &entry.config.filters else {
@@ -39,8 +39,11 @@ impl Filter {
             };
 
             for idx in 0..filters.ignore.len() {
+                let casemapping = clients.get_casemapping(&entry.server);
+
                 new_filters.push(Filter::from_str_with_server(
                     &entry.server,
+                    casemapping,
                     &filters.ignore[idx],
                 ));
             }
@@ -48,17 +51,23 @@ impl Filter {
         new_filters
     }
 
-    fn from_str_with_server(server: &Server, value: &str) -> Self {
+    fn from_str_with_server(
+        server: &Server,
+        casemapping: isupport::CaseMap,
+        value: &str,
+    ) -> Self {
         let (class, target) = match value.split_once(' ') {
             Some((channel, nick)) => {
-                let channel =
-                    Channel::from_str(channel, isupport::CaseMap::default());
+                let channel = Channel::from_str(channel, casemapping);
 
-                let target = FilterTarget::from(nick);
+                let target = FilterTarget::from_nick(nick, casemapping);
 
                 (FilterClass::Channel((server.clone(), channel)), target)
             }
-            None => (FilterClass::Any, FilterTarget::from(value)),
+            None => (
+                FilterClass::Any,
+                FilterTarget::from_nick(value, casemapping),
+            ),
         };
 
         Self { class, target }
@@ -70,11 +79,16 @@ impl Filter {
     /// otherwise.
     ///
     /// [`Message`]:crate::Message
-    pub fn match_message(&self, message: &Message) -> bool {
+    pub fn match_message(
+        &self,
+        message: &Message,
+        casemapping: isupport::CaseMap,
+    ) -> bool {
         match &self.target {
             FilterTarget::User(user) => match &message.target.source() {
                 Source::Action(Some(msg_user)) | Source::User(msg_user) => {
-                    msg_user == user
+                    casemapping.normalize(msg_user.nickname().as_ref())
+                        == user.nickname().as_ref()
                 }
                 _ => false,
             },
@@ -91,7 +105,7 @@ impl Filter {
         match &self.target {
             FilterTarget::User(user) => match &self.class {
                 FilterClass::Channel((_, _)) => false,
-                _ => user.as_str() == query.as_str(),
+                _ => user.nickname().as_ref() == query.as_normalized_str(),
             },
         }
     }
@@ -144,16 +158,26 @@ impl Filter {
         target_server: &Server,
         casemapping: isupport::CaseMap,
     ) {
-        let FilterClass::Channel((server, channel)) = &self.class else {
-            return;
-        };
+        match &self.target {
+            FilterTarget::User(user) => {
+                self.target = FilterTarget::from_nick(
+                    user.nickname().as_ref(),
+                    casemapping,
+                );
+            }
+        }
 
-        if target_server == server {
-            let updated_channel =
-                Channel::from_str(channel.as_str(), casemapping);
+        match &self.class {
+            FilterClass::Channel((server, channel)) => {
+                if target_server == server {
+                    let updated_channel =
+                        Channel::from_str(channel.as_str(), casemapping);
 
-            self.class =
-                FilterClass::Channel((server.clone(), updated_channel));
+                    self.class =
+                        FilterClass::Channel((server.clone(), updated_channel));
+                }
+            }
+            FilterClass::Any => (),
         }
     }
 
@@ -177,13 +201,15 @@ impl<'f> FilterChain<'f> {
 
     pub fn filter_message_of_kind(
         &self,
-        message: &Message,
+        message: &mut Message,
         kind: &Kind,
-    ) -> bool {
-        self.filters
+        casemapping: isupport::CaseMap,
+    ) {
+        message.blocked = self
+            .filters
             .iter()
             .filter(|f| f.match_kind(kind))
-            .any(|f| f.match_message(message))
+            .any(|f| f.match_message(message, casemapping));
     }
 
     pub fn sync_channels(
@@ -200,7 +226,13 @@ impl<'f> FilterChain<'f> {
             });
     }
 
-    pub fn filter_message(&self, message: &Message) -> bool {
-        self.filters.iter().any(|f| f.match_message(message))
+    pub fn filter_message(
+        &self,
+        message: &Message,
+        casemapping: isupport::CaseMap,
+    ) -> bool {
+        self.filters
+            .iter()
+            .any(|f| f.match_message(message, casemapping))
     }
 }

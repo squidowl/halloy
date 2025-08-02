@@ -536,6 +536,7 @@ impl Halloy {
                         dashboard
                             .broadcast(
                                 &server,
+                                self.clients.get_casemapping(&server),
                                 &self.config,
                                 sent_time,
                                 Broadcast::Connecting,
@@ -551,6 +552,7 @@ impl Halloy {
                         dashboard
                             .broadcast(
                                 &server,
+                                self.clients.get_casemapping(&server),
                                 &self.config,
                                 sent_time,
                                 Broadcast::Disconnected { error },
@@ -580,6 +582,7 @@ impl Halloy {
                         dashboard
                             .broadcast(
                                 &server,
+                                self.clients.get_casemapping(&server),
                                 &self.config,
                                 sent_time,
                                 Broadcast::Connected,
@@ -595,6 +598,7 @@ impl Halloy {
                         dashboard
                             .broadcast(
                                 &server,
+                                self.clients.get_casemapping(&server),
                                 &self.config,
                                 sent_time,
                                 Broadcast::Reconnected,
@@ -619,6 +623,7 @@ impl Halloy {
                     dashboard
                         .broadcast(
                             &server,
+                            self.clients.get_casemapping(&server),
                             &self.config,
                             sent_time,
                             Broadcast::ConnectionFailed { error },
@@ -682,6 +687,7 @@ impl Halloy {
                                                 dashboard
                                                     .record_message(
                                                         &server,
+                                                        casemapping,
                                                         message,
                                                     )
                                                     .map(Message::Dashboard),
@@ -704,37 +710,40 @@ impl Halloy {
                                             casemapping,
                                             prefix,
                                         ) {
-                                            if let Some((message, channel, user)) =
+                                            if let Some((mut message, channel, user)) =
                                                 message.into_highlight(server.clone())
                                             {
-                                                let blocked = FilterChain::borrow(dashboard.get_filters())
+                                                FilterChain::borrow(dashboard.get_filters())
                                                     .filter_message_of_kind(
-                                                        &message,
-                                                        &history::Kind::Channel(server.clone(), channel.clone())
+                                                        &mut message,
+                                                        &history::Kind::Channel(server.clone(), channel.clone()),
+                                                        casemapping,
                                                     );
 
-                                                let message_text = message.text();
-
-                                                let task  = dashboard.record_highlight(message);
-                                                commands.push(task.map(Message::Dashboard));
-
-                                                if !blocked && highlight_notification_enabled {
+                                                if !message.blocked && highlight_notification_enabled {
                                                     self.notifications.notify(
                                                         &self.config.notifications,
                                                         &Notification::Highlight {
                                                             user,
                                                             channel,
-                                                            message: message_text,
+                                                            message: message.text(),
                                                         },
                                                         &server,
                                                     );
                                                 }
+
+                                                let task = dashboard.record_highlight(
+                                                    message,
+                                                    casemapping,
+                                                );
+                                                commands.push(task.map(Message::Dashboard));
                                             }
 
                                             commands.push(
                                                 dashboard
                                                     .record_message(
                                                         &server,
+                                                        casemapping,
                                                         message,
                                                     )
                                                     .map(Message::Dashboard),
@@ -757,6 +766,7 @@ impl Halloy {
                                                 dashboard
                                                     .record_message(
                                                         &server,
+                                                        casemapping,
                                                         message.with_target(target),
                                                     )
                                                     .map(Message::Dashboard),
@@ -773,6 +783,7 @@ impl Halloy {
                                             dashboard
                                                 .broadcast(
                                                     &server,
+                                                    self.clients.get_casemapping(&server),
                                                     &self.config,
                                                     sent_time,
                                                     Broadcast::Quit {
@@ -796,6 +807,7 @@ impl Halloy {
                                                 dashboard
                                                     .broadcast(
                                                         &server,
+                                                        self.clients.get_casemapping(&server),
                                                         &self.config,
                                                         sent_time,
                                                         Broadcast::Nickname {
@@ -820,6 +832,7 @@ impl Halloy {
                                                 dashboard
                                                     .broadcast(
                                                         &server,
+                                                        self.clients.get_casemapping(&server),
                                                         &self.config,
                                                         sent_time,
                                                         Broadcast::Invite {
@@ -844,6 +857,7 @@ impl Halloy {
                                                 dashboard
                                                     .broadcast(
                                                         &server,
+                                                        self.clients.get_casemapping(&server),
                                                         &self.config,
                                                         sent_time,
                                                         Broadcast::ChangeHost {
@@ -1023,6 +1037,8 @@ impl Halloy {
                             self.servers.remove(&server);
 
                             if let Some(client) = self.clients.remove(&server) {
+                                let casemapping = client.casemapping();
+
                                 let user = client.nickname().to_owned().into();
 
                                 let channels =
@@ -1031,6 +1047,7 @@ impl Halloy {
                                 dashboard
                                     .broadcast(
                                         &server,
+                                        casemapping,
                                         &self.config,
                                         Utc::now(),
                                         Broadcast::Quit {
