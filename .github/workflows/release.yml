@@ -80,8 +80,6 @@ jobs:
   create-release:
     needs: build
     name: Create Release
-    outputs:
-      upload_url: ${{ steps.create-release.outputs.upload_url }}
     runs-on: ubuntu-latest
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -133,9 +131,5 @@ jobs:
         run: ${{ matrix.target.artifact_name }}
 
       - name: Upload asset
-        uses: actions/upload-release-asset@v1
-        with:
-          upload_url: ${{ needs.create-release.outputs.upload_url }}
-          asset_path: ./${{ matrix.target.artifact }}/${{ env.ARTIFACT_NAME }}
-          asset_name: ${{ env.ARTIFACT_NAME }}
-          asset_content_type: ${{ matrix.target.asset_type }}
+        run: |
+          gh release upload ${{ github.event.inputs.tag }} ./${{ matrix.target.artifact }}/${{ env.ARTIFACT_NAME }}
