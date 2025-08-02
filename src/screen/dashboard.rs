@@ -115,7 +115,7 @@ impl Dashboard {
             buffer_settings: dashboard::BufferSettings::default(),
         };
 
-        let command = dashboard.track(&data::client::Map::default());
+        let command = dashboard.track();
 
         (dashboard, command)
     }
@@ -128,10 +128,7 @@ impl Dashboard {
         let (mut dashboard, task) =
             Dashboard::from_data(dashboard, config, main_window);
 
-        let tasks = Task::batch(vec![
-            task,
-            dashboard.track(&data::client::Map::default()),
-        ]);
+        let tasks = Task::batch(vec![task, dashboard.track()]);
 
         (dashboard, tasks)
     }
@@ -139,18 +136,18 @@ impl Dashboard {
     pub fn init_filters(
         &mut self,
         servers: &server::Map,
-        casemappings: HashMap<Server, isupport::CaseMap>,
+        clients: &client::Map,
     ) {
         self.history
-            .set_filters(Filter::list_from_servers(servers, casemappings));
+            .set_filters(Filter::list_from_servers(servers, clients));
     }
 
     pub fn update_filters(
         &mut self,
         servers: &server::Map,
-        casemappings: HashMap<Server, isupport::CaseMap>,
+        clients: &client::Map,
     ) {
-        self.init_filters(servers, casemappings.clone());
+        self.init_filters(servers, clients);
 
         // get all channels that are open
         let open_pane_data: Vec<(data::Server, target::Channel)> = self
@@ -168,13 +165,13 @@ impl Dashboard {
         for (server, channel) in open_pane_data {
             self.history.block_messages(
                 history::Kind::Channel(server, channel),
-                casemappings.clone(),
+                clients,
             );
         }
 
         // always rebuild for highlights
         self.history
-            .block_messages(history::Kind::Highlights, casemappings);
+            .block_messages(history::Kind::Highlights, clients);
     }
 
     pub fn update(
@@ -832,7 +829,7 @@ impl Dashboard {
                 }
             }
             Message::History(message) => {
-                if let Some(event) = self.history.update(message) {
+                if let Some(event) = self.history.update(message, clients) {
                     match event {
                         history::manager::Event::Loaded(kind) => {
                             let buffer = kind.into();
@@ -2632,13 +2629,12 @@ impl Dashboard {
         }
     }
 
-    pub fn track(&mut self, clients: &client::Map) -> Task<Message> {
+    pub fn track(&mut self) -> Task<Message> {
         let resources = self.panes.resources().collect();
-        let casemappings = clients.get_casemappings();
 
         Task::batch(
             self.history
-                .track(resources, casemappings)
+                .track(resources)
                 .into_iter()
                 .map(|fut| Task::perform(fut, Message::History))
                 .collect::<Vec<_>>(),
