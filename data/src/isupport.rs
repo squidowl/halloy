@@ -49,6 +49,8 @@ pub enum Operation {
     Remove(String),
 }
 
+pub const UNKNOWN_ISUPPORT_PARAMETER: &str = "unknown ISUPPORT parameter";
+
 impl FromStr for Operation {
     type Err = &'static str;
 
@@ -230,11 +232,11 @@ impl FromStr for Operation {
                             if let Some((major, minor)) = value.split_once('.')
                                 && let (Ok(major), Ok(minor)) =
                                     (major.parse::<u16>(), minor.parse::<u16>())
-                                {
-                                    return Ok(Operation::Add(
-                                        Parameter::CLIENTVER(major, minor),
-                                    ));
-                                }
+                            {
+                                return Ok(Operation::Add(
+                                    Parameter::CLIENTVER(major, minor),
+                                ));
+                            }
 
                             Err(
                                 "value must be a <major>.<minor> version number",
@@ -338,16 +340,16 @@ impl FromStr for Operation {
                                 if let Some((modes, limit)) =
                                     modes_limit.split_once(':')
                                     && !modes.is_empty()
-                                        && modes
-                                            .chars()
-                                            .all(|c| c.is_ascii_alphabetic())
-                                        && let Ok(limit) = limit.parse::<u16>()
-                                        {
-                                            modes_limits.push(ModesLimit {
-                                                modes: modes.to_string(),
-                                                limit,
-                                            });
-                                        }
+                                    && modes
+                                        .chars()
+                                        .all(|c| c.is_ascii_alphabetic())
+                                    && let Ok(limit) = limit.parse::<u16>()
+                                {
+                                    modes_limits.push(ModesLimit {
+                                        modes: modes.to_string(),
+                                        limit,
+                                    });
+                                }
                             });
 
                             if !modes_limits.is_empty() {
@@ -452,32 +454,32 @@ impl FromStr for Operation {
                                 if let Some((command, limit)) =
                                     command_target_limit.split_once(':')
                                     && !command.is_empty()
-                                        && command
-                                            .chars()
-                                            .all(|c| c.is_ascii_alphabetic())
+                                    && command
+                                        .chars()
+                                        .all(|c| c.is_ascii_alphabetic())
+                                {
+                                    if limit.is_empty() {
+                                        command_target_limits.push(
+                                            CommandTargetLimit {
+                                                command: command
+                                                    .to_uppercase()
+                                                    .to_string(),
+                                                limit: None,
+                                            },
+                                        );
+                                    } else if let Ok(limit) =
+                                        limit.parse::<u16>()
                                     {
-                                        if limit.is_empty() {
-                                            command_target_limits.push(
-                                                CommandTargetLimit {
-                                                    command: command
-                                                        .to_uppercase()
-                                                        .to_string(),
-                                                    limit: None,
-                                                },
-                                            );
-                                        } else if let Ok(limit) =
-                                            limit.parse::<u16>()
-                                        {
-                                            command_target_limits.push(
-                                                CommandTargetLimit {
-                                                    command: command
-                                                        .to_uppercase()
-                                                        .to_string(),
-                                                    limit: Some(limit),
-                                                },
-                                            );
-                                        }
+                                        command_target_limits.push(
+                                            CommandTargetLimit {
+                                                command: command
+                                                    .to_uppercase()
+                                                    .to_string(),
+                                                limit: Some(limit),
+                                            },
+                                        );
                                     }
+                                }
                             });
 
                             if !command_target_limits.is_empty() {
@@ -591,7 +593,7 @@ impl FromStr for Operation {
                         "VLIST" => Err("value required"),
                         "WATCH" => Err("value required"),
                         "WHOX" => Ok(Operation::Add(Parameter::WHOX)),
-                        _ => Err("unknown ISUPPORT parameter"),
+                        _ => Err(UNKNOWN_ISUPPORT_PARAMETER),
                     }
                 }
             }
