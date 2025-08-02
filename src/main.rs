@@ -16,7 +16,7 @@ mod url;
 mod widget;
 mod window;
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use std::{env, mem};
@@ -192,7 +192,7 @@ impl Halloy {
                 let mut servers: server::Map = config.servers.clone().into();
                 servers.set_order(config.sidebar.order_by);
                 let (mut screen, command) = load_dashboard(&config);
-                screen.init_filters(&servers, HashMap::new());
+                screen.init_filters(&servers, &data::client::Map::default());
                 (
                     Screen::Dashboard(screen),
                     servers,
@@ -382,7 +382,7 @@ impl Halloy {
                 );
 
                 // Retrack after dashboard state changes
-                let track = dashboard.track(&self.clients);
+                let track = dashboard.track();
 
                 let event_task = match event {
                     Some(dashboard::Event::ConfigReloaded(config)) => {
@@ -425,7 +425,7 @@ impl Halloy {
                                 {
                                     dashboard.update_filters(
                                         &self.servers,
-                                        self.clients.get_casemappings(),
+                                        &self.clients,
                                     );
                                 }
                             }
