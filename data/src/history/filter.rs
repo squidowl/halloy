@@ -1,5 +1,5 @@
 use super::Kind;
-use crate::message::Source;
+use crate::message::{Source, source};
 use crate::server::Map as ServerMap;
 use crate::target::{Channel, Query};
 use crate::user::Nick;
@@ -90,6 +90,18 @@ impl Filter {
                 Source::Action(Some(msg_user)) | Source::User(msg_user) => {
                     casemapping.normalize(msg_user.nickname().as_ref())
                         == user.nickname().as_ref()
+                }
+                Source::Server(Some(server)) => {
+                    // Match server messages from the filtered user, except
+                    // for nick change messages in order to alert the Halloy
+                    // user that the filtered user has a new nickname.
+                    server.nick().is_some_and(|nick| {
+                        casemapping.normalize(nick.as_ref())
+                            == user.nickname().as_ref()
+                    }) && !matches!(
+                        server.kind(),
+                        source::server::Kind::ChangeNick
+                    )
                 }
                 _ => false,
             },
