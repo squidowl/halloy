@@ -1,5 +1,9 @@
 # Unreleased
 
+Added:
+
+- Notification indicator on sidebar menu for warning & error log messages
+
 # 2025.8 (2025-08-31)
 
 Added:
