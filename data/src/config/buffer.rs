@@ -68,7 +68,7 @@ pub struct Url {
 #[serde(default)]
 pub struct MarkAsRead {
     pub on_application_exit: bool,
-    pub on_buffer_close: bool,
+    pub on_buffer_close: OnBufferClose,
     pub on_scroll_to_bottom: bool,
     pub on_message_sent: bool,
 }
@@ -77,11 +77,41 @@ impl Default for MarkAsRead {
     fn default() -> Self {
         Self {
             on_application_exit: false,
-            on_buffer_close: true,
+            on_buffer_close: OnBufferClose::default(),
             on_scroll_to_bottom: true,
             on_message_sent: true,
         }
     }
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(untagged)]
+pub enum OnBufferClose {
+    Bool(bool),
+    Condition(OnBufferCloseCondition),
+}
+
+impl Default for OnBufferClose {
+    fn default() -> Self {
+        Self::Condition(OnBufferCloseCondition::IfScrolledToBottom)
+    }
+}
+
+impl OnBufferClose {
+    pub fn mark_as_read(&self, is_scrolled_to_bottom: Option<bool>) -> bool {
+        match self {
+            OnBufferClose::Bool(mark) => *mark,
+            OnBufferClose::Condition(_) => {
+                is_scrolled_to_bottom.unwrap_or(false)
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum OnBufferCloseCondition {
+    IfScrolledToBottom,
 }
 
 #[derive(Debug, Clone, Deserialize)]
