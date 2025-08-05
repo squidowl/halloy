@@ -3212,7 +3212,7 @@ fn cycle_next_unread_buffer(
             .find_map(|(b, has_unread)| has_unread.then_some(b))
     };
 
-    next_after().or_else(|| next_before().or(current)).cloned()
+    next_after().or_else(|| next_before().or(None)).cloned()
 }
 
 fn cycle_previous_unread_buffer(
@@ -3243,6 +3243,6 @@ fn cycle_previous_unread_buffer(
     };
 
     previous_before()
-        .or_else(|| previous_after().or(current))
+        .or_else(|| previous_after().or(None))
         .cloned()
 }
