@@ -3,6 +3,7 @@
 Added:
 
 - Notification indicator on sidebar menu for warning & error log messages
+- Ability to mark as read on buffer close only if scrolled to the bottom of the buffer (new `default behavior)
 
 # 2025.8 (2025-08-31)
 
