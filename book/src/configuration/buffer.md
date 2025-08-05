@@ -405,15 +405,15 @@ on_application_exit = false
 
 ### `on_buffer_close`
 
-When closing a buffer (a buffer is considered closed when it is replaced or if it is open when the application exits).  If set to `"if-scrolled-to-bottom"` then a buffer will only be marked as read if it is scrolled to the bottom when closing (i.e. if the most recent messages are visible).
+When closing a buffer (a buffer is considered closed when it is replaced or if it is open when the application exits).  If set to `"scrolled-to-bottom"` then a buffer will only be marked as read if it is scrolled to the bottom when closing (i.e. if the most recent messages are visible).
 
 ```toml
 # Type: boolean
-# Values: true, false, "if-scrolled-to-bottom"
-# Default: "if-scrolled-to-bottom"
+# Values: true, false, "scrolled-to-bottom"
+# Default: "scrolled-to-bottom"
 
 [buffer.mark_as_read]
-on_buffer_close = "if-scrolled-to-bottom"
+on_buffer_close = "scrolled-to-bottom"
 ```
 
 ### `on_scroll_to_bottom`

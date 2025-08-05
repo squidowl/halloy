@@ -93,7 +93,7 @@ pub enum OnBufferClose {
 
 impl Default for OnBufferClose {
     fn default() -> Self {
-        Self::Condition(OnBufferCloseCondition::IfScrolledToBottom)
+        Self::Condition(OnBufferCloseCondition::ScrolledToBottom)
     }
 }
 
@@ -111,7 +111,7 @@ impl OnBufferClose {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum OnBufferCloseCondition {
-    IfScrolledToBottom,
+    ScrolledToBottom,
 }
 
 #[derive(Debug, Clone, Deserialize)]
