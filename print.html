@@ -1050,13 +1050,13 @@ smart = 180
 on_application_exit = false
 </code></pre>
 <h3 id="on_buffer_close"><a class="header" href="#on_buffer_close"><code>on_buffer_close</code></a></h3>
-<p>When closing a buffer (a buffer is considered closed when it is replaced or if it is open when the application exits).</p>
+<p>When closing a buffer (a buffer is considered closed when it is replaced or if it is open when the application exits).  If set to <code>"scrolled-to-bottom"</code> then a buffer will only be marked as read if it is scrolled to the bottom when closing (i.e. if the most recent messages are visible).</p>
 <pre><code class="language-toml"># Type: boolean
-# Values: true, false
-# Default: true
+# Values: true, false, "scrolled-to-bottom"
+# Default: "scrolled-to-bottom"
 
 [buffer.mark_as_read]
-on_buffer_close = true
+on_buffer_close = "scrolled-to-bottom"
 </code></pre>
 <h3 id="on_scroll_to_bottom"><a class="header" href="#on_scroll_to_bottom"><code>on_scroll_to_bottom</code></a></h3>
 <p>When scrolling to the bottom of a buffer.</p>
