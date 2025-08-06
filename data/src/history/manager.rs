@@ -42,24 +42,15 @@ pub enum Message {
         history::ReadMarker,
         Result<(), history::Error>,
     ),
-    Closed(
-        history::Kind,
-        Result<Option<history::ReadMarker>, history::Error>,
-    ),
+    Closed(history::Kind, Result<(), history::Error>),
     Flushed(history::Kind, Result<(), history::Error>),
-    Exited(
-        Vec<(
-            history::Kind,
-            Result<Option<history::ReadMarker>, history::Error>,
-        )>,
-    ),
+    Exited(Vec<(history::Kind, Result<(), history::Error>)>),
     SentMessageUpdated(history::Kind, history::ReadMarker),
 }
 
 pub enum Event {
     Loaded(history::Kind),
-    Closed(history::Kind, Option<history::ReadMarker>),
-    Exited(Vec<(history::Kind, Option<history::ReadMarker>)>),
+    Exited,
     SentMessageUpdated(history::Kind, history::ReadMarker),
 }
 
@@ -106,7 +97,6 @@ impl Manager {
     pub fn track(
         &mut self,
         new_resources: HashSet<Resource>,
-        config: &Config,
     ) -> Vec<BoxFuture<'static, Message>> {
         let added = new_resources.difference(&self.resources).cloned();
         let removed = self.resources.difference(&new_resources).cloned();
@@ -121,7 +111,7 @@ impl Manager {
         });
 
         let removed = removed.into_iter().filter_map(|resource| {
-            self.data.untrack(&resource.kind, config).map(|task| {
+            self.data.untrack(&resource.kind).map(|task| {
                 task.map(|result| Message::Closed(resource.kind, result))
                     .boxed()
             })
@@ -150,9 +140,8 @@ impl Manager {
             Message::LoadFull(kind, Err(error)) => {
                 log::warn!("failed to load history for {kind}: {error}");
             }
-            Message::Closed(kind, Ok(read_marker)) => {
+            Message::Closed(kind, Ok(())) => {
                 log::debug!("closed history for {kind}",);
-                return Some(Event::Closed(kind, read_marker));
             }
             Message::Closed(kind, Err(error)) => {
                 log::warn!("failed to close history for {kind}: {error}");
@@ -182,24 +171,20 @@ impl Manager {
                 );
             }
             Message::Exited(results) => {
-                let mut output = vec![];
-
                 for (kind, result) in results {
                     match result {
-                        Ok(marker) => {
+                        Ok(()) => {
                             log::debug!("closed history for {kind}",);
-                            output.push((kind, marker));
                         }
                         Err(error) => {
                             log::warn!(
                                 "failed to close history for {kind}: {error}"
                             );
-                            output.push((kind, None));
                         }
                     }
                 }
 
-                return Some(Event::Exited(output));
+                return Some(Event::Exited);
             }
             Message::SentMessageUpdated(kind, read_marker) => {
                 return Some(Event::SentMessageUpdated(kind, read_marker));
@@ -229,33 +214,18 @@ impl Manager {
     pub fn close(
         &mut self,
         kind: history::Kind,
-        mark_as_read: bool,
     ) -> Option<impl Future<Output = Message> + use<>> {
         let history = self.data.map.remove(&kind)?;
 
-        Some(
-            history
-                .close(mark_as_read)
-                .map(|result| Message::Closed(kind, result)),
-        )
+        Some(history.close().map(|result| Message::Closed(kind, result)))
     }
 
-    pub fn exit(
-        &mut self,
-        mark_partial_as_read: bool,
-        mark_full_as_read: bool,
-    ) -> impl Future<Output = Message> + use<> {
+    pub fn exit(&mut self) -> impl Future<Output = Message> + use<> {
         let map = std::mem::take(&mut self.data).map;
 
         async move {
             let tasks = map.into_iter().map(|(kind, state)| {
-                match state {
-                    History::Partial { .. } => {
-                        state.close(mark_partial_as_read)
-                    }
-                    History::Full { .. } => state.close(mark_full_as_read),
-                }
-                .map(move |result| (kind, result))
+                state.close().map(move |result| (kind, result))
             });
 
             Message::Exited(future::join_all(tasks).await)
@@ -456,6 +426,10 @@ impl Manager {
                 }
             })
             .collect()
+    }
+
+    pub fn kinds(&self) -> Vec<history::Kind> {
+        self.data.map.keys().cloned().collect()
     }
 
     pub fn server_has_unread(&self, server: Server) -> bool {
@@ -1129,17 +1103,8 @@ impl Data {
     fn untrack(
         &mut self,
         kind: &history::Kind,
-        config: &Config,
-    ) -> Option<
-        impl Future<Output = Result<Option<history::ReadMarker>, history::Error>>
-        + use<>,
-    > {
-        self.map.get_mut(kind).and_then(|history| {
-            History::make_partial(
-                history,
-                config.buffer.mark_as_read.on_buffer_close,
-            )
-        })
+    ) -> Option<impl Future<Output = Result<(), history::Error>> + use<>> {
+        self.map.get_mut(kind).and_then(History::make_partial)
     }
 
     fn flush_all(&mut self, now: Instant) -> Vec<BoxFuture<'static, Message>> {
