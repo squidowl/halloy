@@ -438,9 +438,7 @@ impl History {
 
     fn make_partial(
         &mut self,
-        mark_as_read: bool,
-    ) -> Option<impl Future<Output = Result<Option<ReadMarker>, Error>> + use<>>
-    {
+    ) -> Option<impl Future<Output = Result<(), Error>> + use<>> {
         match self {
             History::Partial { .. } => None,
             History::Full {
@@ -452,13 +450,7 @@ impl History {
             } => {
                 let kind = kind.clone();
                 let messages = std::mem::take(messages);
-
-                let read_marker = if mark_as_read {
-                    ReadMarker::latest(&messages).max(*read_marker)
-                } else {
-                    *read_marker
-                };
-
+                let read_marker = *read_marker;
                 let max_triggers_unread =
                     metadata::latest_triggers_unread(&messages);
 
@@ -475,61 +467,27 @@ impl History {
                     last_seen: last_seen.clone(),
                 };
 
-                Some(async move {
-                    overwrite(&kind, &messages, read_marker)
-                        .await
-                        .map(|()| read_marker)
-                })
+                Some(
+                    async move { overwrite(&kind, &messages, read_marker).await },
+                )
             }
         }
     }
 
-    async fn close(
-        self,
-        mark_as_read: bool,
-    ) -> Result<Option<ReadMarker>, Error> {
+    async fn close(self) -> Result<(), Error> {
         match self {
             History::Partial {
                 kind,
                 messages,
                 read_marker,
-                max_triggers_unread,
                 ..
-            } => {
-                if mark_as_read {
-                    let read_marker =
-                        ReadMarker::latest(&messages).max(read_marker).max(
-                            max_triggers_unread.map(ReadMarker::from_date_time),
-                        );
-
-                    append(&kind, messages, read_marker).await?;
-
-                    Ok(read_marker)
-                } else {
-                    append(&kind, messages, read_marker).await?;
-
-                    Ok(None)
-                }
-            }
+            } => append(&kind, messages, read_marker).await,
             History::Full {
                 kind,
                 messages,
                 read_marker,
                 ..
-            } => {
-                if mark_as_read {
-                    let read_marker =
-                        ReadMarker::latest(&messages).max(read_marker);
-
-                    overwrite(&kind, &messages, read_marker).await?;
-
-                    Ok(read_marker)
-                } else {
-                    overwrite(&kind, &messages, read_marker).await?;
-
-                    Ok(None)
-                }
-            }
+            } => overwrite(&kind, &messages, read_marker).await,
         }
     }
 

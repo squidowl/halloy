@@ -180,7 +180,7 @@ impl Halloy {
             Err(error) => {
                 log::warn!("failed to load dashboard: {error}");
 
-                screen::Dashboard::empty(config, &main_window)
+                screen::Dashboard::empty(&main_window)
             }
         };
 
@@ -371,7 +371,7 @@ impl Halloy {
                 );
 
                 // Retrack after dashboard state changes
-                let track = dashboard.track(&self.config);
+                let track = dashboard.track();
 
                 let event_task = match event {
                     Some(dashboard::Event::ConfigReloaded(config)) => {
@@ -1177,7 +1177,7 @@ impl Halloy {
                                 &mut self.screen
                             {
                                 return dashboard
-                                    .exit(&self.config)
+                                    .exit(&mut self.clients, &self.config)
                                     .map(Message::Dashboard);
                             } else {
                                 return iced::exit();

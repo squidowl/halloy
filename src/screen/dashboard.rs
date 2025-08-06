@@ -86,10 +86,7 @@ pub enum Event {
 }
 
 impl Dashboard {
-    pub fn empty(
-        config: &Config,
-        main_window: &Window,
-    ) -> (Self, Task<Message>) {
+    pub fn empty(main_window: &Window) -> (Self, Task<Message>) {
         let (main_panes, pane) =
             pane_grid::State::new(Pane::new(Buffer::Empty));
 
@@ -115,7 +112,7 @@ impl Dashboard {
             buffer_settings: dashboard::BufferSettings::default(),
         };
 
-        let command = dashboard.track(config);
+        let command = dashboard.track();
 
         (dashboard, command)
     }
@@ -128,7 +125,7 @@ impl Dashboard {
         let (mut dashboard, task) =
             Dashboard::from_data(dashboard, config, main_window);
 
-        let tasks = Task::batch(vec![task, dashboard.track(config)]);
+        let tasks = Task::batch(vec![task, dashboard.track()]);
 
         (dashboard, tasks)
     }
@@ -166,7 +163,12 @@ impl Dashboard {
                     pane::Message::PaneDragged(_) => {}
                     pane::Message::ClosePane => {
                         return (
-                            self.close_pane(self.focus.window, self.focus.pane),
+                            self.close_pane(
+                                clients,
+                                config,
+                                self.focus.window,
+                                self.focus.pane,
+                            ),
                             None,
                         );
                     }
@@ -301,6 +303,7 @@ impl Dashboard {
                                                     self.open_buffer(
                                                         data::Buffer::Upstream(buffer),
                                                         buffer_action,
+                                                        clients,
                                                         config,
                                                     ),
                                                 ]),
@@ -308,7 +311,7 @@ impl Dashboard {
                                             );
                                         }
                                         buffer::user_context::Event::InsertNickname(nick) => {
-                                            let Some((_, pane, history)) =
+                                            let Some((_, _, pane, history)) =
                                                 self.get_focused_with_history_mut()
                                             else {
                                                 return (task, None);
@@ -438,6 +441,7 @@ impl Dashboard {
                                                     .actions
                                                     .buffer
                                                     .click_highlight,
+                                                clients,
                                                 config,
                                             ),
                                         );
@@ -522,7 +526,11 @@ impl Dashboard {
                                     self.history.hide_preview(kind, hash, url);
                                 }
                                 buffer::Event::MarkAsRead(kind) => {
-                                    self.mark_as_read(kind, clients);
+                                    mark_as_read(
+                                        kind,
+                                        &mut self.history,
+                                        clients,
+                                    );
                                 }
                                 buffer::Event::OpenUrl(url) => {
                                     return (
@@ -577,10 +585,10 @@ impl Dashboard {
                     }
                     pane::Message::MaximizePane => self.maximize_pane(),
                     pane::Message::Popout => {
-                        return (self.popout_pane(config), None);
+                        return (self.popout_pane(clients, config), None);
                     }
                     pane::Message::Merge => {
-                        return (self.merge_pane(config), None);
+                        return (self.merge_pane(clients, config), None);
                     }
                     pane::Message::ScrollToBottom => {
                         let Focus { window, pane } = self.focus;
@@ -613,7 +621,7 @@ impl Dashboard {
                                 .data()
                                 .and_then(history::Kind::from_buffer)
                         {
-                            self.mark_as_read(kind, clients);
+                            mark_as_read(kind, &mut self.history, clients);
                         }
                     }
                 }
@@ -630,6 +638,7 @@ impl Dashboard {
                         self.open_buffer(
                             data::Buffer::Upstream(buffer),
                             BufferAction::NewPane,
+                            clients,
                             config,
                         ),
                         None,
@@ -638,6 +647,7 @@ impl Dashboard {
                         self.open_buffer(
                             data::Buffer::Upstream(buffer),
                             BufferAction::NewWindow,
+                            clients,
                             config,
                         ),
                         None,
@@ -649,24 +659,24 @@ impl Dashboard {
                         self.open_buffer(
                             data::Buffer::Upstream(buffer),
                             BufferAction::ReplacePane,
+                            clients,
                             config,
                         ),
                         None,
                     ),
                     sidebar::Event::Close(window, pane) => {
-                        (self.close_pane(window, pane), None)
+                        (self.close_pane(clients, config, window, pane), None)
                     }
                     sidebar::Event::Swap(window, pane) => {
                         (self.swap_pane_with_focus(window, pane), None)
                     }
-                    sidebar::Event::Leave(buffer) => self.leave_buffer(
-                        clients,
-                        buffer,
-                        config.buffer.mark_as_read.on_buffer_close,
-                    ),
-                    sidebar::Event::ToggleInternalBuffer(buffer) => {
-                        (self.toggle_internal_buffer(config, buffer), None)
+                    sidebar::Event::Leave(buffer) => {
+                        self.leave_buffer(clients, config, buffer)
                     }
+                    sidebar::Event::ToggleInternalBuffer(buffer) => (
+                        self.toggle_internal_buffer(clients, config, buffer),
+                        None,
+                    ),
                     sidebar::Event::ToggleCommandBar => (
                         self.toggle_command_bar(
                             &closed_buffers(self, clients),
@@ -691,7 +701,7 @@ impl Dashboard {
                         (Task::none(), None)
                     }
                     sidebar::Event::MarkServerAsRead(server) => {
-                        self.mark_server_as_read(server, clients);
+                        mark_server_as_read(server, &mut self.history, clients);
 
                         (Task::none(), None)
                     }
@@ -699,7 +709,7 @@ impl Dashboard {
                         if let Some(kind) = history::Kind::from_buffer(
                             data::Buffer::Upstream(buffer),
                         ) {
-                            self.mark_as_read(kind, clients);
+                            mark_as_read(kind, &mut self.history, clients);
                         }
 
                         (Task::none(), None)
@@ -768,37 +778,7 @@ impl Dashboard {
                                 );
                             }
                         }
-                        history::manager::Event::Closed(kind, read_marker) => {
-                            if let (
-                                Some(server),
-                                Some(target),
-                                Some(read_marker),
-                            ) = (kind.server(), kind.target(), read_marker)
-                            {
-                                clients.send_markread(
-                                    server,
-                                    target,
-                                    read_marker,
-                                );
-                            }
-                        }
-                        history::manager::Event::Exited(results) => {
-                            for (kind, read_marker) in results {
-                                if let (
-                                    Some(server),
-                                    Some(target),
-                                    Some(read_marker),
-                                ) =
-                                    (kind.server(), kind.target(), read_marker)
-                                {
-                                    clients.send_markread(
-                                        server,
-                                        target,
-                                        read_marker,
-                                    );
-                                }
-                            }
-
+                        history::manager::Event::Exited => {
                             return (Task::none(), Some(Event::Exit));
                         }
                         history::manager::Event::SentMessageUpdated(
@@ -855,20 +835,21 @@ impl Dashboard {
                                 }
                                 command_bar::Buffer::Close => {
                                     let Focus { window, pane } = self.focus;
-                                    (self.close_pane(window, pane), None)
+                                    (self.close_pane(clients, config, window, pane), None)
                                 }
                                 command_bar::Buffer::Replace(buffer) => (
                                     self.open_buffer(
                                         data::Buffer::Upstream(buffer),
                                         BufferAction::ReplacePane,
+                                        clients,
                                         config,
                                     ),
                                     None,
                                 ),
-                                command_bar::Buffer::Popout => (self.popout_pane(config), None),
-                                command_bar::Buffer::Merge => (self.merge_pane(config), None),
+                                command_bar::Buffer::Popout => (self.popout_pane(clients, config), None),
+                                command_bar::Buffer::Merge => (self.merge_pane(clients, config), None),
                                 command_bar::Buffer::ToggleInternal(buffer) => {
-                                    (self.toggle_internal_buffer(config, buffer), None)
+                                    (self.toggle_internal_buffer(clients, config, buffer), None)
                                 }
                             },
                             command_bar::Command::Configuration(command) => match command {
@@ -929,7 +910,7 @@ impl Dashboard {
                                 }
                             },
                             command_bar::Command::Application(application) => match application {
-                                command_bar::Application::Quit => (self.exit(config), None),
+                                command_bar::Application::Quit => (self.exit(clients, config), None),
                             },
                         };
 
@@ -992,7 +973,10 @@ impl Dashboard {
                     }
                     CloseBuffer => {
                         let Focus { window, pane } = self.focus;
-                        return (self.close_pane(window, pane), None);
+                        return (
+                            self.close_pane(clients, config, window, pane),
+                            None,
+                        );
                     }
                     MaximizeBuffer => {
                         let Focus { window, pane } = self.focus;
@@ -1008,14 +992,21 @@ impl Dashboard {
                         let all_buffers = all_buffers(clients, &self.history);
                         let open_buffers = open_buffers(self);
 
-                        if let Some((window, pane, state)) =
-                            self.get_focused_mut()
+                        if let Some((window, pane, state, history)) =
+                            self.get_focused_with_history_mut()
                             && let Some(buffer) = cycle_next_buffer(
                                 state.buffer.upstream(),
                                 all_buffers,
                                 &open_buffers,
                             )
                         {
+                            mark_as_read_on_buffer_close(
+                                &state.buffer,
+                                history,
+                                clients,
+                                config,
+                            );
+
                             state.buffer =
                                 Buffer::from(data::Buffer::Upstream(buffer));
                             self.last_changed = Some(Instant::now());
@@ -1026,14 +1017,21 @@ impl Dashboard {
                         let all_buffers = all_buffers(clients, &self.history);
                         let open_buffers = open_buffers(self);
 
-                        if let Some((window, pane, state)) =
-                            self.get_focused_mut()
+                        if let Some((window, pane, state, history)) =
+                            self.get_focused_with_history_mut()
                             && let Some(buffer) = cycle_previous_buffer(
                                 state.buffer.upstream(),
                                 all_buffers,
                                 &open_buffers,
                             )
                         {
+                            mark_as_read_on_buffer_close(
+                                &state.buffer,
+                                history,
+                                clients,
+                                config,
+                            );
+
                             state.buffer =
                                 Buffer::from(data::Buffer::Upstream(buffer));
                             self.last_changed = Some(Instant::now());
@@ -1045,11 +1043,7 @@ impl Dashboard {
                             && let Some(buffer) =
                                 state.buffer.upstream().cloned()
                         {
-                            return self.leave_buffer(
-                                clients,
-                                buffer,
-                                config.buffer.mark_as_read.on_buffer_close,
-                            );
+                            return self.leave_buffer(clients, config, buffer);
                         }
                     }
                     ToggleNicklist => {
@@ -1106,6 +1100,7 @@ impl Dashboard {
                     FileTransfers => {
                         return (
                             self.toggle_internal_buffer(
+                                clients,
                                 config,
                                 buffer::Internal::FileTransfers,
                             ),
@@ -1115,6 +1110,7 @@ impl Dashboard {
                     Logs => {
                         return (
                             self.toggle_internal_buffer(
+                                clients,
                                 config,
                                 buffer::Internal::Logs,
                             ),
@@ -1130,6 +1126,7 @@ impl Dashboard {
                     Highlights => {
                         return (
                             self.toggle_internal_buffer(
+                                clients,
                                 config,
                                 buffer::Internal::Highlights,
                             ),
@@ -1139,7 +1136,9 @@ impl Dashboard {
                     ToggleFullscreen => {
                         return (window::toggle_fullscreen(), None);
                     }
-                    QuitApplication => return (self.exit(config), None),
+                    QuitApplication => {
+                        return (self.exit(clients, config), None);
+                    }
                     ScrollUpPage => {
                         return (
                             self.get_focused_mut().map_or_else(
@@ -1246,14 +1245,21 @@ impl Dashboard {
                             all_buffers_with_has_unread(clients, &self.history);
                         let open_buffers = open_buffers(self);
 
-                        if let Some((window, pane, state)) =
-                            self.get_focused_mut()
+                        if let Some((window, pane, state, history)) =
+                            self.get_focused_with_history_mut()
                             && let Some(buffer) = cycle_next_unread_buffer(
                                 state.buffer.upstream(),
                                 all_buffers,
                                 &open_buffers,
                             )
                         {
+                            mark_as_read_on_buffer_close(
+                                &state.buffer,
+                                history,
+                                clients,
+                                config,
+                            );
+
                             state.buffer =
                                 Buffer::from(data::Buffer::Upstream(buffer));
                             self.last_changed = Some(Instant::now());
@@ -1265,14 +1271,21 @@ impl Dashboard {
                             all_buffers_with_has_unread(clients, &self.history);
                         let open_buffers = open_buffers(self);
 
-                        if let Some((window, pane, state)) =
-                            self.get_focused_mut()
+                        if let Some((window, pane, state, history)) =
+                            self.get_focused_with_history_mut()
                             && let Some(buffer) = cycle_previous_unread_buffer(
                                 state.buffer.upstream(),
                                 all_buffers,
                                 &open_buffers,
                             )
                         {
+                            mark_as_read_on_buffer_close(
+                                &state.buffer,
+                                history,
+                                clients,
+                                config,
+                            );
+
                             state.buffer =
                                 Buffer::from(data::Buffer::Upstream(buffer));
                             self.last_changed = Some(Instant::now());
@@ -1286,7 +1299,7 @@ impl Dashboard {
                                 .data()
                                 .and_then(history::Kind::from_buffer)
                         {
-                            self.mark_as_read(kind, clients);
+                            mark_as_read(kind, &mut self.history, clients);
                         }
                     }
                 }
@@ -1739,6 +1752,7 @@ impl Dashboard {
 
     fn toggle_internal_buffer(
         &mut self,
+        clients: &mut data::client::Map,
         config: &Config,
         buffer: buffer::Internal,
     ) -> Task<Message> {
@@ -1750,11 +1764,12 @@ impl Dashboard {
         });
 
         if let Some((window, pane)) = open {
-            self.close_pane(window, pane)
+            self.close_pane(clients, config, window, pane)
         } else {
             self.open_buffer(
                 data::Buffer::Internal(buffer),
                 config.actions.buffer.local,
+                clients,
                 config,
             )
         }
@@ -1764,6 +1779,7 @@ impl Dashboard {
         &mut self,
         buffer: data::Buffer,
         buffer_action: BufferAction,
+        clients: &mut data::client::Map,
         config: &Config,
     ) -> Task<Message> {
         let panes = self.panes.clone();
@@ -1787,6 +1803,13 @@ impl Dashboard {
                 let Focus { window, pane } = self.focus;
 
                 if let Some(state) = self.panes.get_mut(window, pane) {
+                    mark_as_read_on_buffer_close(
+                        &state.buffer,
+                        &mut self.history,
+                        clients,
+                        config,
+                    );
+
                     state.buffer = Buffer::from(buffer);
                     self.last_changed = Some(Instant::now());
 
@@ -1884,8 +1907,8 @@ impl Dashboard {
     pub fn leave_buffer(
         &mut self,
         clients: &mut data::client::Map,
+        config: &Config,
         buffer: buffer::Upstream,
-        mark_as_read: bool,
     ) -> (Task<Message>, Option<Event>) {
         let open = self.panes.iter().find_map(|(window, pane, state)| {
             (state.buffer.upstream() == Some(&buffer)).then_some((window, pane))
@@ -1895,7 +1918,7 @@ impl Dashboard {
 
         // Close pane
         if let Some((window, pane)) = open {
-            tasks.push(self.close_pane(window, pane));
+            tasks.push(self.close_pane(clients, config, window, pane));
 
             self.last_changed = Some(Instant::now());
         }
@@ -1915,10 +1938,7 @@ impl Dashboard {
 
                 tasks.push(
                     self.history
-                        .close(
-                            history::Kind::Channel(server, channel),
-                            mark_as_read,
-                        )
+                        .close(history::Kind::Channel(server, channel))
                         .map_or_else(Task::none, |task| {
                             Task::perform(task, Message::History)
                         }),
@@ -1929,7 +1949,7 @@ impl Dashboard {
             buffer::Upstream::Query(server, nick) => {
                 tasks.push(
                     self.history
-                        .close(history::Kind::Query(server, nick), mark_as_read)
+                        .close(history::Kind::Query(server, nick))
                         .map_or_else(Task::none, |task| {
                             Task::perform(task, Message::History)
                         }),
@@ -2139,11 +2159,16 @@ impl Dashboard {
 
     fn get_focused_with_history_mut(
         &mut self,
-    ) -> Option<(pane_grid::Pane, &mut Pane, &mut history::Manager)> {
+    ) -> Option<(
+        window::Id,
+        pane_grid::Pane,
+        &mut Pane,
+        &mut history::Manager,
+    )> {
         let Focus { window, pane } = self.focus;
         self.panes
             .get_mut(window, pane)
-            .map(|state| (pane, state, &mut self.history))
+            .map(|state| (window, pane, state, &mut self.history))
     }
 
     pub fn get_unique_queries(&self, server: &Server) -> Vec<&target::Query> {
@@ -2294,9 +2319,20 @@ impl Dashboard {
 
     fn close_pane(
         &mut self,
+        clients: &mut data::client::Map,
+        config: &Config,
         window: window::Id,
         pane: pane_grid::Pane,
     ) -> Task<Message> {
+        if let Some(state) = self.panes.get(window, pane) {
+            mark_as_read_on_buffer_close(
+                &state.buffer,
+                &mut self.history,
+                clients,
+                config,
+            );
+        }
+
         self.last_changed = Some(Instant::now());
 
         if window == self.main_window() {
@@ -2322,7 +2358,11 @@ impl Dashboard {
         Task::none()
     }
 
-    fn popout_pane(&mut self, config: &Config) -> Task<Message> {
+    fn popout_pane(
+        &mut self,
+        clients: &mut data::client::Map,
+        config: &Config,
+    ) -> Task<Message> {
         let Focus { pane, .. } = self.focus;
 
         self.focus_history = self
@@ -2335,13 +2375,22 @@ impl Dashboard {
         if let Some((pane, _)) = self.panes.main.close(pane)
             && let Some(buffer) = pane.buffer.data()
         {
-            return self.open_buffer(buffer, BufferAction::NewWindow, config);
+            return self.open_buffer(
+                buffer,
+                BufferAction::NewWindow,
+                clients,
+                config,
+            );
         }
 
         Task::none()
     }
 
-    fn merge_pane(&mut self, config: &Config) -> Task<Message> {
+    fn merge_pane(
+        &mut self,
+        clients: &mut data::client::Map,
+        config: &Config,
+    ) -> Task<Message> {
         let Focus { window, pane } = self.focus;
 
         if let Some(pane) = self
@@ -2351,9 +2400,12 @@ impl Dashboard {
             .and_then(|panes| panes.get(pane).cloned())
         {
             let task = match pane.buffer.data() {
-                Some(buffer) => {
-                    self.open_buffer(buffer, BufferAction::NewPane, config)
-                }
+                Some(buffer) => self.open_buffer(
+                    buffer,
+                    BufferAction::NewPane,
+                    clients,
+                    config,
+                ),
                 None => self.new_pane(pane_grid::Axis::Horizontal),
             };
 
@@ -2403,12 +2455,12 @@ impl Dashboard {
         }
     }
 
-    pub fn track(&mut self, config: &Config) -> Task<Message> {
+    pub fn track(&mut self) -> Task<Message> {
         let resources = self.panes.resources().collect();
 
         Task::batch(
             self.history
-                .track(resources, config)
+                .track(resources)
                 .into_iter()
                 .map(|fut| Task::perform(fut, Message::History))
                 .collect::<Vec<_>>(),
@@ -2655,6 +2707,7 @@ impl Dashboard {
                 tasks.push(dashboard.open_buffer(
                     buffer,
                     BufferAction::NewWindow,
+                    &mut data::client::Map::default(),
                     config,
                 ));
             }
@@ -2732,12 +2785,36 @@ impl Dashboard {
         }
     }
 
-    pub fn exit(&mut self, config: &Config) -> Task<Message> {
-        let history = self.history.exit(
-            config.buffer.mark_as_read.on_application_exit,
-            config.buffer.mark_as_read.on_buffer_close
-                || config.buffer.mark_as_read.on_application_exit,
-        );
+    pub fn exit(
+        &mut self,
+        clients: &mut data::client::Map,
+        config: &Config,
+    ) -> Task<Message> {
+        if config.buffer.mark_as_read.on_application_exit {
+            self.history.kinds()
+        } else {
+            self.panes
+                .iter()
+                .filter_map(|(_, _, state)| {
+                    if config
+                        .buffer
+                        .mark_as_read
+                        .on_buffer_close
+                        .mark_as_read(state.buffer.is_scrolled_to_bottom())
+                    {
+                        state.buffer.data().and_then(history::Kind::from_buffer)
+                    } else {
+                        None
+                    }
+                })
+                .collect()
+        }
+        .into_iter()
+        .for_each(|kind| {
+            mark_as_read(kind, &mut self.history, clients);
+        });
+
+        let history = self.history.exit();
         let last_changed = self.last_changed.take();
         let dashboard = data::Dashboard::from(&*self);
 
@@ -2775,7 +2852,12 @@ impl Dashboard {
             clients.join(&server, slice::from_ref(&channel));
         }
 
-        self.open_buffer(data::Buffer::Upstream(buffer), buffer_action, config)
+        self.open_buffer(
+            data::Buffer::Upstream(buffer),
+            buffer_action,
+            clients,
+            config,
+        )
     }
 
     pub fn open_target(
@@ -2799,7 +2881,7 @@ impl Dashboard {
                     server, query,
                 ));
 
-                self.open_buffer(buffer.clone(), buffer_action, config)
+                self.open_buffer(buffer.clone(), buffer_action, clients, config)
             }
         }
     }
@@ -2807,29 +2889,46 @@ impl Dashboard {
     fn main_window(&self) -> window::Id {
         self.panes.main_window
     }
+}
 
-    fn mark_server_as_read(
-        &mut self,
-        server: Server,
-        clients: &mut data::client::Map,
-    ) {
-        for kind in self.history.server_kinds(server) {
-            self.mark_as_read(kind, clients);
-        }
+fn mark_server_as_read(
+    server: Server,
+    history: &mut history::Manager,
+    clients: &mut data::client::Map,
+) {
+    for kind in history.server_kinds(server) {
+        mark_as_read(kind, history, clients);
     }
+}
 
-    fn mark_as_read(
-        &mut self,
-        kind: history::Kind,
-        clients: &mut data::client::Map,
-    ) {
-        let read_marker = self.history.mark_as_read(&kind);
+fn mark_as_read(
+    kind: history::Kind,
+    history: &mut history::Manager,
+    clients: &mut data::client::Map,
+) {
+    let read_marker = history.mark_as_read(&kind);
 
-        if let (Some(server), Some(target), Some(read_marker)) =
-            (kind.server(), kind.target(), read_marker)
-        {
-            clients.send_markread(server, target, read_marker);
-        }
+    if let (Some(server), Some(target), Some(read_marker)) =
+        (kind.server(), kind.target(), read_marker)
+    {
+        clients.send_markread(server, target, read_marker);
+    }
+}
+
+fn mark_as_read_on_buffer_close(
+    buffer: &Buffer,
+    history: &mut history::Manager,
+    clients: &mut data::client::Map,
+    config: &Config,
+) {
+    if config
+        .buffer
+        .mark_as_read
+        .on_buffer_close
+        .mark_as_read(buffer.is_scrolled_to_bottom())
+        && let Some(kind) = buffer.data().and_then(history::Kind::from_buffer)
+    {
+        mark_as_read(kind, history, clients);
     }
 }
 
@@ -3113,7 +3212,7 @@ fn cycle_next_unread_buffer(
             .find_map(|(b, has_unread)| has_unread.then_some(b))
     };
 
-    next_after().or_else(|| next_before().or(current)).cloned()
+    next_after().or_else(|| next_before().or(None)).cloned()
 }
 
 fn cycle_previous_unread_buffer(
@@ -3144,6 +3243,6 @@ fn cycle_previous_unread_buffer(
     };
 
     previous_before()
-        .or_else(|| previous_after().or(current))
+        .or_else(|| previous_after().or(None))
         .cloned()
 }
