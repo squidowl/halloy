@@ -1,5 +1,6 @@
 use std::path::{self, PathBuf};
 
+use chrono::format::StrftimeItems;
 use serde::{Deserialize, Deserializer};
 
 pub fn deserialize_path_buf_with_tilde_expansion<'de, D>(
@@ -61,6 +62,24 @@ where
     let intermediate = serde_json::Value::deserialize(deserializer)?;
 
     Ok(Option::<T>::deserialize(intermediate).unwrap_or_default())
+}
+
+pub fn deserialize_strftime_date<'de, D>(
+    deserializer: D,
+) -> Result<String, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let strftime_string = String::deserialize(deserializer)?;
+
+    if StrftimeItems::new(&strftime_string).parse().is_ok() {
+        Ok(strftime_string)
+    } else {
+        Err(serde::de::Error::invalid_value(
+            serde::de::Unexpected::Str(&strftime_string),
+            &"valid strftime string",
+        ))
+    }
 }
 
 #[cfg(test)]

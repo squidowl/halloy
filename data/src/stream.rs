@@ -152,7 +152,7 @@ async fn _run(
                             _ => e.to_string(),
                         };
 
-                        log::warn!("[{server}] connection failed: {error}");
+                        log::info!("[{server}] connection failed: {error}");
 
                         let _ =
                             sender.unbounded_send(Update::ConnectionFailed {
@@ -238,7 +238,7 @@ async fn _run(
 
                                 state = State::Quit;
                             } else {
-                                log::warn!("[{server}] disconnected: {error}");
+                                log::info!("[{server}] disconnected: {error}");
                                 let _ = sender.unbounded_send(
                                     Update::Disconnected {
                                         server: server.clone(),
@@ -260,7 +260,7 @@ async fn _run(
                         log::warn!("message decoding failed: {e}");
                     }
                     Input::IrcMessage(Err(e)) => {
-                        log::warn!("[{server}] disconnected: {e}");
+                        log::info!("[{server}] disconnected: {e}");
                         let _ = sender.unbounded_send(Update::Disconnected {
                             server: server.clone(),
                             is_initial,
@@ -307,7 +307,7 @@ async fn _run(
                         }
                     }
                     Input::PingTimeout => {
-                        log::warn!("[{server}] ping timeout");
+                        log::info!("[{server}] ping timeout");
                         let _ = sender.unbounded_send(Update::Disconnected {
                             server: server.clone(),
                             is_initial,

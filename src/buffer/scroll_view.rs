@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-use chrono::{DateTime, Local, NaiveDate, Utc};
+use chrono::{DateTime, Local, NaiveDate, NaiveTime, Utc};
+use data::buffer::DateSeparators;
 use data::dashboard::BufferAction;
 use data::isupport::ChatHistoryState;
 use data::message::{self, Limit};
@@ -306,8 +307,26 @@ pub fn view<'a>(
                                     .width(Length::Fill)
                                     .padding(padding::right(6)),
                                 text(
-                                    date.format(
-                                        &config.buffer.date_separators.format
+                                    date.and_time(
+                                        NaiveTime::from_hms_opt(0, 0, 0)
+                                            .expect("midnight is valid")
+                                    )
+                                    .and_local_timezone(Local)
+                                    .single()
+                                    .map_or(
+                                        // in the event of timezone weirdness,
+                                        // revert to default format
+                                        date.format(
+                                            &DateSeparators::default().format
+                                        ),
+                                        |datetime| {
+                                            datetime.format(
+                                                &config
+                                                    .buffer
+                                                    .date_separators
+                                                    .format,
+                                            )
+                                        }
                                     )
                                     .to_string()
                                 )
