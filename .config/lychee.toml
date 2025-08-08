@@ -4,5 +4,5 @@ no_progress = true
 include_fragments = true
 
 # Exclude all non-Halloy GitHub links to avoid throttling
-exclude = [ '^https://halloy\.squidowl\.org/.*', '^https://github.com/.*', '^irc://.*', '^ircs://.*' ]
-include = [ '^https://github.com/squidowl/halloy/.*' ]
+exclude = [ '^https://halloy\.squidowl\.org/.*', '^https://github\.com/.*', '^irc://.*', '^ircs://.*' ]
+include = [ '^https://github\.com/squidowl/halloy/.*' ]
