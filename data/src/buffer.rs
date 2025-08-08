@@ -2,6 +2,7 @@ use core::fmt;
 
 use serde::{Deserialize, Serialize};
 
+use crate::serde::deserialize_strftime_date;
 use crate::target::{self, Target};
 use crate::{Server, channel, config, message};
 
@@ -207,6 +208,7 @@ pub enum AutoFormat {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
 pub struct Timestamp {
+    #[serde(deserialize_with = "deserialize_strftime_date")]
     pub format: String,
     pub brackets: Brackets,
 }
@@ -223,6 +225,7 @@ impl Default for Timestamp {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
 pub struct DateSeparators {
+    #[serde(deserialize_with = "deserialize_strftime_date")]
     pub format: String,
     pub show: bool,
 }

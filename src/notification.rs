@@ -133,6 +133,7 @@ impl Notifications {
                 user,
                 channel,
                 message,
+                description,
             } => {
                 if config.highlight.should_notify(vec![
                     channel.to_string(),
@@ -141,7 +142,7 @@ impl Notifications {
                     let (title, body) = if config.highlight.show_content {
                         (
                             &format!(
-                                "{} highlighted you in {channel} on {server}",
+                                "{} {description} in {channel} on {server}",
                                 user.nickname()
                             ),
                             message.as_ref(),
@@ -149,7 +150,7 @@ impl Notifications {
                     } else {
                         (
                             &format!(
-                                "{} highlighted you in {channel}",
+                                "{} {description} in {channel}",
                                 user.nickname()
                             ),
                             server.as_ref(),

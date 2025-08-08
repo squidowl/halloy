@@ -2164,9 +2164,14 @@ impl Client {
                 })]);
             }
             Command::Numeric(RPL_MONONLINE, args) => {
+                let prefix = isupport::get_prefix(&self.isupport);
+
                 let targets = ok!(args.get(1))
                     .split(',')
-                    .map(|target| User::from(Nick::from(target)))
+                    .map(|target| {
+                        User::parse(target, prefix)
+                            .unwrap_or(User::from(Nick::from(target)))
+                    })
                     .collect::<Vec<_>>();
 
                 return Ok(vec![
