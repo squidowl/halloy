@@ -234,7 +234,6 @@ Customize how date separators are displayed within a buffer
 ### `format`
 
 Controls the date format. The expected format is [strftime](https://pubs.opengroup.org/onlinepubs/007908799/xsh/strftime.html).  
-NOTE: The application will panic if a invalid format is provided.
 
 ```toml
 # Type: string
