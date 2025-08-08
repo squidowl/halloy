@@ -405,28 +405,33 @@ impl Message {
         }
     }
 
-    pub fn has_highlight_fragment(&self) -> bool {
+    fn highlight_description(&self) -> Option<String> {
         if let Content::Fragments(fragments) = &self.content {
-            fragments.iter().any(|fragment| match fragment {
-                Fragment::HighlightNick(_, _) | Fragment::HighlightMatch(_) => {
-                    true
-                }
-                Fragment::Text(_)
-                | Fragment::Channel(_)
-                | Fragment::User(_, _)
-                | Fragment::Url(_)
-                | Fragment::Formatted { .. } => false,
-            })
+            if fragments.iter().any(|fragment| {
+                matches!(fragment, Fragment::HighlightNick(_, _))
+            }) {
+                Some(String::from("highlighted you"))
+            } else {
+                fragments.iter().find_map(|fragment| {
+                    if let Fragment::HighlightMatch(text) = fragment {
+                        Some(format!("matched highlight {text}"))
+                    } else {
+                        None
+                    }
+                })
+            }
         } else {
-            false
+            None
         }
     }
 
     pub fn into_highlight(
         &self,
         server: Server,
-    ) -> Option<(Self, Channel, User)> {
-        if !self.is_echo && self.has_highlight_fragment() {
+    ) -> Option<(Self, Channel, User, String)> {
+        if !self.is_echo
+            && let Some(highlight_description) = self.highlight_description()
+        {
             let (channel, user, source) = match self.target.clone() {
                 Target::Channel {
                     channel,
@@ -450,7 +455,7 @@ impl Message {
                 ..self.clone()
             };
 
-            return Some((message, channel, user));
+            return Some((message, channel, user, highlight_description));
         }
 
         None

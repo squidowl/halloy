@@ -704,7 +704,7 @@ impl Halloy {
                                             casemapping,
                                             prefix,
                                         ) {
-                                            if let Some((message, channel, user)) =
+                                            if let Some((message, channel, user, description)) =
                                                 message.into_highlight(server.clone())
                                             {
                                                 let blocked = FilterChain::borrow(dashboard.get_filters())
@@ -725,6 +725,7 @@ impl Halloy {
                                                             user,
                                                             channel,
                                                             message: message_text,
+                                                            description,
                                                         },
                                                         &server,
                                                     );
