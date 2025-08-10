@@ -45,9 +45,8 @@ impl Notification {
     }
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Default)]
 #[serde(default)]
-#[derive(Default)]
 pub struct Notifications {
     pub connected: Notification,
     pub disconnected: Notification,
@@ -64,44 +63,43 @@ impl Notifications {
         let mut sounds = HashMap::new();
 
         // Helper function to load a sound and add it to the map
-        let load_and_insert =
-            |name: &str, sounds: &mut HashMap<String, Sound>| {
-                if !sounds.contains_key(name) {
-                    match Sound::load(name) {
-                        Ok(sound) => {
-                            sounds.insert(name.to_string(), sound);
-                        }
-                        Err(e) => {
-                            log::warn!("Failed to load sound '{name}': {e}");
-                        }
+        let mut load_and_insert = |name: &str| {
+            if !sounds.contains_key(name) {
+                match Sound::load(name) {
+                    Ok(sound) => {
+                        sounds.insert(name.to_string(), sound);
+                    }
+                    Err(e) => {
+                        log::warn!("Failed to load sound '{name}': {e}");
                     }
                 }
-            };
+            }
+        };
 
         // Load sounds from each notification
         if let Some(sound_name) = self.connected.sound.as_deref() {
-            load_and_insert(sound_name, &mut sounds);
+            load_and_insert(sound_name);
         }
         if let Some(sound_name) = self.disconnected.sound.as_deref() {
-            load_and_insert(sound_name, &mut sounds);
+            load_and_insert(sound_name);
         }
         if let Some(sound_name) = self.reconnected.sound.as_deref() {
-            load_and_insert(sound_name, &mut sounds);
+            load_and_insert(sound_name);
         }
         if let Some(sound_name) = self.direct_message.sound.as_deref() {
-            load_and_insert(sound_name, &mut sounds);
+            load_and_insert(sound_name);
         }
         if let Some(sound_name) = self.highlight.sound.as_deref() {
-            load_and_insert(sound_name, &mut sounds);
+            load_and_insert(sound_name);
         }
         if let Some(sound_name) = self.file_transfer_request.sound.as_deref() {
-            load_and_insert(sound_name, &mut sounds);
+            load_and_insert(sound_name);
         }
         if let Some(sound_name) = self.monitored_online.sound.as_deref() {
-            load_and_insert(sound_name, &mut sounds);
+            load_and_insert(sound_name);
         }
         if let Some(sound_name) = self.monitored_offline.sound.as_deref() {
-            load_and_insert(sound_name, &mut sounds);
+            load_and_insert(sound_name);
         }
 
         sounds
