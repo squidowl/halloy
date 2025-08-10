@@ -86,7 +86,7 @@ pub enum Event {
 }
 
 impl Dashboard {
-    pub fn empty(main_window: &Window) -> (Self, Task<Message>) {
+    pub fn empty(main_window: &Window, config: &Config) -> (Self, Task<Message>) {
         let (main_panes, pane) =
             pane_grid::State::new(Pane::new(Buffer::Empty));
 
