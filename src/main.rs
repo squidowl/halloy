@@ -180,7 +180,7 @@ impl Halloy {
             Err(error) => {
                 log::warn!("failed to load dashboard: {error}");
 
-                screen::Dashboard::empty(&main_window)
+                screen::Dashboard::empty(&main_window, config)
             }
         };
 
