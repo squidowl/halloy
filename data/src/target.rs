@@ -22,6 +22,13 @@ impl Target {
         }
     }
 
+    pub fn to_channel(self) -> Option<Channel> {
+        match self {
+            Target::Channel(channel) => Some(channel),
+            Target::Query(_) => None,
+        }
+    }
+
     pub fn as_normalized_str(&self) -> &str {
         match self {
             Target::Channel(channel) => channel.as_normalized_str(),

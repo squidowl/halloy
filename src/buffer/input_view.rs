@@ -228,6 +228,9 @@ impl State {
                     input::Error::Command(
                         command::Error::NotPositiveInteger,
                     ) => true,
+                    input::Error::Command(
+                        command::Error::InvalidChannelName { .. },
+                    ) => true,
                 } {
                     self.error = Some(error.to_string());
                 }

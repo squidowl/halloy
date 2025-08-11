@@ -1202,10 +1202,17 @@ fn content<'a>(
 
             let topic = topic.as_ref()?;
 
-            Some(parse_fragments_with_user(
-                format!("{} changed topic to {topic}", user.nickname()),
-                &user,
-            ))
+            if topic.is_empty() {
+                Some(parse_fragments_with_user(
+                    format!("{} cleared the topic", user.nickname()),
+                    &user,
+                ))
+            } else {
+                Some(parse_fragments_with_user(
+                    format!("{} changed the topic to {topic}", user.nickname()),
+                    &user,
+                ))
+            }
         }
         Command::PART(target, text) => {
             let raw_user = message.user()?;

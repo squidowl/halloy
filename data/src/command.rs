@@ -115,7 +115,7 @@ pub fn parse(
         return Err(Error::MissingSlash);
     }
 
-    let mut split = rest.split_ascii_whitespace();
+    let mut split = rest.split(' ');
 
     let cmd = split.next().ok_or(Error::MissingCommand)?;
 
@@ -378,7 +378,46 @@ pub fn parse(
                 })
             }
             Kind::Topic => {
-                validated::<1, 1, true>(args, |[channel], [topic]| {
+                validated::<0, 2, true>(args.clone(), |_, [channel, topic]| {
+                    let (channel, topic) = if let Some(channel) = channel {
+                        let chantypes =
+                            isupport::get_chantypes_or_default(isupport);
+
+                        if !proto::is_channel(&channel, chantypes) {
+                            // Re-create topic from args in order to preserve
+                            // whitespace
+                            let topic = get_combined_arg(&args, 1);
+
+                            let Some(channel) = buffer
+                                .and_then(Upstream::target)
+                                .and_then(Target::to_channel)
+                            else {
+                                return Err(Error::InvalidChannelName {
+                                    requirements,
+                                });
+                            };
+
+                            (channel.to_string(), topic)
+                        } else {
+                            (channel, topic)
+                        }
+                    } else {
+                        let Some(channel) = buffer
+                            .and_then(Upstream::target)
+                            .and_then(Target::to_channel)
+                        else {
+                            // If not in a channel then a channel argument is
+                            // required
+                            return Err(Error::IncorrectArgCount {
+                                min: 1,
+                                max: 2,
+                                actual: 0,
+                            });
+                        };
+
+                        (channel.to_string(), None)
+                    };
+
                     if let Some(ref topic) = topic
                         && let Some(isupport::Parameter::TOPICLEN(max_len)) =
                             isupport.get(&isupport::Kind::TOPICLEN)
@@ -659,15 +698,19 @@ fn validated<const EXACT: usize, const OPT: usize, const TEXT: bool>(
     let max = EXACT + OPT;
 
     let args: Vec<String> = if TEXT {
-        // Combine everything from last arg on
-        let combined = args.iter().skip(max.saturating_sub(1)).join(" ");
-        args.iter()
+        let combined_arg = get_combined_arg(&args, max);
+
+        args.into_iter()
+            .filter(|arg| !arg.is_empty())
             .take(max.saturating_sub(1))
             .map(ToString::to_string)
-            .chain((!combined.is_empty()).then_some(combined))
+            .chain(combined_arg)
             .collect()
     } else {
-        args.into_iter().map(String::from).collect()
+        args.into_iter()
+            .filter(|arg| !arg.is_empty())
+            .map(String::from)
+            .collect()
     };
 
     if args.len() >= EXACT && args.len() <= max {
@@ -688,6 +731,29 @@ fn validated<const EXACT: usize, const OPT: usize, const TEXT: bool>(
             actual: args.len(),
         })
     }
+}
+
+fn get_combined_arg(
+    args: &Vec<&str>,
+    combined_arg_number: usize,
+) -> Option<String> {
+    // Combined arg is always the last arg
+    let skip_args_count = if combined_arg_number > 1 {
+        args.iter()
+            .enumerate()
+            .filter_map(|(position, arg)| (!arg.is_empty()).then_some(position))
+            .nth(combined_arg_number.saturating_sub(2))
+            .map(|position| position.saturating_add(1))
+    } else {
+        Some(0)
+    };
+
+    // Combine everything after the penultimate arg
+    let combined_arg = skip_args_count
+        .map(|count| args.iter().skip(count).join(" "))
+        .unwrap_or_default();
+
+    (!combined_arg.is_empty()).then_some(combined_arg)
 }
 
 impl TryFrom<Irc> for proto::Command {
@@ -768,6 +834,8 @@ pub enum Error {
     },
     #[error("must be a number greater than zero")]
     NotPositiveInteger,
+    #[error("invalid channel name ({requirements}")]
+    InvalidChannelName { requirements: String },
 }
 
 fn fmt_incorrect_arg_count(min: usize, max: usize, actual: usize) -> String {
