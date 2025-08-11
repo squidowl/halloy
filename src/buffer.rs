@@ -53,6 +53,7 @@ pub enum Message {
 pub enum Event {
     UserContext(user_context::Event),
     OpenBuffers(Vec<(Target, BufferAction)>),
+    LeaveBuffers(Vec<Target>, Option<String>),
     GoToMessage(data::Server, target::Channel, message::Hash),
     History(Task<history::manager::Message>),
     RequestOlderChatHistory,
@@ -116,6 +117,18 @@ impl Buffer {
         }
     }
 
+    pub fn server(&self) -> Option<data::Server> {
+        match self {
+            Buffer::Channel(state) => Some(state.server.clone()),
+            Buffer::Query(state) => Some(state.server.clone()),
+            Buffer::Server(state) => Some(state.server.clone()),
+            Buffer::Empty
+            | Buffer::FileTransfers(_)
+            | Buffer::Logs(_)
+            | Buffer::Highlights(_) => None,
+        }
+    }
+
     pub fn target(&self) -> Option<Target> {
         match self {
             Buffer::Channel(state) => {
@@ -150,6 +163,9 @@ impl Buffer {
                     channel::Event::OpenBuffers(targets) => {
                         Event::OpenBuffers(targets)
                     }
+                    channel::Event::LeaveBuffers(targets, reason) => {
+                        Event::LeaveBuffers(targets, reason)
+                    }
                     channel::Event::History(task) => Event::History(task),
                     channel::Event::RequestOlderChatHistory => {
                         Event::RequestOlderChatHistory
@@ -178,6 +194,9 @@ impl Buffer {
                     server::Event::OpenBuffers(targets) => {
                         Event::OpenBuffers(targets)
                     }
+                    server::Event::LeaveBuffers(targets, reason) => {
+                        Event::LeaveBuffers(targets, reason)
+                    }
                     server::Event::History(task) => Event::History(task),
                     server::Event::MarkAsRead(kind) => Event::MarkAsRead(kind),
                     server::Event::OpenUrl(url) => Event::OpenUrl(url),
@@ -198,6 +217,9 @@ impl Buffer {
                     }
                     query::Event::OpenBuffers(targets) => {
                         Event::OpenBuffers(targets)
+                    }
+                    query::Event::LeaveBuffers(targets, reason) => {
+                        Event::LeaveBuffers(targets, reason)
                     }
                     query::Event::History(task) => Event::History(task),
                     query::Event::RequestOlderChatHistory => {

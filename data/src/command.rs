@@ -19,6 +19,7 @@ pub enum Command {
 #[derive(Debug, Clone)]
 pub enum Internal {
     OpenBuffers(Vec<Target>),
+    LeaveBuffers(Vec<Target>, Option<String>),
     ClearBuffer,
     /// Part the current channel and join a new one.
     ///
@@ -318,27 +319,62 @@ pub fn parse(
                 })
             }
             Kind::Part => {
-                validated::<1, 1, true>(args, |[chanlist], [reason]| {
+                validated::<0, 2, true>(args, |_, [target_list, reason]| {
+                    let targets = if let Some(target_list) = target_list {
+                        let casemapping =
+                            isupport::get_casemapping_or_default(isupport);
+                        let chantypes =
+                            isupport::get_chantypes_or_default(isupport);
+                        let statusmsg =
+                            isupport::get_statusmsg_or_default(isupport);
+
+                        target_list
+                            .split(',')
+                            .map(|target| {
+                                Target::parse(
+                                    target,
+                                    chantypes,
+                                    statusmsg,
+                                    casemapping,
+                                )
+                            })
+                            .collect::<Vec<_>>()
+                    } else {
+                        let Some(target) = buffer.and_then(Upstream::target)
+                        else {
+                            // If not in a query or channel then a target is
+                            // required
+                            return Err(Error::IncorrectArgCount {
+                                min: 1,
+                                max: 2,
+                                actual: 0,
+                            });
+                        };
+
+                        vec![target]
+                    };
+
                     if let Some(isupport::Parameter::CHANNELLEN(max_len)) =
                         isupport.get(&isupport::Kind::CHANNELLEN)
                     {
                         let max_len = *max_len as usize;
 
-                        let channels = chanlist.split(',').collect::<Vec<_>>();
-
-                        if let Some(channel) = channels
-                            .into_iter()
-                            .find(|channel| channel.len() > max_len)
-                        {
+                        if let Some(target) = targets.iter().find(|target| {
+                            target.as_channel().is_some_and(|channel| {
+                                channel.as_str().len() > max_len
+                            })
+                        }) {
                             return Err(Error::ArgTooLong {
-                                name: "channel in chanlist",
-                                len: channel.len(),
+                                name: "channel in targets",
+                                len: target.as_str().len(),
                                 max_len,
                             });
                         }
                     }
 
-                    Ok(Command::Irc(Irc::Part(chanlist, reason)))
+                    Ok(Command::Internal(Internal::LeaveBuffers(
+                        targets, reason,
+                    )))
                 })
             }
             Kind::Topic => {
