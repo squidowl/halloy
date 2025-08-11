@@ -25,6 +25,10 @@ pub enum Event {
     OpenBuffers {
         targets: Vec<(Target, BufferAction)>,
     },
+    LeaveBuffers {
+        targets: Vec<Target>,
+        reason: Option<String>,
+    },
     Cleared {
         history_task: Task<history::manager::Message>,
     },
@@ -294,6 +298,18 @@ impl State {
                                                     ),
                                                 })
                                                 .collect(),
+                                        }),
+                                    );
+                                }
+                                command::Internal::LeaveBuffers(
+                                    targets,
+                                    reason,
+                                ) => {
+                                    return (
+                                        Task::none(),
+                                        Some(Event::LeaveBuffers {
+                                            targets,
+                                            reason,
                                         }),
                                     );
                                 }

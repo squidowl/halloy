@@ -12,6 +12,7 @@ use crate::{Command, Target, command, config, isupport, message, server};
 #[derive(Debug)]
 pub enum Event {
     OpenBuffers(Vec<Target>),
+    LeaveBuffers(Vec<Target>, Option<String>),
 }
 
 pub struct Stream(BoxStream<'static, Event>);
@@ -65,6 +66,10 @@ pub fn on_connect(
                             command::Internal::OpenBuffers(targets) => {
                                 Some(Event::OpenBuffers(targets))
                             }
+                            command::Internal::LeaveBuffers(
+                                targets,
+                                reason,
+                            ) => Some(Event::LeaveBuffers(targets, reason)),
                             command::Internal::Delay(seconds) => {
                                 time::sleep(Duration::from_secs(seconds)).await;
                                 None
