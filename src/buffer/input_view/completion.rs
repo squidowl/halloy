@@ -515,7 +515,7 @@ impl Commands {
                         Arg {
                             text: "channel",
                             optional: true,
-                            tooltip: Some(String::from("the #channel to join")),
+                            tooltip: Some(String::from("the channel to join")),
                         },
                         Arg {
                             text: "message",
@@ -533,6 +533,18 @@ impl Commands {
                 Command {
                     title: "CLEAR",
                     args: vec![],
+                    subcommands: None,
+                }
+            },
+            // CLEARTOPIC
+            {
+                Command {
+                    title: "CLEARTOPIC",
+                    args: vec![Arg {
+                        text: "channel",
+                        optional: true,
+                        tooltip: None,
+                    }],
                     subcommands: None,
                 }
             },
@@ -876,7 +888,7 @@ impl Command {
             }
             "hop" => "Parts the current channel and joins a new one",
             "clear" => "Clears the buffer",
-
+            "cleartopic" => "Clear the topic of a channel",
             _ => return None,
         })
     }

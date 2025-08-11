@@ -71,6 +71,7 @@ enum Kind {
     Notice,
     Delay,
     Clear,
+    ClearTopic,
     Raw,
 }
 
@@ -99,6 +100,7 @@ impl FromStr for Kind {
             "hop" | "rejoin" => Ok(Kind::Hop),
             "delay" => Ok(Kind::Delay),
             "clear" => Ok(Kind::Clear),
+            "cleartopic" | "ct" => Ok(Kind::ClearTopic),
             _ => Err(()),
         }
     }
@@ -393,7 +395,9 @@ pub fn parse(
                                 .and_then(Target::to_channel)
                             else {
                                 return Err(Error::InvalidChannelName {
-                                    requirements,
+                                    requirements: fmt_channel_name_requirements(
+                                        chantypes,
+                                    ),
                                 });
                             };
 
@@ -674,6 +678,43 @@ pub fn parse(
             Kind::Clear => validated::<0, 0, false>(args, |_, _| {
                 Ok(Command::Internal(Internal::ClearBuffer))
             }),
+            Kind::ClearTopic => {
+                validated::<0, 1, false>(args, |_, [channel]| {
+                    if let Some(channel) = channel {
+                        let chantypes =
+                            isupport::get_chantypes_or_default(isupport);
+
+                        if proto::is_channel(&channel, chantypes) {
+                            Ok(Command::Irc(Irc::Topic(
+                                channel.to_string(),
+                                Some(String::new()),
+                            )))
+                        } else {
+                            Err(Error::InvalidChannelName {
+                                requirements: fmt_channel_name_requirements(
+                                    chantypes,
+                                ),
+                            })
+                        }
+                    } else if let Some(channel) = buffer
+                        .and_then(Upstream::target)
+                        .and_then(Target::to_channel)
+                    {
+                        Ok(Command::Irc(Irc::Topic(
+                            channel.to_string(),
+                            Some(String::new()),
+                        )))
+                    } else {
+                        // If not in a channel then a channel argument is
+                        // required
+                        Err(Error::IncorrectArgCount {
+                            min: 1,
+                            max: 1,
+                            actual: 0,
+                        })
+                    }
+                })
+            }
             Kind::Delay => validated::<1, 0, false>(args, |[seconds], _| {
                 if let Ok(seconds) = seconds.parse::<u64>() {
                     if seconds > 0 {
@@ -850,4 +891,26 @@ fn fmt_incorrect_arg_count(min: usize, max: usize, actual: usize) -> String {
             "too {relational} arguments ({actual} provided, {min} to {max} expected)"
         )
     }
+}
+
+fn fmt_channel_name_requirements(chantypes: &[char]) -> String {
+    let mut requirements = String::from("must start with ");
+
+    for (index, chantype) in chantypes.iter().enumerate() {
+        if index == 1 {
+            requirements.push_str(&format!("'{chantype}'"));
+        } else if index == chantypes.len() {
+            if chantypes.len() == 2 {
+                requirements.push_str(&format!(" or '{chantype}'"));
+            } else {
+                requirements.push_str(&format!(", or '{chantype}'"));
+            }
+        } else {
+            requirements.push_str(&format!(", '{chantype}'"));
+        }
+    }
+
+    requirements.push_str(" and cannot contain a ',' or '^G'");
+
+    requirements
 }
