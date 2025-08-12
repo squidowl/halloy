@@ -8,6 +8,7 @@ use itertools::Itertools;
 use crate::buffer::{self, Upstream};
 use crate::isupport::{self, find_target_limit};
 use crate::message::{self, formatting};
+use crate::user::NickRef;
 use crate::{Target, ctcp};
 
 #[derive(Debug, Clone)]
@@ -109,6 +110,7 @@ impl FromStr for Kind {
 pub fn parse(
     s: &str,
     buffer: Option<&buffer::Upstream>,
+    our_nickname: Option<NickRef>,
     isupport: &HashMap<isupport::Kind, isupport::Parameter>,
 ) -> Result<Command, Error> {
     let (head, rest) = s.split_once('/').ok_or(Error::MissingSlash)?;
@@ -475,9 +477,49 @@ pub fn parse(
                     Ok(Command::Irc(Irc::Kick(channel, users, comment)))
                 })
             }
-            Kind::Mode => validated::<1, 2, true>(
+            Kind::Mode => validated::<0, 3, true>(
                 args,
-                |[target], [mode_string, mode_arguments]| {
+                |_, [target, mode_string, mode_arguments]| {
+                    let (target, mode_string, mode_arguments) =
+                        if let Some(target) = target {
+                            if target.starts_with(['+', '-']) {
+                                let mode_arguments =
+                                    if let Some(ref mode_string) = mode_string
+                                        && let Some(mode_arguments) =
+                                            mode_arguments
+                                    {
+                                        Some(format!(
+                                            "{mode_string} {mode_arguments}"
+                                        ))
+                                    } else {
+                                        mode_string
+                                    };
+
+                                let mode_string = target;
+
+                                (None, Some(mode_string), mode_arguments)
+                            } else {
+                                (Some(target), mode_string, mode_arguments)
+                            }
+                        } else {
+                            (None, mode_string, mode_arguments)
+                        };
+
+                    let target = target.unwrap_or(
+                        buffer
+                            .and_then(Upstream::target)
+                            .map(|buffer_target| buffer_target.to_string())
+                            .unwrap_or(
+                                our_nickname
+                                    .ok_or(Error::IncorrectArgCount {
+                                        min: 1,
+                                        max: 2,
+                                        actual: 0,
+                                    })?
+                                    .to_string(),
+                            ),
+                    );
+
                     let mode_limit =
                         isupport::get_mode_limit_or_default(isupport);
 

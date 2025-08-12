@@ -2407,6 +2407,7 @@ impl Client {
                     return Ok(vec![Event::OnConnect(on_connect(
                         self.handle.clone(),
                         self.config.clone(),
+                        self.nickname(),
                         &self.isupport,
                     ))]);
                 }

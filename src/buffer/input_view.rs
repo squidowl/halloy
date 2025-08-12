@@ -199,6 +199,7 @@ impl State {
                     buffer.clone(),
                     config.buffer.text_input.auto_format,
                     &input,
+                    clients.nickname(buffer.server()),
                     &clients.get_isupport(buffer.server()),
                 ) && match error {
                     input::Error::ExceedsByteLimit { .. } => true,
@@ -269,6 +270,7 @@ impl State {
                         buffer.clone(),
                         config.buffer.text_input.auto_format,
                         raw_input,
+                        clients.nickname(buffer.server()),
                         &clients.get_isupport(buffer.server()),
                     ) {
                         Ok(input::Parsed::Internal(command)) => {
