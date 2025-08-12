@@ -7,6 +7,7 @@ use futures::stream::{self, BoxStream};
 use futures::{SinkExt, StreamExt};
 use tokio::time;
 
+use crate::user::NickRef;
 use crate::{Command, Target, command, config, isupport, message, server};
 
 #[derive(Debug)]
@@ -37,12 +38,15 @@ impl fmt::Debug for Stream {
 pub fn on_connect(
     handle: server::Handle,
     config: Arc<config::Server>,
+    our_nickname: NickRef,
     isupport: &HashMap<isupport::Kind, isupport::Parameter>,
 ) -> Stream {
     let commands = config
         .on_connect
         .iter()
-        .filter_map(|command| command::parse(command, None, isupport).ok())
+        .filter_map(|command| {
+            command::parse(command, None, Some(our_nickname), isupport).ok()
+        })
         .collect::<Vec<_>>();
 
     Stream(
