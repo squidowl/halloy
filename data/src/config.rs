@@ -25,7 +25,7 @@ pub use self::server::Server;
 pub use self::sidebar::Sidebar;
 use crate::appearance::theme::Styles;
 use crate::appearance::{self, Appearance};
-use crate::audio::{self, Sound};
+use crate::audio::{self};
 use crate::environment::config_dir;
 use crate::server::{Map as ServerMap, Server as ServerName};
 use crate::{Theme, environment};
@@ -58,7 +58,7 @@ pub struct Config {
     pub pane: Pane,
     pub sidebar: Sidebar,
     pub keyboard: Keyboard,
-    pub notifications: Notifications<Sound>,
+    pub notifications: Notifications,
     pub file_transfer: FileTransfer,
     pub tooltips: bool,
     pub preview: Preview,
@@ -319,8 +319,6 @@ impl Config {
 
         let servers = ServerMap::new(servers).await?;
 
-        let loaded_notifications = notifications.load_sounds()?;
-
         let appearance = Self::load_appearance(theme.keys())
             .await
             .unwrap_or_default();
@@ -334,7 +332,7 @@ impl Config {
             buffer,
             sidebar,
             keyboard,
-            notifications: loaded_notifications,
+            notifications,
             file_transfer,
             tooltips,
             preview,

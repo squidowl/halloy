@@ -4,7 +4,7 @@ use std::time::Duration;
 use chrono::{DateTime, Utc};
 use data::audio::Sound;
 use data::config::{self, notification};
-use data::{Notification, Server};
+use data::{Config, Notification, Server};
 
 pub use self::toast::prepare;
 use crate::audio;
@@ -13,18 +13,23 @@ mod toast;
 
 pub struct Notifications {
     recent_notifications: HashMap<Notification, DateTime<Utc>>,
+    sounds: HashMap<String, Sound>,
 }
 
 impl Notifications {
-    pub fn new() -> Self {
+    pub fn new(config: &Config) -> Self {
+        // Load sounds from different sources.
+        let sounds = config.notifications.load_sounds();
+
         Self {
             recent_notifications: HashMap::new(),
+            sounds,
         }
     }
 
     pub fn notify(
         &mut self,
-        config: &config::Notifications<Sound>,
+        config: &config::Notifications,
         notification: &Notification,
         server: &Server,
     ) {
@@ -165,7 +170,7 @@ impl Notifications {
 
     fn execute(
         &mut self,
-        config: &notification::Loaded,
+        config: &notification::Notification,
         notification: &Notification,
         title: &str,
         body: impl ToString,
@@ -185,7 +190,9 @@ impl Notifications {
             toast::show(title, body);
         }
 
-        if let Some(sound) = &config.sound {
+        if let Some(sound_name) = &config.sound
+            && let Some(sound) = self.sounds.get(sound_name)
+        {
             audio::play(sound.clone());
         }
 
