@@ -163,7 +163,7 @@ impl State {
         history: &mut history::Manager,
         config: &Config,
     ) -> (Task<Message>, Option<Event>) {
-        let current_channel = buffer.channel();
+        let current_target = buffer.target();
 
         match message {
             Message::Input(input) => {
@@ -184,10 +184,11 @@ impl State {
 
                 self.completion.process(
                     &input,
+                    clients.nickname(buffer.server()),
                     users,
                     &history.get_last_seen(buffer),
                     &channels,
-                    current_channel,
+                    current_target.as_ref(),
                     &isupport,
                     config,
                 );
@@ -588,10 +589,11 @@ impl State {
 
                     self.completion.process(
                         &new_input,
+                        clients.nickname(buffer.server()),
                         users,
                         &history.get_last_seen(buffer),
                         &channels,
-                        current_channel,
+                        current_target.as_ref(),
                         &isupport,
                         config,
                     );
@@ -631,10 +633,11 @@ impl State {
 
                         self.completion.process(
                             &new_input,
+                            clients.nickname(buffer.server()),
                             users,
                             &history.get_last_seen(buffer),
                             &channels,
-                            current_channel,
+                            current_target.as_ref(),
                             &isupport,
                             config,
                         );
