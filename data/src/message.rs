@@ -217,6 +217,7 @@ impl Message {
 
     pub fn can_reference(&self) -> bool {
         if matches!(self.direction, Direction::Sent)
+            || self.is_echo
             || matches!(self.target.source(), Source::Internal(_))
         {
             return false;
