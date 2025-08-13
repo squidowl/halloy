@@ -8,8 +8,8 @@ use data::dashboard::{self, BufferAction};
 use data::environment::{RELEASE_WEBSITE, WIKI_WEBSITE};
 use data::history::ReadMarker;
 use data::history::filter::Filter;
-use data::history::manager::Broadcast;
 use data::isupport::{self, ChatHistorySubcommand, MessageReference};
+use data::message::Broadcast;
 use data::target::{self, Target};
 use data::{
     Config, Notification, Server, User, Version, client, command, config,
