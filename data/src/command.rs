@@ -746,13 +746,47 @@ pub fn parse(
                 }
             }
             Kind::Ctcp => {
-                validated::<2, 1, true>(args, |[target, command], [params]| {
-                    Ok(Command::Irc(Irc::Ctcp(
-                        ctcp::Command::from(command.as_str()),
-                        target,
-                        params,
-                    )))
-                })
+                validated::<1, 2, true>(
+                    args.clone(),
+                    |[target], [command, params]| {
+                        let (target, command, params) = if let Some(query) =
+                            buffer
+                                .and_then(Upstream::target)
+                                .and_then(Target::to_query)
+                            && matches!(
+                                target.to_uppercase().as_str(),
+                                "ACTION"
+                                    | "CLIENTINFO"
+                                    | "PING"
+                                    | "SOURCE"
+                                    | "TIME"
+                                    | "VERSION"
+                            ) {
+                            // Re-create comment from args in order to preserve
+                            // whitespace
+                            let params = get_combined_arg(&args, 2);
+
+                            (query.to_string(), target, params)
+                        } else {
+                            let Some(command) = command else {
+                                // If target is not skipped then command is required
+                                return Err(Error::IncorrectArgCount {
+                                    min: 2,
+                                    max: 3,
+                                    actual: 0,
+                                });
+                            };
+
+                            (target, command, params)
+                        };
+
+                        Ok(Command::Irc(Irc::Ctcp(
+                            ctcp::Command::from(command.as_str()),
+                            target,
+                            params,
+                        )))
+                    },
+                )
             }
             Kind::Hop => {
                 validated::<0, 2, true>(args, |_, [channel, message]| {
