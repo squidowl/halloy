@@ -371,6 +371,10 @@ impl Commands {
             },
             // KICK
             {
+                let default = current_target
+                    .and_then(|target| target.as_channel())
+                    .map(target::Channel::to_string);
+
                 let kick_len = match isupport.get(&isupport::Kind::KICKLEN) {
                     Some(isupport::Parameter::KICKLEN(len)) => Some(*len),
                     _ => None,
@@ -378,7 +382,7 @@ impl Commands {
 
                 let target_limit = find_target_limit(isupport, "KICK");
 
-                kick_command(target_limit, kick_len)
+                kick_command(default, target_limit, kick_len)
             },
             // MSG
             {
@@ -778,7 +782,7 @@ impl Commands {
         // Mark skipped arguments as skipped
         if let Self::Selected { command, .. } = self {
             match command.title {
-                "TOPIC" => {
+                "KICK" => {
                     if let Some(channel) = rest.split_ascii_whitespace().nth(1)
                     {
                         let chantypes =
@@ -797,6 +801,20 @@ impl Commands {
                         if target.starts_with(['+', '-']) {
                             if let Some(target) = command.args.get_mut(0) {
                                 target.kind =
+                                    ArgKind::Optional { skipped: true };
+                            }
+                        }
+                    }
+                }
+                "TOPIC" => {
+                    if let Some(channel) = rest.split_ascii_whitespace().nth(1)
+                    {
+                        let chantypes =
+                            isupport::get_chantypes_or_default(isupport);
+
+                        if !proto::is_channel(channel, chantypes) {
+                            if let Some(channel) = command.args.get_mut(0) {
+                                channel.kind =
                                     ArgKind::Optional { skipped: true };
                             }
                         }
@@ -1795,7 +1813,11 @@ fn join_command(
     }
 }
 
-fn kick_command(target_limit: Option<u16>, max_len: Option<u16>) -> Command {
+fn kick_command(
+    default: Option<String>,
+    target_limit: Option<u16>,
+    max_len: Option<u16>,
+) -> Command {
     let mut users_tooltip = String::from("comma-separated");
 
     if let Some(target_limit) = target_limit {
@@ -1813,8 +1835,14 @@ fn kick_command(target_limit: Option<u16>, max_len: Option<u16>) -> Command {
         args: vec![
             Arg {
                 text: "channel",
-                kind: ArgKind::Required,
-                tooltip: None,
+                kind: if default.is_some() {
+                    ArgKind::Optional { skipped: false }
+                } else {
+                    ArgKind::Required
+                },
+                tooltip: default.map(|default| {
+                    format!("may be skipped (default: {default})")
+                }),
             },
             Arg {
                 text: "users",

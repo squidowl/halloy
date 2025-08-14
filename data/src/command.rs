@@ -443,39 +443,81 @@ pub fn parse(
                 })
             }
             Kind::Kick => {
-                validated::<2, 1, true>(args, |[channel, users], [comment]| {
-                    let target_limit = find_target_limit(isupport, "KICK")
-                        .map(|limit| limit as usize);
+                validated::<1, 2, true>(
+                    args.clone(),
+                    |[channel], [users, comment]| {
+                        let chantypes =
+                            isupport::get_chantypes_or_default(isupport);
 
-                    if let Some(target_limit) = target_limit {
-                        let users = users.split(',').collect::<Vec<_>>();
+                        let (channel, users, comment) =
+                            if !proto::is_channel(&channel, chantypes) {
+                                let users = channel;
 
-                        if users.len() > target_limit {
-                            return Err(Error::TooManyTargets {
-                                name: "users",
-                                number: users.len(),
-                                max_number: target_limit,
-                            });
+                                let Some(channel) = buffer
+                                    .and_then(Upstream::target)
+                                    .and_then(Target::to_channel)
+                                else {
+                                    // If not in a channel then a channel argument is
+                                    // required
+                                    return Err(Error::IncorrectArgCount {
+                                        min: 2,
+                                        max: 3,
+                                        actual: 0,
+                                    });
+                                };
+
+                                // Re-create comment from args in order to preserve
+                                // whitespace
+                                let comment = get_combined_arg(&args, 2);
+
+                                (channel.to_string(), users, comment)
+                            } else {
+                                let Some(users) = users else {
+                                    // If channel is not skipped then users is
+                                    // required
+                                    return Err(Error::IncorrectArgCount {
+                                        min: 2,
+                                        max: 3,
+                                        actual: 0,
+                                    });
+                                };
+
+                                (channel, users, comment)
+                            };
+
+                        let target_limit = find_target_limit(isupport, "KICK")
+                            .map(|limit| limit as usize);
+
+                        if let Some(target_limit) = target_limit {
+                            let users = users.split(',').collect::<Vec<_>>();
+
+                            if users.len() > target_limit {
+                                return Err(Error::TooManyTargets {
+                                    name: "users",
+                                    number: users.len(),
+                                    max_number: target_limit,
+                                });
+                            }
                         }
-                    }
 
-                    if let Some(ref comment) = comment
-                        && let Some(isupport::Parameter::KICKLEN(max_len)) =
-                            isupport.get(&isupport::Kind::KICKLEN)
-                    {
-                        let max_len = *max_len as usize;
+                        if let Some(ref comment) = comment
+                            && let Some(isupport::Parameter::KICKLEN(max_len)) =
+                                isupport.get(&isupport::Kind::KICKLEN)
+                        {
+                            let max_len = *max_len as usize;
 
-                        if comment.len() > max_len {
-                            return Err(Error::ArgTooLong {
-                                name: "comment",
-                                len: comment.len(),
-                                max_len,
-                            });
+                            if comment.len() > max_len {
+                                return Err(Error::ArgTooLong {
+                                    name: "comment",
+                                    len: comment.len(),
+                                    max_len,
+                                });
+                            }
                         }
-                    }
 
-                    Ok(Command::Irc(Irc::Kick(channel, users, comment)))
-                })
+                        Ok(Command::Irc(Irc::Kick(channel, users, comment)))
+                    },
+                )
             }
             Kind::Mode => validated::<0, 3, true>(
                 args,
