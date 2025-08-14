@@ -596,13 +596,23 @@ impl Commands {
             },
             // CTCP
             {
+                let default = current_target
+                    .and_then(|target| target.as_query())
+                    .map(target::Query::to_string);
+
                 Command {
                 title: "CTCP",
                 args: vec![
                     Arg {
                         text: "nick",
-                        kind: ArgKind::Required,
-                        tooltip: None,
+                        kind: if default.is_some() {
+                            ArgKind::Optional { skipped: false }
+                        } else {
+                            ArgKind::Required
+                        },
+                        tooltip: default.map(|default| {
+                            format!("may be skipped (default: {default})")
+                        }),
                     },
                     Arg {
                         text: "command",
@@ -711,77 +721,26 @@ impl Commands {
                     *self = Self::Idle;
                 }
             }
-            // Command fully typed & already selected, check for subcommand if
-            // any exist
-            Self::Selected { command, .. } => {
-                if let Some(subcommands) = &command.subcommands {
-                    if let Some(subcmd) = rest[cmd.len() + 1..]
-                        .split_ascii_whitespace()
-                        .nth(command.args.len() - 1)
-                    {
-                        let subcmd = if command.title != "MODE" {
-                            (String::from(command.title) + " " + subcmd)
-                                .to_lowercase()
-                        } else {
-                            let text = if subcmd.starts_with(['+', '-']) {
-                                if let Some(target) = current_target {
-                                    match target {
-                                        Target::Channel(_) => "channel",
-                                        Target::Query(_) => "user",
-                                    }
-                                } else {
-                                    "user"
-                                }
-                            } else {
-                                let chantypes =
-                                    isupport::get_chantypes_or_default(
-                                        isupport,
-                                    );
-
-                                if proto::is_channel(subcmd, chantypes) {
-                                    "channel"
-                                } else {
-                                    "user"
-                                }
-                            };
-
-                            format!(
-                                "{} {}",
-                                command.title,
-                                Arg {
-                                    text,
-                                    kind: ArgKind::Required,
-                                    tooltip: None,
-                                }
-                            )
-                            .to_lowercase()
-                        };
-
-                        let subcommand =
-                            subcommands.iter().find(|subcommand| {
-                                subcommand.title.to_lowercase() == subcmd
-                                    || subcommand.alias().iter().any(|alias| {
-                                        alias.to_lowercase() == subcmd
-                                    })
-                            });
-
-                        *self = Self::Selected {
-                            command: command.clone(),
-                            subcommand: subcommand.cloned(),
-                        };
-                    } else {
-                        *self = Self::Selected {
-                            command: command.clone(),
-                            subcommand: None,
-                        };
-                    }
-                }
-            }
+            // Command fully typed & already selected
+            Self::Selected { .. } => {}
         }
 
-        // Mark skipped arguments as skipped
         if let Self::Selected { command, .. } = self {
+            // Mark skipped arguments as skipped
             match command.title {
+                "CTCP" => {
+                    if let Some(nick) = rest.split_ascii_whitespace().nth(1) {
+                        match nick.to_uppercase().as_str() {
+                            "ACTION" | "CLIENTINFO" | "PING" | "SOURCE"
+                            | "TIME" | "VERSION" => {
+                                if let Some(nick) = command.args.get_mut(0) {
+                                    nick.kind.skip();
+                                }
+                            }
+                            _ => (),
+                        }
+                    }
+                }
                 "KICK" => {
                     if let Some(channel) = rest.split_ascii_whitespace().nth(1)
                     {
@@ -790,8 +749,7 @@ impl Commands {
 
                         if !proto::is_channel(channel, chantypes) {
                             if let Some(channel) = command.args.get_mut(0) {
-                                channel.kind =
-                                    ArgKind::Optional { skipped: true };
+                                channel.kind.skip();
                             }
                         }
                     }
@@ -800,8 +758,7 @@ impl Commands {
                     if let Some(target) = rest.split_ascii_whitespace().nth(1) {
                         if target.starts_with(['+', '-']) {
                             if let Some(target) = command.args.get_mut(0) {
-                                target.kind =
-                                    ArgKind::Optional { skipped: true };
+                                target.kind.skip();
                             }
                         }
                     }
@@ -814,13 +771,47 @@ impl Commands {
 
                         if !proto::is_channel(channel, chantypes) {
                             if let Some(channel) = command.args.get_mut(0) {
-                                channel.kind =
-                                    ArgKind::Optional { skipped: true };
+                                channel.kind.skip();
                             }
                         }
                     }
                 }
                 _ => (),
+            }
+
+            // Check for subcommand, if any exist
+            if let Some(subcommands) = &command.subcommands {
+                if let Some(subcmd) =
+                    rest[cmd.len()..].split_ascii_whitespace().nth(
+                        command
+                            .args
+                            .iter()
+                            .filter(|arg| !arg.kind.skipped())
+                            .count()
+                            .saturating_sub(1),
+                    )
+                {
+                    let subcmd = (String::from(command.title) + " " + subcmd)
+                        .to_lowercase();
+
+                    let subcommand = subcommands.iter().find(|subcommand| {
+                        subcommand.title.to_lowercase() == subcmd
+                            || subcommand
+                                .alias()
+                                .iter()
+                                .any(|alias| alias.to_lowercase() == subcmd)
+                    });
+
+                    *self = Self::Selected {
+                        command: command.clone(),
+                        subcommand: subcommand.cloned(),
+                    };
+                } else {
+                    *self = Self::Selected {
+                        command: command.clone(),
+                        subcommand: None,
+                    };
+                }
             }
         }
     }
@@ -1194,6 +1185,13 @@ enum ArgKind {
 }
 
 impl ArgKind {
+    fn skip(&mut self) {
+        match self {
+            ArgKind::Required => (),
+            ArgKind::Optional { skipped } => *skipped = true,
+        }
+    }
+
     fn skipped(&self) -> bool {
         match self {
             ArgKind::Required => false,

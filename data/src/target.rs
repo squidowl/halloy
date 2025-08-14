@@ -29,6 +29,20 @@ impl Target {
         }
     }
 
+    pub fn as_query(&self) -> Option<&Query> {
+        match self {
+            Target::Channel(_) => None,
+            Target::Query(query) => Some(query),
+        }
+    }
+
+    pub fn to_query(self) -> Option<Query> {
+        match self {
+            Target::Channel(_) => None,
+            Target::Query(query) => Some(query),
+        }
+    }
+
     pub fn as_normalized_str(&self) -> &str {
         match self {
             Target::Channel(channel) => channel.as_normalized_str(),
