@@ -729,16 +729,19 @@ impl Commands {
             // Mark skipped arguments as skipped
             match command.title {
                 "CTCP" => {
-                    if let Some(nick) = rest.split_ascii_whitespace().nth(1) {
-                        match nick.to_uppercase().as_str() {
-                            "ACTION" | "CLIENTINFO" | "PING" | "SOURCE"
-                            | "TIME" | "VERSION" => {
-                                if let Some(nick) = command.args.get_mut(0) {
-                                    nick.kind.skip();
-                                }
-                            }
-                            _ => (),
-                        }
+                    if let Some(nick) = rest.split_ascii_whitespace().nth(1)
+                        && matches!(
+                            nick.to_uppercase().as_str(),
+                            "ACTION"
+                                | "CLIENTINFO"
+                                | "PING"
+                                | "SOURCE"
+                                | "TIME"
+                                | "VERSION"
+                        )
+                        && let Some(nick) = command.args.get_mut(0)
+                    {
+                        nick.kind.skip();
                     }
                 }
                 "KICK" => {
@@ -747,20 +750,19 @@ impl Commands {
                         let chantypes =
                             isupport::get_chantypes_or_default(isupport);
 
-                        if !proto::is_channel(channel, chantypes) {
-                            if let Some(channel) = command.args.get_mut(0) {
-                                channel.kind.skip();
-                            }
+                        if !proto::is_channel(channel, chantypes)
+                            && let Some(channel) = command.args.get_mut(0)
+                        {
+                            channel.kind.skip();
                         }
                     }
                 }
                 "MODE" => {
-                    if let Some(target) = rest.split_ascii_whitespace().nth(1) {
-                        if target.starts_with(['+', '-']) {
-                            if let Some(target) = command.args.get_mut(0) {
-                                target.kind.skip();
-                            }
-                        }
+                    if let Some(target) = rest.split_ascii_whitespace().nth(1)
+                        && target.starts_with(['+', '-'])
+                        && let Some(target) = command.args.get_mut(0)
+                    {
+                        target.kind.skip();
                     }
                 }
                 "TOPIC" => {
@@ -769,10 +771,10 @@ impl Commands {
                         let chantypes =
                             isupport::get_chantypes_or_default(isupport);
 
-                        if !proto::is_channel(channel, chantypes) {
-                            if let Some(channel) = command.args.get_mut(0) {
-                                channel.kind.skip();
-                            }
+                        if !proto::is_channel(channel, chantypes)
+                            && let Some(channel) = command.args.get_mut(0)
+                        {
+                            channel.kind.skip();
                         }
                     }
                 }
