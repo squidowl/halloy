@@ -412,8 +412,8 @@ impl Halloy {
                             .and_then(|config| Task::done(config.appearance))
                             .map(Message::AppearanceReloaded)
                     }
-                    Some(dashboard::Event::QuitServer(server)) => {
-                        self.clients.quit(&server, None);
+                    Some(dashboard::Event::QuitServer(server, reason)) => {
+                        self.clients.quit(&server, reason);
                         Task::none()
                     }
                     Some(dashboard::Event::IrcError(e)) => {
@@ -1282,6 +1282,25 @@ impl Halloy {
                             &mut self.clients,
                             buffer_action,
                             &self.config,
+                        ));
+                    }
+
+                    Task::batch(commands).map(Message::Dashboard)
+                }
+                client::on_connect::Event::LeaveBuffers(targets, reason) => {
+                    let Screen::Dashboard(dashboard) = &mut self.screen else {
+                        return Task::none();
+                    };
+
+                    let mut commands = vec![];
+
+                    for target in targets {
+                        commands.push(dashboard.leave_server_target(
+                            &mut self.clients,
+                            &self.config,
+                            server.clone(),
+                            target,
+                            reason.clone(),
                         ));
                     }
 

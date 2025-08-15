@@ -374,24 +374,24 @@ impl History {
                 read_marker,
                 ..
             } => {
-                if let Some(last_received) = *last_updated_at {
-                    if now.is_none_or(|now| {
+                if let Some(last_received) = *last_updated_at
+                    && now.is_none_or(|now| {
                         now.duration_since(last_received)
                             >= FLUSH_AFTER_LAST_RECEIVED
-                    }) {
-                        let kind = kind.clone();
-                        let messages = std::mem::take(messages);
-                        let read_marker = *read_marker;
+                    })
+                {
+                    let kind = kind.clone();
+                    let messages = std::mem::take(messages);
+                    let read_marker = *read_marker;
 
-                        *last_updated_at = None;
+                    *last_updated_at = None;
 
-                        return Some(
+                    return Some(
                             async move {
                                 append(&kind, messages, read_marker).await
                             }
                             .boxed(),
                         );
-                    }
                 }
 
                 None
@@ -403,32 +403,31 @@ impl History {
                 read_marker,
                 ..
             } => {
-                if let Some(last_received) = *last_updated_at {
-                    if now.is_none_or(|now| {
+                if let Some(last_received) = *last_updated_at
+                    && now.is_none_or(|now| {
                         now.duration_since(last_received)
                             >= FLUSH_AFTER_LAST_RECEIVED
-                    }) && !messages.is_empty()
-                    {
-                        let kind = kind.clone();
-                        let read_marker = *read_marker;
-                        *last_updated_at = None;
+                    })
+                    && !messages.is_empty()
+                {
+                    let kind = kind.clone();
+                    let read_marker = *read_marker;
+                    *last_updated_at = None;
 
-                        if messages.len() > MAX_MESSAGES {
-                            messages.drain(
-                                0..messages.len()
-                                    - (MAX_MESSAGES - TRUNC_COUNT),
-                            );
-                        }
-
-                        let messages = messages.clone();
-
-                        return Some(
-                            async move {
-                                overwrite(&kind, &messages, read_marker).await
-                            }
-                            .boxed(),
+                    if messages.len() > MAX_MESSAGES {
+                        messages.drain(
+                            0..messages.len() - (MAX_MESSAGES - TRUNC_COUNT),
                         );
                     }
+
+                    let messages = messages.clone();
+
+                    return Some(
+                        async move {
+                            overwrite(&kind, &messages, read_marker).await
+                        }
+                        .boxed(),
+                    );
                 }
 
                 None
