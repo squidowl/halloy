@@ -314,9 +314,9 @@ impl Commands {
             {
                 Command {
                     title: "MOTD",
-                    args: vec![Arg {
+                    args: vec![Argument {
                         text: "server",
-                        kind: ArgKind::Optional { skipped: false },
+                        kind: ArgumentKind::Optional { skipped: false },
                         tooltip: None,
                     }],
                     subcommands: None,
@@ -326,9 +326,9 @@ impl Commands {
             {
                 Command {
                     title: "QUIT",
-                    args: vec![Arg {
+                    args: vec![Argument {
                         text: "reason",
-                        kind: ArgKind::Optional { skipped: false },
+                        kind: ArgumentKind::Optional { skipped: false },
                         tooltip: None,
                     }],
                     subcommands: None,
@@ -466,9 +466,9 @@ impl Commands {
             {
                 Command {
                     title: "ME",
-                    args: vec![Arg {
+                    args: vec![Argument {
                         text: "action",
-                        kind: ArgKind::Required,
+                        kind: ArgumentKind::Required,
                         tooltip: None,
                     }],
                     subcommands: None,
@@ -495,12 +495,12 @@ impl Commands {
 
                 Command {
                     title: "MODE",
-                    args: vec![Arg {
+                    args: vec![Argument {
                         text: "target",
                         kind: if default.is_some() {
-                            ArgKind::Optional { skipped: false }
+                            ArgumentKind::Optional { skipped: false }
                         } else {
-                            ArgKind::Required
+                            ArgumentKind::Required
                         },
                         tooltip: Some(tooltip),
                     }],
@@ -515,14 +515,14 @@ impl Commands {
                 Command {
                     title: "RAW",
                     args: vec![
-                        Arg {
+                        Argument {
                             text: "command",
-                            kind: ArgKind::Required,
+                            kind: ArgumentKind::Required,
                             tooltip: None,
                         },
-                        Arg {
+                        Argument {
                             text: "args",
-                            kind: ArgKind::Optional { skipped: false },
+                            kind: ArgumentKind::Optional { skipped: false },
                             tooltip: None,
                         },
                     ],
@@ -533,9 +533,9 @@ impl Commands {
             {
                 Command {
                     title: "FORMAT",
-                    args: vec![Arg {
+                    args: vec![Argument {
                         text: "text",
-                        kind: ArgKind::Required,
+                        kind: ArgumentKind::Required,
                         tooltip: Some(
                             include_str!("./format_tooltip.txt").to_string(),
                         ),
@@ -548,14 +548,14 @@ impl Commands {
                 Command {
                     title: "HOP",
                     args: vec![
-                        Arg {
+                        Argument {
                             text: "channel",
-                            kind: ArgKind::Optional { skipped: false },
+                            kind: ArgumentKind::Optional { skipped: false },
                             tooltip: Some(String::from("the channel to join")),
                         },
-                        Arg {
+                        Argument {
                             text: "message",
-                            kind: ArgKind::Optional { skipped: false },
+                            kind: ArgumentKind::Optional { skipped: false },
                             tooltip: Some(String::from(
                                 "the part message to be sent",
                             )),
@@ -580,12 +580,12 @@ impl Commands {
 
                 Command {
                     title: "CLEARTOPIC",
-                    args: vec![Arg {
+                    args: vec![Argument {
                         text: "channel",
                         kind: if default.is_some() {
-                            ArgKind::Optional { skipped: false }
+                            ArgumentKind::Optional { skipped: false }
                         } else {
-                            ArgKind::Required
+                            ArgumentKind::Required
                         },
                         tooltip: default.map(|default| {
                             format!("may be omitted (default: {default})")
@@ -603,20 +603,20 @@ impl Commands {
                 Command {
                 title: "CTCP",
                 args: vec![
-                    Arg {
+                    Argument {
                         text: "nick",
                         kind: if default.is_some() {
-                            ArgKind::Optional { skipped: false }
+                            ArgumentKind::Optional { skipped: false }
                         } else {
-                            ArgKind::Required
+                            ArgumentKind::Required
                         },
                         tooltip: default.map(|default| {
                             format!("may be skipped (default: {default})")
                         }),
                     },
-                    Arg {
+                    Argument {
                         text: "command",
-                        kind: ArgKind::Required,
+                        kind: ArgumentKind::Required,
                         tooltip: Some(
                             "    ACTION: Display <text> as a third-person action or emote\
                            \nCLIENTINFO: Request a list of the CTCP messages <nick> supports\
@@ -928,7 +928,7 @@ impl Commands {
 #[derive(Debug, Clone)]
 pub struct Command {
     title: &'static str,
-    args: Vec<Arg>,
+    args: Vec<Argument>,
     subcommands: Option<Vec<Command>>,
 }
 
@@ -1049,7 +1049,7 @@ impl Command {
 
         let title = Some(Element::from(text(self.title)));
 
-        let arg_text = |index: usize, arg: &Arg| {
+        let arg_text = |index: usize, arg: &Argument| {
             let content = text(format!("{arg}"))
                 .style(move |theme| {
                     if index == active_arg {
@@ -1174,30 +1174,32 @@ impl Command {
 }
 
 #[derive(Debug, Clone)]
-struct Arg {
+struct Argument {
     text: &'static str,
-    kind: ArgKind,
+    kind: ArgumentKind,
     tooltip: Option<String>,
 }
 
+// Whether the argument can be skipped or omitted, and if so whether it has been
+// skipped
 #[derive(Debug, Clone)]
-enum ArgKind {
+enum ArgumentKind {
     Required,
     Optional { skipped: bool },
 }
 
-impl ArgKind {
+impl ArgumentKind {
     fn skip(&mut self) {
         match self {
-            ArgKind::Required => (),
-            ArgKind::Optional { skipped } => *skipped = true,
+            ArgumentKind::Required => (),
+            ArgumentKind::Optional { skipped } => *skipped = true,
         }
     }
 
     fn skipped(&self) -> bool {
         match self {
-            ArgKind::Required => false,
-            ArgKind::Optional { skipped } => *skipped,
+            ArgumentKind::Required => false,
+            ArgumentKind::Optional { skipped } => *skipped,
         }
     }
 }
@@ -1205,9 +1207,9 @@ impl ArgKind {
 const REQUIRED_ARG_PREFIX: &str = "<";
 const REQUIRED_ARG_SUFFIX: &str = ">";
 
-impl fmt::Display for Arg {
+impl fmt::Display for Argument {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if matches!(self.kind, ArgKind::Optional { .. }) {
+        if matches!(self.kind, ArgumentKind::Optional { .. }) {
             write!(f, "[<{}>]", self.text)
         } else {
             write!(
@@ -1412,9 +1414,9 @@ fn away_command(max_len: Option<u16>) -> Command {
 
     Command {
         title: "AWAY",
-        args: vec![Arg {
+        args: vec![Argument {
             text: "reason",
-            kind: ArgKind::Optional { skipped: false },
+            kind: ArgumentKind::Optional { skipped: false },
             tooltip,
         }],
         subcommands: None,
@@ -1424,9 +1426,9 @@ fn away_command(max_len: Option<u16>) -> Command {
 fn ctcp_action_command() -> Command {
     Command {
         title: "CTCP ACTION",
-        args: vec![Arg {
+        args: vec![Argument {
             text: "text",
-            kind: ArgKind::Required,
+            kind: ArgumentKind::Required,
             tooltip: Some(String::from(
                 "message to display as a third-person action or emote",
             )),
@@ -1446,9 +1448,9 @@ fn ctcp_clientinfo_command() -> Command {
 fn ctcp_ping_command() -> Command {
     Command {
         title: "CTCP PING",
-        args: vec![Arg {
+        args: vec![Argument {
             text: "info",
-            kind: ArgKind::Required,
+            kind: ArgumentKind::Required,
             tooltip: Some(String::from(
                 "text that should be exactly reproduced in the reply PING",
             )),
@@ -1484,9 +1486,9 @@ fn ctcp_version_command() -> Command {
 fn chathistory_command(maximum_limit: &u16) -> Command {
     Command {
         title: "CHATHISTORY",
-        args: vec![Arg {
+        args: vec![Argument {
             text: "subcommand",
-            kind: ArgKind::Required,
+            kind: ArgumentKind::Required,
             tooltip: Some(String::from(
                 " BEFORE: Request messages before a timestamp or msgid\
                \n  AFTER: Request after before a timestamp or msgid\
@@ -1517,21 +1519,21 @@ fn chathistory_after_command(maximum_limit: &u16) -> Command {
     Command {
         title: "CHATHISTORY AFTER",
         args: vec![
-            Arg {
+            Argument {
                 text: "target",
-                kind: ArgKind::Required,
+                kind: ArgumentKind::Required,
                 tooltip: None,
             },
-            Arg {
+            Argument {
                 text: "timestamp | msgid",
-                kind: ArgKind::Required,
+                kind: ArgumentKind::Required,
                 tooltip: Some(String::from(
                     "timestamp format: timestamp=YYYY-MM-DDThh:mm:ss.sssZ",
                 )),
             },
-            Arg {
+            Argument {
                 text: "limit",
-                kind: ArgKind::Required,
+                kind: ArgumentKind::Required,
                 tooltip: Some(limit_tooltip),
             },
         ],
@@ -1549,21 +1551,21 @@ fn chathistory_around_command(maximum_limit: &u16) -> Command {
     Command {
         title: "CHATHISTORY AROUND",
         args: vec![
-            Arg {
+            Argument {
                 text: "target",
-                kind: ArgKind::Required,
+                kind: ArgumentKind::Required,
                 tooltip: None,
             },
-            Arg {
+            Argument {
                 text: "timestamp | msgid",
-                kind: ArgKind::Required,
+                kind: ArgumentKind::Required,
                 tooltip: Some(String::from(
                     "timestamp format: timestamp=YYYY-MM-DDThh:mm:ss.sssZ",
                 )),
             },
-            Arg {
+            Argument {
                 text: "limit",
-                kind: ArgKind::Required,
+                kind: ArgumentKind::Required,
                 tooltip: Some(limit_tooltip),
             },
         ],
@@ -1581,21 +1583,21 @@ fn chathistory_before_command(maximum_limit: &u16) -> Command {
     Command {
         title: "CHATHISTORY BEFORE",
         args: vec![
-            Arg {
+            Argument {
                 text: "target",
-                kind: ArgKind::Required,
+                kind: ArgumentKind::Required,
                 tooltip: None,
             },
-            Arg {
+            Argument {
                 text: "timestamp | msgid",
-                kind: ArgKind::Required,
+                kind: ArgumentKind::Required,
                 tooltip: Some(String::from(
                     "timestamp format: timestamp=YYYY-MM-DDThh:mm:ss.sssZ",
                 )),
             },
-            Arg {
+            Argument {
                 text: "limit",
-                kind: ArgKind::Required,
+                kind: ArgumentKind::Required,
                 tooltip: Some(limit_tooltip),
             },
         ],
@@ -1613,28 +1615,28 @@ fn chathistory_between_command(maximum_limit: &u16) -> Command {
     Command {
         title: "CHATHISTORY BETWEEN",
         args: vec![
-            Arg {
+            Argument {
                 text: "target",
-                kind: ArgKind::Required,
+                kind: ArgumentKind::Required,
                 tooltip: None,
             },
-            Arg {
+            Argument {
                 text: "timestamp | msgid",
-                kind: ArgKind::Required,
+                kind: ArgumentKind::Required,
                 tooltip: Some(String::from(
                     "timestamp format: timestamp=YYYY-MM-DDThh:mm:ss.sssZ",
                 )),
             },
-            Arg {
+            Argument {
                 text: "timestamp | msgid",
-                kind: ArgKind::Required,
+                kind: ArgumentKind::Required,
                 tooltip: Some(String::from(
                     "timestamp format: timestamp=YYYY-MM-DDThh:mm:ss.sssZ",
                 )),
             },
-            Arg {
+            Argument {
                 text: "limit",
-                kind: ArgKind::Required,
+                kind: ArgumentKind::Required,
                 tooltip: Some(limit_tooltip),
             },
         ],
@@ -1652,22 +1654,22 @@ fn chathistory_latest_command(maximum_limit: &u16) -> Command {
     Command {
         title: "CHATHISTORY LATEST",
         args: vec![
-            Arg {
+            Argument {
                 text: "target",
-                kind: ArgKind::Required,
+                kind: ArgumentKind::Required,
                 tooltip: None,
             },
-            Arg {
+            Argument {
                 text: "* | timestamp | msgid",
-                kind: ArgKind::Required,
+                kind: ArgumentKind::Required,
                 tooltip: Some(String::from(
                     "               *: no restriction on returned messages\
                    \ntimestamp format: timestamp=YYYY-MM-DDThh:mm:ss.sssZ",
                 )),
             },
-            Arg {
+            Argument {
                 text: "limit",
-                kind: ArgKind::Required,
+                kind: ArgumentKind::Required,
                 tooltip: Some(limit_tooltip),
             },
         ],
@@ -1685,23 +1687,23 @@ fn chathistory_targets_command(maximum_limit: &u16) -> Command {
     Command {
         title: "CHATHISTORY TARGETS",
         args: vec![
-            Arg {
+            Argument {
                 text: "timestamp",
-                kind: ArgKind::Required,
+                kind: ArgumentKind::Required,
                 tooltip: Some(String::from(
                     "timestamp format: timestamp=YYYY-MM-DDThh:mm:ss.sssZ",
                 )),
             },
-            Arg {
+            Argument {
                 text: "timestamp",
-                kind: ArgKind::Required,
+                kind: ArgumentKind::Required,
                 tooltip: Some(String::from(
                     "timestamp format: timestamp=YYYY-MM-DDThh:mm:ss.sssZ",
                 )),
             },
-            Arg {
+            Argument {
                 text: "limit",
-                kind: ArgKind::Required,
+                kind: ArgumentKind::Required,
                 tooltip: Some(limit_tooltip),
             },
         ],
@@ -1712,19 +1714,19 @@ fn chathistory_targets_command(maximum_limit: &u16) -> Command {
 static CNOTICE_COMMAND: LazyLock<Command> = LazyLock::new(|| Command {
     title: "CNOTICE",
     args: vec![
-        Arg {
+        Argument {
             text: "nickname",
-            kind: ArgKind::Required,
+            kind: ArgumentKind::Required,
             tooltip: None,
         },
-        Arg {
+        Argument {
             text: "channel",
-            kind: ArgKind::Required,
+            kind: ArgumentKind::Required,
             tooltip: None,
         },
-        Arg {
+        Argument {
             text: "message",
-            kind: ArgKind::Required,
+            kind: ArgumentKind::Required,
             tooltip: None,
         },
     ],
@@ -1734,19 +1736,19 @@ static CNOTICE_COMMAND: LazyLock<Command> = LazyLock::new(|| Command {
 static CPRIVMSG_COMMAND: LazyLock<Command> = LazyLock::new(|| Command {
     title: "CPRIVMSG",
     args: vec![
-        Arg {
+        Argument {
             text: "nickname",
-            kind: ArgKind::Required,
+            kind: ArgumentKind::Required,
             tooltip: None,
         },
-        Arg {
+        Argument {
             text: "channel",
-            kind: ArgKind::Required,
+            kind: ArgumentKind::Required,
             tooltip: None,
         },
-        Arg {
+        Argument {
             text: "message",
-            kind: ArgKind::Required,
+            kind: ArgumentKind::Required,
             tooltip: None,
         },
     ],
@@ -1798,14 +1800,14 @@ fn join_command(
     Command {
         title: "JOIN",
         args: vec![
-            Arg {
+            Argument {
                 text: "channels",
-                kind: ArgKind::Required,
+                kind: ArgumentKind::Required,
                 tooltip: Some(channels_tooltip),
             },
-            Arg {
+            Argument {
                 text: "keys",
-                kind: ArgKind::Optional { skipped: false },
+                kind: ArgumentKind::Optional { skipped: false },
                 tooltip: Some(keys_tooltip),
             },
         ],
@@ -1833,25 +1835,25 @@ fn kick_command(
     Command {
         title: "KICK",
         args: vec![
-            Arg {
+            Argument {
                 text: "channel",
                 kind: if default.is_some() {
-                    ArgKind::Optional { skipped: false }
+                    ArgumentKind::Optional { skipped: false }
                 } else {
-                    ArgKind::Required
+                    ArgumentKind::Required
                 },
                 tooltip: default.map(|default| {
                     format!("may be skipped (default: {default})")
                 }),
             },
-            Arg {
+            Argument {
                 text: "users",
-                kind: ArgKind::Required,
+                kind: ArgumentKind::Required,
                 tooltip: Some(users_tooltip),
             },
-            Arg {
+            Argument {
                 text: "comment",
-                kind: ArgKind::Optional { skipped: false },
+                kind: ArgumentKind::Optional { skipped: false },
                 tooltip: comment_tooltip,
             },
         ],
@@ -1862,14 +1864,14 @@ fn kick_command(
 static KNOCK_COMMAND: LazyLock<Command> = LazyLock::new(|| Command {
     title: "KNOCK",
     args: vec![
-        Arg {
+        Argument {
             text: "channel",
-            kind: ArgKind::Required,
+            kind: ArgumentKind::Required,
             tooltip: None,
         },
-        Arg {
+        Argument {
             text: "message",
-            kind: ArgKind::Optional { skipped: false },
+            kind: ArgumentKind::Optional { skipped: false },
             tooltip: None,
         },
     ],
@@ -1878,9 +1880,9 @@ static KNOCK_COMMAND: LazyLock<Command> = LazyLock::new(|| Command {
 
 static LIST_COMMAND: LazyLock<Command> = LazyLock::new(|| Command {
     title: "LIST",
-    args: vec![Arg {
+    args: vec![Argument {
         text: "channels",
-        kind: ArgKind::Optional { skipped: false },
+        kind: ArgumentKind::Optional { skipped: false },
         tooltip: Some(String::from("comma-separated")),
     }],
     subcommands: None,
@@ -1920,14 +1922,14 @@ fn list_command(
         Command {
             title: "LIST",
             args: vec![
-                Arg {
+                Argument {
                     text: "channels",
-                    kind: ArgKind::Optional { skipped: false },
+                    kind: ArgumentKind::Optional { skipped: false },
                     tooltip: Some(channels_tooltip),
                 },
-                Arg {
+                Argument {
                     text: "elistconds",
-                    kind: ArgKind::Optional { skipped: false },
+                    kind: ArgumentKind::Optional { skipped: false },
                     tooltip: Some(elistconds_tooltip),
                 },
             ],
@@ -1936,9 +1938,9 @@ fn list_command(
     } else {
         Command {
             title: "LIST",
-            args: vec![Arg {
+            args: vec![Argument {
                 text: "channels",
-                kind: ArgKind::Optional { skipped: false },
+                kind: ArgumentKind::Optional { skipped: false },
                 tooltip: Some(channels_tooltip),
             }],
             subcommands: None,
@@ -1949,9 +1951,9 @@ fn list_command(
 fn monitor_command(target_limit: &Option<u16>) -> Command {
     Command {
         title: "MONITOR",
-        args: vec![Arg {
+        args: vec![Argument {
             text: "subcommand",
-            kind: ArgKind::Required,
+            kind: ArgumentKind::Required,
             tooltip: Some(String::from(
                 "+: Add user(s) to list being monitored\n\
                  -: Remove user(s) from list being monitored\n\
@@ -1984,9 +1986,9 @@ fn monitor_add_command(target_limit: &Option<u16>) -> Command {
 
     Command {
         title: "MONITOR +",
-        args: vec![Arg {
+        args: vec![Argument {
             text: "targets",
-            kind: ArgKind::Required,
+            kind: ArgumentKind::Required,
             tooltip: Some(targets_tooltip),
         }],
         subcommands: None,
@@ -1995,9 +1997,9 @@ fn monitor_add_command(target_limit: &Option<u16>) -> Command {
 
 static MONITOR_REMOVE_COMMAND: LazyLock<Command> = LazyLock::new(|| Command {
     title: "MONITOR -",
-    args: vec![Arg {
+    args: vec![Argument {
         text: "targets",
-        kind: ArgKind::Required,
+        kind: ArgumentKind::Required,
         tooltip: Some(String::from("comma-separated")),
     }],
     subcommands: None,
@@ -2105,14 +2107,14 @@ fn mode_channel_command(
             REQUIRED_ARG_SUFFIX
         ),
         args: vec![
-            Arg {
+            Argument {
                 text: "modestring",
-                kind: ArgKind::Optional { skipped: false },
+                kind: ArgumentKind::Optional { skipped: false },
                 tooltip: Some(modestring_tooltip),
             },
-            Arg {
+            Argument {
                 text: "arguments",
-                kind: ArgKind::Optional { skipped: false },
+                kind: ArgumentKind::Optional { skipped: false },
                 tooltip: None,
             },
         ],
@@ -2140,9 +2142,9 @@ fn mode_user_command(mode_limit: Option<u16>) -> Command {
             "user",
             REQUIRED_ARG_SUFFIX
         ),
-        args: vec![Arg {
+        args: vec![Argument {
             text: "modestring",
-            kind: ArgKind::Optional { skipped: false },
+            kind: ArgumentKind::Optional { skipped: false },
             tooltip: Some(modestring_tooltip),
         }],
         subcommands: None,
@@ -2184,14 +2186,14 @@ fn msg_command(
     Command {
         title: "MSG",
         args: vec![
-            Arg {
+            Argument {
                 text: "targets",
-                kind: ArgKind::Required,
+                kind: ArgumentKind::Required,
                 tooltip: Some(targets_tooltip),
             },
-            Arg {
+            Argument {
                 text: "text",
-                kind: ArgKind::Optional { skipped: false },
+                kind: ArgumentKind::Optional { skipped: false },
                 tooltip: None,
             },
         ],
@@ -2213,9 +2215,9 @@ fn names_command(target_limit: Option<u16>) -> Command {
 
     Command {
         title: "NAMES",
-        args: vec![Arg {
+        args: vec![Argument {
             text: "channels",
-            kind: ArgKind::Required,
+            kind: ArgumentKind::Required,
             tooltip: Some(channels_tooltip),
         }],
         subcommands: None,
@@ -2227,9 +2229,9 @@ fn nick_command(max_len: Option<u16>) -> Command {
 
     Command {
         title: "NICK",
-        args: vec![Arg {
+        args: vec![Argument {
             text: "nickname",
-            kind: ArgKind::Required,
+            kind: ArgumentKind::Required,
             tooltip,
         }],
         subcommands: None,
@@ -2271,14 +2273,14 @@ fn notice_command(
     Command {
         title: "NOTICE",
         args: vec![
-            Arg {
+            Argument {
                 text: "targets",
-                kind: ArgKind::Required,
+                kind: ArgumentKind::Required,
                 tooltip: Some(targets_tooltip),
             },
-            Arg {
+            Argument {
                 text: "text",
-                kind: ArgKind::Optional { skipped: false },
+                kind: ArgumentKind::Optional { skipped: false },
                 tooltip: None,
             },
         ],
@@ -2305,18 +2307,18 @@ fn part_command(default: Option<String>, max_len: Option<u16>) -> Command {
     Command {
         title: "PART",
         args: vec![
-            Arg {
+            Argument {
                 text: "targets",
                 kind: if default.is_some() {
-                    ArgKind::Optional { skipped: false }
+                    ArgumentKind::Optional { skipped: false }
                 } else {
-                    ArgKind::Required
+                    ArgumentKind::Required
                 },
                 tooltip: Some(targets_tooltip),
             },
-            Arg {
+            Argument {
                 text: "reason",
-                kind: ArgKind::Optional { skipped: false },
+                kind: ArgumentKind::Optional { skipped: false },
                 tooltip: None,
             },
         ],
@@ -2327,9 +2329,9 @@ fn part_command(default: Option<String>, max_len: Option<u16>) -> Command {
 fn setname_command(max_len: &u16) -> Command {
     Command {
         title: "SETNAME",
-        args: vec![Arg {
+        args: vec![Argument {
             text: "realname",
-            kind: ArgKind::Required,
+            kind: ArgumentKind::Required,
             tooltip: Some(format!("maximum length: {max_len}")),
         }],
         subcommands: None,
@@ -2347,20 +2349,20 @@ fn topic_command(default: Option<String>, max_len: Option<u16>) -> Command {
     Command {
         title: "TOPIC",
         args: vec![
-            Arg {
+            Argument {
                 text: "channel",
                 kind: if default.is_some() {
-                    ArgKind::Optional { skipped: false }
+                    ArgumentKind::Optional { skipped: false }
                 } else {
-                    ArgKind::Required
+                    ArgumentKind::Required
                 },
                 tooltip: default.map(|default| {
                     format!("may be skipped (default: {default})")
                 }),
             },
-            Arg {
+            Argument {
                 text: "topic",
-                kind: ArgKind::Optional { skipped: false },
+                kind: ArgumentKind::Optional { skipped: false },
                 tooltip: Some(topic_tooltip),
             },
         ],
@@ -2370,9 +2372,9 @@ fn topic_command(default: Option<String>, max_len: Option<u16>) -> Command {
 
 static USERIP_COMMAND: LazyLock<Command> = LazyLock::new(|| Command {
     title: "USERIP",
-    args: vec![Arg {
+    args: vec![Argument {
         text: "nickname",
-        kind: ArgKind::Required,
+        kind: ArgumentKind::Required,
         tooltip: None,
     }],
     subcommands: None,
@@ -2382,14 +2384,14 @@ fn whox_command() -> Command {
     Command {
         title: "WHO",
         args: vec![
-            Arg {
+            Argument {
                 text: "target",
-                kind: ArgKind::Required,
+                kind: ArgumentKind::Required,
                 tooltip: None,
             },
-            Arg {
+            Argument {
                 text: "fields",
-                kind: ArgKind::Optional { skipped: false },
+                kind: ArgumentKind::Optional { skipped: false },
                 tooltip: Some(String::from(
                     "t: token\n\
                      c: channel\n\
@@ -2406,9 +2408,9 @@ fn whox_command() -> Command {
                      r: realname",
                 )),
             },
-            Arg {
+            Argument {
                 text: "token",
-                kind: ArgKind::Optional { skipped: false },
+                kind: ArgumentKind::Optional { skipped: false },
                 tooltip: Some(String::from("1-3 digits")),
             },
         ],
@@ -2419,9 +2421,9 @@ fn whox_command() -> Command {
 fn who_command() -> Command {
     Command {
         title: "WHO",
-        args: vec![Arg {
+        args: vec![Argument {
             text: "target",
-            kind: ArgKind::Required,
+            kind: ArgumentKind::Required,
             tooltip: None,
         }],
         subcommands: None,
@@ -2441,16 +2443,16 @@ fn whois_command(target_limit: Option<u16>) -> Command {
     Command {
         title: "WHOIS",
         args: vec![
-            Arg {
+            Argument {
                 text: "server",
-                kind: ArgKind::Optional { skipped: false },
+                kind: ArgumentKind::Optional { skipped: false },
                 tooltip: Some(String::from(
                     "may be skipped (default: the connected server)",
                 )),
             },
-            Arg {
+            Argument {
                 text: "nicks",
-                kind: ArgKind::Required,
+                kind: ArgumentKind::Required,
                 tooltip: Some(nicks_tooltip),
             },
         ],
