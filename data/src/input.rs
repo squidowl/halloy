@@ -6,7 +6,7 @@ use irc::proto::format;
 use crate::buffer::{self, AutoFormat};
 use crate::message::formatting;
 use crate::target::Target;
-use crate::user::ChannelUsers;
+use crate::user::{ChannelUsers, NickRef};
 use crate::{
     Command, Config, Message, Server, User, command, isupport, message,
 };
@@ -17,29 +17,34 @@ pub fn parse(
     buffer: buffer::Upstream,
     auto_format: AutoFormat,
     input: &str,
+    our_nickname: Option<NickRef>,
     isupport: &HashMap<isupport::Kind, isupport::Parameter>,
 ) -> Result<Parsed, Error> {
-    let content = match command::parse(input, Some(&buffer), isupport) {
-        Ok(Command::Internal(command)) => return Ok(Parsed::Internal(command)),
-        Ok(Command::Irc(command)) => Content::Command(command),
-        Err(command::Error::MissingSlash) => {
-            let text = match auto_format {
-                AutoFormat::Disabled => input.to_string(),
-                AutoFormat::Markdown => formatting::encode(input, true),
-                AutoFormat::All => formatting::encode(input, false),
-            };
+    let content =
+        match command::parse(input, Some(&buffer), our_nickname, isupport) {
+            Ok(Command::Internal(command)) => {
+                return Ok(Parsed::Internal(command));
+            }
+            Ok(Command::Irc(command)) => Content::Command(command),
+            Err(command::Error::MissingSlash) => {
+                let text = match auto_format {
+                    AutoFormat::Disabled => input.to_string(),
+                    AutoFormat::Markdown => formatting::encode(input, true),
+                    AutoFormat::All => formatting::encode(input, false),
+                };
 
-            Content::Text(text)
-        }
-        Err(error) => return Err(Error::Command(error)),
-    };
+                Content::Text(text)
+            }
+            Err(error) => return Err(Error::Command(error)),
+        };
 
     if let Some(message_bytes) = content
         .proto(&buffer)
         .map(|message| format::message(message).len())
-        && message_bytes > format::BYTE_LIMIT {
-            return Err(Error::ExceedsByteLimit { message_bytes });
-        }
+        && message_bytes > format::BYTE_LIMIT
+    {
+        return Err(Error::ExceedsByteLimit { message_bytes });
+    }
 
     Ok(Parsed::Input(Input { buffer, content }))
 }

@@ -1929,14 +1929,20 @@ impl Client {
                         self.casemapping(),
                     )))
                 {
-                    if let Some(text) = topic {
+                    if let Some(text) = topic
+                        && !text.is_empty()
+                    {
                         channel.topic.content =
                             Some(message::parse_fragments(text.clone()));
+                        channel.topic.who = message
+                            .user()
+                            .map(|user| user.nickname().to_owned());
+                        channel.topic.time = Some(server_time(&message));
+                    } else {
+                        channel.topic.content = None;
+                        channel.topic.who = None;
+                        channel.topic.time = None;
                     }
-
-                    channel.topic.who =
-                        message.user().map(|user| user.nickname().to_owned());
-                    channel.topic.time = Some(server_time(&message));
                 }
             }
             Command::Numeric(RPL_TOPIC, args) => {
@@ -1990,6 +1996,22 @@ impl Client {
                 // Exclude topic message from history to prevent spam during dev
                 #[cfg(feature = "dev")]
                 return Ok(vec![]);
+            }
+            Command::Numeric(RPL_NOTOPIC, args) => {
+                let channel = ok!(args.get(1));
+
+                if let Some(channel) =
+                    self.chanmap.get_mut(&context!(target::Channel::parse(
+                        channel,
+                        self.chantypes(),
+                        self.statusmsg(),
+                        self.casemapping(),
+                    )))
+                {
+                    channel.topic.content = None;
+                    channel.topic.who = None;
+                    channel.topic.time = None;
+                }
             }
             Command::Numeric(RPL_CHANNELMODEIS, args) => {
                 let channel = ok!(args.get(1));
@@ -2385,6 +2407,7 @@ impl Client {
                     return Ok(vec![Event::OnConnect(on_connect(
                         self.handle.clone(),
                         self.config.clone(),
+                        self.nickname(),
                         &self.isupport,
                     ))]);
                 }

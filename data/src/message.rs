@@ -894,21 +894,24 @@ fn target(
     match message.0.command {
         // Channel
         Command::MODE(target, ..) => {
-            let channel = target::Channel::parse(
+            if let Ok(channel) = target::Channel::parse(
                 &target,
                 chantypes,
                 statusmsg,
                 casemapping,
-            )
-            .ok()?;
-
-            Some(Target::Channel {
-                channel,
-                source: Source::Server(Some(source::Server::new(
-                    Kind::ChangeMode,
-                    Some(user?.nickname().to_owned()),
-                ))),
-            })
+            ) {
+                Some(Target::Channel {
+                    channel,
+                    source: Source::Server(Some(source::Server::new(
+                        Kind::ChangeMode,
+                        Some(user?.nickname().to_owned()),
+                    ))),
+                })
+            } else {
+                Some(Target::Server {
+                    source: Source::Server(None),
+                })
+            }
         }
         Command::TOPIC(channel, _) | Command::KICK(channel, _, _) => {
             let channel = target::Channel::parse(
@@ -1203,10 +1206,17 @@ fn content<'a>(
 
             let topic = topic.as_ref()?;
 
-            Some(parse_fragments_with_user(
-                format!("{} changed topic to {topic}", user.nickname()),
-                &user,
-            ))
+            if topic.is_empty() {
+                Some(parse_fragments_with_user(
+                    format!("{} cleared the topic", user.nickname()),
+                    &user,
+                ))
+            } else {
+                Some(parse_fragments_with_user(
+                    format!("{} changed the topic to {topic}", user.nickname()),
+                    &user,
+                ))
+            }
         }
         Command::PART(target, text) => {
             let raw_user = message.user()?;
@@ -1304,39 +1314,69 @@ fn content<'a>(
         Command::MODE(target, modes, args) => {
             let raw_user = message.user()?;
 
-            target::Channel::parse(target, chantypes, statusmsg, casemapping)
+            let modes = modes
+                .iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>()
+                .join(" ");
+
+            let mut args = args
+                .iter()
+                .flatten()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>()
+                .join(" ");
+
+            if !args.is_empty() {
+                args.insert(0, ' ');
+            }
+
+            if let Ok(channel) = target::Channel::parse(
+                target,
+                chantypes,
+                statusmsg,
+                casemapping,
+            ) {
+                let user =
+                    resolve_attributes(&raw_user, &channel).unwrap_or(raw_user);
+
+                let channel_users = target::Channel::parse(
+                    target,
+                    chantypes,
+                    statusmsg,
+                    casemapping,
+                )
                 .ok()
-                .map(|channel| {
-                    let user = resolve_attributes(&raw_user, &channel)
-                        .unwrap_or(raw_user);
+                .and_then(|channel| channel_users(&channel));
 
-                    let modes = modes
-                        .iter()
-                        .map(ToString::to_string)
-                        .collect::<Vec<_>>()
-                        .join(" ");
+                Some(parse_fragments_with_users(
+                    format!("{} sets mode {modes}{args}", user.nickname()),
+                    channel_users,
+                ))
+            } else if raw_user.nickname() == *our_nick {
+                if target == our_nick.as_ref() {
+                    Some(parse_fragments(format!(
+                        "User mode set {modes}{args}"
+                    )))
+                } else {
+                    Some(parse_fragments(format!(
+                        "Set {target} mode {modes}{args}"
+                    )))
+                }
+            } else {
+                let channel_users =
+                    [raw_user.clone(), User::from(our_nick.clone())]
+                        .into_iter()
+                        .collect::<ChannelUsers>();
 
-                    let args = args
-                        .iter()
-                        .flatten()
-                        .map(ToString::to_string)
-                        .collect::<Vec<_>>()
-                        .join(" ");
-
-                    let channel_users = target::Channel::parse(
-                        target,
-                        chantypes,
-                        statusmsg,
-                        casemapping,
-                    )
-                    .ok()
-                    .and_then(|channel| channel_users(&channel));
-
-                    parse_fragments_with_users(
-                        format!("{} sets mode {modes} {args}", user.nickname()),
-                        channel_users,
-                    )
-                })
+                Some(parse_fragments_with_users(
+                    format!(
+                        "{} sets {target} mode {modes}{args}",
+                        raw_user.nickname()
+                    ),
+                    Some(&channel_users),
+                ))
+            }
         }
         Command::PRIVMSG(target, text) | Command::NOTICE(target, text) => {
             let channel_users = target::Channel::parse(

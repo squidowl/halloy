@@ -8,6 +8,7 @@ use itertools::Itertools;
 use crate::buffer::{self, Upstream};
 use crate::isupport::{self, find_target_limit};
 use crate::message::{self, formatting};
+use crate::user::NickRef;
 use crate::{Target, ctcp};
 
 #[derive(Debug, Clone)]
@@ -19,6 +20,7 @@ pub enum Command {
 #[derive(Debug, Clone)]
 pub enum Internal {
     OpenBuffers(Vec<Target>),
+    LeaveBuffers(Vec<Target>, Option<String>),
     ClearBuffer,
     /// Part the current channel and join a new one.
     ///
@@ -70,6 +72,7 @@ enum Kind {
     Notice,
     Delay,
     Clear,
+    ClearTopic,
     Raw,
 }
 
@@ -98,6 +101,7 @@ impl FromStr for Kind {
             "hop" | "rejoin" => Ok(Kind::Hop),
             "delay" => Ok(Kind::Delay),
             "clear" => Ok(Kind::Clear),
+            "cleartopic" | "ct" => Ok(Kind::ClearTopic),
             _ => Err(()),
         }
     }
@@ -106,6 +110,7 @@ impl FromStr for Kind {
 pub fn parse(
     s: &str,
     buffer: Option<&buffer::Upstream>,
+    our_nickname: Option<NickRef>,
     isupport: &HashMap<isupport::Kind, isupport::Parameter>,
 ) -> Result<Command, Error> {
     let (head, rest) = s.split_once('/').ok_or(Error::MissingSlash)?;
@@ -114,7 +119,7 @@ pub fn parse(
         return Err(Error::MissingSlash);
     }
 
-    let mut split = rest.split_ascii_whitespace();
+    let mut split = rest.split(' ');
 
     let cmd = split.next().ok_or(Error::MissingCommand)?;
 
@@ -318,31 +323,107 @@ pub fn parse(
                 })
             }
             Kind::Part => {
-                validated::<1, 1, true>(args, |[chanlist], [reason]| {
+                validated::<0, 2, true>(args, |_, [target_list, reason]| {
+                    let targets = if let Some(target_list) = target_list {
+                        let casemapping =
+                            isupport::get_casemapping_or_default(isupport);
+                        let chantypes =
+                            isupport::get_chantypes_or_default(isupport);
+                        let statusmsg =
+                            isupport::get_statusmsg_or_default(isupport);
+
+                        target_list
+                            .split(',')
+                            .map(|target| {
+                                Target::parse(
+                                    target,
+                                    chantypes,
+                                    statusmsg,
+                                    casemapping,
+                                )
+                            })
+                            .collect::<Vec<_>>()
+                    } else {
+                        let Some(target) = buffer.and_then(Upstream::target)
+                        else {
+                            // If not in a query or channel then a target is
+                            // required
+                            return Err(Error::IncorrectArgCount {
+                                min: 1,
+                                max: 2,
+                                actual: 0,
+                            });
+                        };
+
+                        vec![target]
+                    };
+
                     if let Some(isupport::Parameter::CHANNELLEN(max_len)) =
                         isupport.get(&isupport::Kind::CHANNELLEN)
                     {
                         let max_len = *max_len as usize;
 
-                        let channels = chanlist.split(',').collect::<Vec<_>>();
-
-                        if let Some(channel) = channels
-                            .into_iter()
-                            .find(|channel| channel.len() > max_len)
-                        {
+                        if let Some(target) = targets.iter().find(|target| {
+                            target.as_channel().is_some_and(|channel| {
+                                channel.as_str().len() > max_len
+                            })
+                        }) {
                             return Err(Error::ArgTooLong {
-                                name: "channel in chanlist",
-                                len: channel.len(),
+                                name: "channel in targets",
+                                len: target.as_str().len(),
                                 max_len,
                             });
                         }
                     }
 
-                    Ok(Command::Irc(Irc::Part(chanlist, reason)))
+                    Ok(Command::Internal(Internal::LeaveBuffers(
+                        targets, reason,
+                    )))
                 })
             }
             Kind::Topic => {
-                validated::<1, 1, true>(args, |[channel], [topic]| {
+                validated::<0, 2, true>(args.clone(), |_, [channel, topic]| {
+                    let (channel, topic) = if let Some(channel) = channel {
+                        let chantypes =
+                            isupport::get_chantypes_or_default(isupport);
+
+                        if !proto::is_channel(&channel, chantypes) {
+                            // Re-create topic from args in order to preserve
+                            // whitespace
+                            let topic = get_combined_arg(&args, 1);
+
+                            let Some(channel) = buffer
+                                .and_then(Upstream::target)
+                                .and_then(Target::to_channel)
+                            else {
+                                return Err(Error::InvalidChannelName {
+                                    requirements: fmt_channel_name_requirements(
+                                        chantypes,
+                                    ),
+                                });
+                            };
+
+                            (channel.to_string(), topic)
+                        } else {
+                            (channel, topic)
+                        }
+                    } else {
+                        let Some(channel) = buffer
+                            .and_then(Upstream::target)
+                            .and_then(Target::to_channel)
+                        else {
+                            // If not in a channel then a channel argument is
+                            // required
+                            return Err(Error::IncorrectArgCount {
+                                min: 1,
+                                max: 2,
+                                actual: 0,
+                            });
+                        };
+
+                        (channel.to_string(), None)
+                    };
+
                     if let Some(ref topic) = topic
                         && let Some(isupport::Parameter::TOPICLEN(max_len)) =
                             isupport.get(&isupport::Kind::TOPICLEN)
@@ -362,43 +443,125 @@ pub fn parse(
                 })
             }
             Kind::Kick => {
-                validated::<2, 1, true>(args, |[channel, users], [comment]| {
-                    let target_limit = find_target_limit(isupport, "KICK")
-                        .map(|limit| limit as usize);
+                validated::<1, 2, true>(
+                    args.clone(),
+                    |[channel], [users, comment]| {
+                        let chantypes =
+                            isupport::get_chantypes_or_default(isupport);
 
-                    if let Some(target_limit) = target_limit {
-                        let users = users.split(',').collect::<Vec<_>>();
+                        let (channel, users, comment) =
+                            if !proto::is_channel(&channel, chantypes) {
+                                let users = channel;
 
-                        if users.len() > target_limit {
-                            return Err(Error::TooManyTargets {
-                                name: "users",
-                                number: users.len(),
-                                max_number: target_limit,
-                            });
+                                let Some(channel) = buffer
+                                    .and_then(Upstream::target)
+                                    .and_then(Target::to_channel)
+                                else {
+                                    // If not in a channel then a channel argument is
+                                    // required
+                                    return Err(Error::IncorrectArgCount {
+                                        min: 2,
+                                        max: 3,
+                                        actual: 0,
+                                    });
+                                };
+
+                                // Re-create comment from args in order to preserve
+                                // whitespace
+                                let comment = get_combined_arg(&args, 2);
+
+                                (channel.to_string(), users, comment)
+                            } else {
+                                let Some(users) = users else {
+                                    // If channel is not skipped then users is
+                                    // required
+                                    return Err(Error::IncorrectArgCount {
+                                        min: 2,
+                                        max: 3,
+                                        actual: 0,
+                                    });
+                                };
+
+                                (channel, users, comment)
+                            };
+
+                        let target_limit = find_target_limit(isupport, "KICK")
+                            .map(|limit| limit as usize);
+
+                        if let Some(target_limit) = target_limit {
+                            let users = users.split(',').collect::<Vec<_>>();
+
+                            if users.len() > target_limit {
+                                return Err(Error::TooManyTargets {
+                                    name: "users",
+                                    number: users.len(),
+                                    max_number: target_limit,
+                                });
+                            }
                         }
-                    }
 
-                    if let Some(ref comment) = comment
-                        && let Some(isupport::Parameter::KICKLEN(max_len)) =
-                            isupport.get(&isupport::Kind::KICKLEN)
-                    {
-                        let max_len = *max_len as usize;
+                        if let Some(ref comment) = comment
+                            && let Some(isupport::Parameter::KICKLEN(max_len)) =
+                                isupport.get(&isupport::Kind::KICKLEN)
+                        {
+                            let max_len = *max_len as usize;
 
-                        if comment.len() > max_len {
-                            return Err(Error::ArgTooLong {
-                                name: "comment",
-                                len: comment.len(),
-                                max_len,
-                            });
+                            if comment.len() > max_len {
+                                return Err(Error::ArgTooLong {
+                                    name: "comment",
+                                    len: comment.len(),
+                                    max_len,
+                                });
+                            }
                         }
-                    }
 
-                    Ok(Command::Irc(Irc::Kick(channel, users, comment)))
-                })
+                        Ok(Command::Irc(Irc::Kick(channel, users, comment)))
+                    },
+                )
             }
-            Kind::Mode => validated::<1, 2, true>(
+            Kind::Mode => validated::<0, 3, true>(
                 args,
-                |[target], [mode_string, mode_arguments]| {
+                |_, [target, mode_string, mode_arguments]| {
+                    let (target, mode_string, mode_arguments) =
+                        if let Some(target) = target {
+                            if target.starts_with(['+', '-']) {
+                                let mode_arguments =
+                                    if let Some(ref mode_string) = mode_string
+                                        && let Some(mode_arguments) =
+                                            mode_arguments
+                                    {
+                                        Some(format!(
+                                            "{mode_string} {mode_arguments}"
+                                        ))
+                                    } else {
+                                        mode_string
+                                    };
+
+                                let mode_string = target;
+
+                                (None, Some(mode_string), mode_arguments)
+                            } else {
+                                (Some(target), mode_string, mode_arguments)
+                            }
+                        } else {
+                            (None, mode_string, mode_arguments)
+                        };
+
+                    let target = target.unwrap_or(
+                        buffer
+                            .and_then(Upstream::target)
+                            .map(|buffer_target| buffer_target.to_string())
+                            .unwrap_or(
+                                our_nickname
+                                    .ok_or(Error::IncorrectArgCount {
+                                        min: 1,
+                                        max: 2,
+                                        actual: 0,
+                                    })?
+                                    .to_string(),
+                            ),
+                    );
+
                     let mode_limit =
                         isupport::get_mode_limit_or_default(isupport);
 
@@ -583,13 +746,47 @@ pub fn parse(
                 }
             }
             Kind::Ctcp => {
-                validated::<2, 1, true>(args, |[target, command], [params]| {
-                    Ok(Command::Irc(Irc::Ctcp(
-                        ctcp::Command::from(command.as_str()),
-                        target,
-                        params,
-                    )))
-                })
+                validated::<1, 2, true>(
+                    args.clone(),
+                    |[target], [command, params]| {
+                        let (target, command, params) = if let Some(query) =
+                            buffer
+                                .and_then(Upstream::target)
+                                .and_then(Target::to_query)
+                            && matches!(
+                                target.to_uppercase().as_str(),
+                                "ACTION"
+                                    | "CLIENTINFO"
+                                    | "PING"
+                                    | "SOURCE"
+                                    | "TIME"
+                                    | "VERSION"
+                            ) {
+                            // Re-create comment from args in order to preserve
+                            // whitespace
+                            let params = get_combined_arg(&args, 2);
+
+                            (query.to_string(), target, params)
+                        } else {
+                            let Some(command) = command else {
+                                // If target is not skipped then command is required
+                                return Err(Error::IncorrectArgCount {
+                                    min: 2,
+                                    max: 3,
+                                    actual: 0,
+                                });
+                            };
+
+                            (target, command, params)
+                        };
+
+                        Ok(Command::Irc(Irc::Ctcp(
+                            ctcp::Command::from(command.as_str()),
+                            target,
+                            params,
+                        )))
+                    },
+                )
             }
             Kind::Hop => {
                 validated::<0, 2, true>(args, |_, [channel, message]| {
@@ -599,6 +796,43 @@ pub fn parse(
             Kind::Clear => validated::<0, 0, false>(args, |_, _| {
                 Ok(Command::Internal(Internal::ClearBuffer))
             }),
+            Kind::ClearTopic => {
+                validated::<0, 1, false>(args, |_, [channel]| {
+                    if let Some(channel) = channel {
+                        let chantypes =
+                            isupport::get_chantypes_or_default(isupport);
+
+                        if proto::is_channel(&channel, chantypes) {
+                            Ok(Command::Irc(Irc::Topic(
+                                channel.to_string(),
+                                Some(String::new()),
+                            )))
+                        } else {
+                            Err(Error::InvalidChannelName {
+                                requirements: fmt_channel_name_requirements(
+                                    chantypes,
+                                ),
+                            })
+                        }
+                    } else if let Some(channel) = buffer
+                        .and_then(Upstream::target)
+                        .and_then(Target::to_channel)
+                    {
+                        Ok(Command::Irc(Irc::Topic(
+                            channel.to_string(),
+                            Some(String::new()),
+                        )))
+                    } else {
+                        // If not in a channel then a channel argument is
+                        // required
+                        Err(Error::IncorrectArgCount {
+                            min: 1,
+                            max: 1,
+                            actual: 0,
+                        })
+                    }
+                })
+            }
             Kind::Delay => validated::<1, 0, false>(args, |[seconds], _| {
                 if let Ok(seconds) = seconds.parse::<u64>() {
                     if seconds > 0 {
@@ -623,15 +857,19 @@ fn validated<const EXACT: usize, const OPT: usize, const TEXT: bool>(
     let max = EXACT + OPT;
 
     let args: Vec<String> = if TEXT {
-        // Combine everything from last arg on
-        let combined = args.iter().skip(max.saturating_sub(1)).join(" ");
-        args.iter()
+        let combined_arg = get_combined_arg(&args, max);
+
+        args.into_iter()
+            .filter(|arg| !arg.is_empty())
             .take(max.saturating_sub(1))
             .map(ToString::to_string)
-            .chain((!combined.is_empty()).then_some(combined))
+            .chain(combined_arg)
             .collect()
     } else {
-        args.into_iter().map(String::from).collect()
+        args.into_iter()
+            .filter(|arg| !arg.is_empty())
+            .map(String::from)
+            .collect()
     };
 
     if args.len() >= EXACT && args.len() <= max {
@@ -652,6 +890,29 @@ fn validated<const EXACT: usize, const OPT: usize, const TEXT: bool>(
             actual: args.len(),
         })
     }
+}
+
+fn get_combined_arg(
+    args: &Vec<&str>,
+    combined_arg_number: usize,
+) -> Option<String> {
+    // Combined arg is always the last arg
+    let skip_args_count = if combined_arg_number > 1 {
+        args.iter()
+            .enumerate()
+            .filter_map(|(position, arg)| (!arg.is_empty()).then_some(position))
+            .nth(combined_arg_number.saturating_sub(2))
+            .map(|position| position.saturating_add(1))
+    } else {
+        Some(0)
+    };
+
+    // Combine everything after the penultimate arg
+    let combined_arg = skip_args_count
+        .map(|count| args.iter().skip(count).join(" "))
+        .unwrap_or_default();
+
+    (!combined_arg.is_empty()).then_some(combined_arg)
 }
 
 impl TryFrom<Irc> for proto::Command {
@@ -732,6 +993,8 @@ pub enum Error {
     },
     #[error("must be a number greater than zero")]
     NotPositiveInteger,
+    #[error("invalid channel name ({requirements}")]
+    InvalidChannelName { requirements: String },
 }
 
 fn fmt_incorrect_arg_count(min: usize, max: usize, actual: usize) -> String {
@@ -746,4 +1009,26 @@ fn fmt_incorrect_arg_count(min: usize, max: usize, actual: usize) -> String {
             "too {relational} arguments ({actual} provided, {min} to {max} expected)"
         )
     }
+}
+
+fn fmt_channel_name_requirements(chantypes: &[char]) -> String {
+    let mut requirements = String::from("must start with ");
+
+    for (index, chantype) in chantypes.iter().enumerate() {
+        if index == 1 {
+            requirements.push_str(&format!("'{chantype}'"));
+        } else if index == chantypes.len() {
+            if chantypes.len() == 2 {
+                requirements.push_str(&format!(" or '{chantype}'"));
+            } else {
+                requirements.push_str(&format!(", or '{chantype}'"));
+            }
+        } else {
+            requirements.push_str(&format!(", '{chantype}'"));
+        }
+    }
+
+    requirements.push_str(" and cannot contain a ',' or '^G'");
+
+    requirements
 }

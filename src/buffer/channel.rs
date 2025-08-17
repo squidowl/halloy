@@ -27,6 +27,7 @@ pub enum Message {
 pub enum Event {
     UserContext(user_context::Event),
     OpenBuffers(Vec<(Target, BufferAction)>),
+    LeaveBuffers(Vec<Target>, Option<String>),
     History(Task<history::manager::Message>),
     RequestOlderChatHistory,
     PreviewChanged,
@@ -259,6 +260,10 @@ impl Channel {
                     Some(input_view::Event::OpenBuffers { targets }) => {
                         (command, Some(Event::OpenBuffers(targets)))
                     }
+                    Some(input_view::Event::LeaveBuffers {
+                        targets,
+                        reason,
+                    }) => (command, Some(Event::LeaveBuffers(targets, reason))),
                     Some(input_view::Event::Cleared { history_task }) => {
                         (command, Some(Event::History(history_task)))
                     }
