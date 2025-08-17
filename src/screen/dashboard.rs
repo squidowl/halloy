@@ -78,7 +78,7 @@ pub enum Message {
 pub enum Event {
     ConfigReloaded(Result<Config, config::Error>),
     ReloadThemes,
-    QuitServer(Server),
+    QuitServer(Server, Option<String>),
     IrcError(anyhow::Error),
     Exit,
     OpenUrl(String, bool),
@@ -406,6 +406,33 @@ impl Dashboard {
                                     }
 
                                     return (Task::batch(tasks), None);
+                                }
+                                buffer::Event::LeaveBuffers(
+                                    targets,
+                                    reason,
+                                ) => {
+                                    if let Some(server) = pane
+                                        .buffer
+                                        .upstream()
+                                        .map(buffer::Upstream::server)
+                                        .cloned()
+                                    {
+                                        let mut tasks = vec![];
+
+                                        for target in targets {
+                                            tasks.push(
+                                                self.leave_server_target(
+                                                    clients,
+                                                    config,
+                                                    server.clone(),
+                                                    target,
+                                                    reason.clone(),
+                                                ),
+                                            );
+                                        }
+
+                                        return (Task::batch(tasks), None);
+                                    }
                                 }
                                 buffer::Event::History(history_task) => {
                                     return (
@@ -1919,13 +1946,11 @@ impl Dashboard {
         // Close pane
         if let Some((window, pane)) = open {
             tasks.push(self.close_pane(clients, config, window, pane));
-
-            self.last_changed = Some(Instant::now());
         }
 
         match buffer.clone() {
             buffer::Upstream::Server(server) => {
-                (Task::batch(tasks), Some(Event::QuitServer(server)))
+                (Task::batch(tasks), Some(Event::QuitServer(server, None)))
             }
             buffer::Upstream::Channel(server, channel) => {
                 // Send part & close history file
@@ -1957,6 +1982,67 @@ impl Dashboard {
 
                 // No PART to send, just close history
                 (Task::batch(tasks), None)
+            }
+        }
+    }
+
+    pub fn leave_server_target(
+        &mut self,
+        clients: &mut data::client::Map,
+        config: &Config,
+        server: Server,
+        target: Target,
+        reason: Option<String>,
+    ) -> Task<Message> {
+        let open = self.panes.iter().find_map(|(window, pane, state)| {
+            (state.buffer.server() == Some(server.clone())
+                && state.buffer.target() == Some(target.clone()))
+            .then_some((window, pane))
+        });
+
+        let mut tasks = vec![];
+
+        // Close pane
+        if let Some((window, pane)) = open {
+            tasks.push(self.close_pane(clients, config, window, pane));
+        }
+
+        match target {
+            Target::Channel(channel) => {
+                let buffer = data::buffer::Upstream::Channel(
+                    server.clone(),
+                    channel.clone(),
+                );
+
+                // Send part & close history file
+                let command = command::Irc::Part(channel.to_string(), reason);
+                let input = data::Input::command(buffer.clone(), command);
+
+                if let Some(encoded) = input.encoded() {
+                    clients.send(&buffer, encoded);
+                }
+
+                tasks.push(
+                    self.history
+                        .close(history::Kind::Channel(server, channel))
+                        .map_or_else(Task::none, |task| {
+                            Task::perform(task, Message::History)
+                        }),
+                );
+
+                Task::batch(tasks)
+            }
+            Target::Query(nick) => {
+                tasks.push(
+                    self.history
+                        .close(history::Kind::Query(server, nick))
+                        .map_or_else(Task::none, |task| {
+                            Task::perform(task, Message::History)
+                        }),
+                );
+
+                // No PART to send, just close history
+                Task::batch(tasks)
             }
         }
     }

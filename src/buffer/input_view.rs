@@ -25,6 +25,10 @@ pub enum Event {
     OpenBuffers {
         targets: Vec<(Target, BufferAction)>,
     },
+    LeaveBuffers {
+        targets: Vec<Target>,
+        reason: Option<String>,
+    },
     Cleared {
         history_task: Task<history::manager::Message>,
     },
@@ -159,7 +163,7 @@ impl State {
         history: &mut history::Manager,
         config: &Config,
     ) -> (Task<Message>, Option<Event>) {
-        let current_channel = buffer.channel();
+        let current_target = buffer.target();
 
         match message {
             Message::Input(input) => {
@@ -180,10 +184,11 @@ impl State {
 
                 self.completion.process(
                     &input,
+                    clients.nickname(buffer.server()),
                     users,
                     &history.get_last_seen(buffer),
                     &channels,
-                    current_channel,
+                    current_target.as_ref(),
                     &isupport,
                     config,
                 );
@@ -195,6 +200,7 @@ impl State {
                     buffer.clone(),
                     config.buffer.text_input.auto_format,
                     &input,
+                    clients.nickname(buffer.server()),
                     &clients.get_isupport(buffer.server()),
                 ) && match error {
                     input::Error::ExceedsByteLimit { .. } => true,
@@ -223,6 +229,9 @@ impl State {
                     }) => true,
                     input::Error::Command(
                         command::Error::NotPositiveInteger,
+                    ) => true,
+                    input::Error::Command(
+                        command::Error::InvalidChannelName { .. },
                     ) => true,
                 } {
                     self.error = Some(error.to_string());
@@ -262,6 +271,7 @@ impl State {
                         buffer.clone(),
                         config.buffer.text_input.auto_format,
                         raw_input,
+                        clients.nickname(buffer.server()),
                         &clients.get_isupport(buffer.server()),
                     ) {
                         Ok(input::Parsed::Internal(command)) => {
@@ -294,6 +304,18 @@ impl State {
                                                     ),
                                                 })
                                                 .collect(),
+                                        }),
+                                    );
+                                }
+                                command::Internal::LeaveBuffers(
+                                    targets,
+                                    reason,
+                                ) => {
+                                    return (
+                                        Task::none(),
+                                        Some(Event::LeaveBuffers {
+                                            targets,
+                                            reason,
                                         }),
                                     );
                                 }
@@ -567,10 +589,11 @@ impl State {
 
                     self.completion.process(
                         &new_input,
+                        clients.nickname(buffer.server()),
                         users,
                         &history.get_last_seen(buffer),
                         &channels,
-                        current_channel,
+                        current_target.as_ref(),
                         &isupport,
                         config,
                     );
@@ -610,10 +633,11 @@ impl State {
 
                         self.completion.process(
                             &new_input,
+                            clients.nickname(buffer.server()),
                             users,
                             &history.get_last_seen(buffer),
                             &channels,
-                            current_channel,
+                            current_target.as_ref(),
                             &isupport,
                             config,
                         );
