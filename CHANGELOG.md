@@ -9,17 +9,16 @@ Added:
 - Ability to hide and theme `kick` server messages
 
 Fixed:
-- When kicked from a channel the kick message will be broadcast in the server buffer (which remains open) as well as in the channel history (which is closed on kick)
-
-Fixed:
 
 - Receiving files over DCC will no longer stall when sender stops accepting received receipts
 - Attempting to navigate to the next/previous unread buffer, when there is no such buffer, will no longer clear the buffer
 - Window position is now validated, preventing windows from opening on disconnected monitors
+- When kicked from a channel the kick message will be broadcast in the server buffer (which remains open) as well as in the channel history (which is closed on kick)
 
 Thanks:
 
-- Bug reports: @privacyadmin, @rlndd, @wingedonezero, @Seishiin, @Erroneuz
+- Bug reports: @privacyadmin, @rlndd, @wingedonezero, @Seishiin, @Erroneuz, @andar1an, freakyy85, ThinkT510
+- Feature requests: @deepspaceaxolotl, @4e554c4c
 
 # 2025.8 (2025-08-31)
 
