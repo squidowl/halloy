@@ -43,7 +43,7 @@ impl Window {
         let size = size.max(MIN_SIZE);
         let position = position
             .filter(|pos| pos.y.is_sign_positive() && pos.x.is_sign_positive())
-            .filter(|pos| is_position_valid(*pos, size));
+            .filter(|pos| is_position_valid(*pos));
 
         Ok(Window { position, size })
     }
@@ -69,28 +69,30 @@ fn path() -> Result<PathBuf, Error> {
 }
 
 /// Check if a window position is valid (within visible screen bounds)
-fn is_position_valid(position: Point, size: Size) -> bool {
+fn is_position_valid(position: Point) -> bool {
     // Get all available displays
     let displays = match display_info::DisplayInfo::all() {
         Ok(displays) => displays,
         Err(_) => return true, // If we can't get display info, assume it's valid
     };
 
-    // Check if the window position and size fit within any display
+    if displays.is_empty() {
+        return true; // No displays detected, assume valid
+    }
+
+    // Check if the window position is within any display bounds
+    // We only check the position, not the full window size, to handle different monitor sizes
     for display in displays {
-        // Check if the window is completely within this display
         if position.x >= display.x as f32
             && position.y >= display.y as f32
-            && position.x + size.width
-                <= (display.x + display.width as i32) as f32
-            && position.y + size.height
-                <= (display.y + display.height as i32) as f32
+            && position.x < (display.x + display.width as i32) as f32
+            && position.y < (display.y + display.height as i32) as f32
         {
             return true;
         }
     }
 
-    // Window is not within any display bounds
+    // Window position is not within any display bounds
     false
 }
 
