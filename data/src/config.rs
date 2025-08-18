@@ -217,21 +217,68 @@ impl Config {
         #[derive(Deserialize, Debug)]
         #[serde(untagged)]
         pub enum ThemeKeys {
-            Static(String),
-            Dynamic { light: String, dark: String },
+            Static(ThemeValue),
+            Dynamic { light: ThemeValue, dark: ThemeValue },
+        }
+
+        #[derive(Deserialize, Debug, Clone)]
+        #[serde(untagged)]
+        enum ThemeValue {
+            Single(String),
+            Multiple(Vec<String>),
+        }
+
+        impl ThemeValue {
+            fn into_vec(&self) -> Vec<String> {
+                match self {
+                    ThemeValue::Single(s) => vec![s.clone()],
+                    ThemeValue::Multiple(v) => v.clone(),
+                }
+            }
         }
 
         impl Default for ThemeKeys {
             fn default() -> Self {
-                Self::Static(String::default())
+                Self::Static(ThemeValue::Single(String::default()))
             }
         }
 
         impl ThemeKeys {
-            pub fn keys(&self) -> (&str, Option<&str>) {
+            pub fn keys(&self) -> (String, Option<String>) {
+                use rand::prelude::*;
+                use rand_chacha::ChaCha8Rng;
+                
+                let mut rng = ChaCha8Rng::from_rng(&mut rand::rng());
+                
                 match self {
-                    ThemeKeys::Static(manual) => (manual, None),
-                    ThemeKeys::Dynamic { light, dark } => (light, Some(dark)),
+                    ThemeKeys::Static(theme_value) => {
+                        let themes = theme_value.into_vec();
+
+                        if themes.is_empty() {
+                            (String::default(), None)
+                        } else {
+                            let selected = themes.choose(&mut rng).unwrap_or(&themes[0]);
+                            (selected.clone(), None)
+                        }
+                    }
+                    ThemeKeys::Dynamic { light, dark } => {
+                        let light_themes = light.into_vec();
+                        let dark_themes = dark.into_vec();
+                        
+                        let light_selected = if light_themes.is_empty() {
+                            String::default()
+                        } else {
+                            light_themes.choose(&mut rng).unwrap_or(&light_themes[0]).clone()
+                        };
+                        
+                        let dark_selected = if dark_themes.is_empty() {
+                            None
+                        } else {
+                            Some(dark_themes.choose(&mut rng).unwrap_or(&dark_themes[0]).clone())
+                        };
+                        
+                        (light_selected, dark_selected)
+                    }
                 }
             }
         }
@@ -345,7 +392,7 @@ impl Config {
     }
 
     async fn load_appearance(
-        theme_keys: (&str, Option<&str>),
+        theme_keys: (String, Option<String>),
     ) -> Result<Appearance, Error> {
         use tokio::fs;
 
@@ -373,7 +420,7 @@ impl Config {
 
         let mut all = vec![];
         let mut first_theme = Theme::default();
-        let mut second_theme = theme_keys.1.map(|_| Theme::default());
+        let mut second_theme = theme_keys.1.clone().map(|_| Theme::default());
         let mut has_halloy_theme = false;
 
         let mut stream =
@@ -395,7 +442,7 @@ impl Config {
                     first_theme = theme.clone();
                 }
 
-                if Some(file_name) == theme_keys.1 {
+                if Some(file_name) == theme_keys.1.as_deref() {
                     second_theme = Some(theme.clone());
                 }
 

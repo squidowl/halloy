@@ -3,11 +3,17 @@
 ## Example
 
 ```toml
-# Static
+# Static single
 theme = "ferra"
 
-# Dynamic
+# Static multiple (random selection)
+theme = ["ferra", "booberry"]
+
+# Dynamic single
 theme = { light = "ferra-light", dark = "ferra" }
+
+# Dynamic multiple (random selection)
+theme = { light = ["ferra-light", "booberry-light"], dark = ["ferra", "booberry"] }
 ```
 
 > ⚠️  `theme` is a root key, so it must be placed before every section.
@@ -16,10 +22,10 @@ theme = { light = "ferra-light", dark = "ferra" }
 
 Specify the theme name(s) to use. The theme must correspond to a file located in the `themes` folder, which can be found in the Halloy configuration directory. The default theme in Halloy is [Ferra](https://github.com/casperstorm/ferra/).
 
-When a dynamic theme is used, Halloy will match the appearance of the OS.
+When multiple themes are specified, Halloy will randomly select one each time the application starts. When a dynamic theme is used, Halloy will match the appearance of the OS.
 
-- **type**: string or object
-- **values**: `"<string>"`, `{ light = "<string>", dark = "<string>" }`
+- **type**: string, array of strings, or object
+- **values**: `"<string>"`, `["<string>", "<string>"]`, `{ light = "<string>", dark = "<string>" }`, `{ light = ["<string>", "<string>"], dark = ["<string>", "<string>"] }`
 - **default**: `"ferra"`
   
 > 💡  See all community created themes [here](./community.md) and base16 themes [here](./base16.md).
