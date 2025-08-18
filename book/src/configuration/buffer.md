@@ -584,6 +584,7 @@ Server messages are messages sent from an IRC server.
 | `change_mode`         | Message is sent when a mode is set                                            |
 | `change_nick`         | Message is sent when a user changes nick                                      |
 | `join`                | Message is sent when a user joins a channel                                   |
+| `kick`                | Message is sent when a user is kicked from a channel                          |
 | `monitored_offline`   | Message is sent when a monitored user goes offline                            |
 | `monitored_online`    | Message is sent when a monitored user goes online                             |
 | `part`                | Message is sent when a user leaves a channel                                  |

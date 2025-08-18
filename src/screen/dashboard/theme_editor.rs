@@ -819,6 +819,7 @@ pub enum ServerMessages {
     StandardReplyWarn,
     StandardReplyNote,
     WAllOps,
+    Kick,
 }
 
 impl ServerMessages {
@@ -843,6 +844,7 @@ impl ServerMessages {
                 styles.standard_reply_note.color
             }
             ServerMessages::WAllOps => styles.wallops.color,
+            ServerMessages::Kick => styles.kick.color,
             ServerMessages::Default => Some(styles.default.color),
         }
     }
@@ -872,6 +874,7 @@ impl ServerMessages {
                 styles.standard_reply_note.font_style
             }
             ServerMessages::WAllOps => styles.wallops.font_style,
+            ServerMessages::Kick => styles.kick.font_style,
             ServerMessages::Default => styles.default.font_style,
         }
     }
@@ -934,6 +937,10 @@ impl ServerMessages {
             ServerMessages::WAllOps => {
                 styles.wallops.color = color;
                 styles.wallops.font_style = font_style;
+            }
+            ServerMessages::Kick => {
+                styles.kick.color = color;
+                styles.kick.font_style = font_style;
             }
             ServerMessages::Default => {
                 if let Some(color) = color {

@@ -203,6 +203,7 @@ impl Message {
                             | Kind::MonitoredOffline
                             | Kind::StandardReply(_)
                             | Kind::WAllOps
+                            | Kind::Kick
                     )
                 }
                 Source::Internal(source::Internal::Logs(level)) => {
@@ -913,7 +914,7 @@ fn target(
                 })
             }
         }
-        Command::TOPIC(channel, _) | Command::KICK(channel, _, _) => {
+        Command::TOPIC(channel, _) => {
             let channel = target::Channel::parse(
                 &channel,
                 chantypes,
@@ -925,6 +926,23 @@ fn target(
             Some(Target::Channel {
                 channel,
                 source: Source::Server(None),
+            })
+        }
+        Command::KICK(channel, _, _) => {
+            let channel = target::Channel::parse(
+                &channel,
+                chantypes,
+                statusmsg,
+                casemapping,
+            )
+            .ok()?;
+
+            Some(Target::Channel {
+                channel,
+                source: Source::Server(Some(source::Server::new(
+                    Kind::Kick,
+                    Some(user?.nickname().to_owned()),
+                ))),
             })
         }
         Command::PART(channel, _) => {
@@ -1269,7 +1287,7 @@ fn content<'a>(
                 )
             })
         }
-        Command::KICK(channel, victim, comment) => {
+        Command::KICK(channel, victim, reason) => {
             let raw_victim_user = User::from(Nick::from(victim.as_str()));
             let victim = target::Channel::parse(
                 victim,
@@ -1280,6 +1298,8 @@ fn content<'a>(
             .ok()
             .and_then(|channel| resolve_attributes(&raw_victim_user, &channel))
             .unwrap_or(raw_victim_user);
+
+            let ourself = victim.as_str() == our_nick.as_ref();
 
             let raw_user = message.user()?;
             let user = target::Channel::parse(
@@ -1292,24 +1312,7 @@ fn content<'a>(
             .and_then(|channel| resolve_attributes(&raw_user, &channel))
             .unwrap_or(raw_user);
 
-            let comment = comment
-                .as_ref()
-                .map(|comment| format!(" ({comment})"))
-                .unwrap_or_default();
-
-            let target = if victim.as_str() == our_nick.as_ref() {
-                "you have".to_string()
-            } else {
-                format!("{} has", victim.nickname())
-            };
-
-            Some(parse_fragments_with_users(
-                format!(
-                    "⟵ {target} been kicked by {}{comment}",
-                    user.nickname()
-                ),
-                Some(&[user, victim].into_iter().collect()),
-            ))
+            Some(kick_text(user, victim, ourself, reason, None))
         }
         Command::MODE(target, modes, args) => {
             let raw_user = message.user()?;
@@ -1742,6 +1745,41 @@ pub fn action_text(
         target,
         our_nick,
         highlights,
+    )
+}
+
+fn kick_text(
+    kicker: User,
+    victim: User,
+    ourself: bool,
+    reason: &Option<String>,
+    channel: Option<target::Channel>,
+) -> Content {
+    let target = if ourself {
+        if channel.is_some() {
+            "You have".to_string()
+        } else {
+            "you have".to_string()
+        }
+    } else {
+        format!("{} has", victim.nickname())
+    };
+
+    let reason = reason
+        .as_ref()
+        .map(|reason| format!(" ({reason})"))
+        .unwrap_or_default();
+
+    parse_fragments_with_users(
+        if let Some(channel) = channel {
+            format!(
+                "{target} been kicked from {channel} by {}{reason}",
+                kicker.nickname()
+            )
+        } else {
+            format!("⟵ {target} been kicked by {}{reason}", kicker.nickname())
+        },
+        Some(&[kicker, victim].into_iter().collect()),
     )
 }
 

@@ -861,6 +861,29 @@ impl Halloy {
                                                     .map(Message::Dashboard),
                                             );
                                         }
+                                        data::client::Broadcast::Kick {
+                                            kicker,
+                                            victim,
+                                            reason,
+                                            channel,
+                                            sent_time,
+                                        } => {
+                                            commands.push(
+                                                dashboard
+                                                    .broadcast(
+                                                        &server,
+                                                        &self.config,
+                                                        sent_time,
+                                                        Broadcast::Kick {
+                                                            kicker,
+                                                            victim,
+                                                            reason,
+                                                            channel,
+                                                        },
+                                                    )
+                                                    .map(Message::Dashboard),
+                                            );
+                                        }
                                     },
                                     data::client::Event::FileTransferRequest(request) => {
                                         if let Some(command) = dashboard.receive_file_transfer(
