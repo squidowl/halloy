@@ -97,6 +97,7 @@ pub fn server(
                 styles.standard_reply_note.color
             }
             Kind::WAllOps => styles.wallops.color,
+            Kind::Kick => styles.kick.color,
         })
         .or(Some(styles.default.color));
 

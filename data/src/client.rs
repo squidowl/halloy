@@ -86,6 +86,13 @@ pub enum Broadcast {
         channels: Vec<target::Channel>,
         sent_time: DateTime<Utc>,
     },
+    Kick {
+        kicker: User,
+        victim: User,
+        reason: Option<String>,
+        channel: target::Channel,
+        sent_time: DateTime<Utc>,
+    },
 }
 
 #[derive(Debug)]
@@ -1501,27 +1508,32 @@ impl Client {
                     channel.users.insert(user);
                 }
             }
-            Command::KICK(channel, victim, _) => {
-                if victim == self.nickname().as_ref() {
-                    self.chanmap.shift_remove(&context!(
-                        target::Channel::parse(
-                            channel,
-                            self.chantypes(),
-                            self.statusmsg(),
-                            self.casemapping(),
-                        )
-                    ));
-                } else if let Some(channel) =
-                    self.chanmap.get_mut(&context!(target::Channel::parse(
-                        channel,
-                        self.chantypes(),
-                        self.statusmsg(),
-                        self.casemapping(),
-                    )))
-                {
-                    channel
-                        .users
-                        .remove(&User::from(Nick::from(victim.as_str())));
+            Command::KICK(channel, victim, reason) => {
+                if let Ok(channel) = target::Channel::parse(
+                    channel,
+                    self.chantypes(),
+                    self.statusmsg(),
+                    self.casemapping(),
+                ) {
+                    if victim == self.nickname().as_ref() {
+                        self.chanmap.shift_remove(&channel);
+
+                        return Ok(vec![
+                            Event::Broadcast(Broadcast::Kick {
+                                kicker: ok!(message.user()),
+                                victim: User::from(self.nickname().to_owned()),
+                                reason: reason.clone(),
+                                channel,
+                                sent_time: server_time(&message),
+                            }),
+                            Event::Single(message, self.nickname().to_owned()),
+                        ]);
+                    } else if let Some(channel) = self.chanmap.get_mut(&channel)
+                    {
+                        channel
+                            .users
+                            .remove(&User::from(Nick::from(victim.as_str())));
+                    }
                 }
             }
             Command::Numeric(RPL_WHOREPLY, args) => {

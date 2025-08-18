@@ -600,6 +600,14 @@ impl Manager {
                     )
                 }
             }
+            Broadcast::Kick {
+                kicker,
+                victim,
+                reason,
+                channel,
+            } => message::broadcast::kick(
+                kicker, victim, reason, channel, sent_time,
+            ),
         };
 
         messages
@@ -1197,5 +1205,11 @@ pub enum Broadcast {
         ourself: bool,
         logged_in: bool,
         user_channels: Vec<target::Channel>,
+    },
+    Kick {
+        kicker: User,
+        victim: User,
+        reason: Option<String>,
+        channel: target::Channel,
     },
 }

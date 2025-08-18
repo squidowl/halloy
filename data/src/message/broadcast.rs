@@ -4,8 +4,8 @@ use std::collections::HashSet;
 use chrono::{DateTime, Utc};
 
 use super::{
-    Content, Direction, Message, Source, Target, parse_fragments_with_user,
-    parse_fragments_with_users, plain, source,
+    Content, Direction, Message, Source, Target, kick_text,
+    parse_fragments_with_user, parse_fragments_with_users, plain, source,
 };
 use crate::config::buffer::UsernameFormat;
 use crate::time::Posix;
@@ -286,4 +286,27 @@ pub fn change_host(
             sent_time,
         )
     }
+}
+
+pub fn kick(
+    kicker: User,
+    victim: User,
+    reason: Option<String>,
+    channel: target::Channel,
+    sent_time: DateTime<Utc>,
+) -> Vec<Message> {
+    let cause = Cause::Server(Some(source::Server::new(
+        source::server::Kind::Kick,
+        Some(kicker.nickname().to_owned()),
+    )));
+
+    let content = kick_text(
+        kicker,
+        victim,
+        true, // Broadcast of KICK is always ourself
+        &reason,
+        Some(channel),
+    );
+
+    expand([], [], true, cause, content, sent_time)
 }
