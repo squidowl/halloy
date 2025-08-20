@@ -298,6 +298,10 @@ async fn receive(
     let mut transferred = 0;
     let mut last_progress = started_at;
 
+    let ack_timeout =
+        timeout.checked_div(100).unwrap_or(Duration::from_secs(1));
+    let mut send_acks = true;
+
     while transferred < size {
         if let Some(bytes) = connection.next().await {
             let bytes = bytes?;
@@ -313,7 +317,17 @@ async fn receive(
             let ack = Bytes::from_iter(
                 ((transferred & 0xFFFFFFFF) as u32).to_be_bytes(),
             );
-            let _ = connection.send(ack).await;
+
+            if send_acks
+                && time::timeout(ack_timeout, connection.send(ack))
+                    .await
+                    .is_err()
+            {
+                // If sending an ack times out, then most likely the remote user
+                // is no longer reading them.  Attempt to continue the transfer
+                // without sending acks.
+                send_acks = false;
+            }
 
             // Send progress at 60fps
             if last_progress.elapsed() >= Duration::from_millis(16) {
