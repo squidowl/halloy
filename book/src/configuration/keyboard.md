@@ -23,8 +23,8 @@ move_right = "alt+l"
 | `restore_buffer`               | Restore focused buffer       | <kbd>⌘</kbd> + <kbd>shift</kbd> + <kbd>↓</kbd>      | <kbd>ctrl</kbd> + <kbd>shift</kbd> + <kbd>↓</kbd>   |
 | `cycle_next_buffer`            | Cycle to next buffer         | <kbd>ctrl</kbd> + <kbd>tab</kbd>                    | <kbd>ctrl</kbd> + <kbd>tab</kbd>                    |
 | `cycle_previous_buffer`        | Cycle to previous buffer     | <kbd>ctrl</kbd> + <kbd>shift</kbd> + <kbd>tab</kbd> | <kbd>ctrl</kbd> + <kbd>shift</kbd> + <kbd>tab</kbd> |
-| `cycle_next_unread_buffer`     | Cycle to next buffer         | <kbd>ctrl</kbd> + <kbd>tab</kbd>                    | <kbd>ctrl</kbd> + <kbd>tab</kbd>                    |
-| `cycle_previous_unread_buffer` | Cycle to previous buffer     | <kbd>ctrl</kbd> + <kbd>shift</kbd> + <kbd>tab</kbd> | <kbd>ctrl</kbd> + <kbd>shift</kbd> + <kbd>tab</kbd> |
+| `cycle_next_unread_buffer`     | Cycle to next buffer         | <kbd>ctrl</kbd> + <kbd>`</kbd>                      | <kbd>ctrl</kbd> + <kbd>`</kbd>                      |
+| `cycle_previous_unread_buffer` | Cycle to previous buffer     | <kbd>ctrl</kbd> + <kbd>shift</kbd> + <kbd>`</kbd>   | <kbd>ctrl</kbd> + <kbd>shift</kbd> + <kbd>`</kbd>   |
 | `scroll_up_page`               | Scroll buffer up a page      | <kbd>Fn</kbd> + <kbd>↑</kbd>                        | <kbd>pageup</kbd>                                   |
 | `scroll_down_page`             | Scroll buffer down a page    | <kbd>Fn</kbd> + <kbd>↓</kbd>                        | <kbd>pagedown</kbd>                                 |
 | `scroll_to_top`                | Scroll to top of buffer      | <kbd>⌘</kbd> + <kbd>↑</kbd>                         | <kbd>ctrl</kbd> + <kbd>↑</kbd>                      |
