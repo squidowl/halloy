@@ -7,6 +7,14 @@ Added:
 - `/part`, `/topic`, `/mode`, `/kick`, and `/ctcp` commands can have their target(s) argument skipped when it can be inferred from context (e.g. `/topic` will target the current channel by default when used in a channel buffer)
 - `/cleartopic` command to remove a channel's topic (will target the current channel by default when used in a channel buffer)
 
+Fixed:
+
+- Receiving files over DCC will no longer stall when sender stops accepting received receipts
+
+Thanks:
+
+- Bug reports: @privacyadmin, @rlndd, @wingedonezero, @Seishiin
+
 # 2025.8 (2025-08-31)
 
 Added:
