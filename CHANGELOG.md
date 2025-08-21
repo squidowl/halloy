@@ -11,10 +11,11 @@ Fixed:
 
 - Receiving files over DCC will no longer stall when sender stops accepting received receipts
 - Attempting to navigate to the next/previous unread buffer, when there is no such buffer, will no longer clear the buffer
+- Window position is now validated, preventing windows from opening on disconnected monitors
 
 Thanks:
 
-- Bug reports: @privacyadmin, @rlndd, @wingedonezero, @Seishiin
+- Bug reports: @privacyadmin, @rlndd, @wingedonezero, @Seishiin, @Erroneuz
 
 # 2025.8 (2025-08-31)
 
