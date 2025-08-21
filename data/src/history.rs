@@ -759,7 +759,8 @@ fn has_matching_content(
                 | message::source::server::Kind::MonitoredOnline
                 | message::source::server::Kind::MonitoredOffline
                 | message::source::server::Kind::StandardReply(_)
-                | message::source::server::Kind::WAllOps => (),
+                | message::source::server::Kind::WAllOps
+                | message::source::server::Kind::Kick => (),
             }
         }
 
