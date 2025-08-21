@@ -47,7 +47,8 @@ jobs:
             libudev-dev \
             libxkbcommon-dev \
             libfontconfig1-dev \
-            libasound2-dev
+            libasound2-dev \
+            libx11-xcb-dev
 
       - name: Build
         run: ${{ matrix.target.make }}

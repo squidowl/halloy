@@ -42,7 +42,8 @@ impl Window {
 
         let size = size.max(MIN_SIZE);
         let position = position
-            .filter(|pos| pos.y.is_sign_positive() && pos.x.is_sign_positive());
+            .filter(|pos| pos.y.is_sign_positive() && pos.x.is_sign_positive())
+            .filter(|pos| is_position_valid(*pos));
 
         Ok(Window { position, size })
     }
@@ -65,6 +66,11 @@ fn path() -> Result<PathBuf, Error> {
     }
 
     Ok(parent.join("window.json"))
+}
+
+/// Check if a window position is valid (within visible screen bounds)
+fn is_position_valid(position: Point) -> bool {
+    display_info::DisplayInfo::from_point(position.x as i32, position.y as i32).is_ok()
 }
 
 #[derive(Debug, Clone, thiserror::Error)]
