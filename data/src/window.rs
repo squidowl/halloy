@@ -70,30 +70,7 @@ fn path() -> Result<PathBuf, Error> {
 
 /// Check if a window position is valid (within visible screen bounds)
 fn is_position_valid(position: Point) -> bool {
-    // Get all available displays
-    let displays = match display_info::DisplayInfo::all() {
-        Ok(displays) => displays,
-        Err(_) => return true, // If we can't get display info, assume it's valid
-    };
-
-    if displays.is_empty() {
-        return true; // No displays detected, assume valid
-    }
-
-    // Check if the window position is within any display bounds
-    // We only check the position, not the full window size, to handle different monitor sizes
-    for display in displays {
-        if position.x >= display.x as f32
-            && position.y >= display.y as f32
-            && position.x < (display.x + display.width as i32) as f32
-            && position.y < (display.y + display.height as i32) as f32
-        {
-            return true;
-        }
-    }
-
-    // Window position is not within any display bounds
-    false
+    display_info::DisplayInfo::from_point(position.x as i32, position.y as i32).is_ok()
 }
 
 #[derive(Debug, Clone, thiserror::Error)]
