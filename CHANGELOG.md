@@ -10,6 +10,7 @@ Added:
 Fixed:
 
 - Receiving files over DCC will no longer stall when sender stops accepting received receipts
+- Attempting to navigate to the next/previous unread buffer, when there is no such buffer, will no longer clear the buffer
 
 Thanks:
 
