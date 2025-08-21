@@ -193,6 +193,7 @@ pub struct ServerMessages {
     pub standard_reply_warn: ServerMessage,
     pub standard_reply_note: ServerMessage,
     pub wallops: ServerMessage,
+    pub kick: ServerMessage,
 }
 
 impl ServerMessages {
@@ -221,6 +222,7 @@ impl ServerMessages {
                 source::server::StandardReply::Note,
             ) => Some(&self.standard_reply_note),
             source::server::Kind::WAllOps => Some(&self.wallops),
+            source::server::Kind::Kick => Some(&self.kick),
         }
     }
 }

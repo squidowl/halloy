@@ -73,6 +73,7 @@ pub mod server {
         MonitoredOffline,
         StandardReply(StandardReply),
         WAllOps,
+        Kick,
     }
 
     #[derive(
