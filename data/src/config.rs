@@ -252,7 +252,7 @@ impl Config {
                 
                 match self {
                     ThemeKeys::Static(theme_value) => {
-                        let themes = theme_value.into_vec();
+                        let themes = theme_value.to_vec();
 
                         if themes.is_empty() {
                             (String::default(), None)
@@ -262,8 +262,8 @@ impl Config {
                         }
                     }
                     ThemeKeys::Dynamic { light, dark } => {
-                        let light_themes = light.into_vec();
-                        let dark_themes = dark.into_vec();
+                        let light_themes = light.to_vec();
+                        let dark_themes = dark.to_vec();
                         
                         let light_selected = if light_themes.is_empty() {
                             String::default()
