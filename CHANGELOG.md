@@ -8,6 +8,7 @@ Added:
 - `/cleartopic` command to remove a channel's topic (will target the current channel by default when used in a channel buffer)
 - Ability to hide and theme `kick` server messages
 - Setting to control whether or not to restore on launch the panes that were open when Halloy last closed
+- Setting for split axis chosen as the shorter dimension of the focused pane (new default behavior)
 
 Fixed:
 

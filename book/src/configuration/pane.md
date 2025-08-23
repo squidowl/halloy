@@ -47,12 +47,12 @@ scroller_width = 5
 
 ## `split_axis`
 
-Default axis used when splitting a pane (i.e. default orientation of the divider between panes).
+Default axis used when splitting a pane (i.e. default orientation of the divider between panes).  `"shorter"` will compare the width and height of the pane to select the splitting axis;  if the width is shorter then the horizontal axis is selected, and if the height is hosrter then the vertical axis is selected.
 
 ```toml
 # Type: string
-# Values: "horizontal", "vertical"
-# Default: "horizontal"
+# Values: "horizontal", "shorter", "vertical"
+# Default: "shorter"
 
 [pane]
 split_axis = "vertical"

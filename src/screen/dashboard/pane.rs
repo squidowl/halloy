@@ -1,10 +1,11 @@
 use data::user::ChannelUsers;
 use data::{Config, file_transfer, history, preview};
+use iced::Size;
 use iced::widget::{button, center, container, pane_grid, row, text};
 
 use super::sidebar;
 use crate::buffer::{self, Buffer};
-use crate::widget::tooltip;
+use crate::widget::{on_resize, tooltip};
 use crate::{Theme, font, icon, theme, widget};
 
 #[derive(Debug, Clone)]
@@ -22,11 +23,13 @@ pub enum Message {
     Merge,
     ScrollToBottom,
     MarkAsRead,
+    ContentResized(pane_grid::Pane, Size),
 }
 
 #[derive(Clone, Debug)]
 pub struct Pane {
     pub buffer: Buffer,
+    pub size: Size,
     title_bar: TitleBar,
 }
 
@@ -37,6 +40,7 @@ impl Pane {
     pub fn new(buffer: Buffer) -> Self {
         Self {
             buffer,
+            size: Size::default(), // Will get set initially via `Message::Resized`
             title_bar: TitleBar::default(),
         }
     }
@@ -117,9 +121,11 @@ impl Pane {
             )
             .map(move |msg| Message::Buffer(id, msg));
 
-        widget::Content::new(content)
-            .style(move |theme| theme::container::buffer(theme, is_focused))
-            .title_bar(title_bar.style(theme::container::buffer_title_bar))
+        widget::Content::new(on_resize(content, move |size| {
+            Message::ContentResized(id, size)
+        }))
+        .style(move |theme| theme::container::buffer(theme, is_focused))
+        .title_bar(title_bar.style(theme::container::buffer_title_bar))
     }
 
     pub fn resource(&self) -> Option<history::Resource> {
