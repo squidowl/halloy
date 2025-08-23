@@ -17,4 +17,5 @@ pub enum SplitAxis {
     Vertical,
     #[default]
     Shorter,
+    LargestShorter,
 }

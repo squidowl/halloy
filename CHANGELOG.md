@@ -8,6 +8,7 @@ Added:
 - `/cleartopic` command to remove a channel's topic (will target the current channel by default when used in a channel buffer)
 - Ability to hide and theme `kick` server messages
 - Setting for split axis chosen as the shorter dimension of the focused pane (new default behavior)
+- Setting for split axis chosen as the shorter dimension of the largest splittable pane
 
 Fixed:
 
