@@ -229,7 +229,7 @@ impl Config {
         }
 
         impl ThemeValue {
-            fn into_vec(&self) -> Vec<String> {
+            fn to_vec(&self) -> Vec<String> {
                 match self {
                     ThemeValue::Single(s) => vec![s.clone()],
                     ThemeValue::Multiple(v) => v.clone(),
