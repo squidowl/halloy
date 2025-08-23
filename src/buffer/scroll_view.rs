@@ -438,8 +438,7 @@ impl Default for State {
     fn default() -> Self {
         Self {
             scrollable: scrollable::Id::unique(),
-            size: Size::default(),
-            // Will get set initially via `Message::Resized`
+            size: Size::default(), // Will get set initially via `Message::Resized`
             limit: Limit::Bottom(0),
             status: Status::default(),
             pending_scroll_to: None,
