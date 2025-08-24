@@ -2,6 +2,19 @@
 
 Pane settings for Halloy. A pane contains a [buffer](../configuration//buffer.md).
 
+## `restore_on_launch`
+
+Restore the panes that were open when Halloy was last closed when launching the application.
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: true
+
+[pane]
+restore_on_launch = false
+```
+
 ## `scrollbar`
 
 Scrollbar configuration.
