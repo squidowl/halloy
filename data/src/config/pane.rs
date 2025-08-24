@@ -13,7 +13,9 @@ pub struct Pane {
 #[derive(Debug, Copy, Clone, Deserialize, Default)]
 #[serde(rename_all = "kebab-case")]
 pub enum SplitAxis {
-    #[default]
     Horizontal,
     Vertical,
+    #[default]
+    Shorter,
+    LargestShorter,
 }

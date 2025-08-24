@@ -86,7 +86,10 @@ pub enum Event {
 }
 
 impl Dashboard {
-    pub fn empty(main_window: &Window, config: &Config) -> (Self, Task<Message>) {
+    pub fn empty(
+        main_window: &Window,
+        config: &Config,
+    ) -> (Self, Task<Message>) {
         let (main_panes, pane) =
             pane_grid::State::new(Pane::new(Buffer::Empty));
 
@@ -649,6 +652,11 @@ impl Dashboard {
                                 .and_then(history::Kind::from_buffer)
                         {
                             mark_as_read(kind, &mut self.history, clients);
+                        }
+                    }
+                    pane::Message::ContentResized(id, size) => {
+                        if let Some(state) = self.panes.get_mut(window, id) {
+                            state.size = size;
                         }
                     }
                 }
@@ -1873,28 +1881,63 @@ impl Dashboard {
                     }
                 }
 
-                let pane_to_split = {
-                    if self.focus.window == self.main_window() {
-                        self.focus.pane
-                    } else if let Some(pane) =
-                        self.panes.main.panes.keys().last()
+                let (pane_to_split, pane_to_split_state) = {
+                    if matches!(
+                        config.pane.split_axis,
+                        config::pane::SplitAxis::LargestShorter
+                    ) && let Some((pane, pane_state)) =
+                        self.panes.main.panes.iter().reduce(
+                            |(acc_pane, acc_pane_state), (pane, pane_state)| {
+                                let pane_area = pane_state.size.width
+                                    * pane_state.size.height;
+                                let acc_pane_area = acc_pane_state.size.width
+                                    * acc_pane_state.size.height;
+
+                                if pane_area > acc_pane_area {
+                                    (pane, pane_state)
+                                } else {
+                                    (acc_pane, acc_pane_state)
+                                }
+                            },
+                        )
                     {
-                        *pane
+                        (*pane, pane_state)
+                    } else if self.focus.window == self.main_window()
+                        && let Some(pane_state) =
+                            self.panes.main.panes.get(&self.focus.pane)
+                    {
+                        (self.focus.pane, pane_state)
+                    } else if let Some((pane, pane_state)) =
+                        self.panes.main.panes.iter().last()
+                    {
+                        (*pane, pane_state)
                     } else {
                         log::error!("Didn't find any panes to split");
                         return Task::none();
                     }
                 };
 
-                let result = self.panes.main.split(
-                    match config.pane.split_axis {
-                        config::pane::SplitAxis::Horizontal => {
+                let split_axis = match config.pane.split_axis {
+                    config::pane::SplitAxis::Horizontal => {
+                        pane_grid::Axis::Horizontal
+                    }
+                    config::pane::SplitAxis::Vertical => {
+                        pane_grid::Axis::Vertical
+                    }
+                    config::pane::SplitAxis::Shorter
+                    | config::pane::SplitAxis::LargestShorter => {
+                        if pane_to_split_state.size.height
+                            < pane_to_split_state.size.width
+                        {
+                            pane_grid::Axis::Vertical
+                        } else {
                             pane_grid::Axis::Horizontal
                         }
-                        config::pane::SplitAxis::Vertical => {
-                            pane_grid::Axis::Vertical
-                        }
-                    },
+                    }
+                };
+
+                let result = self.panes.main.split(
+                    split_axis,
                     pane_to_split,
                     Pane::new(Buffer::from(buffer)),
                 );

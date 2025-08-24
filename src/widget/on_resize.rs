@@ -28,7 +28,7 @@ where
                   clipboard: &mut dyn Clipboard,
                   shell: &mut Shell<'_, Message>,
                   viewport: &iced::Rectangle| {
-                let new_size = viewport.size();
+                let new_size = layout.bounds().size();
 
                 if state.last_size.is_none_or(|size| size != new_size) {
                     state.last_size = Some(new_size);
