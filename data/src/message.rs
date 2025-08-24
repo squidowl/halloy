@@ -188,6 +188,7 @@ pub struct Message {
     pub hash: Hash,
     pub hidden_urls: HashSet<Url>,
     pub is_echo: bool,
+    pub blocked: bool,
 }
 
 impl Message {
@@ -293,6 +294,7 @@ impl Message {
             hash,
             hidden_urls: HashSet::default(),
             is_echo,
+            blocked: false,
         })
     }
 
@@ -311,6 +313,7 @@ impl Message {
             hash,
             hidden_urls: HashSet::default(),
             is_echo: false,
+            blocked: false,
         }
     }
 
@@ -340,6 +343,7 @@ impl Message {
             hash,
             hidden_urls: HashSet::default(),
             is_echo: false,
+            blocked: false,
         }
     }
 
@@ -367,6 +371,7 @@ impl Message {
             hash,
             hidden_urls: HashSet::default(),
             is_echo: false,
+            blocked: false,
         }
     }
 
@@ -405,6 +410,7 @@ impl Message {
             hash,
             hidden_urls: HashSet::default(),
             is_echo: false,
+            blocked: false,
         }
     }
 
@@ -560,6 +566,7 @@ impl<'de> Deserialize<'de> for Message {
             hash,
             hidden_urls,
             is_echo,
+            blocked: false,
         })
     }
 }
