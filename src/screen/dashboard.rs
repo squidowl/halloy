@@ -1885,23 +1885,15 @@ impl Dashboard {
                     if matches!(
                         config.pane.split_axis,
                         config::pane::SplitAxis::LargestShorter
-                    ) && let Some((pane, pane_state)) = panes
-                        .iter()
-                        .filter_map(|(window, id, state)| {
-                            (window == self.main_window())
-                                .then_some((id, state))
-                        })
-                        .reduce(
+                    ) && let Some((pane, pane_state)) =
+                        self.panes.main.panes.iter().reduce(
                             |(acc_pane, acc_pane_state), (pane, pane_state)| {
                                 let pane_area = pane_state.size.width
                                     * pane_state.size.height;
                                 let acc_pane_area = acc_pane_state.size.width
                                     * acc_pane_state.size.height;
 
-                                if pane_area > acc_pane_area
-                                    || (pane_area == acc_pane_area
-                                        && pane == self.focus.pane)
-                                {
+                                if pane_area > acc_pane_area {
                                     (pane, pane_state)
                                 } else {
                                     (acc_pane, acc_pane_state)
@@ -1909,7 +1901,7 @@ impl Dashboard {
                             },
                         )
                     {
-                        (pane, pane_state)
+                        (*pane, pane_state)
                     } else if self.focus.window == self.main_window()
                         && let Some(pane_state) =
                             self.panes.main.panes.get(&self.focus.pane)
