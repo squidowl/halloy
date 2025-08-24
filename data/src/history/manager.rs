@@ -128,6 +128,7 @@ impl Manager {
         &mut self,
         message: Message,
         clients: &client::Map,
+        buffer_config: &config::Buffer,
     ) -> Option<Event> {
         match message {
             Message::LoadFull(kind, Ok(loaded)) => {
@@ -135,7 +136,7 @@ impl Manager {
                 self.data.load_full(kind.clone(), loaded);
                 log::debug!("loaded history for {kind}: {len} messages");
 
-                self.block_messages(kind.clone(), clients);
+                self.block_messages(kind.clone(), clients, buffer_config);
 
                 return Some(Event::Loaded(kind));
             }
@@ -272,8 +273,13 @@ impl Manager {
                 }
 
                 tasks.extend(
-                    self.record_message(input.server(), casemapping, message)
-                        .map(futures::FutureExt::boxed),
+                    self.record_message(
+                        input.server(),
+                        casemapping,
+                        message,
+                        &config.buffer,
+                    )
+                    .map(futures::FutureExt::boxed),
                 );
             }
         }
@@ -302,13 +308,15 @@ impl Manager {
         server: &Server,
         casemapping: isupport::CaseMap,
         mut message: crate::Message,
+        buffer_config: &config::Buffer,
     ) -> Option<impl Future<Output = Message> + use<>> {
         history::Kind::from_server_message(server.clone(), &message).and_then(
             |kind| {
-                FilterChain::borrow(&self.filters).filter_message_of_kind(
+                self.block_message(
                     &mut message,
                     &kind,
                     casemapping,
+                    buffer_config,
                 );
 
                 self.data.add_message(kind, message)
@@ -324,17 +332,12 @@ impl Manager {
             .add_message(history::Kind::Logs, crate::Message::log(record))
     }
 
+    // Unlike record_message, the message's blocked status should be determined
+    // before recording a highlight in order to block highlight notifications.
     pub fn record_highlight(
         &mut self,
-        mut message: crate::Message,
-        casemapping: isupport::CaseMap,
+        message: crate::Message,
     ) -> Option<impl Future<Output = Message> + use<>> {
-        FilterChain::borrow(&self.filters).filter_message_of_kind(
-            &mut message,
-            &history::Kind::Highlights,
-            casemapping,
-        );
-
         self.data.add_message(history::Kind::Highlights, message)
     }
 
@@ -506,7 +509,12 @@ impl Manager {
         messages
             .into_iter()
             .filter_map(|message| {
-                self.record_message(server, casemapping, message)
+                self.record_message(
+                    server,
+                    casemapping,
+                    message,
+                    &config.buffer,
+                )
             })
             .collect()
     }
@@ -524,22 +532,151 @@ impl Manager {
         self.data.hide_preview(&kind.into(), message, url);
     }
 
+    pub fn block_message(
+        &self,
+        message: &mut crate::Message,
+        kind: &history::Kind,
+        casemapping: isupport::CaseMap,
+        buffer_config: &config::Buffer,
+    ) {
+        message.blocked = false;
+
+        if let message::Source::Server(Some(source)) = message.target.source()
+            && let Some(server_message) =
+                buffer_config.server_messages.get(source)
+        {
+            // Check if target is a channel, and if included/excluded.
+            if let message::Target::Channel { channel, .. } = &message.target
+                && !server_message.should_send_message(channel.as_str())
+            {
+                message.blocked = true;
+                return;
+            }
+
+            if let Some(seconds) = server_message.smart {
+                let nick = match source.nick() {
+                    Some(nick) => Some(nick.clone()),
+                    None => message
+                        .plain()
+                        .and_then(|s| s.split(' ').nth(1).map(Nick::from)),
+                };
+
+                if let Some(nick) = nick
+                    && let Some(history) = self.data.map.get(kind)
+                {
+                    let messages = match history {
+                        History::Full { messages, .. } => messages,
+                        History::Partial { messages, .. } => messages,
+                    };
+
+                    message.blocked = messages
+                        .iter()
+                        .rev()
+                        .find_map(|historical_message| {
+                            if let crate::message::Source::User(
+                                historical_message_user,
+                            ) = historical_message.target.source()
+                                && historical_message_user.nickname() == nick
+                            {
+                                return Some(smart_filter_message(
+                                    message,
+                                    &seconds,
+                                    Some(&historical_message.server_time),
+                                ));
+                            }
+
+                            if smart_filter_message(
+                                message,
+                                &seconds,
+                                Some(&historical_message.server_time),
+                            ) {
+                                return Some(true);
+                            }
+
+                            None
+                        })
+                        .unwrap_or(true);
+                }
+            }
+        }
+
+        if message.blocked {
+            return;
+        }
+
+        FilterChain::borrow(&self.filters).filter_message_of_kind(
+            message,
+            kind,
+            casemapping,
+        );
+    }
+
     pub fn block_messages(
         &mut self,
         kind: history::Kind,
         clients: &client::Map,
+        buffer_config: &config::Buffer,
     ) {
-        let chain = FilterChain::borrow(&self.filters);
-
         if let Some(history) = self.data.map.get_mut(&kind) {
             let messages = match history {
                 History::Full { messages, .. } => messages,
                 History::Partial { messages, .. } => messages,
             };
 
+            let mut last_seen = HashMap::<Nick, DateTime<Utc>>::new();
+
+            messages.iter_mut().for_each(|message| {
+                message.blocked = false;
+
+                match message.target.source() {
+                    message::Source::Server(Some(source)) => {
+                        if let Some(server_message) =
+                            buffer_config.server_messages.get(source)
+                        {
+                            // Check if target is a channel, and if included/excluded.
+                            if let message::Target::Channel { channel, .. } =
+                                &message.target
+                                && !server_message
+                                    .should_send_message(channel.as_str())
+                            {
+                                message.blocked = true;
+                            } else if let Some(seconds) = server_message.smart {
+                                let nick = match source.nick() {
+                                    Some(nick) => Some(nick.clone()),
+                                    None => message.plain().and_then(|s| {
+                                        s.split(' ').nth(1).map(Nick::from)
+                                    }),
+                                };
+
+                                if let Some(nick) = nick {
+                                    message.blocked = smart_filter_message(
+                                        message,
+                                        &seconds,
+                                        last_seen.get(&nick),
+                                    );
+                                }
+                            }
+                        }
+                    }
+                    crate::message::Source::User(message_user) => {
+                        last_seen.insert(
+                            message_user.nickname().to_owned(),
+                            message.server_time,
+                        );
+                    }
+                    _ => (),
+                }
+            });
+
+            let chain = FilterChain::borrow(&self.filters);
+
             match &kind {
                 history::Kind::Highlights => {
                     messages.iter_mut().for_each(|message| {
+                        if message.blocked {
+                            return;
+                        }
+
                         let casemapping = if let message::Target::Highlights {
                             server,
                             ..
@@ -564,6 +701,10 @@ impl Manager {
                         .unwrap_or_default();
 
                     messages.iter_mut().for_each(|message| {
+                        if message.blocked {
+                            return;
+                        }
+
                         chain.filter_message_of_kind(
                             message,
                             &kind,
@@ -574,7 +715,7 @@ impl Manager {
             }
         }
 
-        log::debug!("ignored messages in {kind}");
+        log::debug!("blocked messages in {kind}");
     }
 }
 
@@ -694,7 +835,7 @@ impl Data {
             return None;
         };
 
-        let mut last_seen = HashMap::<Nick, DateTime<Utc>>::new();
+        // Perform filtering that depends on the current time.
 
         let filtered = messages
             .iter()
@@ -703,54 +844,6 @@ impl Data {
                     false
                 } else {
                     match message.target.source() {
-                        message::Source::Server(Some(source)) => {
-                            if let Some(server_message) =
-                                buffer_config.server_messages.get(source)
-                            {
-                                // Check if target is a channel, and if included/excluded.
-                                if let message::Target::Channel {
-                                    channel, ..
-                                } = &message.target
-                                    && !server_message
-                                        .should_send_message(channel.as_str())
-                                {
-                                    return false;
-                                }
-
-                                if let Some(seconds) = server_message.smart {
-                                    let nick = match source.nick() {
-                                        Some(nick) => nick.clone(),
-                                        None => {
-                                            if let Some(nickname) =
-                                                message.plain().and_then(|s| {
-                                                    s.split(' ').nth(1)
-                                                })
-                                            {
-                                                Nick::from(nickname)
-                                            } else {
-                                                return true;
-                                            }
-                                        }
-                                    };
-
-                                    return !smart_filter_message(
-                                        message,
-                                        &seconds,
-                                        last_seen.get(&nick),
-                                    );
-                                }
-                            }
-
-                            true
-                        }
-                        crate::message::Source::User(message_user) => {
-                            last_seen.insert(
-                                message_user.nickname().to_owned(),
-                                message.server_time,
-                            );
-
-                            true
-                        }
                         message::Source::Internal(
                             message::source::Internal::Status(status),
                         ) => {
