@@ -576,14 +576,13 @@ impl Manager {
                             if let crate::message::Source::User(
                                 historical_message_user,
                             ) = historical_message.target.source()
+                                && historical_message_user.nickname() == nick
                             {
-                                if historical_message_user.nickname() == nick {
-                                    return Some(smart_filter_message(
-                                        message,
-                                        &seconds,
-                                        Some(&historical_message.server_time),
-                                    ));
-                                }
+                                return Some(smart_filter_message(
+                                    message,
+                                    &seconds,
+                                    Some(&historical_message.server_time),
+                                ));
                             }
 
                             if smart_filter_message(
