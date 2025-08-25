@@ -7,6 +7,7 @@ Added:
 - `/part`, `/topic`, `/mode`, `/kick`, and `/ctcp` commands can have their target(s) argument skipped when it can be inferred from context (e.g. `/topic` will target the current channel by default when used in a channel buffer)
 - `/cleartopic` command to remove a channel's topic (will target the current channel by default when used in a channel buffer)
 - Ability to hide and theme `kick` server messages
+- Setting to control whether or not to restore on launch the panes that were open when Halloy last closed
 
 Fixed:
 
