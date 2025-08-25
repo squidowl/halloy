@@ -173,9 +173,13 @@ impl Halloy {
     ) -> (Halloy, Task<Message>) {
         let main_window = Window::new(main_window);
 
-        let load_dashboard = |config| match data::Dashboard::load() {
+        let load_dashboard = |config: &Config| match data::Dashboard::load() {
             Ok(dashboard) => {
-                screen::Dashboard::restore(dashboard, config, &main_window)
+                if config.pane.restore_on_launch {
+                    screen::Dashboard::restore(dashboard, config, &main_window)
+                } else {
+                    screen::Dashboard::empty(&main_window, config)
+                }
             }
             Err(error) => {
                 log::warn!("failed to load dashboard: {error}");
