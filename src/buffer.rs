@@ -5,7 +5,7 @@ use data::dashboard::BufferAction;
 use data::target::{self, Target};
 use data::user::Nick;
 use data::{Config, buffer, file_transfer, history, message, preview};
-use iced::Task;
+use iced::{Size, Task};
 
 pub use self::channel::Channel;
 pub use self::file_transfers::FileTransfers;
@@ -65,6 +65,30 @@ pub enum Event {
 }
 
 impl Buffer {
+    pub fn from_data(buffer: data::Buffer, pane_size: Size) -> Self {
+        match buffer {
+            data::Buffer::Upstream(upstream) => match upstream {
+                buffer::Upstream::Server(server) => {
+                    Self::Server(Server::new(server, pane_size))
+                }
+                buffer::Upstream::Channel(server, channel) => {
+                    Self::Channel(Channel::new(server, channel, pane_size))
+                }
+                buffer::Upstream::Query(server, query) => {
+                    Self::Query(Query::new(server, query, pane_size))
+                }
+            },
+            data::Buffer::Internal(internal) => match internal {
+                buffer::Internal::FileTransfers => {
+                    Self::FileTransfers(FileTransfers::new())
+                }
+                buffer::Internal::Logs => Self::Logs(Logs::new(pane_size)),
+                buffer::Internal::Highlights => {
+                    Self::Highlights(Highlights::new(pane_size))
+                }
+            },
+        }
+    }
     pub fn empty() -> Self {
         Self::Empty
     }
@@ -701,31 +725,25 @@ impl Buffer {
             Buffer::Query(state) => state.input_view.close_picker(),
         }
     }
-}
 
-impl From<data::Buffer> for Buffer {
-    fn from(buffer: data::Buffer) -> Self {
-        match buffer {
-            data::Buffer::Upstream(upstream) => match upstream {
-                buffer::Upstream::Server(server) => {
-                    Self::Server(Server::new(server))
-                }
-                buffer::Upstream::Channel(server, channel) => {
-                    Self::Channel(Channel::new(server, channel))
-                }
-                buffer::Upstream::Query(server, query) => {
-                    Self::Query(Query::new(server, query))
-                }
-            },
-            data::Buffer::Internal(internal) => match internal {
-                buffer::Internal::FileTransfers => {
-                    Self::FileTransfers(FileTransfers::new())
-                }
-                buffer::Internal::Logs => Self::Logs(Logs::new()),
-                buffer::Internal::Highlights => {
-                    Self::Highlights(Highlights::new())
-                }
-            },
+    pub fn update_pane_size(&mut self, pane_size: Size, config: &Config) {
+        match self {
+            Buffer::Empty | Buffer::FileTransfers(_) => (),
+            Buffer::Channel(channel) => {
+                channel.scroll_view.update_pane_size(pane_size, config);
+            }
+            Buffer::Server(server) => {
+                server.scroll_view.update_pane_size(pane_size, config);
+            }
+            Buffer::Query(query) => {
+                query.scroll_view.update_pane_size(pane_size, config);
+            }
+            Buffer::Logs(log) => {
+                log.scroll_view.update_pane_size(pane_size, config);
+            }
+            Buffer::Highlights(highlights) => {
+                highlights.scroll_view.update_pane_size(pane_size, config);
+            }
         }
     }
 }
