@@ -1847,10 +1847,10 @@ width = 5
 scroller_width = 5
 </code></pre>
 <h2 id="split_axis"><a class="header" href="#split_axis"><code>split_axis</code></a></h2>
-<p>Default axis used when splitting a pane (i.e. default orientation of the divider between panes).</p>
+<p>Default axis used when splitting the focused pane to create a new pane (i.e. default orientation of the divider between panes).  <code>"shorter"</code> will compare the width and height of the pane to select the splitting axis;  if the width is shorter then the horizontal axis is selected, and if the height is hosrter then the vertical axis is selected.  <code>"largest-shorter"</code> will split the largest pane in the main window using the same method as <code>"shorter"</code>, rather than splitting the focused pane.</p>
 <pre><code class="language-toml"># Type: string
-# Values: "horizontal", "vertical"
-# Default: "horizontal"
+# Values: "horizontal", "largest-shorter", "shorter", "vertical"
+# Default: "shorter"
 
 [pane]
 split_axis = "vertical"
