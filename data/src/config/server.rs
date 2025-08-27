@@ -97,6 +97,8 @@ pub struct Server {
     /// A list of nicknames to monitor (if MONITOR is supported by the server).
     pub monitor: Vec<String>,
     pub chathistory: bool,
+    #[serde(skip)]
+    pub order: u16,
 }
 
 impl Server {
@@ -150,6 +152,25 @@ impl Server {
             proxy: proxy.map(From::from),
         }
     }
+
+    pub fn bouncer_config(&self) -> Self {
+        Self {
+            // nickserv info not relevant to the bounced network
+            nick_password_file: Option::default(),
+            nick_password_command: Option::default(),
+            nick_identify_syntax: Option::default(),
+
+            // channels not relevant
+            channels: Vec::default(),
+            channel_keys: HashMap::default(),
+
+            // ghost sequence not relevant
+            should_ghost: Default::default(),
+            ghost_sequence: Server::default().ghost_sequence,
+
+            ..self.clone()
+        }
+    }
 }
 
 impl Default for Server {
@@ -188,6 +209,7 @@ impl Default for Server {
             who_poll_interval: Duration::from_secs(2),
             monitor: Vec::default(),
             chathistory: true,
+            order: 0,
         }
     }
 }
