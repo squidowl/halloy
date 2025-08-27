@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 #[allow(non_camel_case_types)]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Command {
@@ -129,6 +131,10 @@ pub enum Command {
     /// <command> <code> [<context>] <description>
     NOTE(String, String, Option<Vec<String>>, String),
 
+    /* Bouncer commands */
+    /// <subcommand> <params>...
+    BOUNCER(String, Vec<String>),
+
     Numeric(Numeric, Vec<String>),
     Unknown(String, Vec<String>),
     Raw(String),
@@ -158,6 +164,11 @@ impl Command {
         macro_rules! opt {
             () => {
                 params.next()
+            };
+        }
+        macro_rules! remaining {
+            () => {
+                params.collect()
             };
         }
 
@@ -194,7 +205,7 @@ impl Command {
             "STATS" if len > 0 => STATS(req!(), opt!()),
             "HELP" => HELP(opt!()),
             "INFO" => INFO,
-            "MODE" if len > 0 => MODE(req!(), opt!(), Some(params.collect())),
+            "MODE" if len > 0 => MODE(req!(), opt!(), Some(remaining!())),
             "PRIVMSG" if len > 1 => PRIVMSG(req!(), req!()),
             "NOTICE" if len > 1 => NOTICE(req!(), req!()),
             "WHO" if len > 0 => WHO(req!(), opt!(), opt!()),
@@ -212,11 +223,11 @@ impl Command {
             "SQUIT" if len > 1 => SQUIT(req!(), req!()),
             "AWAY" => AWAY(opt!()),
             "LINKS" => LINKS,
-            "USERHOST" => USERHOST(params.collect()),
+            "USERHOST" => USERHOST(remaining!()),
             "WALLOPS" if len > 0 => WALLOPS(req!()),
             "ACCOUNT" if len > 0 => ACCOUNT(req!()),
-            "BATCH" if len > 0 => BATCH(req!(), params.collect()),
-            "CHATHISTORY" if len > 0 => CHATHISTORY(req!(), params.collect()),
+            "BATCH" if len > 0 => BATCH(req!(), remaining!()),
+            "CHATHISTORY" if len > 0 => CHATHISTORY(req!(), remaining!()),
             "CHGHOST" if len > 1 => CHGHOST(req!(), req!()),
             "CNOTICE" if len > 2 => CNOTICE(req!(), req!(), req!()),
             "CPRIVMSG" if len > 2 => CPRIVMSG(req!(), req!(), req!()),
@@ -229,7 +240,7 @@ impl Command {
             "FAIL" if len > 2 => {
                 let a = req!();
                 let b = req!();
-                let mut c: Vec<String> = params.collect();
+                let mut c: Vec<String> = remaining!();
                 let d = c.pop().unwrap();
                 if !c.is_empty() {
                     FAIL(a, b, Some(c), d)
@@ -240,7 +251,7 @@ impl Command {
             "WARN" if len > 2 => {
                 let a = req!();
                 let b = req!();
-                let mut c: Vec<String> = params.collect();
+                let mut c: Vec<String> = remaining!();
                 let d = c.pop().unwrap();
                 if !c.is_empty() {
                     WARN(a, b, Some(c), d)
@@ -251,7 +262,7 @@ impl Command {
             "NOTE" if len > 2 => {
                 let a = req!();
                 let b = req!();
-                let mut c: Vec<String> = params.collect();
+                let mut c: Vec<String> = remaining!();
                 let d = c.pop().unwrap();
                 if !c.is_empty() {
                     NOTE(a, b, Some(c), d)
@@ -259,7 +270,8 @@ impl Command {
                     NOTE(a, b, None, d)
                 }
             }
-            _ => Self::Unknown(tag, params.collect()),
+            "BOUNCER" => BOUNCER(req!(), remaining!()),
+            _ => Self::Unknown(tag, remaining!()),
         }
     }
 
@@ -345,74 +357,78 @@ impl Command {
                 .chain(c.into_iter().flatten())
                 .chain(Some(d))
                 .collect(),
+            Command::BOUNCER(command, params) => {
+                std::iter::once(command).chain(params).collect()
+            }
             Command::Numeric(_, params) => params,
             Command::Unknown(_, params) => params,
             Command::Raw(_) => vec![],
         }
     }
 
-    pub fn command(&self) -> String {
+    pub fn command(&self) -> Cow<'static, str> {
         use Command::*;
 
         match self {
-            CAP(_, _, _, _) => "CAP".to_string(),
-            AUTHENTICATE(_) => "AUTHENTICATE".to_string(),
-            PASS(_) => "PASS".to_string(),
-            NICK(_) => "NICK".to_string(),
-            USER(_, _) => "USER".to_string(),
-            PING(_) => "PING".to_string(),
-            PONG(_, _) => "PONG".to_string(),
-            OPER(_, _) => "OPER".to_string(),
-            QUIT(_) => "QUIT".to_string(),
-            ERROR(_) => "ERROR".to_string(),
-            JOIN(_, _) => "JOIN".to_string(),
-            PART(_, _) => "PART".to_string(),
-            TOPIC(_, _) => "TOPIC".to_string(),
-            NAMES(_) => "NAMES".to_string(),
-            LIST(_, _) => "LIST".to_string(),
-            INVITE(_, _) => "INVITE".to_string(),
-            KICK(_, _, _) => "KICK".to_string(),
-            MOTD(_) => "MOTD".to_string(),
-            VERSION(_) => "VERSION".to_string(),
-            ADMIN(_) => "ADMIN".to_string(),
-            CONNECT(_, _, _) => "CONNECT".to_string(),
-            LUSERS => "LUSERS".to_string(),
-            TIME(_) => "TIME".to_string(),
-            STATS(_, _) => "STATS".to_string(),
-            HELP(_) => "HELP".to_string(),
-            INFO => "INFO".to_string(),
-            MODE(_, _, _) => "MODE".to_string(),
-            PRIVMSG(_, _) => "PRIVMSG".to_string(),
-            NOTICE(_, _) => "NOTICE".to_string(),
-            WHO(_, _, _) => "WHO".to_string(),
-            WHOIS(_, _) => "WHOIS".to_string(),
-            WHOWAS(_, _) => "WHOWAS".to_string(),
-            KILL(_, _) => "KILL".to_string(),
-            REHASH => "REHASH".to_string(),
-            RESTART => "RESTART".to_string(),
-            SQUIT(_, _) => "SQUIT".to_string(),
-            AWAY(_) => "AWAY".to_string(),
-            LINKS => "LINKS".to_string(),
-            USERHOST(_) => "USERHOST".to_string(),
-            WALLOPS(_) => "WALLOPS".to_string(),
-            ACCOUNT(_) => "ACCOUNT".to_string(),
-            BATCH(_, _) => "BATCH".to_string(),
-            CHATHISTORY(_, _) => "CHATHISTORY".to_string(),
-            CHGHOST(_, _) => "CHGHOST".to_string(),
-            CNOTICE(_, _, _) => "CNOTICE".to_string(),
-            CPRIVMSG(_, _, _) => "CPRIVMSG".to_string(),
-            KNOCK(_, _) => "KNOCK".to_string(),
-            MARKREAD(_, _) => "MARKREAD".to_string(),
-            MONITOR(_, _) => "MONITOR".to_string(),
-            SETNAME(_) => "SETNAME".to_string(),
-            TAGMSG(_) => "TAGMSG".to_string(),
-            USERIP(_) => "USERIP".to_string(),
-            FAIL(_, _, _, _) => "FAIL".to_string(),
-            WARN(_, _, _, _) => "WARN".to_string(),
-            NOTE(_, _, _, _) => "NOTE".to_string(),
-            Numeric(numeric, _) => format!("{:03}", *numeric as u16),
-            Unknown(tag, _) => tag.clone(),
-            Raw(_) => String::new(),
+            CAP(_, _, _, _) => "CAP".into(),
+            AUTHENTICATE(_) => "AUTHENTICATE".into(),
+            PASS(_) => "PASS".into(),
+            NICK(_) => "NICK".into(),
+            USER(_, _) => "USER".into(),
+            PING(_) => "PING".into(),
+            PONG(_, _) => "PONG".into(),
+            OPER(_, _) => "OPER".into(),
+            QUIT(_) => "QUIT".into(),
+            ERROR(_) => "ERROR".into(),
+            JOIN(_, _) => "JOIN".into(),
+            PART(_, _) => "PART".into(),
+            TOPIC(_, _) => "TOPIC".into(),
+            NAMES(_) => "NAMES".into(),
+            LIST(_, _) => "LIST".into(),
+            INVITE(_, _) => "INVITE".into(),
+            KICK(_, _, _) => "KICK".into(),
+            MOTD(_) => "MOTD".into(),
+            VERSION(_) => "VERSION".into(),
+            ADMIN(_) => "ADMIN".into(),
+            CONNECT(_, _, _) => "CONNECT".into(),
+            LUSERS => "LUSERS".into(),
+            TIME(_) => "TIME".into(),
+            STATS(_, _) => "STATS".into(),
+            HELP(_) => "HELP".into(),
+            INFO => "INFO".into(),
+            MODE(_, _, _) => "MODE".into(),
+            PRIVMSG(_, _) => "PRIVMSG".into(),
+            NOTICE(_, _) => "NOTICE".into(),
+            WHO(_, _, _) => "WHO".into(),
+            WHOIS(_, _) => "WHOIS".into(),
+            WHOWAS(_, _) => "WHOWAS".into(),
+            KILL(_, _) => "KILL".into(),
+            REHASH => "REHASH".into(),
+            RESTART => "RESTART".into(),
+            SQUIT(_, _) => "SQUIT".into(),
+            AWAY(_) => "AWAY".into(),
+            LINKS => "LINKS".into(),
+            USERHOST(_) => "USERHOST".into(),
+            WALLOPS(_) => "WALLOPS".into(),
+            ACCOUNT(_) => "ACCOUNT".into(),
+            BATCH(_, _) => "BATCH".into(),
+            CHATHISTORY(_, _) => "CHATHISTORY".into(),
+            CHGHOST(_, _) => "CHGHOST".into(),
+            CNOTICE(_, _, _) => "CNOTICE".into(),
+            CPRIVMSG(_, _, _) => "CPRIVMSG".into(),
+            KNOCK(_, _) => "KNOCK".into(),
+            MARKREAD(_, _) => "MARKREAD".into(),
+            MONITOR(_, _) => "MONITOR".into(),
+            SETNAME(_) => "SETNAME".into(),
+            TAGMSG(_) => "TAGMSG".into(),
+            USERIP(_) => "USERIP".into(),
+            FAIL(_, _, _, _) => "FAIL".into(),
+            WARN(_, _, _, _) => "WARN".into(),
+            NOTE(_, _, _, _) => "NOTE".into(),
+            BOUNCER(..) => "BOUNCER".into(),
+            Numeric(numeric, _) => format!("{:03}", *numeric as u16).into(),
+            Unknown(tag, _) => tag.clone().into(),
+            Raw(_) => "".into(),
         }
     }
 }

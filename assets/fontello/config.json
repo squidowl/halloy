@@ -173,6 +173,12 @@
       "css": "angle-double-down",
       "code": 61699,
       "src": "fontawesome"
+    },
+    {
+      "uid": "815503841e980c848f55e0271deacead",
+      "css": "link-1",
+      "code": 59412,
+      "src": "entypo"
     }
   ]
 }

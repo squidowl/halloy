@@ -2,14 +2,13 @@ use std::time::Duration;
 
 use data::config::{self, Config, sidebar};
 use data::dashboard::{BufferAction, BufferFocusedAction};
-use data::{Version, buffer, file_transfer, history};
+use data::{Version, buffer, file_transfer, history, server};
 use iced::widget::{
     Column, Row, Scrollable, Space, button, column, container, horizontal_rule,
     horizontal_space, pane_grid, row, scrollable, stack, text, vertical_rule,
     vertical_space,
 };
 use iced::{Alignment, Length, Task, padding};
-use itertools::Either;
 use tokio::time;
 
 use super::{Focus, Panes, Server};
@@ -351,6 +350,7 @@ impl Sidebar {
 
     pub fn view<'a>(
         &'a self,
+        servers: &server::Map,
         clients: &data::client::Map,
         history: &'a history::Manager,
         panes: &'a Panes,
@@ -378,18 +378,7 @@ impl Sidebar {
             let mut buffers = vec![];
             let mut client_enumeration = 0;
 
-            let servers = match config.sidebar.order_by {
-                sidebar::OrderBy::Alpha => Either::Left(clients.servers()),
-                sidebar::OrderBy::Config => Either::Right(
-                    config.servers.keys().chain(
-                        clients
-                            .servers()
-                            .filter(|key| !config.servers.contains(key)),
-                    ),
-                ),
-            };
-
-            for server in servers {
+            for server in servers.keys() {
                 let button = |buffer: buffer::Upstream,
                               connected: bool,
                               server_has_unread: bool,
@@ -714,7 +703,11 @@ fn upstream_buffer_button<'a>(
 
     let row = match &buffer {
         buffer::Upstream::Server(server) => row![
-            icon::connected().style(if connected {
+            if server.is_bouncer_network() {
+                icon::link()
+            } else {
+                icon::connected()
+            }.style(if connected {
                 if show_unread_indicator {
                     theme::text::unread_indicator
                 } else {
@@ -723,10 +716,24 @@ fn upstream_buffer_button<'a>(
             } else {
                 theme::text::error
             }),
-            text(server.to_string())
-                .style(buffer_title_style)
-                .font_maybe(buffer_title_font)
-                .shaping(text::Shaping::Advanced)
+            if let Some(network) = &server.network {
+                Element::from(row![
+                    text(network.name.to_string())
+                        .style(buffer_title_style)
+                        .font_maybe(buffer_title_font.clone())
+                        .shaping(text::Shaping::Advanced),
+                    Space::with_width(6),
+                    text(server.name.to_string())
+                        .style(theme::text::secondary)
+                        .font_maybe(buffer_title_font)
+                        .shaping(text::Shaping::Advanced),
+                ])
+            } else {
+                text(server.to_string())
+                    .style(buffer_title_style)
+                    .shaping(text::Shaping::Advanced)
+                    .into()
+            }
         ]
         .spacing(8)
         .align_y(iced::Alignment::Center),

@@ -10,6 +10,7 @@ Added:
 - Setting to control whether or not to restore on launch the panes that were open when Halloy last closed
 - Setting for split axis chosen as the shorter dimension of the focused pane (new default behavior)
 - Setting for split axis chosen as the shorter dimension of the largest splittable pane
+- `soju.im/bouncer-networks` support
 
 Fixed:
 
