@@ -15,10 +15,11 @@ Fixed:
 - Attempting to navigate to the next/previous unread buffer, when there is no such buffer, will no longer clear the buffer
 - Window position is now validated, preventing windows from opening on disconnected monitors
 - When kicked from a channel the kick message will be broadcast in the server buffer (which remains open) as well as in the channel history (which is closed on kick)
+- Preview images with large dimensions will not be displayed if larger than the allowed buffer size
 
 Thanks:
 
-- Bug reports: @privacyadmin, @rlndd, @wingedonezero, @Seishiin, @Erroneuz, @andar1an, freakyy85, ThinkT510
+- Bug reports: @privacyadmin, @rlndd, @wingedonezero, @Seishiin, @Erroneuz, @andar1an, freakyy85, ThinkT510, alexia
 - Feature requests: @deepspaceaxolotl, @4e554c4c
 
 # 2025.8 (2025-08-31)
