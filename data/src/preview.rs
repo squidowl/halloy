@@ -3,7 +3,9 @@ use std::io;
 use std::sync::{LazyLock, OnceLock};
 use std::time::Duration;
 
+use ::image::image_dimensions;
 use fancy_regex::Regex;
+use iced_wgpu::wgpu;
 use log::debug;
 use reqwest::header::{self, HeaderValue};
 use serde::{Deserialize, Serialize};
@@ -78,6 +80,15 @@ pub enum Preview {
     Image(Image),
 }
 
+impl Preview {
+    pub fn image(&self) -> &Image {
+        match self {
+            Self::Card(card) => &card.image,
+            Self::Image(image) => image,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub enum State {
     Loading,
@@ -93,24 +104,56 @@ pub async fn load(
         return Err(LoadError::Disabled);
     }
 
-    if let Some(state) = cache::load(&url, &config).await {
+    let result = if let Some(state) = cache::load(&url, &config).await {
         match state {
-            cache::State::Ok(preview) => return Ok(preview),
-            cache::State::Error => return Err(LoadError::CachedFailed),
+            cache::State::Ok(preview) => Ok(preview),
+            cache::State::Error => Err(LoadError::CachedFailed),
         }
-    }
+    } else {
+        match load_uncached(url.clone(), &config).await {
+            Ok(preview) => {
+                cache::save(&url, cache::State::Ok(preview.clone())).await;
 
-    match load_uncached(url.clone(), &config).await {
-        Ok(preview) => {
-            cache::save(&url, cache::State::Ok(preview.clone())).await;
+                Ok(preview)
+            }
+            Err(error) => {
+                cache::save(&url, cache::State::Error).await;
 
-            Ok(preview)
+                Err(error)
+            }
         }
-        Err(error) => {
-            cache::save(&url, cache::State::Error).await;
+    };
 
-            Err(error)
+    if let Ok(ref preview) = result {
+        let image = preview.image();
+
+        if let Ok((image_width, image_height)) = image_dimensions(&image.path) {
+            // As per iced, it is a webgpu requirement that:
+            //   BufferCopyView.layout.bytes_per_row % wgpu::COPY_BYTES_PER_ROW_ALIGNMENT == 0
+            // So we calculate padded_width by rounding width up to the next
+            // multiple of wgpu::COPY_BYTES_PER_ROW_ALIGNMENT.
+            let align = wgpu::COPY_BYTES_PER_ROW_ALIGNMENT;
+            let padding = (align - (4 * image_width) % align) % align;
+            let padded_image_width = (4 * image_width + padding) as u64;
+            let padded_image_data_size =
+                padded_image_width * image_height as u64;
+
+            let max_buffer_size =
+                wgpu::Limits::downlevel_defaults().max_buffer_size;
+
+            if padded_image_data_size > max_buffer_size {
+                Err(LoadError::ImageDimensionsTooLarge {
+                    padded_image_data_size,
+                    max_buffer_size,
+                })
+            } else {
+                result
+            }
+        } else {
+            Err(LoadError::ImageDimensionsUnknown)
         }
+    } else {
+        result
     }
 }
 
@@ -321,4 +364,13 @@ pub enum LoadError {
     ParseUrl(#[from] url::ParseError),
     #[error("io error: {0}")]
     Io(#[from] io::Error),
+    #[error("unable to verify image dimensions fit in maximum buffer size")]
+    ImageDimensionsUnknown,
+    #[error(
+        "image dimensions too large to fit in maximum buffer size ({padded_image_data_size} > {max_buffer_size})"
+    )]
+    ImageDimensionsTooLarge {
+        padded_image_data_size: u64,
+        max_buffer_size: u64,
+    },
 }
