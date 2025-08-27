@@ -5,7 +5,7 @@ use data::preview::{self, Previews};
 use data::target::{self, Target};
 use data::{Config, Server, buffer, history, message};
 use iced::widget::{column, container, vertical_space};
-use iced::{Length, Task};
+use iced::{Length, Size, Task};
 
 use super::message_view::{ChannelQueryLayout, TargetInfo};
 use super::{input_view, scroll_view, user_context};
@@ -122,12 +122,12 @@ pub struct Query {
 }
 
 impl Query {
-    pub fn new(server: Server, target: target::Query) -> Self {
+    pub fn new(server: Server, target: target::Query, pane_size: Size) -> Self {
         Self {
             buffer: buffer::Upstream::Query(server.clone(), target.clone()),
             server,
             target,
-            scroll_view: scroll_view::State::new(),
+            scroll_view: scroll_view::State::new(pane_size),
             input_view: input_view::State::new(),
         }
     }

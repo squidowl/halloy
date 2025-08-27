@@ -4,7 +4,7 @@ use data::dashboard::BufferAction;
 use data::target::Target;
 use data::{Config, client, history, isupport, message};
 use iced::widget::{container, row};
-use iced::{Length, Task};
+use iced::{Length, Size, Task};
 
 use super::{scroll_view, user_context};
 use crate::widget::{Element, message_content, selectable_text};
@@ -116,8 +116,10 @@ pub struct Logs {
 }
 
 impl Logs {
-    pub fn new() -> Self {
-        Self::default()
+    pub fn new(pane_size: Size) -> Self {
+        Self {
+            scroll_view: scroll_view::State::new(pane_size),
+        }
     }
 
     pub fn update(

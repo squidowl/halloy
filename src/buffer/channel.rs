@@ -7,7 +7,7 @@ use data::target::{self, Target};
 use data::user::{ChannelUsers, Nick};
 use data::{Config, User, buffer, history, message};
 use iced::widget::{column, container, row};
-use iced::{Length, Task, padding};
+use iced::{Length, Size, Task, padding};
 
 use super::message_view::{ChannelQueryLayout, TargetInfo};
 use super::{input_view, scroll_view, user_context};
@@ -175,12 +175,16 @@ pub struct Channel {
 }
 
 impl Channel {
-    pub fn new(server: Server, target: target::Channel) -> Self {
+    pub fn new(
+        server: Server,
+        target: target::Channel,
+        pane_size: Size,
+    ) -> Self {
         Self {
             buffer: buffer::Upstream::Channel(server.clone(), target.clone()),
             server,
             target,
-            scroll_view: scroll_view::State::new(),
+            scroll_view: scroll_view::State::new(pane_size),
             input_view: input_view::State::new(),
         }
     }
