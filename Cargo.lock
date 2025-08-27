@@ -1447,6 +1447,7 @@ dependencies = [
  "hex",
  "html-escape",
  "iced_core",
+ "iced_wgpu",
  "image 0.25.6",
  "indexmap 2.10.0",
  "irc",
