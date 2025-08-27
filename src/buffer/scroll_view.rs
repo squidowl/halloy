@@ -22,8 +22,7 @@ use self::keyed::keyed;
 use super::user_context;
 use crate::appearance::theme::TEXT_SIZE;
 use crate::widget::{
-    Element, MESSAGE_MARKER_TEXT, notify_visibility, on_resize,
-    selectable_text, tooltip,
+    Element, MESSAGE_MARKER_TEXT, notify_visibility, selectable_text, tooltip,
 };
 use crate::{Theme, font, icon, theme};
 
@@ -50,7 +49,6 @@ pub enum Message {
     PreviewUnhovered(message::Hash, usize),
     HidePreview(message::Hash, url::Url),
     MarkAsRead,
-    Resized(Size),
 }
 
 #[derive(Debug, Clone)]
@@ -396,11 +394,8 @@ pub fn view<'a>(
         column(new),
     ];
 
-    on_resize(
-        correct_viewport(
-            Scrollable::new(
-                container(content).width(Length::Fill).padding([0, 8]),
-            )
+    correct_viewport(
+        Scrollable::new(container(content).width(Length::Fill).padding([0, 8]))
             .direction(scrollable::Direction::Vertical(
                 scrollable::Scrollbar::default()
                     .anchor(status.anchor())
@@ -416,17 +411,15 @@ pub fn view<'a>(
                 viewport,
             })
             .id(state.scrollable.clone()),
-            state.scrollable.clone(),
-            matches!(state.status, Status::Unlocked),
-        ),
-        Message::Resized,
+        state.scrollable.clone(),
+        matches!(state.status, Status::Unlocked),
     )
 }
 
 #[derive(Debug, Clone)]
 pub struct State {
     pub scrollable: scrollable::Id,
-    size: Size,
+    pane_size: Size,
     limit: Limit,
     status: Status,
     pending_scroll_to: Option<message::Hash>,
@@ -438,7 +431,7 @@ impl Default for State {
     fn default() -> Self {
         Self {
             scrollable: scrollable::Id::unique(),
-            size: Size::default(), // Will get set initially via `Message::Resized`
+            pane_size: Size::default(), // Will get set initially via `update_size`
             limit: Limit::Bottom(0),
             status: Status::default(),
             pending_scroll_to: None,
@@ -449,8 +442,11 @@ impl Default for State {
 }
 
 impl State {
-    pub fn new() -> Self {
-        Self::default()
+    pub fn new(pane_size: Size) -> Self {
+        Self {
+            pane_size,
+            ..Self::default()
+        }
     }
 
     pub fn update(
@@ -472,7 +468,7 @@ impl State {
                 viewport,
             } => {
                 let relative_offset = viewport.relative_offset().y;
-                let height = self.size.height;
+                let height = self.pane_size.height;
 
                 let mut tasks = vec![];
                 let mut event = None;
@@ -651,7 +647,7 @@ impl State {
 
                     if !matches!(self.limit, Limit::Bottom(_)) {
                         self.limit = Limit::Bottom(step_messages(
-                            self.size.height,
+                            self.pane_size.height,
                             config,
                         ));
                     }
@@ -680,7 +676,7 @@ impl State {
                     self.status = Status::Unlocked;
                     self.limit = Limit::Top(
                         clients.get_server_chathistory_limit(server) as usize
-                            + step_messages(self.size.height, config),
+                            + step_messages(self.pane_size.height, config),
                     );
 
                     return (
@@ -721,24 +717,25 @@ impl State {
             Message::ImagePreview(path, url) => {
                 return (Task::none(), Some(Event::ImagePreview(path, url)));
             }
-            Message::Resized(size) => {
-                let step_messages = step_messages(size.height, config);
-
-                match self.limit {
-                    Limit::Top(x) if x < step_messages => {
-                        self.limit = Limit::Top(step_messages);
-                    }
-                    Limit::Bottom(x) if x < step_messages => {
-                        self.limit = Limit::Bottom(step_messages);
-                    }
-                    _ => {}
-                }
-
-                self.size = size;
-            }
         }
 
         (Task::none(), None)
+    }
+
+    pub fn update_pane_size(&mut self, pane_size: Size, config: &Config) {
+        let step_messages = step_messages(pane_size.height, config);
+
+        match self.limit {
+            Limit::Top(x) if x < step_messages => {
+                self.limit = Limit::Top(step_messages);
+            }
+            Limit::Bottom(x) if x < step_messages => {
+                self.limit = Limit::Bottom(step_messages);
+            }
+            _ => {}
+        }
+
+        self.pane_size = pane_size;
     }
 
     pub fn scroll_up_page(&mut self) -> Task<Message> {
@@ -765,7 +762,7 @@ impl State {
 
     pub fn scroll_to_start(&mut self, config: &Config) -> Task<Message> {
         self.status = Status::Unlocked;
-        self.limit = Limit::Top(step_messages(self.size.height, config));
+        self.limit = Limit::Top(step_messages(self.pane_size.height, config));
         correct_viewport::scroll_to(
             self.scrollable.clone(),
             scrollable::AbsoluteOffset { x: 0.0, y: 0.0 },
@@ -774,7 +771,8 @@ impl State {
 
     pub fn scroll_to_end(&mut self, config: &Config) -> Task<Message> {
         self.status = Status::Bottom;
-        self.limit = Limit::Bottom(step_messages(self.size.height, config));
+        self.limit =
+            Limit::Bottom(step_messages(self.pane_size.height, config));
         correct_viewport::scroll_to(
             self.scrollable.clone(),
             scrollable::AbsoluteOffset { x: 0.0, y: 0.0 },
@@ -818,8 +816,9 @@ impl State {
         // Get all messages from bottom until 1 before message
         let offset = total - pos + 1;
 
-        self.limit =
-            Limit::Bottom(offset.max(step_messages(self.size.height, config)));
+        self.limit = Limit::Bottom(
+            offset.max(step_messages(self.pane_size.height, config)),
+        );
 
         keyed::find(self.scrollable.clone(), keyed::Key::Message(message))
             .map(Message::ScrollTo)
@@ -851,8 +850,9 @@ impl State {
         // Get all messages from bottom until 1 before backlog
         let offset = total - old_messages.len() + 1;
 
-        self.limit =
-            Limit::Bottom(offset.max(step_messages(self.size.height, config)));
+        self.limit = Limit::Bottom(
+            offset.max(step_messages(self.pane_size.height, config)),
+        );
 
         keyed::find(self.scrollable.clone(), keyed::Key::Divider)
             .map(Message::ScrollTo)

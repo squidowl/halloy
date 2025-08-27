@@ -4,7 +4,7 @@ use data::dashboard::BufferAction;
 use data::target::Target;
 use data::{Config, buffer, history, message};
 use iced::widget::{column, container, row, vertical_space};
-use iced::{Length, Task};
+use iced::{Length, Size, Task, padding};
 
 use super::{input_view, scroll_view, user_context};
 use crate::widget::{Element, message_content, selectable_text};
@@ -138,7 +138,7 @@ pub fn view<'a>(
     container(scrollable)
         .width(Length::Fill)
         .height(Length::Fill)
-        .padding(8)
+        .padding(padding::all(8).top(4))
         .into()
 }
 
@@ -151,11 +151,11 @@ pub struct Server {
 }
 
 impl Server {
-    pub fn new(server: data::server::Server) -> Self {
+    pub fn new(server: data::server::Server, pane_size: Size) -> Self {
         Self {
             buffer: buffer::Upstream::Server(server.clone()),
             server,
-            scroll_view: scroll_view::State::new(),
+            scroll_view: scroll_view::State::new(pane_size),
             input_view: input_view::State::new(),
         }
     }

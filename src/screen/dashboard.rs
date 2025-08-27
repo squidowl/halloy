@@ -18,7 +18,7 @@ use data::{
 use iced::widget::pane_grid::{self, PaneGrid};
 use iced::widget::{Space, column, container, row};
 use iced::window::get_position;
-use iced::{Length, Task, Vector, clipboard};
+use iced::{Length, Size, Task, Vector, clipboard};
 
 use self::command_bar::CommandBar;
 use self::pane::Pane;
@@ -657,6 +657,7 @@ impl Dashboard {
                     pane::Message::ContentResized(id, size) => {
                         if let Some(state) = self.panes.get_mut(window, id) {
                             state.size = size;
+                            state.buffer.update_pane_size(size, config);
                         }
                     }
                 }
@@ -1042,8 +1043,10 @@ impl Dashboard {
                                 config,
                             );
 
-                            state.buffer =
-                                Buffer::from(data::Buffer::Upstream(buffer));
+                            state.buffer = Buffer::from_data(
+                                data::Buffer::Upstream(buffer),
+                                state.size,
+                            );
                             self.last_changed = Some(Instant::now());
                             return (self.focus_pane(window, pane), None);
                         }
@@ -1067,8 +1070,10 @@ impl Dashboard {
                                 config,
                             );
 
-                            state.buffer =
-                                Buffer::from(data::Buffer::Upstream(buffer));
+                            state.buffer = Buffer::from_data(
+                                data::Buffer::Upstream(buffer),
+                                state.size,
+                            );
                             self.last_changed = Some(Instant::now());
                             return (self.focus_pane(window, pane), None);
                         }
@@ -1295,8 +1300,10 @@ impl Dashboard {
                                 config,
                             );
 
-                            state.buffer =
-                                Buffer::from(data::Buffer::Upstream(buffer));
+                            state.buffer = Buffer::from_data(
+                                data::Buffer::Upstream(buffer),
+                                state.size,
+                            );
                             self.last_changed = Some(Instant::now());
                             return (self.focus_pane(window, pane), None);
                         }
@@ -1321,8 +1328,10 @@ impl Dashboard {
                                 config,
                             );
 
-                            state.buffer =
-                                Buffer::from(data::Buffer::Upstream(buffer));
+                            state.buffer = Buffer::from_data(
+                                data::Buffer::Upstream(buffer),
+                                state.size,
+                            );
                             self.last_changed = Some(Instant::now());
                             return (self.focus_pane(window, pane), None);
                         }
@@ -1845,7 +1854,7 @@ impl Dashboard {
                         config,
                     );
 
-                    state.buffer = Buffer::from(buffer);
+                    state.buffer = Buffer::from_data(buffer, state.size);
                     self.last_changed = Some(Instant::now());
 
                     Task::batch(vec![
@@ -1872,7 +1881,9 @@ impl Dashboard {
                     for (id, pane) in panes.main.iter() {
                         if matches!(pane.buffer, Buffer::Empty) {
                             self.panes.main.panes.entry(*id).and_modify(|p| {
-                                *p = Pane::new(Buffer::from(buffer));
+                                *p = Pane::new(Buffer::from_data(
+                                    buffer, p.size,
+                                ));
                             });
                             self.last_changed = Some(Instant::now());
 
@@ -1939,7 +1950,10 @@ impl Dashboard {
                 let result = self.panes.main.split(
                     split_axis,
                     pane_to_split,
-                    Pane::new(Buffer::from(buffer)),
+                    Pane::new(Buffer::from_data(
+                        buffer,
+                        pane_to_split_state.size,
+                    )),
                 );
 
                 if let Some((pane, _)) = result {
@@ -1965,7 +1979,10 @@ impl Dashboard {
                         });
 
                         task.map({
-                            let pane = Pane::new(Buffer::from(buffer.clone()));
+                            let pane = Pane::new(Buffer::from_data(
+                                buffer.clone(),
+                                Size::default(),
+                            ));
                             move |id| Message::NewWindow(id, pane.clone())
                         })
                     },
@@ -2771,9 +2788,9 @@ impl Dashboard {
                         b: Box::new(configuration(*b)),
                     }
                 }
-                data::Pane::Buffer { buffer } => {
-                    Configuration::Pane(Pane::new(Buffer::from(buffer)))
-                }
+                data::Pane::Buffer { buffer } => Configuration::Pane(
+                    Pane::new(Buffer::from_data(buffer, Size::default())),
+                ),
                 data::Pane::Empty => {
                     Configuration::Pane(Pane::new(Buffer::empty()))
                 }
