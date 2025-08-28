@@ -41,13 +41,16 @@ impl ReadMarker {
         messages
             .iter()
             .rev()
-            .find(|message| match message.target.source() {
-                source::Source::Internal(source) => match source {
-                    source::Internal::Status(_) => false,
-                    // Logs are in their own buffer and this gives us backlog support there
-                    source::Internal::Logs(_) => true,
-                },
-                _ => true,
+            .find(|message| {
+                !message.blocked
+                    && match message.target.source() {
+                        source::Source::Internal(source) => match source {
+                            source::Internal::Status(_) => false,
+                            // Logs are in their own buffer and this gives us backlog support there
+                            source::Internal::Logs(_) => true,
+                        },
+                        _ => true,
+                    }
             })
             .map(|message| message.server_time)
             .map(Self)
