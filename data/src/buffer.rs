@@ -222,6 +222,12 @@ impl Default for Timestamp {
     }
 }
 
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(default)]
+pub struct BacklogSeparator {
+    pub hide_when_all_read: bool,
+}
+
 #[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
 pub struct DateSeparators {
