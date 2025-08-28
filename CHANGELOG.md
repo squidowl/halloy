@@ -12,6 +12,7 @@ Added:
 - Setting for split axis chosen as the shorter dimension of the focused pane (new default behavior)
 - Setting for split axis chosen as the shorter dimension of the largest splittable pane
 - `soju.im/bouncer-networks` support
+- Setting to hide the backlog divider when all messages in the buffer have been read
 
 Fixed:
 
@@ -20,10 +21,11 @@ Fixed:
 - Window position is now validated, preventing windows from opening on disconnected monitors
 - When kicked from a channel the kick message will be broadcast in the server buffer (which remains open) as well as in the channel history (which is closed on kick)
 - Preview images with large dimensions will not be displayed if larger than the allowed buffer size
+- Do not activate the mark as read buffer when blocked/hidden messages are unread in the buffer
 
 Thanks:
 
-- Bug reports: @privacyadmin, @rlndd, @wingedonezero, @Seishiin, @Erroneuz, @andar1an, freakyy85, ThinkT510, alexia
+- Bug reports: @privacyadmin, @rlndd, @wingedonezero, @Seishiin, @Erroneuz, @andar1an, freakyy85, ThinkT510, alexia, @darienm
 - Feature requests: @deepspaceaxolotl, @4e554c4c
 
 # 2025.8 (2025-08-31)
