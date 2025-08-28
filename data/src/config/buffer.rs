@@ -8,7 +8,8 @@ pub mod channel;
 pub mod nickname;
 
 use crate::buffer::{
-    DateSeparators, SkinTone, StatusMessagePrefix, TextInput, Timestamp,
+    BacklogSeparator, DateSeparators, SkinTone, StatusMessagePrefix, TextInput,
+    Timestamp,
 };
 use crate::message::source;
 
@@ -23,6 +24,7 @@ pub struct Buffer {
     pub internal_messages: InternalMessages,
     pub status_message_prefix: StatusMessagePrefix,
     pub chathistory: ChatHistory,
+    pub backlog_separator: BacklogSeparator,
     pub date_separators: DateSeparators,
     pub commands: Commands,
     pub emojis: Emojis,
