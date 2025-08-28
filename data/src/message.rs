@@ -1591,7 +1591,10 @@ fn content<'a>(
             let target_users = params
                 .get(1)?
                 .split(',')
-                .map(|target| User::from(Nick::from(target)))
+                .map(|target| {
+                    User::parse(target, Some(prefix))
+                        .unwrap_or(User::from(Nick::from(target)))
+                })
                 .collect::<ChannelUsers>();
 
             let target_usernames = target_users
