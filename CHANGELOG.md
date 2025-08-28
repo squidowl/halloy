@@ -7,6 +7,7 @@ Added:
 - `/part`, `/topic`, `/mode`, `/kick`, and `/ctcp` commands can have their target(s) argument skipped when it can be inferred from context (e.g. `/topic` will target the current channel by default when used in a channel buffer)
 - `/cleartopic` command to remove a channel's topic (will target the current channel by default when used in a channel buffer)
 - Ability to hide and theme `kick` server messages
+- Setting to hide the backlog divider when all messages in the buffer have been read
 
 Fixed:
 
@@ -14,10 +15,11 @@ Fixed:
 - Attempting to navigate to the next/previous unread buffer, when there is no such buffer, will no longer clear the buffer
 - Window position is now validated, preventing windows from opening on disconnected monitors
 - When kicked from a channel the kick message will be broadcast in the server buffer (which remains open) as well as in the channel history (which is closed on kick)
+- Do not activate the mark as read buffer when blocked/hidden messages are unread in the buffer
 
 Thanks:
 
-- Bug reports: @privacyadmin, @rlndd, @wingedonezero, @Seishiin, @Erroneuz, @andar1an, freakyy85, ThinkT510
+- Bug reports: @privacyadmin, @rlndd, @wingedonezero, @Seishiin, @Erroneuz, @andar1an, freakyy85, ThinkT510, @darienm
 - Feature requests: @deepspaceaxolotl, @4e554c4c
 
 # 2025.8 (2025-08-31)
