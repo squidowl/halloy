@@ -365,7 +365,11 @@ pub fn view<'a>(
         !has_more_older_messages
     } else {
         // Always show backlog divider after any visible older messages
-        true
+        if config.buffer.backlog_separator.hide_when_all_read {
+            !new_messages.is_empty()
+        } else {
+            true
+        }
     };
 
     let divider = if show_backlog_divier {
