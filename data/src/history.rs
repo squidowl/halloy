@@ -257,6 +257,7 @@ pub enum History {
         messages: Vec<Message>,
         last_updated_at: Option<Instant>,
         max_triggers_unread: Option<DateTime<Utc>>,
+        max_triggers_highlight: Option<DateTime<Utc>>,
         read_marker: Option<ReadMarker>,
         chathistory_references: Option<MessageReferences>,
         last_seen: HashMap<Nick, DateTime<Utc>>,
@@ -278,6 +279,7 @@ impl History {
             messages: vec![],
             last_updated_at: None,
             max_triggers_unread: None,
+            max_triggers_highlight: None,
             read_marker: None,
             chathistory_references: None,
             last_seen: HashMap::new(),
@@ -287,6 +289,7 @@ impl History {
     pub fn update_partial(&mut self, metadata: Metadata) {
         if let Self::Partial {
             max_triggers_unread,
+            max_triggers_highlight,
             read_marker,
             chathistory_references,
             ..
@@ -295,6 +298,8 @@ impl History {
             *read_marker = (*read_marker).max(metadata.read_marker);
             *max_triggers_unread =
                 (*max_triggers_unread).max(metadata.last_triggers_unread);
+            *max_triggers_highlight =
+                (*max_triggers_highlight).max(metadata.last_triggers_highlight);
             *chathistory_references = chathistory_references
                 .clone()
                 .max(metadata.chathistory_references);
@@ -322,6 +327,27 @@ impl History {
         }
     }
 
+    fn has_highlight(&self) -> bool {
+        match self {
+            History::Partial {
+                max_triggers_highlight,
+                read_marker,
+                ..
+            } => {
+                // Read marker is prior to last known message which triggers highlight
+                if let Some(read_marker) = read_marker {
+                    max_triggers_highlight
+                        .is_some_and(|max| read_marker.date_time() < max)
+                }
+                // Default state == highlight if theres messages that trigger indicator
+                else {
+                    max_triggers_highlight.is_some()
+                }
+            }
+            History::Full { .. } => false,
+        }
+    }
+
     fn add_message(&mut self, message: Message) -> Option<ReadMarker> {
         if message.triggers_unread()
             && !message.blocked
@@ -332,6 +358,17 @@ impl History {
         {
             *max_triggers_unread =
                 (*max_triggers_unread).max(Some(message.server_time));
+        }
+
+        if message.triggers_highlight()
+            && !blocked
+            && let History::Partial {
+                max_triggers_highlight,
+                ..
+            } = self
+        {
+            *max_triggers_highlight =
+                (*max_triggers_highlight).max(Some(message.server_time));
         }
 
         match self {
@@ -448,6 +485,8 @@ impl History {
                 let read_marker = *read_marker;
                 let max_triggers_unread =
                     metadata::latest_triggers_unread(&messages);
+                let max_triggers_highlight =
+                    metadata::latest_triggers_highlight(&messages);
 
                 let chathistory_references =
                     metadata::latest_can_reference(&messages);
@@ -458,6 +497,7 @@ impl History {
                     last_updated_at: None,
                     read_marker,
                     max_triggers_unread,
+                    max_triggers_highlight,
                     chathistory_references,
                     last_seen: last_seen.clone(),
                 };

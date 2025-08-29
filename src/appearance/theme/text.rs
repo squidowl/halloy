@@ -82,6 +82,16 @@ pub fn unread_indicator(theme: &Theme) -> Style {
     }
 }
 
+pub fn highlight_indicator(theme: &Theme) -> Style {
+    Style {
+        color: theme
+            .styles()
+            .general
+            .highlight_indicator
+            .or(Some(theme.styles().general.unread_indicator)),
+    }
+}
+
 pub fn url(theme: &Theme) -> Style {
     Style {
         color: Some(theme.styles().buffer.url.color),
