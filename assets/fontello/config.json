@@ -179,6 +179,12 @@
       "css": "link-1",
       "code": 59412,
       "src": "entypo"
+    },
+    {
+      "uid": "474656633f79ea2f1dad59ff63f6bf07",
+      "css": "star",
+      "code": 59412,
+      "src": "fontawesome"
     }
   ]
 }
