@@ -378,26 +378,40 @@ impl Sidebar {
             let mut buffers = vec![];
             let mut client_enumeration = 0;
 
-            for server in servers.keys() {
-                let button = |buffer: buffer::Upstream,
-                              connected: bool,
-                              server_has_unread: bool,
-                              has_unread: bool| {
-                    upstream_buffer_button(
-                        panes,
-                        focus,
-                        buffer,
-                        connected,
-                        config.actions.sidebar.buffer,
-                        config.actions.sidebar.focused_buffer,
-                        config.sidebar.position,
-                        config.sidebar.unread_indicator,
-                        server_has_unread,
-                        has_unread,
-                        width,
-                        theme,
-                    )
-                };
+            let servers = match config.sidebar.order_by {
+                sidebar::OrderBy::Alpha => Either::Left(clients.servers()),
+                sidebar::OrderBy::Config => Either::Right(
+                    config.servers.keys().chain(
+                        clients
+                            .servers()
+                            .filter(|key| !config.servers.contains(key)),
+                    ),
+                ),
+            };
+
+            for server in servers {
+                let button =
+                    |buffer: buffer::Upstream,
+                     connected: bool,
+                     server_has_unread: bool,
+                     has_unread: bool,
+                     has_highlight: bool| {
+                        upstream_buffer_button(
+                            panes,
+                            focus,
+                            buffer,
+                            connected,
+                            config.actions.sidebar.buffer,
+                            config.actions.sidebar.focused_buffer,
+                            config.sidebar.position,
+                            config.sidebar.unread_indicator,
+                            server_has_unread,
+                            has_unread,
+                            has_highlight,
+                            width,
+                            theme,
+                        )
+                    };
 
                 if let Some(state) = clients.state(server) {
                     client_enumeration += 1;
@@ -412,6 +426,9 @@ impl Sidebar {
                                 history.has_unread(&history::Kind::Server(
                                     server.clone(),
                                 )),
+                                history.has_highlight(&history::Kind::Server(
+                                    server.clone(),
+                                )),
                             ));
                         }
                         data::client::State::Ready(connection) => {
@@ -421,6 +438,9 @@ impl Sidebar {
                                 true,
                                 history.server_has_unread(server.clone()),
                                 history.has_unread(&history::Kind::Server(
+                                    server.clone(),
+                                )),
+                                history.has_highlight(&history::Kind::Server(
                                     server.clone(),
                                 )),
                             ));
@@ -435,6 +455,12 @@ impl Sidebar {
                                     true,
                                     history.server_has_unread(server.clone()),
                                     history.has_unread(
+                                        &history::Kind::Channel(
+                                            server.clone(),
+                                            channel.clone(),
+                                        ),
+                                    ),
+                                    history.has_highlight(
                                         &history::Kind::Channel(
                                             server.clone(),
                                             channel.clone(),
@@ -461,6 +487,12 @@ impl Sidebar {
                                         server.clone(),
                                         query.clone(),
                                     )),
+                                    history.has_highlight(
+                                        &history::Kind::Query(
+                                            server.clone(),
+                                            query.clone(),
+                                        ),
+                                    ),
                                 ));
                             }
 
@@ -657,6 +689,7 @@ fn upstream_buffer_button<'a>(
     unread_indicator: sidebar::UnreadIndicator,
     server_has_unread: bool,
     has_unread: bool,
+    has_highlight: bool,
     width: Length,
     theme: &'a Theme,
 ) -> Element<'a, Message> {
@@ -672,22 +705,22 @@ fn upstream_buffer_button<'a>(
         .then_some((window_id, pane))
     });
 
-    let show_unread_indicator =
-        has_unread && matches!(unread_indicator, sidebar::UnreadIndicator::Dot);
-    let show_title_indicator = has_unread
+    let show_icon_indicator = (has_highlight || has_unread)
+        && matches!(unread_indicator, sidebar::UnreadIndicator::Dot);
+    let show_title_indicator = (has_highlight || has_unread)
         && matches!(unread_indicator, sidebar::UnreadIndicator::Title);
 
-    let unread_dot_indicator_spacing =
+    let icon_indicator_spacing =
         horizontal_space().width(match position.is_horizontal() {
             true => {
-                if show_unread_indicator {
+                if show_icon_indicator {
                     5
                 } else {
                     0
                 }
             }
             false => {
-                if show_unread_indicator {
+                if show_icon_indicator {
                     11
                 } else {
                     16
@@ -708,7 +741,9 @@ fn upstream_buffer_button<'a>(
             } else {
                 icon::connected()
             }.style(if connected {
-                if show_unread_indicator {
+                if has_highlight {
+                    theme::text::highlight_indicator
+                } else if has_unread {
                     theme::text::unread_indicator
                 } else {
                     theme::text::primary
@@ -739,10 +774,14 @@ fn upstream_buffer_button<'a>(
         .align_y(iced::Alignment::Center),
         buffer::Upstream::Channel(_, channel) => row![
             horizontal_space().width(3),
-            show_unread_indicator.then_some(
-                icon::dot().size(6).style(theme::text::unread_indicator),
-            ),
-            unread_dot_indicator_spacing,
+            show_icon_indicator.then_some(icon::dot().size(6).style(
+                if has_highlight {
+                    theme::text::highlight_indicator
+                } else {
+                    theme::text::unread_indicator
+                }
+            ),),
+            icon_indicator_spacing,
             text(channel.to_string())
                 .style(buffer_title_style)
                 .font_maybe(buffer_title_font)
@@ -752,10 +791,14 @@ fn upstream_buffer_button<'a>(
         .align_y(iced::Alignment::Center),
         buffer::Upstream::Query(_, query) => row![
             horizontal_space().width(3),
-            show_unread_indicator.then_some(
-                icon::dot().size(6).style(theme::text::unread_indicator),
-            ),
-            unread_dot_indicator_spacing,
+            show_icon_indicator.then_some(icon::dot().size(6).style(
+                if has_highlight {
+                    theme::text::highlight_indicator
+                } else {
+                    theme::text::unread_indicator
+                }
+            ),),
+            icon_indicator_spacing,
             text(query.to_string())
                 .style(buffer_title_style)
                 .font_maybe(buffer_title_font)
