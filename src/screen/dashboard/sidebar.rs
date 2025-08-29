@@ -710,20 +710,22 @@ fn upstream_buffer_button<'a>(
     let show_title_indicator = (has_highlight || has_unread)
         && matches!(unread_indicator, sidebar::UnreadIndicator::Title);
 
-    let icon_indicator_spacing =
+    let before_icon_spacer =
+        horizontal_space().width(if has_highlight { 1.5 } else { 3.0 });
+    let after_icon_spacer =
         horizontal_space().width(match position.is_horizontal() {
             true => {
                 if show_icon_indicator {
-                    5
+                    if has_highlight { 3.5 } else { 5.0 }
                 } else {
-                    0
+                    0.0
                 }
             }
             false => {
                 if show_icon_indicator {
-                    11
+                    if has_highlight { 9.5 } else { 11.0 }
                 } else {
-                    16
+                    16.0
                 }
             }
         });
@@ -773,15 +775,15 @@ fn upstream_buffer_button<'a>(
         .spacing(8)
         .align_y(iced::Alignment::Center),
         buffer::Upstream::Channel(_, channel) => row![
-            horizontal_space().width(3),
-            show_icon_indicator.then_some(icon::dot().size(6).style(
-                if has_highlight {
-                    theme::text::highlight_indicator
-                } else {
-                    theme::text::unread_indicator
-                }
-            ),),
-            icon_indicator_spacing,
+            before_icon_spacer,
+            show_icon_indicator.then_some(if has_highlight {
+                icon::highlight()
+                    .style(theme::text::highlight_indicator)
+                    .size(9)
+            } else {
+                icon::dot().style(theme::text::unread_indicator).size(6)
+            },),
+            after_icon_spacer,
             text(channel.to_string())
                 .style(buffer_title_style)
                 .font_maybe(buffer_title_font)
@@ -790,15 +792,15 @@ fn upstream_buffer_button<'a>(
         ]
         .align_y(iced::Alignment::Center),
         buffer::Upstream::Query(_, query) => row![
-            horizontal_space().width(3),
-            show_icon_indicator.then_some(icon::dot().size(6).style(
-                if has_highlight {
-                    theme::text::highlight_indicator
-                } else {
-                    theme::text::unread_indicator
-                }
-            ),),
-            icon_indicator_spacing,
+            before_icon_spacer,
+            show_icon_indicator.then_some(if has_highlight {
+                icon::highlight()
+                    .style(theme::text::highlight_indicator)
+                    .size(9)
+            } else {
+                icon::dot().style(theme::text::unread_indicator).size(6)
+            },),
+            after_icon_spacer,
             text(query.to_string())
                 .style(buffer_title_style)
                 .font_maybe(buffer_title_font)
