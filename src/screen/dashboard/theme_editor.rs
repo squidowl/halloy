@@ -497,6 +497,7 @@ impl Component {
 pub enum General {
     Background,
     Border,
+    HighlightIndicator,
     HorizontalRule,
     Scrollbar,
     UnreadIndicator,
@@ -507,6 +508,9 @@ impl General {
         match self {
             General::Background => styles.background,
             General::Border => styles.border,
+            General::HighlightIndicator => styles
+                .highlight_indicator
+                .unwrap_or(styles.unread_indicator),
             General::HorizontalRule => styles.horizontal_rule,
             General::Scrollbar => {
                 styles.scrollbar.unwrap_or(styles.horizontal_rule)
@@ -522,6 +526,9 @@ impl General {
             }
             General::Border => {
                 styles.border = color;
+            }
+            General::HighlightIndicator => {
+                styles.highlight_indicator = Some(color);
             }
             General::HorizontalRule => {
                 styles.horizontal_rule = color;
