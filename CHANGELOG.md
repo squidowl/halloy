@@ -2,6 +2,7 @@
 
 Added:
 
+- Ability to specific multiple themes which then gets picked randomly at launch
 - Notification indicator on sidebar menu for warning & error log messages
 - Ability to mark as read on buffer close only if scrolled to the bottom of the buffer (new default behavior)
 - `/part`, `/topic`, `/mode`, `/kick`, and `/ctcp` commands can have their target(s) argument skipped when it can be inferred from context (e.g. `/topic` will target the current channel by default when used in a channel buffer)
