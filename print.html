@@ -302,7 +302,7 @@ cd halloy
 ./scripts/install-linux.sh --prefix=&lt;base/directory&gt;
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="getting-started"><a class="header" href="#getting-started">Getting started</a></h1>
-<p>To get started with Halloy, you need to connect to at least one IRC server. The template config file has been set up with the <a href="https://libera.chat/">Libera</a> server. However, there are many other servers available: <a href="https://www.oftc.net/">OFTC</a>, <a href="https://www.undernet.org/">Undernet</a>, <a href="http://www.efnet.org">EFnet</a>, <a href="https://www.quakenet.org/">QuakeNet</a> and <a href="https://netsplit.de/networks/">many more</a>. Halloy can connect to multiple servers at the same time.</p>
+<p>To get started with Halloy, you need to connect to at least one IRC server. The template config file has been set up with the <a href="https://libera.chat/">Libera</a> server. However, there are many other servers available: <a href="https://www.oftc.net/">OFTC</a>, <a href="https://www.undernet.org/">Undernet</a>, <a href="https://www.quakenet.org/">QuakeNet</a> and <a href="https://netsplit.de/networks/">many more</a>. Halloy can connect to multiple servers at the same time.</p>
 <p>Once connected to a server, you can join channels. This can be done automatically from the config file or manually using the join command: <code>/join #channel</code><sup class="footnote-reference" id="fr-1-1"><a href="#footnote-1">1</a></sup>. To find channels, you can either use the list command: <code>/list</code>, or <a href="https://netsplit.de/channels/">browse for channels online</a>.</p>
 <blockquote>
 <p>💡 Configuration in Halloy happens through a <code>config.toml</code> file. See <a href="guides/../configuration/">Configuration</a>.</p>
@@ -2577,21 +2577,27 @@ scroller_width = 5
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="themes"><a class="header" href="#themes">Themes</a></h1>
 <h2 id="example-5"><a class="header" href="#example-5">Example</a></h2>
-<pre><code class="language-toml"># Static
+<pre><code class="language-toml"># Static single
 theme = "ferra"
 
-# Dynamic
+# Static multiple (random selection)
+theme = ["ferra", "booberry"]
+
+# Dynamic single
 theme = { light = "ferra-light", dark = "ferra" }
+
+# Dynamic multiple (random selection)
+theme = { light = ["ferra-light", "booberry-light"], dark = ["ferra", "booberry"] }
 </code></pre>
 <blockquote>
 <p>⚠️  <code>theme</code> is a root key, so it must be placed before every section.</p>
 </blockquote>
 <h2 id="theme"><a class="header" href="#theme"><code>theme</code></a></h2>
 <p>Specify the theme name(s) to use. The theme must correspond to a file located in the <code>themes</code> folder, which can be found in the Halloy configuration directory. The default theme in Halloy is <a href="https://github.com/casperstorm/ferra/">Ferra</a>.</p>
-<p>When a dynamic theme is used, Halloy will match the appearance of the OS.</p>
+<p>When multiple themes are specified, Halloy will randomly select one each time the application starts. When a dynamic theme is used, Halloy will match the appearance of the OS.</p>
 <ul>
-<li><strong>type</strong>: string or object</li>
-<li><strong>values</strong>: <code>"&lt;string&gt;"</code>, <code>{ light = "&lt;string&gt;", dark = "&lt;string&gt;" }</code></li>
+<li><strong>type</strong>: string, array of strings, or object</li>
+<li><strong>values</strong>: <code>"&lt;string&gt;"</code>, <code>["&lt;string&gt;", "&lt;string&gt;"]</code>, <code>{ light = "&lt;string&gt;", dark = "&lt;string&gt;" }</code>, <code>{ light = ["&lt;string&gt;", "&lt;string&gt;"], dark = ["&lt;string&gt;", "&lt;string&gt;"] }</code></li>
 <li><strong>default</strong>: <code>"ferra"</code></li>
 </ul>
 <blockquote>

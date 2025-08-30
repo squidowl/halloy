@@ -182,21 +182,27 @@
                     <main>
                         <h1 id="themes"><a class="header" href="#themes">Themes</a></h1>
 <h2 id="example"><a class="header" href="#example">Example</a></h2>
-<pre><code class="language-toml"># Static
+<pre><code class="language-toml"># Static single
 theme = "ferra"
 
-# Dynamic
+# Static multiple (random selection)
+theme = ["ferra", "booberry"]
+
+# Dynamic single
 theme = { light = "ferra-light", dark = "ferra" }
+
+# Dynamic multiple (random selection)
+theme = { light = ["ferra-light", "booberry-light"], dark = ["ferra", "booberry"] }
 </code></pre>
 <blockquote>
 <p>⚠️  <code>theme</code> is a root key, so it must be placed before every section.</p>
 </blockquote>
 <h2 id="theme"><a class="header" href="#theme"><code>theme</code></a></h2>
 <p>Specify the theme name(s) to use. The theme must correspond to a file located in the <code>themes</code> folder, which can be found in the Halloy configuration directory. The default theme in Halloy is <a href="https://github.com/casperstorm/ferra/">Ferra</a>.</p>
-<p>When a dynamic theme is used, Halloy will match the appearance of the OS.</p>
+<p>When multiple themes are specified, Halloy will randomly select one each time the application starts. When a dynamic theme is used, Halloy will match the appearance of the OS.</p>
 <ul>
-<li><strong>type</strong>: string or object</li>
-<li><strong>values</strong>: <code>"&lt;string&gt;"</code>, <code>{ light = "&lt;string&gt;", dark = "&lt;string&gt;" }</code></li>
+<li><strong>type</strong>: string, array of strings, or object</li>
+<li><strong>values</strong>: <code>"&lt;string&gt;"</code>, <code>["&lt;string&gt;", "&lt;string&gt;"]</code>, <code>{ light = "&lt;string&gt;", dark = "&lt;string&gt;" }</code>, <code>{ light = ["&lt;string&gt;", "&lt;string&gt;"], dark = ["&lt;string&gt;", "&lt;string&gt;"] }</code></li>
 <li><strong>default</strong>: <code>"ferra"</code></li>
 </ul>
 <blockquote>
