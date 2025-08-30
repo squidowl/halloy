@@ -89,10 +89,13 @@ impl Notifications {
                     {
                         (
                             &format!("File transfer from {nick} on {server}"),
-                            filename.as_ref(),
+                            filename,
                         )
                     } else {
-                        (&format!("File transfer from {nick}"), server.as_ref())
+                        (
+                            &format!("File transfer from {nick}"),
+                            &format!("{server}"),
+                        )
                     };
 
                     self.execute(
@@ -114,7 +117,7 @@ impl Notifications {
                                 "{} sent you a direct message on {server}",
                                 user.nickname()
                             ),
-                            message.as_ref(),
+                            message,
                         )
                     } else {
                         (
@@ -122,7 +125,7 @@ impl Notifications {
                                 "{} sent you a direct message",
                                 user.nickname()
                             ),
-                            server.as_ref(),
+                            &format!("{server}"),
                         )
                     };
 
@@ -150,7 +153,7 @@ impl Notifications {
                                 "{} {description} in {channel} on {server}",
                                 user.nickname()
                             ),
-                            message.as_ref(),
+                            message,
                         )
                     } else {
                         (
@@ -158,7 +161,7 @@ impl Notifications {
                                 "{} {description} in {channel}",
                                 user.nickname()
                             ),
-                            server.as_ref(),
+                            &format!("{server}"),
                         )
                     };
 
