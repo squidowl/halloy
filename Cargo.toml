@@ -152,3 +152,8 @@ extend-ignore-identifiers-re = [
     "RPL_[A-Z]+", # IRC Reply Numeric
     "TehPeGaSuS",
 ]
+
+[workspace.metadata.typos.files]
+extend-exclude = [
+  "data/tests/message/*.json",
+]
