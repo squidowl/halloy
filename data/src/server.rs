@@ -10,10 +10,9 @@ use tokio::fs;
 use tokio::process::Command;
 
 use crate::bouncer::BouncerNetwork;
-use crate::config::Error;
 use crate::config::server::Sasl;
 use crate::config::sidebar::OrderBy;
-use crate::config::{self, sidebar};
+use crate::config::{self, Error, sidebar};
 
 pub type Handle = Sender<proto::Message>;
 
@@ -310,6 +309,7 @@ impl Map {
             OrderBy::Config => cmp_config,
         }
     }
+
     pub fn set_order(&mut self, order_by: OrderBy) {
         self.1 = order_by;
         self.sort();
@@ -335,6 +335,13 @@ impl Map {
         self.0.get(server).cloned()
     }
 
+    pub fn get_mut(
+        &mut self,
+        server: &Server,
+    ) -> Option<&mut Arc<config::Server>> {
+        self.0.get_mut(server)
+    }
+
     pub fn keys(&self) -> impl Iterator<Item = &Server> {
         self.0.keys()
     }
@@ -352,5 +359,4 @@ impl Map {
     {
         self.0.extract_if(0.., pred)
     }
-
 }
