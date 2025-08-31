@@ -24,7 +24,7 @@ enum FilterTarget {
 
 impl FilterTarget {
     pub fn from_nick(nick: &str, casemapping: isupport::CaseMap) -> Self {
-        Self::User(User::from(Nick::from(casemapping.normalize(nick))))
+        Self::User(User::from_nick(Nick::from(nick), casemapping))
     }
 }
 

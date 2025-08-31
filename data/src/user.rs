@@ -15,6 +15,7 @@ use crate::{isupport, mode};
 #[derive(Debug, Clone)]
 pub struct User {
     nickname: Nick,
+    normalized_nickname: Option<Nick>,
     username: Option<String>,
     hostname: Option<String>,
     accountname: Option<String>,
@@ -24,7 +25,13 @@ pub struct User {
 
 impl PartialEq for User {
     fn eq(&self, other: &Self) -> bool {
-        self.nickname.eq(&other.nickname)
+        if let Some(normalized_nickname) = &self.normalized_nickname
+            && let Some(other_normalized_nickname) = &other.normalized_nickname
+        {
+            normalized_nickname.eq(other_normalized_nickname)
+        } else {
+            self.nickname.eq(&other.nickname)
+        }
     }
 }
 
@@ -32,7 +39,11 @@ impl Eq for User {}
 
 impl Hash for User {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.nickname.hash(state);
+        if let Some(normalized_nickname) = &self.normalized_nickname {
+            normalized_nickname.hash(state);
+        } else {
+            self.nickname.hash(state);
+        }
     }
 }
 
@@ -83,8 +94,14 @@ impl ChannelUsers {
         self.0.shift_remove(user)
     }
 
-    pub fn get_by_nick(&self, nick: NickRef) -> Option<&User> {
-        self.0.get(&nick)
+    pub fn get_by_nick(
+        &self,
+        nick: NickRef,
+        casemapping: isupport::CaseMap,
+    ) -> Option<&User> {
+        self.0.get(&NickRef::from(
+            casemapping.normalize(nick.as_ref()).as_str(),
+        ))
     }
 
     #[must_use]
@@ -128,7 +145,7 @@ impl<'de> Deserialize<'de> for User {
     {
         let value = String::deserialize(deserializer)?;
 
-        User::parse(&value, None).map_err(|_| {
+        User::parse(&value, None, None).map_err(|_| {
             serde::de::Error::invalid_value(
                 serde::de::Unexpected::Str(&value),
                 &"{access_levels}{nickname}{username}{hostname}",
@@ -137,10 +154,14 @@ impl<'de> Deserialize<'de> for User {
     }
 }
 
-impl From<Nick> for User {
-    fn from(nickname: Nick) -> Self {
+impl User {
+    pub fn from_nick(nickname: Nick, casemapping: isupport::CaseMap) -> Self {
+        let normalized_nickname =
+            Nick::from(casemapping.normalize(nickname.as_ref()));
+
         User {
             nickname,
+            normalized_nickname: Some(normalized_nickname),
             username: None,
             hostname: None,
             accountname: None,
@@ -148,13 +169,31 @@ impl From<Nick> for User {
             away: false,
         }
     }
-}
 
-impl User {
+    pub fn from_proto_user(
+        user: proto::User,
+        casemapping: isupport::CaseMap,
+    ) -> Self {
+        let normalized_nickname =
+            Nick::from(casemapping.normalize(user.nickname.as_ref()));
+
+        User {
+            nickname: Nick::from(user.nickname),
+            normalized_nickname: Some(normalized_nickname),
+            username: user.username,
+            hostname: user.hostname,
+            accountname: None,
+            access_levels: BTreeSet::default(),
+            away: false,
+        }
+    }
+
     fn key(&'_ self) -> (Reverse<AccessLevel>, NickRef<'_>) {
         (
             Reverse(self.highest_access_level()),
-            self.nickname.as_nickref(),
+            self.normalized_nickname
+                .as_ref()
+                .map_or(self.nickname.as_nickref(), Nick::as_nickref),
         )
     }
 
@@ -311,6 +350,7 @@ impl User {
     pub fn parse(
         value: &str,
         prefix: Option<&[isupport::PrefixMap]>,
+        casemapping: Option<isupport::CaseMap>,
     ) -> Result<Self, ParseUserError> {
         if value.is_empty() {
             return Err(ParseUserError::NicknameEmpty);
@@ -363,8 +403,12 @@ impl User {
                 }
             };
 
+        let normalized_nickname =
+            casemapping.map(|casemapping| casemapping.normalize(nickname));
+
         Ok(User {
             nickname: Nick::from(nickname),
+            normalized_nickname: normalized_nickname.map(Nick::from),
             username,
             hostname,
             accountname: None,
@@ -378,19 +422,6 @@ impl User {
 pub enum ParseUserError {
     #[error("nickname can't be empty")]
     NicknameEmpty,
-}
-
-impl From<proto::User> for User {
-    fn from(user: proto::User) -> Self {
-        User {
-            nickname: Nick::from(user.nickname),
-            username: user.username,
-            hostname: user.hostname,
-            accountname: None,
-            access_levels: BTreeSet::default(),
-            away: false,
-        }
-    }
 }
 
 #[derive(Debug, Clone)]
@@ -481,7 +512,7 @@ impl PartialOrd for NickRef<'_> {
 
 impl Ord for NickRef<'_> {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.0.to_lowercase().cmp(&other.0.to_lowercase())
+        self.0.cmp(other.0)
     }
 }
 
@@ -578,6 +609,7 @@ mod tests {
             (
                 User {
                     nickname: "dan".into(),
+                    normalized_nickname: None,
                     username: None,
                     hostname: None,
                     accountname: None,
@@ -592,6 +624,7 @@ mod tests {
             (
                 User {
                     nickname: "dan".into(),
+                    normalized_nickname: None,
                     username: Some("d".into()),
                     hostname: Some("localhost".into()),
                     accountname: None,
@@ -603,6 +636,7 @@ mod tests {
             (
                 User {
                     nickname: "d@n".into(),
+                    normalized_nickname: None,
                     username: Some("d".into()),
                     hostname: Some("localhost".into()),
                     accountname: None,
@@ -616,6 +650,7 @@ mod tests {
             (
                 User {
                     nickname: "foobar".into(),
+                    normalized_nickname: None,
                     username: None,
                     hostname: None,
                     accountname: None,
@@ -627,6 +662,7 @@ mod tests {
             (
                 User {
                     nickname: "foobar".into(),
+                    normalized_nickname: None,
                     username: Some("8a027a9a4a".into()),
                     hostname: Some(
                         "2201:12f1:2:1162:1242:1fg:he11:abde".into(),
@@ -642,6 +678,7 @@ mod tests {
             (
                 User {
                     nickname: "foobar".into(),
+                    normalized_nickname: Some("foobar".into()),
                     username: Some("~foobar".into()),
                     hostname: Some("12.521.212.521".into()),
                     accountname: None,
@@ -656,6 +693,7 @@ mod tests {
             (
                 User {
                     nickname: "H1N5".into(),
+                    normalized_nickname: None,
                     username: Some("the.flu".into()),
                     hostname: Some("in.you".into()),
                     accountname: None,
@@ -669,6 +707,7 @@ mod tests {
             (
                 User {
                     nickname: "*status".into(),
+                    normalized_nickname: None,
                     username: None,
                     hostname: None,
                     accountname: None,
@@ -680,6 +719,7 @@ mod tests {
             (
                 User {
                     nickname: "714user".into(),
+                    normalized_nickname: None,
                     username: None,
                     hostname: None,
                     accountname: None,
@@ -701,6 +741,7 @@ mod tests {
     fn matches_masks() {
         let user = User {
             nickname: "alice".into(),
+            normalized_nickname: None,
             username: Some("alice".into()),
             hostname: Some("example.com".into()),
             accountname: None,
@@ -743,11 +784,14 @@ mod tests {
             ("foobar", "+@foobar!~foobar@12.521.212.521"),
             ("*status", "*status"),
         ]
-        .map(|(a, b)| (NickRef::from(a), User::parse(b, None).unwrap()));
+        .map(|(a, b)| (NickRef::from(a), User::parse(b, None, None).unwrap()));
         let channel_users: ChannelUsers =
             users.iter().map(|(_, u)| u).cloned().collect();
         for (nick, user) in users {
-            assert_eq!(channel_users.get_by_nick(*nick), Some(user));
+            assert_eq!(
+                channel_users.get_by_nick(*nick, isupport::CaseMap::default()),
+                Some(user)
+            );
         }
     }
 }

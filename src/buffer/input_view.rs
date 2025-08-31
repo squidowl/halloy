@@ -6,7 +6,7 @@ use data::history::{self, ReadMarker};
 use data::input::{self, Cache, RawInput};
 use data::message::server_time;
 use data::target::Target;
-use data::user::Nick;
+use data::user::{Nick, User};
 use data::{Config, client, command};
 use iced::Task;
 use iced::widget::{column, container, text, text_input};
@@ -500,13 +500,14 @@ impl State {
                     let mut history_task = Task::none();
 
                     if let Some(nick) = clients.nickname(buffer.server()) {
-                        let mut user = nick.to_owned().into();
-                        let mut channel_users = None;
-
                         let chantypes = clients.get_chantypes(buffer.server());
                         let statusmsg = clients.get_statusmsg(buffer.server());
                         let casemapping =
                             clients.get_casemapping(buffer.server());
+
+                        let mut user =
+                            User::from_nick(nick.to_owned(), casemapping);
+                        let mut channel_users = None;
 
                         // Resolve our attributes if sending this message in a channel
                         if let buffer::Upstream::Channel(server, channel) =

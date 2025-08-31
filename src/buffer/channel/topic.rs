@@ -53,61 +53,69 @@ pub fn view<'a>(
     config: &'a Config,
     theme: &'a Theme,
 ) -> Element<'a, Message> {
-    let set_by = who.map(NickRef::to_owned).map(User::from).and_then(|user| {
-        let channel_user = users.and_then(|users| users.resolve(&user));
+    let set_by = who
+        .map(NickRef::to_owned)
+        .map(|nick| User::from_nick(nick, casemapping))
+        .and_then(|user| {
+            let channel_user = users.and_then(|users| users.resolve(&user));
 
-        // If user is in channel, we return user_context component.
-        // Otherwise selectable_text component.
-        let content = if let Some(user) = channel_user {
-            user_context::view(
-                selectable_text(user.nickname().to_string())
+            // If user is in channel, we return user_context component.
+            // Otherwise selectable_text component.
+            let content = if let Some(user) = channel_user {
+                user_context::view(
+                    selectable_text(user.nickname().to_string())
+                        .font_maybe(
+                            theme::font_style::nickname(theme, false)
+                                .map(font::get),
+                        )
+                        .style(|theme| {
+                            theme::selectable_text::topic_nickname(
+                                theme, config, user,
+                            )
+                        }),
+                    server,
+                    casemapping,
+                    prefix,
+                    Some(channel),
+                    user,
+                    Some(user),
+                    our_user,
+                    config,
+                    theme,
+                    &config.buffer.nickname.click,
+                )
+            } else {
+                selectable_text(user.display(false, None))
                     .font_maybe(
                         theme::font_style::nickname(theme, false)
                             .map(font::get),
                     )
-                    .style(|theme| {
+                    .style(move |theme| {
                         theme::selectable_text::topic_nickname(
-                            theme, config, user,
+                            theme, config, &user,
                         )
-                    }),
-                server,
-                casemapping,
-                prefix,
-                Some(channel),
-                user,
-                Some(user),
-                our_user,
-                config,
-                theme,
-                &config.buffer.nickname.click,
-            )
-        } else {
-            selectable_text(user.display(false, None))
-                .font_maybe(
-                    theme::font_style::nickname(theme, false).map(font::get),
-                )
-                .style(move |theme| {
-                    theme::selectable_text::topic_nickname(theme, config, &user)
-                })
-                .into()
-        };
+                    })
+                    .into()
+            };
 
-        Some(
-            Element::new(row![
-                selectable_text("set by ")
+            Some(
+                Element::new(row![
+                    selectable_text("set by ")
+                        .font_maybe(
+                            theme::font_style::topic(theme).map(font::get)
+                        )
+                        .style(theme::selectable_text::topic),
+                    content,
+                    selectable_text(format!(
+                        " at {}",
+                        time?.with_timezone(&Local).to_rfc2822()
+                    ))
                     .font_maybe(theme::font_style::topic(theme).map(font::get))
                     .style(theme::selectable_text::topic),
-                content,
-                selectable_text(format!(
-                    " at {}",
-                    time?.with_timezone(&Local).to_rfc2822()
-                ))
-                .font_maybe(theme::font_style::topic(theme).map(font::get))
-                .style(theme::selectable_text::topic),
-            ])
-            .map(Message::UserContext),
-        )
-    });
+                ])
+                .map(Message::UserContext),
+            )
+        });
 
     let content = column![
         message_content(

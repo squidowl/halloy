@@ -56,7 +56,9 @@ pub fn view<'a>(
     let our_nick = clients.nickname(&state.server);
 
     let our_user = our_nick
-        .map(|our_nick| User::from(Nick::from(our_nick.as_ref())))
+        .map(|our_nick| {
+            User::from_nick(Nick::from(our_nick.as_ref()), casemapping)
+        })
         .and_then(|user| {
             clients.resolve_user_attributes(&state.server, channel, &user)
         });

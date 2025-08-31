@@ -84,11 +84,13 @@ pub mod source;
 pub struct Encoded(proto::Message);
 
 impl Encoded {
-    pub fn user(&self) -> Option<User> {
+    pub fn user(&self, casemapping: isupport::CaseMap) -> Option<User> {
         let source = self.source.as_ref()?;
 
         match source {
-            proto::Source::User(user) => Some(User::from(user.clone())),
+            proto::Source::User(user) => {
+                Some(User::from_proto_user(user.clone(), casemapping))
+            }
             _ => None,
         }
     }
@@ -260,7 +262,7 @@ impl Message {
         let server_time = server_time(&encoded);
         let id = message_id(&encoded);
         let is_echo = encoded
-            .user()
+            .user(casemapping)
             .is_some_and(|user| user.nickname() == our_nick);
         let content = content(
             &encoded,
@@ -593,19 +595,21 @@ pub fn parse_fragments_with_highlights(
     target: &str,
     our_nick: Option<&Nick>,
     highlights: &Highlights,
+    casemapping: isupport::CaseMap,
 ) -> Content {
-    let mut fragments = parse_fragments_with_users_inner(text, channel_users)
-        .map(|fragment| match fragment {
-            Fragment::User(user, raw)
-                if highlights.nickname.is_target_included(target)
-                    && our_nick
-                        .is_some_and(|nick| user.nickname() == *nick) =>
-            {
-                Fragment::HighlightNick(user, raw)
-            }
-            f => f,
-        })
-        .collect::<Vec<_>>();
+    let mut fragments =
+        parse_fragments_with_users_inner(text, channel_users, casemapping)
+            .map(|fragment| match fragment {
+                Fragment::User(user, raw)
+                    if highlights.nickname.is_target_included(target)
+                        && our_nick
+                            .is_some_and(|nick| user.nickname() == *nick) =>
+                {
+                    Fragment::HighlightNick(user, raw)
+                }
+                f => f,
+            })
+            .collect::<Vec<_>>();
 
     for regex in highlights
         .matches
@@ -640,20 +644,27 @@ pub fn parse_fragments_with_highlights(
     }
 }
 
-pub fn parse_fragments_with_user(text: String, user: &User) -> Content {
+pub fn parse_fragments_with_user(
+    text: String,
+    user: &User,
+    casemapping: isupport::CaseMap,
+) -> Content {
     // XXX(pounce) annoying clone. Cow somewhere?
     parse_fragments_with_users(
         text,
         Some(&[user.clone()].into_iter().collect()),
+        casemapping,
     )
 }
 
 pub fn parse_fragments_with_users(
     text: String,
     channel_users: Option<&ChannelUsers>,
+    casemapping: isupport::CaseMap,
 ) -> Content {
-    let fragments = parse_fragments_with_users_inner(text, channel_users)
-        .collect::<Vec<_>>();
+    let fragments =
+        parse_fragments_with_users_inner(text, channel_users, casemapping)
+            .collect::<Vec<_>>();
 
     if fragments.len() == 1 && matches!(&fragments[0], Fragment::Text(_)) {
         let Some(Fragment::Text(text)) = fragments.into_iter().next() else {
@@ -683,14 +694,15 @@ pub fn parse_fragments(text: String) -> Content {
 fn parse_fragments_with_users_inner(
     text: String,
     channel_users: Option<&ChannelUsers>,
+    casemapping: isupport::CaseMap,
 ) -> impl Iterator<Item = Fragment> + use<'_> {
     parse_fragments_inner(text).flat_map(move |fragment| {
         if let Fragment::Text(text) = &fragment {
             return Either::Left(
                 parse_regex_fragments(&USER_REGEX, text, |text| {
-                    channel_users?.get_by_nick(text.into()).map(|user| {
-                        Fragment::User(user.clone(), text.to_owned())
-                    })
+                    channel_users?.get_by_nick(text.into(), casemapping).map(
+                        |user| Fragment::User(user.clone(), text.to_owned()),
+                    )
                 })
                 .into_iter(),
             );
@@ -898,7 +910,7 @@ fn target(
 ) -> Option<Target> {
     use proto::command::Numeric::*;
 
-    let user = message.user();
+    let user = message.user(casemapping);
 
     match message.0.command {
         // Channel
@@ -1036,7 +1048,7 @@ fn target(
             // CTCP Handling.
             if ctcp::is_query(&text) && !is_action {
                 let user = user?;
-                let target = User::from(Nick::from(target));
+                let target = User::from_nick(Nick::from(target), casemapping);
 
                 // We want to show both requests, and responses in query with the client.
                 let user = if user.nickname() == *our_nick {
@@ -1220,7 +1232,7 @@ fn content<'a>(
 
     match &message.command {
         Command::TOPIC(target, topic) => {
-            let raw_user = message.user()?;
+            let raw_user = message.user(casemapping)?;
             let user = target::Channel::parse(
                 target,
                 chantypes,
@@ -1237,16 +1249,18 @@ fn content<'a>(
                 Some(parse_fragments_with_user(
                     format!("{} cleared the topic", user.nickname()),
                     &user,
+                    casemapping,
                 ))
             } else {
                 Some(parse_fragments_with_user(
                     format!("{} changed the topic to {topic}", user.nickname()),
                     &user,
+                    casemapping,
                 ))
             }
         }
         Command::PART(target, text) => {
-            let raw_user = message.user()?;
+            let raw_user = message.user(casemapping)?;
             let user = target::Channel::parse(
                 target,
                 chantypes,
@@ -1270,10 +1284,11 @@ fn content<'a>(
                     )
                 ),
                 &user,
+                casemapping,
             ))
         }
         Command::JOIN(target, _) => {
-            let raw_user = message.user()?;
+            let raw_user = message.user(casemapping)?;
             let user = target::Channel::parse(
                 target,
                 chantypes,
@@ -1293,11 +1308,13 @@ fn content<'a>(
                         )
                     ),
                     &user,
+                    casemapping,
                 )
             })
         }
         Command::KICK(channel, victim, reason) => {
-            let raw_victim_user = User::from(Nick::from(victim.as_str()));
+            let raw_victim_user =
+                User::from_nick(Nick::from(victim.as_str()), casemapping);
             let victim = target::Channel::parse(
                 victim,
                 chantypes,
@@ -1310,7 +1327,7 @@ fn content<'a>(
 
             let ourself = victim.as_str() == our_nick.as_ref();
 
-            let raw_user = message.user()?;
+            let raw_user = message.user(casemapping)?;
             let user = target::Channel::parse(
                 channel,
                 chantypes,
@@ -1321,10 +1338,10 @@ fn content<'a>(
             .and_then(|channel| resolve_attributes(&raw_user, &channel))
             .unwrap_or(raw_user);
 
-            Some(kick_text(user, victim, ourself, reason, None))
+            Some(kick_text(user, victim, ourself, reason, None, casemapping))
         }
         Command::MODE(target, modes, args) => {
-            let raw_user = message.user()?;
+            let raw_user = message.user(casemapping)?;
 
             let modes = modes
                 .iter()
@@ -1364,6 +1381,7 @@ fn content<'a>(
                 Some(parse_fragments_with_users(
                     format!("{} sets mode {modes}{args}", user.nickname()),
                     channel_users,
+                    casemapping,
                 ))
             } else if raw_user.nickname() == *our_nick {
                 if target == our_nick.as_ref() {
@@ -1376,10 +1394,12 @@ fn content<'a>(
                     )))
                 }
             } else {
-                let channel_users =
-                    [raw_user.clone(), User::from(our_nick.clone())]
-                        .into_iter()
-                        .collect::<ChannelUsers>();
+                let channel_users = [
+                    raw_user.clone(),
+                    User::from_nick(our_nick.clone(), casemapping),
+                ]
+                .into_iter()
+                .collect::<ChannelUsers>();
 
                 Some(parse_fragments_with_users(
                     format!(
@@ -1387,6 +1407,7 @@ fn content<'a>(
                         raw_user.nickname()
                     ),
                     Some(&channel_users),
+                    casemapping,
                 ))
             }
         }
@@ -1402,7 +1423,8 @@ fn content<'a>(
 
             // Check if a synthetic action message
 
-            if let Some(nick) = message.user().as_ref().map(User::nickname)
+            if let Some(nick) =
+                message.user(casemapping).as_ref().map(User::nickname)
                 && let Some(action) = parse_action(
                     nick,
                     text,
@@ -1410,6 +1432,7 @@ fn content<'a>(
                     target,
                     Some(our_nick),
                     &config.highlights,
+                    casemapping,
                 )
             {
                 return Some(action);
@@ -1439,6 +1462,7 @@ fn content<'a>(
                 target,
                 Some(our_nick),
                 &config.highlights,
+                casemapping,
             ))
         }
         Command::Numeric(RPL_TOPIC, params) => {
@@ -1451,7 +1475,10 @@ fn content<'a>(
             None
         }
         Command::Numeric(RPL_WHOISIDLE, params) => {
-            let user = User::from(Nick::from(params.get(1)?.as_str()));
+            let user = User::from_nick(
+                Nick::from(params.get(1)?.as_str()),
+                casemapping,
+            );
 
             let idle = params.get(2)?.parse::<u64>().ok()?;
             let sign_on = params.get(3)?.parse::<u64>().ok()?;
@@ -1472,10 +1499,14 @@ fn content<'a>(
                     user.nickname()
                 ),
                 &user,
+                casemapping,
             ))
         }
         Command::Numeric(RPL_WHOISSERVER, params) => {
-            let user = User::from(Nick::from(params.get(1)?.as_str()));
+            let user = User::from_nick(
+                Nick::from(params.get(1)?.as_str()),
+                casemapping,
+            );
 
             let server = params.get(2)?;
             let region = params.get(3)?;
@@ -1486,10 +1517,14 @@ fn content<'a>(
                     user.nickname()
                 ),
                 &user,
+                casemapping,
             ))
         }
         Command::Numeric(RPL_WHOISUSER, params) => {
-            let user = User::from(Nick::from(params.get(1)?.as_str()));
+            let user = User::from_nick(
+                Nick::from(params.get(1)?.as_str()),
+                casemapping,
+            );
 
             let userhost = format!("{}@{}", params.get(2)?, params.get(3)?);
             let real_name = params.get(5)?;
@@ -1500,52 +1535,73 @@ fn content<'a>(
                     user.nickname()
                 ),
                 &user,
+                casemapping,
             ))
         }
         Command::Numeric(RPL_WHOISCHANNELS, params) => {
-            let user = User::from(Nick::from(params.get(1)?.as_str()));
+            let user = User::from_nick(
+                Nick::from(params.get(1)?.as_str()),
+                casemapping,
+            );
             let channels = params.get(2)?;
 
             Some(parse_fragments_with_user(
                 format!("{} is in {channels}", user.nickname()),
                 &user,
+                casemapping,
             ))
         }
         Command::Numeric(RPL_WHOISACTUALLY, params) => {
-            let user: User = User::from(Nick::from(params.get(1)?.as_str()));
+            let user: User = User::from_nick(
+                Nick::from(params.get(1)?.as_str()),
+                casemapping,
+            );
             let ip = params.get(2)?;
             let status_text = params.get(3)?;
 
             Some(parse_fragments_with_user(
                 format!("{} {status_text} {ip}", user.nickname()),
                 &user,
+                casemapping,
             ))
         }
         Command::Numeric(
             RPL_WHOISCERTFP | RPL_WHOISHOST | RPL_WHOISSECURE,
             params,
         ) => {
-            let user: User = User::from(Nick::from(params.get(1)?.as_str()));
+            let user: User = User::from_nick(
+                Nick::from(params.get(1)?.as_str()),
+                casemapping,
+            );
             let status_text = params.get(2)?;
 
             Some(parse_fragments_with_user(
                 format!("{} {status_text}", user.nickname()),
                 &user,
+                casemapping,
             ))
         }
         Command::Numeric(RPL_WHOISACCOUNT, params) => {
-            let user: User = User::from(Nick::from(params.get(1)?.as_str()));
+            let user: User = User::from_nick(
+                Nick::from(params.get(1)?.as_str()),
+                casemapping,
+            );
             let account = params.get(2)?;
             let status_text = params.get(3)?;
 
             Some(parse_fragments_with_user(
                 format!("{} {status_text} {account}", user.nickname()),
                 &user,
+                casemapping,
             ))
         }
         Command::Numeric(RPL_TOPICWHOTIME, params) => {
-            let user =
-                User::parse(params.get(2)?.as_str(), Some(prefix)).ok()?;
+            let user = User::parse(
+                params.get(2)?.as_str(),
+                Some(prefix),
+                Some(casemapping),
+            )
+            .ok()?;
 
             let datetime = params
                 .get(3)?
@@ -1560,6 +1616,7 @@ fn content<'a>(
             Some(parse_fragments_with_user(
                 format!("topic set by {} at {datetime}", user.nickname()),
                 &user,
+                casemapping,
             ))
         }
         Command::Numeric(RPL_CHANNELMODEIS, params) => {
@@ -1583,7 +1640,10 @@ fn content<'a>(
             Some(parse_fragments(format!("User mode is {mode}")))
         }
         Command::Numeric(RPL_AWAY, params) => {
-            let user = User::from(Nick::from(params.get(1)?.as_str()));
+            let user = User::from_nick(
+                Nick::from(params.get(1)?.as_str()),
+                casemapping,
+            );
             let away_message = params
                 .get(2)
                 .map(|away| format!(" ({away})"))
@@ -1592,6 +1652,7 @@ fn content<'a>(
             Some(parse_fragments_with_user(
                 format!("{} is away{away_message}", user.nickname()),
                 &user,
+                casemapping,
             ))
         }
         Command::Numeric(numeric, params)
@@ -1601,8 +1662,11 @@ fn content<'a>(
                 .get(1)?
                 .split(',')
                 .map(|target| {
-                    User::parse(target, Some(prefix))
-                        .unwrap_or(User::from(Nick::from(target)))
+                    User::parse(target, Some(prefix), Some(casemapping))
+                        .unwrap_or(User::from_nick(
+                            Nick::from(target),
+                            casemapping,
+                        ))
                 })
                 .collect::<ChannelUsers>();
 
@@ -1623,6 +1687,7 @@ fn content<'a>(
                     }
                 },
                 Some(&target_users),
+                casemapping,
             ))
         }
         Command::CHATHISTORY(sub, args) => {
@@ -1666,11 +1731,12 @@ fn content<'a>(
             }
         }
         Command::WALLOPS(text) => {
-            let user = message.user()?;
+            let user = message.user(casemapping)?;
 
             Some(parse_fragments_with_user(
                 format!("WALLOPS from {}: {}", user.nickname(), text.clone()),
                 &user,
+                casemapping,
             ))
         }
         Command::Numeric(RPL_WELCOME, params) => {
@@ -1681,7 +1747,8 @@ fn content<'a>(
                     .skip(1)
                     .collect::<Vec<_>>()
                     .join(" "),
-                &User::from(our_nick.clone()),
+                &User::from_nick(our_nick.clone(), casemapping),
+                casemapping,
             ))
         }
         Command::Numeric(_, responses) | Command::Unknown(_, responses) => {
@@ -1720,6 +1787,7 @@ fn parse_action(
     target: &str,
     our_nick: Option<&Nick>,
     highlights: &Highlights,
+    casemapping: isupport::CaseMap,
 ) -> Option<Content> {
     if !is_action(text) {
         return None;
@@ -1734,6 +1802,7 @@ fn parse_action(
         target,
         our_nick,
         highlights,
+        casemapping,
     ))
 }
 
@@ -1744,6 +1813,7 @@ pub fn action_text(
     target: &str,
     our_nick: Option<&Nick>,
     highlights: &Highlights,
+    casemapping: isupport::CaseMap,
 ) -> Content {
     let text = if let Some(action) = action {
         format!("{nick} {action}")
@@ -1757,6 +1827,7 @@ pub fn action_text(
         target,
         our_nick,
         highlights,
+        casemapping,
     )
 }
 
@@ -1766,6 +1837,7 @@ fn kick_text(
     ourself: bool,
     reason: &Option<String>,
     channel: Option<target::Channel>,
+    casemapping: isupport::CaseMap,
 ) -> Content {
     let target = if ourself {
         if channel.is_some() {
@@ -1792,6 +1864,7 @@ fn kick_text(
             format!("⟵ {target} been kicked by {}{reason}", kicker.nickname())
         },
         Some(&[kicker, victim].into_iter().collect()),
+        casemapping,
     )
 }
 
@@ -2036,31 +2109,41 @@ pub mod tests {
 
     #[test]
     fn fragments_with_users_parsing() {
+        let casemapping = isupport::CaseMap::default();
+
         let tests = [(
             (
                 "Hey Dave!~Dave@user/Dave have you seen &`Bill`?".to_string(),
                 ["Greg", "Dave", "Bob", "George_", "`Bill`"]
                     .into_iter()
-                    .map(|nick| User::from(Nick::from(nick)))
+                    .map(|nick| User::from_nick(Nick::from(nick), casemapping))
                     .collect::<ChannelUsers>(),
             ),
             vec![
                 Fragment::Text("Hey ".into()),
-                Fragment::User(User::from(Nick::from("Dave")), "Dave".into()),
+                Fragment::User(
+                    User::from_nick(Nick::from("Dave"), casemapping),
+                    "Dave".into(),
+                ),
                 Fragment::Text("!~".into()),
-                Fragment::User(User::from(Nick::from("Dave")), "Dave".into()),
+                Fragment::User(
+                    User::from_nick(Nick::from("Dave"), casemapping),
+                    "Dave".into(),
+                ),
                 Fragment::Text("@user/Dave have you seen &".into()),
                 Fragment::User(
-                    User::from(Nick::from("`Bill`")),
+                    User::from_nick(Nick::from("`Bill`"), casemapping),
                     "`Bill`".into(),
                 ),
                 Fragment::Text("?".into()),
             ],
         )];
         for ((text, channel_users), expected) in tests {
-            if let Content::Fragments(actual) =
-                parse_fragments_with_users(text, Some(&channel_users))
-            {
+            if let Content::Fragments(actual) = parse_fragments_with_users(
+                text,
+                Some(&channel_users),
+                casemapping,
+            ) {
                 assert_eq!(expected, actual);
             } else {
                 panic!("expected fragments with users");
@@ -2070,6 +2153,8 @@ pub mod tests {
 
     #[test]
     fn fragments_with_highlights_parsing() {
+        let casemapping = isupport::CaseMap::default();
+
         let tests = [
             (
                 (
@@ -2080,7 +2165,7 @@ pub mod tests {
                         "Bob",
                         "George_",
                         "`Bill`",
-                    ].into_iter().map(|nick| User::from(Nick::from(nick))).collect::<ChannelUsers>(),
+                    ].into_iter().map(|nick| User::from_nick(Nick::from(nick), casemapping)).collect::<ChannelUsers>(),
                     "#interesting",
                     Some(Nick::from("Bob")),
                     &Highlights {
@@ -2089,17 +2174,17 @@ pub mod tests {
                     },
                 ),
                 vec![
-                    Fragment::HighlightNick(User::from(Nick::from("Bob")), "Bob".into()),
+                    Fragment::HighlightNick(User::from_nick(Nick::from("Bob"), casemapping), "Bob".into()),
                     Fragment::Text(": I'm in ".into()),
                     Fragment::Channel("#interesting".into()),
                     Fragment::Text(" with ".into()),
-                    Fragment::User(User::from(Nick::from("Greg")), "Greg".into()),
+                    Fragment::User(User::from_nick(Nick::from("Greg"), casemapping), "Greg".into()),
                     Fragment::Text(", ".into()),
-                    Fragment::User(User::from(Nick::from("George_")), "George_".into()),
+                    Fragment::User(User::from_nick(Nick::from("George_"), casemapping), "George_".into()),
                     Fragment::Text(", &".into()),
-                    Fragment::User(User::from(Nick::from("`Bill`")), "`Bill`".into()),
+                    Fragment::User(User::from_nick(Nick::from("`Bill`"), casemapping), "`Bill`".into()),
                     Fragment::Text(". I hope @".into()),
-                    Fragment::User(User::from(Nick::from("Dave")), "Dave".into()),
+                    Fragment::User(User::from_nick(Nick::from("Dave"), casemapping), "Dave".into()),
                     Fragment::Text(" doesn't notice.".into()),
                 ],
             ),
@@ -2109,7 +2194,7 @@ pub mod tests {
                     [
                         "f_",
                         "rx",
-                    ].into_iter().map(|nick| User::from(Nick::from(nick))).collect::<ChannelUsers>(),
+                    ].into_iter().map(|nick| User::from_nick(Nick::from(nick), casemapping)).collect::<ChannelUsers>(),
                     "#funderscore-sucks",
                     Some(Nick::from("f_")),
                     &Highlights {
@@ -2119,7 +2204,7 @@ pub mod tests {
                 ),
                 vec![
                     Fragment::Text("\u{3}14<\u{3}\u{3}04lurk_\u{3}\u{3}14/rx>\u{3} ".into()),
-                    Fragment::HighlightNick(User::from(Nick::from("f_")), "f_".into()),
+                    Fragment::HighlightNick(User::from_nick(Nick::from("f_"), casemapping), "f_".into()),
                     Fragment::Text("~oftc: > A��\u{1f}qj\u{14}��L�5�g���5�P��yn_?�i3g�1\u{7f}mE�\\X��� Xe�\u{5fa}{d�+�`@�^��NK��~~ޏ\u{7}\u{8}\u{15}\\�\u{4}A� \u{f}\u{1c}�N\u{11}6�r�\u{4}t��Q��\u{1c}�m\u{19}��".into())
                 ],
             ),
@@ -2133,6 +2218,7 @@ pub mod tests {
                 target,
                 our_nick.as_ref(),
                 highlights,
+                casemapping,
             ) {
                 assert_eq!(expected, actual);
             } else {
@@ -2162,17 +2248,26 @@ pub mod tests {
         use crate::message::Encoded;
         use crate::{isupport, target};
 
+        let isupport = HashMap::<isupport::Kind, isupport::Parameter>::new();
+
         let our_nick = Nick::from("our_nick");
 
         let channel_users: ChannelUsers = [
-            User::from(Nick::from("chat")),
-            User::from(Nick::from("dan")),
-            User::from(our_nick.clone()),
+            User::from_nick(
+                Nick::from("chat"),
+                isupport::get_casemapping_or_default(&isupport),
+            ),
+            User::from_nick(
+                Nick::from("dan"),
+                isupport::get_casemapping_or_default(&isupport),
+            ),
+            User::from_nick(
+                our_nick.clone(),
+                isupport::get_casemapping_or_default(&isupport),
+            ),
         ]
         .into_iter()
         .collect();
-
-        let isupport = HashMap::<isupport::Kind, isupport::Parameter>::new();
 
         let encoded = proto::parse::message(irc_message).unwrap();
 
@@ -2227,35 +2322,44 @@ pub mod tests {
                 user: User::parse(
                     "+nieve!snow@yeti",
                     isupport::get_prefix(&isupport),
+                    isupport::get_casemapping(&isupport),
                 )
                 .unwrap(),
                 comment: Some("see you later our_nick".to_string()),
                 user_channels: user_channels.clone(),
+                casemapping: isupport::get_casemapping_or_default(&isupport),
             },
             Broadcast::Nickname {
                 old_nick: Nick::from("dan"),
                 new_nick: Nick::from("dandadan"),
                 ourself: false,
                 user_channels: user_channels.clone(),
+                casemapping: isupport::get_casemapping_or_default(&isupport),
             },
             Broadcast::Nickname {
                 old_nick: Nick::from("our_old_nick"),
                 new_nick: Nick::from("our_new_nick"),
                 ourself: true,
                 user_channels: user_channels.clone(),
+                casemapping: isupport::get_casemapping_or_default(&isupport),
             },
             Broadcast::Invite {
-                inviter: Nick::from("`whammer`"),
+                inviter: User::from_nick(
+                    Nick::from("`whammer`"),
+                    isupport::get_casemapping_or_default(&isupport),
+                ),
                 channel: target::Channel::from_str(
                     "#40k",
                     isupport::get_casemapping_or_default(&isupport),
                 ),
                 user_channels: user_channels.clone(),
+                casemapping: isupport::get_casemapping_or_default(&isupport),
             },
             Broadcast::ChangeHost {
                 old_user: User::parse(
                     "our_nick!old_user@old_host",
                     isupport::get_prefix(&isupport),
+                    isupport::get_casemapping(&isupport),
                 )
                 .unwrap(),
                 new_username: "new_user".to_string(),
@@ -2263,11 +2367,13 @@ pub mod tests {
                 ourself: true,
                 logged_in: false,
                 user_channels: user_channels.clone(),
+                casemapping: isupport::get_casemapping_or_default(&isupport),
             },
             Broadcast::ChangeHost {
                 old_user: User::parse(
                     "+nieve!snow@yeti",
                     isupport::get_prefix(&isupport),
+                    isupport::get_casemapping(&isupport),
                 )
                 .unwrap(),
                 new_username: "lava".to_string(),
@@ -2275,6 +2381,7 @@ pub mod tests {
                 ourself: false,
                 logged_in: true,
                 user_channels: user_channels.clone(),
+                casemapping: isupport::get_casemapping_or_default(&isupport),
             },
         ]
     }
@@ -2284,24 +2391,22 @@ pub mod tests {
 
         use crate::config::Config;
 
+        let casemapping = isupport::CaseMap::default();
         let channels = vec![
-            target::Channel::from_str("##chat", isupport::CaseMap::default()),
-            target::Channel::from_str("#halloy", isupport::CaseMap::default()),
-            target::Channel::from_str("#libera", isupport::CaseMap::default()),
-            target::Channel::from_str(
-                "&test-chan",
-                isupport::CaseMap::default(),
-            ),
+            target::Channel::from_str("##chat", casemapping),
+            target::Channel::from_str("#halloy", casemapping),
+            target::Channel::from_str("#libera", casemapping),
+            target::Channel::from_str("&test-chan", casemapping),
         ]
         .into_iter();
 
         let queries = vec![
             target::Query::from_user(
-                &User::from(Nick::from("dan")),
+                &User::from_nick(Nick::from("dan"), casemapping),
                 isupport::CaseMap::default(),
             ),
             target::Query::from_user(
-                &User::from(Nick::from("WiZ")),
+                &User::from_nick(Nick::from("WiZ"), casemapping),
                 isupport::CaseMap::default(),
             ),
         ]

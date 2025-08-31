@@ -287,14 +287,15 @@ impl Dashboard {
                                             }
 
                                             if let Some(nick) = clients.nickname(buffer.server()) {
-                                                let mut user = nick.to_owned().into();
-                                                let mut channel_users = None;
                                                 let chantypes =
                                                     clients.get_chantypes(buffer.server());
                                                 let statusmsg =
                                                     clients.get_statusmsg(buffer.server());
                                                 let casemapping =
                                                     clients.get_casemapping(buffer.server());
+
+                                                let mut user = User::from_nick(nick.to_owned(), casemapping);
+                                                let mut channel_users = None;
 
                                                 // Resolve our attributes if sending this message in a channel
                                                 if let buffer::Upstream::Channel(server, channel) =

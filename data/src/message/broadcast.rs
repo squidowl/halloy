@@ -10,7 +10,7 @@ use super::{
 use crate::config::buffer::UsernameFormat;
 use crate::time::Posix;
 use crate::user::Nick;
-use crate::{Config, User, message, target};
+use crate::{Config, User, isupport, message, target};
 
 enum Cause {
     Server(Option<source::Server>),
@@ -160,6 +160,7 @@ pub fn quit(
     comment: &Option<String>,
     config: &Config,
     sent_time: DateTime<Utc>,
+    casemapping: isupport::CaseMap,
 ) -> Vec<Message> {
     let comment = comment
         .as_ref()
@@ -172,6 +173,7 @@ pub fn quit(
             user.formatted(config.buffer.server_messages.quit.username_format)
         ),
         user,
+        casemapping,
     );
 
     expand(
@@ -194,19 +196,22 @@ pub fn nickname(
     new_nick: &Nick,
     ourself: bool,
     sent_time: DateTime<Utc>,
+    casemapping: isupport::CaseMap,
 ) -> Vec<Message> {
-    let old_user = User::from(old_nick.clone());
-    let new_user = User::from(new_nick.clone());
+    let old_user = User::from_nick(old_nick.clone(), casemapping);
+    let new_user = User::from_nick(new_nick.clone(), casemapping);
 
     let content = if ourself {
         parse_fragments_with_user(
             format!("You're now known as {new_nick}"),
             &new_user,
+            casemapping,
         )
     } else {
         parse_fragments_with_users(
             format!("{old_nick} is now known as {new_nick}"),
             Some(&[old_user.clone(), new_user].into_iter().collect()),
+            casemapping,
         )
     };
 
@@ -224,15 +229,16 @@ pub fn nickname(
 }
 
 pub fn invite(
-    inviter: Nick,
+    inviter: User,
     channel: target::Channel,
     channels: impl IntoIterator<Item = target::Channel>,
     sent_time: DateTime<Utc>,
+    casemapping: isupport::CaseMap,
 ) -> Vec<Message> {
-    let inviter = User::from(inviter);
     let content = parse_fragments_with_user(
         format!("{} invited you to join {channel}", inviter.nickname()),
         &inviter,
+        casemapping,
     );
 
     expand(channels, [], false, Cause::Server(None), content, sent_time)
@@ -247,6 +253,7 @@ pub fn change_host(
     ourself: bool,
     logged_in: bool,
     sent_time: DateTime<Utc>,
+    casemapping: isupport::CaseMap,
 ) -> Vec<Message> {
     let content = if ourself {
         plain(format!(
@@ -259,6 +266,7 @@ pub fn change_host(
                 old_user.formatted(UsernameFormat::Full)
             ),
             old_user,
+            casemapping,
         )
     };
 
@@ -295,6 +303,7 @@ pub fn kick(
     reason: Option<String>,
     channel: target::Channel,
     sent_time: DateTime<Utc>,
+    casemapping: isupport::CaseMap,
 ) -> Vec<Message> {
     let cause = Cause::Server(Some(source::Server::new(
         source::server::Kind::Kick,
@@ -307,6 +316,7 @@ pub fn kick(
         true, // Broadcast of KICK is always ourself
         &reason,
         Some(channel),
+        casemapping,
     );
 
     expand([], [], true, cause, content, sent_time)
@@ -327,17 +337,20 @@ pub enum Broadcast {
         user: User,
         comment: Option<String>,
         user_channels: Vec<target::Channel>,
+        casemapping: isupport::CaseMap,
     },
     Nickname {
         old_nick: Nick,
         new_nick: Nick,
         ourself: bool,
         user_channels: Vec<target::Channel>,
+        casemapping: isupport::CaseMap,
     },
     Invite {
-        inviter: Nick,
+        inviter: User,
         channel: target::Channel,
         user_channels: Vec<target::Channel>,
+        casemapping: isupport::CaseMap,
     },
     ChangeHost {
         old_user: User,
@@ -346,12 +359,14 @@ pub enum Broadcast {
         ourself: bool,
         logged_in: bool,
         user_channels: Vec<target::Channel>,
+        casemapping: isupport::CaseMap,
     },
     Kick {
         kicker: User,
         victim: User,
         reason: Option<String>,
         channel: target::Channel,
+        casemapping: isupport::CaseMap,
     },
 }
 
@@ -377,6 +392,7 @@ pub fn into_messages(
             user,
             comment,
             user_channels,
+            casemapping,
         } => {
             let user_query =
                 queries.find(|query| user.as_str() == query.as_str());
@@ -388,6 +404,7 @@ pub fn into_messages(
                 &comment,
                 config,
                 sent_time,
+                casemapping,
             )
         }
         Broadcast::Nickname {
@@ -395,6 +412,7 @@ pub fn into_messages(
             new_nick,
             ourself,
             user_channels,
+            casemapping,
         } => {
             if ourself {
                 // If ourself, broadcast to all query channels (since we are in all of them)
@@ -405,6 +423,7 @@ pub fn into_messages(
                     &new_nick,
                     ourself,
                     sent_time,
+                    casemapping,
                 )
             } else {
                 // Otherwise just the query channel of the user w/ nick change
@@ -417,6 +436,7 @@ pub fn into_messages(
                     &new_nick,
                     ourself,
                     sent_time,
+                    casemapping,
                 )
             }
         }
@@ -424,7 +444,8 @@ pub fn into_messages(
             inviter,
             channel,
             user_channels,
-        } => invite(inviter, channel, user_channels, sent_time),
+            casemapping,
+        } => invite(inviter, channel, user_channels, sent_time, casemapping),
         Broadcast::ChangeHost {
             old_user,
             new_username,
@@ -432,6 +453,7 @@ pub fn into_messages(
             ourself,
             logged_in,
             user_channels,
+            casemapping,
         } => {
             if ourself {
                 // If ourself, broadcast to all query channels (since we are in all of them)
@@ -444,6 +466,7 @@ pub fn into_messages(
                     ourself,
                     logged_in,
                     sent_time,
+                    casemapping,
                 )
             } else {
                 // Otherwise just the query channel of the user w/ host change
@@ -458,6 +481,7 @@ pub fn into_messages(
                     ourself,
                     logged_in,
                     sent_time,
+                    casemapping,
                 )
             }
         }
@@ -466,8 +490,14 @@ pub fn into_messages(
             victim,
             reason,
             channel,
-        } => {
-            message::broadcast::kick(kicker, victim, reason, channel, sent_time)
-        }
+            casemapping,
+        } => message::broadcast::kick(
+            kicker,
+            victim,
+            reason,
+            channel,
+            sent_time,
+            casemapping,
+        ),
     }
 }
