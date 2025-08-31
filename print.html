@@ -793,6 +793,7 @@ focused_buffer = "close-pane"
 </li>
 <li><a href="configuration/buffer.html#bufferchathistory">Chathistory</a> - IRCv3 Chat History extension settings</li>
 <li><a href="configuration/buffer.html#buffercommands">Commands</a> - Commands settings</li>
+<li><a href="configuration/buffer.html#bufferbacklog_separator">Backlog Separator</a> - Customize when the backlog separator is displayed within a buffer</li>
 <li><a href="configuration/buffer.html#bufferdate_separators">Date Separators</a> - Customize how date separators are displayed within a buffer</li>
 <li><a href="configuration/buffer.html#bufferemojis">Emojis</a> - Emojis settings</li>
 <li><a href="configuration/buffer.html#bufferinternal_messages">Internal Messages</a> - Internal messages are messages sent from Halloy itself</li>
@@ -946,6 +947,17 @@ show_description = false
 
 [buffer.commands]
 show_description = true
+</code></pre>
+<h2 id="bufferbacklog_separator"><a class="header" href="#bufferbacklog_separator"><code>[buffer.backlog_separator]</code></a></h2>
+<p>Customize when the backlog separator is displayed within a buffer</p>
+<h3 id="hide_when_all_read"><a class="header" href="#hide_when_all_read"><code>hide_when_all_read</code></a></h3>
+<p>Hide backlog divider when all messages in the buffer have been marked as read.</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: false
+
+[buffer.buffer_separator]
+hide_when_all_read = true
 </code></pre>
 <h2 id="bufferdate_separators"><a class="header" href="#bufferdate_separators"><code>[buffer.date_separators]</code></a></h2>
 <p>Customize how date separators are displayed within a buffer</p>
