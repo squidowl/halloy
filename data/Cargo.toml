@@ -5,9 +5,19 @@ authors.workspace = true
 license.workspace = true
 edition.workspace = true
 
+[lib]
+name = "data"
+path = "src/lib.rs"
+
+[[bin]]
+name = "print_messages_json"
+path = "src/bin.rs"
+required-features = ["message_tests"]
+
 [features]
 dev = []
 tor = ["irc/tor"]
+message_tests = []
 
 [dependencies]
 thiserror = { workspace = true }
@@ -38,7 +48,6 @@ indexmap = { version = "2.10", features = ["std", "serde"] }
 seahash = "4.1.0"
 serde_json = "1.0"
 serde_ignored = "0.1"
-serde_test = "1.0"
 sha2 = "0.10.8"
 toml = "0.8.11"
 reqwest = { version = "0.12", features = ["json"] }
@@ -50,6 +59,9 @@ derive_more = { version = "2.0.1", features = ["full"] }
 image = "0.25.5"
 html-escape = "0.2.13"
 display-info = "0.5.0"
+
+[dev-dependencies]
+serde_test = "1.0"
 
 [dependencies.irc]
 path = "../irc"
