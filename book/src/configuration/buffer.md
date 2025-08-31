@@ -8,6 +8,7 @@ Buffer settings for Halloy.
    3. [Topic](#bufferchanneltopic) - Topic settings within a channel buffer
 2. [Chathistory](#bufferchathistory) - IRCv3 Chat History extension settings
 3. [Commands](#buffercommands) - Commands settings
+4. [Backlog Separator](#bufferbacklog_separator) - Customize when the backlog separator is displayed within a buffer
 4. [Date Separators](#bufferdate_separators) - Customize how date separators are displayed within a buffer
 5. [Emojis](#bufferemojis) - Emojis settings
 6. [Internal Messages](#bufferinternal_messages) - Internal messages are messages sent from Halloy itself
@@ -225,6 +226,23 @@ Show or hide the description for a command
 
 [buffer.commands]
 show_description = true
+```
+
+## `[buffer.backlog_separator]`
+
+Customize when the backlog separator is displayed within a buffer
+
+### `hide_when_all_read`
+
+Hide backlog divider when all messages in the buffer have been marked as read.
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: false
+
+[buffer.buffer_separator]
+hide_when_all_read = true
 ```
 
 ## `[buffer.date_separators]`
