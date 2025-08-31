@@ -677,6 +677,19 @@ mod tests {
                 },
                 [Token::String("*status")],
             ),
+            (
+                User {
+                    nickname: "714user".into(),
+                    username: None,
+                    hostname: None,
+                    accountname: None,
+                    access_levels: BTreeSet::<AccessLevel>::from([
+                        AccessLevel::Oper,
+                    ]),
+                    away: false,
+                },
+                [Token::String("@714user")],
+            ),
         ];
 
         for (user, expected) in tests {

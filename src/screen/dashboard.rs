@@ -8,8 +8,8 @@ use data::dashboard::{self, BufferAction};
 use data::environment::{RELEASE_WEBSITE, WIKI_WEBSITE};
 use data::history::ReadMarker;
 use data::history::filter::Filter;
-use data::history::manager::Broadcast;
 use data::isupport::{self, ChatHistorySubcommand, MessageReference};
+use data::message::Broadcast;
 use data::target::{self, Target};
 use data::{
     Config, Notification, Server, User, Version, client, command, config,
@@ -133,12 +133,21 @@ impl Dashboard {
         (dashboard, tasks)
     }
 
-    pub fn init_filters(&mut self, servers: &server::Map) {
-        self.history.set_filters(Filter::list_from_servers(servers));
+    pub fn init_filters(
+        &mut self,
+        servers: &server::Map,
+        clients: &client::Map,
+    ) {
+        self.history
+            .set_filters(Filter::list_from_servers(servers, clients));
     }
 
-    pub fn update_filters(&mut self, servers: &server::Map) {
-        self.init_filters(servers);
+    pub fn update_filters(
+        &mut self,
+        servers: &server::Map,
+        clients: &client::Map,
+    ) {
+        self.init_filters(servers, clients);
 
         // get all channels that are open
         let open_pane_data: Vec<(data::Server, target::Channel)> = self
@@ -154,15 +163,15 @@ impl Dashboard {
 
         // rebuild cache for channels with open panes
         for (server, channel) in open_pane_data {
-            self.history
-                .rebuild_blocked_message_cache(history::Kind::Channel(
-                    server, channel,
-                ));
+            self.history.block_messages(
+                history::Kind::Channel(server, channel),
+                clients,
+            );
         }
 
         // always rebuild for highlights
         self.history
-            .rebuild_blocked_message_cache(history::Kind::Highlights);
+            .block_messages(history::Kind::Highlights, clients);
     }
 
     pub fn update(
@@ -313,6 +322,7 @@ impl Dashboard {
                                                             .history
                                                             .record_message(
                                                                 input.server(),
+                                                                casemapping,
                                                                 message,
                                                         ) {
                                                             tasks.push(Task::perform(
@@ -819,7 +829,7 @@ impl Dashboard {
                 }
             }
             Message::History(message) => {
-                if let Some(event) = self.history.update(message) {
+                if let Some(event) = self.history.update(message, clients) {
                     match event {
                         history::manager::Event::Loaded(kind) => {
                             let buffer = kind.into();
@@ -1385,27 +1395,36 @@ impl Dashboard {
             }
             Message::SendFileSelected(server, to, path) => {
                 if let Some(server_handle) = clients.get_server_handle(&server)
-                    && let Some(path) = path
-                    && let Ok(query) = target::Query::parse(
-                        to.nickname().as_ref(),
-                        clients.get_chantypes(&server),
-                        clients.get_statusmsg(&server),
-                        clients.get_casemapping(&server),
-                    )
-                    && let Some(event) = self.file_transfers.send(
-                        file_transfer::SendRequest {
-                            to,
-                            path,
-                            server: server.clone(),
-                            server_handle: server_handle.clone(),
-                        },
-                        config,
-                    )
                 {
-                    return (
-                        self.handle_file_transfer_event(&server, &query, event),
-                        None,
-                    );
+                    let casemapping = clients.get_casemapping(&server);
+
+                    if let Some(path) = path
+                        && let Ok(query) = target::Query::parse(
+                            to.nickname().as_ref(),
+                            clients.get_chantypes(&server),
+                            clients.get_statusmsg(&server),
+                            casemapping,
+                        )
+                        && let Some(event) = self.file_transfers.send(
+                            file_transfer::SendRequest {
+                                to,
+                                path,
+                                server: server.clone(),
+                                server_handle: server_handle.clone(),
+                            },
+                            config,
+                        )
+                    {
+                        return (
+                            self.handle_file_transfer_event(
+                                &server,
+                                casemapping,
+                                &query,
+                                event,
+                            ),
+                            None,
+                        );
+                    }
                 }
             }
             Message::CloseContextMenu(window, any_closed) => {
@@ -2114,9 +2133,12 @@ impl Dashboard {
     pub fn record_message(
         &mut self,
         server: &Server,
+        casemapping: isupport::CaseMap,
         message: data::Message,
     ) -> Task<Message> {
-        if let Some(task) = self.history.record_message(server, message) {
+        if let Some(task) =
+            self.history.record_message(server, casemapping, message)
+        {
             Task::perform(task, Message::History)
         } else {
             Task::none()
@@ -2134,9 +2156,10 @@ impl Dashboard {
     pub fn record_highlight(
         &mut self,
         message: data::Message,
+        casemapping: isupport::CaseMap,
     ) -> Task<Message> {
         self.history
-            .record_highlight(message)
+            .record_highlight(message, casemapping)
             .map_or_else(Task::none, |task| {
                 Task::perform(task, Message::History)
             })
@@ -2220,13 +2243,14 @@ impl Dashboard {
     pub fn broadcast(
         &mut self,
         server: &Server,
+        casemapping: isupport::CaseMap,
         config: &Config,
         sent_time: DateTime<Utc>,
         broadcast: Broadcast,
     ) -> Task<Message> {
         Task::batch(
             self.history
-                .broadcast(server, broadcast, config, sent_time)
+                .broadcast(server, casemapping, broadcast, config, sent_time)
                 .into_iter()
                 .map(|task| Task::perform(task, Message::History)),
         )
@@ -2725,12 +2749,18 @@ impl Dashboard {
         )
         .ok()?;
 
-        Some(self.handle_file_transfer_event(server, &query, event))
+        Some(self.handle_file_transfer_event(
+            server,
+            casemapping,
+            &query,
+            event,
+        ))
     }
 
     pub fn handle_file_transfer_event(
         &mut self,
         server: &Server,
+        casemapping: isupport::CaseMap,
         query: &target::Query,
         event: file_transfer::manager::Event,
     ) -> Task<Message> {
@@ -2742,6 +2772,7 @@ impl Dashboard {
                     file_transfer::Direction::Received => {
                         tasks.push(self.record_message(
                             server,
+                            casemapping,
                             data::Message::file_transfer_request_received(
                                 &transfer.remote_user,
                                 query,
@@ -2752,6 +2783,7 @@ impl Dashboard {
                     file_transfer::Direction::Sent => {
                         tasks.push(self.record_message(
                             server,
+                            casemapping,
                             data::Message::file_transfer_request_sent(
                                 &transfer.remote_user,
                                 query,

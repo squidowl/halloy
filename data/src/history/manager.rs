@@ -7,11 +7,13 @@ use tokio::time::Instant;
 
 use super::filter::{Filter, FilterChain};
 use crate::history::{self, History, MessageReferences, ReadMarker};
-use crate::message::{self, Hash, Limit};
+use crate::message::broadcast::{self, Broadcast};
+use crate::message::{self, Limit};
 use crate::target::{self, Target};
 use crate::user::{ChannelUsers, Nick};
 use crate::{
-    Config, Input, Server, User, buffer, config, input, isupport, server,
+    Config, Input, Server, User, buffer, client, config, input, isupport,
+    server,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -81,8 +83,6 @@ impl Manager {
                 }
             }
 
-            self.data.blocked_messages_index.remove(&kind);
-
             log::debug!("cleared messages for {kind}");
 
             return task.map(move |task| {
@@ -124,16 +124,18 @@ impl Manager {
         tasks
     }
 
-    pub fn update(&mut self, message: Message) -> Option<Event> {
+    pub fn update(
+        &mut self,
+        message: Message,
+        clients: &client::Map,
+    ) -> Option<Event> {
         match message {
             Message::LoadFull(kind, Ok(loaded)) => {
                 let len = loaded.messages.len();
                 self.data.load_full(kind.clone(), loaded);
                 log::debug!("loaded history for {kind}: {len} messages");
 
-                if !self.data.has_blocked_message_cache(&kind) {
-                    self.rebuild_blocked_message_cache(kind.clone());
-                }
+                self.block_messages(kind.clone(), clients);
 
                 return Some(Event::Loaded(kind));
             }
@@ -197,7 +199,6 @@ impl Manager {
     pub fn set_filters(&mut self, mut new_filters: Vec<Filter>) {
         self.filters.clear();
         self.filters.append(&mut new_filters);
-        self.data.clear_blocked_message_cache();
         log::debug!(
             "set new filters to history manager, reset all cached channel flags."
         );
@@ -271,7 +272,7 @@ impl Manager {
                 }
 
                 tasks.extend(
-                    self.record_message(input.server(), message)
+                    self.record_message(input.server(), casemapping, message)
                         .map(futures::FutureExt::boxed),
                 );
             }
@@ -299,14 +300,18 @@ impl Manager {
     pub fn record_message(
         &mut self,
         server: &Server,
-        message: crate::Message,
+        casemapping: isupport::CaseMap,
+        mut message: crate::Message,
     ) -> Option<impl Future<Output = Message> + use<>> {
         history::Kind::from_server_message(server.clone(), &message).and_then(
             |kind| {
-                let blocked = FilterChain::borrow(&self.filters)
-                    .filter_message_of_kind(&message, &kind);
+                FilterChain::borrow(&self.filters).filter_message_of_kind(
+                    &mut message,
+                    &kind,
+                    casemapping,
+                );
 
-                self.data.add_message(kind, message, blocked)
+                self.data.add_message(kind, message)
             },
         )
     }
@@ -315,22 +320,22 @@ impl Manager {
         &mut self,
         record: crate::log::Record,
     ) -> Option<impl Future<Output = Message> + use<>> {
-        self.data.add_message(
-            history::Kind::Logs,
-            crate::Message::log(record),
-            false,
-        )
+        self.data
+            .add_message(history::Kind::Logs, crate::Message::log(record))
     }
 
     pub fn record_highlight(
         &mut self,
-        message: crate::Message,
+        mut message: crate::Message,
+        casemapping: isupport::CaseMap,
     ) -> Option<impl Future<Output = Message> + use<>> {
-        let blocked = FilterChain::borrow(&self.filters)
-            .filter_message_of_kind(&message, &history::Kind::Highlights);
+        FilterChain::borrow(&self.filters).filter_message_of_kind(
+            &mut message,
+            &history::Kind::Highlights,
+            casemapping,
+        );
 
-        self.data
-            .add_message(history::Kind::Highlights, message, blocked)
+        self.data.add_message(history::Kind::Highlights, message)
     }
 
     pub fn update_read_marker<T: Into<history::Kind>>(
@@ -464,6 +469,7 @@ impl Manager {
     pub fn broadcast(
         &mut self,
         server: &Server,
+        casemapping: isupport::CaseMap,
         broadcast: Broadcast,
         config: &Config,
         sent_time: DateTime<Utc>,
@@ -480,7 +486,7 @@ impl Manager {
                 }
             })
             .cloned();
-        let mut queries = self
+        let queries = self
             .data
             .map
             .keys()
@@ -493,126 +499,15 @@ impl Manager {
             })
             .cloned();
 
-        let messages = match broadcast {
-            Broadcast::Connecting => message::broadcast::connecting(sent_time),
-            Broadcast::Connected => message::broadcast::connected(sent_time),
-            Broadcast::ConnectionFailed { error } => {
-                message::broadcast::connection_failed(error, sent_time)
-            }
-            Broadcast::Disconnected { error } => {
-                message::broadcast::disconnected(
-                    channels, queries, error, sent_time,
-                )
-            }
-            Broadcast::Reconnected => {
-                message::broadcast::reconnected(channels, queries, sent_time)
-            }
-            Broadcast::Quit {
-                user,
-                comment,
-                user_channels,
-            } => {
-                let user_query =
-                    queries.find(|query| user.as_str() == query.as_str());
-
-                message::broadcast::quit(
-                    user_channels,
-                    user_query,
-                    &user,
-                    &comment,
-                    config,
-                    sent_time,
-                )
-            }
-            Broadcast::Nickname {
-                old_nick,
-                new_nick,
-                ourself,
-                user_channels,
-            } => {
-                if ourself {
-                    // If ourself, broadcast to all query channels (since we are in all of them)
-                    message::broadcast::nickname(
-                        user_channels,
-                        queries,
-                        &old_nick,
-                        &new_nick,
-                        ourself,
-                        sent_time,
-                    )
-                } else {
-                    // Otherwise just the query channel of the user w/ nick change
-                    let user_query = queries
-                        .find(|query| old_nick.as_ref() == query.as_str());
-                    message::broadcast::nickname(
-                        user_channels,
-                        user_query,
-                        &old_nick,
-                        &new_nick,
-                        ourself,
-                        sent_time,
-                    )
-                }
-            }
-            Broadcast::Invite {
-                inviter,
-                channel,
-                user_channels,
-            } => message::broadcast::invite(
-                inviter,
-                channel,
-                user_channels,
-                sent_time,
-            ),
-            Broadcast::ChangeHost {
-                old_user,
-                new_username,
-                new_hostname,
-                ourself,
-                logged_in,
-                user_channels,
-            } => {
-                if ourself {
-                    // If ourself, broadcast to all query channels (since we are in all of them)
-                    message::broadcast::change_host(
-                        user_channels,
-                        queries,
-                        &old_user,
-                        &new_username,
-                        &new_hostname,
-                        ourself,
-                        logged_in,
-                        sent_time,
-                    )
-                } else {
-                    // Otherwise just the query channel of the user w/ host change
-                    let user_query = queries
-                        .find(|query| old_user.as_str() == query.as_str());
-                    message::broadcast::change_host(
-                        user_channels,
-                        user_query,
-                        &old_user,
-                        &new_username,
-                        &new_hostname,
-                        ourself,
-                        logged_in,
-                        sent_time,
-                    )
-                }
-            }
-            Broadcast::Kick {
-                kicker,
-                victim,
-                reason,
-                channel,
-            } => message::broadcast::kick(
-                kicker, victim, reason, channel, sent_time,
-            ),
-        };
+        let messages = broadcast::into_messages(
+            broadcast, config, sent_time, channels, queries,
+        );
 
         messages
             .into_iter()
-            .filter_map(|message| self.record_message(server, message))
+            .filter_map(|message| {
+                self.record_message(server, casemapping, message)
+            })
             .collect()
     }
 
@@ -629,30 +524,57 @@ impl Manager {
         self.data.hide_preview(&kind.into(), message, url);
     }
 
-    pub fn rebuild_blocked_message_cache(&mut self, kind: history::Kind) {
+    pub fn block_messages(
+        &mut self,
+        kind: history::Kind,
+        clients: &client::Map,
+    ) {
         let chain = FilterChain::borrow(&self.filters);
 
-        if let Some(history) = self.data.map.get(&kind) {
+        if let Some(history) = self.data.map.get_mut(&kind) {
             let messages = match history {
                 History::Full { messages, .. } => messages,
                 History::Partial { messages, .. } => messages,
             };
 
-            let blocked_message_index = messages
-                .iter()
-                .filter_map(|message| {
-                    chain
-                        .filter_message_of_kind(message, &kind)
-                        .then_some(message.hash)
-                })
-                .collect();
+            match &kind {
+                history::Kind::Highlights => {
+                    messages.iter_mut().for_each(|message| {
+                        let casemapping = if let message::Target::Highlights {
+                            server,
+                            ..
+                        } = &message.target
+                        {
+                            clients.get_casemapping(server)
+                        } else {
+                            isupport::CaseMap::default()
+                        };
 
-            self.data
-                .blocked_messages_index
-                .entry(kind.clone())
-                .insert_entry(blocked_message_index);
-        };
-        log::debug!("rebuilt blocked message cache for {kind}");
+                        chain.filter_message_of_kind(
+                            message,
+                            &kind,
+                            casemapping,
+                        );
+                    });
+                }
+                _ => {
+                    let casemapping = kind
+                        .server()
+                        .map(|server| clients.get_casemapping(server))
+                        .unwrap_or_default();
+
+                    messages.iter_mut().for_each(|message| {
+                        chain.filter_message_of_kind(
+                            message,
+                            &kind,
+                            casemapping,
+                        );
+                    });
+                }
+            }
+        }
+
+        log::debug!("ignored messages in {kind}");
     }
 }
 
@@ -677,7 +599,6 @@ fn with_limit<'a>(
 #[derive(Debug, Default)]
 struct Data {
     map: HashMap<history::Kind, History>,
-    pub blocked_messages_index: HashMap<history::Kind, HashSet<Hash>>,
     input: input::Storage,
 }
 
@@ -778,78 +699,80 @@ impl Data {
         let filtered = messages
             .iter()
             .filter(|message| {
-                !self
-                    .blocked_messages_index
-                    .get(kind)
-                    .is_some_and(|blocklist| blocklist.contains(&message.hash))
-            })
-            .filter(|message| match message.target.source() {
-                message::Source::Server(Some(source)) => {
-                    if let Some(server_message) =
-                        buffer_config.server_messages.get(source)
-                    {
-                        // Check if target is a channel, and if included/excluded.
-                        if let message::Target::Channel { channel, .. } =
-                            &message.target
-                            && !server_message
-                                .should_send_message(channel.as_str())
-                        {
-                            return false;
-                        }
-
-                        if let Some(seconds) = server_message.smart {
-                            let nick = match source.nick() {
-                                Some(nick) => nick.clone(),
-                                None => {
-                                    if let Some(nickname) = message
-                                        .plain()
-                                        .and_then(|s| s.split(' ').nth(1))
-                                    {
-                                        Nick::from(nickname)
-                                    } else {
-                                        return true;
-                                    }
+                if message.blocked {
+                    false
+                } else {
+                    match message.target.source() {
+                        message::Source::Server(Some(source)) => {
+                            if let Some(server_message) =
+                                buffer_config.server_messages.get(source)
+                            {
+                                // Check if target is a channel, and if included/excluded.
+                                if let message::Target::Channel {
+                                    channel, ..
+                                } = &message.target
+                                    && !server_message
+                                        .should_send_message(channel.as_str())
+                                {
+                                    return false;
                                 }
-                            };
 
-                            return !smart_filter_message(
-                                message,
-                                &seconds,
-                                last_seen.get(&nick),
+                                if let Some(seconds) = server_message.smart {
+                                    let nick = match source.nick() {
+                                        Some(nick) => nick.clone(),
+                                        None => {
+                                            if let Some(nickname) =
+                                                message.plain().and_then(|s| {
+                                                    s.split(' ').nth(1)
+                                                })
+                                            {
+                                                Nick::from(nickname)
+                                            } else {
+                                                return true;
+                                            }
+                                        }
+                                    };
+
+                                    return !smart_filter_message(
+                                        message,
+                                        &seconds,
+                                        last_seen.get(&nick),
+                                    );
+                                }
+                            }
+
+                            true
+                        }
+                        crate::message::Source::User(message_user) => {
+                            last_seen.insert(
+                                message_user.nickname().to_owned(),
+                                message.server_time,
                             );
+
+                            true
                         }
+                        message::Source::Internal(
+                            message::source::Internal::Status(status),
+                        ) => {
+                            if let Some(internal_message) =
+                                buffer_config.internal_messages.get(status)
+                            {
+                                if !internal_message.enabled {
+                                    return false;
+                                }
+
+                                if let Some(seconds) = internal_message.smart {
+                                    return !smart_filter_internal_message(
+                                        message, &seconds,
+                                    );
+                                }
+                            }
+
+                            true
+                        }
+                        _ => true,
                     }
-
-                    true
                 }
-                crate::message::Source::User(message_user) => {
-                    last_seen.insert(
-                        message_user.nickname().to_owned(),
-                        message.server_time,
-                    );
-
-                    true
-                }
-                message::Source::Internal(
-                    message::source::Internal::Status(status),
-                ) => {
-                    if let Some(internal_message) =
-                        buffer_config.internal_messages.get(status)
-                    {
-                        if !internal_message.enabled {
-                            return false;
-                        }
-
-                        if let Some(seconds) = internal_message.smart {
-                            return !smart_filter_internal_message(
-                                message, &seconds,
-                            );
-                        }
-                    }
-
-                    true
-                }
-                _ => true,
             })
             .collect::<Vec<_>>();
 
@@ -970,24 +893,10 @@ impl Data {
         &mut self,
         kind: history::Kind,
         message: crate::Message,
-        blocked: bool,
     ) -> Option<impl Future<Output = Message> + use<>> {
-        if blocked {
-            self.blocked_messages_index
-                .entry(kind.clone())
-                .and_modify(|cache| {
-                    cache.insert(message.hash);
-                })
-                .or_insert_with(|| {
-                    let mut new_cache = HashSet::new();
-                    new_cache.insert(message.hash);
-                    new_cache
-                });
-        }
-
         match self.map.entry(kind.clone()) {
             hash_map::Entry::Occupied(mut entry) => {
-                let read_marker = entry.get_mut().add_message(message, blocked);
+                let read_marker = entry.get_mut().add_message(message);
 
                 read_marker.map(|read_marker| {
                     async move {
@@ -999,7 +908,7 @@ impl Data {
             hash_map::Entry::Vacant(entry) => {
                 let _ = entry
                     .insert(History::partial(kind.clone()))
-                    .add_message(message, blocked);
+                    .add_message(message);
 
                 Some(
                     async move {
@@ -1100,14 +1009,6 @@ impl Data {
         self.map.get(kind).is_some_and(History::can_mark_as_read)
     }
 
-    fn clear_blocked_message_cache(&mut self) {
-        self.blocked_messages_index.clear();
-    }
-
-    pub fn has_blocked_message_cache(&self, kind: &history::Kind) -> bool {
-        self.blocked_messages_index.contains_key(kind)
-    }
-
     fn untrack(
         &mut self,
         kind: &history::Kind,
@@ -1169,47 +1070,4 @@ fn smart_filter_internal_message(
         .num_seconds();
 
     duration_seconds > *seconds
-}
-
-#[derive(Debug, Clone)]
-pub enum Broadcast {
-    Connecting,
-    Connected,
-    ConnectionFailed {
-        error: String,
-    },
-    Disconnected {
-        error: Option<String>,
-    },
-    Reconnected,
-    Quit {
-        user: User,
-        comment: Option<String>,
-        user_channels: Vec<target::Channel>,
-    },
-    Nickname {
-        old_nick: Nick,
-        new_nick: Nick,
-        ourself: bool,
-        user_channels: Vec<target::Channel>,
-    },
-    Invite {
-        inviter: Nick,
-        channel: target::Channel,
-        user_channels: Vec<target::Channel>,
-    },
-    ChangeHost {
-        old_user: User,
-        new_username: String,
-        new_hostname: String,
-        ourself: bool,
-        logged_in: bool,
-        user_channels: Vec<target::Channel>,
-    },
-    Kick {
-        kicker: User,
-        victim: User,
-        reason: Option<String>,
-        channel: target::Channel,
-    },
 }
