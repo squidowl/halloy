@@ -16,6 +16,10 @@ pub fn connected<'a>() -> Text<'a> {
     to_text('\u{E800}')
 }
 
+pub fn link() -> Text<'static> {
+    to_text('\u{E814}')
+}
+
 pub fn cancel<'a>() -> Text<'a> {
     to_text('\u{E80F}')
 }

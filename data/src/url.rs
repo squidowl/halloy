@@ -4,13 +4,14 @@ use fancy_regex::Regex;
 use log::warn;
 
 use crate::appearance::theme;
-use crate::{Server, config};
+use crate::server::ServerName;
+use crate::config;
 
 #[derive(Debug, Clone)]
 pub enum Url {
     ServerConnect {
         url: String,
-        server: Server,
+        server: ServerName,
         config: config::Server,
     },
     Theme {
@@ -69,7 +70,7 @@ impl FromStr for Url {
 
 fn parse(url: url::Url) -> Result<Url, Error> {
     match url.scheme().to_lowercase().as_str() {
-        "irc" | "ircs" => {
+        "irc" | "irc+insecure" | "ircs" => {
             let config = parse_server_config(&url).ok_or(Error::ParseServer)?;
             let server = generate_server_name(config.server.as_str());
             let url = url.into();
@@ -113,7 +114,7 @@ fn parse_server_config(url: &url::Url) -> Option<config::Server> {
     let server = url.host()?.to_string();
     let port = url.port();
     let use_tls = match url.scheme().to_lowercase().as_str() {
-        "irc" => Some(false),
+        "irc" | "irc+insecure" => Some(false),
         "ircs" => Some(true),
         _ => None,
     }?;
