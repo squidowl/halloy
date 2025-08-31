@@ -207,6 +207,7 @@
 <li><a href="https://ircv3.net/specs/extensions/userhost-in-names">userhost-in-names</a></li>
 <li><a href="https://ircv3.net/specs/extensions/utf8-only"><code>UTF8ONLY</code></a></li>
 <li><a href="https://ircv3.net/specs/extensions/whox"><code>WHOX</code></a></li>
+<li><a href="https://codeberg.org/emersion/soju/src/branch/master/doc/ext/bouncer-networks.md"><code>soju.im/bouncer-networks</code></a></li>
 </ul>
 </li>
 <li>SASL support</li>
@@ -365,18 +366,33 @@ For feature requests or reporting issues, please open a ticket on <a href="https
 <p>Did we forget you? We're sorry about that! Feel free to add yourself and create a pull request.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="connect-with-soju"><a class="header" href="#connect-with-soju">Connect with Soju</a></h1>
 <p>To connect with a <a href="https://soju.im/"><strong>soju</strong></a> bouncer, the configuration below can be used as a template. Simply change so it fits your credentials.</p>
-<blockquote>
-<p>💡  as of 2025.1 Halloy supports <a href="guides/../configuration/buffer.html#bufferchathistory"><code>chathistory</code></a>, so the machine name (like <code>@desktop</code>) is no longer needed when <code>chathistory</code> is enabled</p>
-</blockquote>
-<pre><code class="language-toml">[servers.libera]
-nickname = "casperstorm"
-username = "&lt;your-username&gt;/irc.libera.chat"
-server = "irc.squidowl.org"
+<pre><code class="language-toml">[servers.soju]
+nickname = "&lt;your-nickname&gt;"
+server = "&lt;your-bouncer-url&gt;"
 port = 6697
+[servers.soju.sasl.plain]
+username = "&lt;your-username&gt;"
 password = "&lt;your-password&gt;"
-chathistory = true
 </code></pre>
-<p>You can enable infinite scrolling history as well, if you want to be able to load older messages</p>
+<blockquote>
+<p>💡  as of 2025.1 Halloy supports <a href="guides/../configuration/servers.html#chathistory"><code>chathistory</code></a>, so the machine name (like <code>@desktop</code>) is no longer needed when <code>chathistory</code> is enabled</p>
+</blockquote>
+<h2 id="using-bouncer-networks"><a class="header" href="#using-bouncer-networks">Using bouncer networks</a></h2>
+<blockquote>
+<p>⚠️  The soju bouncer networks specification <em>requires</em> that SASL be used. If you do not use SASL, you must add servers in the legacy fashion.</p>
+</blockquote>
+<p>As of 2025.9 Halloy supports <a href="https://codeberg.org/emersion/soju/src/branch/master/doc/ext/bouncer-networks.md"><code>bouncer networks</code></a> so connecting to individual servers is no longer needed. Instead, Halloy can communicate with soju to determine what networks you are currently connected to and then automatically add them in the UI.</p>
+<p>If this is not desired, you can still add individual servers with the ZNC username syntax, for example:</p>
+<pre><code>[servers.libera]
+nickname = "&lt;your-nickname&gt;"
+server = "&lt;your-bouncer-url&gt;"
+port = 6697
+[servers.soju.sasl.plain]
+username = "&lt;your-username&gt;/irc.libera.chat"
+password = "&lt;your-password&gt;"
+</code></pre>
+<h2 id="using-chathistory"><a class="header" href="#using-chathistory">Using chathistory</a></h2>
+<p>You can enable infinite scrolling history if you want to automatically load older messages.</p>
 <pre><code class="language-toml">[buffer.chathistory]
 infinite_scroll = true
 </code></pre>
