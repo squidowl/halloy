@@ -1,5 +1,6 @@
+use crate::server::Map as ServerMap;
 use crate::{
-    Config, Message, Server, User, isupport,
+    Message, Server, User, isupport,
     message::Source,
     target::{Channel, Query},
     user::Nick,
@@ -31,9 +32,9 @@ impl From<&str> for FilterTarget {
 }
 
 impl Filter {
-    pub fn list_from_config(config: &Config) -> Vec<Self> {
+    pub fn list_from_servers(servers: &ServerMap) -> Vec<Self> {
         let mut new_filters = Vec::new();
-        config.servers.entries().for_each(|entry| {
+        servers.entries().for_each(|entry| {
             let Some(filters) = &entry.config.filters else {
                 return;
             };
