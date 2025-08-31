@@ -21,7 +21,7 @@
 
 # To build successfully, install packages:
 #   alsa-lib-devel openssl-devel (on Fedora-based distros)
-#   librust-alsa-sys-dev libssl-dev (on Debian-based distros)
+#   librust-alsa-sys-dev libssl-dev libxcb1-dev (on Debian-based distros)
 
   cargo install --locked --force --path "$git_root_dir" --root "$prefix"
 
