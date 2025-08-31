@@ -69,7 +69,7 @@ Requirements:
 * [Rust toolchain](https://www.rust-lang.org/tools/install)
 * [Git version control system](https://git-scm.com/)
 * Packages:
-  - Fedora-based distributions: `alsa-lib-devel openssl-devel`
+  - Fedora-based distributions: `alsa-lib-devel openssl-devel libxcb-devel`
   - Debian-based distributions: `librust-alsa-sys-dev libssl-dev libxcb1-dev`
 
 ```sh
