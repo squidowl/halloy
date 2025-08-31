@@ -30,7 +30,8 @@ use data::target::{self, Target};
 use data::user::ChannelUsers;
 use data::version::Version;
 use data::{
-    client, environment, history, server, version, Notification, Server, Url, User
+    Notification, Server, Url, User, client, environment, history, server,
+    version,
 };
 use iced::widget::{column, container};
 use iced::{Length, Subscription, Task, padding};
@@ -188,7 +189,8 @@ impl Halloy {
 
         let (screen, servers, config, command) = match config_load {
             Ok(config) => {
-                let servers = config.servers.clone().into();
+                let mut servers: server::Map = config.servers.clone().into();
+                servers.set_order(config.sidebar.order_by);
                 let (mut screen, command) = load_dashboard(&config);
                 screen.init_filters(&servers);
                 (
@@ -395,12 +397,19 @@ impl Halloy {
 
                                 for (server, config) in updated.servers.iter() {
                                     let server = server.clone().into();
-                                    if !self.servers.contains(&server) {
-                                        self.servers.insert(server, config.clone());
+                                    if let Some(server) =
+                                        self.servers.get_mut(&server)
+                                    {
+                                        Arc::make_mut(server).order =
+                                            config.order;
+                                    } else {
+                                        self.servers
+                                            .insert(server, config.clone());
                                     }
                                 }
 
-                                self.servers.set_order(updated.sidebar.order_by);
+                                self.servers
+                                    .set_order(updated.sidebar.order_by);
 
                                 self.theme = self
                                     .current_mode
@@ -411,7 +420,9 @@ impl Halloy {
                                 for (server, _) in removed_servers {
                                     self.clients.quit(&server, None);
                                 }
-                                if let Screen::Dashboard(dashboard) = &mut self.screen {
+                                if let Screen::Dashboard(dashboard) =
+                                    &mut self.screen
+                                {
                                     dashboard.update_filters(&self.servers);
                                 }
                             }
@@ -1182,7 +1193,8 @@ impl Halloy {
                                             .collect::<Vec<_>>(),
                                     );
                                 } else {
-                                    self.servers.insert(server, Arc::new(config));
+                                    self.servers
+                                        .insert(server, Arc::new(config));
                                 }
                             }
                         }
