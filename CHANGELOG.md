@@ -21,9 +21,9 @@ Fixed:
 
 Thanks:
 
-- Contributions: @Death916
+- Contributions: @Death916, @4e554c4c
 - Bug reports: @privacyadmin, @rlndd, @wingedonezero, @Seishiin, @Erroneuz, @andar1an, freakyy85, ThinkT510, alexia
-- Feature requests: @deepspaceaxolotl, @4e554c4c, @seraxis, RebeLLz
+- Feature requests: @deepspaceaxolotl, @4e554c4c, @seraxis, RebeLLz, @remexre
 
 # 2025.8 (2025-08-31)
 
