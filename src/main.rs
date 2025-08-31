@@ -426,6 +426,7 @@ impl Halloy {
                                     dashboard.update_filters(
                                         &self.servers,
                                         &self.clients,
+                                        &self.config.buffer,
                                     );
                                 }
                             }
@@ -722,6 +723,7 @@ impl Halloy {
                                                         &server,
                                                         casemapping,
                                                         message,
+                                                        &self.config.buffer,
                                                     )
                                                     .map(Message::Dashboard),
                                             );
@@ -746,12 +748,12 @@ impl Halloy {
                                             if let Some((mut message, channel, user, description)) =
                                                 message.into_highlight(server.clone())
                                             {
-                                                FilterChain::borrow(dashboard.get_filters())
-                                                    .filter_message_of_kind(
-                                                        &mut message,
-                                                        &history::Kind::Channel(server.clone(), channel.clone()),
-                                                        casemapping,
-                                                    );
+                                                dashboard.block_message(
+                                                    &mut message,
+                                                    &history::Kind::Channel(server.clone(), channel.clone()),
+                                                    casemapping,
+                                                    &self.config.buffer,
+                                                );
 
                                                 if !message.blocked && highlight_notification_enabled {
                                                     self.notifications.notify(
@@ -768,7 +770,6 @@ impl Halloy {
 
                                                 let task = dashboard.record_highlight(
                                                     message,
-                                                    casemapping,
                                                 );
                                                 commands.push(task.map(Message::Dashboard));
                                             }
@@ -779,6 +780,7 @@ impl Halloy {
                                                         &server,
                                                         casemapping,
                                                         message,
+                                                        &self.config.buffer,
                                                     )
                                                     .map(Message::Dashboard),
                                             );
@@ -802,6 +804,7 @@ impl Halloy {
                                                         &server,
                                                         casemapping,
                                                         message.with_target(target),
+                                                        &self.config.buffer,
                                                     )
                                                     .map(Message::Dashboard),
                                             );
