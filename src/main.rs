@@ -25,7 +25,7 @@ use appearance::{Theme, theme};
 use chrono::Utc;
 use data::config::{self, Config};
 use data::history::filter::FilterChain;
-use data::message::Broadcast;
+use data::history::manager::Broadcast;
 use data::target::{self, Target};
 use data::user::ChannelUsers;
 use data::version::Version;
