@@ -30,7 +30,7 @@ Fixed:
 
 Thanks:
 
-- Contributions: @Death916, @4e554c4c
+- Contributions: @Death916, @4e554c4c, @freakyy85, @hashcatHitman
 - Bug reports: @privacyadmin, @rlndd, @wingedonezero, @Seishiin, @Erroneuz, @andar1an, freakyy85, ThinkT510, alexia, @darienm
 - Feature requests: @deepspaceaxolotl, @4e554c4c, @seraxis, RebeLLz, @cvengler, @barretgoat, @remexre
 
