@@ -55,6 +55,7 @@ impl<'a> TargetInfo<'a> {
 #[derive(Clone, Copy)]
 pub struct ChannelQueryLayout<'a> {
     pub config: &'a Config,
+    pub chantypes: &'a [char],
     pub casemapping: CaseMap,
     pub prefix: &'a [PrefixMap],
     pub server: &'a Server,
@@ -194,6 +195,7 @@ impl<'a> ChannelQueryLayout<'a> {
 
         let message_content = message_content::with_context(
             &message.content,
+            self.chantypes,
             self.casemapping,
             self.theme,
             Message::Link,
@@ -250,6 +252,7 @@ impl<'a> ChannelQueryLayout<'a> {
         let fm = *self;
         let message_content = message_content::with_context(
             &message.content,
+            fm.chantypes,
             fm.casemapping,
             self.theme,
             Message::Link,
@@ -336,6 +339,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
 
                     let message_content = message_content(
                         &message.content,
+                        self.chantypes,
                         self.casemapping,
                         self.theme,
                         Message::Link,
@@ -367,6 +371,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
 
                     let message = message_content(
                         &message.content,
+                        self.chantypes,
                         self.casemapping,
                         self.theme,
                         Message::Link,
