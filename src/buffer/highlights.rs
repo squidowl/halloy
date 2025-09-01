@@ -120,6 +120,7 @@ pub fn view<'a>(
                             )
                         });
 
+                    let chantypes = clients.get_chantypes(server);
                     let casemapping = clients.get_casemapping(server);
                     let prefix = clients.get_prefix(server);
 
@@ -146,6 +147,7 @@ pub fn view<'a>(
 
                     let text = message_content::with_context(
                         &message.content,
+                        chantypes,
                         casemapping,
                         theme,
                         scroll_view::Message::Link,
@@ -217,10 +219,12 @@ pub fn view<'a>(
                         ])
                         .on_link(scroll_view::Message::Link);
 
+                    let chantypes = clients.get_chantypes(server);
                     let casemapping = clients.get_casemapping(server);
 
                     let text = message_content(
                         &message.content,
+                        chantypes,
                         casemapping,
                         theme,
                         scroll_view::Message::Link,

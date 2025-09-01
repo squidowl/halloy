@@ -160,25 +160,28 @@ impl Channel {
         self.0.raw.as_ref()
     }
 
-    pub fn from_str(target: &str, casemapping: isupport::CaseMap) -> Self {
-        let inner =
-            if let Some(index) = target.find(proto::DEFAULT_CHANNEL_PREFIXES) {
-                // This will not panic, since `find` always returns a valid codepoint index.
-                // We call `find` -> `split_at` because it is an _inclusive_ split, which includes the match.
-                let (prefixes, channel) = target.split_at(index);
+    pub fn from_str(
+        target: &str,
+        chantypes: &[char],
+        casemapping: isupport::CaseMap,
+    ) -> Self {
+        let inner = if let Some(index) = target.find(chantypes) {
+            // This will not panic, since `find` always returns a valid codepoint index.
+            // We call `find` -> `split_at` because it is an _inclusive_ split, which includes the match.
+            let (prefixes, channel) = target.split_at(index);
 
-                ChannelData {
-                    prefixes: prefixes.chars().collect(),
-                    normalized: casemapping.normalize(channel),
-                    raw: target.to_string(),
-                }
-            } else {
-                ChannelData {
-                    prefixes: vec![],
-                    normalized: casemapping.normalize(target),
-                    raw: target.to_string(),
-                }
-            };
+            ChannelData {
+                prefixes: prefixes.chars().collect(),
+                normalized: casemapping.normalize(channel),
+                raw: target.to_string(),
+            }
+        } else {
+            ChannelData {
+                prefixes: vec![],
+                normalized: casemapping.normalize(target),
+                raw: target.to_string(),
+            }
+        };
         Channel::from(inner)
     }
 

@@ -35,6 +35,7 @@ pub fn view<'a>(
     is_focused: bool,
 ) -> Element<'a, Message> {
     let status = clients.status(&state.server);
+    let chantypes = clients.get_chantypes(&state.server);
     let casemapping = clients.get_casemapping(&state.server);
     let buffer = &state.buffer;
     let input = history.input(buffer);
@@ -65,6 +66,7 @@ pub fn view<'a>(
                     message::Source::Server(server) => {
                         let message = message_content(
                             &message.content,
+                            chantypes,
                             casemapping,
                             theme,
                             scroll_view::Message::Link,
@@ -90,6 +92,7 @@ pub fn view<'a>(
                     ) => {
                         let message = message_content(
                             &message.content,
+                            chantypes,
                             casemapping,
                             theme,
                             scroll_view::Message::Link,

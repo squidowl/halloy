@@ -319,8 +319,11 @@ impl Client {
                         )
                     })
                 } else {
-                    let target_channel =
-                        target::Channel::from_str(&mask, self.casemapping());
+                    let target_channel = target::Channel::from_str(
+                        &mask,
+                        self.chantypes(),
+                        self.casemapping(),
+                    );
 
                     self.user_who_request(&target_channel)
                 }
@@ -374,7 +377,11 @@ impl Client {
                 ) {
                     Some(channel)
                 } else if mask == "*" {
-                    Some(target::Channel::from_str(mask, self.casemapping()))
+                    Some(target::Channel::from_str(
+                        mask,
+                        self.chantypes(),
+                        self.casemapping(),
+                    ))
                 } else {
                     None
                 };
@@ -1845,8 +1852,11 @@ impl Client {
                 } else if mask == "*" {
                     // Some servers respond with the mask * instead of the requested
                     // channel name when rate-limiting WHO requests
-                    let target_channel =
-                        target::Channel::from_str(mask, self.casemapping());
+                    let target_channel = target::Channel::from_str(
+                        mask,
+                        self.chantypes(),
+                        self.casemapping(),
+                    );
 
                     if let Some(pos) = self
                         .who_polls
@@ -2416,7 +2426,9 @@ impl Client {
                 }
                 self.registration_step = RegistrationStep::Complete;
 
-                if let Some(id) = self.server.bouncer_netid() && self.resolved_netid.is_none() {
+                if let Some(id) = self.server.bouncer_netid()
+                    && self.resolved_netid.is_none()
+                {
                     // we want to be a bouncer network, but we never connected to one.
                     bail!("Requested bouncer id {id}, but was not connected.");
                 }
