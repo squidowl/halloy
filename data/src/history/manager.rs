@@ -7,7 +7,6 @@ use tokio::time::Instant;
 
 use super::filter::{Filter, FilterChain};
 use crate::history::{self, History, MessageReferences, ReadMarker};
-use crate::message::broadcast::{self, Broadcast};
 use crate::message::{self, Limit};
 use crate::target::{self, Target};
 use crate::user::{ChannelUsers, Nick};
@@ -489,7 +488,7 @@ impl Manager {
                 }
             })
             .cloned();
-        let queries = self
+        let mut queries = self
             .data
             .map
             .keys()
@@ -502,9 +501,122 @@ impl Manager {
             })
             .cloned();
 
-        let messages = broadcast::into_messages(
-            broadcast, config, sent_time, channels, queries,
-        );
+        let messages = match broadcast {
+            Broadcast::Connecting => message::broadcast::connecting(sent_time),
+            Broadcast::Connected => message::broadcast::connected(sent_time),
+            Broadcast::ConnectionFailed { error } => {
+                message::broadcast::connection_failed(error, sent_time)
+            }
+            Broadcast::Disconnected { error } => {
+                message::broadcast::disconnected(
+                    channels, queries, error, sent_time,
+                )
+            }
+            Broadcast::Reconnected => {
+                message::broadcast::reconnected(channels, queries, sent_time)
+            }
+            Broadcast::Quit {
+                user,
+                comment,
+                user_channels,
+            } => {
+                let user_query =
+                    queries.find(|query| user.as_str() == query.as_str());
+
+                message::broadcast::quit(
+                    user_channels,
+                    user_query,
+                    &user,
+                    &comment,
+                    config,
+                    sent_time,
+                )
+            }
+            Broadcast::Nickname {
+                old_nick,
+                new_nick,
+                ourself,
+                user_channels,
+            } => {
+                if ourself {
+                    // If ourself, broadcast to all query channels (since we are in all of them)
+                    message::broadcast::nickname(
+                        user_channels,
+                        queries,
+                        &old_nick,
+                        &new_nick,
+                        ourself,
+                        sent_time,
+                    )
+                } else {
+                    // Otherwise just the query channel of the user w/ nick change
+                    let user_query = queries
+                        .find(|query| old_nick.as_ref() == query.as_str());
+                    message::broadcast::nickname(
+                        user_channels,
+                        user_query,
+                        &old_nick,
+                        &new_nick,
+                        ourself,
+                        sent_time,
+                    )
+                }
+            }
+            Broadcast::Invite {
+                inviter,
+                channel,
+                user_channels,
+            } => message::broadcast::invite(
+                inviter,
+                channel,
+                user_channels,
+                sent_time,
+            ),
+            Broadcast::ChangeHost {
+                old_user,
+                new_username,
+                new_hostname,
+                ourself,
+                logged_in,
+                user_channels,
+            } => {
+                if ourself {
+                    // If ourself, broadcast to all query channels (since we are in all of them)
+                    message::broadcast::change_host(
+                        user_channels,
+                        queries,
+                        &old_user,
+                        &new_username,
+                        &new_hostname,
+                        ourself,
+                        logged_in,
+                        sent_time,
+                    )
+                } else {
+                    // Otherwise just the query channel of the user w/ host change
+                    let user_query = queries
+                        .find(|query| old_user.as_str() == query.as_str());
+                    message::broadcast::change_host(
+                        user_channels,
+                        user_query,
+                        &old_user,
+                        &new_username,
+                        &new_hostname,
+                        ourself,
+                        logged_in,
+                        sent_time,
+                    )
+                }
+            }
+            Broadcast::Kick {
+                kicker,
+                victim,
+                reason,
+                channel,
+            } => message::broadcast::kick(
+                kicker, victim, reason, channel, sent_time,
+            ),
+        };
 
         messages
             .into_iter()
@@ -1163,4 +1275,47 @@ fn smart_filter_internal_message(
         .num_seconds();
 
     duration_seconds > *seconds
+}
+
+#[derive(Debug, Clone)]
+pub enum Broadcast {
+    Connecting,
+    Connected,
+    ConnectionFailed {
+        error: String,
+    },
+    Disconnected {
+        error: Option<String>,
+    },
+    Reconnected,
+    Quit {
+        user: User,
+        comment: Option<String>,
+        user_channels: Vec<target::Channel>,
+    },
+    Nickname {
+        old_nick: Nick,
+        new_nick: Nick,
+        ourself: bool,
+        user_channels: Vec<target::Channel>,
+    },
+    Invite {
+        inviter: Nick,
+        channel: target::Channel,
+        user_channels: Vec<target::Channel>,
+    },
+    ChangeHost {
+        old_user: User,
+        new_username: String,
+        new_hostname: String,
+        ourself: bool,
+        logged_in: bool,
+        user_channels: Vec<target::Channel>,
+    },
+    Kick {
+        kicker: User,
+        victim: User,
+        reason: Option<String>,
+        channel: target::Channel,
+    },
 }
