@@ -41,6 +41,7 @@ pub fn update(message: Message) -> Option<Event> {
 
 pub fn view<'a>(
     server: &'a Server,
+    chantypes: &'a [char],
     casemapping: isupport::CaseMap,
     prefix: &'a [isupport::PrefixMap],
     channel: &'a target::Channel,
@@ -112,6 +113,7 @@ pub fn view<'a>(
     let content = column![
         message_content(
             content,
+            chantypes,
             casemapping,
             theme,
             Message::Link,

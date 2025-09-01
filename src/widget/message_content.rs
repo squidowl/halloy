@@ -9,6 +9,7 @@ use crate::{Theme, font};
 
 pub fn message_content<'a, M: 'a>(
     content: &'a message::Content,
+    chantypes: &[char],
     casemapping: isupport::CaseMap,
     theme: &'a Theme,
     on_link: impl Fn(message::Link) -> M + 'a,
@@ -18,6 +19,7 @@ pub fn message_content<'a, M: 'a>(
 ) -> Element<'a, M> {
     message_content_impl::<(), M>(
         content,
+        chantypes,
         casemapping,
         theme,
         on_link,
@@ -30,6 +32,7 @@ pub fn message_content<'a, M: 'a>(
 
 pub fn with_context<'a, T: Copy + 'a, M: 'a>(
     content: &'a message::Content,
+    chantypes: &[char],
     casemapping: isupport::CaseMap,
     theme: &'a Theme,
     on_link: impl Fn(message::Link) -> M + 'a,
@@ -41,6 +44,7 @@ pub fn with_context<'a, T: Copy + 'a, M: 'a>(
 ) -> Element<'a, M> {
     message_content_impl(
         content,
+        chantypes,
         casemapping,
         theme,
         on_link,
@@ -54,6 +58,7 @@ pub fn with_context<'a, T: Copy + 'a, M: 'a>(
 #[allow(clippy::type_complexity)]
 fn message_content_impl<'a, T: Copy + 'a, M: 'a>(
     content: &'a message::Content,
+    chantypes: &[char],
     casemapping: isupport::CaseMap,
     theme: &'a Theme,
     on_link: impl Fn(message::Link) -> M + 'a,
@@ -95,6 +100,7 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a>(
                             .link(message::Link::Channel(
                                 target::Channel::from_str(
                                     s.as_str(),
+                                    chantypes,
                                     casemapping,
                                 ),
                             )),

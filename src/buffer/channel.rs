@@ -48,6 +48,7 @@ pub fn view<'a>(
     is_focused: bool,
 ) -> Element<'a, Message> {
     let server = &state.server;
+    let chantypes = clients.get_chantypes(server);
     let casemapping = clients.get_casemapping(server);
     let prefix = clients.get_prefix(server);
     let channel = &state.target;
@@ -75,6 +76,7 @@ pub fn view<'a>(
 
     let message_formatter = ChannelQueryLayout {
         config,
+        chantypes,
         casemapping,
         prefix,
         server,
@@ -323,6 +325,7 @@ fn topic<'a>(
         return None;
     }
 
+    let chantypes = clients.get_chantypes(&state.server);
     let casemapping = clients.get_casemapping(&state.server);
     let prefix = clients.get_prefix(&state.server);
 
@@ -331,6 +334,7 @@ fn topic<'a>(
     Some(
         topic::view(
             &state.server,
+            chantypes,
             casemapping,
             prefix,
             &state.target,

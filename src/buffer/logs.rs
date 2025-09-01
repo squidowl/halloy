@@ -78,6 +78,7 @@ pub fn view<'a>(
 
                     let message = message_content(
                         &message.content,
+                        isupport::DEFAULT_CHANTYPES,
                         isupport::CaseMap::default(),
                         theme,
                         scroll_view::Message::Link,

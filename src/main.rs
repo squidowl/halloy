@@ -1075,10 +1075,18 @@ impl Halloy {
                                         );
                                     }
                                     data::client::Event::AddedIsupportParam(param) => {
-                                        if let data::isupport::Parameter::CASEMAPPING(casemapping) = param {
+                                        if matches!(
+                                            param,
+                                            data::isupport::Parameter::CASEMAPPING(_)
+                                                | data::isupport::Parameter::CHANTYPES(_)
+                                        ) {
+                                            let chantypes = self.clients.get_chantypes(&server);
+                                            let casemapping = self.clients.get_casemapping(&server);
+
                                             FilterChain::sync_channels(
                                                 dashboard.get_filters(),
                                                 &server,
+                                                chantypes,
                                                 casemapping
                                             );
                                         }

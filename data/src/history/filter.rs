@@ -40,10 +40,12 @@ impl Filter {
             };
 
             for idx in 0..filters.ignore.len() {
+                let chantypes = clients.get_chantypes(&entry.server);
                 let casemapping = clients.get_casemapping(&entry.server);
 
                 new_filters.push(Filter::from_str_with_server(
                     &entry.server,
+                    chantypes,
                     casemapping,
                     &filters.ignore[idx],
                 ));
@@ -54,12 +56,14 @@ impl Filter {
 
     fn from_str_with_server(
         server: &Server,
+        chantypes: &[char],
         casemapping: isupport::CaseMap,
         value: &str,
     ) -> Self {
         let (class, target) = match value.split_once(' ') {
             Some((channel, nick)) => {
-                let channel = Channel::from_str(channel, casemapping);
+                let channel =
+                    Channel::from_str(channel, chantypes, casemapping);
 
                 let target = FilterTarget::from_nick(nick, casemapping);
 
@@ -166,9 +170,10 @@ impl Filter {
         }
     }
 
-    fn sync_casemapping(
+    fn sync_isupport(
         &mut self,
         target_server: &Server,
+        chantypes: &[char],
         casemapping: isupport::CaseMap,
     ) {
         match &self.target {
@@ -183,8 +188,11 @@ impl Filter {
         match &self.class {
             FilterClass::Channel((server, channel)) => {
                 if target_server == server {
-                    let updated_channel =
-                        Channel::from_str(channel.as_str(), casemapping);
+                    let updated_channel = Channel::from_str(
+                        channel.as_str(),
+                        chantypes,
+                        casemapping,
+                    );
 
                     self.class =
                         FilterClass::Channel((server.clone(), updated_channel));
@@ -228,6 +236,7 @@ impl<'f> FilterChain<'f> {
     pub fn sync_channels(
         filters: &'f mut [Filter],
         server: &Server,
+        chantypes: &[char],
         casemapping: isupport::CaseMap,
     ) {
         log::debug!("[{server}] updating filter casemapping");
@@ -235,7 +244,7 @@ impl<'f> FilterChain<'f> {
             .iter_mut()
             .filter(|filter| filter.match_server(server))
             .for_each(|filter| {
-                filter.sync_casemapping(server, casemapping);
+                filter.sync_isupport(server, chantypes, casemapping);
             });
     }
 

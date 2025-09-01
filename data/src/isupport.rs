@@ -88,7 +88,9 @@ impl FromStr for Operation {
                         "BOT" => Ok(Operation::Add(Parameter::BOT(
                             parse_required_letter(value, None)?,
                         ))),
-                        "BOUNCER_NETID" => Ok(Operation::Add(Parameter::BOUNCER_NETID(value.to_owned()))),
+                        "BOUNCER_NETID" => Ok(Operation::Add(
+                            Parameter::BOUNCER_NETID(value.to_owned()),
+                        )),
                         "CALLERID" => Ok(Operation::Add(Parameter::CALLERID(
                             parse_required_letter(
                                 value,
@@ -980,6 +982,8 @@ pub const DEFAULT_CHANMODES: &[ModeKind] = &[
         modes: Cow::Borrowed("imstn"),
     },
 ];
+
+pub const DEFAULT_CHANTYPES: &[char] = proto::DEFAULT_CHANNEL_PREFIXES;
 
 const DEFAULT_DEAF_LETTER: char = 'D';
 
