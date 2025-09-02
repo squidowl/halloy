@@ -361,7 +361,7 @@ impl History {
         }
 
         if message.triggers_highlight()
-            && !blocked
+            && !message.blocked
             && let History::Partial {
                 max_triggers_highlight,
                 ..

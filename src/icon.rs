@@ -110,7 +110,7 @@ pub fn config<'a>() -> Text<'a> {
 }
 
 pub fn star<'a>() -> Text<'a> {
-    to_text('\u{E814}')
+    to_text('\u{E819}')
 }
 
 pub fn certificate<'a>() -> Text<'a> {
