@@ -39,9 +39,9 @@ impl Default for UnreadIndicator {
     fn default() -> Self {
         UnreadIndicator {
             title: false,
-            icon: Some(Icon::Dot),
+            icon: Some(Icon::default()),
             icon_size: 6,
-            highlight_icon: Some(Icon::Dot),
+            highlight_icon: Some(Icon::default()),
             highlight_icon_size: 6,
         }
     }
@@ -89,13 +89,13 @@ impl<'de> Deserialize<'de> for UnreadIndicator {
                     title: true,
                     icon: None,
                     highlight_icon: None,
-                    ..Default::default()
+                    ..UnreadIndicator::default()
                 }),
                 "none" => Ok(UnreadIndicator {
                     title: false,
                     icon: None,
                     highlight_icon: None,
-                    ..Default::default()
+                    ..UnreadIndicator::default()
                 }),
                 _ => Ok(UnreadIndicator::default()),
             },
@@ -114,8 +114,17 @@ impl<'de> Deserialize<'de> for UnreadIndicator {
                         },
                         IconRepr::String(s) => Some(Icon::from(s.as_str())),
                     },
-                    None => Some(Icon::default()),
+                    None => UnreadIndicator::default().icon,
                 };
+
+                if let Some(icon_size) = icon_size
+                    && icon_size == 0
+                {
+                    return Err(serde::de::Error::invalid_value(
+                        serde::de::Unexpected::Unsigned(icon_size.into()),
+                        &"any positive integer",
+                    ));
+                }
 
                 let highlight_icon = match highlight_icon {
                     Some(icon_repr) => match icon_repr {
@@ -125,16 +134,29 @@ impl<'de> Deserialize<'de> for UnreadIndicator {
                         },
                         IconRepr::String(s) => Some(Icon::from(s.as_str())),
                     },
-                    None => Some(Icon::default()),
+                    None => UnreadIndicator::default().highlight_icon,
                 };
 
+                if let Some(highlight_icon_size) = highlight_icon_size
+                    && highlight_icon_size == 0
+                {
+                    return Err(serde::de::Error::invalid_value(
+                        serde::de::Unexpected::Unsigned(
+                            highlight_icon_size.into(),
+                        ),
+                        &"any positive integer",
+                    ));
+                }
+
                 Ok(UnreadIndicator {
-                    title: title.unwrap_or_default(),
+                    title: title.unwrap_or(UnreadIndicator::default().title),
                     icon,
-                    icon_size: icon_size.unwrap_or_default(),
+                    icon_size: icon_size
+                        .unwrap_or(UnreadIndicator::default().icon_size),
                     highlight_icon,
-                    highlight_icon_size: highlight_icon_size
-                        .unwrap_or_default(),
+                    highlight_icon_size: highlight_icon_size.unwrap_or(
+                        UnreadIndicator::default().highlight_icon_size,
+                    ),
                 })
             }
         }

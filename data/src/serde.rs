@@ -3,6 +3,26 @@ use std::path::{self, PathBuf};
 use chrono::format::StrftimeItems;
 use serde::{Deserialize, Deserializer};
 
+pub fn deserialize_optional_u8_positive_integer<'de, D>(
+    deserializer: D,
+) -> Result<Option<u8>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let integer_maybe: Option<u8> = Deserialize::deserialize(deserializer)?;
+
+    if let Some(integer) = integer_maybe
+        && integer == 0
+    {
+        Err(serde::de::Error::invalid_value(
+            serde::de::Unexpected::Unsigned(integer.into()),
+            &"any positive integer",
+        ))
+    } else {
+        Ok(integer_maybe)
+    }
+}
+
 pub fn deserialize_path_buf_with_tilde_expansion<'de, D>(
     deserializer: D,
 ) -> Result<PathBuf, D::Error>

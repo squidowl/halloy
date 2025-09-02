@@ -34,7 +34,7 @@ Specify sidebar max width in pixels. Only used if `position` is `"left"` or `"ri
 
 ```toml
 # Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: not set
 
 [sidebar]
@@ -80,7 +80,7 @@ Width of the scrollbar.
 
 ```toml
 # Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: 5
 
 [sidebar.scrollbar]
@@ -93,7 +93,7 @@ Width of the scrollbar scroller.
 
 ```toml
 # Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: 5
 
 [sidebar.scrollbar]
