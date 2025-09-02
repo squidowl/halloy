@@ -377,18 +377,7 @@ impl Sidebar {
             let mut buffers = vec![];
             let mut client_enumeration = 0;
 
-            let servers = match config.sidebar.order_by {
-                sidebar::OrderBy::Alpha => Either::Left(clients.servers()),
-                sidebar::OrderBy::Config => Either::Right(
-                    config.servers.keys().chain(
-                        clients
-                            .servers()
-                            .filter(|key| !config.servers.contains(key)),
-                    ),
-                ),
-            };
-
-            for server in servers {
+            for server in servers.keys() {
                 let button =
                     |buffer: buffer::Upstream,
                      connected: bool,
@@ -717,7 +706,7 @@ fn upstream_buffer_button<'a>(
     } else {
         theme::text::primary
     };
-    
+
     let buffer_title_font = theme::font_style::primary(theme).map(font::get);
 
     let unread_icon = show_unread_icon
@@ -757,7 +746,8 @@ fn upstream_buffer_button<'a>(
                     icon::link()
                 } else {
                     icon::connected()
-                }.style(if connected {
+                }
+                .style(if connected {
                     if has_highlight {
                         theme::text::highlight_indicator
                     } else if has_unread {
