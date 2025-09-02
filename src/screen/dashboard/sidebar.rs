@@ -5,10 +5,9 @@ use data::dashboard::{BufferAction, BufferFocusedAction};
 use data::{Version, buffer, file_transfer, history, server};
 use iced::widget::{
     Column, Row, Scrollable, Space, button, column, container, horizontal_rule,
-    horizontal_space, pane_grid, row, scrollable, stack, text, vertical_rule,
-    vertical_space,
+    pane_grid, row, scrollable, stack, text, vertical_rule, vertical_space,
 };
-use iced::{Alignment, Length, Task, padding};
+use iced::{Alignment, Length, Padding, Task, padding};
 use tokio::time;
 
 use super::{Focus, Panes, Server};
@@ -705,113 +704,118 @@ fn upstream_buffer_button<'a>(
         .then_some((window_id, pane))
     });
 
-    let show_icon_indicator = (has_highlight || has_unread)
-        && matches!(unread_indicator, sidebar::UnreadIndicator::Dot);
-    let show_title_indicator = (has_highlight || has_unread)
-        && matches!(unread_indicator, sidebar::UnreadIndicator::Title);
+    let show_highlight_icon =
+        has_highlight && unread_indicator.has_unread_highlight_icon();
+    let show_unread_icon = has_unread && unread_indicator.has_unread_icon();
+    let show_unread_title = has_unread && unread_indicator.title;
+    let show_highlight_unread_title = has_highlight && unread_indicator.title;
 
-    let before_icon_spacer =
-        horizontal_space().width(if has_highlight { 1.5 } else { 3.0 });
-    let after_icon_spacer =
-        horizontal_space().width(match position.is_horizontal() {
-            true => {
-                if show_icon_indicator {
-                    if has_highlight { 3.5 } else { 5.0 }
-                } else {
-                    0.0
-                }
-            }
-            false => {
-                if show_icon_indicator {
-                    if has_highlight { 9.5 } else { 11.0 }
-                } else {
-                    16.0
-                }
-            }
-        });
-    let buffer_title_style = if show_title_indicator {
+    let buffer_title_style = if show_highlight_unread_title {
+        theme::text::highlight_indicator
+    } else if show_unread_title {
         theme::text::unread_indicator
     } else {
         theme::text::primary
     };
+    
     let buffer_title_font = theme::font_style::primary(theme).map(font::get);
 
-    let row = match &buffer {
-        buffer::Upstream::Server(server) => row![
-            if server.is_bouncer_network() {
-                icon::link()
-            } else {
-                icon::connected()
-            }.style(if connected {
-                if has_highlight {
-                    theme::text::highlight_indicator
-                } else if has_unread {
-                    theme::text::unread_indicator
-                } else {
-                    theme::text::primary
-                }
-            } else {
-                theme::text::error
-            }),
-            if let Some(network) = &server.network {
-                Element::from(row![
-                    text(network.name.to_string())
-                        .style(buffer_title_style)
-                        .font_maybe(buffer_title_font.clone())
-                        .shaping(text::Shaping::Advanced),
-                    Space::with_width(6),
-                    text(server.name.to_string())
-                        .style(theme::text::secondary)
-                        .font_maybe(buffer_title_font)
-                        .shaping(text::Shaping::Advanced),
-                ])
-            } else {
-                text(server.to_string())
-                    .style(buffer_title_style)
-                    .shaping(text::Shaping::Advanced)
-                    .into()
-            }
-        ]
-        .spacing(8)
-        .align_y(iced::Alignment::Center),
-        buffer::Upstream::Channel(_, channel) => row![
-            before_icon_spacer,
-            show_icon_indicator.then_some(if has_highlight {
-                icon::highlight()
-                    .style(theme::text::highlight_indicator)
-                    .size(9)
-            } else {
-                icon::dot().style(theme::text::unread_indicator).size(6)
-            },),
-            after_icon_spacer,
-            text(channel.to_string())
-                .style(buffer_title_style)
-                .font_maybe(buffer_title_font)
-                .shaping(text::Shaping::Advanced),
-            horizontal_space().width(3),
-        ]
-        .align_y(iced::Alignment::Center),
-        buffer::Upstream::Query(_, query) => row![
-            before_icon_spacer,
-            show_icon_indicator.then_some(if has_highlight {
-                icon::highlight()
-                    .style(theme::text::highlight_indicator)
-                    .size(9)
-            } else {
-                icon::dot().style(theme::text::unread_indicator).size(6)
-            },),
-            after_icon_spacer,
-            text(query.to_string())
-                .style(buffer_title_style)
-                .font_maybe(buffer_title_font)
-                .shaping(text::Shaping::Advanced),
-            horizontal_space().width(3),
-        ]
-        .align_y(iced::Alignment::Center),
+    let unread_icon = show_unread_icon
+        .then_some(unread_indicator.icon)
+        .flatten()
+        .map(|icon| {
+            icon::from_icon(icon)
+                .style(theme::text::unread_indicator)
+                .size(unread_indicator.icon_size)
+        });
+
+    let highlight_icon = show_highlight_icon
+        .then_some(unread_indicator.highlight_icon)
+        .flatten()
+        .map(|icon| {
+            icon::from_icon(icon)
+                .style(theme::text::highlight_indicator)
+                .size(unread_indicator.highlight_icon_size)
+        });
+
+    let unread = highlight_icon.or(unread_icon).map(|icon| {
+        container(icon)
+            .height(17.0)
+            .align_y(iced::Alignment::Center)
+    });
+
+    let left_padding = if position.is_horizontal() {
+        if unread.is_some() { 15.0 } else { 0.0 }
+    } else {
+        17.0
     };
 
-    let base = button(row.width(width))
-        .padding(5)
+    let content = match &buffer {
+        buffer::Upstream::Server(server) => container(
+            row![
+                if server.is_bouncer_network() {
+                    icon::link()
+                } else {
+                    icon::connected()
+                }.style(if connected {
+                    if has_highlight {
+                        theme::text::highlight_indicator
+                    } else if has_unread {
+                        theme::text::unread_indicator
+                    } else {
+                        theme::text::primary
+                    }
+                } else {
+                    theme::text::error
+                }),
+                if let Some(network) = &server.network {
+                    Element::from(row![
+                        text(network.name.to_string())
+                            .style(buffer_title_style)
+                            .font_maybe(buffer_title_font.clone())
+                            .shaping(text::Shaping::Advanced),
+                        Space::with_width(6),
+                        text(server.name.to_string())
+                            .style(theme::text::secondary)
+                            .font_maybe(buffer_title_font)
+                            .shaping(text::Shaping::Advanced),
+                    ])
+                } else {
+                    text(server.to_string())
+                        .style(buffer_title_style)
+                        .font_maybe(buffer_title_font)
+                        .shaping(text::Shaping::Advanced)
+                        .into()
+                }
+            ]
+            .spacing(8)
+            .align_y(iced::Alignment::Center),
+        ),
+        buffer::Upstream::Channel(_, channel) => container(stack![
+            container(
+                text(channel.to_string())
+                    .style(buffer_title_style)
+                    .font_maybe(buffer_title_font)
+                    .shaping(text::Shaping::Advanced)
+            )
+            .padding(Padding::default().left(left_padding))
+            .align_y(iced::Alignment::Center),
+            unread,
+        ]),
+        buffer::Upstream::Query(_, query) => container(stack![
+            container(
+                text(query.to_string())
+                    .style(buffer_title_style)
+                    .font_maybe(buffer_title_font)
+                    .shaping(text::Shaping::Advanced),
+            )
+            .padding(Padding::default().left(left_padding))
+            .align_y(iced::Alignment::Center),
+            unread,
+        ]),
+    };
+
+    let base = button(content.height(17.0).width(width))
         .style(move |theme, status| {
             theme::button::sidebar_buffer(
                 theme,
