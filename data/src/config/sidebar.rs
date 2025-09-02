@@ -1,4 +1,4 @@
-use serde::Deserialize;
+use serde::{Deserialize, Deserializer};
 
 use crate::config::Scrollbar;
 
@@ -26,13 +26,152 @@ impl Default for Sidebar {
     }
 }
 
+#[derive(Debug, Copy, Clone)]
+pub struct UnreadIndicator {
+    pub title: bool,
+    pub icon: Option<Icon>,
+    pub icon_size: u32,
+    pub highlight_icon: Option<Icon>,
+    pub highlight_icon_size: u32,
+}
+
+impl Default for UnreadIndicator {
+    fn default() -> Self {
+        UnreadIndicator {
+            title: false,
+            icon: Some(Icon::Dot),
+            icon_size: 6,
+            highlight_icon: Some(Icon::Dot),
+            highlight_icon_size: 6,
+        }
+    }
+}
+
+impl UnreadIndicator {
+    pub fn has_unread_icon(&self) -> bool {
+        self.icon.is_some()
+    }
+
+    pub fn has_unread_highlight_icon(&self) -> bool {
+        self.highlight_icon.is_some()
+    }
+}
+
+impl<'de> Deserialize<'de> for UnreadIndicator {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum IconRepr {
+            Bool(bool),
+            String(String),
+        }
+
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum UnreadIndicatorRepr {
+            String(String),
+            Struct {
+                title: Option<bool>,
+                icon: Option<IconRepr>,
+                icon_size: Option<u32>,
+                highlight_icon: Option<IconRepr>,
+                highlight_icon_size: Option<u32>,
+            },
+        }
+
+        let repr = UnreadIndicatorRepr::deserialize(deserializer)?;
+        match repr {
+            UnreadIndicatorRepr::String(s) => match s.as_str() {
+                "title" => Ok(UnreadIndicator {
+                    title: true,
+                    icon: None,
+                    highlight_icon: None,
+                    ..Default::default()
+                }),
+                "none" => Ok(UnreadIndicator {
+                    title: false,
+                    icon: None,
+                    highlight_icon: None,
+                    ..Default::default()
+                }),
+                _ => Ok(UnreadIndicator::default()),
+            },
+            UnreadIndicatorRepr::Struct {
+                title,
+                icon,
+                icon_size,
+                highlight_icon,
+                highlight_icon_size,
+            } => {
+                let icon = match icon {
+                    Some(icon_repr) => match icon_repr {
+                        IconRepr::Bool(enabled) => match enabled {
+                            true => Some(Icon::default()),
+                            false => None,
+                        },
+                        IconRepr::String(s) => Some(Icon::from(s.as_str())),
+                    },
+                    None => Some(Icon::default()),
+                };
+
+                let highlight_icon = match highlight_icon {
+                    Some(icon_repr) => match icon_repr {
+                        IconRepr::Bool(enabled) => match enabled {
+                            true => Some(Icon::default()),
+                            false => None,
+                        },
+                        IconRepr::String(s) => Some(Icon::from(s.as_str())),
+                    },
+                    None => Some(Icon::default()),
+                };
+
+                Ok(UnreadIndicator {
+                    title: title.unwrap_or_default(),
+                    icon,
+                    icon_size: icon_size.unwrap_or_default(),
+                    highlight_icon,
+                    highlight_icon_size: highlight_icon_size
+                        .unwrap_or_default(),
+                })
+            }
+        }
+    }
+}
+
 #[derive(Debug, Copy, Clone, Deserialize, Default)]
 #[serde(rename_all = "kebab-case")]
-pub enum UnreadIndicator {
+pub enum Icon {
     #[default]
     Dot,
-    Title,
-    None,
+    CircleEmpty,
+    DotCircled,
+    Certificate,
+    Asterisk,
+    Speaker,
+    Lightbulb,
+    Star,
+}
+
+impl From<&str> for Icon {
+    fn from(value: &str) -> Self {
+        match value {
+            "dot" => Icon::Dot,
+            "circle-empty" => Icon::CircleEmpty,
+            "dot-circled" => Icon::DotCircled,
+            "certificate" => Icon::Certificate,
+            "asterisk" => Icon::Asterisk,
+            "speaker" => Icon::Speaker,
+            "lightbulb" => Icon::Lightbulb,
+            "star" => Icon::Star,
+            _ => {
+                log::warn!("[config.toml] Invalid icon: {value}");
+                Icon::default()
+            }
+        }
+    }
 }
 
 #[derive(Debug, Copy, Clone, Deserialize, Default)]
