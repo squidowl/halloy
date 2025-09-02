@@ -27,6 +27,7 @@ use crate::appearance::theme::Styles;
 use crate::appearance::{self, Appearance};
 use crate::audio::{self};
 use crate::environment::config_dir;
+use crate::serde::deserialize_optional_u8_positive_integer;
 use crate::server::{ConfigMap as ServerMap, ServerName};
 use crate::{Theme, environment};
 
@@ -111,6 +112,7 @@ impl Default for Scrollbar {
 #[serde(default)]
 pub struct Font {
     pub family: Option<String>,
+    #[serde(deserialize_with = "deserialize_optional_u8_positive_integer")]
     pub size: Option<u8>,
     #[serde(deserialize_with = "deserialize_font_weight_from_string")]
     pub weight: font::Weight,
@@ -247,9 +249,9 @@ impl Config {
             pub fn keys(&self) -> (String, Option<String>) {
                 use rand::prelude::*;
                 use rand_chacha::ChaCha8Rng;
-                
+
                 let mut rng = ChaCha8Rng::from_rng(&mut rand::rng());
-                
+
                 match self {
                     ThemeKeys::Static(theme_value) => {
                         let themes = theme_value.to_vec();
@@ -257,26 +259,35 @@ impl Config {
                         if themes.is_empty() {
                             (String::default(), None)
                         } else {
-                            let selected = themes.choose(&mut rng).unwrap_or(&themes[0]);
+                            let selected =
+                                themes.choose(&mut rng).unwrap_or(&themes[0]);
                             (selected.clone(), None)
                         }
                     }
                     ThemeKeys::Dynamic { light, dark } => {
                         let light_themes = light.to_vec();
                         let dark_themes = dark.to_vec();
-                        
+
                         let light_selected = if light_themes.is_empty() {
                             String::default()
                         } else {
-                            light_themes.choose(&mut rng).unwrap_or(&light_themes[0]).clone()
+                            light_themes
+                                .choose(&mut rng)
+                                .unwrap_or(&light_themes[0])
+                                .clone()
                         };
-                        
+
                         let dark_selected = if dark_themes.is_empty() {
                             None
                         } else {
-                            Some(dark_themes.choose(&mut rng).unwrap_or(&dark_themes[0]).clone())
+                            Some(
+                                dark_themes
+                                    .choose(&mut rng)
+                                    .unwrap_or(&dark_themes[0])
+                                    .clone(),
+                            )
                         };
-                        
+
                         (light_selected, dark_selected)
                     }
                 }

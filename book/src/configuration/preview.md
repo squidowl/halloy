@@ -38,7 +38,7 @@ Request timeout in milliseconds. Defaults is 10s.
 
 ```toml
 # Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: 10000
 
 [preview.request]
@@ -51,7 +51,7 @@ Max image size in bytes. This prevents downloading responses that are too big. D
 
 ```toml
 # Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: 10485760
 
 [preview.request]
@@ -64,7 +64,7 @@ Max bytes streamed when scraping for opengraph metadata before cancelling the re
 
 ```toml
 # Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: 512000
 
 [preview.request]
@@ -77,7 +77,7 @@ Number of allowed concurrent requests for fetching previews. Reduce this to prev
 
 ```toml
 # Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: 4
 
 [preview.request]
@@ -90,7 +90,7 @@ Number of milliseconds to wait before requesting another preview when number of 
 
 ```toml
 # Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: 500
 
 [preview.request]

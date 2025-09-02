@@ -25,7 +25,7 @@ Width of the scrollbar.
 
 ```toml
 # Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: 5
 
 [pane.scrollbar]
@@ -38,7 +38,7 @@ Width of the scrollbar scroller.
 
 ```toml
 # Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: 5
 
 [pane.scrollbar]
