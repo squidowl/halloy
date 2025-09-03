@@ -1,4 +1,5 @@
 use serde::{Deserialize, Deserializer};
+use serde_untagged::UntaggedEnumVisitor;
 
 use crate::config::Scrollbar;
 
@@ -6,11 +7,14 @@ use crate::config::Scrollbar;
 #[serde(default)]
 pub struct Sidebar {
     pub max_width: Option<u16>,
+    #[serde(deserialize_with = "deserialize_unread_indicator")]
     pub unread_indicator: UnreadIndicator,
     pub position: Position,
     pub show_user_menu: bool,
     pub order_by: OrderBy,
     pub scrollbar: Scrollbar,
+    #[serde(deserialize_with = "deserialize_icon_size")]
+    pub server_icon_size: u32,
 }
 
 impl Default for Sidebar {
@@ -22,16 +26,20 @@ impl Default for Sidebar {
             show_user_menu: true,
             order_by: OrderBy::default(),
             scrollbar: Scrollbar::default(),
+            server_icon_size: 12,
         }
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Deserialize)]
+#[serde(default)]
 pub struct UnreadIndicator {
     pub title: bool,
-    pub icon: Option<Icon>,
+    pub icon: Icon,
+    #[serde(deserialize_with = "deserialize_icon_size")]
     pub icon_size: u32,
-    pub highlight_icon: Option<Icon>,
+    pub highlight_icon: Icon,
+    #[serde(deserialize_with = "deserialize_icon_size")]
     pub highlight_icon_size: u32,
 }
 
@@ -39,9 +47,9 @@ impl Default for UnreadIndicator {
     fn default() -> Self {
         UnreadIndicator {
             title: false,
-            icon: Some(Icon::default()),
+            icon: Icon::default(),
             icon_size: 6,
-            highlight_icon: Some(Icon::default()),
+            highlight_icon: Icon::default(),
             highlight_icon_size: 6,
         }
     }
@@ -49,118 +57,48 @@ impl Default for UnreadIndicator {
 
 impl UnreadIndicator {
     pub fn has_unread_icon(&self) -> bool {
-        self.icon.is_some()
+        !matches!(self.icon, Icon::None)
     }
 
     pub fn has_unread_highlight_icon(&self) -> bool {
-        self.highlight_icon.is_some()
+        !matches!(self.highlight_icon, Icon::None)
     }
 }
 
-impl<'de> Deserialize<'de> for UnreadIndicator {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        #[derive(Deserialize)]
-        #[serde(untagged)]
-        enum IconRepr {
-            Bool(bool),
-            String(String),
-        }
-
-        #[derive(Deserialize)]
-        #[serde(untagged)]
-        enum UnreadIndicatorRepr {
-            String(String),
-            Struct {
-                title: Option<bool>,
-                icon: Option<IconRepr>,
-                icon_size: Option<u32>,
-                highlight_icon: Option<IconRepr>,
-                highlight_icon_size: Option<u32>,
-            },
-        }
-
-        let repr = UnreadIndicatorRepr::deserialize(deserializer)?;
-        match repr {
-            UnreadIndicatorRepr::String(s) => match s.as_str() {
-                "title" => Ok(UnreadIndicator {
-                    title: true,
-                    icon: None,
-                    highlight_icon: None,
-                    ..UnreadIndicator::default()
-                }),
-                "none" => Ok(UnreadIndicator {
-                    title: false,
-                    icon: None,
-                    highlight_icon: None,
-                    ..UnreadIndicator::default()
-                }),
-                _ => Ok(UnreadIndicator::default()),
-            },
-            UnreadIndicatorRepr::Struct {
-                title,
-                icon,
-                icon_size,
-                highlight_icon,
-                highlight_icon_size,
-            } => {
-                let icon = match icon {
-                    Some(icon_repr) => match icon_repr {
-                        IconRepr::Bool(enabled) => match enabled {
-                            true => Some(Icon::default()),
-                            false => None,
-                        },
-                        IconRepr::String(s) => Some(Icon::from(s.as_str())),
-                    },
-                    None => UnreadIndicator::default().icon,
-                };
-
-                if let Some(icon_size) = icon_size
-                    && icon_size == 0
-                {
-                    return Err(serde::de::Error::invalid_value(
-                        serde::de::Unexpected::Unsigned(icon_size.into()),
-                        &"any positive integer",
-                    ));
-                }
-
-                let highlight_icon = match highlight_icon {
-                    Some(icon_repr) => match icon_repr {
-                        IconRepr::Bool(enabled) => match enabled {
-                            true => Some(Icon::default()),
-                            false => None,
-                        },
-                        IconRepr::String(s) => Some(Icon::from(s.as_str())),
-                    },
-                    None => UnreadIndicator::default().highlight_icon,
-                };
-
-                if let Some(highlight_icon_size) = highlight_icon_size
-                    && highlight_icon_size == 0
-                {
-                    return Err(serde::de::Error::invalid_value(
-                        serde::de::Unexpected::Unsigned(
-                            highlight_icon_size.into(),
-                        ),
-                        &"any positive integer",
-                    ));
-                }
-
-                Ok(UnreadIndicator {
-                    title: title.unwrap_or(UnreadIndicator::default().title),
-                    icon,
-                    icon_size: icon_size
-                        .unwrap_or(UnreadIndicator::default().icon_size),
-                    highlight_icon,
-                    highlight_icon_size: highlight_icon_size.unwrap_or(
-                        UnreadIndicator::default().highlight_icon_size,
-                    ),
-                })
-            }
-        }
-    }
+pub fn deserialize_unread_indicator<'de, D>(
+    deserializer: D,
+) -> Result<UnreadIndicator, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    #[allow(clippy::redundant_closure_for_method_calls)]
+    UntaggedEnumVisitor::new()
+        .string(|string| match string {
+            "title" => Ok(UnreadIndicator {
+                title: true,
+                icon: Icon::None,
+                highlight_icon: Icon::None,
+                ..UnreadIndicator::default()
+            }),
+            "none" => Ok(UnreadIndicator {
+                title: false,
+                icon: Icon::None,
+                highlight_icon: Icon::None,
+                ..UnreadIndicator::default()
+            }),
+            "dot" => Ok(UnreadIndicator {
+                title: false,
+                icon: Icon::Dot,
+                highlight_icon: Icon::Dot,
+                ..UnreadIndicator::default()
+            }),
+            _ => Err(serde::de::Error::invalid_value(
+                serde::de::Unexpected::Str(string),
+                &"one of: \"dot\", \"title\", or \"none\"",
+            )),
+        })
+        .map(|map| map.deserialize())
+        .deserialize(deserializer)
 }
 
 #[derive(Debug, Copy, Clone, Deserialize, Default)]
@@ -175,25 +113,7 @@ pub enum Icon {
     Speaker,
     Lightbulb,
     Star,
-}
-
-impl From<&str> for Icon {
-    fn from(value: &str) -> Self {
-        match value {
-            "dot" => Icon::Dot,
-            "circle-empty" => Icon::CircleEmpty,
-            "dot-circled" => Icon::DotCircled,
-            "certificate" => Icon::Certificate,
-            "asterisk" => Icon::Asterisk,
-            "speaker" => Icon::Speaker,
-            "lightbulb" => Icon::Lightbulb,
-            "star" => Icon::Star,
-            _ => {
-                log::warn!("[config.toml] Invalid icon: {value}");
-                Icon::default()
-            }
-        }
-    }
+    None,
 }
 
 #[derive(Debug, Copy, Clone, Deserialize, Default)]
@@ -221,4 +141,20 @@ pub enum OrderBy {
     #[default]
     Alpha,
     Config,
+}
+
+pub fn deserialize_icon_size<'de, D>(deserializer: D) -> Result<u32, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let integer: u32 = Deserialize::deserialize(deserializer)?;
+
+    if integer == 0 || integer > 17 {
+        Err(serde::de::Error::invalid_value(
+            serde::de::Unexpected::Unsigned(integer.into()),
+            &"any positive integer less than or equal to 17",
+        ))
+    } else {
+        Ok(integer)
+    }
 }

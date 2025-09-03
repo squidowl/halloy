@@ -144,15 +144,16 @@ fn to_text<'a>(unicode: char) -> Text<'a> {
         .font(font::ICON)
 }
 
-pub fn from_icon<'a>(icon: config::sidebar::Icon) -> Text<'a> {
+pub fn from_icon<'a>(icon: config::sidebar::Icon) -> Option<Text<'a>> {
     match icon {
-        config::sidebar::Icon::Dot => dot(),
-        config::sidebar::Icon::DotCircled => dot_circled(),
-        config::sidebar::Icon::Certificate => certificate(),
-        config::sidebar::Icon::Asterisk => asterisk(),
-        config::sidebar::Icon::Speaker => speaker(),
-        config::sidebar::Icon::Lightbulb => lightbulb(),
-        config::sidebar::Icon::Star => star(),
-        config::sidebar::Icon::CircleEmpty => circle_empty(),
+        config::sidebar::Icon::Dot => Some(dot()),
+        config::sidebar::Icon::DotCircled => Some(dot_circled()),
+        config::sidebar::Icon::Certificate => Some(certificate()),
+        config::sidebar::Icon::Asterisk => Some(asterisk()),
+        config::sidebar::Icon::Speaker => Some(speaker()),
+        config::sidebar::Icon::Lightbulb => Some(lightbulb()),
+        config::sidebar::Icon::Star => Some(star()),
+        config::sidebar::Icon::CircleEmpty => Some(circle_empty()),
+        config::sidebar::Icon::None => None,
     }
 }
