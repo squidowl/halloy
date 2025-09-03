@@ -27,7 +27,6 @@ use crate::appearance::theme::Styles;
 use crate::appearance::{self, Appearance};
 use crate::audio::{self};
 use crate::environment::config_dir;
-use crate::serde::deserialize_optional_u8_positive_integer;
 use crate::server::{ConfigMap as ServerMap, ServerName};
 use crate::{Theme, environment};
 
@@ -112,7 +111,7 @@ impl Default for Scrollbar {
 #[serde(default)]
 pub struct Font {
     pub family: Option<String>,
-    #[serde(deserialize_with = "deserialize_optional_u8_positive_integer")]
+    #[serde(deserialize_with = "deserialize_optional_font_size")]
     pub size: Option<u8>,
     #[serde(deserialize_with = "deserialize_font_weight_from_string")]
     pub weight: font::Weight,
@@ -129,6 +128,26 @@ impl Default for Font {
             weight: font::Weight::Normal,
             bold_weight: None,
         }
+    }
+}
+
+pub fn deserialize_optional_font_size<'de, D>(
+    deserializer: D,
+) -> Result<Option<u8>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let integer_maybe: Option<u8> = Deserialize::deserialize(deserializer)?;
+
+    if let Some(integer) = integer_maybe
+        && integer == 0
+    {
+        Err(serde::de::Error::invalid_value(
+            serde::de::Unexpected::Unsigned(integer.into()),
+            &"any positive integer",
+        ))
+    } else {
+        Ok(integer_maybe)
     }
 }
 
@@ -152,7 +171,7 @@ where
         "black" => Ok(font::Weight::Black),
         _ => Err(serde::de::Error::invalid_value(
             serde::de::Unexpected::Str(&string),
-            &"expected one of font weight names: \
+            &"one of \
               \"thin\", \
               \"extra-light\", \
               \"light\", \
@@ -160,7 +179,7 @@ where
               \"medium\", \
               \"semibold\", \
               \"bold\", \
-              \"extra-bold\", and \
+              \"extra-bold\", or \
               \"black\"",
         )),
     }
