@@ -47,10 +47,10 @@ impl Default for UnreadIndicator {
     fn default() -> Self {
         UnreadIndicator {
             title: false,
-            icon: Icon::default(),
+            icon: Icon::Dot,
             icon_size: 6,
-            highlight_icon: Icon::default(),
-            highlight_icon_size: 6,
+            highlight_icon: Icon::CircleEmpty,
+            highlight_icon_size: 8,
         }
     }
 }
