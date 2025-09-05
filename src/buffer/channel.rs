@@ -57,7 +57,7 @@ pub fn view<'a>(
     let our_nick = clients.nickname(&state.server);
 
     let our_user = our_nick
-        .map(|our_nick| User::from(Nick::from(our_nick.as_ref())))
+        .map(|our_nick| User::from(Nick::from(our_nick)))
         .and_then(|user| {
             clients.resolve_user_attributes(&state.server, channel, &user)
         });
@@ -105,14 +105,7 @@ pub fn view<'a>(
     .height(Length::Fill);
 
     let nick_list = nick_list::view(
-        server,
-        casemapping,
-        prefix,
-        channel,
-        users,
-        our_user,
-        config,
-        theme,
+        server, prefix, channel, users, our_user, config, theme,
     )
     .map(Message::UserContext);
 
@@ -365,7 +358,6 @@ mod nick_list {
 
     pub fn view<'a>(
         server: &'a Server,
-        casemapping: isupport::CaseMap,
         prefix: &'a [isupport::PrefixMap],
         channel: &'a target::Channel,
         users: Option<&'a ChannelUsers>,
@@ -416,7 +408,6 @@ mod nick_list {
             user_context::view(
                 content,
                 server,
-                casemapping,
                 prefix,
                 Some(channel),
                 user,

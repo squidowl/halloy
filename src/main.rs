@@ -816,21 +816,26 @@ impl Halloy {
                                             comment,
                                             channels,
                                             sent_time,
-                                        } => commands.push(
-                                            dashboard
-                                                .broadcast(
-                                                    &server,
-                                                    self.clients.get_casemapping(&server),
-                                                    &self.config,
-                                                    sent_time,
-                                                    Broadcast::Quit {
-                                                        user,
-                                                        comment,
-                                                        user_channels: channels,
-                                                    },
-                                                )
-                                                .map(Message::Dashboard),
-                                        ),
+                                        } => {
+                                            let casemapping = self.clients.get_casemapping(&server);
+
+                                            commands.push(
+                                                dashboard
+                                                    .broadcast(
+                                                        &server,
+                                                        casemapping,
+                                                        &self.config,
+                                                        sent_time,
+                                                        Broadcast::Quit {
+                                                            user,
+                                                            comment,
+                                                            user_channels: channels,
+                                                            casemapping,
+                                                        },
+                                                    )
+                                                    .map(Message::Dashboard),
+                                            );
+                                        },
                                         data::client::Broadcast::Nickname {
                                             old_user,
                                             new_nick,
@@ -840,11 +845,13 @@ impl Halloy {
                                         } => {
                                             let old_nick = old_user.nickname();
 
+                                            let casemapping = self.clients.get_casemapping(&server);
+
                                             commands.push(
                                                 dashboard
                                                     .broadcast(
                                                         &server,
-                                                        self.clients.get_casemapping(&server),
+                                                        casemapping,
                                                         &self.config,
                                                         sent_time,
                                                         Broadcast::Nickname {
@@ -852,6 +859,7 @@ impl Halloy {
                                                             new_nick,
                                                             ourself,
                                                             user_channels: channels,
+                                                            casemapping,
                                                         },
                                                     )
                                                     .map(Message::Dashboard),
@@ -865,17 +873,20 @@ impl Halloy {
                                         } => {
                                             let inviter = inviter.nickname();
 
+                                            let casemapping = self.clients.get_casemapping(&server);
+
                                             commands.push(
                                                 dashboard
                                                     .broadcast(
                                                         &server,
-                                                        self.clients.get_casemapping(&server),
+                                                        casemapping,
                                                         &self.config,
                                                         sent_time,
                                                         Broadcast::Invite {
                                                             inviter: inviter.to_owned(),
                                                             channel,
                                                             user_channels,
+                                                            casemapping,
                                                         },
                                                     )
                                                     .map(Message::Dashboard),
@@ -890,11 +901,13 @@ impl Halloy {
                                             channels,
                                             sent_time,
                                         } => {
+                                            let casemapping = self.clients.get_casemapping(&server);
+
                                             commands.push(
                                                 dashboard
                                                     .broadcast(
                                                         &server,
-                                                        self.clients.get_casemapping(&server),
+                                                        casemapping,
                                                         &self.config,
                                                         sent_time,
                                                         Broadcast::ChangeHost {
@@ -904,6 +917,7 @@ impl Halloy {
                                                             ourself,
                                                             logged_in,
                                                             user_channels: channels,
+                                                            casemapping,
                                                         },
                                                     )
                                                     .map(Message::Dashboard),
@@ -916,11 +930,13 @@ impl Halloy {
                                             channel,
                                             sent_time,
                                         } => {
+                                            let casemapping = self.clients.get_casemapping(&server);
+
                                             commands.push(
                                                 dashboard
                                                     .broadcast(
                                                         &server,
-                                                        self.clients.get_casemapping(&server),
+                                                        casemapping,
                                                         &self.config,
                                                         sent_time,
                                                         Broadcast::Kick {
@@ -928,6 +944,7 @@ impl Halloy {
                                                             victim,
                                                             reason,
                                                             channel,
+                                                            casemapping,
                                                         },
                                                     )
                                                     .map(Message::Dashboard),
@@ -937,8 +954,6 @@ impl Halloy {
                                     Event::FileTransferRequest(request) => {
                                         if let Some(command) = dashboard.receive_file_transfer(
                                             &server,
-                                            chantypes,
-                                            statusmsg,
                                             casemapping,
                                             request,
                                             &self.config,
@@ -1126,6 +1141,7 @@ impl Halloy {
                                             user,
                                             comment: reason,
                                             user_channels: channels,
+                                            casemapping,
                                         },
                                     )
                                     .map(Message::Dashboard)

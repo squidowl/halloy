@@ -128,7 +128,7 @@ impl<'de> Deserialize<'de> for User {
     {
         let value = String::deserialize(deserializer)?;
 
-        User::parse(&value, None).map_err(|_| {
+        User::parse(&value, None, None).map_err(|_| {
             serde::de::Error::invalid_value(
                 serde::de::Unexpected::Str(&value),
                 &"{access_levels}{nickname}{username}{hostname}",
@@ -151,6 +151,20 @@ impl From<Nick> for User {
 }
 
 impl User {
+    pub fn from_proto_user(
+        user: proto::User,
+        casemapping: isupport::CaseMap,
+    ) -> Self {
+        User {
+            nickname: Nick::from_string(user.nickname, casemapping),
+            username: user.username,
+            hostname: user.hostname,
+            accountname: None,
+            access_levels: BTreeSet::default(),
+            away: false,
+        }
+    }
+
     fn key(&'_ self) -> (Reverse<AccessLevel>, NickRef<'_>) {
         (
             Reverse(self.highest_access_level()),
@@ -181,7 +195,11 @@ impl User {
     }
 
     pub fn as_str(&self) -> &str {
-        self.nickname.0.as_ref()
+        self.nickname.raw.as_ref()
+    }
+
+    pub fn as_normalized_str(&self) -> &str {
+        self.nickname.normalized.as_ref()
     }
 
     pub fn is_away(&self) -> bool {
@@ -193,7 +211,7 @@ impl User {
     }
 
     pub fn nickname(&self) -> NickRef<'_> {
-        NickRef(&self.nickname.0)
+        self.nickname.as_nickref()
     }
 
     pub fn hostname(&self) -> Option<&str> {
@@ -310,6 +328,7 @@ impl User {
 
     pub fn parse(
         value: &str,
+        casemapping: Option<isupport::CaseMap>,
         prefix: Option<&[isupport::PrefixMap]>,
     ) -> Result<Self, ParseUserError> {
         if value.is_empty() {
@@ -364,7 +383,7 @@ impl User {
             };
 
         Ok(User {
-            nickname: Nick::from(nickname),
+            nickname: Nick::from_str(nickname, casemapping.unwrap_or_default()),
             username,
             hostname,
             accountname: None,
@@ -380,114 +399,179 @@ pub enum ParseUserError {
     NicknameEmpty,
 }
 
-impl From<proto::User> for User {
-    fn from(user: proto::User) -> Self {
-        User {
-            nickname: Nick::from(user.nickname),
-            username: user.username,
-            hostname: user.hostname,
-            accountname: None,
-            access_levels: BTreeSet::default(),
-            away: false,
-        }
-    }
-}
-
 #[derive(Debug, Clone)]
 pub struct NickColor {
     pub seed: Option<String>,
     pub color: iced_core::Color,
 }
 
-#[derive(
-    Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
-)]
-pub struct Nick(String);
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Nick {
+    raw: String,
+    normalized: String,
+}
+
+impl PartialEq for Nick {
+    fn eq(&self, other: &Self) -> bool {
+        self.normalized.eq(&other.normalized)
+    }
+}
+
+impl Eq for Nick {}
+
+impl PartialOrd for Nick {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for Nick {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.normalized.cmp(&other.normalized)
+    }
+}
+
+impl Hash for Nick {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.normalized.hash(state);
+    }
+}
 
 impl fmt::Display for Nick {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.0.fmt(f)
+        self.raw.fmt(f)
     }
 }
 
-impl AsRef<str> for Nick {
-    fn as_ref(&self) -> &str {
-        self.0.as_ref()
+impl From<NickRef<'_>> for Nick {
+    fn from(nickref: NickRef) -> Self {
+        Nick {
+            raw: nickref.raw.to_string(),
+            normalized: nickref.normalized.to_string(),
+        }
     }
 }
 
-impl From<String> for Nick {
-    fn from(nick: String) -> Self {
-        Nick(nick)
+impl From<User> for Nick {
+    fn from(user: User) -> Self {
+        user.nickname
     }
 }
 
-impl<'a> From<&'a str> for Nick {
-    fn from(nick: &'a str) -> Self {
-        Nick(nick.to_string())
+impl From<Nick> for (String, String) {
+    fn from(nick: Nick) -> Self {
+        (nick.raw, nick.normalized)
     }
 }
 
-impl Nick {
-    pub fn as_nickref(&self) -> NickRef<'_> {
-        NickRef(self.0.as_ref())
+impl<'a> Nick {
+    pub fn from_string(nick: String, casemapping: isupport::CaseMap) -> Self {
+        Nick {
+            normalized: casemapping.normalize(&nick),
+            raw: nick,
+        }
+    }
+
+    pub fn from_str(nick: &'a str, casemapping: isupport::CaseMap) -> Self {
+        Nick {
+            normalized: casemapping.normalize(nick),
+            raw: nick.to_string(),
+        }
+    }
+
+    pub fn as_nickref(&'a self) -> NickRef<'a> {
+        NickRef {
+            raw: self.raw.as_ref(),
+            normalized: self.normalized.as_ref(),
+        }
+    }
+
+    pub fn as_str(&self) -> &str {
+        self.raw.as_ref()
+    }
+
+    pub fn as_normalized_str(&self) -> &str {
+        self.normalized.as_ref()
+    }
+
+    pub fn renormalize(&mut self, casemapping: isupport::CaseMap) {
+        self.normalized = casemapping.normalize(self.raw.as_str());
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct NickRef<'a>(&'a str);
-
-impl<'a> From<&'a str> for NickRef<'a> {
-    fn from(nick: &'a str) -> Self {
-        NickRef(nick)
-    }
+#[derive(Debug, Clone, Copy)]
+pub struct NickRef<'a> {
+    raw: &'a str,
+    normalized: &'a str,
 }
+
 impl<'a> From<&'a Nick> for NickRef<'a> {
     fn from(nick: &'a Nick) -> Self {
-        NickRef(nick.0.as_str())
+        NickRef {
+            raw: nick.raw.as_str(),
+            normalized: nick.normalized.as_str(),
+        }
     }
 }
 
 impl NickRef<'_> {
     pub fn to_owned(self) -> Nick {
-        Nick(self.0.to_string())
+        Nick {
+            raw: self.raw.to_string(),
+            normalized: self.normalized.to_string(),
+        }
+    }
+
+    pub fn as_str(&self) -> &str {
+        self.raw
+    }
+
+    pub fn as_normalized_str(&self) -> &str {
+        self.normalized
     }
 }
 
 impl Equivalent<User> for NickRef<'_> {
     fn equivalent(&self, user: &User) -> bool {
-        self.0 == user.nickname.as_ref()
+        self.eq(&user.nickname.as_nickref())
+    }
+}
+
+impl Hash for NickRef<'_> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.normalized.hash(state);
     }
 }
 
 impl fmt::Display for NickRef<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.0.fmt(f)
-    }
-}
-
-impl AsRef<str> for NickRef<'_> {
-    fn as_ref(&self) -> &str {
-        self.0
+        self.raw.fmt(f)
     }
 }
 
 impl PartialOrd for NickRef<'_> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        // TODO(pounce) casemapping
         Some(self.cmp(other))
     }
 }
 
 impl Ord for NickRef<'_> {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.0.to_lowercase().cmp(&other.0.to_lowercase())
+        self.normalized.cmp(other.normalized)
     }
 }
 
+impl PartialEq for NickRef<'_> {
+    fn eq(&self, other: &NickRef) -> bool {
+        self.normalized.eq(other.normalized)
+    }
+}
+
+impl Eq for NickRef<'_> {}
+
 impl PartialEq<Nick> for NickRef<'_> {
     fn eq(&self, other: &Nick) -> bool {
-        self.0.eq(other.0.as_str())
+        self.normalized.eq(other.normalized.as_str())
     }
 }
 
@@ -577,7 +661,10 @@ mod tests {
         let tests = [
             (
                 User {
-                    nickname: "dan".into(),
+                    nickname: Nick::from_str(
+                        "dan",
+                        isupport::CaseMap::default(),
+                    ),
                     username: None,
                     hostname: None,
                     accountname: None,
@@ -591,7 +678,10 @@ mod tests {
             ),
             (
                 User {
-                    nickname: "dan".into(),
+                    nickname: Nick::from_str(
+                        "dan",
+                        isupport::CaseMap::default(),
+                    ),
                     username: Some("d".into()),
                     hostname: Some("localhost".into()),
                     accountname: None,
@@ -602,7 +692,10 @@ mod tests {
             ),
             (
                 User {
-                    nickname: "d@n".into(),
+                    nickname: Nick::from_str(
+                        "d@n",
+                        isupport::CaseMap::default(),
+                    ),
                     username: Some("d".into()),
                     hostname: Some("localhost".into()),
                     accountname: None,
@@ -615,7 +708,10 @@ mod tests {
             ),
             (
                 User {
-                    nickname: "foobar".into(),
+                    nickname: Nick::from_str(
+                        "foobar",
+                        isupport::CaseMap::default(),
+                    ),
                     username: None,
                     hostname: None,
                     accountname: None,
@@ -626,7 +722,10 @@ mod tests {
             ),
             (
                 User {
-                    nickname: "foobar".into(),
+                    nickname: Nick::from_str(
+                        "foobar",
+                        isupport::CaseMap::default(),
+                    ),
                     username: Some("8a027a9a4a".into()),
                     hostname: Some(
                         "2201:12f1:2:1162:1242:1fg:he11:abde".into(),
@@ -641,7 +740,10 @@ mod tests {
             ),
             (
                 User {
-                    nickname: "foobar".into(),
+                    nickname: Nick::from_str(
+                        "foobar",
+                        isupport::CaseMap::default(),
+                    ),
                     username: Some("~foobar".into()),
                     hostname: Some("12.521.212.521".into()),
                     accountname: None,
@@ -655,7 +757,10 @@ mod tests {
             ),
             (
                 User {
-                    nickname: "H1N5".into(),
+                    nickname: Nick::from_str(
+                        "H1N5",
+                        isupport::CaseMap::default(),
+                    ),
                     username: Some("the.flu".into()),
                     hostname: Some("in.you".into()),
                     accountname: None,
@@ -668,7 +773,10 @@ mod tests {
             ),
             (
                 User {
-                    nickname: "*status".into(),
+                    nickname: Nick::from_str(
+                        "*status",
+                        isupport::CaseMap::default(),
+                    ),
                     username: None,
                     hostname: None,
                     accountname: None,
@@ -687,7 +795,7 @@ mod tests {
     #[test]
     fn matches_masks() {
         let user = User {
-            nickname: "alice".into(),
+            nickname: Nick::from_str("alice", isupport::CaseMap::default()),
             username: Some("alice".into()),
             hostname: Some("example.com".into()),
             accountname: None,
@@ -730,11 +838,19 @@ mod tests {
             ("foobar", "+@foobar!~foobar@12.521.212.521"),
             ("*status", "*status"),
         ]
-        .map(|(a, b)| (NickRef::from(a), User::parse(b, None).unwrap()));
+        .map(|(a, b)| {
+            (
+                Nick::from_str(a, isupport::CaseMap::default()),
+                User::parse(b, None, None).unwrap(),
+            )
+        });
         let channel_users: ChannelUsers =
             users.iter().map(|(_, u)| u).cloned().collect();
         for (nick, user) in users {
-            assert_eq!(channel_users.get_by_nick(*nick), Some(user));
+            assert_eq!(
+                channel_users.get_by_nick(nick.as_nickref()),
+                Some(user)
+            );
         }
     }
 }

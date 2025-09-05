@@ -600,23 +600,21 @@ impl State {
             Message::Link(message::Link::User(user)) => {
                 let event = match config.buffer.nickname.click {
                     data::config::buffer::NicknameClickAction::OpenQuery => {
-                        kind.server().cloned().map(|server| {
-                            let query =
-                                target::Query::from_user(&user, clients.get_casemapping(&server));
-                            Event::OpenBuffer(
-                                Target::Query(query),
-                                config.actions.buffer.click_username,
-                            )
-                        })
+                        let query = target::Query::from(user);
+
+                        Event::OpenBuffer(
+                            Target::Query(query),
+                            config.actions.buffer.click_username,
+                        )
                     }
                     data::config::buffer::NicknameClickAction::InsertNickname => {
-                        Some(Event::UserContext(user_context::Event::InsertNickname(
+                        Event::UserContext(user_context::Event::InsertNickname(
                             user.nickname().to_owned(),
-                        )))
+                        ))
                     }
                 };
 
-                return (Task::none(), event);
+                return (Task::none(), Some(event));
             }
             Message::Link(message::Link::GoToMessage(
                 server,
