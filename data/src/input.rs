@@ -112,6 +112,7 @@ impl Input {
                                 target,
                                 None,
                                 &config.highlights,
+                                casemapping,
                             ),
                         )
                     })
@@ -126,6 +127,7 @@ impl Input {
                     &target,
                     None,
                     &config.highlights,
+                    casemapping,
                 ),
             )]),
             _ => None,

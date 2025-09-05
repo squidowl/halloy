@@ -1305,13 +1305,8 @@ impl Text {
                     }
                 }
             })
-            .filter_map(|user| {
-                let normalized_nick =
-                    casemapping.normalize(user.nickname().as_ref());
-                normalized_nick
-                    .starts_with(&nick)
-                    .then(|| user.nickname().to_string())
-            })
+            .filter(|&user| user.as_normalized_str().starts_with(&nick))
+            .map(|user| user.nickname().to_string())
             .collect();
     }
 
