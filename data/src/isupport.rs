@@ -1199,13 +1199,17 @@ pub fn find_target_limit(
 pub fn get_casemapping_or_default(
     isupport: &HashMap<Kind, Parameter>,
 ) -> CaseMap {
+    get_casemapping(isupport).unwrap_or_default()
+}
+
+pub fn get_casemapping(isupport: &HashMap<Kind, Parameter>) -> Option<CaseMap> {
     if let Some(Parameter::CASEMAPPING(casemapping)) =
         isupport.get(&Kind::CASEMAPPING)
     {
-        return *casemapping;
+        Some(*casemapping)
+    } else {
+        None
     }
-
-    CaseMap::default()
 }
 
 // https://modern.ircdocs.horse/#chanmodes-parameter

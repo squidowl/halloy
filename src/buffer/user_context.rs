@@ -61,7 +61,6 @@ impl Entry {
     pub fn view<'a>(
         self,
         server: &Server,
-        casemapping: isupport::CaseMap,
         prefix: &[isupport::PrefixMap],
         channel: Option<&target::Channel>,
         user: &User,
@@ -83,7 +82,7 @@ impl Entry {
                 "Message".to_string(),
                 Message::Query(
                     server.clone(),
-                    target::Query::from_user(user, casemapping),
+                    target::Query::from(user),
                     config.actions.buffer.message_user,
                 ),
                 length,
@@ -242,7 +241,6 @@ pub fn update(message: Message) -> Event {
 pub fn view<'a>(
     content: impl Into<Element<'a, Message>>,
     server: &'a Server,
-    casemapping: isupport::CaseMap,
     prefix: &'a [isupport::PrefixMap],
     channel: Option<&'a target::Channel>,
     user: &'a User,
@@ -257,7 +255,7 @@ pub fn view<'a>(
     let message = match click {
         data::config::buffer::NicknameClickAction::OpenQuery => Message::Query(
             server.clone(),
-            target::Query::from_user(user, casemapping),
+            target::Query::from(user),
             config.actions.buffer.click_username,
         ),
         data::config::buffer::NicknameClickAction::InsertNickname => {
@@ -276,7 +274,6 @@ pub fn view<'a>(
         move |entry, length| {
             entry.view(
                 server,
-                casemapping,
                 prefix,
                 channel,
                 user,
