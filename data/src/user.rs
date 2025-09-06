@@ -405,7 +405,7 @@ pub struct NickColor {
     pub color: iced_core::Color,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct Nick {
     raw: String,
     normalized: String,
@@ -496,6 +496,26 @@ impl<'a> Nick {
 
     pub fn renormalize(&mut self, casemapping: isupport::CaseMap) {
         self.normalized = casemapping.normalize(self.raw.as_str());
+    }
+}
+
+impl Serialize for Nick {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        self.raw.serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for Nick {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = String::deserialize(deserializer)?;
+
+        Ok(Nick::from_string(value, isupport::CaseMap::default()))
     }
 }
 
