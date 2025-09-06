@@ -393,10 +393,11 @@ pub fn view<'a>(
 
     let content = column![
         top_row,
-        column(old),
+        column(old).spacing(config.buffer.line_spacing),
         keyed(keyed::Key::Divider, divider),
-        column(new),
-    ];
+        column(new).spacing(config.buffer.line_spacing),
+    ]
+    .spacing(config.buffer.line_spacing);
 
     correct_viewport(
         Scrollable::new(container(content).width(Length::Fill).padding([0, 8]))
