@@ -884,7 +884,7 @@ show_access_levels = true
 <h4 id="width"><a class="header" href="#width"><code>width</code></a></h4>
 <p>Overwrite nicklist width in pixels.</p>
 <pre><code class="language-toml"># Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: not set
 
 [buffer.channel.nicklist]
@@ -917,7 +917,7 @@ enabled = true
 <h4 id="max_lines"><a class="header" href="#max_lines"><code>max_lines</code></a></h4>
 <p>Amount of visible lines before you have to scroll in topic banner.</p>
 <pre><code class="language-toml"># Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: 2
 
 [buffer.channel.topic]
@@ -1039,7 +1039,7 @@ enabled = true
 <h4 id="smart"><a class="header" href="#smart"><code>smart</code></a></h4>
 <p>Only show internal message if received within the given time duration (seconds).</p>
 <pre><code class="language-toml"># Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: not set
 
 [buffer.internal_messages.success]
@@ -1059,7 +1059,7 @@ enabled = true
 <h4 id="smart-1"><a class="header" href="#smart-1"><code>smart</code></a></h4>
 <p>Only show internal message if received within the given time duration (seconds).</p>
 <pre><code class="language-toml"># Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: not set
 
 [buffer.internal_messages.error]
@@ -1193,7 +1193,7 @@ click = "open-query"
 <h3 id="truncate"><a class="header" href="#truncate"><code>truncate</code></a></h3>
 <p>Truncate nicknames in buffer to a maximum length</p>
 <pre><code class="language-toml"># Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: not set
 
 [buffer.nickname]
@@ -1241,7 +1241,7 @@ enabled = true
 <h3 id="smart-2"><a class="header" href="#smart-2"><code>smart</code></a></h3>
 <p>Only show server message if the user has sent a message in the given time interval (seconds) prior to the server message.</p>
 <pre><code class="language-toml"># Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: not set
 
 [buffer.server_messages.&lt;server_message&gt;]
@@ -1447,7 +1447,7 @@ passive = true
 <h2 id="timeout"><a class="header" href="#timeout"><code>timeout</code></a></h2>
 <p>Time (in seconds) to wait before timing out a transfer waiting to be accepted.</p>
 <pre><code class="language-toml"># Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: 300
 
 [file_transfer]
@@ -1477,7 +1477,7 @@ bind_address = "&lt;some ip&gt;"
 <h2 id="bind_port_first"><a class="header" href="#bind_port_first"><code>bind_port_first</code></a></h2>
 <p>First port in port range to bind to.</p>
 <pre><code class="language-toml"># Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: not set
 
 [file_transfer.server]
@@ -1486,7 +1486,7 @@ bind_port_first = 1024
 <h2 id="bind_port_last"><a class="header" href="#bind_port_last"><code>bind_port_last</code></a></h2>
 <p>Last port in port range to bind to.</p>
 <pre><code class="language-toml"># Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: not set
 
 [file_transfer.server]
@@ -1804,7 +1804,7 @@ show_content = true
 <h2 id="delay"><a class="header" href="#delay"><code>delay</code></a></h2>
 <p>Delay in milliseconds before triggering the next notification.</p>
 <pre><code class="language-toml"># Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: 500
 
 [notifications.&lt;notification&gt;]
@@ -1859,7 +1859,7 @@ restore_on_launch = false
 <h3 id="width-1"><a class="header" href="#width-1">width</a></h3>
 <p>Width of the scrollbar.</p>
 <pre><code class="language-toml"># Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: 5
 
 [pane.scrollbar]
@@ -1868,7 +1868,7 @@ width = 5
 <h3 id="width-2"><a class="header" href="#width-2">width</a></h3>
 <p>Width of the scrollbar scroller.</p>
 <pre><code class="language-toml"># Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: 5
 
 [pane.scrollbar]
@@ -1906,7 +1906,7 @@ host = "192.168.1.100"
 <h3 id="port"><a class="header" href="#port"><code>port</code></a></h3>
 <p>Proxy port to connect on.</p>
 <pre><code class="language-toml"># Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: not set
 
 # Required
@@ -1959,7 +1959,7 @@ host = "192.168.1.100"
 <h3 id="port-1"><a class="header" href="#port-1"><code>port</code></a></h3>
 <p>Proxy port to connect on.</p>
 <pre><code class="language-toml"># Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: not set
 
 # Required
@@ -2032,7 +2032,7 @@ user_agent = "WhatsApp/2"
 <h3 id="timeout_ms"><a class="header" href="#timeout_ms"><code>timeout_ms</code></a></h3>
 <p>Request timeout in milliseconds. Defaults is 10s.</p>
 <pre><code class="language-toml"># Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: 10000
 
 [preview.request]
@@ -2041,7 +2041,7 @@ timeout_ms = 10000
 <h3 id="max_image_size"><a class="header" href="#max_image_size"><code>max_image_size</code></a></h3>
 <p>Max image size in bytes. This prevents downloading responses that are too big. Default is 10mb.</p>
 <pre><code class="language-toml"># Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: 10485760
 
 [preview.request]
@@ -2050,7 +2050,7 @@ max_image_size = 10485760
 <h3 id="max_scrape_size"><a class="header" href="#max_scrape_size"><code>max_scrape_size</code></a></h3>
 <p>Max bytes streamed when scraping for opengraph metadata before cancelling the request. This prevents downloading responses that are too big. Default is 500kb.</p>
 <pre><code class="language-toml"># Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: 512000
 
 [preview.request]
@@ -2059,7 +2059,7 @@ max_scrape_size = 512000
 <h3 id="concurrency"><a class="header" href="#concurrency"><code>concurrency</code></a></h3>
 <p>Number of allowed concurrent requests for fetching previews. Reduce this to prevent rate-limiting.</p>
 <pre><code class="language-toml"># Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: 4
 
 [preview.request]
@@ -2068,7 +2068,7 @@ concurrency = 4
 <h3 id="delay_ms"><a class="header" href="#delay_ms"><code>delay_ms</code></a></h3>
 <p>Number of milliseconds to wait before requesting another preview when number of requested previews &gt; <code>concurrency</code>.</p>
 <pre><code class="language-toml"># Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: 500
 
 [preview.request]
@@ -2257,7 +2257,7 @@ server = "irc.libera.chat"
 <h2 id="port-2"><a class="header" href="#port-2"><code>port</code></a></h2>
 <p>The port to connect on. If you want to use a plain text port like 6667 you MUST also change the <code>use_tls</code> setting.</p>
 <pre><code class="language-toml"># Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: 6697
 
 [servers.&lt;name&gt;]
@@ -2335,16 +2335,16 @@ channel_keys = { channel1 = "key1" }
 <h2 id="ping_time"><a class="header" href="#ping_time"><code>ping_time</code></a></h2>
 <p>The amount of inactivity in seconds before the client will ping the server.</p>
 <pre><code class="language-toml"># Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: 180
 
 [servers.&lt;name&gt;]
 ping_time = 180
 </code></pre>
 <h2 id="ping_timeout"><a class="header" href="#ping_timeout"><code>ping_timeout</code></a></h2>
-<p>The amount of time in seconds for a client to reconnect due to no ping response.</p>
+<p>The amount of time in seconds to wait for a ping response before attempting to reconnect.</p>
 <pre><code class="language-toml"># Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: 20
 
 [servers.&lt;name&gt;]
@@ -2353,7 +2353,7 @@ ping_timeout = 20
 <h2 id="reconnect_delay"><a class="header" href="#reconnect_delay"><code>reconnect_delay</code></a></h2>
 <p>The amount of time in seconds before attempting to reconnect to the server when disconnected.</p>
 <pre><code class="language-toml"># Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: 10
 
 [servers.&lt;name&gt;]
@@ -2534,14 +2534,14 @@ key = "/path/to/your/private_key.pem"
 </li>
 </ol><div style="break-before: page; page-break-before: always;"></div><h1 id="sidebar"><a class="header" href="#sidebar"><code>[sidebar]</code></a></h1>
 <p>Sidebar settings for Halloy.</p>
-<h2 id="unread_indicator"><a class="header" href="#unread_indicator"><code>unread_indicator</code></a></h2>
-<p>Unread buffer indicator style.</p>
-<pre><code class="language-toml"># Type: string
-# Values: "dot", "title", "none"
-# Default: "dot"
+<h2 id="server_icon_size"><a class="header" href="#server_icon_size"><code>server_icon_size</code></a></h2>
+<p>Adjust server icon size</p>
+<pre><code class="language-toml"># Type: integer
+# Values: any positive integer"
+# Default: 12
 
 [sidebar]
-unread_indicator = "dot"
+server_icon_size = 12
 </code></pre>
 <h2 id="position-1"><a class="header" href="#position-1"><code>position</code></a></h2>
 <p>Sidebar position within the application window.</p>
@@ -2555,7 +2555,7 @@ position = "left"
 <h2 id="max_width"><a class="header" href="#max_width"><code>max_width</code></a></h2>
 <p>Specify sidebar max width in pixels. Only used if <code>position</code> is <code>"left"</code> or <code>"right"</code>.</p>
 <pre><code class="language-toml"># Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: not set
 
 [sidebar]
@@ -2588,7 +2588,7 @@ order_by = "config"
 <h3 id="width-3"><a class="header" href="#width-3">width</a></h3>
 <p>Width of the scrollbar.</p>
 <pre><code class="language-toml"># Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: 5
 
 [sidebar.scrollbar]
@@ -2597,11 +2597,58 @@ width = 5
 <h3 id="width-4"><a class="header" href="#width-4">width</a></h3>
 <p>Width of the scrollbar scroller.</p>
 <pre><code class="language-toml"># Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: 5
 
 [sidebar.scrollbar]
 scroller_width = 5
+</code></pre>
+<h2 id="unread_indicator"><a class="header" href="#unread_indicator"><code>unread_indicator</code></a></h2>
+<p>Unread buffer indicator style.</p>
+<h3 id="title"><a class="header" href="#title"><code>title</code></a></h3>
+<p>Changes buffer title color when unread messages are present</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: false
+
+[sidebar.unread_indicator]
+title = false
+</code></pre>
+<h3 id="icon"><a class="header" href="#icon"><code>icon</code></a></h3>
+<p>Changes the icon which appears when unread messages are present. To disable use <code>"none"</code>.</p>
+<pre><code class="language-toml"># Type: string
+# Values: "dot", "circle-empty", "dot-circled", "certificate", "asterisk", "speaker", "lightbulb", "star", "none"
+# Default: "dot"
+
+[sidebar.unread_indicator]
+icon = "dot"
+</code></pre>
+<h3 id="highlight_icon"><a class="header" href="#highlight_icon"><code>highlight_icon</code></a></h3>
+<p>Changes the icon which appears when unread highlight messages are present. To disable use <code>"none"</code>.</p>
+<pre><code class="language-toml"># Type: string
+# Values: "dot", "circle-empty", "dot-circled", "certificate", "asterisk", "speaker", "lightbulb", "star", "none"
+# Default: "dot"
+
+[sidebar.unread_indicator]
+highlight_icon = "circle-empty"
+</code></pre>
+<h3 id="icon_size"><a class="header" href="#icon_size"><code>icon_size</code></a></h3>
+<p>Changes the unread icon size.</p>
+<pre><code class="language-toml"># Type: integer
+# Values: any positive integer"
+# Default: 6
+
+[sidebar.unread_indicator]
+icon_size = 6
+</code></pre>
+<h3 id="highlight_icon_size"><a class="header" href="#highlight_icon_size"><code>highlight_icon_size</code></a></h3>
+<p>Changes the highlight unread icon size.</p>
+<pre><code class="language-toml"># Type: integer
+# Values: any positive integer"
+# Default: 8
+
+[sidebar.unread_indicator]
+highlight_icon_size = 8
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="themes"><a class="header" href="#themes">Themes</a></h1>
 <h2 id="example-5"><a class="header" href="#example-5">Example</a></h2>
@@ -2649,6 +2696,7 @@ border = "&lt;string&gt;"
 horizontal_rule = "&lt;string&gt;"
 scrollbar = "&lt;string&gt;"
 unread_indicator = "&lt;string&gt;"
+highlight_indicator = "&lt;string&gt;"
 
 [text]
 primary = "&lt;string&gt;"

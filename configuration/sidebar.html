@@ -182,14 +182,14 @@
                     <main>
                         <h1 id="sidebar"><a class="header" href="#sidebar"><code>[sidebar]</code></a></h1>
 <p>Sidebar settings for Halloy.</p>
-<h2 id="unread_indicator"><a class="header" href="#unread_indicator"><code>unread_indicator</code></a></h2>
-<p>Unread buffer indicator style.</p>
-<pre><code class="language-toml"># Type: string
-# Values: "dot", "title", "none"
-# Default: "dot"
+<h2 id="server_icon_size"><a class="header" href="#server_icon_size"><code>server_icon_size</code></a></h2>
+<p>Adjust server icon size</p>
+<pre><code class="language-toml"># Type: integer
+# Values: any positive integer"
+# Default: 12
 
 [sidebar]
-unread_indicator = "dot"
+server_icon_size = 12
 </code></pre>
 <h2 id="position"><a class="header" href="#position"><code>position</code></a></h2>
 <p>Sidebar position within the application window.</p>
@@ -203,7 +203,7 @@ position = "left"
 <h2 id="max_width"><a class="header" href="#max_width"><code>max_width</code></a></h2>
 <p>Specify sidebar max width in pixels. Only used if <code>position</code> is <code>"left"</code> or <code>"right"</code>.</p>
 <pre><code class="language-toml"># Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: not set
 
 [sidebar]
@@ -236,7 +236,7 @@ order_by = "config"
 <h3 id="width"><a class="header" href="#width">width</a></h3>
 <p>Width of the scrollbar.</p>
 <pre><code class="language-toml"># Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: 5
 
 [sidebar.scrollbar]
@@ -245,11 +245,58 @@ width = 5
 <h3 id="width-1"><a class="header" href="#width-1">width</a></h3>
 <p>Width of the scrollbar scroller.</p>
 <pre><code class="language-toml"># Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: 5
 
 [sidebar.scrollbar]
 scroller_width = 5
+</code></pre>
+<h2 id="unread_indicator"><a class="header" href="#unread_indicator"><code>unread_indicator</code></a></h2>
+<p>Unread buffer indicator style.</p>
+<h3 id="title"><a class="header" href="#title"><code>title</code></a></h3>
+<p>Changes buffer title color when unread messages are present</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: false
+
+[sidebar.unread_indicator]
+title = false
+</code></pre>
+<h3 id="icon"><a class="header" href="#icon"><code>icon</code></a></h3>
+<p>Changes the icon which appears when unread messages are present. To disable use <code>"none"</code>.</p>
+<pre><code class="language-toml"># Type: string
+# Values: "dot", "circle-empty", "dot-circled", "certificate", "asterisk", "speaker", "lightbulb", "star", "none"
+# Default: "dot"
+
+[sidebar.unread_indicator]
+icon = "dot"
+</code></pre>
+<h3 id="highlight_icon"><a class="header" href="#highlight_icon"><code>highlight_icon</code></a></h3>
+<p>Changes the icon which appears when unread highlight messages are present. To disable use <code>"none"</code>.</p>
+<pre><code class="language-toml"># Type: string
+# Values: "dot", "circle-empty", "dot-circled", "certificate", "asterisk", "speaker", "lightbulb", "star", "none"
+# Default: "dot"
+
+[sidebar.unread_indicator]
+highlight_icon = "circle-empty"
+</code></pre>
+<h3 id="icon_size"><a class="header" href="#icon_size"><code>icon_size</code></a></h3>
+<p>Changes the unread icon size.</p>
+<pre><code class="language-toml"># Type: integer
+# Values: any positive integer"
+# Default: 6
+
+[sidebar.unread_indicator]
+icon_size = 6
+</code></pre>
+<h3 id="highlight_icon_size"><a class="header" href="#highlight_icon_size"><code>highlight_icon_size</code></a></h3>
+<p>Changes the highlight unread icon size.</p>
+<pre><code class="language-toml"># Type: integer
+# Values: any positive integer"
+# Default: 8
+
+[sidebar.unread_indicator]
+highlight_icon_size = 8
 </code></pre>
 
                     </main>

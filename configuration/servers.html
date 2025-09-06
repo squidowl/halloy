@@ -282,7 +282,7 @@ server = "irc.libera.chat"
 <h2 id="port"><a class="header" href="#port"><code>port</code></a></h2>
 <p>The port to connect on. If you want to use a plain text port like 6667 you MUST also change the <code>use_tls</code> setting.</p>
 <pre><code class="language-toml"># Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: 6697
 
 [servers.&lt;name&gt;]
@@ -360,16 +360,16 @@ channel_keys = { channel1 = "key1" }
 <h2 id="ping_time"><a class="header" href="#ping_time"><code>ping_time</code></a></h2>
 <p>The amount of inactivity in seconds before the client will ping the server.</p>
 <pre><code class="language-toml"># Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: 180
 
 [servers.&lt;name&gt;]
 ping_time = 180
 </code></pre>
 <h2 id="ping_timeout"><a class="header" href="#ping_timeout"><code>ping_timeout</code></a></h2>
-<p>The amount of time in seconds for a client to reconnect due to no ping response.</p>
+<p>The amount of time in seconds to wait for a ping response before attempting to reconnect.</p>
 <pre><code class="language-toml"># Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: 20
 
 [servers.&lt;name&gt;]
@@ -378,7 +378,7 @@ ping_timeout = 20
 <h2 id="reconnect_delay"><a class="header" href="#reconnect_delay"><code>reconnect_delay</code></a></h2>
 <p>The amount of time in seconds before attempting to reconnect to the server when disconnected.</p>
 <pre><code class="language-toml"># Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: 10
 
 [servers.&lt;name&gt;]

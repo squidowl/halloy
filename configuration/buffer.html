@@ -283,7 +283,7 @@ show_access_levels = true
 <h4 id="width"><a class="header" href="#width"><code>width</code></a></h4>
 <p>Overwrite nicklist width in pixels.</p>
 <pre><code class="language-toml"># Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: not set
 
 [buffer.channel.nicklist]
@@ -316,7 +316,7 @@ enabled = true
 <h4 id="max_lines"><a class="header" href="#max_lines"><code>max_lines</code></a></h4>
 <p>Amount of visible lines before you have to scroll in topic banner.</p>
 <pre><code class="language-toml"># Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: 2
 
 [buffer.channel.topic]
@@ -438,7 +438,7 @@ enabled = true
 <h4 id="smart"><a class="header" href="#smart"><code>smart</code></a></h4>
 <p>Only show internal message if received within the given time duration (seconds).</p>
 <pre><code class="language-toml"># Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: not set
 
 [buffer.internal_messages.success]
@@ -458,7 +458,7 @@ enabled = true
 <h4 id="smart-1"><a class="header" href="#smart-1"><code>smart</code></a></h4>
 <p>Only show internal message if received within the given time duration (seconds).</p>
 <pre><code class="language-toml"># Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: not set
 
 [buffer.internal_messages.error]
@@ -592,7 +592,7 @@ click = "open-query"
 <h3 id="truncate"><a class="header" href="#truncate"><code>truncate</code></a></h3>
 <p>Truncate nicknames in buffer to a maximum length</p>
 <pre><code class="language-toml"># Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: not set
 
 [buffer.nickname]
@@ -640,7 +640,7 @@ enabled = true
 <h3 id="smart-2"><a class="header" href="#smart-2"><code>smart</code></a></h3>
 <p>Only show server message if the user has sent a message in the given time interval (seconds) prior to the server message.</p>
 <pre><code class="language-toml"># Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: not set
 
 [buffer.server_messages.&lt;server_message&gt;]

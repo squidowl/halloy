@@ -205,7 +205,7 @@ user_agent = "WhatsApp/2"
 <h3 id="timeout_ms"><a class="header" href="#timeout_ms"><code>timeout_ms</code></a></h3>
 <p>Request timeout in milliseconds. Defaults is 10s.</p>
 <pre><code class="language-toml"># Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: 10000
 
 [preview.request]
@@ -214,7 +214,7 @@ timeout_ms = 10000
 <h3 id="max_image_size"><a class="header" href="#max_image_size"><code>max_image_size</code></a></h3>
 <p>Max image size in bytes. This prevents downloading responses that are too big. Default is 10mb.</p>
 <pre><code class="language-toml"># Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: 10485760
 
 [preview.request]
@@ -223,7 +223,7 @@ max_image_size = 10485760
 <h3 id="max_scrape_size"><a class="header" href="#max_scrape_size"><code>max_scrape_size</code></a></h3>
 <p>Max bytes streamed when scraping for opengraph metadata before cancelling the request. This prevents downloading responses that are too big. Default is 500kb.</p>
 <pre><code class="language-toml"># Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: 512000
 
 [preview.request]
@@ -232,7 +232,7 @@ max_scrape_size = 512000
 <h3 id="concurrency"><a class="header" href="#concurrency"><code>concurrency</code></a></h3>
 <p>Number of allowed concurrent requests for fetching previews. Reduce this to prevent rate-limiting.</p>
 <pre><code class="language-toml"># Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: 4
 
 [preview.request]
@@ -241,7 +241,7 @@ concurrency = 4
 <h3 id="delay_ms"><a class="header" href="#delay_ms"><code>delay_ms</code></a></h3>
 <p>Number of milliseconds to wait before requesting another preview when number of requested previews &gt; <code>concurrency</code>.</p>
 <pre><code class="language-toml"># Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: 500
 
 [preview.request]

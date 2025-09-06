@@ -203,7 +203,7 @@ passive = true
 <h2 id="timeout"><a class="header" href="#timeout"><code>timeout</code></a></h2>
 <p>Time (in seconds) to wait before timing out a transfer waiting to be accepted.</p>
 <pre><code class="language-toml"># Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: 300
 
 [file_transfer]
@@ -233,7 +233,7 @@ bind_address = "&lt;some ip&gt;"
 <h2 id="bind_port_first"><a class="header" href="#bind_port_first"><code>bind_port_first</code></a></h2>
 <p>First port in port range to bind to.</p>
 <pre><code class="language-toml"># Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: not set
 
 [file_transfer.server]
@@ -242,7 +242,7 @@ bind_port_first = 1024
 <h2 id="bind_port_last"><a class="header" href="#bind_port_last"><code>bind_port_last</code></a></h2>
 <p>Last port in port range to bind to.</p>
 <pre><code class="language-toml"># Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: not set
 
 [file_transfer.server]
