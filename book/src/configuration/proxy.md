@@ -31,7 +31,7 @@ Proxy port to connect on.
 
 ```toml
 # Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: not set
 
 # Required
@@ -105,7 +105,7 @@ Proxy port to connect on.
 
 ```toml
 # Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: not set
 
 # Required

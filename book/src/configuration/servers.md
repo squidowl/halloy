@@ -148,7 +148,7 @@ The port to connect on. If you want to use a plain text port like 6667 you MUST 
 
 ```toml
 # Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: 6697
 
 [servers.<name>]
@@ -260,7 +260,7 @@ The amount of inactivity in seconds before the client will ping the server.
 
 ```toml
 # Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: 180
 
 [servers.<name>]
@@ -269,11 +269,11 @@ ping_time = 180
 
 ## `ping_timeout`
 
-The amount of time in seconds for a client to reconnect due to no ping response.
+The amount of time in seconds to wait for a ping response before attempting to reconnect.
 
 ```toml
 # Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: 20
 
 [servers.<name>]
@@ -286,7 +286,7 @@ The amount of time in seconds before attempting to reconnect to the server when 
 
 ```toml
 # Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: 10
 
 [servers.<name>]

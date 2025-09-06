@@ -1,3 +1,4 @@
+use data::config;
 use iced::widget::text;
 use iced::widget::text::LineHeight;
 
@@ -108,9 +109,51 @@ pub fn config<'a>() -> Text<'a> {
     to_text('\u{F1C9}')
 }
 
+pub fn star<'a>() -> Text<'a> {
+    to_text('\u{E819}')
+}
+
+pub fn certificate<'a>() -> Text<'a> {
+    to_text('\u{F0A3}')
+}
+
+pub fn circle_empty<'a>() -> Text<'a> {
+    to_text('\u{F10C}')
+}
+
+pub fn dot_circled<'a>() -> Text<'a> {
+    to_text('\u{F192}')
+}
+
+pub fn asterisk<'a>() -> Text<'a> {
+    to_text('\u{E815}')
+}
+
+pub fn speaker<'a>() -> Text<'a> {
+    to_text('\u{E818}')
+}
+
+pub fn lightbulb<'a>() -> Text<'a> {
+    to_text('\u{F0EB}')
+}
+
 fn to_text<'a>(unicode: char) -> Text<'a> {
     text(unicode.to_string())
         .line_height(LineHeight::Relative(1.0))
         .size(theme::ICON_SIZE)
         .font(font::ICON)
+}
+
+pub fn from_icon<'a>(icon: config::sidebar::Icon) -> Option<Text<'a>> {
+    match icon {
+        config::sidebar::Icon::Dot => Some(dot()),
+        config::sidebar::Icon::DotCircled => Some(dot_circled()),
+        config::sidebar::Icon::Certificate => Some(certificate()),
+        config::sidebar::Icon::Asterisk => Some(asterisk()),
+        config::sidebar::Icon::Speaker => Some(speaker()),
+        config::sidebar::Icon::Lightbulb => Some(lightbulb()),
+        config::sidebar::Icon::Star => Some(star()),
+        config::sidebar::Icon::CircleEmpty => Some(circle_empty()),
+        config::sidebar::Icon::None => None,
+    }
 }
