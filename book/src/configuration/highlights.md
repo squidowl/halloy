@@ -54,6 +54,20 @@ exclude = ["*"]
 include = ["#halloy"]
 ```
 
+### `case_insensitive`
+
+Whether or not to trigger regardless nickname highlight regardless of case.
+Uses the casemapping [specified by server](https://modern.ircdocs.horse/#casemapping-parameter).
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: true
+
+[highlights.nickname]
+case_insensitive = false
+```
+
 ## `[[highlights.match]]`
 
 Highlight based on matches.

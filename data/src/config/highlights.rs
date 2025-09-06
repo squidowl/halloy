@@ -10,11 +10,22 @@ pub struct Highlights {
     pub matches: Vec<Match>,
 }
 
-#[derive(Debug, Clone, Deserialize, Default)]
+#[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
 pub struct Nickname {
     pub exclude: Vec<String>,
     pub include: Vec<String>,
+    pub case_insensitive: bool,
+}
+
+impl Default for Nickname {
+    fn default() -> Self {
+        Self {
+            exclude: Vec::default(),
+            include: Vec::default(),
+            case_insensitive: true,
+        }
+    }
 }
 
 impl Nickname {

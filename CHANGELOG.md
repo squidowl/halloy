@@ -16,6 +16,7 @@ Added:
 - Setting for split axis chosen as the shorter dimension of the largest splittable pane
 - `soju.im/bouncer-networks` support
 - Setting to hide the backlog divider when all messages in the buffer have been read
+- Setting to specify whether nickname highlighting is case sensitive
 
 Fixed:
 
@@ -25,11 +26,12 @@ Fixed:
 - When kicked from a channel the kick message will be broadcast in the server buffer (which remains open) as well as in the channel history (which is closed on kick)
 - Preview images with large dimensions will not be displayed if larger than the allowed buffer size
 - Do not activate the mark as read buffer when blocked/hidden messages are unread in the buffer
+- Nickname highlighting is case insensitive by default (and uses the server's specified casemapping)
 
 Thanks:
 
 - Bug reports: @privacyadmin, @rlndd, @wingedonezero, @Seishiin, @Erroneuz, @andar1an, freakyy85, ThinkT510, alexia, @darienm
-- Feature requests: @deepspaceaxolotl, @4e554c4c, @cvengler
+- Feature requests: @deepspaceaxolotl, @4e554c4c, @cvengler, @barretgoat
 
 # 2025.8 (2025-08-31)
 
