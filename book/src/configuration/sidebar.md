@@ -123,7 +123,7 @@ Changes the icon which appears when unread messages are present. To disable use 
 
 ```toml
 # Type: string
-# Values: "dot", "circle-empty", "dot-circled", "certificate", "asterisk", "speaker", "lightbulb", "star","none"
+# Values: "dot", "circle-empty", "dot-circled", "certificate", "asterisk", "speaker", "lightbulb", "star", "none"
 # Default: "dot"
 
 [sidebar.unread_indicator]
@@ -136,7 +136,7 @@ Changes the icon which appears when unread highlight messages are present. To di
 
 ```toml
 # Type: string
-# Values: "dot", "circle-empty", "dot-circled", "certificate", "asterisk", "speaker", "lightbulb", "star","none"
+# Values: "dot", "circle-empty", "dot-circled", "certificate", "asterisk", "speaker", "lightbulb", "star", "none"
 # Default: "dot"
 
 [sidebar.unread_indicator]
