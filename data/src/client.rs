@@ -3401,6 +3401,15 @@ impl Map {
             .unwrap_or_default()
     }
 
+    pub fn get_casemapping_or_default(
+        &self,
+        server: Option<&Server>,
+    ) -> isupport::CaseMap {
+        server
+            .and_then(|server| self.client(server).map(Client::casemapping))
+            .unwrap_or_default()
+    }
+
     pub fn get_chanmodes<'a>(
         &'a self,
         server: &Server,
