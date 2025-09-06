@@ -2,6 +2,7 @@
 
 Added:
 
+- Setting to control spacing between messages in buffers
 - Ability to specific multiple themes which then gets picked randomly at launch
 - Notification indicator on sidebar menu for warning & error log messages
 - Ability to mark as read on buffer close only if scrolled to the bottom of the buffer (new default behavior)
