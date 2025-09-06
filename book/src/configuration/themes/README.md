@@ -53,6 +53,7 @@ border = "<string>"
 horizontal_rule = "<string>"
 scrollbar = "<string>"
 unread_indicator = "<string>"
+highlight_indicator = "<string>"
 
 [text]
 primary = "<string>"

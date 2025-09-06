@@ -34,7 +34,7 @@ Time (in seconds) to wait before timing out a transfer waiting to be accepted.
 
 ```toml
 # Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: 300
 
 [file_transfer]
@@ -78,7 +78,7 @@ First port in port range to bind to.
 
 ```toml
 # Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: not set
 
 [file_transfer.server]
@@ -91,7 +91,7 @@ Last port in port range to bind to.
 
 ```toml
 # Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: not set
 
 [file_transfer.server]

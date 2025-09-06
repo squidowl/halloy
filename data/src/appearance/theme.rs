@@ -140,6 +140,8 @@ pub struct General {
     pub scrollbar: Option<Color>,
     #[serde(with = "color_serde")]
     pub unread_indicator: Color,
+    #[serde(with = "color_serde_maybe")]
+    pub highlight_indicator: Option<Color>,
 }
 
 impl Default for General {
@@ -150,6 +152,7 @@ impl Default for General {
             horizontal_rule: Color::TRANSPARENT,
             scrollbar: None,
             unread_indicator: Color::TRANSPARENT,
+            highlight_indicator: None,
         }
     }
 }
@@ -703,6 +706,7 @@ mod binary {
         TextTrace = 47,
         GeneralScrollbar = 48,
         BufferNicknameOffline = 49,
+        GeneralHighlightIndicator = 50,
     }
 
     impl Tag {
@@ -808,6 +812,9 @@ mod binary {
                     styles.buttons.secondary.background_selected_hover
                 }
                 Tag::GeneralScrollbar => styles.general.scrollbar?,
+                Tag::GeneralHighlightIndicator => {
+                    styles.general.highlight_indicator?
+                }
             };
 
             Some(color.into_rgba8())
@@ -932,6 +939,9 @@ mod binary {
                     styles.buttons.secondary.background_selected_hover = color;
                 }
                 Tag::GeneralScrollbar => styles.general.scrollbar = Some(color),
+                Tag::GeneralHighlightIndicator => {
+                    styles.general.highlight_indicator = Some(color);
+                }
             }
         }
     }

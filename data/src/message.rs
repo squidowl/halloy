@@ -217,6 +217,12 @@ impl Message {
             }
     }
 
+    pub fn triggers_highlight(&self) -> bool {
+        matches!(self.direction, Direction::Received)
+            && !self.is_echo
+            && self.highlight_description().is_some()
+    }
+
     pub fn can_reference(&self) -> bool {
         if matches!(self.direction, Direction::Sent)
             || self.is_echo

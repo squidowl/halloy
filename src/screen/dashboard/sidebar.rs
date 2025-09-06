@@ -5,10 +5,9 @@ use data::dashboard::{BufferAction, BufferFocusedAction};
 use data::{Version, buffer, file_transfer, history, server};
 use iced::widget::{
     Column, Row, Scrollable, Space, button, column, container, horizontal_rule,
-    horizontal_space, pane_grid, row, scrollable, stack, text, vertical_rule,
-    vertical_space,
+    pane_grid, row, scrollable, stack, text, vertical_rule, vertical_space,
 };
-use iced::{Alignment, Length, Task, padding};
+use iced::{Alignment, Length, Padding, Task, padding};
 use tokio::time;
 
 use super::{Focus, Panes, Server};
@@ -379,25 +378,29 @@ impl Sidebar {
             let mut client_enumeration = 0;
 
             for server in servers.keys() {
-                let button = |buffer: buffer::Upstream,
-                              connected: bool,
-                              server_has_unread: bool,
-                              has_unread: bool| {
-                    upstream_buffer_button(
-                        panes,
-                        focus,
-                        buffer,
-                        connected,
-                        config.actions.sidebar.buffer,
-                        config.actions.sidebar.focused_buffer,
-                        config.sidebar.position,
-                        config.sidebar.unread_indicator,
-                        server_has_unread,
-                        has_unread,
-                        width,
-                        theme,
-                    )
-                };
+                let button =
+                    |buffer: buffer::Upstream,
+                     connected: bool,
+                     server_has_unread: bool,
+                     has_unread: bool,
+                     has_highlight: bool| {
+                        upstream_buffer_button(
+                            panes,
+                            focus,
+                            buffer,
+                            connected,
+                            config.actions.sidebar.buffer,
+                            config.actions.sidebar.focused_buffer,
+                            config.sidebar.position,
+                            config.sidebar.server_icon_size,
+                            config.sidebar.unread_indicator,
+                            server_has_unread,
+                            has_unread,
+                            has_highlight,
+                            width,
+                            theme,
+                        )
+                    };
 
                 if let Some(state) = clients.state(server) {
                     client_enumeration += 1;
@@ -412,6 +415,9 @@ impl Sidebar {
                                 history.has_unread(&history::Kind::Server(
                                     server.clone(),
                                 )),
+                                history.has_highlight(&history::Kind::Server(
+                                    server.clone(),
+                                )),
                             ));
                         }
                         data::client::State::Ready(connection) => {
@@ -421,6 +427,9 @@ impl Sidebar {
                                 true,
                                 history.server_has_unread(server.clone()),
                                 history.has_unread(&history::Kind::Server(
+                                    server.clone(),
+                                )),
+                                history.has_highlight(&history::Kind::Server(
                                     server.clone(),
                                 )),
                             ));
@@ -435,6 +444,12 @@ impl Sidebar {
                                     true,
                                     history.server_has_unread(server.clone()),
                                     history.has_unread(
+                                        &history::Kind::Channel(
+                                            server.clone(),
+                                            channel.clone(),
+                                        ),
+                                    ),
+                                    history.has_highlight(
                                         &history::Kind::Channel(
                                             server.clone(),
                                             channel.clone(),
@@ -461,6 +476,12 @@ impl Sidebar {
                                         server.clone(),
                                         query.clone(),
                                     )),
+                                    history.has_highlight(
+                                        &history::Kind::Query(
+                                            server.clone(),
+                                            query.clone(),
+                                        ),
+                                    ),
                                 ));
                             }
 
@@ -654,9 +675,11 @@ fn upstream_buffer_button<'a>(
     buffer_action: BufferAction,
     focused_buffer_action: Option<BufferFocusedAction>,
     position: sidebar::Position,
+    server_icon_size: u32,
     unread_indicator: sidebar::UnreadIndicator,
     server_has_unread: bool,
     has_unread: bool,
+    has_highlight: bool,
     width: Length,
     theme: &'a Theme,
 ) -> Element<'a, Message> {
@@ -672,101 +695,130 @@ fn upstream_buffer_button<'a>(
         .then_some((window_id, pane))
     });
 
-    let show_unread_indicator =
-        has_unread && matches!(unread_indicator, sidebar::UnreadIndicator::Dot);
-    let show_title_indicator = has_unread
-        && matches!(unread_indicator, sidebar::UnreadIndicator::Title);
+    let show_highlight_icon =
+        has_highlight && unread_indicator.has_unread_highlight_icon();
+    let show_unread_icon = has_unread && unread_indicator.has_unread_icon();
+    let show_unread_title = has_unread && unread_indicator.title;
+    let show_highlight_unread_title = has_highlight && unread_indicator.title;
 
-    let unread_dot_indicator_spacing =
-        horizontal_space().width(match position.is_horizontal() {
-            true => {
-                if show_unread_indicator {
-                    5
-                } else {
-                    0
-                }
-            }
-            false => {
-                if show_unread_indicator {
-                    11
-                } else {
-                    16
-                }
-            }
-        });
-    let buffer_title_style = if show_title_indicator {
+    let buffer_title_style = if show_highlight_unread_title {
+        theme::text::highlight_indicator
+    } else if show_unread_title {
         theme::text::unread_indicator
     } else {
         theme::text::primary
     };
+
     let buffer_title_font = theme::font_style::primary(theme).map(font::get);
 
-    let row = match &buffer {
-        buffer::Upstream::Server(server) => row![
+    let icon_tuple = if let buffer::Upstream::Server(server) = &buffer {
+        Some((
             if server.is_bouncer_network() {
                 icon::link()
             } else {
                 icon::connected()
-            }.style(if connected {
-                if show_unread_indicator {
+            }
+            .style(if connected {
+                if has_highlight {
+                    theme::text::highlight_indicator
+                } else if has_unread {
                     theme::text::unread_indicator
                 } else {
                     theme::text::primary
                 }
             } else {
                 theme::text::error
-            }),
-            if let Some(network) = &server.network {
-                Element::from(row![
-                    text(network.name.to_string())
-                        .style(buffer_title_style)
-                        .font_maybe(buffer_title_font.clone())
-                        .shaping(text::Shaping::Advanced),
-                    Space::with_width(6),
-                    text(server.name.to_string())
-                        .style(theme::text::secondary)
-                        .font_maybe(buffer_title_font)
-                        .shaping(text::Shaping::Advanced),
-                ])
-            } else {
-                text(server.to_string())
-                    .style(buffer_title_style)
-                    .shaping(text::Shaping::Advanced)
-                    .into()
-            }
-        ]
-        .spacing(8)
-        .align_y(iced::Alignment::Center),
-        buffer::Upstream::Channel(_, channel) => row![
-            horizontal_space().width(3),
-            show_unread_indicator.then_some(
-                icon::dot().size(6).style(theme::text::unread_indicator),
-            ),
-            unread_dot_indicator_spacing,
-            text(channel.to_string())
-                .style(buffer_title_style)
-                .font_maybe(buffer_title_font)
-                .shaping(text::Shaping::Advanced),
-            horizontal_space().width(3),
-        ]
-        .align_y(iced::Alignment::Center),
-        buffer::Upstream::Query(_, query) => row![
-            horizontal_space().width(3),
-            show_unread_indicator.then_some(
-                icon::dot().size(6).style(theme::text::unread_indicator),
-            ),
-            unread_dot_indicator_spacing,
-            text(query.to_string())
-                .style(buffer_title_style)
-                .font_maybe(buffer_title_font)
-                .shaping(text::Shaping::Advanced),
-            horizontal_space().width(3),
-        ]
-        .align_y(iced::Alignment::Center),
+            })
+            .size(server_icon_size),
+            server_icon_size,
+        ))
+    } else if show_highlight_icon
+        && let Some(highlight_icon) =
+            icon::from_icon(unread_indicator.highlight_icon)
+    {
+        Some((
+            highlight_icon
+                .style(theme::text::highlight_indicator)
+                .size(unread_indicator.highlight_icon_size),
+            unread_indicator.highlight_icon_size,
+        ))
+    } else if show_unread_icon
+        && let Some(unread_icon) = icon::from_icon(unread_indicator.icon)
+    {
+        Some((
+            unread_icon
+                .style(theme::text::unread_indicator)
+                .size(unread_indicator.icon_size),
+            unread_indicator.icon_size,
+        ))
+    } else {
+        None
     };
 
-    let base = button(row.width(width))
-        .padding(5)
+    let (left_padding, icon) = if position.is_horizontal() {
+        icon_tuple.map_or((0, None), |(icon, icon_size)| {
+            (icon_size + 8, Some(container(icon).center_y(17.0)))
+        })
+    } else {
+        let max_icon_size = server_icon_size.max(
+            unread_indicator
+                .has_unread_icon()
+                .then_some(unread_indicator.icon_size)
+                .max(
+                    unread_indicator
+                        .has_unread_highlight_icon()
+                        .then_some(unread_indicator.highlight_icon_size),
+                )
+                .unwrap_or(0),
+        );
+        (
+            max_icon_size + 8,
+            icon_tuple.map(|(icon, _)| {
+                container(icon).center_y(17.0).center_x(max_icon_size)
+            }),
+        )
+    };
+
+    let content = container(stack![
+        container(match &buffer {
+            buffer::Upstream::Server(server) => {
+                if let Some(network) = &server.network {
+                    Element::from(row![
+                        text(network.name.to_string())
+                            .style(buffer_title_style)
+                            .font_maybe(buffer_title_font.clone())
+                            .shaping(text::Shaping::Advanced),
+                        Space::with_width(6),
+                        text(server.name.to_string())
+                            .style(theme::text::secondary)
+                            .font_maybe(buffer_title_font)
+                            .shaping(text::Shaping::Advanced),
+                    ])
+                } else {
+                    text(server.to_string())
+                        .style(buffer_title_style)
+                        .font_maybe(buffer_title_font)
+                        .shaping(text::Shaping::Advanced)
+                        .into()
+                }
+            }
+            buffer::Upstream::Channel(_, channel) => text(channel.to_string())
+                .style(buffer_title_style)
+                .font_maybe(buffer_title_font)
+                .shaping(text::Shaping::Advanced)
+                .into(),
+            buffer::Upstream::Query(_, query) => text(query.to_string())
+                .style(buffer_title_style)
+                .font_maybe(buffer_title_font)
+                .shaping(text::Shaping::Advanced)
+                .into(),
+        })
+        .padding(Padding::default().left(left_padding))
+        .align_y(iced::Alignment::Center),
+        icon
+    ]);
+
+    let base = button(content.height(17.0).width(width))
         .style(move |theme, status| {
             theme::button::sidebar_buffer(
                 theme,

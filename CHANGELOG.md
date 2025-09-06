@@ -2,6 +2,9 @@
 
 Added:
 
+- Added different unread icons for highlights vs regular unread messages
+- Setting to change icons for unread messages and unread highlight messages
+- Setting to change server icon size 
 - Ability to specific multiple themes which then gets picked randomly at launch
 - Notification indicator on sidebar menu for warning & error log messages
 - Ability to mark as read on buffer close only if scrolled to the bottom of the buffer (new default behavior)
@@ -26,7 +29,7 @@ Fixed:
 Thanks:
 
 - Bug reports: @privacyadmin, @rlndd, @wingedonezero, @Seishiin, @Erroneuz, @andar1an, freakyy85, ThinkT510, alexia, @darienm
-- Feature requests: @deepspaceaxolotl, @4e554c4c
+- Feature requests: @deepspaceaxolotl, @4e554c4c, @cvengler
 
 # 2025.8 (2025-08-31)
 
