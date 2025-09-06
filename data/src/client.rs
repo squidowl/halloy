@@ -138,7 +138,8 @@ pub struct Client {
     config: Arc<config::Server>,
     handle: server::Handle,
     alt_nick: Option<usize>,
-    resolved_nick: Option<String>,
+    resolved_nick: Option<Nick>,
+    configured_nick: Nick,
     chanmap: IndexMap<target::Channel, Channel>,
     resolved_queries: HashSet<target::Query>,
     labels: HashMap<String, Context>,
@@ -182,6 +183,10 @@ impl Client {
             server,
             handle: sender,
             resolved_nick: None,
+            configured_nick: Nick::from_str(
+                &config.nickname,
+                isupport::CaseMap::default(),
+            ),
             alt_nick: None,
             chanmap: IndexMap::default(),
             resolved_queries: HashSet::new(),
@@ -735,8 +740,10 @@ impl Client {
                             false => None,
                         }
                     }) {
-                    if Some(User::from(Nick::from("HistServ")))
-                        == message.user()
+                    if Some(User::from(Nick::from_str(
+                        "HistServ",
+                        self.casemapping(),
+                    ))) == message.user(self.casemapping())
                     {
                         // HistServ provides event-playback without event-playback
                         // which would require client-side parsing to map appropriately.
@@ -768,12 +775,13 @@ impl Client {
                                         source: source::Source::Server(Some(
                                             source::Server::new(
                                                 source::server::Kind::Quit,
-                                                message.user().map(|user| {
-                                                    Nick::from(
-                                                        user.nickname()
-                                                            .as_ref(),
-                                                    )
-                                                }),
+                                                message
+                                                    .user(self.casemapping())
+                                                    .map(|user| {
+                                                        Nick::from(
+                                                            user.nickname(),
+                                                        )
+                                                    }),
                                             ),
                                         )),
                                     };
@@ -793,16 +801,15 @@ impl Client {
                                     // Ignore historical CTCP queries/responses except for ACTIONs
                                     vec![]
                                 } else {
-                                    if let Some(user) = message.user() {
+                                    if let Some(user) =
+                                        message.user(self.casemapping())
+                                    {
                                         // If direct message, update resolved queries with user
                                         if target
                                             == &self.nickname().to_string()
                                         {
                                             self.resolved_queries.replace(
-                                                target::Query::from_user(
-                                                    &user,
-                                                    self.casemapping(),
-                                                ),
+                                                target::Query::from(user),
                                             );
                                         }
                                     }
@@ -1257,7 +1264,7 @@ impl Client {
                 }
             }
             Command::PRIVMSG(target, text) | Command::NOTICE(target, text) => {
-                if let Some(user) = message.user() {
+                if let Some(user) = message.user(self.casemapping()) {
                     let is_echo = user.nickname() == self.nickname();
 
                     let dcc_command = dcc::decode(text);
@@ -1393,9 +1400,8 @@ impl Client {
                     let direct_message = target == &self.nickname().to_string();
 
                     if direct_message {
-                        self.resolved_queries.replace(
-                            target::Query::from_user(&user, self.casemapping()),
-                        );
+                        self.resolved_queries
+                            .replace(target::Query::from(&user));
                     }
 
                     let event = Event::PrivOrNotice(
@@ -1419,14 +1425,17 @@ impl Client {
                 }
             }
             Command::INVITE(user, channel) => {
-                let user = User::from(Nick::from(user.as_str()));
+                let user = User::from(Nick::from_str(
+                    user.as_str(),
+                    self.casemapping(),
+                ));
                 let channel = context!(target::Channel::parse(
                     channel,
                     self.chantypes(),
                     self.statusmsg(),
                     self.casemapping(),
                 ));
-                let inviter = ok!(message.user());
+                let inviter = ok!(message.user(self.casemapping()));
                 let user_channels = self.user_channels(user.nickname());
 
                 return Ok(vec![Event::Broadcast(Broadcast::Invite {
@@ -1437,14 +1446,18 @@ impl Client {
                 })]);
             }
             Command::NICK(nick) => {
-                let old_user = ok!(message.user());
+                let old_user = ok!(message.user(self.casemapping()));
                 let ourself = self.nickname() == old_user.nickname();
 
                 if ourself {
-                    self.resolved_nick = Some(nick.to_string());
+                    self.resolved_nick = Some(Nick::from_string(
+                        nick.to_string(),
+                        self.casemapping(),
+                    ));
                 }
 
-                let new_nick = Nick::from(nick.as_str());
+                let new_nick =
+                    Nick::from_str(nick.as_str(), self.casemapping());
 
                 self.chanmap.values_mut().for_each(|channel| {
                     if let Some(user) = channel.users.take(&old_user) {
@@ -1491,11 +1504,14 @@ impl Client {
             Command::Numeric(RPL_WELCOME, args) => {
                 // Updated actual nick
                 let nick = ok!(args.first());
-                self.resolved_nick = Some(nick.to_string());
+                self.resolved_nick = Some(Nick::from_string(
+                    nick.to_string(),
+                    self.casemapping(),
+                ));
             }
             // QUIT
             Command::QUIT(comment) => {
-                let user = ok!(message.user());
+                let user = ok!(message.user(self.casemapping()));
 
                 let channels = self.user_channels(user.nickname());
 
@@ -1511,7 +1527,7 @@ impl Client {
                 })]);
             }
             Command::PART(channel, _) => {
-                let user = ok!(message.user());
+                let user = ok!(message.user(self.casemapping()));
 
                 if user.nickname() == self.nickname() {
                     self.chanmap.shift_remove(&context!(
@@ -1534,13 +1550,15 @@ impl Client {
                 }
             }
             Command::JOIN(channel, accountname) => {
-                let user = ok!(message.user());
+                let casemapping = self.casemapping();
+
+                let user = ok!(message.user(casemapping));
 
                 let target_channel = context!(target::Channel::parse(
                     channel,
                     self.chantypes(),
                     self.statusmsg(),
-                    self.casemapping(),
+                    casemapping,
                 ));
 
                 if user.nickname() == self.nickname() {
@@ -1591,18 +1609,22 @@ impl Client {
                 }
             }
             Command::KICK(channel, victim, reason) => {
+                let casemapping = self.casemapping();
+
                 if let Ok(channel) = target::Channel::parse(
                     channel,
                     self.chantypes(),
                     self.statusmsg(),
-                    self.casemapping(),
+                    casemapping,
                 ) {
-                    if victim == self.nickname().as_ref() {
+                    if casemapping.normalize(victim)
+                        == self.nickname().as_normalized_str()
+                    {
                         self.chanmap.shift_remove(&channel);
 
                         return Ok(vec![
                             Event::Broadcast(Broadcast::Kick {
-                                kicker: ok!(message.user()),
+                                kicker: ok!(message.user(casemapping)),
                                 victim: User::from(self.nickname().to_owned()),
                                 reason: reason.clone(),
                                 channel,
@@ -1612,20 +1634,23 @@ impl Client {
                         ]);
                     } else if let Some(channel) = self.chanmap.get_mut(&channel)
                     {
-                        channel
-                            .users
-                            .remove(&User::from(Nick::from(victim.as_str())));
+                        channel.users.remove(&User::from(Nick::from_str(
+                            victim.as_str(),
+                            casemapping,
+                        )));
                     }
                 }
             }
             Command::Numeric(RPL_WHOREPLY, args) => {
                 let channel = ok!(args.get(1));
 
+                let casemapping = self.casemapping();
+
                 if let Ok(target_channel) = target::Channel::parse(
                     channel,
                     self.chantypes(),
                     self.statusmsg(),
-                    self.casemapping(),
+                    casemapping,
                 ) {
                     let user_request = self.user_who_request(&target_channel);
 
@@ -1635,6 +1660,7 @@ impl Client {
                         client_channel.update_user_away(
                             ok!(args.get(5)),
                             ok!(args.get(6)),
+                            casemapping,
                         );
 
                         if let Some(who_poll) = self
@@ -1673,11 +1699,13 @@ impl Client {
             Command::Numeric(RPL_WHOSPCRPL, args) => {
                 let channel = ok!(args.get(2));
 
+                let casemapping = self.casemapping();
+
                 if let Ok(target_channel) = target::Channel::parse(
                     channel,
                     self.chantypes(),
                     self.statusmsg(),
-                    self.casemapping(),
+                    casemapping,
                 ) {
                     let user_request = self.user_who_request(&target_channel);
 
@@ -1738,6 +1766,7 @@ impl Client {
                                     client_channel.update_user_away(
                                         ok!(args.get(3)),
                                         ok!(args.get(4)),
+                                        casemapping,
                                     );
                                 } else if token
                                     == WhoXPollParameters::WithAccountName
@@ -1748,11 +1777,13 @@ impl Client {
                                     client_channel.update_user_away(
                                         user,
                                         ok!(args.get(4)),
+                                        casemapping,
                                     );
 
                                     client_channel.update_user_accountname(
                                         user,
                                         ok!(args.get(5)),
+                                        casemapping,
                                     );
                                 }
                             }
@@ -1882,7 +1913,7 @@ impl Client {
             }
             Command::AWAY(args) => {
                 let away = args.is_some();
-                let user = ok!(message.user());
+                let user = ok!(message.user(self.casemapping()));
 
                 for channel in self.chanmap.values_mut() {
                     if let Some(mut user) = channel.users.take(&user) {
@@ -1916,11 +1947,13 @@ impl Client {
                 }
             }
             Command::MODE(target, Some(modes), Some(args)) => {
+                let casemapping = self.casemapping();
+
                 if let Ok(channel) = target::Channel::parse(
                     target,
                     self.chantypes(),
                     self.statusmsg(),
-                    self.casemapping(),
+                    casemapping,
                 ) {
                     let modes = mode::parse::<mode::Channel>(
                         modes,
@@ -1931,11 +1964,15 @@ impl Client {
 
                     if let Some(channel) = self.chanmap.get_mut(&channel) {
                         for mode in modes {
-                            if let Some((op, lookup)) = mode.operation().zip(
-                                mode.arg()
-                                    .map(|nick| User::from(Nick::from(nick))),
-                            ) && let Some(mut user) =
-                                channel.users.take(&lookup)
+                            if let Some((op, lookup)) =
+                                mode.operation().zip(mode.arg().map(|nick| {
+                                    User::from(Nick::from_str(
+                                        nick,
+                                        casemapping,
+                                    ))
+                                }))
+                                && let Some(mut user) =
+                                    channel.users.take(&lookup)
                             {
                                 user.update_access_level(op, *mode.value());
                                 channel.users.insert(user);
@@ -1946,7 +1983,8 @@ impl Client {
                     // Only check for being logged in via mode if account-notify is not available,
                     // since it is not standardized across networks.
 
-                    if target == self.nickname().as_ref()
+                    if casemapping.normalize(target)
+                        == self.nickname().as_normalized_str()
                         && !self.supports_account_notify
                         && !self.registration_required_channels.is_empty()
                     {
@@ -1986,9 +2024,11 @@ impl Client {
                         self.casemapping(),
                     )))
                 {
+                    let casemapping = isupport::get_casemapping(&self.isupport);
                     let prefix = isupport::get_prefix(&self.isupport);
                     for user in args[3].split(' ') {
-                        if let Ok(user) = User::parse(user, prefix) {
+                        if let Ok(user) = User::parse(user, casemapping, prefix)
+                        {
                             channel.users.insert(user);
                         }
                     }
@@ -2018,12 +2058,14 @@ impl Client {
                 }
             }
             Command::TOPIC(channel, topic) => {
+                let casemapping = self.casemapping();
+
                 if let Some(channel) =
                     self.chanmap.get_mut(&context!(target::Channel::parse(
                         channel,
                         self.chantypes(),
                         self.statusmsg(),
-                        self.casemapping(),
+                        casemapping,
                     )))
                 {
                     if let Some(text) = topic
@@ -2032,7 +2074,7 @@ impl Client {
                         channel.topic.content =
                             Some(message::parse_fragments(text.clone()));
                         channel.topic.who = message
-                            .user()
+                            .user(casemapping)
                             .map(|user| user.nickname().to_owned());
                         channel.topic.time = Some(server_time(&message));
                     } else {
@@ -2075,6 +2117,7 @@ impl Client {
                     channel.topic.who = Some(
                         context!(User::parse(
                             ok!(args.get(2)),
+                            isupport::get_casemapping(&self.isupport),
                             isupport::get_prefix(&self.isupport),
                         ))
                         .nickname()
@@ -2166,6 +2209,17 @@ impl Client {
                                         );
 
                                         match parameter {
+                                            isupport::Parameter::CASEMAPPING(casemapping) => {
+                                                if let Some(resolved_nick) = self.resolved_nick.as_mut() {
+                                                    resolved_nick.renormalize(casemapping);
+                                                }
+                                                self.configured_nick.renormalize(casemapping);
+
+                                                // TODO: When casemapping
+                                                // changes, ChannelUsers,
+                                                // Targets, etc should be
+                                                // renormalized and resorted
+                                            }
                                             isupport::Parameter::MONITOR(
                                                 target_limit,
                                             ) => {
@@ -2244,7 +2298,7 @@ impl Client {
                 return Ok(vec![]);
             }
             Command::ACCOUNT(accountname) => {
-                let old_user = ok!(message.user());
+                let old_user = ok!(message.user(self.casemapping()));
 
                 self.chanmap.values_mut().for_each(|channel| {
                     if let Some(user) = channel.users.take(&old_user) {
@@ -2269,7 +2323,7 @@ impl Client {
                 }
             }
             Command::CHGHOST(new_username, new_hostname) => {
-                let old_user = ok!(message.user());
+                let old_user = ok!(message.user(self.casemapping()));
 
                 let ourself = old_user.nickname() == self.nickname();
 
@@ -2295,13 +2349,18 @@ impl Client {
                 })]);
             }
             Command::Numeric(RPL_MONONLINE, args) => {
+                let casemapping = isupport::get_casemapping(&self.isupport);
                 let prefix = isupport::get_prefix(&self.isupport);
 
                 let targets = ok!(args.get(1))
                     .split(',')
                     .map(|target| {
-                        User::parse(target, prefix)
-                            .unwrap_or(User::from(Nick::from(target)))
+                        User::parse(target, casemapping, prefix).unwrap_or(
+                            User::from(Nick::from_str(
+                                target,
+                                casemapping.unwrap_or_default(),
+                            )),
+                        )
                     })
                     .collect::<Vec<_>>();
 
@@ -2313,7 +2372,7 @@ impl Client {
             Command::Numeric(RPL_MONOFFLINE, args) => {
                 let targets = ok!(args.get(1))
                     .split(',')
-                    .map(Nick::from)
+                    .map(|target| Nick::from_str(target, self.casemapping()))
                     .collect::<Vec<_>>();
 
                 return Ok(vec![
@@ -2437,8 +2496,11 @@ impl Client {
                 if let Some(nick_pass) = self.config.nick_password.as_ref() {
                     // Try ghost recovery if we couldn't claim our nick
                     if self.config.should_ghost
-                        && self.resolved_nick
-                            == Some(self.config.nickname.clone())
+                        && self.resolved_nick.as_ref().is_some_and(
+                            |resolved_nick| {
+                                *resolved_nick == self.configured_nick
+                            },
+                        )
                     {
                         for sequence in &self.config.ghost_sequence {
                             self.handle.try_send(command!(
@@ -2477,9 +2539,9 @@ impl Client {
                                 ))?;
                             }
                         }
-                    } else if self.resolved_nick
-                        == Some(self.config.nickname.clone())
-                    {
+                    } else if self.resolved_nick.as_ref().is_some_and(
+                        |resolved_nick| *resolved_nick == self.configured_nick,
+                    ) {
                         // Use nickname-less identification if possible, since it has
                         // no possible argument order issues.
                         self.handle.try_send(command!(
@@ -2504,7 +2566,11 @@ impl Client {
                 if let (Some(nick), Some(modestring)) =
                     (self.resolved_nick.clone(), self.config.umodes.as_ref())
                 {
-                    self.handle.try_send(command!("MODE", nick, modestring))?;
+                    self.handle.try_send(command!(
+                        "MODE",
+                        nick.to_string(),
+                        modestring
+                    ))?;
                 }
 
                 // Request bouncer networks
@@ -2914,11 +2980,10 @@ impl Client {
 
     pub fn nickname(&self) -> NickRef<'_> {
         // TODO: Fallback nicks
-        NickRef::from(
-            self.resolved_nick
-                .as_deref()
-                .unwrap_or(&self.config.nickname),
-        )
+        self.resolved_nick
+            .as_ref()
+            .unwrap_or(&self.configured_nick)
+            .as_nickref()
     }
 
     pub fn tick(&mut self, now: Instant) -> Result<()> {
@@ -3336,6 +3401,15 @@ impl Map {
             .unwrap_or_default()
     }
 
+    pub fn get_casemapping_or_default(
+        &self,
+        server: Option<&Server>,
+    ) -> isupport::CaseMap {
+        server
+            .and_then(|server| self.client(server).map(Client::casemapping))
+            .unwrap_or_default()
+    }
+
     pub fn get_chanmodes<'a>(
         &'a self,
         server: &Server,
@@ -3596,8 +3670,13 @@ pub struct Channel {
 }
 
 impl Channel {
-    pub fn update_user_away(&mut self, user: &str, flags: &str) {
-        let user = User::from(Nick::from(user));
+    pub fn update_user_away(
+        &mut self,
+        user: &str,
+        flags: &str,
+        casemapping: isupport::CaseMap,
+    ) {
+        let user = User::from(Nick::from_str(user, casemapping));
 
         if let Some(away_flag) = flags.chars().next() {
             // H = Here, G = gone (away)
@@ -3614,8 +3693,13 @@ impl Channel {
         }
     }
 
-    pub fn update_user_accountname(&mut self, user: &str, accountname: &str) {
-        let user = User::from(Nick::from(user));
+    pub fn update_user_accountname(
+        &mut self,
+        user: &str,
+        accountname: &str,
+        casemapping: isupport::CaseMap,
+    ) {
+        let user = User::from(Nick::from_str(user, casemapping));
 
         if let Some(user) = self.users.take(&user) {
             self.users.insert(user.with_accountname(accountname));

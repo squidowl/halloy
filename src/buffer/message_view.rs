@@ -174,7 +174,6 @@ impl<'a> ChannelQueryLayout<'a> {
             user_context::view(
                 text,
                 self.server,
-                self.casemapping,
                 self.prefix,
                 self.target.channel(),
                 user,
@@ -212,7 +211,6 @@ impl<'a> ChannelQueryLayout<'a> {
                 message::Link::User(user) => entry
                     .view(
                         fm.server,
-                        fm.casemapping,
                         fm.prefix,
                         fm.target.channel(),
                         user,
@@ -269,7 +267,6 @@ impl<'a> ChannelQueryLayout<'a> {
                 message::Link::User(user) => entry
                     .view(
                         fm.server,
-                        fm.casemapping,
                         fm.prefix,
                         fm.target.channel(),
                         user,

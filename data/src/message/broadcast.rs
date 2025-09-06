@@ -10,7 +10,7 @@ use super::{
 use crate::config::buffer::UsernameFormat;
 use crate::time::Posix;
 use crate::user::Nick;
-use crate::{Config, User, message, target};
+use crate::{Config, User, isupport, message, target};
 
 enum Cause {
     Server(Option<source::Server>),
@@ -159,6 +159,7 @@ pub fn quit(
     user: &User,
     comment: &Option<String>,
     config: &Config,
+    casemapping: isupport::CaseMap,
     sent_time: DateTime<Utc>,
 ) -> Vec<Message> {
     let comment = comment
@@ -172,6 +173,7 @@ pub fn quit(
             user.formatted(config.buffer.server_messages.quit.username_format)
         ),
         user,
+        casemapping,
     );
 
     expand(
@@ -193,6 +195,7 @@ pub fn nickname(
     old_nick: &Nick,
     new_nick: &Nick,
     ourself: bool,
+    casemapping: isupport::CaseMap,
     sent_time: DateTime<Utc>,
 ) -> Vec<Message> {
     let old_user = User::from(old_nick.clone());
@@ -202,11 +205,13 @@ pub fn nickname(
         parse_fragments_with_user(
             format!("You're now known as {new_nick}"),
             &new_user,
+            casemapping,
         )
     } else {
         parse_fragments_with_users(
             format!("{old_nick} is now known as {new_nick}"),
             Some(&[old_user.clone(), new_user].into_iter().collect()),
+            casemapping,
         )
     };
 
@@ -227,12 +232,14 @@ pub fn invite(
     inviter: Nick,
     channel: target::Channel,
     channels: impl IntoIterator<Item = target::Channel>,
+    casemapping: isupport::CaseMap,
     sent_time: DateTime<Utc>,
 ) -> Vec<Message> {
     let inviter = User::from(inviter);
     let content = parse_fragments_with_user(
         format!("{} invited you to join {channel}", inviter.nickname()),
         &inviter,
+        casemapping,
     );
 
     expand(channels, [], false, Cause::Server(None), content, sent_time)
@@ -246,6 +253,7 @@ pub fn change_host(
     new_hostname: &str,
     ourself: bool,
     logged_in: bool,
+    casemapping: isupport::CaseMap,
     sent_time: DateTime<Utc>,
 ) -> Vec<Message> {
     let content = if ourself {
@@ -259,6 +267,7 @@ pub fn change_host(
                 old_user.formatted(UsernameFormat::Full)
             ),
             old_user,
+            casemapping,
         )
     };
 
@@ -294,6 +303,7 @@ pub fn kick(
     victim: User,
     reason: Option<String>,
     channel: target::Channel,
+    casemapping: isupport::CaseMap,
     sent_time: DateTime<Utc>,
 ) -> Vec<Message> {
     let cause = Cause::Server(Some(source::Server::new(
@@ -307,6 +317,7 @@ pub fn kick(
         true, // Broadcast of KICK is always ourself
         &reason,
         Some(channel),
+        casemapping,
     );
 
     expand([], [], true, cause, content, sent_time)
