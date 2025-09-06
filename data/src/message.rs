@@ -607,8 +607,12 @@ pub fn parse_fragments_with_highlights(
             .map(|fragment| match fragment {
                 Fragment::User(user, raw)
                     if highlights.nickname.is_target_included(target)
-                        && our_nick
-                            .is_some_and(|nick| user.nickname() == *nick) =>
+                        && ((our_nick
+                            .is_some_and(|nick| user.nickname() == *nick)
+                            && highlights.nickname.case_insensitive)
+                            || (our_nick.is_some_and(|nick| {
+                                raw.as_str() == nick.as_str()
+                            }))) =>
                 {
                     Fragment::HighlightNick(user, raw)
                 }
@@ -2158,7 +2162,7 @@ mod tests {
         let tests = [
             (
                 (
-                    "Bob: I'm in #interesting with Greg, George_, &`Bill`. I hope @Dave doesn't notice.".to_string(),
+                    "Bob: I'm in #interesting with Greg, George_, &`bill`. I hope @Dave doesn't notice.".to_string(),
                     [
                         "Greg",
                         "Dave",
@@ -2169,7 +2173,7 @@ mod tests {
                     "#interesting",
                     Some(Nick::from_str("Bob", casemapping)),
                     &Highlights {
-                        nickname: Nickname {exclude: vec![], include: vec!["#interesting".into()]},
+                        nickname: Nickname {exclude: vec![], include: vec!["#interesting".into()], case_insensitive: true},
                         matches: vec![],
                     },
                 ),
@@ -2182,10 +2186,33 @@ mod tests {
                     Fragment::Text(", ".into()),
                     Fragment::User(User::from(Nick::from_str("George_", casemapping)), "George_".into()),
                     Fragment::Text(", &".into()),
-                    Fragment::User(User::from(Nick::from_str("`Bill`", casemapping)), "`Bill`".into()),
+                    Fragment::User(User::from(Nick::from_str("`Bill`", casemapping)), "`bill`".into()),
                     Fragment::Text(". I hope @".into()),
                     Fragment::User(User::from(Nick::from_str("Dave", casemapping)), "Dave".into()),
                     Fragment::Text(" doesn't notice.".into()),
+                ],
+            ),
+            (
+                (
+                    "the boat would bob up and down!".to_string(),
+                    [
+                        "Greg",
+                        "Dave",
+                        "Bob",
+                        "George_",
+                        "`Bill`",
+                    ].into_iter().map(|nick| User::from(Nick::from_str(nick, casemapping))).collect::<ChannelUsers>(),
+                    "#interesting",
+                    Some(Nick::from_str("Bob", casemapping)),
+                    &Highlights {
+                        nickname: Nickname {exclude: vec![], include: vec![], case_insensitive: false},
+                        matches: vec![],
+                    },
+                ),
+                vec![
+                    Fragment::Text("the boat would ".into()),
+                    Fragment::User(User::from(Nick::from_str("Bob", casemapping)), "bob".into()),
+                    Fragment::Text(" up and down!".into()),
                 ],
             ),
             (
@@ -2198,7 +2225,7 @@ mod tests {
                     "#funderscore-sucks",
                     Some(Nick::from_str("f_", casemapping)),
                     &Highlights {
-                        nickname: Nickname {exclude: vec![], include: vec!["*".into()]},
+                        nickname: Nickname {exclude: vec![], include: vec!["*".into()], case_insensitive: true},
                         matches: vec![],
                     },
                 ),
