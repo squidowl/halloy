@@ -29,7 +29,7 @@ Fixed:
 Thanks:
 
 - Bug reports: @privacyadmin, @rlndd, @wingedonezero, @Seishiin, @Erroneuz, @andar1an, freakyy85, ThinkT510, alexia, @darienm
-- Feature requests: @deepspaceaxolotl, @4e554c4c
+- Feature requests: @deepspaceaxolotl, @4e554c4c, @cvengler
 
 # 2025.8 (2025-08-31)
 
