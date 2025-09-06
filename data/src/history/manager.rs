@@ -773,12 +773,10 @@ impl Manager {
                                 let nick = match source.nick() {
                                     Some(nick) => Some(nick.clone()),
                                     None => message.plain().and_then(|s| {
-                                        let casemapping = kind
-                                            .server()
-                                            .map(|server| {
-                                                clients.get_casemapping(server)
-                                            })
-                                            .unwrap_or_default();
+                                        let casemapping = clients
+                                            .get_casemapping_or_default(
+                                                kind.server(),
+                                            );
 
                                         s.split(' ').nth(1).map(|nick| {
                                             Nick::from_str(nick, casemapping)
