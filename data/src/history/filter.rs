@@ -2,7 +2,7 @@ use super::Kind;
 use crate::message::{Source, source};
 use crate::server::Map as ServerMap;
 use crate::target::{Channel, Query};
-use crate::user::Nick;
+use crate::user::{Nick, NickRef};
 use crate::{Message, Server, User, client, isupport};
 
 #[derive(Debug, Clone)]
@@ -23,8 +23,12 @@ enum FilterTarget {
 }
 
 impl FilterTarget {
-    pub fn from_nick(nick: &str, casemapping: isupport::CaseMap) -> Self {
-        Self::User(User::from(Nick::from(casemapping.normalize(nick))))
+    pub fn from_nick(nick: Nick) -> Self {
+        Self::User(User::from(nick))
+    }
+
+    pub fn from_nickref(nickref: NickRef) -> Self {
+        Self::User(User::from(nickref.to_owned()))
     }
 }
 
@@ -65,13 +69,14 @@ impl Filter {
                 let channel =
                     Channel::from_str(channel, chantypes, casemapping);
 
-                let target = FilterTarget::from_nick(nick, casemapping);
+                let target =
+                    FilterTarget::from_nick(Nick::from_str(nick, casemapping));
 
                 (FilterClass::Channel((server.clone(), channel)), target)
             }
             None => (
                 FilterClass::Any,
-                FilterTarget::from_nick(value, casemapping),
+                FilterTarget::from_nick(Nick::from_str(value, casemapping)),
             ),
         };
 
@@ -84,28 +89,21 @@ impl Filter {
     /// otherwise.
     ///
     /// [`Message`]:crate::Message
-    pub fn match_message(
-        &self,
-        message: &Message,
-        casemapping: isupport::CaseMap,
-    ) -> bool {
+    pub fn match_message(&self, message: &Message) -> bool {
         match &self.target {
             FilterTarget::User(user) => match &message.target.source() {
                 Source::Action(Some(msg_user)) | Source::User(msg_user) => {
-                    casemapping.normalize(msg_user.nickname().as_ref())
-                        == user.nickname().as_ref()
+                    msg_user.nickname() == user.nickname()
                 }
                 Source::Server(Some(server)) => {
                     // Match server messages from the filtered user, except
                     // for nick change messages in order to alert the Halloy
                     // user that the filtered user has a new nickname.
-                    server.nick().is_some_and(|nick| {
-                        casemapping.normalize(nick.as_ref())
-                            == user.nickname().as_ref()
-                    }) && !matches!(
-                        server.kind(),
-                        source::server::Kind::ChangeNick
-                    )
+                    server.nick().is_some_and(|nick| user.nickname() == *nick)
+                        && !matches!(
+                            server.kind(),
+                            source::server::Kind::ChangeNick
+                        )
                 }
                 _ => false,
             },
@@ -122,7 +120,10 @@ impl Filter {
         match &self.target {
             FilterTarget::User(user) => match &self.class {
                 FilterClass::Channel((_, _)) => false,
-                _ => user.nickname().as_ref() == query.as_normalized_str(),
+                _ => {
+                    user.nickname().as_normalized_str()
+                        == query.as_normalized_str()
+                }
             },
         }
     }
@@ -178,10 +179,7 @@ impl Filter {
     ) {
         match &self.target {
             FilterTarget::User(user) => {
-                self.target = FilterTarget::from_nick(
-                    user.nickname().as_ref(),
-                    casemapping,
-                );
+                self.target = FilterTarget::from_nickref(user.nickname());
             }
         }
 
@@ -220,17 +218,12 @@ impl<'f> FilterChain<'f> {
         self.filters.iter().any(|f| f.match_query(kind))
     }
 
-    pub fn filter_message_of_kind(
-        &self,
-        message: &mut Message,
-        kind: &Kind,
-        casemapping: isupport::CaseMap,
-    ) {
+    pub fn filter_message_of_kind(&self, message: &mut Message, kind: &Kind) {
         message.blocked = self
             .filters
             .iter()
             .filter(|f| f.match_kind(kind))
-            .any(|f| f.match_message(message, casemapping));
+            .any(|f| f.match_message(message));
     }
 
     pub fn sync_channels(
@@ -248,13 +241,7 @@ impl<'f> FilterChain<'f> {
             });
     }
 
-    pub fn filter_message(
-        &self,
-        message: &Message,
-        casemapping: isupport::CaseMap,
-    ) -> bool {
-        self.filters
-            .iter()
-            .any(|f| f.match_message(message, casemapping))
+    pub fn filter_message(&self, message: &Message) -> bool {
+        self.filters.iter().any(|f| f.match_message(message))
     }
 }

@@ -128,7 +128,6 @@ pub fn view<'a>(
                         user_context::view(
                             text,
                             server,
-                            casemapping,
                             prefix,
                             Some(channel),
                             user,
@@ -163,7 +162,6 @@ pub fn view<'a>(
                             message::Link::User(user) => entry
                                 .view(
                                     server,
-                                    casemapping,
                                     prefix,
                                     Some(channel),
                                     user,

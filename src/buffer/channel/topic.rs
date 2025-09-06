@@ -72,7 +72,6 @@ pub fn view<'a>(
                         )
                     }),
                 server,
-                casemapping,
                 prefix,
                 Some(channel),
                 user,

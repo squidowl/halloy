@@ -6,7 +6,7 @@ use irc::proto;
 use serde::{Deserialize, Serialize};
 
 use crate::isupport;
-use crate::user::User;
+use crate::user::{Nick, NickRef, User};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Target {
@@ -260,6 +260,35 @@ impl From<QueryData> for Query {
     }
 }
 
+impl From<User> for Query {
+    fn from(user: User) -> Self {
+        Query::from(<User as std::convert::Into<Nick>>::into(user))
+    }
+}
+
+impl From<&User> for Query {
+    fn from(user: &User) -> Self {
+        Query::from(user.nickname())
+    }
+}
+
+impl From<Nick> for Query {
+    fn from(nick: Nick) -> Self {
+        let (raw, normalized) = nick.into();
+
+        Query::from(QueryData { raw, normalized })
+    }
+}
+
+impl From<NickRef<'_>> for Query {
+    fn from(nickref: NickRef) -> Self {
+        Query::from(QueryData {
+            raw: nickref.as_str().to_string(),
+            normalized: nickref.as_normalized_str().to_string(),
+        })
+    }
+}
+
 impl Query {
     pub fn as_normalized_str(&self) -> &str {
         self.0.normalized.as_ref()
@@ -267,13 +296,6 @@ impl Query {
 
     pub fn as_str(&self) -> &str {
         self.0.raw.as_ref()
-    }
-
-    pub fn from_user(user: &User, casemapping: isupport::CaseMap) -> Self {
-        Query::from(QueryData {
-            normalized: casemapping.normalize(user.as_str()),
-            raw: user.as_str().to_string(),
-        })
     }
 
     pub fn parse(

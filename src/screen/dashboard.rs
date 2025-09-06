@@ -1406,13 +1406,9 @@ impl Dashboard {
                 {
                     let casemapping = clients.get_casemapping(&server);
 
+                    let query = target::Query::from(&to);
+
                     if let Some(path) = path
-                        && let Ok(query) = target::Query::parse(
-                            to.nickname().as_ref(),
-                            clients.get_chantypes(&server),
-                            clients.get_statusmsg(&server),
-                            casemapping,
-                        )
                         && let Some(event) = self.file_transfers.send(
                             file_transfer::SendRequest {
                                 to,
@@ -2742,8 +2738,6 @@ impl Dashboard {
     pub fn receive_file_transfer(
         &mut self,
         server: &Server,
-        chantypes: &[char],
-        statusmsg: &[char],
         casemapping: isupport::CaseMap,
         request: file_transfer::ReceiveRequest,
         config: &Config,
@@ -2764,13 +2758,7 @@ impl Dashboard {
             server,
         );
 
-        let query = target::Query::parse(
-            request.from.nickname().as_ref(),
-            chantypes,
-            statusmsg,
-            casemapping,
-        )
-        .ok()?;
+        let query = target::Query::from(request.from);
 
         Some(self.handle_file_transfer_event(
             server,

@@ -519,6 +519,7 @@ impl Manager {
                 user,
                 comment,
                 user_channels,
+                casemapping,
             } => {
                 let user_query =
                     queries.find(|query| user.as_str() == query.as_str());
@@ -529,6 +530,7 @@ impl Manager {
                     &user,
                     &comment,
                     config,
+                    casemapping,
                     sent_time,
                 )
             }
@@ -537,6 +539,7 @@ impl Manager {
                 new_nick,
                 ourself,
                 user_channels,
+                casemapping,
             } => {
                 if ourself {
                     // If ourself, broadcast to all query channels (since we are in all of them)
@@ -546,18 +549,22 @@ impl Manager {
                         &old_nick,
                         &new_nick,
                         ourself,
+                        casemapping,
                         sent_time,
                     )
                 } else {
                     // Otherwise just the query channel of the user w/ nick change
-                    let user_query = queries
-                        .find(|query| old_nick.as_ref() == query.as_str());
+                    let user_query = queries.find(|query| {
+                        old_nick.as_normalized_str()
+                            == query.as_normalized_str()
+                    });
                     message::broadcast::nickname(
                         user_channels,
                         user_query,
                         &old_nick,
                         &new_nick,
                         ourself,
+                        casemapping,
                         sent_time,
                     )
                 }
@@ -566,10 +573,12 @@ impl Manager {
                 inviter,
                 channel,
                 user_channels,
+                casemapping,
             } => message::broadcast::invite(
                 inviter,
                 channel,
                 user_channels,
+                casemapping,
                 sent_time,
             ),
             Broadcast::ChangeHost {
@@ -579,6 +588,7 @@ impl Manager {
                 ourself,
                 logged_in,
                 user_channels,
+                casemapping,
             } => {
                 if ourself {
                     // If ourself, broadcast to all query channels (since we are in all of them)
@@ -590,6 +600,7 @@ impl Manager {
                         &new_hostname,
                         ourself,
                         logged_in,
+                        casemapping,
                         sent_time,
                     )
                 } else {
@@ -604,6 +615,7 @@ impl Manager {
                         &new_hostname,
                         ourself,
                         logged_in,
+                        casemapping,
                         sent_time,
                     )
                 }
@@ -613,8 +625,14 @@ impl Manager {
                 victim,
                 reason,
                 channel,
+                casemapping,
             } => message::broadcast::kick(
-                kicker, victim, reason, channel, sent_time,
+                kicker,
+                victim,
+                reason,
+                channel,
+                casemapping,
+                sent_time,
             ),
         };
 
@@ -668,9 +686,11 @@ impl Manager {
             if let Some(seconds) = server_message.smart {
                 let nick = match source.nick() {
                     Some(nick) => Some(nick.clone()),
-                    None => message
-                        .plain()
-                        .and_then(|s| s.split(' ').nth(1).map(Nick::from)),
+                    None => message.plain().and_then(|s| {
+                        s.split(' ')
+                            .nth(1)
+                            .map(|nick| Nick::from_str(nick, casemapping))
+                    }),
                 };
 
                 if let Some(nick) = nick
@@ -716,11 +736,8 @@ impl Manager {
             return;
         }
 
-        FilterChain::borrow(&self.filters).filter_message_of_kind(
-            message,
-            kind,
-            casemapping,
-        );
+        FilterChain::borrow(&self.filters)
+            .filter_message_of_kind(message, kind);
     }
 
     pub fn block_messages(
@@ -756,7 +773,16 @@ impl Manager {
                                 let nick = match source.nick() {
                                     Some(nick) => Some(nick.clone()),
                                     None => message.plain().and_then(|s| {
-                                        s.split(' ').nth(1).map(Nick::from)
+                                        let casemapping = kind
+                                            .server()
+                                            .map(|server| {
+                                                clients.get_casemapping(server)
+                                            })
+                                            .unwrap_or_default();
+
+                                        s.split(' ').nth(1).map(|nick| {
+                                            Nick::from_str(nick, casemapping)
+                                        })
                                     }),
                                 };
 
@@ -789,39 +815,16 @@ impl Manager {
                             return;
                         }
 
-                        let casemapping = if let message::Target::Highlights {
-                            server,
-                            ..
-                        } = &message.target
-                        {
-                            clients.get_casemapping(server)
-                        } else {
-                            isupport::CaseMap::default()
-                        };
-
-                        chain.filter_message_of_kind(
-                            message,
-                            &kind,
-                            casemapping,
-                        );
+                        chain.filter_message_of_kind(message, &kind);
                     });
                 }
                 _ => {
-                    let casemapping = kind
-                        .server()
-                        .map(|server| clients.get_casemapping(server))
-                        .unwrap_or_default();
-
                     messages.iter_mut().for_each(|message| {
                         if message.blocked {
                             return;
                         }
 
-                        chain.filter_message_of_kind(
-                            message,
-                            &kind,
-                            casemapping,
-                        );
+                        chain.filter_message_of_kind(message, &kind);
                     });
                 }
             }
@@ -1292,17 +1295,20 @@ pub enum Broadcast {
         user: User,
         comment: Option<String>,
         user_channels: Vec<target::Channel>,
+        casemapping: isupport::CaseMap,
     },
     Nickname {
         old_nick: Nick,
         new_nick: Nick,
         ourself: bool,
         user_channels: Vec<target::Channel>,
+        casemapping: isupport::CaseMap,
     },
     Invite {
         inviter: Nick,
         channel: target::Channel,
         user_channels: Vec<target::Channel>,
+        casemapping: isupport::CaseMap,
     },
     ChangeHost {
         old_user: User,
@@ -1311,11 +1317,13 @@ pub enum Broadcast {
         ourself: bool,
         logged_in: bool,
         user_channels: Vec<target::Channel>,
+        casemapping: isupport::CaseMap,
     },
     Kick {
         kicker: User,
         victim: User,
         reason: Option<String>,
         channel: target::Channel,
+        casemapping: isupport::CaseMap,
     },
 }
