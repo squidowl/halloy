@@ -221,6 +221,16 @@ If you pass <code>["#halloy"]</code>, you will only be highlighted in that chann
 exclude = ["*"]
 include = ["#halloy"]
 </code></pre>
+<h3 id="case_insensitive"><a class="header" href="#case_insensitive"><code>case_insensitive</code></a></h3>
+<p>Whether or not to trigger regardless nickname highlight regardless of case.
+Uses the casemapping <a href="https://modern.ircdocs.horse/#casemapping-parameter">specified by server</a>.</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: true
+
+[highlights.nickname]
+case_insensitive = false
+</code></pre>
 <h2 id="highlightsmatch"><a class="header" href="#highlightsmatch"><code>[[highlights.match]]</code></a></h2>
 <p>Highlight based on matches.</p>
 <h3 id="words"><a class="header" href="#words"><code>words</code></a></h3>
@@ -233,7 +243,7 @@ include = ["#halloy"]
 [[highlights.match]]
 words = ["word1", "word2", "word3"]
 </code></pre>
-<h3 id="case_insensitive"><a class="header" href="#case_insensitive"><code>case_insensitive</code></a></h3>
+<h3 id="case_insensitive-1"><a class="header" href="#case_insensitive-1"><code>case_insensitive</code></a></h3>
 <p>This option is only available when using <code>words</code> as the match type.
 You can choose whether or not to trigger regardless of case.</p>
 <pre><code class="language-toml"># Type: boolean
