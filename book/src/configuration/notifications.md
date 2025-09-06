@@ -73,7 +73,7 @@ Delay in milliseconds before triggering the next notification.
 
 ```toml
 # Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: 500
 
 [notifications.<notification>]

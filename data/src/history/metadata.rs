@@ -15,6 +15,7 @@ use crate::message::{MessageReferences, source};
 pub struct Metadata {
     pub read_marker: Option<ReadMarker>,
     pub last_triggers_unread: Option<DateTime<Utc>>,
+    pub last_triggers_highlight: Option<DateTime<Utc>>,
     pub chathistory_references: Option<MessageReferences>,
 }
 
@@ -85,6 +86,16 @@ pub fn latest_triggers_unread(messages: &[Message]) -> Option<DateTime<Utc>> {
         .map(|message| message.server_time)
 }
 
+pub fn latest_triggers_highlight(
+    messages: &[Message],
+) -> Option<DateTime<Utc>> {
+    messages
+        .iter()
+        .rev()
+        .find(|message| message.triggers_highlight())
+        .map(|message| message.server_time)
+}
+
 pub fn latest_can_reference(messages: &[Message]) -> Option<MessageReferences> {
     messages
         .iter()
@@ -111,6 +122,7 @@ pub async fn save(
     let bytes = serde_json::to_vec(&Metadata {
         read_marker,
         last_triggers_unread: latest_triggers_unread(messages),
+        last_triggers_highlight: latest_triggers_highlight(messages),
         chathistory_references: latest_can_reference(messages),
     })?;
 
@@ -136,6 +148,7 @@ pub async fn update(
     let bytes = serde_json::to_vec(&Metadata {
         read_marker: Some(*read_marker),
         last_triggers_unread: metadata.last_triggers_unread,
+        last_triggers_highlight: metadata.last_triggers_highlight,
         chathistory_references: metadata.chathistory_references,
     })?;
 

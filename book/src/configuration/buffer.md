@@ -136,7 +136,7 @@ Overwrite nicklist width in pixels.
 
 ```toml
 # Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: not set
 
 [buffer.channel.nicklist]
@@ -182,7 +182,7 @@ Amount of visible lines before you have to scroll in topic banner.
 
 ```toml
 # Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: 2
 
 [buffer.channel.topic]
@@ -366,7 +366,7 @@ Only show internal message if received within the given time duration (seconds).
 
 ```toml
 # Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: not set
 
 [buffer.internal_messages.success]
@@ -396,7 +396,7 @@ Only show internal message if received within the given time duration (seconds).
 
 ```toml
 # Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: not set
 
 [buffer.internal_messages.error]
@@ -585,7 +585,7 @@ Truncate nicknames in buffer to a maximum length
 
 ```toml
 # Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: not set
 
 [buffer.nickname]
@@ -646,7 +646,7 @@ Only show server message if the user has sent a message in the given time interv
 
 ```toml
 # Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: not set
 
 [buffer.server_messages.<server_message>]

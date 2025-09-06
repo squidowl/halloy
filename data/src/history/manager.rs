@@ -457,6 +457,10 @@ impl Manager {
         self.data.map.get(kind).is_some_and(History::has_unread)
     }
 
+    pub fn has_highlight(&self, kind: &history::Kind) -> bool {
+        self.data.map.get(kind).is_some_and(History::has_highlight)
+    }
+
     pub fn read_marker(
         &self,
         kind: &history::Kind,
