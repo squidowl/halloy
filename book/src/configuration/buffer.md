@@ -19,6 +19,7 @@ Buffer settings for Halloy.
 11. [Text Input](#buffertext_input) - Customize the text input for in buffers
 12. [Timestamp](#buffertimestamp) - Customize how timestamps are displayed within a buffer
 13. [Url](#bufferurl) - URLs in buffers
+14. [Line Spacing](#line_spacing) - Line spacing in buffers
 
 ## `[buffer.channel]`
 
@@ -839,4 +840,17 @@ Prompt before opening a hyperlink.
 
 [buffer.url]
 prompt_before_open = true
+```
+
+## `[line_spacing]`
+
+Setting to control spacing between messages in buffers
+
+```toml
+# Type: intege
+# Values: positive integers
+# Default: 0
+
+[buffer]
+line_spacing = 4
 ```
