@@ -6,4 +6,6 @@
 
   commit_hash=$(git rev-parse HEAD)
 
-  cargo run --features="message_tests" > tests/message/$commit_hash.json
+  cargo run --features="message_tests" > "tests/message/$commit_hash.json"
+
+  git add "tests/message/$commit_hash.json"
