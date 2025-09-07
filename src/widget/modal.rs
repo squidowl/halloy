@@ -64,13 +64,13 @@ where
     }
 
     fn layout(
-        &self,
+        &mut self,
         tree: &mut widget::Tree,
         renderer: &Renderer,
         limits: &layout::Limits,
     ) -> layout::Node {
         self.base
-            .as_widget()
+            .as_widget_mut()
             .layout(&mut tree.children[0], renderer, limits)
     }
 
@@ -154,13 +154,13 @@ where
     }
 
     fn operate(
-        &self,
+        &mut self,
         state: &mut widget::Tree,
         layout: Layout<'_>,
         renderer: &Renderer,
         operation: &mut dyn widget::Operation<()>,
     ) {
-        self.base.as_widget().operate(
+        self.base.as_widget_mut().operate(
             &mut state.children[0],
             layout,
             renderer,
@@ -190,7 +190,7 @@ where
 
         let child = self
             .content
-            .as_widget()
+            .as_widget_mut()
             .layout(self.tree, renderer, &limits)
             .align(Alignment::Center, Alignment::Center, limits.max());
 
@@ -276,7 +276,7 @@ where
         renderer: &Renderer,
         operation: &mut dyn widget::Operation<()>,
     ) {
-        self.content.as_widget().operate(
+        self.content.as_widget_mut().operate(
             self.tree,
             layout.children().next().unwrap(),
             renderer,
