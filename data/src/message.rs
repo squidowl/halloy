@@ -479,6 +479,9 @@ impl Message {
     }
 }
 
+// When changing how Message (or its constituent parts) is serialized, run
+// `data/scripts/generate-message-tests-json.sh` to produce test messages for
+// backwards compatibility tests
 impl Serialize for Message {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
