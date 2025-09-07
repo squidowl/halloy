@@ -69,7 +69,7 @@ pub struct Config {
 }
 
 #[derive(Debug, Clone, Copy, Deserialize)]
-pub struct ScaleFactor(f64);
+pub struct ScaleFactor(f32);
 
 impl Default for ScaleFactor {
     fn default() -> Self {
@@ -77,13 +77,13 @@ impl Default for ScaleFactor {
     }
 }
 
-impl From<f64> for ScaleFactor {
-    fn from(value: f64) -> Self {
+impl From<f32> for ScaleFactor {
+    fn from(value: f32) -> Self {
         ScaleFactor(value.clamp(0.1, 3.0))
     }
 }
 
-impl From<ScaleFactor> for f64 {
+impl From<ScaleFactor> for f32 {
     fn from(value: ScaleFactor) -> Self {
         value.0
     }

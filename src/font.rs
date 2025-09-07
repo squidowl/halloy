@@ -107,7 +107,7 @@ pub fn width_from_chars(len: usize, config: &config::Font) -> f32 {
 
     Paragraph::with_text(Text {
         content: &" ".repeat(len),
-        bounds: Size::INFINITY,
+        bounds: Size::INFINITE,
         size: config.size.map_or(theme::TEXT_SIZE, f32::from).into(),
         line_height: text::LineHeight::default(),
         font: MONO.clone().into(),

@@ -46,13 +46,13 @@ impl<Message> Widget<Message, Theme, Renderer>
     }
 
     fn layout(
-        &self,
+        &mut self,
         tree: &mut widget::Tree,
         renderer: &Renderer,
         limits: &layout::Limits,
     ) -> layout::Node {
         self.base
-            .as_widget()
+            .as_widget_mut()
             .layout(&mut tree.children[0], renderer, limits)
     }
 
@@ -89,13 +89,13 @@ impl<Message> Widget<Message, Theme, Renderer>
     }
 
     fn operate(
-        &self,
+        &mut self,
         tree: &mut iced::advanced::widget::Tree,
         layout: Layout<'_>,
         renderer: &Renderer,
         operation: &mut dyn widget::Operation<()>,
     ) {
-        self.base.as_widget().operate(
+        self.base.as_widget_mut().operate(
             &mut tree.children[0],
             layout,
             renderer,
@@ -222,7 +222,7 @@ impl<Message> overlay::Overlay<Message, Theme, Renderer>
 
         let node = self
             .content
-            .as_widget()
+            .as_widget_mut()
             .layout(self.tree, renderer, &limits);
 
         let translation = match self.anchor {
