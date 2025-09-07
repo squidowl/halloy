@@ -322,3 +322,186 @@ pub fn kick(
 
     expand([], [], true, cause, content, sent_time)
 }
+
+#[derive(Debug, Clone)]
+pub enum Broadcast {
+    Connecting,
+    Connected,
+    ConnectionFailed {
+        error: String,
+    },
+    Disconnected {
+        error: Option<String>,
+    },
+    Reconnected,
+    Quit {
+        user: User,
+        comment: Option<String>,
+        user_channels: Vec<target::Channel>,
+        casemapping: isupport::CaseMap,
+    },
+    Nickname {
+        old_nick: Nick,
+        new_nick: Nick,
+        ourself: bool,
+        user_channels: Vec<target::Channel>,
+        casemapping: isupport::CaseMap,
+    },
+    Invite {
+        inviter: Nick,
+        channel: target::Channel,
+        user_channels: Vec<target::Channel>,
+        casemapping: isupport::CaseMap,
+    },
+    ChangeHost {
+        old_user: User,
+        new_username: String,
+        new_hostname: String,
+        ourself: bool,
+        logged_in: bool,
+        user_channels: Vec<target::Channel>,
+        casemapping: isupport::CaseMap,
+    },
+    Kick {
+        kicker: User,
+        victim: User,
+        reason: Option<String>,
+        channel: target::Channel,
+        casemapping: isupport::CaseMap,
+    },
+}
+
+pub fn into_messages(
+    broadcast: Broadcast,
+    config: &Config,
+    sent_time: DateTime<Utc>,
+    channels: impl IntoIterator<Item = target::Channel>,
+    mut queries: impl IntoIterator<Item = target::Query>
+    + std::iter::Iterator<Item = target::Query>,
+) -> Vec<Message> {
+    match broadcast {
+        Broadcast::Connecting => connecting(sent_time),
+        Broadcast::Connected => connected(sent_time),
+        Broadcast::ConnectionFailed { error } => {
+            connection_failed(error, sent_time)
+        }
+        Broadcast::Disconnected { error } => {
+            disconnected(channels, queries, error, sent_time)
+        }
+        Broadcast::Reconnected => reconnected(channels, queries, sent_time),
+        Broadcast::Quit {
+            user,
+            comment,
+            user_channels,
+            casemapping,
+        } => {
+            let user_query = queries.find(|query| {
+                user.as_normalized_str() == query.as_normalized_str()
+            });
+
+            quit(
+                user_channels,
+                user_query,
+                &user,
+                &comment,
+                config,
+                casemapping,
+                sent_time,
+            )
+        }
+        Broadcast::Nickname {
+            old_nick,
+            new_nick,
+            ourself,
+            user_channels,
+            casemapping,
+        } => {
+            if ourself {
+                // If ourself, broadcast to all query channels (since we are in all of them)
+                nickname(
+                    user_channels,
+                    queries,
+                    &old_nick,
+                    &new_nick,
+                    ourself,
+                    casemapping,
+                    sent_time,
+                )
+            } else {
+                // Otherwise just the query channel of the user w/ nick change
+                let user_query = queries.find(|query| {
+                    old_nick.as_normalized_str() == query.as_normalized_str()
+                });
+                nickname(
+                    user_channels,
+                    user_query,
+                    &old_nick,
+                    &new_nick,
+                    ourself,
+                    casemapping,
+                    sent_time,
+                )
+            }
+        }
+        Broadcast::Invite {
+            inviter,
+            channel,
+            user_channels,
+            casemapping,
+        } => invite(inviter, channel, user_channels, casemapping, sent_time),
+        Broadcast::ChangeHost {
+            old_user,
+            new_username,
+            new_hostname,
+            ourself,
+            logged_in,
+            user_channels,
+            casemapping,
+        } => {
+            if ourself {
+                // If ourself, broadcast to all query channels (since we are in all of them)
+                change_host(
+                    user_channels,
+                    queries,
+                    &old_user,
+                    &new_username,
+                    &new_hostname,
+                    ourself,
+                    logged_in,
+                    casemapping,
+                    sent_time,
+                )
+            } else {
+                // Otherwise just the query channel of the user w/ host change
+                let user_query = queries.find(|query| {
+                    old_user.as_normalized_str() == query.as_normalized_str()
+                });
+                change_host(
+                    user_channels,
+                    user_query,
+                    &old_user,
+                    &new_username,
+                    &new_hostname,
+                    ourself,
+                    logged_in,
+                    casemapping,
+                    sent_time,
+                )
+            }
+        }
+        Broadcast::Kick {
+            kicker,
+            victim,
+            reason,
+            channel,
+            casemapping,
+        } => message::broadcast::kick(
+            kicker,
+            victim,
+            reason,
+            channel,
+            casemapping,
+            sent_time,
+        ),
+    }
+}

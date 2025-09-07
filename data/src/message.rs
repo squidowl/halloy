@@ -13,6 +13,7 @@ use itertools::{Either, Itertools};
 use serde::{Deserialize, Serialize};
 use url::Url;
 
+pub use self::broadcast::Broadcast;
 pub use self::formatting::{Color, Formatting};
 pub use self::source::Source;
 pub use self::source::server::{Kind, StandardReply};
@@ -172,13 +173,13 @@ impl Target {
     }
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 pub enum Direction {
     Sent,
     Received,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Message {
     pub received_at: Posix,
     pub server_time: DateTime<Utc>,
@@ -478,6 +479,9 @@ impl Message {
     }
 }
 
+// When changing how Message (or its constituent parts) is serialized, run
+// `data/scripts/generate-message-tests-json.sh` to produce test messages for
+// backwards compatibility tests
 impl Serialize for Message {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -1957,18 +1961,27 @@ impl PartialOrd for MessageReferences {
     }
 }
 
-#[cfg(test)]
-mod tests {
+#[cfg(any(test, feature = "message_tests"))]
+pub mod tests {
+    #[allow(unused_imports)]
     use super::{
         parse_fragments, parse_fragments_with_highlights,
         parse_fragments_with_users,
     };
+    #[allow(unused_imports)]
     use crate::config::Highlights;
+    #[allow(unused_imports)]
     use crate::config::highlights::Nickname;
+    #[allow(unused_imports)]
     use crate::message::formatting::Color;
-    use crate::message::{Content, Formatting, Fragment};
-    use crate::user::{ChannelUsers, Nick};
-    use crate::{User, isupport};
+    #[allow(unused_imports)]
+    use crate::message::{
+        Broadcast, Content, Formatting, Fragment, Message, broadcast,
+    };
+    #[allow(unused_imports)]
+    use crate::user::{ChannelUsers, Nick, User};
+    #[allow(unused_imports)]
+    use crate::{isupport, target};
 
     #[test]
     fn fragments_parsing() {
@@ -2251,6 +2264,265 @@ mod tests {
             } else {
                 panic!("expected fragments with highlighting");
             }
+        }
+    }
+
+    pub const SERDE_IRC_MESSAGES: &[&str] = &[
+        "@time=2023-07-20T21:19:11.000Z :chat!test@user/test/bot/chat PRIVMSG ##chat :\\_o< quack!\r\n",
+        "@id=234AB :dan!d@localhost PRIVMSG #chan :Hey what's up! \r\n",
+        "@time=2025-02-11T20:28:47.354Z :our_nick PRIVMSG #test-chan :\u{1}ACTION wants to generate an action message for testing XD\u{1}\r\n",
+        "@id=DTSA :our_nick PRIVMSG #halloy :check out https://unstable.halloy.squidowl.org/, when you're building from source\r\n",
+        ":dan!d@localhost PRIVMSG #chan-chan \u{1f}how\u{1f} \u{11}about\u{11} \u{2}\u{1d}some\u{1d}\u{2} \u{2}markdown\u{2} \u{1d}for\u{1d} \u{1e}testing\u{1e} \u{3}4too\u{3}? \r\n",
+        ":WiZ JOIN #Twilight_zone\r\n",
+        ":`whammer`!warhammer@40k PART #test\r\n",
+        ":soju.bouncer FAIL * ACCOUNT_REQUIRED :Authentication required\r\n",
+        ":rabbit MODE #토끼세계 +o bunny\r\n",
+    ];
+
+    pub fn message_from_irc_message(irc_message: &str) -> Message {
+        use std::collections::HashMap;
+
+        use irc::proto;
+
+        use crate::config::Config;
+        use crate::message::Encoded;
+        use crate::{isupport, target};
+
+        let isupport = HashMap::<isupport::Kind, isupport::Parameter>::new();
+
+        let our_nick = Nick::from_str(
+            "our_nick",
+            isupport::get_casemapping_or_default(&isupport),
+        );
+
+        let channel_users: ChannelUsers = [
+            User::from(Nick::from_str(
+                "chat",
+                isupport::get_casemapping_or_default(&isupport),
+            )),
+            User::from(Nick::from_str(
+                "dan",
+                isupport::get_casemapping_or_default(&isupport),
+            )),
+            User::from(our_nick.clone()),
+        ]
+        .into_iter()
+        .collect();
+
+        let encoded = proto::parse::message(irc_message).unwrap();
+
+        Message::received(
+            Encoded::from(encoded.clone()),
+            our_nick.clone(),
+            &Config::default(),
+            |user: &User, _channel: &target::Channel| {
+                channel_users
+                    .iter()
+                    .find(|channel_user| *channel_user == user)
+                    .cloned()
+            },
+            |_channel: &target::Channel| Some(&channel_users),
+            isupport::get_chantypes_or_default(&isupport),
+            isupport::get_statusmsg_or_default(&isupport),
+            isupport::get_casemapping_or_default(&isupport),
+            isupport::get_prefix_or_default(&isupport),
+        )
+        .unwrap_or_else(|| panic!("failed to create Message from {encoded:?}"))
+    }
+
+    pub fn serde_broadcasts() -> Vec<Broadcast> {
+        use std::collections::HashMap;
+
+        use crate::{isupport, target};
+
+        let isupport = HashMap::<isupport::Kind, isupport::Parameter>::new();
+
+        let user_channels = vec![
+            target::Channel::from_str(
+                "##chat",
+                isupport::get_chantypes_or_default(&isupport),
+                isupport::get_casemapping_or_default(&isupport),
+            ),
+            target::Channel::from_str(
+                "#halloy",
+                isupport::get_chantypes_or_default(&isupport),
+                isupport::get_casemapping_or_default(&isupport),
+            ),
+        ];
+
+        vec![
+            Broadcast::Connecting,
+            Broadcast::Connected,
+            Broadcast::ConnectionFailed {
+                error: "a TLS error occurred: \
+                            io error: received fatal alert: HandshakeFailure"
+                    .to_string(),
+            },
+            Broadcast::Disconnected { error: None },
+            Broadcast::Reconnected,
+            Broadcast::Quit {
+                user: User::parse(
+                    "+nieve!snow@yeti",
+                    isupport::get_casemapping(&isupport),
+                    isupport::get_prefix(&isupport),
+                )
+                .unwrap(),
+                comment: Some("see you later our_nick".to_string()),
+                user_channels: user_channels.clone(),
+                casemapping: isupport::get_casemapping_or_default(&isupport),
+            },
+            Broadcast::Nickname {
+                old_nick: Nick::from_str(
+                    "dan",
+                    isupport::get_casemapping_or_default(&isupport),
+                ),
+                new_nick: Nick::from_str(
+                    "dandadan",
+                    isupport::get_casemapping_or_default(&isupport),
+                ),
+                ourself: false,
+                user_channels: user_channels.clone(),
+                casemapping: isupport::get_casemapping_or_default(&isupport),
+            },
+            Broadcast::Nickname {
+                old_nick: Nick::from_str(
+                    "our_old_nick",
+                    isupport::get_casemapping_or_default(&isupport),
+                ),
+                new_nick: Nick::from_str(
+                    "our_new_nick",
+                    isupport::get_casemapping_or_default(&isupport),
+                ),
+                ourself: true,
+                user_channels: user_channels.clone(),
+                casemapping: isupport::get_casemapping_or_default(&isupport),
+            },
+            Broadcast::Invite {
+                inviter: Nick::from_str(
+                    "`whammer`",
+                    isupport::get_casemapping_or_default(&isupport),
+                ),
+                channel: target::Channel::from_str(
+                    "#40k",
+                    isupport::get_chantypes_or_default(&isupport),
+                    isupport::get_casemapping_or_default(&isupport),
+                ),
+                user_channels: user_channels.clone(),
+                casemapping: isupport::get_casemapping_or_default(&isupport),
+            },
+            Broadcast::ChangeHost {
+                old_user: User::parse(
+                    "our_nick!old_user@old_host",
+                    isupport::get_casemapping(&isupport),
+                    isupport::get_prefix(&isupport),
+                )
+                .unwrap(),
+                new_username: "new_user".to_string(),
+                new_hostname: "new_host".to_string(),
+                ourself: true,
+                logged_in: false,
+                user_channels: user_channels.clone(),
+                casemapping: isupport::get_casemapping_or_default(&isupport),
+            },
+            Broadcast::ChangeHost {
+                old_user: User::parse(
+                    "+nieve!snow@yeti",
+                    isupport::get_casemapping(&isupport),
+                    isupport::get_prefix(&isupport),
+                )
+                .unwrap(),
+                new_username: "lava".to_string(),
+                new_hostname: "troll".to_string(),
+                ourself: false,
+                logged_in: true,
+                user_channels: user_channels.clone(),
+                casemapping: isupport::get_casemapping_or_default(&isupport),
+            },
+        ]
+    }
+
+    pub fn messages_from_broadcast(broadcast: Broadcast) -> Vec<Message> {
+        use chrono::Utc;
+
+        use crate::config::Config;
+
+        let channels = vec![
+            target::Channel::from_str(
+                "##chat",
+                isupport::DEFAULT_CHANTYPES,
+                isupport::CaseMap::default(),
+            ),
+            target::Channel::from_str(
+                "#halloy",
+                isupport::DEFAULT_CHANTYPES,
+                isupport::CaseMap::default(),
+            ),
+            target::Channel::from_str(
+                "#libera",
+                isupport::DEFAULT_CHANTYPES,
+                isupport::CaseMap::default(),
+            ),
+            target::Channel::from_str(
+                "&test-chan",
+                isupport::DEFAULT_CHANTYPES,
+                isupport::CaseMap::default(),
+            ),
+        ]
+        .into_iter();
+
+        let queries = vec![
+            target::Query::from(&User::from(Nick::from_str(
+                "dan",
+                isupport::CaseMap::default(),
+            ))),
+            target::Query::from(&User::from(Nick::from_str(
+                "WiZ",
+                isupport::CaseMap::default(),
+            ))),
+        ]
+        .into_iter();
+
+        broadcast::into_messages(
+            broadcast,
+            &Config::default(),
+            Utc::now(),
+            channels,
+            queries,
+        )
+    }
+
+    // Test consistency between current Message serialization & deserialization
+    #[test]
+    fn messages_serde() {
+        let mut messages = SERDE_IRC_MESSAGES
+            .iter()
+            .map(|irc_message| message_from_irc_message(irc_message))
+            .collect::<Vec<Message>>();
+
+        for broadcast in serde_broadcasts() {
+            messages.append(&mut messages_from_broadcast(broadcast));
+        }
+
+        for expected in messages {
+            let bytes = serde_json::to_vec(&expected).unwrap();
+
+            let actual: Message = serde_json::from_slice(&bytes).unwrap();
+
+            assert_eq!(expected, actual);
+        }
+    }
+
+    // Test Message deserialization from samples of messages serialized by
+    // earlier versions (i.e. backward compatibility)
+    #[test]
+    fn messages_json_deserialize() {
+        use std::fs;
+
+        for file in fs::read_dir("tests/message/").unwrap() {
+            let path = file.unwrap().path();
+            let file_string = fs::read_to_string(&path).unwrap();
+            let _messages: Vec<Message> =
+                serde_json::from_str(&file_string).unwrap();
         }
     }
 }
