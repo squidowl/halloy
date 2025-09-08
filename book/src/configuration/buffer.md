@@ -847,7 +847,7 @@ prompt_before_open = true
 Setting to control spacing between messages in buffers
 
 ```toml
-# Type: intege
+# Type: integer
 # Values: positive integers
 # Default: 0
 
