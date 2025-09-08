@@ -30,6 +30,7 @@ pub struct Buffer {
     pub emojis: Emojis,
     pub mark_as_read: MarkAsRead,
     pub url: Url,
+    pub line_spacing: u32,
 }
 
 #[derive(Debug, Clone, Deserialize, Default)]
