@@ -961,14 +961,14 @@ mod keyed {
         decorate(inner)
             .operate(
                 move |_state: &mut (),
-                      inner: &Element<'a, Message>,
+                      inner: &mut Element<'a, Message>,
                       tree: &mut advanced::widget::Tree,
                       layout: advanced::Layout<'_>,
                       renderer: &Renderer,
                       operation: &mut dyn advanced::widget::Operation<()>| {
                     let mut key = key;
                     operation.custom(None, layout.bounds(), &mut key);
-                    inner.as_widget().operate(tree, layout, renderer, operation);
+                    inner.as_widget_mut().operate(tree, layout, renderer, operation);
                 },
             )
             .into()
@@ -1421,7 +1421,7 @@ mod correct_viewport {
                         );
 
                         inner
-                            .as_widget()
+                            .as_widget_mut()
                             .operate(tree, layout, renderer, &mut operation);
                         operation.finish();
                         drop(operation);
@@ -1452,7 +1452,7 @@ mod correct_viewport {
                                     },
                                 );
                                 inner
-                                    .as_widget()
+                                    .as_widget_mut()
                                     .operate(tree, layout, renderer, &mut operation);
                                 operation.finish();
                             }
@@ -1523,7 +1523,7 @@ mod correct_viewport {
                         );
 
                         inner
-                            .as_widget()
+                            .as_widget_mut()
                             .operate(tree, layout, renderer, &mut operation);
                         operation.finish();
                         drop(operation);
@@ -1536,12 +1536,12 @@ mod correct_viewport {
             })
             .operate(
                 move |state: &mut Option<keyed::Hit>,
-                      inner: &Element<'a, Message>,
+                      inner: &mut Element<'a, Message>,
                       tree: &mut advanced::widget::Tree,
                       layout: advanced::Layout<'_>,
                       renderer: &Renderer,
                       operation: &mut dyn advanced::widget::Operation<()>| {
-                    inner.as_widget().operate(tree, layout, renderer, operation);
+                    inner.as_widget_mut().operate(tree, layout, renderer, operation);
 
                     let mut is_scroll_to = false;
 
@@ -1570,7 +1570,7 @@ mod correct_viewport {
                         );
 
                         inner
-                            .as_widget()
+                            .as_widget_mut()
                             .operate(tree, layout, renderer, &mut operation);
                         operation.finish();
                         drop(operation);

@@ -115,13 +115,13 @@ where
     }
 
     fn layout(
-        &self,
+        &mut self,
         tree: &mut widget::Tree,
         renderer: &Renderer,
         limits: &layout::Limits,
     ) -> layout::Node {
         self.base
-            .as_widget()
+            .as_widget_mut()
             .layout(&mut tree.children[0], renderer, limits)
     }
 
@@ -166,7 +166,7 @@ where
     }
 
     fn operate(
-        &self,
+        &mut self,
         tree: &mut iced::advanced::widget::Tree,
         layout: Layout<'_>,
         renderer: &Renderer,
@@ -176,7 +176,7 @@ where
 
         operation.custom(None, layout.bounds(), state);
 
-        self.base.as_widget().operate(
+        self.base.as_widget_mut().operate(
             &mut tree.children[0],
             layout,
             renderer,
@@ -488,7 +488,7 @@ where
             .width(Length::Fill)
             .height(Length::Fill);
 
-        let node = self.menu.as_widget().layout(
+        let node = self.menu.as_widget_mut().layout(
             &mut self.state.menu_tree,
             renderer,
             &limits,

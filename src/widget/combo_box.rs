@@ -393,14 +393,14 @@ where
     }
 
     fn layout(
-        &self,
+        &mut self,
         _tree: &mut widget::Tree,
         renderer: &Renderer,
         limits: &layout::Limits,
     ) -> layout::Node {
         let mut tree = self.state.text_input_tree();
         let node = Widget::<TextInputEvent, Theme, Renderer>::layout(
-            &self.text_input,
+            &mut self.text_input,
             &mut tree,
             renderer,
             limits,
