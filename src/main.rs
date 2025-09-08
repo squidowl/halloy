@@ -1492,8 +1492,8 @@ impl Halloy {
         self.theme.clone()
     }
 
-    fn scale_factor(&self, _window: window::Id) -> f64 {
-        self.config.scale_factor.into()
+    fn scale_factor(&self, _window: window::Id) -> f32 {
+        f32::from(self.config.scale_factor)
     }
 
     fn subscription(&self) -> Subscription<Message> {

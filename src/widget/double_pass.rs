@@ -37,15 +37,16 @@ where
     Renderer: advanced::Renderer + 'a,
 {
     fn layout(
-        &self,
+        &mut self,
         _state: &mut (),
-        second_pass: &iced::Element<'a, Message, Theme, Renderer>,
+        second_pass: &mut iced::Element<'a, Message, Theme, Renderer>,
         tree: &mut iced::advanced::widget::Tree,
         renderer: &Renderer,
         limits: &iced::advanced::layout::Limits,
     ) -> layout::Node {
-        let layout = self.first_pass.as_widget().layout(
-            &mut widget::Tree::new(&self.first_pass),
+        let mut first_pass_tree = widget::Tree::new(&self.first_pass);
+        let layout = self.first_pass.as_widget_mut().layout(
+            &mut first_pass_tree,
             renderer,
             limits,
         );
@@ -59,7 +60,7 @@ where
                 .expand(Size::new(horizontal_expansion(), 1.0)),
         );
 
-        second_pass.as_widget().layout(tree, renderer, &new_limits)
+        second_pass.as_widget_mut().layout(tree, renderer, &new_limits)
     }
 }
 

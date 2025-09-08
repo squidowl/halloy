@@ -101,9 +101,9 @@ embed-resource = "3.0.2"
 windows_exe_info = "0.4"
 
 [patch.crates-io]
-iced = { git = "https://github.com/andymandias/iced", rev = "6a215fa027ae7c8f5b2566c3af8d42aa0017971b" }
-iced_core = { git = "https://github.com/andymandias/iced", rev = "6a215fa027ae7c8f5b2566c3af8d42aa0017971b" }
-iced_wgpu = { git = "https://github.com/andymandias/iced", rev = "6a215fa027ae7c8f5b2566c3af8d42aa0017971b" }
+iced = { git = "https://github.com/andymandias/iced", rev = "d23723f1cf286fd8f371c1706f5a7fc04df2cb21" }
+iced_core = { git = "https://github.com/andymandias/iced", rev = "d23723f1cf286fd8f371c1706f5a7fc04df2cb21" }
+iced_wgpu = { git = "https://github.com/andymandias/iced", rev = "d23723f1cf286fd8f371c1706f5a7fc04df2cb21" }
 
 [profile.ci]
 inherits = "dev"
