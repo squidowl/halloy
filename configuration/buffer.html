@@ -203,6 +203,7 @@
 <li><a href="#buffertext_input">Text Input</a> - Customize the text input for in buffers</li>
 <li><a href="#buffertimestamp">Timestamp</a> - Customize how timestamps are displayed within a buffer</li>
 <li><a href="#bufferurl">Url</a> - URLs in buffers</li>
+<li><a href="#line_spacing">Line Spacing</a> - Line spacing in buffers</li>
 </ol>
 <h2 id="bufferchannel"><a class="header" href="#bufferchannel"><code>[buffer.channel]</code></a></h2>
 <p>Channel specific settings</p>
@@ -777,6 +778,15 @@ brackets = { left = "[", right = "]" }
 
 [buffer.url]
 prompt_before_open = true
+</code></pre>
+<h2 id="line_spacing"><a class="header" href="#line_spacing"><code>[line_spacing]</code></a></h2>
+<p>Setting to control spacing between messages in buffers</p>
+<pre><code class="language-toml"># Type: integer
+# Values: positive integers
+# Default: 0
+
+[buffer]
+line_spacing = 4
 </code></pre>
 
                     </main>

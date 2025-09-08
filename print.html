@@ -804,6 +804,7 @@ focused_buffer = "close-pane"
 <li><a href="configuration/buffer.html#buffertext_input">Text Input</a> - Customize the text input for in buffers</li>
 <li><a href="configuration/buffer.html#buffertimestamp">Timestamp</a> - Customize how timestamps are displayed within a buffer</li>
 <li><a href="configuration/buffer.html#bufferurl">Url</a> - URLs in buffers</li>
+<li><a href="configuration/buffer.html#line_spacing">Line Spacing</a> - Line spacing in buffers</li>
 </ol>
 <h2 id="bufferchannel"><a class="header" href="#bufferchannel"><code>[buffer.channel]</code></a></h2>
 <p>Channel specific settings</p>
@@ -1378,6 +1379,15 @@ brackets = { left = "[", right = "]" }
 
 [buffer.url]
 prompt_before_open = true
+</code></pre>
+<h2 id="line_spacing"><a class="header" href="#line_spacing"><code>[line_spacing]</code></a></h2>
+<p>Setting to control spacing between messages in buffers</p>
+<pre><code class="language-toml"># Type: integer
+# Values: positive integers
+# Default: 0
+
+[buffer]
+line_spacing = 4
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="ctcp"><a class="header" href="#ctcp"><code>[ctcp]</code></a></h1>
 <p><a href="https://modern.ircdocs.horse/ctcp">Client-to-Client Protocol</a> response settings.</p>
