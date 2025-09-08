@@ -18,11 +18,12 @@ pub type Handle = Sender<proto::Message>;
 
 pub type ServerName = Arc<str>;
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize)]
 pub struct Server {
     pub name: ServerName,
     pub network: Option<Arc<BouncerNetwork>>,
 }
+
 impl Server {
     pub fn is_bouncer_network(&self) -> bool {
         self.network.is_some()
@@ -63,10 +64,10 @@ impl fmt::Display for Server {
     }
 }
 
-// here is a machine-readable (not-friendly) representation of a server, which can be hashed and
-// used for history. Due to existing constraints this must be the server name if no bouncer network
-// exists
-// bouncer network exists (due to the constraint of existing history.
+// here is a machine-readable (not-friendly) representation of a server, which
+// can be hashed and used for history. Due to existing constraints this must be
+// the server name if no bouncer network exists (due to the constraint of
+// existing history).
 impl fmt::Binary for Server {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.name)?;
@@ -96,6 +97,38 @@ impl Ord for Server {
 impl PartialOrd for Server {
     fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
         Some(self.cmp(other))
+    }
+}
+
+impl<'de> Deserialize<'de> for Server {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        struct NameNetwork {
+            name: ServerName,
+            network: Option<Arc<BouncerNetwork>>,
+        }
+
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum Data {
+            String(String),
+            NameNetwork(NameNetwork),
+        }
+
+        let data = Data::deserialize(deserializer)?;
+
+        Ok(match data {
+            Data::String(name) => Server {
+                name: name.into(),
+                network: None,
+            },
+            Data::NameNetwork(NameNetwork { name, network }) => {
+                Server { name, network }
+            }
+        })
     }
 }
 

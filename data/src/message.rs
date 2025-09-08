@@ -21,10 +21,11 @@ use crate::config::Highlights;
 use crate::config::buffer::UsernameFormat;
 use crate::log::Level;
 use crate::serde::fail_as_none;
+use crate::server::Server;
 use crate::target::Channel;
 use crate::time::Posix;
 use crate::user::{ChannelUsers, Nick, NickRef};
-use crate::{Config, Server, User, ctcp, isupport, target};
+use crate::{Config, User, ctcp, isupport, target};
 
 // References:
 // - https://datatracker.ietf.org/doc/html/rfc1738#section-5
