@@ -447,9 +447,12 @@ impl Default for State {
 }
 
 impl State {
-    pub fn new(pane_size: Size) -> Self {
+    pub fn new(pane_size: Size, config: &Config) -> Self {
+        let step_messages = step_messages(pane_size.height, config);
+
         Self {
             pane_size,
+            limit: Limit::Bottom(step_messages),
             ..Self::default()
         }
     }

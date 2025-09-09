@@ -117,9 +117,9 @@ pub struct Logs {
 }
 
 impl Logs {
-    pub fn new(pane_size: Size) -> Self {
+    pub fn new(pane_size: Size, config: &Config) -> Self {
         Self {
-            scroll_view: scroll_view::State::new(pane_size),
+            scroll_view: scroll_view::State::new(pane_size, config),
         }
     }
 

@@ -154,11 +154,15 @@ pub struct Server {
 }
 
 impl Server {
-    pub fn new(server: data::server::Server, pane_size: Size) -> Self {
+    pub fn new(
+        server: data::server::Server,
+        pane_size: Size,
+        config: &Config,
+    ) -> Self {
         Self {
             buffer: buffer::Upstream::Server(server.clone()),
             server,
-            scroll_view: scroll_view::State::new(pane_size),
+            scroll_view: scroll_view::State::new(pane_size, config),
             input_view: input_view::State::new(),
         }
     }

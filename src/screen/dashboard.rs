@@ -1096,6 +1096,7 @@ impl Dashboard {
                             state.buffer = Buffer::from_data(
                                 data::Buffer::Upstream(buffer),
                                 state.size,
+                                config,
                             );
                             self.last_changed = Some(Instant::now());
                             return (self.focus_pane(window, pane), None);
@@ -1123,6 +1124,7 @@ impl Dashboard {
                             state.buffer = Buffer::from_data(
                                 data::Buffer::Upstream(buffer),
                                 state.size,
+                                config,
                             );
                             self.last_changed = Some(Instant::now());
                             return (self.focus_pane(window, pane), None);
@@ -1353,6 +1355,7 @@ impl Dashboard {
                             state.buffer = Buffer::from_data(
                                 data::Buffer::Upstream(buffer),
                                 state.size,
+                                config,
                             );
                             self.last_changed = Some(Instant::now());
                             return (self.focus_pane(window, pane), None);
@@ -1381,6 +1384,7 @@ impl Dashboard {
                             state.buffer = Buffer::from_data(
                                 data::Buffer::Upstream(buffer),
                                 state.size,
+                                config,
                             );
                             self.last_changed = Some(Instant::now());
                             return (self.focus_pane(window, pane), None);
@@ -1882,7 +1886,8 @@ impl Dashboard {
                         config,
                     );
 
-                    state.buffer = Buffer::from_data(buffer, state.size);
+                    state.buffer =
+                        Buffer::from_data(buffer, state.size, config);
                     self.last_changed = Some(Instant::now());
 
                     Task::batch(vec![
@@ -1910,7 +1915,7 @@ impl Dashboard {
                         if matches!(pane.buffer, Buffer::Empty) {
                             self.panes.main.panes.entry(*id).and_modify(|p| {
                                 *p = Pane::new(Buffer::from_data(
-                                    buffer, p.size,
+                                    buffer, p.size, config,
                                 ));
                             });
                             self.last_changed = Some(Instant::now());
@@ -1981,6 +1986,7 @@ impl Dashboard {
                     Pane::new(Buffer::from_data(
                         buffer,
                         pane_to_split_state.size,
+                        config,
                     )),
                 );
 
@@ -1991,7 +1997,13 @@ impl Dashboard {
                 Task::none()
             }
             BufferAction::NewWindow => {
-                get_position(self.main_window()).then(
+                get_position(self.main_window()).then({
+                    let pane = Pane::new(Buffer::from_data(
+                        buffer.clone(),
+                        Size::default(),
+                        config,
+                    ));
+
                     move |main_window_position| {
                         let (_, task) = window::open(window::Settings {
                             // Just big enough to show all components in combobox
@@ -2007,14 +2019,11 @@ impl Dashboard {
                         });
 
                         task.map({
-                            let pane = Pane::new(Buffer::from_data(
-                                buffer.clone(),
-                                Size::default(),
-                            ));
+                            let pane = pane.clone();
                             move |id| Message::NewWindow(id, pane.clone())
                         })
-                    },
-                )
+                    }
+                })
             }
         }
     }
@@ -2822,7 +2831,10 @@ impl Dashboard {
     ) -> (Self, Task<Message>) {
         use pane_grid::Configuration;
 
-        fn configuration(pane: data::Pane) -> Configuration<Pane> {
+        fn configuration(
+            pane: data::Pane,
+            config: &Config,
+        ) -> Configuration<Pane> {
             match pane {
                 data::Pane::Split { axis, ratio, a, b } => {
                     Configuration::Split {
@@ -2835,13 +2847,17 @@ impl Dashboard {
                             }
                         },
                         ratio,
-                        a: Box::new(configuration(*a)),
-                        b: Box::new(configuration(*b)),
+                        a: Box::new(configuration(*a, config)),
+                        b: Box::new(configuration(*b, config)),
                     }
                 }
-                data::Pane::Buffer { buffer } => Configuration::Pane(
-                    Pane::new(Buffer::from_data(buffer, Size::default())),
-                ),
+                data::Pane::Buffer { buffer } => {
+                    Configuration::Pane(Pane::new(Buffer::from_data(
+                        buffer,
+                        Size::default(),
+                        config,
+                    )))
+                }
                 data::Pane::Empty => {
                     Configuration::Pane(Pane::new(Buffer::empty()))
                 }
@@ -2851,7 +2867,7 @@ impl Dashboard {
         let panes = Panes {
             main_window: main_window.id,
             main: pane_grid::State::with_configuration(configuration(
-                data.pane,
+                data.pane, config,
             )),
             popout: HashMap::new(),
         };
@@ -2892,7 +2908,7 @@ impl Dashboard {
 
         for pane in data.popout_panes {
             // Popouts are only a single pane
-            let Configuration::Pane(pane) = configuration(pane) else {
+            let Configuration::Pane(pane) = configuration(pane, config) else {
                 continue;
             };
 
