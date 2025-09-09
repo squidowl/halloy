@@ -124,12 +124,17 @@ pub struct Query {
 }
 
 impl Query {
-    pub fn new(server: Server, target: target::Query, pane_size: Size) -> Self {
+    pub fn new(
+        server: Server,
+        target: target::Query,
+        pane_size: Size,
+        config: &Config,
+    ) -> Self {
         Self {
             buffer: buffer::Upstream::Query(server.clone(), target.clone()),
             server,
             target,
-            scroll_view: scroll_view::State::new(pane_size),
+            scroll_view: scroll_view::State::new(pane_size, config),
             input_view: input_view::State::new(),
         }
     }

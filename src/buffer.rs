@@ -65,26 +65,32 @@ pub enum Event {
 }
 
 impl Buffer {
-    pub fn from_data(buffer: data::Buffer, pane_size: Size) -> Self {
+    pub fn from_data(
+        buffer: data::Buffer,
+        pane_size: Size,
+        config: &Config,
+    ) -> Self {
         match buffer {
             data::Buffer::Upstream(upstream) => match upstream {
                 buffer::Upstream::Server(server) => {
-                    Self::Server(Server::new(server, pane_size))
+                    Self::Server(Server::new(server, pane_size, config))
                 }
-                buffer::Upstream::Channel(server, channel) => {
-                    Self::Channel(Channel::new(server, channel, pane_size))
-                }
+                buffer::Upstream::Channel(server, channel) => Self::Channel(
+                    Channel::new(server, channel, pane_size, config),
+                ),
                 buffer::Upstream::Query(server, query) => {
-                    Self::Query(Query::new(server, query, pane_size))
+                    Self::Query(Query::new(server, query, pane_size, config))
                 }
             },
             data::Buffer::Internal(internal) => match internal {
                 buffer::Internal::FileTransfers => {
                     Self::FileTransfers(FileTransfers::new())
                 }
-                buffer::Internal::Logs => Self::Logs(Logs::new(pane_size)),
+                buffer::Internal::Logs => {
+                    Self::Logs(Logs::new(pane_size, config))
+                }
                 buffer::Internal::Highlights => {
-                    Self::Highlights(Highlights::new(pane_size))
+                    Self::Highlights(Highlights::new(pane_size, config))
                 }
             },
         }

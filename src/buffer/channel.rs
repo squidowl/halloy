@@ -174,12 +174,13 @@ impl Channel {
         server: Server,
         target: target::Channel,
         pane_size: Size,
+        config: &Config,
     ) -> Self {
         Self {
             buffer: buffer::Upstream::Channel(server.clone(), target.clone()),
             server,
             target,
-            scroll_view: scroll_view::State::new(pane_size),
+            scroll_view: scroll_view::State::new(pane_size, config),
             input_view: input_view::State::new(),
         }
     }
