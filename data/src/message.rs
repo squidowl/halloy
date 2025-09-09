@@ -21,10 +21,11 @@ use crate::config::Highlights;
 use crate::config::buffer::UsernameFormat;
 use crate::log::Level;
 use crate::serde::fail_as_none;
+use crate::server::Server;
 use crate::target::Channel;
 use crate::time::Posix;
 use crate::user::{ChannelUsers, Nick, NickRef};
-use crate::{Config, Server, User, ctcp, isupport, target};
+use crate::{Config, User, ctcp, isupport, target};
 
 // References:
 // - https://datatracker.ietf.org/doc/html/rfc1738#section-5
@@ -1969,6 +1970,8 @@ pub mod tests {
         parse_fragments_with_users,
     };
     #[allow(unused_imports)]
+    use crate::bouncer::BouncerNetwork;
+    #[allow(unused_imports)]
     use crate::config::Highlights;
     #[allow(unused_imports)]
     use crate::config::highlights::Nickname;
@@ -1978,6 +1981,8 @@ pub mod tests {
     use crate::message::{
         Broadcast, Content, Formatting, Fragment, Message, broadcast,
     };
+    #[allow(unused_imports)]
+    use crate::server::Server;
     #[allow(unused_imports)]
     use crate::user::{ChannelUsers, Nick, User};
     #[allow(unused_imports)]
@@ -2277,6 +2282,7 @@ pub mod tests {
         ":`whammer`!warhammer@40k PART #test\r\n",
         ":soju.bouncer FAIL * ACCOUNT_REQUIRED :Authentication required\r\n",
         ":rabbit MODE #토끼세계 +o bunny\r\n",
+        ":dan!d@localhost PRIVMSG #chan :Need a highlight our_nick?\r\n",
     ];
 
     pub fn message_from_irc_message(irc_message: &str) -> Message {
@@ -2499,9 +2505,39 @@ pub mod tests {
             .map(|irc_message| message_from_irc_message(irc_message))
             .collect::<Vec<Message>>();
 
-        for broadcast in serde_broadcasts() {
-            messages.append(&mut messages_from_broadcast(broadcast));
-        }
+        messages.extend(
+            serde_broadcasts()
+                .into_iter()
+                .flat_map(messages_from_broadcast),
+        );
+
+        let server = Server {
+            name: "Highlight Server".into(),
+            network: None,
+        };
+
+        messages.extend(SERDE_IRC_MESSAGES.iter().filter_map(|irc_message| {
+            message_from_irc_message(irc_message)
+                .into_highlight(server.clone())
+                .map(|(highlight, _, _, _)| highlight)
+        }));
+
+        let bouncer_server = Server {
+            name: "Bounced Highlight Server".into(),
+            network: Some(
+                BouncerNetwork {
+                    id: "BouncerNetid".to_string(),
+                    name: "Bouncer Name".to_string(),
+                }
+                .into(),
+            ),
+        };
+
+        messages.extend(SERDE_IRC_MESSAGES.iter().filter_map(|irc_message| {
+            message_from_irc_message(irc_message)
+                .into_highlight(bouncer_server.clone())
+                .map(|(highlight, _, _, _)| highlight)
+        }));
 
         for expected in messages {
             let bytes = serde_json::to_vec(&expected).unwrap();

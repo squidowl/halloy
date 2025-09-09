@@ -1,4 +1,6 @@
+use data::bouncer::BouncerNetwork;
 use data::message;
+use data::server::Server;
 
 pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut messages = message::tests::SERDE_IRC_MESSAGES
@@ -8,10 +10,43 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         })
         .collect::<Vec<message::Message>>();
 
-    for broadcast in message::tests::serde_broadcasts() {
-        messages
-            .append(&mut message::tests::messages_from_broadcast(broadcast));
-    }
+    messages.extend(
+        message::tests::serde_broadcasts()
+            .into_iter()
+            .flat_map(message::tests::messages_from_broadcast),
+    );
+
+    let server = Server {
+        name: "Highlight Server".into(),
+        network: None,
+    };
+
+    messages.extend(message::tests::SERDE_IRC_MESSAGES.iter().filter_map(
+        |irc_message| {
+            message::tests::message_from_irc_message(irc_message)
+                .into_highlight(server.clone())
+                .map(|(highlight, _, _, _)| highlight)
+        },
+    ));
+
+    let bouncer_server = Server {
+        name: "Bounced Highlight Server".into(),
+        network: Some(
+            BouncerNetwork {
+                id: "BouncerNetid".to_string(),
+                name: "Bouncer Name".to_string(),
+            }
+            .into(),
+        ),
+    };
+
+    messages.extend(message::tests::SERDE_IRC_MESSAGES.iter().filter_map(
+        |irc_message| {
+            message::tests::message_from_irc_message(irc_message)
+                .into_highlight(bouncer_server.clone())
+                .map(|(highlight, _, _, _)| highlight)
+        },
+    ));
 
     println!(
         "{}",
