@@ -2990,7 +2990,7 @@ dependencies = [
 [[package]]
 name = "iced"
 version = "0.14.0-dev"
-source = "git+https://github.com/andymandias/iced?rev=d23723f1cf286fd8f371c1706f5a7fc04df2cb21#d23723f1cf286fd8f371c1706f5a7fc04df2cb21"
+source = "git+https://github.com/andymandias/iced?rev=b5adecc69b874f5db1473aa8b8c07dfd853b64bc#b5adecc69b874f5db1473aa8b8c07dfd853b64bc"
 dependencies = [
  "iced_core",
  "iced_debug",
@@ -3007,7 +3007,7 @@ dependencies = [
 [[package]]
 name = "iced_beacon"
 version = "0.14.0-dev"
-source = "git+https://github.com/andymandias/iced?rev=d23723f1cf286fd8f371c1706f5a7fc04df2cb21#d23723f1cf286fd8f371c1706f5a7fc04df2cb21"
+source = "git+https://github.com/andymandias/iced?rev=b5adecc69b874f5db1473aa8b8c07dfd853b64bc#b5adecc69b874f5db1473aa8b8c07dfd853b64bc"
 dependencies = [
  "bincode",
  "futures",
@@ -3022,7 +3022,7 @@ dependencies = [
 [[package]]
 name = "iced_core"
 version = "0.14.0-dev"
-source = "git+https://github.com/andymandias/iced?rev=d23723f1cf286fd8f371c1706f5a7fc04df2cb21#d23723f1cf286fd8f371c1706f5a7fc04df2cb21"
+source = "git+https://github.com/andymandias/iced?rev=b5adecc69b874f5db1473aa8b8c07dfd853b64bc#b5adecc69b874f5db1473aa8b8c07dfd853b64bc"
 dependencies = [
  "bitflags 2.9.1",
  "bytes",
@@ -3040,7 +3040,7 @@ dependencies = [
 [[package]]
 name = "iced_debug"
 version = "0.14.0-dev"
-source = "git+https://github.com/andymandias/iced?rev=d23723f1cf286fd8f371c1706f5a7fc04df2cb21#d23723f1cf286fd8f371c1706f5a7fc04df2cb21"
+source = "git+https://github.com/andymandias/iced?rev=b5adecc69b874f5db1473aa8b8c07dfd853b64bc#b5adecc69b874f5db1473aa8b8c07dfd853b64bc"
 dependencies = [
  "iced_beacon",
  "iced_core",
@@ -3051,7 +3051,7 @@ dependencies = [
 [[package]]
 name = "iced_devtools"
 version = "0.14.0-dev"
-source = "git+https://github.com/andymandias/iced?rev=d23723f1cf286fd8f371c1706f5a7fc04df2cb21#d23723f1cf286fd8f371c1706f5a7fc04df2cb21"
+source = "git+https://github.com/andymandias/iced?rev=b5adecc69b874f5db1473aa8b8c07dfd853b64bc#b5adecc69b874f5db1473aa8b8c07dfd853b64bc"
 dependencies = [
  "iced_debug",
  "iced_program",
@@ -3062,7 +3062,7 @@ dependencies = [
 [[package]]
 name = "iced_futures"
 version = "0.14.0-dev"
-source = "git+https://github.com/andymandias/iced?rev=d23723f1cf286fd8f371c1706f5a7fc04df2cb21#d23723f1cf286fd8f371c1706f5a7fc04df2cb21"
+source = "git+https://github.com/andymandias/iced?rev=b5adecc69b874f5db1473aa8b8c07dfd853b64bc#b5adecc69b874f5db1473aa8b8c07dfd853b64bc"
 dependencies = [
  "futures",
  "iced_core",
@@ -3076,7 +3076,7 @@ dependencies = [
 [[package]]
 name = "iced_graphics"
 version = "0.14.0-dev"
-source = "git+https://github.com/andymandias/iced?rev=d23723f1cf286fd8f371c1706f5a7fc04df2cb21#d23723f1cf286fd8f371c1706f5a7fc04df2cb21"
+source = "git+https://github.com/andymandias/iced?rev=b5adecc69b874f5db1473aa8b8c07dfd853b64bc#b5adecc69b874f5db1473aa8b8c07dfd853b64bc"
 dependencies = [
  "bitflags 2.9.1",
  "bytemuck",
@@ -3096,7 +3096,7 @@ dependencies = [
 [[package]]
 name = "iced_program"
 version = "0.14.0-dev"
-source = "git+https://github.com/andymandias/iced?rev=d23723f1cf286fd8f371c1706f5a7fc04df2cb21#d23723f1cf286fd8f371c1706f5a7fc04df2cb21"
+source = "git+https://github.com/andymandias/iced?rev=b5adecc69b874f5db1473aa8b8c07dfd853b64bc#b5adecc69b874f5db1473aa8b8c07dfd853b64bc"
 dependencies = [
  "iced_graphics",
  "iced_runtime",
@@ -3105,7 +3105,7 @@ dependencies = [
 [[package]]
 name = "iced_renderer"
 version = "0.14.0-dev"
-source = "git+https://github.com/andymandias/iced?rev=d23723f1cf286fd8f371c1706f5a7fc04df2cb21#d23723f1cf286fd8f371c1706f5a7fc04df2cb21"
+source = "git+https://github.com/andymandias/iced?rev=b5adecc69b874f5db1473aa8b8c07dfd853b64bc#b5adecc69b874f5db1473aa8b8c07dfd853b64bc"
 dependencies = [
  "iced_graphics",
  "iced_tiny_skia",
@@ -3117,7 +3117,7 @@ dependencies = [
 [[package]]
 name = "iced_runtime"
 version = "0.14.0-dev"
-source = "git+https://github.com/andymandias/iced?rev=d23723f1cf286fd8f371c1706f5a7fc04df2cb21#d23723f1cf286fd8f371c1706f5a7fc04df2cb21"
+source = "git+https://github.com/andymandias/iced?rev=b5adecc69b874f5db1473aa8b8c07dfd853b64bc#b5adecc69b874f5db1473aa8b8c07dfd853b64bc"
 dependencies = [
  "bytes",
  "iced_core",
@@ -3130,7 +3130,7 @@ dependencies = [
 [[package]]
 name = "iced_tiny_skia"
 version = "0.14.0-dev"
-source = "git+https://github.com/andymandias/iced?rev=d23723f1cf286fd8f371c1706f5a7fc04df2cb21#d23723f1cf286fd8f371c1706f5a7fc04df2cb21"
+source = "git+https://github.com/andymandias/iced?rev=b5adecc69b874f5db1473aa8b8c07dfd853b64bc#b5adecc69b874f5db1473aa8b8c07dfd853b64bc"
 dependencies = [
  "bytemuck",
  "cosmic-text",
@@ -3146,7 +3146,7 @@ dependencies = [
 [[package]]
 name = "iced_wgpu"
 version = "0.14.0-dev"
-source = "git+https://github.com/andymandias/iced?rev=d23723f1cf286fd8f371c1706f5a7fc04df2cb21#d23723f1cf286fd8f371c1706f5a7fc04df2cb21"
+source = "git+https://github.com/andymandias/iced?rev=b5adecc69b874f5db1473aa8b8c07dfd853b64bc#b5adecc69b874f5db1473aa8b8c07dfd853b64bc"
 dependencies = [
  "bitflags 2.9.1",
  "bytemuck",
@@ -3165,7 +3165,7 @@ dependencies = [
 [[package]]
 name = "iced_widget"
 version = "0.14.0-dev"
-source = "git+https://github.com/andymandias/iced?rev=d23723f1cf286fd8f371c1706f5a7fc04df2cb21#d23723f1cf286fd8f371c1706f5a7fc04df2cb21"
+source = "git+https://github.com/andymandias/iced?rev=b5adecc69b874f5db1473aa8b8c07dfd853b64bc#b5adecc69b874f5db1473aa8b8c07dfd853b64bc"
 dependencies = [
  "iced_renderer",
  "iced_runtime",
@@ -3180,7 +3180,7 @@ dependencies = [
 [[package]]
 name = "iced_winit"
 version = "0.14.0-dev"
-source = "git+https://github.com/andymandias/iced?rev=d23723f1cf286fd8f371c1706f5a7fc04df2cb21#d23723f1cf286fd8f371c1706f5a7fc04df2cb21"
+source = "git+https://github.com/andymandias/iced?rev=b5adecc69b874f5db1473aa8b8c07dfd853b64bc#b5adecc69b874f5db1473aa8b8c07dfd853b64bc"
 dependencies = [
  "iced_debug",
  "iced_program",
