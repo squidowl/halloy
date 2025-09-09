@@ -46,7 +46,7 @@ The following third party repositories are available for Linux
 
 #### Flatpak
 
-[https://flathub.org/apps/org.squidowl.halloy](https://flathub.org/apps/org.squidowl.halloy)
+[https://flathub.org/en/apps/org.squidowl.halloy](https://flathub.org/en/apps/org.squidowl.halloy)
 
 #### Snapcraft
 
