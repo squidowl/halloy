@@ -84,7 +84,6 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
             (config, window)
         })
     };
-
     // DANGER ZONE - font must be set using config
     // before we do any iced related stuff w/ it
     font::set(config_load.as_ref().ok());
@@ -99,6 +98,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let settings = settings(&config_load);
     let log_stream = Mutex::new(Some(log_stream));
 
+    //tarkah: guess we need to move some stuff into the Halloy::new now.
     iced::daemon(
         move || {
             let log_stream = log_stream
@@ -112,7 +112,9 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
                 window_load.clone(),
                 destination.clone(),
                 log_stream,
-                appearance::Mode::default(), // TODO: get the initial theme mode from iced?
+                // we start with an unspecified mode because we are guaranteed to
+                // receive a message from mundy containing the correct mode on startup.
+                appearance::Mode::Unspecified,
             )
         },
         Halloy::update,
@@ -268,7 +270,7 @@ pub enum Message {
     Version(Option<String>),
     Modal(modal::Message),
     RouteReceived(String),
-    AppearanceChange(iced::theme::Mode),
+    AppearanceChange(appearance::Mode),
     Window(window::Id, window::Event),
     WindowSettingsSaved(Result<(), window::Error>),
     Logging(Vec<logger::Record>),
@@ -1325,8 +1327,7 @@ impl Halloy {
                 if let data::appearance::Selected::Dynamic { .. } =
                     &self.config.appearance.selected
                 {
-                    
-                    self.current_mode = mode.into();
+                    self.current_mode = mode;
                     self.theme = self
                         .current_mode
                         .theme(&self.config.appearance.selected)
@@ -1505,15 +1506,21 @@ impl Halloy {
         )
         .map(Message::Stream);
 
-        let subscriptions = vec![
+        let mut subscriptions = vec![
             url::listen().map(Message::RouteReceived),
             events().map(|(window, event)| Message::Event(window, event)),
             window::events()
                 .map(|(window, event)| Message::Window(window, event)),
             tick,
             streams,
-            iced::system::theme_changes().map(Message::AppearanceChange)
         ];
+
+        // We only want to listen for appearance changes if user has dynamic themes.
+        if self.config.appearance.selected.is_dynamic() {
+            subscriptions.push(
+                appearance::subscription().map(Message::AppearanceChange),
+            );
+        }
 
         Subscription::batch(subscriptions)
     }

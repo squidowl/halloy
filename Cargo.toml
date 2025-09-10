@@ -84,6 +84,11 @@ rfd = { version = "0.15.2", default-features = false, features = [
     "tokio",
 ] }
 uuid = { version = "1.17", features = ["v4"] }
+mundy = { version = "0.1.9", default-features = false, features = [
+    "color-scheme",
+    "tokio",
+    "log",
+] }
 
 [target.'cfg(windows)'.dependencies]
 image = "0.24.6"

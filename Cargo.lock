@@ -2707,6 +2707,7 @@ dependencies = [
  "irc",
  "itertools 0.14.0",
  "log",
+ "mundy",
  "notify-rust",
  "open",
  "palette",
@@ -3990,6 +3991,30 @@ dependencies = [
  "log",
  "wasi 0.11.1+wasi-snapshot-preview1",
  "windows-sys 0.59.0",
+]
+
+[[package]]
+name = "mundy"
+version = "0.1.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0f72c0627a92ca31644e8e7d1ba9ce97f4bd19b0e67eb42ffd2142b73c51f0ae"
+dependencies = [
+ "cfg-if",
+ "dispatch",
+ "futures-channel",
+ "futures-lite",
+ "log",
+ "objc2 0.6.1",
+ "objc2-app-kit 0.3.1",
+ "objc2-foundation 0.3.1",
+ "pin-project-lite",
+ "slab",
+ "tokio",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+ "windows 0.61.3",
+ "zbus",
 ]
 
 [[package]]

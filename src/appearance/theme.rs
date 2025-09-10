@@ -84,14 +84,6 @@ impl iced::theme::Base for Theme {
     fn palette(&self) -> Option<iced::theme::Palette> {
         None
     }
-    
-    fn default(_preference: iced::theme::Mode) -> Self {
-        Self::from(data::Theme::default())
-    }
-    
-    fn mode(&self) -> iced::theme::Mode {
-        iced::theme::Mode::Dark
-    }
 }
 
 impl combo_box::Catalog for Theme {}
