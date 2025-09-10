@@ -351,13 +351,13 @@ impl TitleBar {
                         theme::button::secondary(theme, status, true)
                     });
 
-                let close_button_with_tooltip = tooltip(
+                let merge_button_with_tooltip = tooltip(
                     merge_button,
                     show_tooltips.then_some("Merge"),
                     tooltip::Position::Bottom,
                     theme,
                 );
-                Some(close_button_with_tooltip)
+                Some(merge_button_with_tooltip)
             } else if panes > 1 {
                 let popout_button = button(center(icon::popout()))
                     .padding(5)
@@ -368,13 +368,13 @@ impl TitleBar {
                         theme::button::secondary(theme, status, false)
                     });
 
-                let close_button_with_tooltip = tooltip(
+                let popout_button_with_tooltip = tooltip(
                     popout_button,
                     show_tooltips.then_some("Pop Out"),
                     tooltip::Position::Bottom,
                     theme,
                 );
-                Some(close_button_with_tooltip)
+                Some(popout_button_with_tooltip)
             } else {
                 None
             },
