@@ -305,6 +305,7 @@ impl Halloy {
             command,
             latest_remote_version,
             Task::stream(log_stream).map(Message::Logging),
+            iced::system::theme().map(Message::AppearanceChange),
         ];
 
         if let Some(url) = url_received {
