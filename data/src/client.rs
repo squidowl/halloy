@@ -1456,6 +1456,8 @@ impl Client {
                     ));
                 }
 
+                let channels = self.user_channels(old_user.nickname());
+
                 let new_nick =
                     Nick::from_str(nick.as_str(), self.casemapping());
 
@@ -1466,8 +1468,6 @@ impl Client {
                             .insert(user.with_nickname(new_nick.clone()));
                     }
                 });
-
-                let channels = self.user_channels(old_user.nickname());
 
                 return Ok(vec![Event::Broadcast(Broadcast::Nickname {
                     old_user,
