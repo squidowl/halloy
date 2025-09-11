@@ -56,6 +56,12 @@ pub enum BufferFocusedAction {
 }
 
 impl Dashboard {
+    pub fn exists() -> Result<bool, Error> {
+        let path = path()?;
+
+        Ok(std::fs::exists(path)?)
+    }
+
     pub fn load() -> Result<Self, Error> {
         let path = path()?;
 
