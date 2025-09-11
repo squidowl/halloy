@@ -181,7 +181,13 @@ impl Halloy {
                 }
             }
             Err(error) => {
-                log::warn!("failed to load dashboard: {error}");
+                if data::Dashboard::exists().is_ok_and(|exists| exists) {
+                    log::warn!("failed to load dashboard: {error}");
+                } else {
+                    // Most likely this means it is the user's first launch,
+                    // downgrade severity to info
+                    log::info!("failed to load dashboard: {error}");
+                }
 
                 screen::Dashboard::empty(&main_window, config)
             }
