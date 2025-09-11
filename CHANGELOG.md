@@ -28,11 +28,12 @@ Fixed:
 - Preview images with large dimensions will not be displayed if larger than the allowed buffer size
 - Do not activate the mark as read buffer when blocked/hidden messages are unread in the buffer
 - Nickname highlighting is case insensitive by default (and uses the server's specified casemapping)
+- Nickname changes properly broadcast in all channels user is in
 
 Thanks:
 
 - Contributions: @Death916, @4e554c4c, @freakyy85, @hashcatHitman
-- Bug reports: @privacyadmin, @rlndd, @wingedonezero, @Seishiin, @Erroneuz, @andar1an, freakyy85, ThinkT510, alexia, @darienm
+- Bug reports: @privacyadmin, @rlndd, @wingedonezero, @Seishiin, @Erroneuz, @andar1an, freakyy85, ThinkT510, alexia, @darienm, quaff
 - Feature requests: @deepspaceaxolotl, @4e554c4c, @seraxis, RebeLLz, @cvengler, @barretgoat, @remexre
 
 # 2025.8 (2025-08-31)
