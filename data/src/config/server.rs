@@ -84,7 +84,7 @@ pub struct Server {
     #[serde(
         deserialize_with = "deserialize_path_buf_with_tilde_expansion_maybe"
     )]
-    root_cert_path: Option<PathBuf>,
+    pub(super) root_cert_path: Option<PathBuf>,
     /// Sasl authentication
     pub sasl: Option<Sasl>,
     /// Commands which are executed once connected.

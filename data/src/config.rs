@@ -1,4 +1,5 @@
-use std::path::PathBuf;
+use std::mem::MaybeUninit;
+use std::path::{Path, PathBuf};
 use std::{str, string};
 
 use iced_core::font;
@@ -194,6 +195,28 @@ where
     Ok(Some(deserialize_font_weight_from_string(deserializer)?))
 }
 
+fn prefix_path_with(buf: PathBuf, prefix: &Path) -> PathBuf {
+    if buf.is_relative() {
+        prefix.join(buf)
+    } else {
+        buf
+    }
+}
+
+/// Apply `map` to referenced value.
+///
+/// ## Panic safety
+/// This is not panic-safe if panic occures after `map` drops the
+/// temporary value.
+fn apply<T>(x: &mut T, mut map: impl FnMut(T) -> T) {
+    unsafe {
+        let mut tmp: MaybeUninit<T> = MaybeUninit::zeroed();
+        tmp.as_mut_ptr().copy_from(x, 1);
+        tmp = MaybeUninit::new(map(tmp.assume_init()));
+        std::mem::swap(x, tmp.assume_init_mut());
+    }
+}
+
 impl Config {
     pub fn config_dir() -> PathBuf {
         let dir = environment::config_dir();
@@ -373,7 +396,7 @@ impl Config {
 
         let Configuration {
             theme,
-            servers,
+            mut servers,
             font,
             proxy,
             scale_factor,
@@ -381,7 +404,7 @@ impl Config {
             sidebar,
             keyboard,
             notifications,
-            file_transfer,
+            mut file_transfer,
             tooltips,
             preview,
             pane,
@@ -393,6 +416,33 @@ impl Config {
             log::warn!("[config.toml] Ignoring unknown setting: {ignored}");
         })
         .map_err(|e| Error::Parse(e.to_string()))?;
+
+        let config_dir = Self::config_dir();
+        let prefix_with_config_dir =
+            |x| apply(x, |x| prefix_path_with(x, &config_dir));
+        let prefix_with_config_dir_opt = |x: &mut Option<PathBuf>| {
+            if let Some(x) = x.as_mut() {
+                apply(x, |x| prefix_path_with(x, &config_dir));
+            }
+        };
+
+        servers.values_mut().for_each(|x| {
+            prefix_with_config_dir_opt(&mut x.nick_password_file);
+            prefix_with_config_dir_opt(&mut x.root_cert_path);
+            if let Some(x) = x.sasl.as_mut() {
+                use self::server::Sasl;
+                match x {
+                    Sasl::Plain { password_file, .. } => {
+                        prefix_with_config_dir_opt(password_file);
+                    }
+                    Sasl::External { key, cert } => {
+                        prefix_with_config_dir_opt(key);
+                        prefix_with_config_dir(cert);
+                    }
+                }
+            }
+        });
+        prefix_with_config_dir_opt(&mut file_transfer.save_directory);
 
         let servers = ServerMap::new(servers).await?;
 
