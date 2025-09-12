@@ -1666,7 +1666,7 @@ mod correct_viewport {
                 id: Option<&Id>,
                 bounds: Rectangle,
                 content_bounds: Rectangle,
-                translation: Vector,
+                _translation: Vector,
                 state: &mut dyn Scrollable,
             ) {
                 if Some(&self.target) == id {
@@ -1674,15 +1674,7 @@ mod correct_viewport {
 
                     // Flip offset
                     if matches!(self.anchor, Anchor::End) {
-                        offset.y = (-offset.y)
-                            .clamp(0.0, content_bounds.height - bounds.height);
-                    } else {
-                        let min_offset = 0.0 - translation.y;
-                        let max_offset = (content_bounds.height
-                            - bounds.height)
-                            - translation.y;
-
-                        offset.y = offset.y.clamp(min_offset, max_offset);
+                        offset.y = -offset.y;
                     }
 
                     state.scroll_by(offset, bounds, content_bounds);
