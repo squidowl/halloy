@@ -29,11 +29,12 @@ Fixed:
 - Do not activate the mark as read buffer when blocked/hidden messages are unread in the buffer
 - Nickname highlighting is case insensitive by default (and uses the server's specified casemapping)
 - Nickname changes properly broadcast in all channels user is in
+- Page up/down behavior moves by consistent page length, and will no longer get stuck at the top of a buffer
 
 Thanks:
 
 - Contributions: @Death916, @4e554c4c, @freakyy85, @hashcatHitman
-- Bug reports: @privacyadmin, @rlndd, @wingedonezero, @Seishiin, @Erroneuz, @andar1an, freakyy85, ThinkT510, alexia, @darienm, quaff
+- Bug reports: @privacyadmin, @rlndd, @wingedonezero, @Seishiin, @Erroneuz, @andar1an, freakyy85, ThinkT510, alexia, @darienm, quaff, @zhelezov
 - Feature requests: @deepspaceaxolotl, @4e554c4c, @seraxis, RebeLLz, @cvengler, @barretgoat, @remexre
 
 # 2025.8 (2025-08-31)
