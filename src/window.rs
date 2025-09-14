@@ -2,9 +2,7 @@ pub use data::window::{Error, MIN_SIZE};
 use futures::stream::BoxStream;
 use futures::{Stream, StreamExt};
 use iced::advanced::graphics::futures::subscription;
-pub use iced::window::{
-    Id, Position, Settings, close, gain_focus, get_latest, open,
-};
+pub use iced::window::{Id, Position, Settings, close, gain_focus, open};
 use iced::{Point, Size, Subscription, Task};
 
 #[derive(Debug, Clone, Copy)]
@@ -42,8 +40,8 @@ impl From<Window> for data::Window {
 }
 
 pub fn toggle_fullscreen<Message: 'static + Send>() -> Task<Message> {
-    get_latest().and_then(move |window| {
-        iced::window::get_mode(window).then(move |mode| {
+    iced::window::latest().and_then(move |window| {
+        iced::window::mode(window).then(move |mode| {
             iced::window::set_mode(
                 window,
                 match mode {
