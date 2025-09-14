@@ -22,7 +22,8 @@ use self::keyed::keyed;
 use super::user_context;
 use crate::appearance::theme::TEXT_SIZE;
 use crate::widget::{
-    Element, MESSAGE_MARKER_TEXT, notify_visibility, selectable_text, tooltip,
+    Element, MESSAGE_MARKER_TEXT, notify_visibility, on_resize,
+    selectable_text, tooltip,
 };
 use crate::{Theme, font, icon, theme};
 
@@ -49,6 +50,7 @@ pub enum Message {
     PreviewUnhovered(message::Hash, usize),
     HidePreview(message::Hash, url::Url),
     MarkAsRead,
+    ContentResized(Size),
 }
 
 #[derive(Debug, Clone)]
@@ -391,13 +393,16 @@ pub fn view<'a>(
         row![]
     };
 
-    let content = column![
-        top_row,
-        column(old).spacing(config.buffer.line_spacing),
-        keyed(keyed::Key::Divider, divider),
-        column(new).spacing(config.buffer.line_spacing),
-    ]
-    .spacing(config.buffer.line_spacing);
+    let content = on_resize(
+        column![
+            top_row,
+            column(old).spacing(config.buffer.line_spacing),
+            keyed(keyed::Key::Divider, divider),
+            column(new).spacing(config.buffer.line_spacing),
+        ]
+        .spacing(config.buffer.line_spacing),
+        Message::ContentResized,
+    );
 
     correct_viewport(
         Scrollable::new(container(content).width(Length::Fill).padding([0, 8]))
@@ -425,6 +430,7 @@ pub fn view<'a>(
 pub struct State {
     pub scrollable: scrollable::Id,
     pane_size: Size,
+    content_size: Size,
     limit: Limit,
     status: Status,
     pending_scroll_to: Option<message::Hash>,
@@ -437,6 +443,7 @@ impl Default for State {
         Self {
             scrollable: scrollable::Id::unique(),
             pane_size: Size::default(), // Will get set initially via `update_size`
+            content_size: Size::default(), // Will get set initially via `on_resize`
             limit: Limit::Bottom(0),
             status: Status::default(),
             pending_scroll_to: None,
@@ -476,6 +483,7 @@ impl State {
                 viewport,
             } => {
                 let relative_offset = viewport.relative_offset().y;
+                let absolute_offset = viewport.absolute_offset().y;
                 let height = self.pane_size.height;
 
                 let mut tasks = vec![];
@@ -483,16 +491,48 @@ impl State {
 
                 match old_status {
                     // Scrolling down from top & have more to load
-                    _ if old_status.is_bottom(relative_offset)
-                        && has_more_newer_messages =>
+                    _ if old_status.is_page_from_bottom(
+                        absolute_offset,
+                        height,
+                        self.content_size.height,
+                    ) && has_more_newer_messages =>
                     {
                         self.status = Status::Unlocked;
                         self.limit =
                             Limit::Top(count + step_messages(height, config));
                     }
+                    // Hit bottom, anchor it
+                    _ if old_status.is_bottom(relative_offset) => {
+                        if !matches!(self.status, Status::Bottom)
+                            && config.buffer.mark_as_read.on_scroll_to_bottom
+                        {
+                            event = Some(Event::MarkAsRead);
+                        }
+
+                        self.status = Status::Bottom;
+
+                        if matches!(self.limit, Limit::Bottom(_)) {
+                            if old_status.is_page_from_top(
+                                absolute_offset,
+                                height,
+                                self.content_size.height,
+                            ) && has_more_older_messages
+                            {
+                                self.limit = Limit::Bottom(
+                                    count + step_messages(height, config),
+                                );
+                            }
+                        } else {
+                            self.limit =
+                                Limit::Bottom(step_messages(height, config));
+                        }
+                    }
                     // Scrolling up from bottom & have more to load
-                    _ if old_status.is_top(relative_offset)
-                        && has_more_older_messages =>
+                    _ if old_status.is_page_from_top(
+                        absolute_offset,
+                        height,
+                        self.content_size.height,
+                    ) && has_more_older_messages =>
                     {
                         self.status = Status::Unlocked;
                         self.limit = Limit::Bottom(
@@ -514,21 +554,6 @@ impl State {
                             self.limit = Limit::Since(oldest.server_time);
                         }
                     }
-                    // Hit bottom, anchor it
-                    _ if old_status.is_bottom(relative_offset) => {
-                        if !matches!(self.status, Status::Bottom)
-                            && config.buffer.mark_as_read.on_scroll_to_bottom
-                        {
-                            event = Some(Event::MarkAsRead);
-                        }
-
-                        self.status = Status::Bottom;
-
-                        if !matches!(self.limit, Limit::Bottom(_)) {
-                            self.limit =
-                                Limit::Bottom(step_messages(height, config));
-                        }
-                    }
                     // Hit top
                     _ if old_status.is_top(relative_offset) => {
                         // If we're infinite scroll & out of messages, load more via chathistory
@@ -547,7 +572,18 @@ impl State {
                             // Anchor it
                             self.status = Status::Unlocked;
 
-                            if !matches!(self.limit, Limit::Top(_)) {
+                            if matches!(self.limit, Limit::Top(_)) {
+                                if old_status.is_page_from_bottom(
+                                    absolute_offset,
+                                    height,
+                                    self.content_size.height,
+                                ) && has_more_newer_messages
+                                {
+                                    self.limit = Limit::Top(
+                                        count + step_messages(height, config),
+                                    );
+                                }
+                            } else {
                                 self.limit =
                                     Limit::Top(step_messages(height, config));
                             }
@@ -719,6 +755,9 @@ impl State {
             }
             Message::MarkAsRead => {
                 return (Task::none(), Some(Event::MarkAsRead));
+            }
+            Message::ContentResized(size) => {
+                self.content_size = size;
             }
             Message::ImagePreview(path, url) => {
                 return (Task::none(), Some(Event::ImagePreview(path, url)));
@@ -894,6 +933,34 @@ impl Status {
         match self.anchor() {
             scrollable::Anchor::Start => relative_offset == 1.0,
             scrollable::Anchor::End => relative_offset == 0.0,
+        }
+    }
+
+    fn is_page_from_top(
+        self,
+        absolute_offset: f32,
+        page_height: f32,
+        content_height: f32,
+    ) -> bool {
+        match self.anchor() {
+            scrollable::Anchor::Start => absolute_offset <= page_height,
+            scrollable::Anchor::End => {
+                absolute_offset >= content_height - 2.0 * page_height
+            }
+        }
+    }
+
+    fn is_page_from_bottom(
+        self,
+        absolute_offset: f32,
+        page_height: f32,
+        content_height: f32,
+    ) -> bool {
+        match self.anchor() {
+            scrollable::Anchor::Start => {
+                absolute_offset >= content_height - 2.0 * page_height
+            }
+            scrollable::Anchor::End => absolute_offset <= page_height,
         }
     }
 
@@ -1666,7 +1733,7 @@ mod correct_viewport {
                 id: Option<&Id>,
                 bounds: Rectangle,
                 content_bounds: Rectangle,
-                translation: Vector,
+                _translation: Vector,
                 state: &mut dyn Scrollable,
             ) {
                 if Some(&self.target) == id {
@@ -1674,15 +1741,7 @@ mod correct_viewport {
 
                     // Flip offset
                     if matches!(self.anchor, Anchor::End) {
-                        offset.y = (-offset.y)
-                            .clamp(0.0, content_bounds.height - bounds.height);
-                    } else {
-                        let min_offset = 0.0 - translation.y;
-                        let max_offset = (content_bounds.height
-                            - bounds.height)
-                            - translation.y;
-
-                        offset.y = offset.y.clamp(min_offset, max_offset);
+                        offset.y = -offset.y;
                     }
 
                     state.scroll_by(offset, bounds, content_bounds);
