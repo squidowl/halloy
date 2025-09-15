@@ -57,6 +57,7 @@ pub fn server(
             }
             Kind::WAllOps => styles.wallops.font_style,
             Kind::Kick => styles.kick.font_style,
+            Kind::ChangeTopic => styles.change_topic.font_style,
         })
         .or(styles.default.font_style)
 }

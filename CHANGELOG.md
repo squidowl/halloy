@@ -18,6 +18,7 @@ Added:
 - `soju.im/bouncer-networks` support
 - Setting to hide the backlog divider when all messages in the buffer have been read
 - Setting to specify whether nickname highlighting is case sensitive
+- Setting to hide topic changes
 
 Fixed:
 
