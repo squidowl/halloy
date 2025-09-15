@@ -10,7 +10,7 @@ The log file is overwritten on each launch (i.e. contains log messages for the l
 
 * Windows: `%AppData%\Roaming\halloy\halloy.log`
 * Mac: `~/Library/Application Support/halloy/halloy.log` or `$HOME/.local/share/halloy/halloy.log`
-* Linux: `$XDG_DATA_HOME/halloy/halloy.log` or `$HOME/.local/share/halloy/halloy.log`
+* Linux: `$XDG_DATA_HOME/halloy/halloy.log`, `$HOME/.local/share/halloy/halloy.log`, or `$HOME/.var/app/org.squidowl.halloy/data/halloy/halloy.log` (Flatpak)
 
 > ⚠️  Changes to file_level require an application restart to take effect.
 
