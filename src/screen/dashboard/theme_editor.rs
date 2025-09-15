@@ -820,6 +820,7 @@ pub enum ServerMessages {
     ChangeHost,
     ChangeMode,
     ChangeNick,
+    ChangeTopic,
     MonitoredOnline,
     MonitoredOffline,
     StandardReplyFail,
@@ -838,6 +839,7 @@ impl ServerMessages {
             ServerMessages::ReplyTopic => styles.reply_topic.color,
             ServerMessages::ChangeHost => styles.change_host.color,
             ServerMessages::ChangeMode => styles.change_mode.color,
+            ServerMessages::ChangeTopic => styles.change_topic.color,
             ServerMessages::ChangeNick => styles.change_nick.color,
             ServerMessages::MonitoredOnline => styles.monitored_online.color,
             ServerMessages::MonitoredOffline => styles.monitored_offline.color,
@@ -865,6 +867,7 @@ impl ServerMessages {
             ServerMessages::ChangeHost => styles.change_host.font_style,
             ServerMessages::ChangeMode => styles.change_mode.font_style,
             ServerMessages::ChangeNick => styles.change_nick.font_style,
+            ServerMessages::ChangeTopic => styles.change_topic.font_style,
             ServerMessages::MonitoredOnline => {
                 styles.monitored_online.font_style
             }
@@ -920,6 +923,10 @@ impl ServerMessages {
             ServerMessages::ChangeNick => {
                 styles.change_nick.color = color;
                 styles.change_nick.font_style = font_style;
+            }
+            ServerMessages::ChangeTopic => {
+                styles.change_topic.color = color;
+                styles.change_topic.font_style = font_style;
             }
             ServerMessages::MonitoredOnline => {
                 styles.monitored_online.color = color;
