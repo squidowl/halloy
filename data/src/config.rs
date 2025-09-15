@@ -397,14 +397,14 @@ impl Config {
         let config_dir = Self::config_dir();
         let prefix_with_config_dir = |x: &mut PathBuf| {
             if x.is_relative() {
-                *x = config_dir.join(&mut *x)
+                *x = config_dir.join(&mut *x);
             }
         };
         let prefix_with_config_dir_opt = |x: &mut Option<PathBuf>| {
-            if let Some(x) = x.as_mut() {
-                if x.is_relative() {
-                    *x = config_dir.join(&mut *x)
-                }
+            if let Some(x) = x.as_mut()
+                && x.is_relative()
+            {
+                *x = config_dir.join(&mut *x);
             }
         };
 
