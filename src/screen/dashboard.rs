@@ -17,7 +17,6 @@ use data::{
 };
 use iced::widget::pane_grid::{self, PaneGrid};
 use iced::widget::{Space, column, container, row};
-use iced::window::get_position;
 use iced::{Length, Size, Task, Vector, clipboard};
 
 use self::command_bar::CommandBar;
@@ -1997,7 +1996,7 @@ impl Dashboard {
                 Task::none()
             }
             BufferAction::NewWindow => {
-                get_position(self.main_window()).then({
+                iced::window::position(self.main_window()).then({
                     let pane = Pane::new(Buffer::from_data(
                         buffer.clone(),
                         Size::default(),

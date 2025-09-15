@@ -423,10 +423,15 @@ impl Buffer {
     ) -> Task<Message> {
         match self {
             Buffer::Empty
-            | Buffer::Server(_)
             | Buffer::FileTransfers(_)
             | Buffer::Logs(_)
             | Buffer::Highlights(_) => Task::none(),
+            Buffer::Server(state) => state
+                .input_view
+                .insert_user(nick, state.buffer.clone(), history, autocomplete)
+                .map(|message| {
+                    Message::Server(server::Message::InputView(message))
+                }),
             Buffer::Channel(state) => state
                 .input_view
                 .insert_user(nick, state.buffer.clone(), history, autocomplete)
