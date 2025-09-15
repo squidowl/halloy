@@ -1,5 +1,4 @@
-use std::mem::MaybeUninit;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::{str, string};
 
 use iced_core::font;
@@ -193,28 +192,6 @@ where
     D: Deserializer<'de>,
 {
     Ok(Some(deserialize_font_weight_from_string(deserializer)?))
-}
-
-fn prefix_path_with(buf: PathBuf, prefix: &Path) -> PathBuf {
-    if buf.is_relative() {
-        prefix.join(buf)
-    } else {
-        buf
-    }
-}
-
-/// Apply `map` to referenced value.
-///
-/// ## Panic safety
-/// This is not panic-safe if panic occures after `map` drops the
-/// temporary value.
-fn apply<T>(x: &mut T, mut map: impl FnMut(T) -> T) {
-    unsafe {
-        let mut tmp: MaybeUninit<T> = MaybeUninit::zeroed();
-        tmp.as_mut_ptr().copy_from(x, 1);
-        tmp = MaybeUninit::new(map(tmp.assume_init()));
-        std::mem::swap(x, tmp.assume_init_mut());
-    }
 }
 
 impl Config {
@@ -418,11 +395,16 @@ impl Config {
         .map_err(|e| Error::Parse(e.to_string()))?;
 
         let config_dir = Self::config_dir();
-        let prefix_with_config_dir =
-            |x| apply(x, |x| prefix_path_with(x, &config_dir));
+        let prefix_with_config_dir = |x: &mut PathBuf| {
+            if x.is_relative() {
+                *x = config_dir.join(&mut *x)
+            }
+        };
         let prefix_with_config_dir_opt = |x: &mut Option<PathBuf>| {
             if let Some(x) = x.as_mut() {
-                apply(x, |x| prefix_path_with(x, &config_dir));
+                if x.is_relative() {
+                    *x = config_dir.join(&mut *x)
+                }
             }
         };
 
