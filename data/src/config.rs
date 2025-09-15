@@ -373,7 +373,7 @@ impl Config {
 
         let Configuration {
             theme,
-            mut servers,
+            servers,
             font,
             proxy,
             scale_factor,
@@ -381,7 +381,7 @@ impl Config {
             sidebar,
             keyboard,
             notifications,
-            mut file_transfer,
+            file_transfer,
             tooltips,
             preview,
             pane,
@@ -393,38 +393,6 @@ impl Config {
             log::warn!("[config.toml] Ignoring unknown setting: {ignored}");
         })
         .map_err(|e| Error::Parse(e.to_string()))?;
-
-        let config_dir = Self::config_dir();
-        let prefix_with_config_dir = |x: &mut PathBuf| {
-            if x.is_relative() {
-                *x = config_dir.join(&mut *x);
-            }
-        };
-        let prefix_with_config_dir_opt = |x: &mut Option<PathBuf>| {
-            if let Some(x) = x.as_mut()
-                && x.is_relative()
-            {
-                *x = config_dir.join(&mut *x);
-            }
-        };
-
-        servers.values_mut().for_each(|x| {
-            prefix_with_config_dir_opt(&mut x.nick_password_file);
-            prefix_with_config_dir_opt(&mut x.root_cert_path);
-            if let Some(x) = x.sasl.as_mut() {
-                use self::server::Sasl;
-                match x {
-                    Sasl::Plain { password_file, .. } => {
-                        prefix_with_config_dir_opt(password_file);
-                    }
-                    Sasl::External { key, cert } => {
-                        prefix_with_config_dir_opt(key);
-                        prefix_with_config_dir(cert);
-                    }
-                }
-            }
-        });
-        prefix_with_config_dir_opt(&mut file_transfer.save_directory);
 
         let servers = ServerMap::new(servers).await?;
 
