@@ -602,6 +602,7 @@ Server messages are messages sent from an IRC server.
 | `change_host`         | Message is sent when a user changes host                                      |
 | `change_mode`         | Message is sent when a mode is set                                            |
 | `change_nick`         | Message is sent when a user changes nick                                      |
+| `change_topic`        | Message is sent when a channel topic is changed                               |
 | `join`                | Message is sent when a user joins a channel                                   |
 | `kick`                | Message is sent when a user is kicked from a channel                          |
 | `monitored_offline`   | Message is sent when a monitored user goes offline                            |

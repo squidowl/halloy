@@ -216,6 +216,7 @@ pub struct ServerMessages {
     pub change_host: OptionalTextStyle,
     pub change_mode: OptionalTextStyle,
     pub change_nick: OptionalTextStyle,
+    pub change_topic: OptionalTextStyle,
     pub monitored_online: OptionalTextStyle,
     pub monitored_offline: OptionalTextStyle,
     pub standard_reply_fail: OptionalTextStyle,
@@ -707,6 +708,7 @@ mod binary {
         GeneralScrollbar = 48,
         BufferNicknameOffline = 49,
         GeneralHighlightIndicator = 50,
+        BufferServerMessagesChangeTopic = 51,
     }
 
     impl Tag {
@@ -814,6 +816,9 @@ mod binary {
                 Tag::GeneralScrollbar => styles.general.scrollbar?,
                 Tag::GeneralHighlightIndicator => {
                     styles.general.highlight_indicator?
+                }
+                Tag::BufferServerMessagesChangeTopic => {
+                    styles.buffer.server_messages.change_topic.color?
                 }
             };
 
@@ -941,6 +946,10 @@ mod binary {
                 Tag::GeneralScrollbar => styles.general.scrollbar = Some(color),
                 Tag::GeneralHighlightIndicator => {
                     styles.general.highlight_indicator = Some(color);
+                }
+                Tag::BufferServerMessagesChangeTopic => {
+                    styles.buffer.server_messages.change_topic.color =
+                        Some(color);
                 }
             }
         }

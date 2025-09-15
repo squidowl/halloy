@@ -74,6 +74,7 @@ pub mod server {
         StandardReply(StandardReply),
         WAllOps,
         Kick,
+        ChangeTopic,
     }
 
     #[derive(

@@ -82,6 +82,7 @@ pub fn server(
             Kind::ChangeHost => styles.change_host.color,
             Kind::ChangeMode => styles.change_mode.color,
             Kind::ChangeNick => styles.change_nick.color,
+            Kind::ChangeTopic => styles.change_topic.color,
             Kind::MonitoredOnline => styles.monitored_online.color,
             Kind::MonitoredOffline => styles.monitored_offline.color,
             Kind::StandardReply(StandardReply::Fail) => styles
