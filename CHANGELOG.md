@@ -31,6 +31,10 @@ Fixed:
 - Nickname changes properly broadcast in all channels user is in
 - Page up/down behavior moves by consistent page length, and will no longer get stuck at the top of a buffer
 
+Changed:
+
+- Relative paths are now prefixed with config dir (except for file_transfer.save_directory).
+
 Thanks:
 
 - Contributions: @Death916, @4e554c4c, @freakyy85, @hashcatHitman
