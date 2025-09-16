@@ -1781,7 +1781,7 @@ checksum = "75b325c5dbd37f80359721ad39aca5a29fb04c89279657cffdda8736d0c0b9d2"
 [[package]]
 name = "dpi"
 version = "0.1.1"
-source = "git+https://github.com/iced-rs/winit.git?rev=11414b6aa45699f038114e61b4ddf5102b2d3b4b#11414b6aa45699f038114e61b4ddf5102b2d3b4b"
+source = "git+https://github.com/iced-rs/winit.git?rev=05b8ff17a06562f0a10bb46e6eaacbe2a95cb5ed#05b8ff17a06562f0a10bb46e6eaacbe2a95cb5ed"
 
 [[package]]
 name = "drm"
@@ -2613,7 +2613,7 @@ dependencies = [
  "log",
  "presser",
  "thiserror 1.0.69",
- "windows 0.58.0",
+ "windows 0.54.0",
 ]
 
 [[package]]
@@ -2990,7 +2990,7 @@ dependencies = [
 [[package]]
 name = "iced"
 version = "0.14.0-dev"
-source = "git+https://github.com/squidowl/iced?branch=patch#c8637c6b65ce763b725ec2f32ef28f52a1f0af5b"
+source = "git+https://github.com/squidowl/iced?branch=patch#0cf89fb0299755a8e97fe4b9d2ac6a7948a6fb18"
 dependencies = [
  "iced_core",
  "iced_debug",
@@ -3007,7 +3007,7 @@ dependencies = [
 [[package]]
 name = "iced_beacon"
 version = "0.14.0-dev"
-source = "git+https://github.com/squidowl/iced?branch=patch#c8637c6b65ce763b725ec2f32ef28f52a1f0af5b"
+source = "git+https://github.com/squidowl/iced?branch=patch#0cf89fb0299755a8e97fe4b9d2ac6a7948a6fb18"
 dependencies = [
  "bincode",
  "futures",
@@ -3022,7 +3022,7 @@ dependencies = [
 [[package]]
 name = "iced_core"
 version = "0.14.0-dev"
-source = "git+https://github.com/squidowl/iced?branch=patch#c8637c6b65ce763b725ec2f32ef28f52a1f0af5b"
+source = "git+https://github.com/squidowl/iced?branch=patch#0cf89fb0299755a8e97fe4b9d2ac6a7948a6fb18"
 dependencies = [
  "bitflags 2.9.1",
  "bytes",
@@ -3040,7 +3040,7 @@ dependencies = [
 [[package]]
 name = "iced_debug"
 version = "0.14.0-dev"
-source = "git+https://github.com/squidowl/iced?branch=patch#c8637c6b65ce763b725ec2f32ef28f52a1f0af5b"
+source = "git+https://github.com/squidowl/iced?branch=patch#0cf89fb0299755a8e97fe4b9d2ac6a7948a6fb18"
 dependencies = [
  "iced_beacon",
  "iced_core",
@@ -3051,7 +3051,7 @@ dependencies = [
 [[package]]
 name = "iced_devtools"
 version = "0.14.0-dev"
-source = "git+https://github.com/squidowl/iced?branch=patch#c8637c6b65ce763b725ec2f32ef28f52a1f0af5b"
+source = "git+https://github.com/squidowl/iced?branch=patch#0cf89fb0299755a8e97fe4b9d2ac6a7948a6fb18"
 dependencies = [
  "iced_debug",
  "iced_program",
@@ -3062,7 +3062,7 @@ dependencies = [
 [[package]]
 name = "iced_futures"
 version = "0.14.0-dev"
-source = "git+https://github.com/squidowl/iced?branch=patch#c8637c6b65ce763b725ec2f32ef28f52a1f0af5b"
+source = "git+https://github.com/squidowl/iced?branch=patch#0cf89fb0299755a8e97fe4b9d2ac6a7948a6fb18"
 dependencies = [
  "futures",
  "iced_core",
@@ -3076,7 +3076,7 @@ dependencies = [
 [[package]]
 name = "iced_graphics"
 version = "0.14.0-dev"
-source = "git+https://github.com/squidowl/iced?branch=patch#c8637c6b65ce763b725ec2f32ef28f52a1f0af5b"
+source = "git+https://github.com/squidowl/iced?branch=patch#0cf89fb0299755a8e97fe4b9d2ac6a7948a6fb18"
 dependencies = [
  "bitflags 2.9.1",
  "bytemuck",
@@ -3096,7 +3096,7 @@ dependencies = [
 [[package]]
 name = "iced_program"
 version = "0.14.0-dev"
-source = "git+https://github.com/squidowl/iced?branch=patch#c8637c6b65ce763b725ec2f32ef28f52a1f0af5b"
+source = "git+https://github.com/squidowl/iced?branch=patch#0cf89fb0299755a8e97fe4b9d2ac6a7948a6fb18"
 dependencies = [
  "iced_graphics",
  "iced_runtime",
@@ -3105,7 +3105,7 @@ dependencies = [
 [[package]]
 name = "iced_renderer"
 version = "0.14.0-dev"
-source = "git+https://github.com/squidowl/iced?branch=patch#c8637c6b65ce763b725ec2f32ef28f52a1f0af5b"
+source = "git+https://github.com/squidowl/iced?branch=patch#0cf89fb0299755a8e97fe4b9d2ac6a7948a6fb18"
 dependencies = [
  "iced_graphics",
  "iced_tiny_skia",
@@ -3117,7 +3117,7 @@ dependencies = [
 [[package]]
 name = "iced_runtime"
 version = "0.14.0-dev"
-source = "git+https://github.com/squidowl/iced?branch=patch#c8637c6b65ce763b725ec2f32ef28f52a1f0af5b"
+source = "git+https://github.com/squidowl/iced?branch=patch#0cf89fb0299755a8e97fe4b9d2ac6a7948a6fb18"
 dependencies = [
  "bytes",
  "iced_core",
@@ -3130,7 +3130,7 @@ dependencies = [
 [[package]]
 name = "iced_tiny_skia"
 version = "0.14.0-dev"
-source = "git+https://github.com/squidowl/iced?branch=patch#c8637c6b65ce763b725ec2f32ef28f52a1f0af5b"
+source = "git+https://github.com/squidowl/iced?branch=patch#0cf89fb0299755a8e97fe4b9d2ac6a7948a6fb18"
 dependencies = [
  "bytemuck",
  "cosmic-text",
@@ -3146,7 +3146,7 @@ dependencies = [
 [[package]]
 name = "iced_wgpu"
 version = "0.14.0-dev"
-source = "git+https://github.com/squidowl/iced?branch=patch#c8637c6b65ce763b725ec2f32ef28f52a1f0af5b"
+source = "git+https://github.com/squidowl/iced?branch=patch#0cf89fb0299755a8e97fe4b9d2ac6a7948a6fb18"
 dependencies = [
  "bitflags 2.9.1",
  "bytemuck",
@@ -3165,7 +3165,7 @@ dependencies = [
 [[package]]
 name = "iced_widget"
 version = "0.14.0-dev"
-source = "git+https://github.com/squidowl/iced?branch=patch#c8637c6b65ce763b725ec2f32ef28f52a1f0af5b"
+source = "git+https://github.com/squidowl/iced?branch=patch#0cf89fb0299755a8e97fe4b9d2ac6a7948a6fb18"
 dependencies = [
  "iced_renderer",
  "iced_runtime",
@@ -3180,7 +3180,7 @@ dependencies = [
 [[package]]
 name = "iced_winit"
 version = "0.14.0-dev"
-source = "git+https://github.com/squidowl/iced?branch=patch#c8637c6b65ce763b725ec2f32ef28f52a1f0af5b"
+source = "git+https://github.com/squidowl/iced?branch=patch#0cf89fb0299755a8e97fe4b9d2ac6a7948a6fb18"
 dependencies = [
  "iced_debug",
  "iced_program",
@@ -8939,7 +8939,7 @@ version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf221c93e13a30d793f7645a0e7762c55d169dbb0a49671918a2319d289b10bb"
 dependencies = [
- "windows-sys 0.59.0",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]
@@ -9528,7 +9528,7 @@ checksum = "271414315aff87387382ec3d271b52d7ae78726f5d44ac98b4f4030c91880486"
 [[package]]
 name = "winit"
 version = "0.30.8"
-source = "git+https://github.com/iced-rs/winit.git?rev=11414b6aa45699f038114e61b4ddf5102b2d3b4b#11414b6aa45699f038114e61b4ddf5102b2d3b4b"
+source = "git+https://github.com/iced-rs/winit.git?rev=05b8ff17a06562f0a10bb46e6eaacbe2a95cb5ed#05b8ff17a06562f0a10bb46e6eaacbe2a95cb5ed"
 dependencies = [
  "ahash",
  "android-activity",
