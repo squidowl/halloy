@@ -3,7 +3,9 @@ use std::path::{self, PathBuf};
 use chrono::format::StrftimeItems;
 use serde::{Deserialize, Deserializer};
 
-pub fn deserialize_path_buf_with_tilde_expansion<'de, D>(
+use crate::Config;
+
+pub fn deserialize_path_buf_with_path_transformations<'de, D>(
     deserializer: D,
 ) -> Result<PathBuf, D::Error>
 where
@@ -11,10 +13,10 @@ where
 {
     let path_buf: PathBuf = Deserialize::deserialize(deserializer)?;
 
-    Ok(tilde_expansion(path_buf))
+    Ok(prefix_with_config_path(tilde_expansion(path_buf)))
 }
 
-pub fn deserialize_path_buf_with_tilde_expansion_maybe<'de, D>(
+pub fn deserialize_path_buf_with_path_transformations_maybe<'de, D>(
     deserializer: D,
 ) -> Result<Option<PathBuf>, D::Error>
 where
@@ -22,7 +24,15 @@ where
 {
     let path_buf: Option<PathBuf> = Deserialize::deserialize(deserializer)?;
 
-    Ok(path_buf.map(tilde_expansion))
+    Ok(path_buf.map(tilde_expansion).map(prefix_with_config_path))
+}
+
+fn prefix_with_config_path(path_buf: PathBuf) -> PathBuf {
+    if path_buf.is_relative() {
+        Config::config_dir().join(path_buf)
+    } else {
+        path_buf
+    }
 }
 
 fn tilde_expansion(path_buf: PathBuf) -> PathBuf {

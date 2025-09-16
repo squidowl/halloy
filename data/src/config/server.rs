@@ -7,8 +7,8 @@ use serde::{Deserialize, Deserializer};
 
 use crate::config;
 use crate::serde::{
-    deserialize_path_buf_with_tilde_expansion,
-    deserialize_path_buf_with_tilde_expansion_maybe,
+    deserialize_path_buf_with_path_transformations,
+    deserialize_path_buf_with_path_transformations_maybe,
 };
 
 const DEFAULT_PORT: u16 = 6667;
@@ -23,7 +23,7 @@ pub struct Server {
     pub nick_password: Option<String>,
     /// The client's NICKSERV password file.
     #[serde(
-        deserialize_with = "deserialize_path_buf_with_tilde_expansion_maybe"
+        deserialize_with = "deserialize_path_buf_with_path_transformations_maybe"
     )]
     pub nick_password_file: Option<PathBuf>,
     /// Truncate read from NICKSERV password file to first newline
@@ -46,7 +46,7 @@ pub struct Server {
     pub password: Option<String>,
     /// The file with the password to connect to the server.
     #[serde(
-        deserialize_with = "deserialize_path_buf_with_tilde_expansion_maybe"
+        deserialize_with = "deserialize_path_buf_with_path_transformations_maybe"
     )]
     pub password_file: Option<PathBuf>,
     /// Truncate read from password file to first newline
@@ -82,7 +82,7 @@ pub struct Server {
     pub dangerously_accept_invalid_certs: bool,
     /// The path to the root TLS certificate for this server in PEM format.
     #[serde(
-        deserialize_with = "deserialize_path_buf_with_tilde_expansion_maybe"
+        deserialize_with = "deserialize_path_buf_with_path_transformations_maybe"
     )]
     root_cert_path: Option<PathBuf>,
     /// Sasl authentication
@@ -232,7 +232,7 @@ pub enum Sasl {
         /// Account password file
         #[serde(
             default,
-            deserialize_with = "deserialize_path_buf_with_tilde_expansion_maybe"
+            deserialize_with = "deserialize_path_buf_with_path_transformations_maybe"
         )]
         password_file: Option<PathBuf>,
         /// Truncate read from password file to first newline
@@ -243,13 +243,13 @@ pub enum Sasl {
     External {
         /// The path to PEM encoded X509 user certificate for external auth
         #[serde(
-            deserialize_with = "deserialize_path_buf_with_tilde_expansion"
+            deserialize_with = "deserialize_path_buf_with_path_transformations"
         )]
         cert: PathBuf,
         /// The path to PEM encoded PKCS#8 private key corresponding to the user certificate for external auth
         #[serde(
             default,
-            deserialize_with = "deserialize_path_buf_with_tilde_expansion_maybe"
+            deserialize_with = "deserialize_path_buf_with_path_transformations_maybe"
         )]
         key: Option<PathBuf>,
     },
