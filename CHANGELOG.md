@@ -30,10 +30,11 @@ Fixed:
 - Nickname highlighting is case insensitive by default (and uses the server's specified casemapping)
 - Nickname changes properly broadcast in all channels user is in
 - Page up/down behavior moves by consistent page length, and will no longer get stuck at the top of a buffer
+- `file_transfer.save_directory` is now affected by substitutions.
 
 Changed:
 
-- Relative paths are now prefixed with config dir (except for file_transfer.save_directory).
+- Relative paths are now prefixed with config dir.
 
 Thanks:
 
