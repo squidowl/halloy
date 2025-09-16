@@ -12,7 +12,7 @@ Default directory to save files in. If not set, user will see a file dialog.
 # Default: not set
 
 [file_transfer]
-save_directory = "/Users/halloy/Downloads"
+save_directory = "/Users/halloy/Downloads" [^1]
 ```
 
 ## `passive`
@@ -153,3 +153,5 @@ masks = [
     '''.*@foobar\.com'''
 ]
 ```
+
+[^1]: Relative paths are prefixed with the config directory (i.e. if you have your config.toml in `/home/me/.config/halloy/config.toml`, path `.passwd/libera` will be converted to `/home/me/.config/halloy/.passwd/libera`).
