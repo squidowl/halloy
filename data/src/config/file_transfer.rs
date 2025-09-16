@@ -5,10 +5,15 @@ use std::path::PathBuf;
 
 use serde::Deserialize;
 
+use crate::serde::deserialize_path_buf_with_path_transformations_maybe;
+
 #[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
 pub struct FileTransfer {
     /// Default directory to save files in. If not set, user will see a file dialog.
+    #[serde(
+        deserialize_with = "deserialize_path_buf_with_path_transformations_maybe"
+    )]
     pub save_directory: Option<PathBuf>,
     /// If true, act as the "client" for the transfer. Requires the remote user act as the server.
     pub passive: bool,

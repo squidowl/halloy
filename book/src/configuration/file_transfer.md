@@ -4,7 +4,7 @@ File transfer configuration options.
 
 ## `save_directory`
 
-Default directory to save files in. If not set, user will see a file dialog.
+Default directory to save files in. If not set, user will see a file dialog. [^1]
 
 ```toml
 # Type: string
@@ -153,3 +153,5 @@ masks = [
     '''.*@foobar\.com'''
 ]
 ```
+
+[^1]: Relative paths are prefixed with the config directory (i.e. if you have your config.toml in `/home/me/.config/halloy/config.toml`, path `.passwd/libera` will be converted to `/home/me/.config/halloy/.passwd/libera`).
