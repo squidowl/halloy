@@ -1,5 +1,7 @@
 # Unreleased
 
+# 2025.9 (2025-09-16)
+
 Added:
 
 - Added different unread icons for highlights vs regular unread messages
@@ -43,7 +45,7 @@ Thanks:
 - Bug reports: @privacyadmin, @rlndd, @wingedonezero, @Seishiin, @Erroneuz, @andar1an, freakyy85, ThinkT510, alexia, @darienm, quaff, @zhelezov
 - Feature requests: @deepspaceaxolotl, @4e554c4c, @seraxis, RebeLLz, @cvengler, @barretgoat, @remexre, @dmd
 
-# 2025.8 (2025-08-31)
+# 2025.8 (2025-07-31)
 
 Added:
 
