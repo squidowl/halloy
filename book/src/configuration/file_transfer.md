@@ -4,7 +4,7 @@ File transfer configuration options.
 
 ## `save_directory`
 
-Default directory to save files in. If not set, user will see a file dialog.
+Default directory to save files in. If not set, user will see a file dialog. [^1]
 
 ```toml
 # Type: string
@@ -12,7 +12,7 @@ Default directory to save files in. If not set, user will see a file dialog.
 # Default: not set
 
 [file_transfer]
-save_directory = "/Users/halloy/Downloads" [^1]
+save_directory = "/Users/halloy/Downloads"
 ```
 
 ## `passive`
