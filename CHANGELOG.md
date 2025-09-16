@@ -37,7 +37,7 @@ Changed:
 
 Thanks:
 
-- Contributions: @Death916, @4e554c4c, @freakyy85, @hashcatHitman
+- Contributions: @Death916, @4e554c4c, @freakyy85, @hashcatHitman, @5GameMaker
 - Bug reports: @privacyadmin, @rlndd, @wingedonezero, @Seishiin, @Erroneuz, @andar1an, freakyy85, ThinkT510, alexia, @darienm, quaff, @zhelezov
 - Feature requests: @deepspaceaxolotl, @4e554c4c, @seraxis, RebeLLz, @cvengler, @barretgoat, @remexre
 
