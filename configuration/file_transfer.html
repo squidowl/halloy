@@ -183,7 +183,7 @@
                         <h1 id="file_transfer"><a class="header" href="#file_transfer"><code>[file_transfer]</code></a></h1>
 <p>File transfer configuration options.</p>
 <h2 id="save_directory"><a class="header" href="#save_directory"><code>save_directory</code></a></h2>
-<p>Default directory to save files in. If not set, user will see a file dialog.</p>
+<p>Default directory to save files in. If not set, user will see a file dialog. <sup class="footnote-reference" id="fr-1-1"><a href="#footnote-1">1</a></sup></p>
 <pre><code class="language-toml"># Type: string
 # Values: any string
 # Default: not set
@@ -286,7 +286,11 @@ masks = [
     '''.*@foobar\.com'''
 ]
 </code></pre>
-
+<hr>
+<ol class="footnote-definition"><li id="footnote-1">
+<p>Relative paths are prefixed with the config directory (i.e. if you have your config.toml in <code>/home/me/.config/halloy/config.toml</code>, path <code>.passwd/libera</code> will be converted to <code>/home/me/.config/halloy/.passwd/libera</code>). <a href="#fr-1-1">↩</a></p>
+</li>
+</ol>
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">

@@ -208,7 +208,7 @@ nickname = ""
 nick_password = ""
 </code></pre>
 <h2 id="nick_password_file"><a class="header" href="#nick_password_file"><code>nick_password_file</code></a></h2>
-<p>Read <code>nick_password</code> from the file at the given path.<sup class="footnote-reference" id="fr-1-1"><a href="#footnote-1">1</a></sup></p>
+<p>Read <code>nick_password</code> from the file at the given path.<sup class="footnote-reference" id="fr-1-1"><a href="#footnote-1">1</a></sup> <sup class="footnote-reference" id="fr-2-1"><a href="#footnote-2">2</a></sup></p>
 <pre><code class="language-toml"># Type: string
 # Values: any string
 # Default: not set
@@ -298,7 +298,7 @@ port = 6697
 password = ""
 </code></pre>
 <h2 id="password_file"><a class="header" href="#password_file"><code>password_file</code></a></h2>
-<p>Read password from the file at the given path.<sup class="footnote-reference" id="fr-1-2"><a href="#footnote-1">1</a></sup></p>
+<p>Read password from the file at the given path.<sup class="footnote-reference" id="fr-1-2"><a href="#footnote-1">1</a></sup> <sup class="footnote-reference" id="fr-2-2"><a href="#footnote-2">2</a></sup></p>
 <pre><code class="language-toml"># Type: string
 # Values: any string
 # Default: not set
@@ -430,7 +430,7 @@ use_tls = true
 dangerously_accept_invalid_certs = false
 </code></pre>
 <h2 id="root_cert_path"><a class="header" href="#root_cert_path"><code>root_cert_path</code></a></h2>
-<p>The path to the root TLS certificate for this server in PEM format.<sup class="footnote-reference" id="fr-1-3"><a href="#footnote-1">1</a></sup></p>
+<p>The path to the root TLS certificate for this server in PEM format.<sup class="footnote-reference" id="fr-1-3"><a href="#footnote-1">1</a></sup> <sup class="footnote-reference" id="fr-2-3"><a href="#footnote-2">2</a></sup></p>
 <pre><code class="language-toml"># Type: string
 # Values: any string
 # Default: not set
@@ -507,7 +507,7 @@ username = "username"
 password = "password"
 </code></pre>
 <h3 id="password_file-1"><a class="header" href="#password_file-1"><code>password_file</code></a></h3>
-<p>Read <code>password</code> from the file at the given path.<sup class="footnote-reference" id="fr-1-4"><a href="#footnote-1">1</a></sup></p>
+<p>Read <code>password</code> from the file at the given path.<sup class="footnote-reference" id="fr-1-4"><a href="#footnote-1">1</a></sup> <sup class="footnote-reference" id="fr-2-4"><a href="#footnote-2">2</a></sup></p>
 <pre><code class="language-toml"># Type: string
 # Values: any string
 # Default: not set
@@ -536,7 +536,7 @@ password_command = ""
 <h2 id="saslexternal"><a class="header" href="#saslexternal"><code>sasl.external</code></a></h2>
 <p>External SASL auth uses a PEM encoded X509 certificate. <a href="https://libera.chat/guides/certfp">Reference</a>.</p>
 <h3 id="cert"><a class="header" href="#cert"><code>cert</code></a></h3>
-<p>The path to PEM encoded X509 user certificate for external auth.<sup class="footnote-reference" id="fr-1-5"><a href="#footnote-1">1</a></sup></p>
+<p>The path to PEM encoded X509 user certificate for external auth.<sup class="footnote-reference" id="fr-1-5"><a href="#footnote-1">1</a></sup> <sup class="footnote-reference" id="fr-2-5"><a href="#footnote-2">2</a></sup></p>
 <pre><code class="language-toml"># Type: string
 # Values: any string
 # Default: not set
@@ -545,7 +545,7 @@ password_command = ""
 cert = "/path/to/your/certificate.pem"
 </code></pre>
 <h3 id="key"><a class="header" href="#key"><code>key</code></a></h3>
-<p>The path to PEM encoded PKCS#8 private key for external auth (optional).<sup class="footnote-reference" id="fr-1-6"><a href="#footnote-1">1</a></sup></p>
+<p>The path to PEM encoded PKCS#8 private key for external auth (optional).<sup class="footnote-reference" id="fr-1-6"><a href="#footnote-1">1</a></sup> <sup class="footnote-reference" id="fr-2-6"><a href="#footnote-2">2</a></sup></p>
 <pre><code class="language-toml"># Type: string
 # Values: any string
 # Default: not set
@@ -556,6 +556,9 @@ key = "/path/to/your/private_key.pem"
 <hr>
 <ol class="footnote-definition"><li id="footnote-1">
 <p>Windows path strings should usually be specified as literal strings (e.g. <code>'C:\Users\Default\'</code>), otherwise directory separators will need to be escaped (e.g. <code>"C:\\Users\\Default\\"</code>). <a href="#fr-1-1">↩</a> <a href="#fr-1-2">↩2</a> <a href="#fr-1-3">↩3</a> <a href="#fr-1-4">↩4</a> <a href="#fr-1-5">↩5</a> <a href="#fr-1-6">↩6</a></p>
+</li>
+<li id="footnote-2">
+<p>Relative paths are prefixed with the config directory (i.e. if you have your config.toml in <code>/home/me/.config/halloy/config.toml</code>, path <code>.passwd/libera</code> will be converted to <code>/home/me/.config/halloy/.passwd/libera</code>). <a href="#fr-2-1">↩</a> <a href="#fr-2-2">↩2</a> <a href="#fr-2-3">↩3</a> <a href="#fr-2-4">↩4</a> <a href="#fr-2-5">↩5</a> <a href="#fr-2-6">↩6</a></p>
 </li>
 </ol>
                     </main>
