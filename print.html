@@ -207,6 +207,7 @@
 <li><a href="https://ircv3.net/specs/extensions/userhost-in-names">userhost-in-names</a></li>
 <li><a href="https://ircv3.net/specs/extensions/utf8-only"><code>UTF8ONLY</code></a></li>
 <li><a href="https://ircv3.net/specs/extensions/whox"><code>WHOX</code></a></li>
+<li><a href="https://codeberg.org/emersion/soju/src/branch/master/doc/ext/bouncer-networks.md"><code>soju.im/bouncer-networks</code></a></li>
 </ul>
 </li>
 <li>SASL support</li>
@@ -279,8 +280,8 @@
 <li><a href="https://git-scm.com/">Git version control system</a></li>
 <li>Packages:
 <ul>
-<li>Fedora-based distributions: <code>alsa-lib-devel openssl-devel</code></li>
-<li>Debian-based distributions: <code>librust-alsa-sys-dev libssl-dev</code></li>
+<li>Fedora-based distributions: <code>alsa-lib-devel openssl-devel libxcb-devel</code></li>
+<li>Debian-based distributions: <code>librust-alsa-sys-dev libssl-dev libxcb1-dev</code></li>
 </ul>
 </li>
 </ul>
@@ -302,7 +303,7 @@ cd halloy
 ./scripts/install-linux.sh --prefix=&lt;base/directory&gt;
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="getting-started"><a class="header" href="#getting-started">Getting started</a></h1>
-<p>To get started with Halloy, you need to connect to at least one IRC server. The template config file has been set up with the <a href="https://libera.chat/">Libera</a> server. However, there are many other servers available: <a href="https://www.oftc.net/">OFTC</a>, <a href="https://www.undernet.org/">Undernet</a>, <a href="http://www.efnet.org">EFnet</a>, <a href="https://www.quakenet.org/">QuakeNet</a> and <a href="https://netsplit.de/networks/">many more</a>. Halloy can connect to multiple servers at the same time.</p>
+<p>To get started with Halloy, you need to connect to at least one IRC server. The template config file has been set up with the <a href="https://libera.chat/">Libera</a> server. However, there are many other servers available: <a href="https://www.oftc.net/">OFTC</a>, <a href="https://www.undernet.org/">Undernet</a>, <a href="https://www.quakenet.org/">QuakeNet</a> and <a href="https://netsplit.de/networks/">many more</a>. Halloy can connect to multiple servers at the same time.</p>
 <p>Once connected to a server, you can join channels. This can be done automatically from the config file or manually using the join command: <code>/join #channel</code><sup class="footnote-reference" id="fr-1-1"><a href="#footnote-1">1</a></sup>. To find channels, you can either use the list command: <code>/list</code>, or <a href="https://netsplit.de/channels/">browse for channels online</a>.</p>
 <blockquote>
 <p>💡 Configuration in Halloy happens through a <code>config.toml</code> file. See <a href="guides/../configuration/">Configuration</a>.</p>
@@ -365,18 +366,33 @@ For feature requests or reporting issues, please open a ticket on <a href="https
 <p>Did we forget you? We're sorry about that! Feel free to add yourself and create a pull request.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="connect-with-soju"><a class="header" href="#connect-with-soju">Connect with Soju</a></h1>
 <p>To connect with a <a href="https://soju.im/"><strong>soju</strong></a> bouncer, the configuration below can be used as a template. Simply change so it fits your credentials.</p>
-<blockquote>
-<p>💡  as of 2025.1 Halloy supports <a href="guides/../configuration/buffer.html#bufferchathistory"><code>chathistory</code></a>, so the machine name (like <code>@desktop</code>) is no longer needed when <code>chathistory</code> is enabled</p>
-</blockquote>
-<pre><code class="language-toml">[servers.libera]
-nickname = "casperstorm"
-username = "&lt;your-username&gt;/irc.libera.chat"
-server = "irc.squidowl.org"
+<pre><code class="language-toml">[servers.soju]
+nickname = "&lt;your-nickname&gt;"
+server = "&lt;your-bouncer-url&gt;"
 port = 6697
+[servers.soju.sasl.plain]
+username = "&lt;your-username&gt;"
 password = "&lt;your-password&gt;"
-chathistory = true
 </code></pre>
-<p>You can enable infinite scrolling history as well, if you want to be able to load older messages</p>
+<blockquote>
+<p>💡  as of 2025.1 Halloy supports <a href="guides/../configuration/servers.html#chathistory"><code>chathistory</code></a>, so the machine name (like <code>@desktop</code>) is no longer needed when <code>chathistory</code> is enabled</p>
+</blockquote>
+<h2 id="using-bouncer-networks"><a class="header" href="#using-bouncer-networks">Using bouncer networks</a></h2>
+<blockquote>
+<p>⚠️  The soju bouncer networks specification <em>requires</em> that SASL be used. If you do not use SASL, you must add servers in the legacy fashion.</p>
+</blockquote>
+<p>As of 2025.9 Halloy supports <a href="https://codeberg.org/emersion/soju/src/branch/master/doc/ext/bouncer-networks.md"><code>bouncer networks</code></a> so connecting to individual servers is no longer needed. Instead, Halloy can communicate with soju to determine what networks you are currently connected to and then automatically add them in the UI.</p>
+<p>If this is not desired, you can still add individual servers with the ZNC username syntax, for example:</p>
+<pre><code>[servers.libera]
+nickname = "&lt;your-nickname&gt;"
+server = "&lt;your-bouncer-url&gt;"
+port = 6697
+[servers.soju.sasl.plain]
+username = "&lt;your-username&gt;/irc.libera.chat"
+password = "&lt;your-password&gt;"
+</code></pre>
+<h2 id="using-chathistory"><a class="header" href="#using-chathistory">Using chathistory</a></h2>
+<p>You can enable infinite scrolling history if you want to automatically load older messages.</p>
 <pre><code class="language-toml">[buffer.chathistory]
 infinite_scroll = true
 </code></pre>
@@ -653,7 +669,7 @@ cd halloy
 <ul>
 <li>Windows: <code>%AppData%\halloy</code></li>
 <li>Mac: <code>~/Library/Application Support/halloy</code> or <code>$HOME/.config/halloy</code></li>
-<li>Linux: <code>$XDG_CONFIG_HOME/halloy</code> or <code>$HOME/.config/halloy</code></li>
+<li>Linux: <code>$XDG_CONFIG_HOME/halloy</code>, <code>$HOME/.config/halloy</code> or <code>$HOME/.var/app/org.squidowl.halloy/config</code> (Flatpak)</li>
 </ul>
 <blockquote>
 <p>💡 You can easily open the config file directory from command bar in Halloy</p>
@@ -777,6 +793,7 @@ focused_buffer = "close-pane"
 </li>
 <li><a href="configuration/buffer.html#bufferchathistory">Chathistory</a> - IRCv3 Chat History extension settings</li>
 <li><a href="configuration/buffer.html#buffercommands">Commands</a> - Commands settings</li>
+<li><a href="configuration/buffer.html#bufferbacklog_separator">Backlog Separator</a> - Customize when the backlog separator is displayed within a buffer</li>
 <li><a href="configuration/buffer.html#bufferdate_separators">Date Separators</a> - Customize how date separators are displayed within a buffer</li>
 <li><a href="configuration/buffer.html#bufferemojis">Emojis</a> - Emojis settings</li>
 <li><a href="configuration/buffer.html#bufferinternal_messages">Internal Messages</a> - Internal messages are messages sent from Halloy itself</li>
@@ -787,6 +804,7 @@ focused_buffer = "close-pane"
 <li><a href="configuration/buffer.html#buffertext_input">Text Input</a> - Customize the text input for in buffers</li>
 <li><a href="configuration/buffer.html#buffertimestamp">Timestamp</a> - Customize how timestamps are displayed within a buffer</li>
 <li><a href="configuration/buffer.html#bufferurl">Url</a> - URLs in buffers</li>
+<li><a href="configuration/buffer.html#line_spacing">Line Spacing</a> - Line spacing in buffers</li>
 </ol>
 <h2 id="bufferchannel"><a class="header" href="#bufferchannel"><code>[buffer.channel]</code></a></h2>
 <p>Channel specific settings</p>
@@ -867,7 +885,7 @@ show_access_levels = true
 <h4 id="width"><a class="header" href="#width"><code>width</code></a></h4>
 <p>Overwrite nicklist width in pixels.</p>
 <pre><code class="language-toml"># Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: not set
 
 [buffer.channel.nicklist]
@@ -900,7 +918,7 @@ enabled = true
 <h4 id="max_lines"><a class="header" href="#max_lines"><code>max_lines</code></a></h4>
 <p>Amount of visible lines before you have to scroll in topic banner.</p>
 <pre><code class="language-toml"># Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: 2
 
 [buffer.channel.topic]
@@ -931,11 +949,21 @@ show_description = false
 [buffer.commands]
 show_description = true
 </code></pre>
+<h2 id="bufferbacklog_separator"><a class="header" href="#bufferbacklog_separator"><code>[buffer.backlog_separator]</code></a></h2>
+<p>Customize when the backlog separator is displayed within a buffer</p>
+<h3 id="hide_when_all_read"><a class="header" href="#hide_when_all_read"><code>hide_when_all_read</code></a></h3>
+<p>Hide backlog divider when all messages in the buffer have been marked as read.</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: false
+
+[buffer.buffer_separator]
+hide_when_all_read = true
+</code></pre>
 <h2 id="bufferdate_separators"><a class="header" href="#bufferdate_separators"><code>[buffer.date_separators]</code></a></h2>
 <p>Customize how date separators are displayed within a buffer</p>
 <h3 id="format"><a class="header" href="#format"><code>format</code></a></h3>
-<p>Controls the date format. The expected format is <a href="https://pubs.opengroup.org/onlinepubs/007908799/xsh/strftime.html">strftime</a>.<br />
-NOTE: The application will panic if a invalid format is provided.</p>
+<p>Controls the date format. The expected format is <a href="https://pubs.opengroup.org/onlinepubs/007908799/xsh/strftime.html">strftime</a>.</p>
 <pre><code class="language-toml"># Type: string
 # Values: any valid strftime string
 # Default: "%A, %B %-d"
@@ -1012,7 +1040,7 @@ enabled = true
 <h4 id="smart"><a class="header" href="#smart"><code>smart</code></a></h4>
 <p>Only show internal message if received within the given time duration (seconds).</p>
 <pre><code class="language-toml"># Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: not set
 
 [buffer.internal_messages.success]
@@ -1032,7 +1060,7 @@ enabled = true
 <h4 id="smart-1"><a class="header" href="#smart-1"><code>smart</code></a></h4>
 <p>Only show internal message if received within the given time duration (seconds).</p>
 <pre><code class="language-toml"># Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: not set
 
 [buffer.internal_messages.error]
@@ -1050,13 +1078,13 @@ smart = 180
 on_application_exit = false
 </code></pre>
 <h3 id="on_buffer_close"><a class="header" href="#on_buffer_close"><code>on_buffer_close</code></a></h3>
-<p>When closing a buffer (a buffer is considered closed when it is replaced or if it is open when the application exits).</p>
+<p>When closing a buffer (a buffer is considered closed when it is replaced or if it is open when the application exits).  If set to <code>"scrolled-to-bottom"</code> then a buffer will only be marked as read if it is scrolled to the bottom when closing (i.e. if the most recent messages are visible).</p>
 <pre><code class="language-toml"># Type: boolean
-# Values: true, false
-# Default: true
+# Values: true, false, "scrolled-to-bottom"
+# Default: "scrolled-to-bottom"
 
 [buffer.mark_as_read]
-on_buffer_close = true
+on_buffer_close = "scrolled-to-bottom"
 </code></pre>
 <h3 id="on_scroll_to_bottom"><a class="header" href="#on_scroll_to_bottom"><code>on_scroll_to_bottom</code></a></h3>
 <p>When scrolling to the bottom of a buffer.</p>
@@ -1166,7 +1194,7 @@ click = "open-query"
 <h3 id="truncate"><a class="header" href="#truncate"><code>truncate</code></a></h3>
 <p>Truncate nicknames in buffer to a maximum length</p>
 <pre><code class="language-toml"># Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: not set
 
 [buffer.nickname]
@@ -1178,7 +1206,9 @@ truncate = 10
 <tr><td><code>change_host</code></td><td>Message is sent when a user changes host</td></tr>
 <tr><td><code>change_mode</code></td><td>Message is sent when a mode is set</td></tr>
 <tr><td><code>change_nick</code></td><td>Message is sent when a user changes nick</td></tr>
+<tr><td><code>change_topic</code></td><td>Message is sent when a channel topic is changed</td></tr>
 <tr><td><code>join</code></td><td>Message is sent when a user joins a channel</td></tr>
+<tr><td><code>kick</code></td><td>Message is sent when a user is kicked from a channel</td></tr>
 <tr><td><code>monitored_offline</code></td><td>Message is sent when a monitored user goes offline</td></tr>
 <tr><td><code>monitored_online</code></td><td>Message is sent when a monitored user goes online</td></tr>
 <tr><td><code>part</code></td><td>Message is sent when a user leaves a channel</td></tr>
@@ -1213,7 +1243,7 @@ enabled = true
 <h3 id="smart-2"><a class="header" href="#smart-2"><code>smart</code></a></h3>
 <p>Only show server message if the user has sent a message in the given time interval (seconds) prior to the server message.</p>
 <pre><code class="language-toml"># Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: not set
 
 [buffer.server_messages.&lt;server_message&gt;]
@@ -1351,6 +1381,15 @@ brackets = { left = "[", right = "]" }
 [buffer.url]
 prompt_before_open = true
 </code></pre>
+<h2 id="line_spacing"><a class="header" href="#line_spacing"><code>[line_spacing]</code></a></h2>
+<p>Setting to control spacing between messages in buffers</p>
+<pre><code class="language-toml"># Type: integer
+# Values: positive integers
+# Default: 0
+
+[buffer]
+line_spacing = 4
+</code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="ctcp"><a class="header" href="#ctcp"><code>[ctcp]</code></a></h1>
 <p><a href="https://modern.ircdocs.horse/ctcp">Client-to-Client Protocol</a> response settings.</p>
 <p><strong>Example</strong></p>
@@ -1399,7 +1438,7 @@ version = true
 <div style="break-before: page; page-break-before: always;"></div><h1 id="file_transfer"><a class="header" href="#file_transfer"><code>[file_transfer]</code></a></h1>
 <p>File transfer configuration options.</p>
 <h2 id="save_directory"><a class="header" href="#save_directory"><code>save_directory</code></a></h2>
-<p>Default directory to save files in. If not set, user will see a file dialog.</p>
+<p>Default directory to save files in. If not set, user will see a file dialog. <sup class="footnote-reference" id="fr-1-1"><a href="#footnote-1">1</a></sup></p>
 <pre><code class="language-toml"># Type: string
 # Values: any string
 # Default: not set
@@ -1419,7 +1458,7 @@ passive = true
 <h2 id="timeout"><a class="header" href="#timeout"><code>timeout</code></a></h2>
 <p>Time (in seconds) to wait before timing out a transfer waiting to be accepted.</p>
 <pre><code class="language-toml"># Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: 300
 
 [file_transfer]
@@ -1449,7 +1488,7 @@ bind_address = "&lt;some ip&gt;"
 <h2 id="bind_port_first"><a class="header" href="#bind_port_first"><code>bind_port_first</code></a></h2>
 <p>First port in port range to bind to.</p>
 <pre><code class="language-toml"># Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: not set
 
 [file_transfer.server]
@@ -1458,7 +1497,7 @@ bind_port_first = 1024
 <h2 id="bind_port_last"><a class="header" href="#bind_port_last"><code>bind_port_last</code></a></h2>
 <p>Last port in port range to bind to.</p>
 <pre><code class="language-toml"># Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: not set
 
 [file_transfer.server]
@@ -1502,7 +1541,11 @@ masks = [
     '''.*@foobar\.com'''
 ]
 </code></pre>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="font"><a class="header" href="#font"><code>[font]</code></a></h1>
+<hr>
+<ol class="footnote-definition"><li id="footnote-1">
+<p>Relative paths are prefixed with the config directory (i.e. if you have your config.toml in <code>/home/me/.config/halloy/config.toml</code>, path <code>.passwd/libera</code> will be converted to <code>/home/me/.config/halloy/.passwd/libera</code>). <a href="#fr-1-1">↩</a></p>
+</li>
+</ol><div style="break-before: page; page-break-before: always;"></div><h1 id="font"><a class="header" href="#font"><code>[font]</code></a></h1>
 <p>Application wide font settings.</p>
 <blockquote>
 <p>⚠️  Changes to font settings require an application restart to take effect.</p>
@@ -1589,6 +1632,16 @@ If you pass <code>["#halloy"]</code>, you will only be highlighted in that chann
 exclude = ["*"]
 include = ["#halloy"]
 </code></pre>
+<h3 id="case_insensitive"><a class="header" href="#case_insensitive"><code>case_insensitive</code></a></h3>
+<p>Whether or not to trigger regardless nickname highlight regardless of case.
+Uses the casemapping <a href="https://modern.ircdocs.horse/#casemapping-parameter">specified by server</a>.</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: true
+
+[highlights.nickname]
+case_insensitive = false
+</code></pre>
 <h2 id="highlightsmatch"><a class="header" href="#highlightsmatch"><code>[[highlights.match]]</code></a></h2>
 <p>Highlight based on matches.</p>
 <h3 id="words"><a class="header" href="#words"><code>words</code></a></h3>
@@ -1601,7 +1654,7 @@ include = ["#halloy"]
 [[highlights.match]]
 words = ["word1", "word2", "word3"]
 </code></pre>
-<h3 id="case_insensitive"><a class="header" href="#case_insensitive"><code>case_insensitive</code></a></h3>
+<h3 id="case_insensitive-1"><a class="header" href="#case_insensitive-1"><code>case_insensitive</code></a></h3>
 <p>This option is only available when using <code>words</code> as the match type.
 You can choose whether or not to trigger regardless of case.</p>
 <pre><code class="language-toml"># Type: boolean
@@ -1671,8 +1724,8 @@ move_right = "alt+l"
 <tr><td><code>restore_buffer</code></td><td>Restore focused buffer</td><td><kbd>⌘</kbd> + <kbd>shift</kbd> + <kbd>↓</kbd></td><td><kbd>ctrl</kbd> + <kbd>shift</kbd> + <kbd>↓</kbd></td></tr>
 <tr><td><code>cycle_next_buffer</code></td><td>Cycle to next buffer</td><td><kbd>ctrl</kbd> + <kbd>tab</kbd></td><td><kbd>ctrl</kbd> + <kbd>tab</kbd></td></tr>
 <tr><td><code>cycle_previous_buffer</code></td><td>Cycle to previous buffer</td><td><kbd>ctrl</kbd> + <kbd>shift</kbd> + <kbd>tab</kbd></td><td><kbd>ctrl</kbd> + <kbd>shift</kbd> + <kbd>tab</kbd></td></tr>
-<tr><td><code>cycle_next_unread_buffer</code></td><td>Cycle to next buffer</td><td><kbd>ctrl</kbd> + <kbd>tab</kbd></td><td><kbd>ctrl</kbd> + <kbd>tab</kbd></td></tr>
-<tr><td><code>cycle_previous_unread_buffer</code></td><td>Cycle to previous buffer</td><td><kbd>ctrl</kbd> + <kbd>shift</kbd> + <kbd>tab</kbd></td><td><kbd>ctrl</kbd> + <kbd>shift</kbd> + <kbd>tab</kbd></td></tr>
+<tr><td><code>cycle_next_unread_buffer</code></td><td>Cycle to next buffer</td><td><kbd>ctrl</kbd> + <kbd>`</kbd></td><td><kbd>ctrl</kbd> + <kbd>`</kbd></td></tr>
+<tr><td><code>cycle_previous_unread_buffer</code></td><td>Cycle to previous buffer</td><td><kbd>ctrl</kbd> + <kbd>shift</kbd> + <kbd>`</kbd></td><td><kbd>ctrl</kbd> + <kbd>shift</kbd> + <kbd>`</kbd></td></tr>
 <tr><td><code>scroll_up_page</code></td><td>Scroll buffer up a page</td><td><kbd>Fn</kbd> + <kbd>↑</kbd></td><td><kbd>pageup</kbd></td></tr>
 <tr><td><code>scroll_down_page</code></td><td>Scroll buffer down a page</td><td><kbd>Fn</kbd> + <kbd>↓</kbd></td><td><kbd>pagedown</kbd></td></tr>
 <tr><td><code>scroll_to_top</code></td><td>Scroll to top of buffer</td><td><kbd>⌘</kbd> + <kbd>↑</kbd></td><td><kbd>ctrl</kbd> + <kbd>↑</kbd></td></tr>
@@ -1700,7 +1753,7 @@ The log file is overwritten on each launch (i.e. contains log messages for the l
 <ul>
 <li>Windows: <code>%AppData%\Roaming\halloy\halloy.log</code></li>
 <li>Mac: <code>~/Library/Application Support/halloy/halloy.log</code> or <code>$HOME/.local/share/halloy/halloy.log</code></li>
-<li>Linux: <code>$XDG_DATA_HOME/halloy/halloy.log</code> or <code>$HOME/.local/share/halloy/halloy.log</code></li>
+<li>Linux: <code>$XDG_DATA_HOME/halloy/halloy.log</code>, <code>$HOME/.local/share/halloy/halloy.log</code>, or <code>$HOME/.var/app/org.squidowl.halloy/data/halloy/halloy.log</code> (Flatpak)</li>
 </ul>
 <blockquote>
 <p>⚠️  Changes to file_level require an application restart to take effect.</p>
@@ -1776,7 +1829,7 @@ show_content = true
 <h2 id="delay"><a class="header" href="#delay"><code>delay</code></a></h2>
 <p>Delay in milliseconds before triggering the next notification.</p>
 <pre><code class="language-toml"># Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: 500
 
 [notifications.&lt;notification&gt;]
@@ -1817,12 +1870,21 @@ include = ["HalloyUser1", "#halloy"]
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="pane"><a class="header" href="#pane"><code>[pane]</code></a></h1>
 <p>Pane settings for Halloy. A pane contains a <a href="configuration/../configuration//buffer.html">buffer</a>.</p>
+<h2 id="restore_on_launch"><a class="header" href="#restore_on_launch"><code>restore_on_launch</code></a></h2>
+<p>Restore the panes that were open when Halloy was last closed when launching the application.</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: true
+
+[pane]
+restore_on_launch = false
+</code></pre>
 <h2 id="scrollbar"><a class="header" href="#scrollbar"><code>scrollbar</code></a></h2>
 <p>Scrollbar configuration.</p>
 <h3 id="width-1"><a class="header" href="#width-1">width</a></h3>
 <p>Width of the scrollbar.</p>
 <pre><code class="language-toml"># Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: 5
 
 [pane.scrollbar]
@@ -1831,17 +1893,17 @@ width = 5
 <h3 id="width-2"><a class="header" href="#width-2">width</a></h3>
 <p>Width of the scrollbar scroller.</p>
 <pre><code class="language-toml"># Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: 5
 
 [pane.scrollbar]
 scroller_width = 5
 </code></pre>
 <h2 id="split_axis"><a class="header" href="#split_axis"><code>split_axis</code></a></h2>
-<p>Default axis used when splitting a pane (i.e. default orientation of the divider between panes).</p>
+<p>Default axis used when splitting the focused pane to create a new pane (i.e. default orientation of the divider between panes).  <code>"shorter"</code> will compare the width and height of the pane to select the splitting axis;  if the width is shorter then the horizontal axis is selected, and if the height is hosrter then the vertical axis is selected.  <code>"largest-shorter"</code> will split the largest pane in the main window using the same method as <code>"shorter"</code>, rather than splitting the focused pane.</p>
 <pre><code class="language-toml"># Type: string
-# Values: "horizontal", "vertical"
-# Default: "horizontal"
+# Values: "horizontal", "largest-shorter", "shorter", "vertical"
+# Default: "shorter"
 
 [pane]
 split_axis = "vertical"
@@ -1869,7 +1931,7 @@ host = "192.168.1.100"
 <h3 id="port"><a class="header" href="#port"><code>port</code></a></h3>
 <p>Proxy port to connect on.</p>
 <pre><code class="language-toml"># Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: not set
 
 # Required
@@ -1922,7 +1984,7 @@ host = "192.168.1.100"
 <h3 id="port-1"><a class="header" href="#port-1"><code>port</code></a></h3>
 <p>Proxy port to connect on.</p>
 <pre><code class="language-toml"># Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: not set
 
 # Required
@@ -1995,7 +2057,7 @@ user_agent = "WhatsApp/2"
 <h3 id="timeout_ms"><a class="header" href="#timeout_ms"><code>timeout_ms</code></a></h3>
 <p>Request timeout in milliseconds. Defaults is 10s.</p>
 <pre><code class="language-toml"># Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: 10000
 
 [preview.request]
@@ -2004,7 +2066,7 @@ timeout_ms = 10000
 <h3 id="max_image_size"><a class="header" href="#max_image_size"><code>max_image_size</code></a></h3>
 <p>Max image size in bytes. This prevents downloading responses that are too big. Default is 10mb.</p>
 <pre><code class="language-toml"># Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: 10485760
 
 [preview.request]
@@ -2013,7 +2075,7 @@ max_image_size = 10485760
 <h3 id="max_scrape_size"><a class="header" href="#max_scrape_size"><code>max_scrape_size</code></a></h3>
 <p>Max bytes streamed when scraping for opengraph metadata before cancelling the request. This prevents downloading responses that are too big. Default is 500kb.</p>
 <pre><code class="language-toml"># Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: 512000
 
 [preview.request]
@@ -2022,7 +2084,7 @@ max_scrape_size = 512000
 <h3 id="concurrency"><a class="header" href="#concurrency"><code>concurrency</code></a></h3>
 <p>Number of allowed concurrent requests for fetching previews. Reduce this to prevent rate-limiting.</p>
 <pre><code class="language-toml"># Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: 4
 
 [preview.request]
@@ -2031,7 +2093,7 @@ concurrency = 4
 <h3 id="delay_ms"><a class="header" href="#delay_ms"><code>delay_ms</code></a></h3>
 <p>Number of milliseconds to wait before requesting another preview when number of requested previews &gt; <code>concurrency</code>.</p>
 <pre><code class="language-toml"># Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: 500
 
 [preview.request]
@@ -2146,7 +2208,7 @@ nickname = ""
 nick_password = ""
 </code></pre>
 <h2 id="nick_password_file"><a class="header" href="#nick_password_file"><code>nick_password_file</code></a></h2>
-<p>Read <code>nick_password</code> from the file at the given path.<sup class="footnote-reference" id="fr-1-1"><a href="#footnote-1">1</a></sup></p>
+<p>Read <code>nick_password</code> from the file at the given path.<sup class="footnote-reference" id="fr-1-1"><a href="#footnote-1">1</a></sup> <sup class="footnote-reference" id="fr-2-1"><a href="#footnote-2">2</a></sup></p>
 <pre><code class="language-toml"># Type: string
 # Values: any string
 # Default: not set
@@ -2220,7 +2282,7 @@ server = "irc.libera.chat"
 <h2 id="port-2"><a class="header" href="#port-2"><code>port</code></a></h2>
 <p>The port to connect on. If you want to use a plain text port like 6667 you MUST also change the <code>use_tls</code> setting.</p>
 <pre><code class="language-toml"># Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: 6697
 
 [servers.&lt;name&gt;]
@@ -2236,7 +2298,7 @@ port = 6697
 password = ""
 </code></pre>
 <h2 id="password_file"><a class="header" href="#password_file"><code>password_file</code></a></h2>
-<p>Read password from the file at the given path.<sup class="footnote-reference" id="fr-1-2"><a href="#footnote-1">1</a></sup></p>
+<p>Read password from the file at the given path.<sup class="footnote-reference" id="fr-1-2"><a href="#footnote-1">1</a></sup> <sup class="footnote-reference" id="fr-2-2"><a href="#footnote-2">2</a></sup></p>
 <pre><code class="language-toml"># Type: string
 # Values: any string
 # Default: not set
@@ -2298,16 +2360,16 @@ channel_keys = { channel1 = "key1" }
 <h2 id="ping_time"><a class="header" href="#ping_time"><code>ping_time</code></a></h2>
 <p>The amount of inactivity in seconds before the client will ping the server.</p>
 <pre><code class="language-toml"># Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: 180
 
 [servers.&lt;name&gt;]
 ping_time = 180
 </code></pre>
 <h2 id="ping_timeout"><a class="header" href="#ping_timeout"><code>ping_timeout</code></a></h2>
-<p>The amount of time in seconds for a client to reconnect due to no ping response.</p>
+<p>The amount of time in seconds to wait for a ping response before attempting to reconnect.</p>
 <pre><code class="language-toml"># Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: 20
 
 [servers.&lt;name&gt;]
@@ -2316,7 +2378,7 @@ ping_timeout = 20
 <h2 id="reconnect_delay"><a class="header" href="#reconnect_delay"><code>reconnect_delay</code></a></h2>
 <p>The amount of time in seconds before attempting to reconnect to the server when disconnected.</p>
 <pre><code class="language-toml"># Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: 10
 
 [servers.&lt;name&gt;]
@@ -2368,7 +2430,7 @@ use_tls = true
 dangerously_accept_invalid_certs = false
 </code></pre>
 <h2 id="root_cert_path"><a class="header" href="#root_cert_path"><code>root_cert_path</code></a></h2>
-<p>The path to the root TLS certificate for this server in PEM format.<sup class="footnote-reference" id="fr-1-3"><a href="#footnote-1">1</a></sup></p>
+<p>The path to the root TLS certificate for this server in PEM format.<sup class="footnote-reference" id="fr-1-3"><a href="#footnote-1">1</a></sup> <sup class="footnote-reference" id="fr-2-3"><a href="#footnote-2">2</a></sup></p>
 <pre><code class="language-toml"># Type: string
 # Values: any string
 # Default: not set
@@ -2445,7 +2507,7 @@ username = "username"
 password = "password"
 </code></pre>
 <h3 id="password_file-1"><a class="header" href="#password_file-1"><code>password_file</code></a></h3>
-<p>Read <code>password</code> from the file at the given path.<sup class="footnote-reference" id="fr-1-4"><a href="#footnote-1">1</a></sup></p>
+<p>Read <code>password</code> from the file at the given path.<sup class="footnote-reference" id="fr-1-4"><a href="#footnote-1">1</a></sup> <sup class="footnote-reference" id="fr-2-4"><a href="#footnote-2">2</a></sup></p>
 <pre><code class="language-toml"># Type: string
 # Values: any string
 # Default: not set
@@ -2474,7 +2536,7 @@ password_command = ""
 <h2 id="saslexternal"><a class="header" href="#saslexternal"><code>sasl.external</code></a></h2>
 <p>External SASL auth uses a PEM encoded X509 certificate. <a href="https://libera.chat/guides/certfp">Reference</a>.</p>
 <h3 id="cert"><a class="header" href="#cert"><code>cert</code></a></h3>
-<p>The path to PEM encoded X509 user certificate for external auth.<sup class="footnote-reference" id="fr-1-5"><a href="#footnote-1">1</a></sup></p>
+<p>The path to PEM encoded X509 user certificate for external auth.<sup class="footnote-reference" id="fr-1-5"><a href="#footnote-1">1</a></sup> <sup class="footnote-reference" id="fr-2-5"><a href="#footnote-2">2</a></sup></p>
 <pre><code class="language-toml"># Type: string
 # Values: any string
 # Default: not set
@@ -2483,7 +2545,7 @@ password_command = ""
 cert = "/path/to/your/certificate.pem"
 </code></pre>
 <h3 id="key"><a class="header" href="#key"><code>key</code></a></h3>
-<p>The path to PEM encoded PKCS#8 private key for external auth (optional).<sup class="footnote-reference" id="fr-1-6"><a href="#footnote-1">1</a></sup></p>
+<p>The path to PEM encoded PKCS#8 private key for external auth (optional).<sup class="footnote-reference" id="fr-1-6"><a href="#footnote-1">1</a></sup> <sup class="footnote-reference" id="fr-2-6"><a href="#footnote-2">2</a></sup></p>
 <pre><code class="language-toml"># Type: string
 # Values: any string
 # Default: not set
@@ -2495,16 +2557,19 @@ key = "/path/to/your/private_key.pem"
 <ol class="footnote-definition"><li id="footnote-1">
 <p>Windows path strings should usually be specified as literal strings (e.g. <code>'C:\Users\Default\'</code>), otherwise directory separators will need to be escaped (e.g. <code>"C:\\Users\\Default\\"</code>). <a href="#fr-1-1">↩</a> <a href="#fr-1-2">↩2</a> <a href="#fr-1-3">↩3</a> <a href="#fr-1-4">↩4</a> <a href="#fr-1-5">↩5</a> <a href="#fr-1-6">↩6</a></p>
 </li>
+<li id="footnote-2">
+<p>Relative paths are prefixed with the config directory (i.e. if you have your config.toml in <code>/home/me/.config/halloy/config.toml</code>, path <code>.passwd/libera</code> will be converted to <code>/home/me/.config/halloy/.passwd/libera</code>). <a href="#fr-2-1">↩</a> <a href="#fr-2-2">↩2</a> <a href="#fr-2-3">↩3</a> <a href="#fr-2-4">↩4</a> <a href="#fr-2-5">↩5</a> <a href="#fr-2-6">↩6</a></p>
+</li>
 </ol><div style="break-before: page; page-break-before: always;"></div><h1 id="sidebar"><a class="header" href="#sidebar"><code>[sidebar]</code></a></h1>
 <p>Sidebar settings for Halloy.</p>
-<h2 id="unread_indicator"><a class="header" href="#unread_indicator"><code>unread_indicator</code></a></h2>
-<p>Unread buffer indicator style.</p>
-<pre><code class="language-toml"># Type: string
-# Values: "dot", "title", "none"
-# Default: "dot"
+<h2 id="server_icon_size"><a class="header" href="#server_icon_size"><code>server_icon_size</code></a></h2>
+<p>Adjust server icon size</p>
+<pre><code class="language-toml"># Type: integer
+# Values: any positive integer"
+# Default: 12
 
 [sidebar]
-unread_indicator = "dot"
+server_icon_size = 12
 </code></pre>
 <h2 id="position-1"><a class="header" href="#position-1"><code>position</code></a></h2>
 <p>Sidebar position within the application window.</p>
@@ -2518,7 +2583,7 @@ position = "left"
 <h2 id="max_width"><a class="header" href="#max_width"><code>max_width</code></a></h2>
 <p>Specify sidebar max width in pixels. Only used if <code>position</code> is <code>"left"</code> or <code>"right"</code>.</p>
 <pre><code class="language-toml"># Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: not set
 
 [sidebar]
@@ -2551,7 +2616,7 @@ order_by = "config"
 <h3 id="width-3"><a class="header" href="#width-3">width</a></h3>
 <p>Width of the scrollbar.</p>
 <pre><code class="language-toml"># Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: 5
 
 [sidebar.scrollbar]
@@ -2560,29 +2625,82 @@ width = 5
 <h3 id="width-4"><a class="header" href="#width-4">width</a></h3>
 <p>Width of the scrollbar scroller.</p>
 <pre><code class="language-toml"># Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: 5
 
 [sidebar.scrollbar]
 scroller_width = 5
 </code></pre>
+<h2 id="unread_indicator"><a class="header" href="#unread_indicator"><code>unread_indicator</code></a></h2>
+<p>Unread buffer indicator style.</p>
+<h3 id="title"><a class="header" href="#title"><code>title</code></a></h3>
+<p>Changes buffer title color when unread messages are present</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: false
+
+[sidebar.unread_indicator]
+title = false
+</code></pre>
+<h3 id="icon"><a class="header" href="#icon"><code>icon</code></a></h3>
+<p>Changes the icon which appears when unread messages are present. To disable use <code>"none"</code>.</p>
+<pre><code class="language-toml"># Type: string
+# Values: "dot", "circle-empty", "dot-circled", "certificate", "asterisk", "speaker", "lightbulb", "star", "none"
+# Default: "dot"
+
+[sidebar.unread_indicator]
+icon = "dot"
+</code></pre>
+<h3 id="highlight_icon"><a class="header" href="#highlight_icon"><code>highlight_icon</code></a></h3>
+<p>Changes the icon which appears when unread highlight messages are present. To disable use <code>"none"</code>.</p>
+<pre><code class="language-toml"># Type: string
+# Values: "dot", "circle-empty", "dot-circled", "certificate", "asterisk", "speaker", "lightbulb", "star", "none"
+# Default: "dot"
+
+[sidebar.unread_indicator]
+highlight_icon = "circle-empty"
+</code></pre>
+<h3 id="icon_size"><a class="header" href="#icon_size"><code>icon_size</code></a></h3>
+<p>Changes the unread icon size.</p>
+<pre><code class="language-toml"># Type: integer
+# Values: any positive integer"
+# Default: 6
+
+[sidebar.unread_indicator]
+icon_size = 6
+</code></pre>
+<h3 id="highlight_icon_size"><a class="header" href="#highlight_icon_size"><code>highlight_icon_size</code></a></h3>
+<p>Changes the highlight unread icon size.</p>
+<pre><code class="language-toml"># Type: integer
+# Values: any positive integer"
+# Default: 8
+
+[sidebar.unread_indicator]
+highlight_icon_size = 8
+</code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="themes"><a class="header" href="#themes">Themes</a></h1>
 <h2 id="example-5"><a class="header" href="#example-5">Example</a></h2>
-<pre><code class="language-toml"># Static
+<pre><code class="language-toml"># Static single
 theme = "ferra"
 
-# Dynamic
+# Static multiple (random selection)
+theme = ["ferra", "booberry"]
+
+# Dynamic single
 theme = { light = "ferra-light", dark = "ferra" }
+
+# Dynamic multiple (random selection)
+theme = { light = ["ferra-light", "booberry-light"], dark = ["ferra", "booberry"] }
 </code></pre>
 <blockquote>
 <p>⚠️  <code>theme</code> is a root key, so it must be placed before every section.</p>
 </blockquote>
 <h2 id="theme"><a class="header" href="#theme"><code>theme</code></a></h2>
 <p>Specify the theme name(s) to use. The theme must correspond to a file located in the <code>themes</code> folder, which can be found in the Halloy configuration directory. The default theme in Halloy is <a href="https://github.com/casperstorm/ferra/">Ferra</a>.</p>
-<p>When a dynamic theme is used, Halloy will match the appearance of the OS.</p>
+<p>When multiple themes are specified, Halloy will randomly select one each time the application starts. When a dynamic theme is used, Halloy will match the appearance of the OS.</p>
 <ul>
-<li><strong>type</strong>: string or object</li>
-<li><strong>values</strong>: <code>"&lt;string&gt;"</code>, <code>{ light = "&lt;string&gt;", dark = "&lt;string&gt;" }</code></li>
+<li><strong>type</strong>: string, array of strings, or object</li>
+<li><strong>values</strong>: <code>"&lt;string&gt;"</code>, <code>["&lt;string&gt;", "&lt;string&gt;"]</code>, <code>{ light = "&lt;string&gt;", dark = "&lt;string&gt;" }</code>, <code>{ light = ["&lt;string&gt;", "&lt;string&gt;"], dark = ["&lt;string&gt;", "&lt;string&gt;"] }</code></li>
 <li><strong>default</strong>: <code>"ferra"</code></li>
 </ul>
 <blockquote>
@@ -2606,6 +2724,7 @@ border = "&lt;string&gt;"
 horizontal_rule = "&lt;string&gt;"
 scrollbar = "&lt;string&gt;"
 unread_indicator = "&lt;string&gt;"
+highlight_indicator = "&lt;string&gt;"
 
 [text]
 primary = "&lt;string&gt;"
@@ -2654,6 +2773,7 @@ url = "&lt;string&gt;"
 # change_mode = "&lt;string&gt;"
 # change_nick = "&lt;string&gt;"
 # join = "&lt;string&gt;"
+# kick = "&lt;string&gt;"
 # part = "&lt;string&gt;"
 # quit = "&lt;string&gt;"
 # reply_topic = "&lt;string&gt;"
@@ -2733,29 +2853,44 @@ A list of community created themes can be found <a href="./configuration/themes/
 <p>Example</p>
 <pre><code>/me says halloy!
 </code></pre>
-<p>Halloy will first try to run below commands, and lastly send it directly to the server.</p>
+<p>Halloy will first try to run below commands, and lastly send it directly to the server.
+The argument(s) for a command are shown in <a href="configuration/tooltips.html">tooltips</a>, and those marked with a <code>*</code> will show an additional tooltip with argument-specific information on mouseover.</p>
 <div class="table-wrapper"><table><thead><tr><th>Command</th><th>Alias</th><th>Description</th></tr></thead><tbody>
 <tr><td><code>away</code></td><td></td><td>Mark yourself as away. If already away, the status is removed</td></tr>
 <tr><td><code>clear</code></td><td></td><td>Clear the message history in the current buffer</td></tr>
-<tr><td><code>ctcp</code></td><td></td><td>Client-To-Client requests</td></tr>
+<tr><td><code>cleartopic</code></td><td><code>ct</code></td><td>Clear the topic of a channel<sup class="footnote-reference" id="fr-1-1"><a href="#footnote-1">1</a></sup></td></tr>
+<tr><td><code>ctcp</code></td><td></td><td>Client-To-Client requests<sup class="footnote-reference" id="fr-2-1"><a href="#footnote-2">2</a></sup></td></tr>
 <tr><td><code>format</code></td><td><code>f</code></td><td>Format text with markdown and colors</td></tr>
 <tr><td><code>hop</code></td><td><code>rejoin</code></td><td>Part the current channel and join a new one</td></tr>
 <tr><td><code>join</code></td><td><code>j</code></td><td>Join channel(s) with optional key(s)</td></tr>
-<tr><td><code>kick</code></td><td></td><td>Kick a user from a channel</td></tr>
+<tr><td><code>kick</code></td><td></td><td>Kick a user from a channel<sup class="footnote-reference" id="fr-1-2"><a href="#footnote-1">1</a></sup></td></tr>
 <tr><td><code>me</code></td><td><code>describe</code></td><td>Send an action message to the channel</td></tr>
-<tr><td><code>mode</code></td><td><code>m</code></td><td>Set mode(s) on a channel or retrieve the current mode(s) set</td></tr>
+<tr><td><code>mode</code></td><td><code>m</code></td><td>Set mode(s) on a channel or retrieve the current mode(s) set<sup class="footnote-reference" id="fr-3-1"><a href="#footnote-3">3</a></sup></td></tr>
 <tr><td><code>monitor</code></td><td></td><td>System to notify when users become online/offline</td></tr>
 <tr><td><code>motd</code></td><td></td><td>Request the message of the day</td></tr>
 <tr><td><code>msg</code></td><td><code>query</code></td><td>Open a query with a nickname and send an optional message</td></tr>
 <tr><td><code>nick</code></td><td></td><td>Change your nickname on the current server</td></tr>
 <tr><td><code>notice</code></td><td></td><td>Send a notice message to a target</td></tr>
-<tr><td><code>part</code></td><td><code>leave</code></td><td>Leave channel(s) with an optional reason</td></tr>
+<tr><td><code>part</code></td><td><code>leave</code></td><td>Leave and close channel(s)/quer(ies) with an optional reason <sup class="footnote-reference" id="fr-4-1"><a href="#footnote-4">4</a></sup></td></tr>
 <tr><td><code>quit</code></td><td></td><td>Disconnect from the server with an optional reason</td></tr>
 <tr><td><code>raw</code></td><td></td><td>Send data to the server without modifying it</td></tr>
-<tr><td><code>topic</code></td><td><code>t</code></td><td>Retrieve the topic of a channel or set a new topic</td></tr>
+<tr><td><code>topic</code></td><td><code>t</code></td><td>Retrieve the topic of a channel or set a new topic<sup class="footnote-reference" id="fr-1-3"><a href="#footnote-1">1</a></sup></td></tr>
 <tr><td><code>whois</code></td><td></td><td>Retrieve information about user(s)</td></tr>
 </tbody></table>
-</div>
+</div><hr>
+<ol class="footnote-definition"><li id="footnote-1">
+<p>The <code>channel</code> argument can be skipped when used in a channel buffer to target the channel in the buffer. <a href="#fr-1-1">↩</a> <a href="#fr-1-2">↩2</a> <a href="#fr-1-3">↩3</a></p>
+</li>
+<li id="footnote-2">
+<p>The <code>nick</code> argument can be skipped when used in a query buffer to target the other user in the buffer. <a href="#fr-2-1">↩</a></p>
+</li>
+<li id="footnote-3">
+<p>The <code>target</code> argument can be skipped; in a channel buffer it will target the channel in the buffer, in a query buffer it will target the other user in the buffer, and in a server buffer it will target your user. <a href="#fr-3-1">↩</a></p>
+</li>
+<li id="footnote-4">
+<p>The <code>targets</code> argument can be skipped; in a channel or query buffer it will target the current buffer. <a href="#fr-4-1">↩</a></p>
+</li>
+</ol>
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">

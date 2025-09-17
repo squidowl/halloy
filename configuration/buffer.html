@@ -192,6 +192,7 @@
 </li>
 <li><a href="#bufferchathistory">Chathistory</a> - IRCv3 Chat History extension settings</li>
 <li><a href="#buffercommands">Commands</a> - Commands settings</li>
+<li><a href="#bufferbacklog_separator">Backlog Separator</a> - Customize when the backlog separator is displayed within a buffer</li>
 <li><a href="#bufferdate_separators">Date Separators</a> - Customize how date separators are displayed within a buffer</li>
 <li><a href="#bufferemojis">Emojis</a> - Emojis settings</li>
 <li><a href="#bufferinternal_messages">Internal Messages</a> - Internal messages are messages sent from Halloy itself</li>
@@ -202,6 +203,7 @@
 <li><a href="#buffertext_input">Text Input</a> - Customize the text input for in buffers</li>
 <li><a href="#buffertimestamp">Timestamp</a> - Customize how timestamps are displayed within a buffer</li>
 <li><a href="#bufferurl">Url</a> - URLs in buffers</li>
+<li><a href="#line_spacing">Line Spacing</a> - Line spacing in buffers</li>
 </ol>
 <h2 id="bufferchannel"><a class="header" href="#bufferchannel"><code>[buffer.channel]</code></a></h2>
 <p>Channel specific settings</p>
@@ -282,7 +284,7 @@ show_access_levels = true
 <h4 id="width"><a class="header" href="#width"><code>width</code></a></h4>
 <p>Overwrite nicklist width in pixels.</p>
 <pre><code class="language-toml"># Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: not set
 
 [buffer.channel.nicklist]
@@ -315,7 +317,7 @@ enabled = true
 <h4 id="max_lines"><a class="header" href="#max_lines"><code>max_lines</code></a></h4>
 <p>Amount of visible lines before you have to scroll in topic banner.</p>
 <pre><code class="language-toml"># Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: 2
 
 [buffer.channel.topic]
@@ -346,11 +348,21 @@ show_description = false
 [buffer.commands]
 show_description = true
 </code></pre>
+<h2 id="bufferbacklog_separator"><a class="header" href="#bufferbacklog_separator"><code>[buffer.backlog_separator]</code></a></h2>
+<p>Customize when the backlog separator is displayed within a buffer</p>
+<h3 id="hide_when_all_read"><a class="header" href="#hide_when_all_read"><code>hide_when_all_read</code></a></h3>
+<p>Hide backlog divider when all messages in the buffer have been marked as read.</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: false
+
+[buffer.buffer_separator]
+hide_when_all_read = true
+</code></pre>
 <h2 id="bufferdate_separators"><a class="header" href="#bufferdate_separators"><code>[buffer.date_separators]</code></a></h2>
 <p>Customize how date separators are displayed within a buffer</p>
 <h3 id="format"><a class="header" href="#format"><code>format</code></a></h3>
-<p>Controls the date format. The expected format is <a href="https://pubs.opengroup.org/onlinepubs/007908799/xsh/strftime.html">strftime</a>.<br />
-NOTE: The application will panic if a invalid format is provided.</p>
+<p>Controls the date format. The expected format is <a href="https://pubs.opengroup.org/onlinepubs/007908799/xsh/strftime.html">strftime</a>.</p>
 <pre><code class="language-toml"># Type: string
 # Values: any valid strftime string
 # Default: "%A, %B %-d"
@@ -427,7 +439,7 @@ enabled = true
 <h4 id="smart"><a class="header" href="#smart"><code>smart</code></a></h4>
 <p>Only show internal message if received within the given time duration (seconds).</p>
 <pre><code class="language-toml"># Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: not set
 
 [buffer.internal_messages.success]
@@ -447,7 +459,7 @@ enabled = true
 <h4 id="smart-1"><a class="header" href="#smart-1"><code>smart</code></a></h4>
 <p>Only show internal message if received within the given time duration (seconds).</p>
 <pre><code class="language-toml"># Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: not set
 
 [buffer.internal_messages.error]
@@ -465,13 +477,13 @@ smart = 180
 on_application_exit = false
 </code></pre>
 <h3 id="on_buffer_close"><a class="header" href="#on_buffer_close"><code>on_buffer_close</code></a></h3>
-<p>When closing a buffer (a buffer is considered closed when it is replaced or if it is open when the application exits).</p>
+<p>When closing a buffer (a buffer is considered closed when it is replaced or if it is open when the application exits).  If set to <code>"scrolled-to-bottom"</code> then a buffer will only be marked as read if it is scrolled to the bottom when closing (i.e. if the most recent messages are visible).</p>
 <pre><code class="language-toml"># Type: boolean
-# Values: true, false
-# Default: true
+# Values: true, false, "scrolled-to-bottom"
+# Default: "scrolled-to-bottom"
 
 [buffer.mark_as_read]
-on_buffer_close = true
+on_buffer_close = "scrolled-to-bottom"
 </code></pre>
 <h3 id="on_scroll_to_bottom"><a class="header" href="#on_scroll_to_bottom"><code>on_scroll_to_bottom</code></a></h3>
 <p>When scrolling to the bottom of a buffer.</p>
@@ -581,7 +593,7 @@ click = "open-query"
 <h3 id="truncate"><a class="header" href="#truncate"><code>truncate</code></a></h3>
 <p>Truncate nicknames in buffer to a maximum length</p>
 <pre><code class="language-toml"># Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: not set
 
 [buffer.nickname]
@@ -593,7 +605,9 @@ truncate = 10
 <tr><td><code>change_host</code></td><td>Message is sent when a user changes host</td></tr>
 <tr><td><code>change_mode</code></td><td>Message is sent when a mode is set</td></tr>
 <tr><td><code>change_nick</code></td><td>Message is sent when a user changes nick</td></tr>
+<tr><td><code>change_topic</code></td><td>Message is sent when a channel topic is changed</td></tr>
 <tr><td><code>join</code></td><td>Message is sent when a user joins a channel</td></tr>
+<tr><td><code>kick</code></td><td>Message is sent when a user is kicked from a channel</td></tr>
 <tr><td><code>monitored_offline</code></td><td>Message is sent when a monitored user goes offline</td></tr>
 <tr><td><code>monitored_online</code></td><td>Message is sent when a monitored user goes online</td></tr>
 <tr><td><code>part</code></td><td>Message is sent when a user leaves a channel</td></tr>
@@ -628,7 +642,7 @@ enabled = true
 <h3 id="smart-2"><a class="header" href="#smart-2"><code>smart</code></a></h3>
 <p>Only show server message if the user has sent a message in the given time interval (seconds) prior to the server message.</p>
 <pre><code class="language-toml"># Type: integer
-# Values: any positive integer
+# Values: any non-negative integer
 # Default: not set
 
 [buffer.server_messages.&lt;server_message&gt;]
@@ -765,6 +779,15 @@ brackets = { left = "[", right = "]" }
 
 [buffer.url]
 prompt_before_open = true
+</code></pre>
+<h2 id="line_spacing"><a class="header" href="#line_spacing"><code>[line_spacing]</code></a></h2>
+<p>Setting to control spacing between messages in buffers</p>
+<pre><code class="language-toml"># Type: integer
+# Values: positive integers
+# Default: 0
+
+[buffer]
+line_spacing = 4
 </code></pre>
 
                     </main>
