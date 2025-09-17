@@ -56,13 +56,13 @@ jobs:
         key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
     - name: Check
-      run: cargo check --profile ci
+      run: cargo check --locked --profile ci
 
     - name: Clippy
-      run: cargo clippy --profile ci --workspace --all-targets -- -D warnings
+      run: cargo clippy --locked --profile ci --workspace --all-targets -- -D warnings
 
     - uses: taiki-e/install-action@v2
       with:
         tool: cargo-nextest
     - name: Test
-      run: cargo nextest run --profile ci --workspace --all-targets
+      run: cargo nextest run --locked --profile ci --workspace --all-targets

@@ -25,8 +25,8 @@ sed -i '' -e "s/{{ BUILD }}/$BUILD/g" "$APP_TEMPLATE_PLIST"
 export MACOSX_DEPLOYMENT_TARGET="11.0"
 rustup target add x86_64-apple-darwin
 rustup target add aarch64-apple-darwin
-cargo build --release --target=x86_64-apple-darwin
-cargo build --release --target=aarch64-apple-darwin
+cargo build --release --locked --target=x86_64-apple-darwin
+cargo build --release --locked --target=aarch64-apple-darwin
 lipo "target/x86_64-apple-darwin/release/$TARGET" "target/aarch64-apple-darwin/release/$TARGET" -create -output "$APP_BINARY"
 
 # build app
