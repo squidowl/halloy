@@ -11,11 +11,11 @@ pub fn prepare() {
 #[cfg(not(target_os = "macos"))]
 pub fn prepare() {}
 
-pub fn show(title: &str, body: impl ToString) {
+pub fn show(title: &str, body: &str) {
     let mut notification = notify_rust::Notification::new();
 
     notification.summary(title);
-    notification.body(&body.to_string());
+    notification.body(body);
 
     #[cfg(target_os = "linux")]
     {
