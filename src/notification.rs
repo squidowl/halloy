@@ -1,7 +1,6 @@
 use std::collections::HashMap;
-use std::time::Duration;
 
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, TimeDelta, Utc};
 use data::audio::Sound;
 use data::config::{self, notification};
 use data::{Config, Notification, Server};
@@ -11,8 +10,42 @@ use crate::audio;
 
 mod toast;
 
+#[derive(PartialEq, Eq, Hash, Clone, Copy)]
+enum NotificationKind {
+    Connected,
+    Disconnected,
+    Reconnected,
+    DirectMessage,
+    Highlight,
+    FileTransferRequest,
+    MonitoredOnline,
+    MonitoredOffline,
+}
+impl From<&Notification> for NotificationKind {
+    fn from(notification: &Notification) -> NotificationKind {
+        match notification {
+            Notification::Connected => NotificationKind::Connected,
+            Notification::Disconnected => NotificationKind::Disconnected,
+            Notification::Reconnected => NotificationKind::Reconnected,
+            Notification::DirectMessage { .. } => {
+                NotificationKind::DirectMessage
+            }
+            Notification::Highlight { .. } => NotificationKind::Highlight,
+            Notification::FileTransferRequest { .. } => {
+                NotificationKind::FileTransferRequest
+            }
+            Notification::MonitoredOnline(..) => {
+                NotificationKind::MonitoredOnline
+            }
+            Notification::MonitoredOffline(..) => {
+                NotificationKind::MonitoredOffline
+            }
+        }
+    }
+}
+
 pub struct Notifications {
-    recent_notifications: HashMap<Notification, DateTime<Utc>>,
+    recent_notifications: HashMap<NotificationKind, DateTime<Utc>>,
     sounds: HashMap<String, Sound>,
 }
 
@@ -178,14 +211,15 @@ impl Notifications {
         title: &str,
         body: impl ToString,
     ) {
+        let now = Utc::now();
+        let notification_kind = notification.into();
         let last_notification =
-            self.recent_notifications.get(notification).copied();
+            self.recent_notifications.insert(notification_kind, now);
 
-        if last_notification.is_some()
-            && last_notification.unwrap()
-                > Utc::now()
-                    - Duration::from_millis(config.delay.unwrap_or(500))
-        {
+        if last_notification.is_some_and(|last_notification| {
+            now - last_notification
+                < TimeDelta::milliseconds(config.delay.unwrap_or(500))
+        }) {
             return;
         }
 
@@ -198,8 +232,5 @@ impl Notifications {
         {
             audio::play(sound.clone());
         }
-
-        self.recent_notifications
-            .insert(notification.clone(), Utc::now());
     }
 }
