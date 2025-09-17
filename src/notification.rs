@@ -216,18 +216,16 @@ impl Notifications {
         body: &str,
     ) {
         let now = Utc::now();
-        let notification_kind = notification.into();
-        let last_notification =
-            self.recent_notifications.get(&notification_kind);
+        let delay_key = notification.into();
 
-        if last_notification.is_some_and(|last_notification| {
+        if self.recent_notifications.get(&delay_key).is_some_and(|last_notification| {
             now - last_notification
                 < TimeDelta::milliseconds(config.delay.unwrap_or(500) as i64)
         }) {
             return;
         }
 
-        self.recent_notifications.insert(notification_kind, now);
+        self.recent_notifications.insert(delay_key, now);
 
         if config.show_toast {
             toast::show(title, body);
