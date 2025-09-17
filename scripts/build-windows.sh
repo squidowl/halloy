@@ -12,5 +12,5 @@ cargo set-version $HALLOY_VERSION
 
 # build binary
 rustup target add $TARGET
-cargo build --release --target=$TARGET
+cargo build --release --locked --target=$TARGET
 cp -fp target/$TARGET/release/$EXE_NAME target/release
