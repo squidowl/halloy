@@ -222,7 +222,7 @@ impl Notifications {
 
         if last_notification.is_some_and(|last_notification| {
             now - last_notification
-                < TimeDelta::milliseconds(config.delay.unwrap_or(500))
+                < TimeDelta::milliseconds(config.delay.unwrap_or(500) as i64)
         }) {
             return;
         }
