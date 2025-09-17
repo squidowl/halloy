@@ -10,7 +10,7 @@ pub struct Notification {
     pub show_toast: bool,
     pub show_content: bool,
     pub sound: Option<String>,
-    pub delay: Option<u64>,
+    pub delay: Option<i64>,
     pub exclude: Vec<String>,
     pub include: Vec<String>,
 }
