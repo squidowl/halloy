@@ -101,7 +101,11 @@ impl Notifications {
                 self.execute(
                     &config.monitored_online,
                     notification,
-                    "Monitored users are online",
+                    if targets.len() == 1 {
+                        "Monitored user is online"
+                    } else {
+                        "Monitored users are online"
+                    },
                     &targets.iter().map(User::nickname).join(", "),
                 );
             }
@@ -109,7 +113,11 @@ impl Notifications {
                 self.execute(
                     &config.monitored_online,
                     notification,
-                    "Monitored users are offline",
+                    if targets.len() == 1 {
+                        "Monitored user is offline"
+                    } else {
+                        "Monitored users are offline"
+                    },
                     &targets.iter().join(", "),
                 );
             }
