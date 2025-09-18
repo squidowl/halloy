@@ -1,18 +1,15 @@
-use std::{
-    path::PathBuf,
-    time::{Duration, Instant},
-};
+use std::path::PathBuf;
+use std::time::{Duration, Instant};
 
-use iced::{
-    ContentFit, Length,
-    widget::{button, center, column, container, horizontal_space, image, row},
+use iced::widget::{
+    button, center, column, container, horizontal_space, image, row,
 };
+use iced::{ContentFit, Length};
 
 use super::Message;
-use crate::{
-    Theme, icon, theme,
-    widget::{Element, button::transparent_button, tooltip},
-};
+use crate::widget::button::transparent_button;
+use crate::widget::{Element, tooltip};
+use crate::{Theme, icon, theme};
 
 pub fn view<'a>(
     source: &'a PathBuf,

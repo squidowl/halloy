@@ -158,19 +158,20 @@ impl Manager {
                 port: Some(port),
                 ..
             } = &dcc_send
-                && let Some(Item::Working {
-                    file_transfer,
-                    task,
-                }) = self.items.get_mut(&id)
-                    && file_transfer.filename == *filename {
-                        log::debug!(
-                            "File transfer received reverse confirmation from {} for {:?}",
-                            from.nickname(),
-                            filename,
-                        );
-                        task.confirm_reverse(*host, *port);
-                        return None;
-                    }
+            && let Some(Item::Working {
+                file_transfer,
+                task,
+            }) = self.items.get_mut(&id)
+            && file_transfer.filename == *filename
+        {
+            log::debug!(
+                "File transfer received reverse confirmation from {} for {:?}",
+                from.nickname(),
+                filename,
+            );
+            task.confirm_reverse(*host, *port);
+            return None;
+        }
 
         log::debug!(
             "File transfer request received from {} for {:?}",
@@ -376,10 +377,10 @@ impl Manager {
                 .queued
                 .pop_front()
                 .and_then(|id| self.items.get_mut(&id))
-            {
-                task.port_available(port);
-                self.used_ports.insert(file_transfer.id, port);
-            }
+        {
+            task.port_available(port);
+            self.used_ports.insert(file_transfer.id, port);
+        }
     }
 
     pub fn remove(&mut self, id: &Id) {

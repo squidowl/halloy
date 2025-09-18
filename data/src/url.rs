@@ -4,8 +4,8 @@ use fancy_regex::Regex;
 use log::warn;
 
 use crate::appearance::theme;
-use crate::server::ServerName;
 use crate::config;
+use crate::server::ServerName;
 
 #[derive(Debug, Clone)]
 pub enum Url {
@@ -102,9 +102,10 @@ fn generate_server_name(host: &str) -> &str {
     let pattern = Regex::new(r"irc\.([^.]+)").unwrap();
 
     if let Ok(Some(captures)) = pattern.captures(host)
-        && let Some(matched) = captures.get(1) {
-            return matched.as_str();
-        }
+        && let Some(matched) = captures.get(1)
+    {
+        return matched.as_str();
+    }
 
     host
 }
