@@ -1,6 +1,5 @@
-use std::hash::Hash;
 use std::cmp::Ordering;
-
+use std::hash::Hash;
 use std::str::FromStr;
 
 use irc::proto::parse::{Error as ParseError, tagstr};
@@ -37,7 +36,6 @@ impl FromStr for NetworkState {
     }
 }
 
-
 // https://codeberg.org/emersion/soju/src/branch/master/doc/ext/bouncer-networks.md
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct BouncerNetwork {
@@ -50,7 +48,9 @@ pub struct BouncerNetwork {
 impl Ord for BouncerNetwork {
     fn cmp(&self, other: &Self) -> Ordering {
         // case sensitive first, then insensitive, then ID
-        self.name.to_lowercase().cmp(&other.name.to_lowercase())
+        self.name
+            .to_lowercase()
+            .cmp(&other.name.to_lowercase())
             .then_with(|| self.name.cmp(&other.name))
             .then_with(|| self.id.cmp(&other.id))
     }

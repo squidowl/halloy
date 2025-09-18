@@ -60,7 +60,9 @@ where
                 .expand(Size::new(horizontal_expansion(), 1.0)),
         );
 
-        second_pass.as_widget_mut().layout(tree, renderer, &new_limits)
+        second_pass
+            .as_widget_mut()
+            .layout(tree, renderer, &new_limits)
     }
 }
 

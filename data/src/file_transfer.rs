@@ -61,7 +61,11 @@ impl Ord for FileTransfer {
             .cmp(&other.created_at)
             .reverse()
             .then_with(|| self.direction.cmp(&other.direction))
-            .then_with(|| self.remote_user.nickname().cmp(&other.remote_user.nickname()))
+            .then_with(|| {
+                self.remote_user
+                    .nickname()
+                    .cmp(&other.remote_user.nickname())
+            })
             .then_with(|| self.filename.cmp(&other.filename))
     }
 }
