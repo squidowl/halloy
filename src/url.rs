@@ -28,9 +28,10 @@ pub fn listen() -> Subscription<String> {
             input
                 .filter_map(move |event| {
                     if let Event::Interaction { status, .. } = &event
-                        && *status == iced::event::Status::Captured {
-                            return futures::future::ready(None);
-                        }
+                        && *status == iced::event::Status::Captured
+                    {
+                        return futures::future::ready(None);
+                    }
 
                     let result = match event {
                         Event::PlatformSpecific(event) => match event {

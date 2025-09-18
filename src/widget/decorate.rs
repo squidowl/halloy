@@ -552,7 +552,9 @@ where
         renderer: &Renderer,
         operation: &mut dyn advanced::widget::Operation<()>,
     ) {
-        inner.as_widget_mut().operate(tree, layout, renderer, operation);
+        inner
+            .as_widget_mut()
+            .operate(tree, layout, renderer, operation);
     }
 }
 

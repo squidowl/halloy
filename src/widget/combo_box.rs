@@ -501,16 +501,16 @@ where
             self.state.with_inner(|state| {
                 if !started_focused
                     && let Some(on_option_hovered) = &mut self.on_option_hovered
-                    {
-                        let hovered_option = menu.hovered_option.unwrap_or(0);
+                {
+                    let hovered_option = menu.hovered_option.unwrap_or(0);
 
-                        if let Some(option) =
-                            state.filtered_options.options.get(hovered_option)
-                        {
-                            shell.publish(on_option_hovered(option.clone()));
-                            published_message_to_shell = true;
-                        }
+                    if let Some(option) =
+                        state.filtered_options.options.get(hovered_option)
+                    {
+                        shell.publish(on_option_hovered(option.clone()));
+                        published_message_to_shell = true;
                     }
+                }
 
                 if let Event::Keyboard(keyboard::Event::KeyPressed {
                     key,
@@ -528,9 +528,9 @@ where
                             if let Some(index) = &menu.hovered_option
                                 && let Some(option) =
                                     state.filtered_options.options.get(*index)
-                                {
-                                    menu.new_selection = Some(option.clone());
-                                }
+                            {
+                                menu.new_selection = Some(option.clone());
+                            }
 
                             shell.capture_event();
                             shell.request_redraw();
@@ -566,13 +566,13 @@ where
                                             .options
                                             .get(index)
                                     })
-                                {
-                                    // Notify the selection
-                                    shell.publish((on_option_selection)(
-                                        option.clone(),
-                                    ));
-                                    published_message_to_shell = true;
-                                }
+                            {
+                                // Notify the selection
+                                shell.publish((on_option_selection)(
+                                    option.clone(),
+                                ));
+                                published_message_to_shell = true;
+                            }
 
                             shell.capture_event();
                             shell.request_redraw();
@@ -618,13 +618,13 @@ where
                                             .options
                                             .get(index)
                                     })
-                                {
-                                    // Notify the selection
-                                    shell.publish((on_option_selection)(
-                                        option.clone(),
-                                    ));
-                                    published_message_to_shell = true;
-                                }
+                            {
+                                // Notify the selection
+                                shell.publish((on_option_selection)(
+                                    option.clone(),
+                                ));
+                                published_message_to_shell = true;
+                            }
 
                             shell.capture_event();
                             shell.request_redraw();
@@ -668,9 +668,10 @@ where
         if started_focused
             && !self.state.is_focused()
             && !published_message_to_shell
-            && let Some(message) = self.on_close.take() {
-                shell.publish(message);
-            }
+            && let Some(message) = self.on_close.take()
+        {
+            shell.publish(message);
+        }
 
         // Focus changed, invalidate widget tree to force a fresh `view`
         if started_focused != self.state.is_focused() {

@@ -69,9 +69,11 @@ where
         renderer: &Renderer,
         limits: &layout::Limits,
     ) -> layout::Node {
-        self.base
-            .as_widget_mut()
-            .layout(&mut tree.children[0], renderer, limits)
+        self.base.as_widget_mut().layout(
+            &mut tree.children[0],
+            renderer,
+            limits,
+        )
     }
 
     fn update(
