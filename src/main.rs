@@ -406,8 +406,7 @@ impl Halloy {
                                     if let Some(server) =
                                         self.servers.get_mut(&server)
                                     {
-                                        Arc::make_mut(server).order =
-                                            config.order;
+                                        *server = config.clone();
                                     } else {
                                         self.servers
                                             .insert(server, config.clone());
