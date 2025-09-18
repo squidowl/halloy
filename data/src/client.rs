@@ -269,7 +269,7 @@ impl Client {
         } else {
             self.handle.try_send(command!("QUIT"))
         } {
-            log::warn!("Error sending quit: {e}");
+            log::warn!("[{}] Error sending quit: {e}", self.server);
         }
     }
 
@@ -280,7 +280,7 @@ impl Client {
 
         for message in messages {
             if let Err(e) = self.handle.try_send(message) {
-                log::warn!("Error sending join: {e}");
+                log::warn!("[{}] Error sending join: {e}", self.server);
             }
         }
     }
@@ -415,7 +415,7 @@ impl Client {
         }
 
         if let Err(e) = self.handle.try_send(message.into()) {
-            log::warn!("Error sending message: {e}");
+            log::warn!("[{}] Error sending message: {e}", self.server);
         }
     }
 
@@ -424,7 +424,7 @@ impl Client {
         message: message::Encoded,
         ctcp_config: &config::Ctcp,
     ) -> Result<Vec<Event>> {
-        log::trace!("Message received => {:?}", *message);
+        log::trace!("[{}] Message received => {:?}", self.server, *message);
 
         let stop_reroute = self.stop_reroute(&message.command);
 
@@ -890,8 +890,9 @@ impl Client {
                 }
                 let [netid, network] = params.as_slice() else {
                     bail!(
-                        "Invalid BOUNCER NETWORKS message {:?}",
-                        &message.command
+                        "[{}] Invalid BOUNCER NETWORKS message {:?}",
+                        self.server,
+                        &message.command,
                     );
                 };
 
@@ -900,7 +901,8 @@ impl Client {
                     // succeed for any other bouncer networks, which means they won't be able to
                     // connect. Don't add them.
                     log::warn!(
-                        "We are able to add bouncer networks, but cannot because the connection is not SASL"
+                        "[{}] We are able to add bouncer networks, but cannot because the connection is not SASL",
+                        self.server,
                     );
                     return Ok(vec![]);
                 }
@@ -1279,7 +1281,10 @@ impl Client {
 
                         match command {
                             dcc::Command::Send(request) => {
-                                log::trace!("DCC Send => {request:?}");
+                                log::trace!(
+                                    "[{}] DCC Send => {request:?}",
+                                    self.server
+                                );
                                 return Ok(vec![Event::FileTransferRequest(
                                     file_transfer::ReceiveRequest {
                                         from: user,
@@ -1386,7 +1391,8 @@ impl Client {
                                     }
                                     ctcp::Command::Unknown(command) => {
                                         log::debug!(
-                                            "Ignoring CTCP command {command}: Unknown command"
+                                            "[{}] Ignoring CTCP command {command}: Unknown command",
+                                            self.server
                                         );
                                     }
                                 }
@@ -2235,7 +2241,10 @@ impl Client {
                                             isupport::Parameter::BOUNCER_NETID(ref id) => {
                                                 match self.server.bouncer_netid() {
                                                     Some(requested_id) if id != requested_id => {
-                                                        log::warn!("Requested bouncer id `{requested_id}`, but was connected to bouncer `{id}`");
+                                                        log::warn!(
+                                                            "[{}] Requested bouncer id `{requested_id}`, but was connected to bouncer `{id}`",
+                                                            self.server,
+                                                        );
                                                         // quit on fatal error?
                                                         self.quit(None);
                                                     },
@@ -2457,7 +2466,8 @@ impl Client {
                 if command == "WHO" && self.config.who_poll_enabled {
                     self.who_poll_interval.too_short();
                     log::debug!(
-                        "self.who_poll_interval is too short → duration = {:?}",
+                        "[{}] self.who_poll_interval is too short → duration = {:?}",
+                        self.server,
                         self.who_poll_interval.duration
                     );
 
@@ -2479,7 +2489,8 @@ impl Client {
                 // https://modern.ircdocs.horse/#connection-registration
                 if self.registration_step != RegistrationStep::End {
                     log::warn!(
-                        "Registration completed while in mode: {:?}",
+                        "[{}] Registration completed while in mode: {:?}",
+                        self.server,
                         self.registration_step
                     );
                 }
@@ -2623,7 +2634,7 @@ impl Client {
                 format!("timestamp={read_marker}"),
             ))
         {
-            log::warn!("Error sending markread: {e}");
+            log::warn!("[{}] Error sending markread: {e}", self.server);
         }
     }
 
