@@ -1,6 +1,6 @@
 use data::appearance;
-use futures::stream::BoxStream;
 use futures::StreamExt;
+use futures::stream::BoxStream;
 use iced::advanced::graphics::futures::subscription;
 use iced::advanced::subscription::Hasher;
 use iced::{Subscription, futures};
@@ -27,7 +27,10 @@ impl From<ColorScheme> for Mode {
 }
 
 impl Mode {
-    pub fn theme(&self, selected: &data::appearance::Selected) -> data::appearance::Theme {
+    pub fn theme(
+        &self,
+        selected: &data::appearance::Selected,
+    ) -> data::appearance::Theme {
         match &selected {
             appearance::Selected::Static(theme) => theme.clone(),
             appearance::Selected::Dynamic { light, dark } => match self {
@@ -35,7 +38,7 @@ impl Mode {
                 Self::Light => light.clone(),
                 // We map `Unspecified` to `Light`.
                 // This is because Gnome never specifies `Light` and only sends `Unspecified`.
-                Self::Unspecified => light.clone()
+                Self::Unspecified => light.clone(),
             },
         }
     }
@@ -56,7 +59,6 @@ impl subscription::Recipe for Appearance {
         self: Box<Self>,
         _input: subscription::EventStream,
     ) -> BoxStream<'static, Mode> {
-
         Preferences::stream(Interest::ColorScheme)
             .map(|preference| Mode::from(preference.color_scheme))
             .boxed()

@@ -218,9 +218,9 @@ where
             | iced::Event::Touch(touch::Event::FingerMoved { .. }) => {
                 if let Some(cursor) = cursor.position()
                     && let Interaction::Selecting(raw) = &mut state.interaction
-                    {
-                        raw.end = cursor;
-                    }
+                {
+                    raw.end = cursor;
+                }
             }
             _ => {}
         }

@@ -198,9 +198,7 @@ mod test {
     use nom::combinator::all_consuming;
 
     use crate::command::Numeric::*;
-    use crate::{Command, Message, Source, User};
-
-    use crate::tags;
+    use crate::{Command, Message, Source, User, tags};
 
     #[test]
     fn user() {

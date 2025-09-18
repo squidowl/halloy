@@ -70,7 +70,8 @@ fn path() -> Result<PathBuf, Error> {
 
 /// Check if a window position is valid (within visible screen bounds)
 fn is_position_valid(position: Point) -> bool {
-    display_info::DisplayInfo::from_point(position.x as i32, position.y as i32).is_ok()
+    display_info::DisplayInfo::from_point(position.x as i32, position.y as i32)
+        .is_ok()
 }
 
 #[derive(Debug, Clone, thiserror::Error)]

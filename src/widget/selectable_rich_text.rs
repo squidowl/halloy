@@ -378,9 +378,10 @@ where
                     .paragraph
                     .hit_span(position)
                     .and_then(|span| self.spans.get(span))
-                    && span.link.is_some() {
-                        state.link_hovered = true;
-                    }
+                && span.link.is_some()
+            {
+                state.link_hovered = true;
+            }
         }
 
         match event {
@@ -389,10 +390,11 @@ where
             ))
             | iced::Event::Touch(touch::Event::FingerPressed { .. }) => {
                 if let Some(position) = cursor.position_in(bounds)
-                    && let Some(span) = state.paragraph.hit_span(position) {
-                        state.span_pressed = Some(span);
-                        shell.capture_event();
-                    }
+                    && let Some(span) = state.paragraph.hit_span(position)
+                {
+                    state.span_pressed = Some(span);
+                    shell.capture_event();
+                }
 
                 if let Some(cursor) = cursor.position() {
                     state.interaction =
@@ -410,24 +412,25 @@ where
             | iced::Event::Touch(touch::Event::FingerLifted { .. })
             | iced::Event::Touch(touch::Event::FingerLost { .. }) => {
                 if let Some(on_link_click) = self.on_link.as_ref()
-                    && let Some(span_pressed) = state.span_pressed {
-                        state.span_pressed = None;
+                    && let Some(span_pressed) = state.span_pressed
+                {
+                    state.span_pressed = None;
 
-                        if let Some(position) = cursor.position_in(bounds) {
-                            match state.paragraph.hit_span(position) {
-                                Some(span) if span == span_pressed => {
-                                    if let Some(link) = self
-                                        .spans
-                                        .get(span)
-                                        .and_then(|span| span.link.clone())
-                                    {
-                                        shell.publish(on_link_click(link));
-                                    }
+                    if let Some(position) = cursor.position_in(bounds) {
+                        match state.paragraph.hit_span(position) {
+                            Some(span) if span == span_pressed => {
+                                if let Some(link) = self
+                                    .spans
+                                    .get(span)
+                                    .and_then(|span| span.link.clone())
+                                {
+                                    shell.publish(on_link_click(link));
                                 }
-                                _ => {}
                             }
+                            _ => {}
                         }
                     }
+                }
 
                 if let Interaction::Selecting(raw) = state.interaction {
                     state.interaction = Interaction::Selected(raw);
@@ -439,9 +442,9 @@ where
             | iced::Event::Touch(touch::Event::FingerMoved { .. }) => {
                 if let Some(cursor) = cursor.position()
                     && let Interaction::Selecting(raw) = &mut state.interaction
-                    {
-                        raw.end = cursor;
-                    }
+                {
+                    raw.end = cursor;
+                }
 
                 let size = self.size.unwrap_or_else(|| renderer.default_size());
                 let font = self.font.unwrap_or_else(|| renderer.default_font());
@@ -513,37 +516,33 @@ where
             )) => {
                 if let Some(position) = cursor.position_in(bounds)
                     && let Some((link_entries, _)) = &self.context_menu
-                        && let Some((link, entries)) = state
-                            .spans
-                            .iter()
-                            .enumerate()
-                            .find_map(|(i, span)| {
-                                if span.link.is_some()
-                                    && state
-                                        .paragraph
-                                        .span_bounds(i)
-                                        .into_iter()
-                                        .any(|bounds| bounds.contains(position))
-                                {
-                                    let link = span.link.clone().unwrap();
-                                    let entries = (link_entries)(&link);
+                    && let Some((link, entries)) =
+                        state.spans.iter().enumerate().find_map(|(i, span)| {
+                            if span.link.is_some()
+                                && state
+                                    .paragraph
+                                    .span_bounds(i)
+                                    .into_iter()
+                                    .any(|bounds| bounds.contains(position))
+                            {
+                                let link = span.link.clone().unwrap();
+                                let entries = (link_entries)(&link);
 
-                                    if !entries.is_empty() {
-                                        return Some((link, entries));
-                                    }
+                                if !entries.is_empty() {
+                                    return Some((link, entries));
                                 }
+                            }
 
-                                None
-                            })
-                        {
-                            state.context_menu.status =
-                                context_menu::Status::Open(
-                                    // Need absolute position. Infallible since we're within position_in
-                                    cursor.position_over(bounds).unwrap(),
-                                );
-                            state.context_menu_link = Some(link);
-                            self.cached_entries = entries;
-                        }
+                            None
+                        })
+                {
+                    state.context_menu.status = context_menu::Status::Open(
+                        // Need absolute position. Infallible since we're within position_in
+                        cursor.position_over(bounds).unwrap(),
+                    );
+                    state.context_menu_link = Some(link);
+                    self.cached_entries = entries;
+                }
             }
             _ => {}
         }
@@ -874,10 +873,11 @@ where
 
             // Apply shown spoiler
             if let Some((index, _, _)) = state.shown_spoiler
-                && let Some(span) = state.spans.get_mut(index) {
-                    span.color = None;
-                    span.highlight = None;
-                }
+                && let Some(span) = state.spans.get_mut(index)
+            {
+                span.color = None;
+                span.highlight = None;
+            }
 
             state.paragraph = Renderer::Paragraph::with_spans(text_with_spans(
                 state.spans.as_slice(),
@@ -904,10 +904,11 @@ where
 
                     // Apply shown spoiler
                     if let Some((index, _, _)) = state.shown_spoiler
-                        && let Some(span) = state.spans.get_mut(index) {
-                            span.color = None;
-                            span.highlight = None;
-                        }
+                        && let Some(span) = state.spans.get_mut(index)
+                    {
+                        span.color = None;
+                        span.highlight = None;
+                    }
 
                     state.paragraph = Renderer::Paragraph::with_spans(
                         text_with_spans(state.spans.as_slice()),
