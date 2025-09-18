@@ -36,6 +36,7 @@ pub enum Event {
 
 #[derive(Debug, Clone)]
 pub enum Message {
+    InformationReceived(iced::system::Information),
     Input(String),
     Send,
     Tab(bool),
@@ -166,6 +167,32 @@ impl State {
         let current_target = buffer.target();
 
         match message {
+            Message::InformationReceived(info) => {
+                // Format system information as a message
+                let sysinfo_message = format!(
+                    "System Info - OS: {}, Processor: {}, Memory: {} MB, Graphics: {}",
+                    info.system_name.as_deref().unwrap_or("Unknown"),
+                    info.cpu_brand,
+                    info.memory_total / 1024 / 1024, // Convert bytes to MB
+                    info.graphics_adapter
+                );
+                
+                // Record in input history
+                history.record_input_history(buffer, sysinfo_message.clone());
+                
+                // Create a message input and send it to the current buffer
+                if let Ok(data::input::Parsed::Input(input)) = input::parse(
+                    buffer.clone(),
+                    config.buffer.text_input.auto_format,
+                    &sysinfo_message,
+                    clients.nickname(buffer.server()),
+                    &clients.get_isupport(buffer.server()),
+                ) && let Some(encoded) = input.encoded() {
+                    clients.send(buffer, encoded);
+                }
+                
+                (Task::none(), None)
+            }
             Message::Input(input) => {
                 // Reset error state
                 self.error = None;
@@ -458,6 +485,12 @@ impl State {
                                         });
 
                                     return (Task::none(), event);
+                                }
+                                command::Internal::SysInfo => {
+                                    return (
+                                        iced::system::information().map(Message::InformationReceived),
+                                        None,
+                                    );
                                 }
                             }
                         }
