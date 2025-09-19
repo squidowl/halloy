@@ -76,7 +76,7 @@ unicode-segmentation = "1.6"
 open = "5.0.1"
 bytesize = "2.0.1"
 const_format = "0.2.32"
-rodio = "0.21.0"
+rodio = { version = "0.21.0", default-features = false, features = [ "playback", "vorbis" ] }
 humantime = "2.2.0"
 strsim = "0.11.1"
 rfd = { version = "0.15.2", default-features = false, features = [
