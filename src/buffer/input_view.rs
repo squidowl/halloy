@@ -168,29 +168,46 @@ impl State {
 
         match message {
             Message::InformationReceived(info) => {
-                // Format system information as a message
-                let sysinfo_message = format!(
-                    "System Info - OS: {}, Processor: {}, Memory: {} MB, Graphics: {}",
-                    info.system_name.as_deref().unwrap_or("Unknown"),
-                    info.cpu_brand,
-                    info.memory_total / 1024 / 1024, // Convert bytes to MB
-                    info.graphics_adapter
+                let os_info = info.system_version.as_deref().map_or_else(
+                    || "OS: Unknown".to_string(),
+                    |version| {
+                        if let Some(kernel) = &info.system_kernel {
+                            format!("OS: {version} ({kernel})")
+                        } else {
+                            format!("OS: {version}")
+                        }
+                    },
                 );
-                
-                // Record in input history
+
+                let cpu_info = format!("CPU: {}", info.cpu_brand.trim());
+
+                let total_gb = (info.memory_total as f64
+                    / (1024.0 * 1024.0 * 1024.0))
+                    .ceil() as u64;
+                let mem_info = format!("MEM: {total_gb} GB");
+
+                let gpu_info = format!(
+                    "GPU: {} ({})",
+                    info.graphics_adapter.trim(),
+                    info.graphics_backend.trim()
+                );
+
+                let sysinfo_message =
+                    format!("{os_info} {cpu_info} {mem_info} {gpu_info}");
+
                 history.record_input_history(buffer, sysinfo_message.clone());
-                
-                // Create a message input and send it to the current buffer
+
                 if let Ok(data::input::Parsed::Input(input)) = input::parse(
                     buffer.clone(),
                     config.buffer.text_input.auto_format,
                     &sysinfo_message,
                     clients.nickname(buffer.server()),
                     &clients.get_isupport(buffer.server()),
-                ) && let Some(encoded) = input.encoded() {
+                ) && let Some(encoded) = input.encoded()
+                {
                     clients.send(buffer, encoded);
                 }
-                
+
                 (Task::none(), None)
             }
             Message::Input(input) => {
@@ -488,7 +505,8 @@ impl State {
                                 }
                                 command::Internal::SysInfo => {
                                     return (
-                                        iced::system::information().map(Message::InformationReceived),
+                                        iced::system::information()
+                                            .map(Message::InformationReceived),
                                         None,
                                     );
                                 }
