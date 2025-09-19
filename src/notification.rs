@@ -3,8 +3,9 @@ use std::collections::HashMap;
 use chrono::{DateTime, TimeDelta, Utc};
 use data::audio::Sound;
 use data::config::{self, notification};
+use data::target::join_targets;
+use data::user::Nick;
 use data::{Config, Notification, Server, User};
-use itertools::Itertools;
 
 pub use self::toast::prepare;
 use crate::audio;
@@ -106,7 +107,7 @@ impl Notifications {
                     } else {
                         "Monitored users are online"
                     },
-                    &targets.iter().map(User::nickname).join(", "),
+                    &join_targets(targets.iter().map(User::as_str).collect()),
                 );
             }
             Notification::MonitoredOffline(targets) => {
@@ -118,7 +119,7 @@ impl Notifications {
                     } else {
                         "Monitored users are offline"
                     },
-                    &targets.iter().join(", "),
+                    &join_targets(targets.iter().map(Nick::as_str).collect()),
                 );
             }
             Notification::FileTransferRequest { nick, filename } => {

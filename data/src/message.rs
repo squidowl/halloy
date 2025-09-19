@@ -22,7 +22,7 @@ use crate::config::buffer::UsernameFormat;
 use crate::log::Level;
 use crate::serde::fail_as_none;
 use crate::server::Server;
-use crate::target::Channel;
+use crate::target::{Channel, join_targets};
 use crate::time::Posix;
 use crate::user::{ChannelUsers, Nick, NickRef};
 use crate::{Config, User, ctcp, isupport, target};
@@ -1891,16 +1891,14 @@ fn kick_text(
 }
 
 fn monitored_targets_text(targets: Vec<String>) -> Option<String> {
-    let (last_target, targets) = targets.split_last()?;
-
     if targets.is_empty() {
-        Some(format!("user {last_target} is"))
+        None
     } else if targets.len() == 1 {
-        Some(format!("users {} and {last_target} are", targets.first()?))
+        Some(format!("user {} is", targets.first()?))
     } else {
         Some(format!(
-            "users {}, and {last_target} are",
-            targets.join(", ")
+            "users {} are",
+            join_targets(targets.iter().map(String::as_ref).collect())
         ))
     }
 }
