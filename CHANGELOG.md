@@ -1,5 +1,12 @@
 # Unreleased
 
+Fixed:
+- Enforce delay between notifications
+
+Thanks:
+- Contributions: @Toby222
+- Bug reports: @Toby222
+
 # 2025.9 (2025-09-16)
 
 Added:
