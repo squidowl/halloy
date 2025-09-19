@@ -36,7 +36,7 @@ move_right = "alt+l"
 | `toggle_sidebar`               | Toggle sidebar               | <kbd>⌘</kbd> + <kbd>⌥</kbd> + <kbd>b</kbd>          | <kbd>ctrl</kbd> + <kbd>alt</kbd> + <kbd>b</kbd>     |
 | `toggle_fullscreen`            | Toggle fullscreen            | <kbd>⌘</kbd> + <kbd>ctrl</kbd> + <kbd>f</kbd>       | <kbd>F11</kbd>                                      |
 | `command_bar`                  | Toggle command bar           | <kbd>⌘</kbd> + <kbd>k</kbd>                         | <kbd>ctrl</kbd> + <kbd>k</kbd>                      |
-| `reload_configuration`         | Refresh configuration file   | <kbd>⌘</kbd> + <kbd>r</kbd>                         | <kbd>ctrl</kbd> + <kbd>r</kbd>                      |
+| `reload_configuration`         | Reload configuration file    | <kbd>⌘</kbd> + <kbd>r</kbd>                         | <kbd>ctrl</kbd> + <kbd>r</kbd>                      |
 | `file_transfers`               | Toggle File Transfers Buffer | <kbd>⌘</kbd> + <kbd>j</kbd>                         | <kbd>ctrl</kbd> + <kbd>j</kbd>                      |
 | `logs`                         | Toggle Logs Buffer           | <kbd>⌘</kbd> + <kbd>l</kbd>                         | <kbd>ctrl</kbd> + <kbd>l</kbd>                      |
 | `theme_editor`                 | Toggle Theme Editor Window   | <kbd>⌘</kbd> + <kbd>t</kbd>                         | <kbd>ctrl</kbd> + <kbd>t</kbd>                      |
