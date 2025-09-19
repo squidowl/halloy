@@ -1,18 +1,58 @@
 use std::collections::HashMap;
-use std::time::Duration;
 
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, TimeDelta, Utc};
 use data::audio::Sound;
 use data::config::{self, notification};
-use data::{Config, Notification, Server};
+use data::target::join_targets;
+use data::user::Nick;
+use data::{Config, Notification, Server, User};
 
 pub use self::toast::prepare;
 use crate::audio;
 
 mod toast;
 
+#[derive(PartialEq, Eq, Hash, Clone)]
+enum NotificationDelayKey {
+    Connected,
+    Disconnected,
+    Reconnected,
+    DirectMessage(Box<str>),
+    Highlight,
+    FileTransferRequest(Box<str>),
+    MonitoredOnline,
+    MonitoredOffline,
+}
+
+impl From<&Notification> for NotificationDelayKey {
+    fn from(notification: &Notification) -> NotificationDelayKey {
+        match notification {
+            Notification::Connected => NotificationDelayKey::Connected,
+            Notification::Disconnected => NotificationDelayKey::Disconnected,
+            Notification::Reconnected => NotificationDelayKey::Reconnected,
+            Notification::DirectMessage { user, .. } => {
+                NotificationDelayKey::DirectMessage(
+                    user.nickname().as_normalized_str().into(),
+                )
+            }
+            Notification::Highlight { .. } => NotificationDelayKey::Highlight,
+            Notification::FileTransferRequest { nick, .. } => {
+                NotificationDelayKey::FileTransferRequest(
+                    nick.as_normalized_str().into(),
+                )
+            }
+            Notification::MonitoredOnline(..) => {
+                NotificationDelayKey::MonitoredOnline
+            }
+            Notification::MonitoredOffline(..) => {
+                NotificationDelayKey::MonitoredOffline
+            }
+        }
+    }
+}
+
 pub struct Notifications {
-    recent_notifications: HashMap<Notification, DateTime<Utc>>,
+    recent_notifications: HashMap<NotificationDelayKey, DateTime<Utc>>,
     sounds: HashMap<String, Sound>,
 }
 
@@ -39,7 +79,7 @@ impl Notifications {
                     &config.connected,
                     notification,
                     "Connected",
-                    server,
+                    &server.to_string(),
                 );
             }
             Notification::Disconnected => {
@@ -47,7 +87,7 @@ impl Notifications {
                     &config.disconnected,
                     notification,
                     "Disconnected",
-                    server,
+                    &server.to_string(),
                 );
             }
             Notification::Reconnected => {
@@ -55,28 +95,32 @@ impl Notifications {
                     &config.reconnected,
                     notification,
                     "Reconnected",
-                    server,
+                    &server.to_string(),
                 );
             }
             Notification::MonitoredOnline(targets) => {
-                targets.iter().for_each(|target| {
-                    self.execute(
-                        &config.monitored_online,
-                        notification,
-                        &format!("{} is online", target.nickname()),
-                        server,
-                    );
-                });
+                self.execute(
+                    &config.monitored_online,
+                    notification,
+                    if targets.len() == 1 {
+                        "Monitored user is online"
+                    } else {
+                        "Monitored users are online"
+                    },
+                    &join_targets(targets.iter().map(User::as_str).collect()),
+                );
             }
             Notification::MonitoredOffline(targets) => {
-                targets.iter().for_each(|target| {
-                    self.execute(
-                        &config.monitored_offline,
-                        notification,
-                        &format!("{target} is offline"),
-                        server,
-                    );
-                });
+                self.execute(
+                    &config.monitored_online,
+                    notification,
+                    if targets.len() == 1 {
+                        "Monitored user is offline"
+                    } else {
+                        "Monitored users are offline"
+                    },
+                    &join_targets(targets.iter().map(Nick::as_str).collect()),
+                );
             }
             Notification::FileTransferRequest { nick, filename } => {
                 if config
@@ -147,25 +191,27 @@ impl Notifications {
                     channel.to_string(),
                     user.nickname().to_string(),
                 ]) {
-                    let (title, body) = if config.highlight.show_content {
-                        (
+                    if config.highlight.show_content {
+                        self.execute(
+                            &config.highlight,
+                            notification,
                             &format!(
                                 "{} {description} in {channel} on {server}",
                                 user.nickname()
                             ),
                             message,
-                        )
+                        );
                     } else {
-                        (
+                        self.execute(
+                            &config.highlight,
+                            notification,
                             &format!(
                                 "{} {description} in {channel}",
                                 user.nickname()
                             ),
-                            &format!("{server}"),
-                        )
-                    };
-
-                    self.execute(&config.highlight, notification, title, body);
+                            &server.name,
+                        );
+                    }
                 }
             }
         }
@@ -176,18 +222,19 @@ impl Notifications {
         config: &notification::Notification,
         notification: &Notification,
         title: &str,
-        body: impl ToString,
+        body: &str,
     ) {
-        let last_notification =
-            self.recent_notifications.get(notification).copied();
+        let now = Utc::now();
+        let delay_key = notification.into();
 
-        if last_notification.is_some()
-            && last_notification.unwrap()
-                > Utc::now()
-                    - Duration::from_millis(config.delay.unwrap_or(500))
-        {
+        if self.recent_notifications.get(&delay_key).is_some_and(|last_notification| {
+            now - last_notification
+                < TimeDelta::milliseconds(config.delay.unwrap_or(500) as i64)
+        }) {
             return;
         }
+
+        self.recent_notifications.insert(delay_key, now);
 
         if config.show_toast {
             toast::show(title, body);
@@ -198,8 +245,5 @@ impl Notifications {
         {
             audio::play(sound.clone());
         }
-
-        self.recent_notifications
-            .insert(notification.clone(), Utc::now());
     }
 }
