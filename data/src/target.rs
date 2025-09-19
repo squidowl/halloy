@@ -360,3 +360,22 @@ pub enum ParseError {
     #[error("unable to parse query from {0}")]
     InvalidQuery(String),
 }
+
+pub fn join_targets(targets: Vec<&str>) -> String {
+    if let Some((last_target, targets)) = targets.split_last() {
+        if let Some((first_target, targets)) = targets.split_first() {
+            if targets.is_empty() {
+                format!("{first_target} and {last_target}")
+            } else {
+                format!(
+                    "{first_target}, {}, and {last_target}",
+                    targets.join(", ")
+                )
+            }
+        } else {
+            last_target.to_string()
+        }
+    } else {
+        String::new()
+    }
+}
