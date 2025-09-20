@@ -92,6 +92,44 @@ where
     }
 }
 
+pub fn deserialize_positive_integer_maybe<'de, D>(
+    deserializer: D,
+) -> Result<Option<u8>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let integer_maybe: Option<u8> = Deserialize::deserialize(deserializer)?;
+
+    if let Some(integer) = integer_maybe
+        && integer == 0
+    {
+        Err(serde::de::Error::invalid_value(
+            serde::de::Unexpected::Unsigned(integer.into()),
+            &"any positive integer",
+        ))
+    } else {
+        Ok(integer_maybe)
+    }
+}
+
+pub fn deserialize_positive_integer<'de, D>(
+    deserializer: D,
+) -> Result<u32, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let integer: u32 = Deserialize::deserialize(deserializer)?;
+
+    if integer == 0 {
+        Err(serde::de::Error::invalid_value(
+            serde::de::Unexpected::Unsigned(integer.into()),
+            &"any positive integer",
+        ))
+    } else {
+        Ok(integer)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
