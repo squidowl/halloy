@@ -514,7 +514,10 @@ impl State {
                         if matches!(self.limit, Limit::Bottom(_)) {
                             if old_status.is_page_from_top(
                                 absolute_offset,
-                                height,
+                                // Scale up page height to ensure that there
+                                // isn't a simultaneous anchor flip and message
+                                // load when scrolling up from bottom
+                                2.0 * height,
                                 self.content_size.height,
                             ) && has_more_older_messages
                             {
