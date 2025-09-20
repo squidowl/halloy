@@ -2,10 +2,11 @@
 
 Fixed:
 - Enforce delay between notifications
+- Larger fonts (and font sizes) can be used without blanking out the sidebar
 
 Thanks:
 - Contributions: @Toby222
-- Bug reports: @Toby222
+- Bug reports: @Toby222, @deepspaceaxolotl
 
 # 2025.9 (2025-09-16)
 
