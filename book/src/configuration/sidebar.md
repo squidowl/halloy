@@ -4,7 +4,9 @@ Sidebar settings for Halloy.
 
 ## `server_icon_size`
 
-Adjust server icon size
+Adjust server icon size.
+
+Note: If set larger than the line height of the specified [font](font.md) then the icon will not render.
 
 ```toml
 # Type: integer
@@ -147,6 +149,8 @@ highlight_icon = "circle-empty"
 
 Changes the unread icon size.
 
+Note: If set larger than the line height of the specified [font](font.md) then the icon will not render.
+
 ```toml
 # Type: integer
 # Values: any positive integer"
@@ -159,6 +163,8 @@ icon_size = 6
 ### `highlight_icon_size`
 
 Changes the highlight unread icon size.
+
+Note: If set larger than the line height of the specified [font](font.md) then the icon will not render.
 
 ```toml
 # Type: integer

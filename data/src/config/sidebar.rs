@@ -2,6 +2,7 @@ use serde::{Deserialize, Deserializer};
 use serde_untagged::UntaggedEnumVisitor;
 
 use crate::config::Scrollbar;
+use crate::serde::deserialize_positive_integer;
 
 #[derive(Debug, Copy, Clone, Deserialize)]
 #[serde(default)]
@@ -13,7 +14,7 @@ pub struct Sidebar {
     pub show_user_menu: bool,
     pub order_by: OrderBy,
     pub scrollbar: Scrollbar,
-    #[serde(deserialize_with = "deserialize_icon_size")]
+    #[serde(deserialize_with = "deserialize_positive_integer")]
     pub server_icon_size: u32,
 }
 
@@ -36,10 +37,10 @@ impl Default for Sidebar {
 pub struct UnreadIndicator {
     pub title: bool,
     pub icon: Icon,
-    #[serde(deserialize_with = "deserialize_icon_size")]
+    #[serde(deserialize_with = "deserialize_positive_integer")]
     pub icon_size: u32,
     pub highlight_icon: Icon,
-    #[serde(deserialize_with = "deserialize_icon_size")]
+    #[serde(deserialize_with = "deserialize_positive_integer")]
     pub highlight_icon_size: u32,
 }
 
@@ -141,20 +142,4 @@ pub enum OrderBy {
     #[default]
     Alpha,
     Config,
-}
-
-pub fn deserialize_icon_size<'de, D>(deserializer: D) -> Result<u32, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let integer: u32 = Deserialize::deserialize(deserializer)?;
-
-    if integer == 0 || integer > 17 {
-        Err(serde::de::Error::invalid_value(
-            serde::de::Unexpected::Unsigned(integer.into()),
-            &"any positive integer less than or equal to 17",
-        ))
-    } else {
-        Ok(integer)
-    }
 }

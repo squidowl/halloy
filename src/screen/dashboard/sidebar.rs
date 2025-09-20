@@ -757,7 +757,7 @@ fn upstream_buffer_button<'a>(
 
     let (left_padding, icon) = if position.is_horizontal() {
         icon_tuple.map_or((0, None), |(icon, icon_size)| {
-            (icon_size + 8, Some(container(icon).center_y(17.0)))
+            (icon_size + 8, Some(container(icon).center_y(Length::Fill)))
         })
     } else {
         let max_icon_size = server_icon_size.max(
@@ -774,7 +774,9 @@ fn upstream_buffer_button<'a>(
         (
             max_icon_size + 8,
             icon_tuple.map(|(icon, _)| {
-                container(icon).center_y(17.0).center_x(max_icon_size)
+                container(icon)
+                    .center_y(Length::Fill)
+                    .center_x(max_icon_size)
             }),
         )
     };
@@ -818,49 +820,50 @@ fn upstream_buffer_button<'a>(
         icon
     ]);
 
-    let base = button(content.height(17.0).width(width))
-        .style(move |theme, status| {
-            theme::button::sidebar_buffer(
-                theme,
-                status,
-                is_focused.is_some(),
-                open.is_some(),
-            )
-        })
-        .on_press({
-            match is_focused {
-                Some((window, pane)) => {
-                    if let Some(focus_action) = focused_buffer_action {
-                        match focus_action {
-                            BufferFocusedAction::ClosePane => {
-                                Message::Close(window, pane)
+    let base =
+        button(content.width(width).padding(Padding::default().bottom(1)))
+            .style(move |theme, status| {
+                theme::button::sidebar_buffer(
+                    theme,
+                    status,
+                    is_focused.is_some(),
+                    open.is_some(),
+                )
+            })
+            .on_press({
+                match is_focused {
+                    Some((window, pane)) => {
+                        if let Some(focus_action) = focused_buffer_action {
+                            match focus_action {
+                                BufferFocusedAction::ClosePane => {
+                                    Message::Close(window, pane)
+                                }
                             }
-                        }
-                    } else {
-                        // Re-focus pane on press instead of disabling the button in order
-                        // to have hover status of the button for styling
-                        Message::Focus(window, pane)
-                    }
-                }
-                None => {
-                    if let Some((window, pane)) = open {
-                        Message::Focus(window, pane)
-                    } else {
-                        match buffer_action {
-                            BufferAction::NewPane => {
-                                Message::New(buffer.clone())
-                            }
-                            BufferAction::ReplacePane => {
-                                Message::Replace(buffer.clone())
-                            }
-                            BufferAction::NewWindow => {
-                                Message::Popout(buffer.clone())
-                            }
+                        } else {
+                            // Re-focus pane on press instead of disabling the button in order
+                            // to have hover status of the button for styling
+                            Message::Focus(window, pane)
                         }
                     }
+                    None => {
+                        if let Some((window, pane)) = open {
+                            Message::Focus(window, pane)
+                        } else {
+                            match buffer_action {
+                                BufferAction::NewPane => {
+                                    Message::New(buffer.clone())
+                                }
+                                BufferAction::ReplacePane => {
+                                    Message::Replace(buffer.clone())
+                                }
+                                BufferAction::NewWindow => {
+                                    Message::Popout(buffer.clone())
+                                }
+                            }
+                        }
+                    }
                 }
-            }
-        });
+            });
 
     let entries = Entry::list(&buffer, panes.len(), open, focus);
 
