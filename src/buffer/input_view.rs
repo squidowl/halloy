@@ -168,39 +168,71 @@ impl State {
 
         match message {
             Message::InformationReceived(info) => {
-                let os_info = info.system_version.as_deref().map_or_else(
-                    || "OS: Unknown".to_string(),
-                    |version| {
-                        if let Some(kernel) = &info.system_kernel {
-                            format!("OS: {version} ({kernel})")
-                        } else {
-                            format!("OS: {version}")
-                        }
-                    },
-                );
+                let sysinfo_config = &config.buffer.commands.sysinfo;
 
-                let cpu_info = format!("CPU: {}", info.cpu_brand.trim());
+                let sysinfo_parts = [
+                    // OS
+                    sysinfo_config.os.then(|| {
+                        info.system_version.as_deref().map_or_else(
+                            || "OS: Unknown".to_string(),
+                            |version| {
+                                if let Some(kernel) = &info.system_kernel {
+                                    format!("OS: {version} ({kernel})")
+                                } else {
+                                    format!("OS: {version}")
+                                }
+                            },
+                        )
+                    }),
+                    // CPU
+                    sysinfo_config
+                        .cpu
+                        .then(|| format!("CPU: {}", info.cpu_brand.trim())),
+                    // Memory
+                    sysinfo_config.memory.then(|| {
+                        let total_gb = (info.memory_total as f64
+                            / (1024.0 * 1024.0 * 1024.0))
+                            .ceil()
+                            as u64;
+                        format!("MEM: {total_gb} GB")
+                    }),
+                    // GPU
+                    sysinfo_config.gpu.then(|| {
+                        format!(
+                            "GPU: {} ({})",
+                            info.graphics_adapter.trim(),
+                            info.graphics_backend.trim()
+                        )
+                    }),
+                    // Uptime
+                    sysinfo_config
+                        .uptime
+                        .then(|| {
+                            uptime_lib::get().ok().map(|uptime| {
+                                let mut formatter = timeago::Formatter::new();
+                                formatter.num_items(4);
+                                format!("UP: {}", formatter.convert(uptime))
+                            })
+                        })
+                        .flatten(),
+                ]
+                .into_iter()
+                .flatten()
+                .collect::<Vec<_>>();
 
-                let total_gb = (info.memory_total as f64
-                    / (1024.0 * 1024.0 * 1024.0))
-                    .ceil() as u64;
-                let mem_info = format!("MEM: {total_gb} GB");
+                // If no sysinfo is enabled, don't send anything
+                if sysinfo_parts.is_empty() {
+                    return (Task::none(), None);
+                }
 
-                let gpu_info = format!(
-                    "GPU: {} ({})",
-                    info.graphics_adapter.trim(),
-                    info.graphics_backend.trim()
-                );
+                let message = sysinfo_parts.join(" ");
 
-                let sysinfo_message =
-                    format!("{os_info} {cpu_info} {mem_info} {gpu_info}");
-
-                history.record_input_history(buffer, sysinfo_message.clone());
+                history.record_input_history(buffer, message.clone());
 
                 if let Ok(data::input::Parsed::Input(input)) = input::parse(
                     buffer.clone(),
                     config.buffer.text_input.auto_format,
-                    &sysinfo_message,
+                    message.as_str(),
                     clients.nickname(buffer.server()),
                     &clients.get_isupport(buffer.server()),
                 ) && let Some(encoded) = input.encoded()
