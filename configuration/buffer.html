@@ -348,6 +348,53 @@ show_description = false
 [buffer.commands]
 show_description = true
 </code></pre>
+<h3 id="sysinfo"><a class="header" href="#sysinfo"><code>sysinfo</code></a></h3>
+<p>Configure which system information components to display when using the <code>/sysinfo</code> command</p>
+<h4 id="cpu"><a class="header" href="#cpu"><code>cpu</code></a></h4>
+<p>Show CPU information (processor brand and model)</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: true
+
+[buffer.commands.sysinfo]
+cpu = true
+</code></pre>
+<h4 id="memory"><a class="header" href="#memory"><code>memory</code></a></h4>
+<p>Show memory information</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: true
+
+[buffer.commands.sysinfo]
+memory = true
+</code></pre>
+<h4 id="gpu"><a class="header" href="#gpu"><code>gpu</code></a></h4>
+<p>Show graphics card information (adapter and backend)</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: true
+
+[buffer.commands.sysinfo]
+gpu = true
+</code></pre>
+<h4 id="os"><a class="header" href="#os"><code>os</code></a></h4>
+<p>Show operating system information (version and kernel)</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: true
+
+[buffer.commands.sysinfo]
+os = true
+</code></pre>
+<h4 id="uptime"><a class="header" href="#uptime"><code>uptime</code></a></h4>
+<p>Show system uptime information</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: true
+
+[buffer.commands.sysinfo]
+uptime = true
+</code></pre>
 <h2 id="bufferbacklog_separator"><a class="header" href="#bufferbacklog_separator"><code>[buffer.backlog_separator]</code></a></h2>
 <p>Customize when the backlog separator is displayed within a buffer</p>
 <h3 id="hide_when_all_read"><a class="header" href="#hide_when_all_read"><code>hide_when_all_read</code></a></h3>
