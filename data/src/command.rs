@@ -28,6 +28,7 @@ pub enum Internal {
     /// - Part message
     Hop(Option<String>, Option<String>),
     Delay(u64),
+    SysInfo,
 }
 
 #[derive(Debug, Clone)]
@@ -73,6 +74,7 @@ enum Kind {
     Delay,
     Clear,
     ClearTopic,
+    SysInfo,
     Raw,
 }
 
@@ -102,6 +104,7 @@ impl FromStr for Kind {
             "delay" => Ok(Kind::Delay),
             "clear" => Ok(Kind::Clear),
             "cleartopic" | "ct" => Ok(Kind::ClearTopic),
+            "sysinfo" => Ok(Kind::SysInfo),
             _ => Err(()),
         }
     }
@@ -795,6 +798,9 @@ pub fn parse(
             }
             Kind::Clear => validated::<0, 0, false>(args, |_, _| {
                 Ok(Command::Internal(Internal::ClearBuffer))
+            }),
+            Kind::SysInfo => validated::<0, 0, false>(args, |_, _| {
+                Ok(Command::Internal(Internal::SysInfo))
             }),
             Kind::ClearTopic => {
                 validated::<0, 1, false>(args, |_, [channel]| {

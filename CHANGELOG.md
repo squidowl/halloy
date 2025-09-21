@@ -1,5 +1,8 @@
 # Unreleased
 
+Added:
+- `/sysinfo` command to send system information to current buffer
+
 Fixed:
 - Enforce delay between notifications
 - Larger fonts (and font sizes) can be used without blanking out the sidebar

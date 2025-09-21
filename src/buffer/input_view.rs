@@ -36,6 +36,7 @@ pub enum Event {
 
 #[derive(Debug, Clone)]
 pub enum Message {
+    InformationReceived(iced::system::Information),
     Input(String),
     Send,
     Tab(bool),
@@ -166,6 +167,81 @@ impl State {
         let current_target = buffer.target();
 
         match message {
+            Message::InformationReceived(info) => {
+                let sysinfo_config = &config.buffer.commands.sysinfo;
+
+                let sysinfo_parts = [
+                    // OS
+                    sysinfo_config.os.then(|| {
+                        info.system_version.as_deref().map_or_else(
+                            || "OS: Unknown".to_string(),
+                            |version| {
+                                if let Some(kernel) = &info.system_kernel {
+                                    format!("OS: {version} ({kernel})")
+                                } else {
+                                    format!("OS: {version}")
+                                }
+                            },
+                        )
+                    }),
+                    // CPU
+                    sysinfo_config
+                        .cpu
+                        .then(|| format!("CPU: {}", info.cpu_brand.trim())),
+                    // Memory
+                    sysinfo_config.memory.then(|| {
+                        let total_gb = (info.memory_total as f64
+                            / (1024.0 * 1024.0 * 1024.0))
+                            .ceil()
+                            as u64;
+                        format!("MEM: {total_gb} GB")
+                    }),
+                    // GPU
+                    sysinfo_config.gpu.then(|| {
+                        format!(
+                            "GPU: {} ({})",
+                            info.graphics_adapter.trim(),
+                            info.graphics_backend.trim()
+                        )
+                    }),
+                    // Uptime
+                    sysinfo_config
+                        .uptime
+                        .then(|| {
+                            uptime_lib::get().ok().map(|uptime| {
+                                let mut formatter = timeago::Formatter::new();
+                                formatter.num_items(4);
+                                format!("UP: {}", formatter.convert(uptime))
+                            })
+                        })
+                        .flatten(),
+                ]
+                .into_iter()
+                .flatten()
+                .collect::<Vec<_>>();
+
+                // If no sysinfo is enabled, don't send anything
+                if sysinfo_parts.is_empty() {
+                    return (Task::none(), None);
+                }
+
+                let message = sysinfo_parts.join(" ");
+
+                history.record_input_history(buffer, message.clone());
+
+                if let Ok(data::input::Parsed::Input(input)) = input::parse(
+                    buffer.clone(),
+                    config.buffer.text_input.auto_format,
+                    message.as_str(),
+                    clients.nickname(buffer.server()),
+                    &clients.get_isupport(buffer.server()),
+                ) && let Some(encoded) = input.encoded()
+                {
+                    clients.send(buffer, encoded);
+                }
+
+                (Task::none(), None)
+            }
             Message::Input(input) => {
                 // Reset error state
                 self.error = None;
@@ -458,6 +534,13 @@ impl State {
                                         });
 
                                     return (Task::none(), event);
+                                }
+                                command::Internal::SysInfo => {
+                                    return (
+                                        iced::system::information()
+                                            .map(Message::InformationReceived),
+                                        None,
+                                    );
                                 }
                             }
                         }

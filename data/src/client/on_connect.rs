@@ -78,9 +78,10 @@ pub fn on_connect(
                                 time::sleep(Duration::from_secs(seconds)).await;
                                 None
                             }
-                            // We don't handle hop, clear-buffer when called from connected.
+                            // We don't handle hop, clear-buffer, sysinfo when called from connected.
                             command::Internal::ClearBuffer
-                            | command::Internal::Hop(_, _) => None,
+                            | command::Internal::Hop(_, _)
+                            | command::Internal::SysInfo => None,
                         },
                     }
                 }

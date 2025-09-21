@@ -119,14 +119,38 @@ pub enum OnBufferCloseCondition {
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
+pub struct SysInfo {
+    pub cpu: bool,
+    pub memory: bool,
+    pub gpu: bool,
+    pub os: bool,
+    pub uptime: bool,
+}
+
+impl Default for SysInfo {
+    fn default() -> Self {
+        Self {
+            cpu: true,
+            memory: true,
+            gpu: true,
+            os: true,
+            uptime: true,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(default)]
 pub struct Commands {
     pub show_description: bool,
+    pub sysinfo: SysInfo,
 }
 
 impl Default for Commands {
     fn default() -> Self {
         Self {
             show_description: true,
+            sysinfo: SysInfo::default(),
         }
     }
 }
