@@ -12,8 +12,7 @@ use data::target::{self, Target};
 use data::{Config, Preview, client, history};
 use iced::widget::text::LineHeight;
 use iced::widget::{
-    Scrollable, button, center, column, container, horizontal_rule,
-    horizontal_space, image, mouse_area, right, row, scrollable, stack, text,
+    button, center, column, container, horizontal_rule, horizontal_space, image, mouse_area, right, row, scrollable, stack, text, vertical_space, Scrollable
 };
 use iced::{ContentFit, Length, Padding, Size, Task, alignment, padding};
 
@@ -399,6 +398,7 @@ pub fn view<'a>(
             column(old).spacing(config.buffer.line_spacing),
             keyed(keyed::Key::Divider, divider),
             column(new).spacing(config.buffer.line_spacing),
+            vertical_space().height(config.buffer.line_spacing),
         ]
         .spacing(config.buffer.line_spacing),
         Message::ContentResized,
