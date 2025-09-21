@@ -6,10 +6,11 @@ Added:
 Fixed:
 - Enforce delay between notifications
 - Larger fonts (and font sizes) can be used without blanking out the sidebar
+- The primary clipboard (with copy on selection & paste with middle click) is supported on Linux
 
 Thanks:
 - Contributions: @Toby222
-- Bug reports: @Toby222, @deepspaceaxolotl
+- Bug reports: @Toby222, @deepspaceaxolotl, @zhelezov
 
 # 2025.9 (2025-09-16)
 
