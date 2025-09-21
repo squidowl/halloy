@@ -39,6 +39,7 @@ rand = "0.9.0"
 rand_chacha = "0.9.0"
 palette = "0.7.4"
 log = { version = "0.4.26", features = ['std'] }
+uptime_lib = "0.3.1"
 
 [dependencies]
 tokio = { workspace = true, features = ["rt", "fs", "process"] }
@@ -56,6 +57,7 @@ rand = { workspace = true }
 rand_chacha = { workspace = true }
 palette = { workspace = true }
 log = { workspace = true }
+uptime_lib = { workspace = true }
 
 data = { version = "0.1.0", path = "data" }
 ipc = { version = "0.1.0", path = "ipc" }
@@ -94,6 +96,7 @@ mundy = { version = "0.1.9", default-features = false, features = [
 image = "0.24.6"
 iced = { version = "0.14.0-dev", default-features = false, features = [
     "web-colors",
+    "sysinfo"
 ] }
 
 [target.'cfg(windows)'.build-dependencies]
