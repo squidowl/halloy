@@ -17,7 +17,7 @@ use data::{
 };
 use iced::widget::pane_grid::{self, PaneGrid};
 use iced::widget::{Space, column, container, row};
-use iced::{Length, Size, Task, Vector, clipboard};
+use iced::{Length, Size, Task, Vector, advanced, clipboard};
 
 use self::command_bar::CommandBar;
 use self::pane::Pane;
@@ -58,7 +58,7 @@ pub struct Dashboard {
 pub enum Message {
     Pane(window::Id, pane::Message),
     Sidebar(sidebar::Message),
-    SelectedText(Vec<(f32, String)>),
+    SelectedText(Vec<(f32, String)>, advanced::clipboard::Kind),
     History(history::manager::Message),
     DashboardSaved(Result<(), data::dashboard::Error>),
     Task(command_bar::Message),
@@ -811,7 +811,7 @@ impl Dashboard {
                     event,
                 );
             }
-            Message::SelectedText(contents) => {
+            Message::SelectedText(contents, clipboard_kind) => {
                 let mut last_y = None;
                 let contents = contents.into_iter().fold(
                     String::new(),
@@ -830,7 +830,17 @@ impl Dashboard {
                 );
 
                 if !contents.is_empty() {
-                    return (clipboard::write(contents), None);
+                    return (
+                        match clipboard_kind {
+                            advanced::clipboard::Kind::Standard => {
+                                clipboard::write(contents)
+                            }
+                            advanced::clipboard::Kind::Primary => {
+                                clipboard::write_primary(contents)
+                            }
+                        },
+                        None,
+                    );
                 }
             }
             Message::History(message) => {
@@ -1803,8 +1813,21 @@ impl Dashboard {
                     )
                 }
             }
-            Copy => selectable_text::selected(Message::SelectedText),
+            Copy => selectable_text::selected(|selected_text| {
+                Message::SelectedText(
+                    selected_text,
+                    advanced::clipboard::Kind::Standard,
+                )
+            }),
             LeftClick => self.refocus_pane(),
+            UpdatePrimaryClipboard => {
+                selectable_text::selected(|selected_text| {
+                    Message::SelectedText(
+                        selected_text,
+                        advanced::clipboard::Kind::Primary,
+                    )
+                })
+            }
         }
     }
 
