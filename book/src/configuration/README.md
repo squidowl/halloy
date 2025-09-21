@@ -8,6 +8,8 @@ To edit configuration parameters, create a `config.toml` file located in your co
 
 > 💡 You can easily open the config file directory from command bar in Halloy
 
+> 💡 Most configuration changes can be applied by reloading the configuration file from the sidebar menu, [keyboard shortcut](keyboard.md), or command bar
+
 The specification for the configuration file format ([TOML](https://toml.io/)) can be found at [https://toml.io/](https://toml.io/).
 
 Example config for connecting to [Libera](https://libera.chat/):
