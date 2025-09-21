@@ -564,6 +564,14 @@ impl Commands {
                     subcommands: None,
                 }
             },
+            // SYSINFO
+            {
+                Command {
+                    title: "SYSINFO",
+                    args: vec![],
+                    subcommands: None,
+                }
+            },
             // CLEAR
             {
                 Command {
@@ -986,6 +994,7 @@ impl Command {
             "hop" => "Parts the current channel and joins a new one",
             "clear" => "Clears the buffer",
             "cleartopic" => "Clear the topic of a channel",
+            "sysinfo" => "Send system information",
             _ => return None,
         })
     }
@@ -1006,6 +1015,7 @@ impl Command {
             "format" => vec!["f"],
             "hop" => vec!["rejoin"],
             "clear" => vec![],
+            "sysinfo" => vec![],
             _ => vec![],
         }
     }
