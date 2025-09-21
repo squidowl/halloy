@@ -31,6 +31,7 @@ The argument(s) for a command are shown in [tooltips](configuration/tooltips.md)
 | `part`       | `leave`    | Leave and close channel(s)/quer(ies) with an optional reason [^4] |
 | `quit`       |            | Disconnect from the server with an optional reason                |
 | `raw`        |            | Send data to the server without modifying it                      |
+| `sysinfo`    |            | Send system information (OS, CPU, memory, GPU, uptime)         |
 | `topic`      | `t`        | Retrieve the topic of a channel or set a new topic[^1]            |
 | `whois`      |            | Retrieve information about user(s)                                |
 
