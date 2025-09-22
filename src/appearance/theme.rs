@@ -2,6 +2,8 @@ pub use data::appearance::theme::{
     Buffer, Button, Buttons, General, ServerMessages, Styles, Text,
     color_to_hex, hex_to_color,
 };
+use data::config;
+use iced::widget::text::LineHeight;
 
 use crate::widget::combo_box;
 
@@ -95,3 +97,16 @@ impl iced::theme::Base for Theme {
 }
 
 impl combo_box::Catalog for Theme {}
+
+pub fn line_height(config: &config::Font) -> f32 {
+    LineHeight::default()
+        .to_absolute(
+            if let Some(size) = config.size {
+                f32::from(size)
+            } else {
+                TEXT_SIZE
+            }
+            .into(),
+        )
+        .0
+}
