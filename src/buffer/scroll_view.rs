@@ -12,7 +12,9 @@ use data::target::{self, Target};
 use data::{Config, Preview, client, history};
 use iced::widget::text::LineHeight;
 use iced::widget::{
-    button, center, column, container, horizontal_rule, horizontal_space, image, mouse_area, right, row, scrollable, stack, text, vertical_space, Scrollable
+    Scrollable, button, center, column, container, horizontal_rule,
+    horizontal_space, image, mouse_area, right, row, scrollable, stack, text,
+    vertical_space,
 };
 use iced::{ContentFit, Length, Padding, Size, Task, alignment, padding};
 
