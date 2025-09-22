@@ -9,7 +9,7 @@ Fixed:
 - The primary clipboard (with copy on selection & paste with middle click) is supported on Linux
 
 Thanks:
-- Contributions: @Toby222
+- Contributions: @Toby222, @Frikilinux
 - Bug reports: @Toby222, @deepspaceaxolotl, @zhelezov
 
 # 2025.9 (2025-09-16)
