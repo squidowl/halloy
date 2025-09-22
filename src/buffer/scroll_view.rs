@@ -10,7 +10,6 @@ use data::preview::{self, Previews};
 use data::server::Server;
 use data::target::{self, Target};
 use data::{Config, Preview, client, history};
-use iced::widget::text::LineHeight;
 use iced::widget::{
     Scrollable, button, center, column, container, horizontal_rule,
     horizontal_space, image, mouse_area, right, row, scrollable, stack, text,
@@ -21,7 +20,6 @@ use iced::{ContentFit, Length, Padding, Size, Task, alignment, padding};
 use self::correct_viewport::correct_viewport;
 use self::keyed::keyed;
 use super::user_context;
-use crate::appearance::theme::TEXT_SIZE;
 use crate::widget::{
     Element, MESSAGE_MARKER_TEXT, notify_visibility, on_resize,
     selectable_text, tooltip,
@@ -995,16 +993,7 @@ impl Default for Status {
 }
 
 fn step_messages(height: f32, config: &Config) -> usize {
-    let line_height = LineHeight::default()
-        .to_absolute(
-            if let Some(size) = config.font.size {
-                f32::from(size)
-            } else {
-                TEXT_SIZE
-            }
-            .into(),
-        )
-        .0;
+    let line_height = theme::line_height(&config.font);
 
     (height / line_height) as usize
 }
