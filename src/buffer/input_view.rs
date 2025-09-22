@@ -36,7 +36,7 @@ pub enum Event {
 
 #[derive(Debug, Clone)]
 pub enum Message {
-    InformationReceived(iced::system::Information),
+    SysInfoReceived(iced::system::Information),
     Input(String),
     Send,
     Tab(bool),
@@ -167,7 +167,7 @@ impl State {
         let current_target = buffer.target();
 
         match message {
-            Message::InformationReceived(info) => {
+            Message::SysInfoReceived(info) => {
                 let sysinfo_config = &config.buffer.commands.sysinfo;
 
                 let sysinfo_parts = [
@@ -538,7 +538,7 @@ impl State {
                                 command::Internal::SysInfo => {
                                     return (
                                         iced::system::information()
-                                            .map(Message::InformationReceived),
+                                            .map(Message::SysInfoReceived),
                                         None,
                                     );
                                 }
