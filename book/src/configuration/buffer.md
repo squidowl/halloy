@@ -311,7 +311,7 @@ Hide backlog divider when all messages in the buffer have been marked as read.
 # Values: true, false
 # Default: false
 
-[buffer.buffer_separator]
+[buffer.backlog_separator]
 hide_when_all_read = true
 ```
 
