@@ -1,16 +1,20 @@
 # Unreleased
 
 Added:
+
 - `/sysinfo` command to send system information to current buffer
 
 Fixed:
+
 - Enforce delay between notifications
 - Larger fonts (and font sizes) can be used without blanking out the sidebar or pane title bar(s)
 - The primary clipboard (with copy on selection & paste with middle click) is supported on Linux
+- Sound effects are now properly reloaded when config file is refreshed from within the application
 
 Thanks:
+
 - Contributions: @Toby222, @Frikilinux
-- Bug reports: @Toby222, @deepspaceaxolotl, @zhelezov, @dgz0
+- Bug reports: @Toby222, @deepspaceaxolotl, @zhelezov, @Erroneuz, @dgz0
 
 # 2025.9 (2025-09-16)
 
