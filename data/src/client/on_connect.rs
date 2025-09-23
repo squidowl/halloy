@@ -115,7 +115,8 @@ pub fn on_connect(
                             | command::Internal::Hop(_, _)
                             | command::Internal::SysInfo
                             | command::Internal::Reconnect
-                            | command::Internal::Upload(_) => None,
+                            | command::Internal::Upload(_)
+                            | command::Internal::SearchResults(_) => None,
                         },
                     }
                 }

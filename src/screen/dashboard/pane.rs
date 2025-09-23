@@ -157,6 +157,12 @@ impl Pane {
                         .into()
                 }
             }
+            Buffer::SearchResults(state) => {
+                text(format!("Search Results @ {}", state.server))
+                    .wrapping(Wrapping::None)
+                    .ellipsis(text::Ellipsis::End)
+                    .into()
+            }
             Buffer::Logs(_) => text("Logs")
                 .wrapping(Wrapping::None)
                 .ellipsis(text::Ellipsis::End)
@@ -263,6 +269,9 @@ impl Pane {
             }),
             Buffer::Logs(_) => Some(history::Resource::logs()),
             Buffer::Highlights(_) => Some(history::Resource::highlights()),
+            Buffer::SearchResults(state) => Some(history::Resource {
+                kind: history::Kind::SearchResults(state.server.clone()),
+            }),
             Buffer::ChannelDiscovery(_)
             | Buffer::FileTransfers(_)
             | Buffer::ConfigEditor(_) => None,
@@ -281,7 +290,8 @@ impl Pane {
             | Buffer::Logs(_)
             | Buffer::Highlights(_)
             | Buffer::ChannelDiscovery(_)
-            | Buffer::ConfigEditor(_) => vec![],
+            | Buffer::ConfigEditor(_)
+            | Buffer::SearchResults(_) => vec![],
         }
     }
 }
@@ -813,6 +823,9 @@ impl From<Pane> for data::Pane {
             Buffer::ConfigEditor(_) => {
                 data::Buffer::Internal(buffer::Internal::ConfigEditor)
             }
+            Buffer::SearchResults(state) => data::Buffer::Internal(
+                buffer::Internal::SearchResults(state.server.clone()),
+            ),
         };
 
         data::Pane::Buffer { buffer }

@@ -1716,13 +1716,14 @@ impl<'a> ChannelQueryLayout<'a> {
                 (&message.reply_preview, self.target.channel())
             {
                 let server = self.server.clone();
-                let channel = channel.clone();
                 let hash = reply_preview.hash;
                 button(preview)
                     .style(theme::button::reply_preview)
                     .padding(0)
                     .on_press(Message::Link(message::Link::GoToMessage(
-                        server, channel, hash,
+                        server,
+                        channel.to_target(),
+                        hash,
                         None, // Currently unimportant, since the buffer will always be already open
                     )))
                     .into()

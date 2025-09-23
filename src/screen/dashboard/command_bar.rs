@@ -421,6 +421,9 @@ impl std::fmt::Display for Buffer {
                     buffer::Internal::ConfigEditor => {
                         write!(f, "Open config editor")
                     }
+                    buffer::Internal::SearchResults(server) => {
+                        write!(f, "Open search results for {server}")
+                    }
                 },
                 data::Buffer::Upstream(upstream) => match upstream {
                     buffer::Upstream::Server(server) => {

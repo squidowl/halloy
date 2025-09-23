@@ -14,9 +14,9 @@ pub struct Actions {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
 pub struct Buffer {
-    pub click_channel_name: ChannelClickAction,
-    pub click_highlight: ChannelClickAction,
-    pub click_channel_discovery: ChannelClickAction,
+    pub click_channel_name: TargetClickAction,
+    pub click_highlight: TargetClickAction,
+    pub click_channel_discovery: TargetClickAction,
     #[serde(alias = "click_nickname")]
     pub click_username: NicknameClickAction,
     pub join_channel: BufferAction,
@@ -24,20 +24,26 @@ pub struct Buffer {
     pub open_internal: BufferAction,
     pub message_channel: BufferAction,
     pub message_user: BufferAction,
+    pub list: BufferAction,
+    pub search: BufferAction,
+    pub click_search_result: TargetClickAction,
     pub only_contract_expanded_message: bool,
 }
 
 impl Default for Buffer {
     fn default() -> Self {
         Self {
-            click_channel_name: ChannelClickAction::default(),
-            click_highlight: ChannelClickAction::default(),
-            click_channel_discovery: ChannelClickAction::default(),
+            click_channel_name: TargetClickAction::default(),
+            click_highlight: TargetClickAction::default(),
+            click_channel_discovery: TargetClickAction::default(),
             click_username: NicknameClickAction::default(),
             join_channel: BufferAction::default(),
             open_internal: BufferAction::default(),
             message_channel: BufferAction::default(),
             message_user: BufferAction::default(),
+            list: BufferAction::default(),
+            search: BufferAction::default(),
+            click_search_result: TargetClickAction::default(),
             only_contract_expanded_message: true,
         }
     }
@@ -111,18 +117,18 @@ impl<'de> Deserialize<'de> for NicknameClickAction {
 }
 
 #[derive(Debug, Copy, Clone)]
-pub enum ChannelClickAction {
+pub enum TargetClickAction {
     OpenChannel(BufferAction),
     Noop,
 }
 
-impl Default for ChannelClickAction {
+impl Default for TargetClickAction {
     fn default() -> Self {
         Self::OpenChannel(BufferAction::default())
     }
 }
 
-impl<'de> Deserialize<'de> for ChannelClickAction {
+impl<'de> Deserialize<'de> for TargetClickAction {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
@@ -145,24 +151,24 @@ impl<'de> Deserialize<'de> for ChannelClickAction {
         match Action::deserialize(deserializer)? {
             Action::ClickAction(click_action) => match click_action {
                 ClickAction::OpenChannel(buffer_action) => {
-                    Ok(ChannelClickAction::OpenChannel(buffer_action))
+                    Ok(TargetClickAction::OpenChannel(buffer_action))
                 }
-                ClickAction::Noop => Ok(ChannelClickAction::Noop),
+                ClickAction::Noop => Ok(TargetClickAction::Noop),
             },
             Action::BufferAction(buffer_action) => {
-                Ok(ChannelClickAction::OpenChannel(buffer_action))
+                Ok(TargetClickAction::OpenChannel(buffer_action))
             }
         }
     }
 }
 
-impl ChannelClickAction {
+impl TargetClickAction {
     pub fn buffer_action(&self) -> Option<BufferAction> {
         match self {
-            ChannelClickAction::OpenChannel(buffer_action) => {
+            TargetClickAction::OpenChannel(buffer_action) => {
                 Some(*buffer_action)
             }
-            ChannelClickAction::Noop => None,
+            TargetClickAction::Noop => None,
         }
     }
 }
