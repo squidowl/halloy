@@ -420,6 +420,11 @@ impl Halloy {
                                     .current_mode
                                     .theme(&updated.appearance.selected)
                                     .into();
+
+                                // Load new notification sounds.
+                                self.notifications =
+                                    Notifications::new(&updated);
+
                                 self.config = updated;
 
                                 for (server, _) in removed_servers {

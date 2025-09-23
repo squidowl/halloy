@@ -14,7 +14,8 @@ pub fn play(sound: Sound) {
 }
 
 fn _play(sound: Sound) -> Result<(), PlayError> {
-    let stream_handle = OutputStreamBuilder::open_default_stream()?;
+    let mut stream_handle = OutputStreamBuilder::open_default_stream()?;
+    stream_handle.log_on_drop(false);
     let sink = Sink::connect_new(stream_handle.mixer());
 
     let source = Decoder::new(Cursor::new(sound))?;
