@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use chrono::{DateTime, Utc};
 use data::config::buffer::nickname::ShownStatus;
 use data::dashboard::BufferAction;
-use data::target::{self, Target};
+use data::target::Target;
 use data::{Config, Preview, Server, history, message};
 use iced::widget::{container, row, span};
 use iced::{Color, Length, Size, Task};
@@ -23,7 +23,7 @@ pub enum Message {
 pub enum Event {
     ContextMenu(context_menu::Event),
     OpenBuffer(Server, Target, BufferAction),
-    GoToMessage(Server, target::Channel, message::Hash),
+    GoToMessage(Server, Target, message::Hash),
     History(Task<history::manager::Message>),
     OpenUrl(String),
     ImagePreview(PathBuf, url::Url),
@@ -89,7 +89,7 @@ pub fn view<'a>(
                                 .color(theme.styles().buffer.url.color)
                                 .link(message::Link::GoToMessage(
                                     server.clone(),
-                                    channel.clone(),
+                                    channel.to_target(),
                                     message.hash,
                                 )),
                             span(" "),
@@ -236,7 +236,7 @@ pub fn view<'a>(
                                 .color(theme.styles().buffer.url.color)
                                 .link(message::Link::GoToMessage(
                                     server.clone(),
-                                    channel.clone(),
+                                    channel.to_target(),
                                     message.hash,
                                 )),
                             span(" "),
@@ -325,9 +325,9 @@ impl Highlights {
                     ) => Some(Event::OpenBuffer(server, target, buffer_action)),
                     scroll_view::Event::GoToMessage(
                         server,
-                        channel,
+                        target,
                         message,
-                    ) => Some(Event::GoToMessage(server, channel, message)),
+                    ) => Some(Event::GoToMessage(server, target, message)),
                     scroll_view::Event::RequestOlderChatHistory => None,
                     scroll_view::Event::PreviewChanged => None,
                     scroll_view::Event::HidePreview(..) => None,

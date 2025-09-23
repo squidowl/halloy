@@ -50,6 +50,7 @@ impl Completion {
         channels: &[target::Channel],
         current_target: Option<&Target>,
         supports_detach: bool,
+        supports_search: bool,
         isupport: &HashMap<isupport::Kind, isupport::Parameter>,
         config: &Config,
     ) {
@@ -61,6 +62,7 @@ impl Completion {
                 our_nickname,
                 current_target,
                 supports_detach,
+                supports_search,
                 isupport,
             );
 
@@ -281,6 +283,7 @@ impl Commands {
         our_nickname: Option<NickRef>,
         current_target: Option<&Target>,
         supports_detach: bool,
+        supports_search: bool,
         isupport: &HashMap<isupport::Kind, isupport::Parameter>,
     ) {
         let Some((head, rest)) = input.split_once('/') else {
@@ -707,6 +710,26 @@ impl Commands {
             };
 
             command_list.push(detach_command(default, channel_len));
+        }
+
+        if supports_search {
+            command_list.push(Command {
+                title: "SEARCH",
+                args: vec![Argument {
+                    text: "attributes",
+                    kind: ArgumentKind::Required,
+                    tooltip: Some(
+                            "semicolon-separated\
+                           \n    in: The message was sent to this target (channel or user)\
+                           \n  from: The message was sent with this nick\
+                           \n after: The message was sent at or after this time (format: YYYY-MM-DDThh:mm:ss.sssZ)\
+                           \nbefore: The message was sent at or before this time (format: YYYY-MM-DDThh:mm:ss.sssZ)\
+                           \n  text: The message text matches the specified text\
+                           \n limit: An upper bound on the count of messages to return".to_string(),
+                        ),
+                }],
+                subcommands: None,
+            });
         }
 
         let isupport_commands = isupport
