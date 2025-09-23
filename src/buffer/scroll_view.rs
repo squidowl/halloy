@@ -44,6 +44,7 @@ pub enum Message {
         has_more_older_messages: bool,
         has_more_newer_messages: bool,
         oldest: DateTime<Utc>,
+        ordered_by: history::OrderedBy,
         status: Status,
         viewport: scrollable::Viewport,
     },
@@ -81,7 +82,7 @@ impl From<context_menu::Message> for Message {
 pub enum Event {
     ContextMenu(context_menu::Event),
     OpenBuffer(Server, Target, BufferAction),
-    GoToMessage(Server, target::Channel, message::Hash),
+    GoToMessage(Server, Target, message::Hash),
     RequestOlderChatHistory,
     PreviewChanged,
     HidePreview(history::Kind, message::Hash, url::Url),
@@ -99,6 +100,7 @@ pub enum Kind<'a> {
     Query(&'a Server, &'a target::Query),
     Logs,
     Highlights,
+    SearchResults(&'a Server),
 }
 
 impl Kind<'_> {
@@ -106,7 +108,8 @@ impl Kind<'_> {
         match self {
             Kind::Server(server)
             | Kind::Channel(server, _)
-            | Kind::Query(server, _) => Some(server),
+            | Kind::Query(server, _)
+            | Kind::SearchResults(server) => Some(server),
             Kind::Logs | Kind::Highlights => None,
         }
     }
@@ -124,6 +127,9 @@ impl From<Kind<'_>> for history::Kind {
             }
             Kind::Logs => history::Kind::Logs,
             Kind::Highlights => history::Kind::Highlights,
+            Kind::SearchResults(server) => {
+                history::Kind::SearchResults(server.clone())
+            }
         }
     }
 }
@@ -263,6 +269,7 @@ pub fn view<'a>(
         max_prefix_chars,
         range_end_timestamp_chars,
         cleared,
+        ordered_by,
         ..
     }) = history.get_messages(&kind.into(), Some(state.limit), &config.buffer)
     else {
@@ -306,7 +313,7 @@ pub fn view<'a>(
         .iter()
         .chain(&new_messages)
         .next()
-        .map_or_else(Utc::now, |message| message.server_time);
+        .map_or_else(Utc::now, |message| message.ordering_datetime(ordered_by));
     let status = state.status;
 
     let right_aligned_width = max_nick_chars.map(|max_nick_chars| {
@@ -406,7 +413,7 @@ pub fn view<'a>(
                 let date =
                     message.server_time.with_timezone(&Local).date_naive();
 
-                let is_new_day = last_date.is_none_or(|prev| date > prev);
+                let is_new_day = last_date.is_none_or(|prev| date != prev);
 
                 *last_date = Some(date);
 
@@ -593,8 +600,14 @@ pub fn view<'a>(
         .saturating_sub(old_messages.len())
         .min(new_messages.len());
 
-    let date_of =
-        |m: &data::Message| m.server_time.with_timezone(&Local).date_naive();
+    let date_of = |m: &data::Message| {
+        match ordered_by {
+            history::OrderedBy::ReceivedAt => m.received_at.datetime(),
+            history::OrderedBy::ServerTime => m.server_time,
+        }
+        .with_timezone(&Local)
+        .date_naive()
+    };
 
     let old_last_date = old_start
         .checked_sub(1)
@@ -627,7 +640,7 @@ pub fn view<'a>(
         space::vertical().height(h)
     });
 
-    let show_backlog_divier = if old.is_empty() {
+    let show_backlog_divider = if old.is_empty() {
         // If all newer messages in viewport, only show backlog divider at the top
         // if we don't have any older messages at all (we're scrolled all the way up)
         !has_more_older_messages
@@ -640,7 +653,7 @@ pub fn view<'a>(
         }
     };
 
-    let divider = if show_backlog_divier {
+    let divider = if show_backlog_divider {
         match &config.buffer.backlog_separator.text {
             data::buffer::BacklogText::Hidden => row![
                 container(rule::horizontal(1).style(theme::rule::backlog))
@@ -701,6 +714,7 @@ pub fn view<'a>(
                 has_more_newer_messages,
                 count,
                 oldest,
+                ordered_by,
                 status,
                 viewport,
             })
@@ -762,6 +776,7 @@ impl State {
                 has_more_older_messages,
                 has_more_newer_messages,
                 oldest,
+                ordered_by,
                 status: old_status,
                 viewport,
             } => {
@@ -850,7 +865,10 @@ impl State {
                             ) && let Some(oldest) =
                                 old_messages.iter().chain(&new_messages).next()
                             {
-                                self.limit = Limit::Since(oldest.server_time);
+                                self.limit = Limit::Since(
+                                    oldest.ordering_datetime(ordered_by),
+                                    ordered_by,
+                                );
                             }
                         }
                     }
@@ -885,7 +903,7 @@ impl State {
                                 }
                             } else if matches!(self.limit, Limit::Around(_, _))
                             {
-                                self.limit = Limit::Since(oldest);
+                                self.limit = Limit::Since(oldest, ordered_by);
                             } else {
                                 self.limit = Limit::Top(step_messages(
                                     2.0 * height,
@@ -899,7 +917,7 @@ impl State {
                         if !old_status.is_bottom(relative_offset) =>
                     {
                         self.status = Status::Unlocked;
-                        self.limit = Limit::Since(oldest);
+                        self.limit = Limit::Since(oldest, ordered_by);
                     }
                     // Normal scrolling, always unlocked
                     _ => {
@@ -909,7 +927,7 @@ impl State {
                             self.limit,
                             Limit::Top(_) | Limit::Around(_, _)
                         ) {
-                            self.limit = Limit::Since(oldest);
+                            self.limit = Limit::Since(oldest, ordered_by);
                         }
                     }
                 }
@@ -977,12 +995,12 @@ impl State {
             }
             Message::Link(message::Link::GoToMessage(
                 server,
-                channel,
+                target,
                 message,
             )) => {
                 return (
                     Task::none(),
-                    Some(Event::GoToMessage(server, channel, message)),
+                    Some(Event::GoToMessage(server, target, message)),
                 );
             }
             Message::ScrollTo(keyed::Hit {

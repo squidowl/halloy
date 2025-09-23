@@ -30,6 +30,7 @@ pub enum Capability {
     MultiPrefix,
     ReadMarker,
     Sasl,
+    Search,
     ServerTime,
     Setname,
     UserhostInNames,
@@ -58,6 +59,7 @@ impl FromStr for Capability {
             "server-time" => Ok(Self::ServerTime),
             "setname" => Ok(Self::Setname),
             "soju.im/bouncer-networks" => Ok(Self::BouncerNetworks),
+            "soju.im/search" => Ok(Self::Search),
             "userhost-in-names" => Ok(Self::UserhostInNames),
             _ if cap.starts_with("sasl") => Ok(Self::Sasl),
             _ => Err("unknown capability"),
@@ -326,6 +328,12 @@ impl Capabilities {
             && !self.acknowledged(Capability::Setname)
         {
             requested.push("setname");
+        }
+
+        if self.pending.contains("soju.im/search")
+            && !self.acknowledged(Capability::Search)
+        {
+            requested.push("soju.im/search");
         }
 
         if self.pending.contains("soju.im/bouncer-networks")

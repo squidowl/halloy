@@ -845,6 +845,7 @@ impl Client {
                                     )
                                 })
                             }
+                            Some("soju.im/search") => Some(BatchKind::Search),
                             _ => None,
                         };
 
@@ -970,6 +971,7 @@ impl Client {
                                         _,
                                         _,
                                     ))
+                                    | Some(BatchKind::Search)
                                     | None => (),
                                 };
 
@@ -1002,6 +1004,7 @@ impl Client {
                             self.handle_multiline(message, batch_tag);
                             vec![]
                         }
+                        Some(BatchKind::Search) => self.handle_search(message),
                         Some(BatchKind::ChathistoryTargets) | None => {
                             self.handle(message, context, config)?
                         }
@@ -1024,7 +1027,7 @@ impl Client {
             _ if context.as_ref().is_some_and(Context::is_whois) => {
                 if let Some(source) = context
                     .map(Context::buffer)
-                    .map(|buffer| buffer.server_message_target(None))
+                    .and_then(|buffer| buffer.server_message_target(None))
                 {
                     return Ok(vec![Event::WithTarget(
                         message,
@@ -1052,7 +1055,7 @@ impl Client {
                 if let Some(source) = self
                     .reroute_responses_to
                     .clone()
-                    .map(|buffer| buffer.server_message_target(None))
+                    .and_then(|buffer| buffer.server_message_target(None))
                 {
                     return Ok(vec![Event::WithTarget(
                         message,
@@ -1787,7 +1790,7 @@ impl Client {
                     } else if let Some(source) = self
                         .reroute_responses_to
                         .clone()
-                        .map(|buffer| buffer.server_message_target(None))
+                        .and_then(|buffer| buffer.server_message_target(None))
                     {
                         return Ok(vec![Event::WithTarget(
                             message,
@@ -1898,7 +1901,7 @@ impl Client {
                     } else if let Some(source) = self
                         .reroute_responses_to
                         .clone()
-                        .map(|buffer| buffer.server_message_target(None))
+                        .and_then(|buffer| buffer.server_message_target(None))
                     {
                         return Ok(vec![Event::WithTarget(
                             message,
@@ -1973,7 +1976,7 @@ impl Client {
                     } else if let Some(source) = self
                         .reroute_responses_to
                         .clone()
-                        .map(|buffer| buffer.server_message_target(None))
+                        .and_then(|buffer| buffer.server_message_target(None))
                     {
                         return Ok(vec![Event::WithTarget(
                             message,
@@ -2264,10 +2267,7 @@ impl Client {
                     )));
                     let timestamp =
                         Posix::from_seconds(ok!(args.get(3)).parse::<u64>()?);
-                    channel.topic.time =
-                        Some(timestamp.datetime().ok_or_else(|| {
-                            anyhow!("Unable to parse timestamp: {timestamp:?}")
-                        })?);
+                    channel.topic.time = Some(timestamp.datetime());
                 }
                 // Exclude topic message from history to prevent spam during dev
                 #[cfg(debug_assertions)]
@@ -3120,6 +3120,31 @@ impl Client {
                     self.server
                 ),
             }
+        }
+    }
+
+    fn handle_search(&mut self, message: message::Encoded) -> Vec<Event> {
+        if let Command::PRIVMSG(target, _) | Command::NOTICE(target, _) =
+            &message.command
+            && let Some(user) = message.user(self.casemapping())
+        {
+            let target = Target::parse(
+                target,
+                self.chantypes(),
+                self.statusmsg(),
+                self.casemapping(),
+            );
+
+            vec![Event::WithTarget(
+                message,
+                self.nickname().to_owned(),
+                message::Target::SearchResults {
+                    target: Some(target),
+                    source: source::Source::User(user),
+                },
+            )]
+        } else {
+            vec![]
         }
     }
 
@@ -4574,6 +4599,12 @@ impl Map {
         })
     }
 
+    pub fn get_server_supports_search(&self, server: &Server) -> bool {
+        self.client(server).is_some_and(|client| {
+            client.capabilities.acknowledged(Capability::Search)
+        })
+    }
+
     pub fn get_chathistory_request(
         &self,
         server: &Server,
@@ -4783,6 +4814,7 @@ pub enum BatchKind {
         Option<MultilineBatchKind>,
         String,
     ),
+    Search,
 }
 
 impl BatchKind {
@@ -4792,7 +4824,7 @@ impl BatchKind {
             | Self::Multiline(_, _, batch_target, _, _) => {
                 Some(batch_target.clone())
             }
-            Self::ChathistoryTargets => None,
+            Self::ChathistoryTargets | Self::Search => None,
         }
     }
 }
