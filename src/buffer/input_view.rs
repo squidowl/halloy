@@ -49,6 +49,11 @@ pub enum Event {
     },
     OpenInternalBuffer(buffer::Internal),
     OpenServer(String),
+    OpenSearchResults {
+        server: data::Server,
+        target: Option<Target>,
+        text: Option<String>,
+    },
     LeaveBuffers {
         targets: Vec<Target>,
         reason: Option<String>,
@@ -1165,6 +1170,8 @@ impl State {
                                 .get_server_is_connected(buffer.server());
                             let supports_detach = clients
                                 .get_server_supports_detach(buffer.server());
+                            let supports_search = clients
+                                .get_server_supports_search(buffer.server());
                             let isupport =
                                 clients.get_isupport(buffer.server());
 
@@ -1180,6 +1187,7 @@ impl State {
                                 buffer.server(),
                                 is_connected,
                                 supports_detach,
+                                supports_search,
                                 &isupport,
                                 config,
                             );
@@ -1824,6 +1832,16 @@ impl State {
                             Some(Event::Reconnect(buffer.server().clone())),
                         );
                     }
+                    command::Internal::SearchResults(text) => {
+                        return (
+                            Task::none(),
+                            Some(Event::OpenSearchResults {
+                                server: buffer.server().clone(),
+                                target: buffer.target(),
+                                text,
+                            }),
+                        );
+                    }
                 }
             }
             input::Parsed::Input(input) => input,
@@ -1971,6 +1989,8 @@ impl State {
             let is_connected = clients.get_server_is_connected(buffer.server());
             let supports_detach =
                 clients.get_server_supports_detach(buffer.server());
+            let supports_search =
+                clients.get_server_supports_search(buffer.server());
             let isupport = clients.get_isupport(buffer.server());
 
             self.completion.process(
@@ -1985,6 +2005,7 @@ impl State {
                 buffer.server(),
                 is_connected,
                 supports_detach,
+                supports_search,
                 &isupport,
                 config,
             );

@@ -28,6 +28,7 @@ pub enum Message {
     Swap(window::Id, pane_grid::Pane),
     Detach(buffer::Upstream),
     Leave(buffer::Upstream),
+    Search(buffer::Upstream),
     CloseAllQueries(Server, Vec<target::Query>),
     ToggleInternalBuffer(buffer::Internal),
     ToggleCommandBar,
@@ -61,6 +62,7 @@ pub enum Event {
     Swap(window::Id, pane_grid::Pane),
     Detach(buffer::Upstream),
     Leave(buffer::Upstream),
+    Search(buffer::Upstream),
     CloseAllQueries(Server, Vec<target::Query>),
     ToggleInternalBuffer(buffer::Internal),
     ToggleCommandBar,
@@ -137,6 +139,9 @@ impl Sidebar {
             }
             Message::Detach(buffer) => {
                 (Task::none(), Some(Event::Detach(buffer)))
+            }
+            Message::Search(buffer) => {
+                (Task::none(), Some(Event::Search(buffer)))
             }
             Message::Leave(buffer) => {
                 (Task::none(), Some(Event::Leave(buffer)))
@@ -479,6 +484,7 @@ impl Sidebar {
                      connected: bool,
                      server_has_unread: bool,
                      supports_detach: bool,
+                     supports_search: bool,
                      has_unread: bool,
                      has_highlight: bool| {
                         upstream_buffer_button(
@@ -489,6 +495,7 @@ impl Sidebar {
                             connected,
                             server_has_unread,
                             supports_detach,
+                            supports_search,
                             casemapping,
                             has_unread,
                             has_highlight,
@@ -509,6 +516,7 @@ impl Sidebar {
                                 false,
                                 history.server_has_unread(server.clone()),
                                 clients.get_server_supports_detach(server),
+                                clients.get_server_supports_search(server),
                                 history.has_unread(&history::Kind::Server(
                                     server.clone(),
                                 )),
@@ -524,6 +532,7 @@ impl Sidebar {
                                 true,
                                 history.server_has_unread(server.clone()),
                                 clients.get_server_supports_detach(server),
+                                clients.get_server_supports_search(server),
                                 history.has_unread(&history::Kind::Server(
                                     server.clone(),
                                 )),
@@ -542,6 +551,7 @@ impl Sidebar {
                                     true,
                                     history.server_has_unread(server.clone()),
                                     clients.get_server_supports_detach(server),
+                                    clients.get_server_supports_search(server),
                                     history.has_unread(
                                         &history::Kind::Channel(
                                             server.clone(),
@@ -572,6 +582,7 @@ impl Sidebar {
                                     true,
                                     history.server_has_unread(server.clone()),
                                     clients.get_server_supports_detach(server),
+                                    clients.get_server_supports_search(server),
                                     history.has_unread(&history::Kind::Query(
                                         server.clone(),
                                         query.clone(),
@@ -760,6 +771,7 @@ enum Entry {
     CloseAllQueries,
     MarkAsRead,
     MarkServerAsRead,
+    Search,
     NewPane,
     Popout,
     Replace,
@@ -777,6 +789,7 @@ impl Entry {
         focus: Focus,
         connected: bool,
         supports_detach: bool,
+        supports_search: bool,
     ) -> Vec<Self> {
         use Entry::*;
         use itertools::Itertools;
@@ -806,10 +819,15 @@ impl Entry {
                     .collect_vec(),
             },
             if connected {
-                (matches!(buffer, buffer::Upstream::Channel(_, _))
-                    && supports_detach)
-                    .then_some(Detach)
+                supports_search
+                    .then_some(Search)
                     .into_iter()
+                    .chain(
+                        (matches!(buffer, buffer::Upstream::Channel(_, _))
+                            && supports_detach)
+                            .then_some(Detach)
+                            .into_iter(),
+                    )
                     .chain(iter::once(Leave))
                     .collect_vec()
             } else {
@@ -829,6 +847,7 @@ fn upstream_buffer_button<'a>(
     connected: bool,
     server_has_unread: bool,
     supports_detach: bool,
+    supports_search: bool,
     casemapping: isupport::CaseMap,
     has_unread: bool,
     has_highlight: bool,
@@ -1098,6 +1117,7 @@ fn upstream_buffer_button<'a>(
         focus,
         connected,
         supports_detach,
+        supports_search,
     );
 
     if entries.is_empty() {
@@ -1173,6 +1193,14 @@ fn upstream_buffer_button<'a>(
                     Entry::Detach => (
                         "Detach from channel",
                         Some(Message::Detach(buffer.clone())),
+                    ),
+                    Entry::Search => (
+                        match &buffer {
+                            buffer::Upstream::Server(_) => "Search server",
+                            buffer::Upstream::Channel(_, _) => "Search channel",
+                            buffer::Upstream::Query(_, _) => "Search query",
+                        },
+                        Some(Message::Search(buffer.clone())),
                     ),
                     Entry::Leave => (
                         match &buffer {

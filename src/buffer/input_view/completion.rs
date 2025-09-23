@@ -54,6 +54,7 @@ impl Completion {
         server: &Server,
         is_connected: bool,
         supports_detach: bool,
+        supports_search: bool,
         isupport: &HashMap<isupport::Kind, isupport::Parameter>,
         config: &Config,
     ) {
@@ -69,6 +70,7 @@ impl Completion {
                 server,
                 is_connected,
                 supports_detach,
+                supports_search,
                 isupport,
                 config,
             );
@@ -309,6 +311,7 @@ impl Commands {
         server: &Server,
         is_connected: bool,
         supports_detach: bool,
+        supports_search: bool,
         isupport: &HashMap<isupport::Kind, isupport::Parameter>,
         config: &Config,
     ) {
@@ -339,6 +342,7 @@ impl Commands {
                 channels,
                 current_target,
                 supports_detach,
+                supports_search,
                 isupport,
             )
         } else {
@@ -697,6 +701,7 @@ fn connected_command_list<'a>(
     channels: impl IntoIterator<Item = &'a target::Channel>,
     current_target: Option<&Target>,
     supports_detach: bool,
+    supports_search: bool,
     isupport: &HashMap<isupport::Kind, isupport::Parameter>,
 ) -> Vec<Command> {
     let channels: Vec<_> = channels.into_iter().collect();
@@ -1218,6 +1223,26 @@ fn connected_command_list<'a>(
         };
 
         command_list.push(detach_command(default, channel_len));
+    }
+
+    if supports_search {
+        command_list.push(Command {
+                title: "SEARCH".into(),
+                args: vec![Argument {
+                    text: "attributes".into(),
+                    kind: ArgumentKind::Required,
+                    tooltip: Some(
+                            "semicolon-separated\
+                           \n    in: The message was sent to this target (channel or user)\
+                           \n  from: The message was sent with this nick\
+                           \n after: The message was sent at or after this time (format: YYYY-MM-DDThh:mm:ss.sssZ)\
+                           \nbefore: The message was sent at or before this time (format: YYYY-MM-DDThh:mm:ss.sssZ)\
+                           \n  text: The message text matches the specified text\
+                           \n limit: An upper bound on the count of messages to return".to_string(),
+                        ),
+                }],
+                subcommands: None,
+            });
     }
 
     let isupport_commands = isupport
