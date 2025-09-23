@@ -1485,6 +1485,24 @@ fn connected_command_list<'a>(
             }],
             subcommands: None,
         },
+        // SEARCH
+        Command {
+            title: "SEARCH".into(),
+            args: vec![Argument {
+                text: "attributes".into(),
+                kind: ArgumentKind::Required,
+                tooltip: Some(
+                        "semicolon-separated\
+                       \n    in: The message was sent to this target (channel or user)\
+                       \n  from: The message was sent with this nick\
+                       \n after: The message was sent at or after this time (format: YYYY-MM-DDThh:mm:ss.sssZ)\
+                       \nbefore: The message was sent at or before this time (format: YYYY-MM-DDThh:mm:ss.sssZ)\
+                       \n  text: The message text matches the specified text\
+                       \n limit: An upper bound on the count of messages to return".to_string(),
+                    ),
+            }],
+            subcommands: None,
+        },
     ]
 }
 

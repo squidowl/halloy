@@ -13,8 +13,8 @@ pub struct Actions {
 #[derive(Debug, Default, Clone, Deserialize)]
 #[serde(default)]
 pub struct Buffer {
-    pub click_channel_name: ChannelClickAction,
-    pub click_highlight: ChannelClickAction,
+    pub click_channel_name: TargetClickAction,
+    pub click_highlight: TargetClickAction,
     #[serde(alias = "click_nickname")]
     pub click_username: NicknameClickAction,
     pub join_channel: BufferAction,
@@ -22,6 +22,9 @@ pub struct Buffer {
     pub open_internal: BufferAction,
     pub message_channel: BufferAction,
     pub message_user: BufferAction,
+    pub list: BufferAction,
+    pub search: BufferAction,
+    pub click_search_result: TargetClickAction,
 }
 
 #[derive(Debug, Default, Clone, Deserialize)]
@@ -92,18 +95,18 @@ impl<'de> Deserialize<'de> for NicknameClickAction {
 }
 
 #[derive(Debug, Copy, Clone)]
-pub enum ChannelClickAction {
+pub enum TargetClickAction {
     OpenChannel(BufferAction),
     Noop,
 }
 
-impl Default for ChannelClickAction {
+impl Default for TargetClickAction {
     fn default() -> Self {
         Self::OpenChannel(BufferAction::default())
     }
 }
 
-impl<'de> Deserialize<'de> for ChannelClickAction {
+impl<'de> Deserialize<'de> for TargetClickAction {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
@@ -126,12 +129,12 @@ impl<'de> Deserialize<'de> for ChannelClickAction {
         match Action::deserialize(deserializer)? {
             Action::ClickAction(click_action) => match click_action {
                 ClickAction::OpenChannel(buffer_action) => {
-                    Ok(ChannelClickAction::OpenChannel(buffer_action))
+                    Ok(TargetClickAction::OpenChannel(buffer_action))
                 }
-                ClickAction::Noop => Ok(ChannelClickAction::Noop),
+                ClickAction::Noop => Ok(TargetClickAction::Noop),
             },
             Action::BufferAction(buffer_action) => {
-                Ok(ChannelClickAction::OpenChannel(buffer_action))
+                Ok(TargetClickAction::OpenChannel(buffer_action))
             }
         }
     }

@@ -112,6 +112,7 @@ pub enum Broadcast {
 pub enum Destination {
     Server,
     Target(Target),
+    SearchResults(Target),
 }
 
 impl From<&buffer::Upstream> for Destination {
@@ -1071,6 +1072,7 @@ impl Client {
                                     ))
                                 })
                             }
+                            Some("soju.im/search") => Some(BatchKind::Search),
                             _ => None,
                         };
 
@@ -1199,6 +1201,7 @@ impl Client {
                                         _,
                                     ))
                                     | Some(BatchKind::ZncPlayback(_))
+                                    | Some(BatchKind::Search)
                                     | None => (),
                                 };
 
@@ -1231,6 +1234,7 @@ impl Client {
                             self.handle_multiline(message, batch_tag);
                             vec![]
                         }
+                        Some(BatchKind::Search) => self.handle_search(message),
                         Some(BatchKind::ChathistoryTargets) | None => {
                             self.handle(message, context, config)?
                         }
@@ -2453,10 +2457,7 @@ impl Client {
 
                     let timestamp =
                         Posix::from_seconds(ok!(args.get(3)).parse::<u64>()?);
-                    channel.topic.time =
-                        Some(timestamp.datetime().ok_or_else(|| {
-                            anyhow!("Unable to parse timestamp: {timestamp:?}")
-                        })?);
+                    channel.topic.time = Some(timestamp.datetime());
 
                     if is_join_topic {
                         if config
@@ -3626,6 +3627,28 @@ impl Client {
                 our_nick: self.nickname().to_owned(),
                 deduplicate: true,
             }],
+        }
+    }
+
+    fn handle_search(&mut self, message: message::Encoded) -> Vec<Event> {
+        if let Command::PRIVMSG(target, _) | Command::NOTICE(target, _) =
+            &message.command
+        {
+            let target = Target::parse(
+                target,
+                self.chantypes(),
+                self.statusmsg(),
+                self.casemapping(),
+            );
+
+            vec![Event::WithTarget {
+                message,
+                our_nick: self.nickname().to_owned(),
+                target: Destination::SearchResults(target),
+                deduplicate: false,
+            }]
+        } else {
+            vec![]
         }
     }
 
@@ -5321,6 +5344,12 @@ impl Map {
         })
     }
 
+    pub fn get_server_supports_search(&self, server: &Server) -> bool {
+        self.client(server).is_some_and(|client| {
+            client.capabilities.acknowledged(Capability::Search)
+        })
+    }
+
     pub fn get_chathistory_request(
         &self,
         server: &Server,
@@ -5586,6 +5615,7 @@ pub enum BatchKind {
         String,
     ),
     ZncPlayback(Target),
+    Search,
 }
 
 impl BatchKind {
@@ -5594,7 +5624,7 @@ impl BatchKind {
             Self::ChathistoryTarget(batch_target)
             | Self::Multiline(_, _, batch_target, _, _)
             | Self::ZncPlayback(batch_target) => Some(batch_target.clone()),
-            Self::ChathistoryTargets => None,
+            Self::ChathistoryTargets | Self::Search => None,
         }
     }
 }

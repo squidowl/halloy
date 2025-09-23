@@ -418,6 +418,9 @@ impl std::fmt::Display for Buffer {
                     buffer::Internal::ChannelDiscovery(_) => {
                         write!(f, "Open channel discovery")
                     }
+                    buffer::Internal::SearchResults(server) => {
+                        write!(f, "Open search results for {server}")
+                    }
                 },
                 data::Buffer::Upstream(upstream) => match upstream {
                     buffer::Upstream::Server(server) => {

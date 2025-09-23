@@ -136,6 +136,7 @@ pub enum Command {
     /* Bouncer commands */
     /// <subcommand> <params>...
     BOUNCER(String, Vec<String>),
+    SEARCH(String),
 
     /* Metadata */
     /// <subcommand> <key> <visibility> <value> (server->client)
@@ -280,6 +281,7 @@ impl Command {
             }
             "BOUNCER" if len > 0 => BOUNCER(req!(), remaining!()),
             "METADATA" if len > 0 => METADATA(req!(), remaining!()),
+            "SEARCH" if len > 0 => SEARCH(req!()),
             _ => Self::Unknown(tag, remaining!()),
         }
     }
@@ -375,6 +377,7 @@ impl Command {
             Command::METADATA(command, params) => {
                 std::iter::once(command).chain(params).collect()
             }
+            Command::SEARCH(a) => vec![a],
             Command::Numeric(_, params) => params,
             Command::Unknown(_, params) => params,
             Command::Raw(_) => vec![],
@@ -443,6 +446,7 @@ impl Command {
             NOTE(_, _, _, _) => "NOTE".into(),
             BOUNCER(..) => "BOUNCER".into(),
             METADATA(..) => "METADATA".into(),
+            SEARCH(_) => "SEARCH".into(),
             Numeric(numeric, _) => format!("{:03}", *numeric as u16).into(),
             Unknown(tag, _) => tag.clone().into(),
             Raw(_) => "".into(),

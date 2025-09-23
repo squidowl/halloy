@@ -1,8 +1,8 @@
 use chrono::{DateTime, Utc};
-use data::config::actions::ChannelClickAction;
+use data::config::actions::TargetClickAction;
 use data::config::buffer::nickname::ShownStatus;
 use data::dashboard::BufferAction;
-use data::target::{self, Target};
+use data::target::Target;
 use data::{
     Config, Image, Preview, Server, history, message, metadata, preview,
 };
@@ -25,7 +25,7 @@ pub enum Message {
 pub enum Event {
     ContextMenu(context_menu::Event),
     OpenBuffer(Server, Target, BufferAction),
-    GoToMessage(Server, target::Channel, message::Hash, BufferAction),
+    GoToMessage(Server, Target, message::Hash, BufferAction),
     History(Task<history::manager::Message>),
     OpenUrl(String),
     MarkAsRead,
@@ -94,15 +94,15 @@ pub fn view<'a>(
                                 .link_maybe(
                                     match config.actions.buffer.click_highlight
                                     {
-                                        ChannelClickAction::OpenChannel(
+                                        TargetClickAction::OpenChannel(
                                             buffer_action,
                                         ) => Some(message::Link::GoToMessage(
                                             server.clone(),
-                                            channel.clone(),
+                                            channel.to_target(),
                                             message.hash,
                                             buffer_action,
                                         )),
-                                        ChannelClickAction::Noop => None,
+                                        TargetClickAction::Noop => None,
                                     },
                                 ),
                             span(" "),
@@ -274,15 +274,15 @@ pub fn view<'a>(
                                 .link_maybe(
                                     match config.actions.buffer.click_highlight
                                     {
-                                        ChannelClickAction::OpenChannel(
+                                        TargetClickAction::OpenChannel(
                                             buffer_action,
                                         ) => Some(message::Link::GoToMessage(
                                             server.clone(),
-                                            channel.clone(),
+                                            channel.to_target(),
                                             message.hash,
                                             buffer_action,
                                         )),
-                                        ChannelClickAction::Noop => None,
+                                        TargetClickAction::Noop => None,
                                     },
                                 ),
                             span(" "),
@@ -378,11 +378,11 @@ impl Highlights {
                     ) => Some(Event::OpenBuffer(server, target, buffer_action)),
                     scroll_view::Event::GoToMessage(
                         server,
-                        channel,
+                        target,
                         message,
                         action,
                     ) => Some(Event::GoToMessage(
-                        server, channel, message, action,
+                        server, target, message, action,
                     )),
                     scroll_view::Event::RequestOlderChatHistory => None,
                     scroll_view::Event::PreviewChanged => None,

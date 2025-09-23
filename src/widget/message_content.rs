@@ -1,5 +1,5 @@
 use data::appearance::theme::{FontStyle, nickname_color};
-use data::config::actions::ChannelClickAction;
+use data::config::actions::TargetClickAction;
 use data::config::display::nickname::Metadata;
 use data::target::Query;
 use data::{Config, Server, User, isupport, message, metadata, target};
@@ -219,7 +219,7 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a + std::clone::Clone>(
                                             .buffer
                                             .click_channel_name
                                         {
-                                            ChannelClickAction::OpenChannel(
+                                            TargetClickAction::OpenChannel(
                                                 buffer_action,
                                             ) => Some(message::Link::Channel(
                                                 server.clone(),
@@ -230,7 +230,7 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a + std::clone::Clone>(
                                                 ),
                                                 buffer_action,
                                             )),
-                                            ChannelClickAction::Noop => None,
+                                            TargetClickAction::Noop => None,
                                         },
                                     )
                             }
