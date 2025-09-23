@@ -32,6 +32,8 @@ pub enum Internal {
     Highlights,
     #[strum(serialize = "Channel Discovery")]
     ChannelDiscovery(Option<Server>),
+    #[strum(serialize = "Search Results")]
+    SearchResults(Server),
 }
 
 impl Buffer {
@@ -98,19 +100,19 @@ impl Upstream {
     pub fn server_message_target(
         self,
         source: Option<message::source::Server>,
-    ) -> message::Target {
+    ) -> Option<message::Target> {
         match self {
-            Self::Server(_) => message::Target::Server {
+            Self::Server(_) => Some(message::Target::Server {
                 source: message::Source::Server(source),
-            },
-            Self::Channel(_, channel) => message::Target::Channel {
+            }),
+            Self::Channel(_, channel) => Some(message::Target::Channel {
                 channel,
                 source: message::Source::Server(source),
-            },
-            Self::Query(_, query) => message::Target::Query {
+            }),
+            Self::Query(_, query) => Some(message::Target::Query {
                 query,
                 source: message::Source::Server(source),
-            },
+            }),
         }
     }
 }
@@ -125,12 +127,14 @@ impl Internal {
 
     pub fn key(&self) -> String {
         match self {
-            Internal::FileTransfers => "file-transfers",
-            Internal::Logs => "logs",
-            Internal::Highlights => "highlights",
-            Internal::ChannelDiscovery(_) => "channel-discovery",
+            Internal::FileTransfers => "file-transfers".to_string(),
+            Internal::Logs => "logs".to_string(),
+            Internal::Highlights => "highlights".to_string(),
+            Internal::ChannelDiscovery(_) => "channel-discovery".to_string(),
+            Internal::SearchResults(server) => {
+                format!("server:{server}:search-results")
+            }
         }
-        .to_string()
     }
 }
 

@@ -43,6 +43,11 @@ pub enum Event {
     },
     OpenInternalBuffer(buffer::Internal),
     OpenServer(String),
+    OpenSearchResults {
+        server: data::Server,
+        target: Option<Target>,
+        text: Option<String>,
+    },
     LeaveBuffers {
         targets: Vec<Target>,
         reason: Option<String>,
@@ -925,11 +930,15 @@ impl State {
                                     let event =
                                         has_channel_argument.then_some({
                                             let buffer_action = match buffer {
-                                                // If it's a channel, we want to replace it when hopping to a new channel.
+                                                // If it's a channel, we want to
+                                                // replace it when hopping to a
+                                                // new channel.
                                                 Upstream::Channel(..) => {
                                                     BufferAction::ReplacePane
                                                 }
-                                                // If it's a server or query, we want to follow config for actions.
+                                                // If it's a server, query, or
+                                                // search results we want to
+                                                // follow config for actions.
                                                 Upstream::Server(..)
                                                 | Upstream::Query(..) => {
                                                     config
@@ -960,6 +969,18 @@ impl State {
                                                 Some(buffer.server().clone()),
                                             ),
                                         )),
+                                    );
+                                }
+                                command::Internal::SearchResults(text) => {
+                                    self.input_content =
+                                        text_editor::Content::new();
+                                    return (
+                                        Task::none(),
+                                        Some(Event::OpenSearchResults {
+                                            server: buffer.server().clone(),
+                                            target: buffer.target(),
+                                            text,
+                                        }),
                                     );
                                 }
                                 command::Internal::Delay(_) => {
@@ -1196,6 +1217,8 @@ impl State {
                         .collect::<Vec<_>>();
                     let supports_detach =
                         clients.get_server_supports_detach(buffer.server());
+                    let supports_search =
+                        clients.get_server_supports_search(buffer.server());
                     let isupport = clients.get_isupport(buffer.server());
 
                     self.completion.process(
@@ -1209,6 +1232,7 @@ impl State {
                         current_target.as_ref(),
                         buffer.server(),
                         supports_detach,
+                        supports_search,
                         &isupport,
                         config,
                     );
@@ -1250,6 +1274,8 @@ impl State {
                             .collect::<Vec<_>>();
                         let supports_detach =
                             clients.get_server_supports_detach(buffer.server());
+                        let supports_search =
+                            clients.get_server_supports_search(buffer.server());
                         let isupport = clients.get_isupport(buffer.server());
 
                         self.completion.process(
@@ -1263,6 +1289,7 @@ impl State {
                             current_target.as_ref(),
                             buffer.server(),
                             supports_detach,
+                            supports_search,
                             &isupport,
                             config,
                         );
@@ -1470,6 +1497,8 @@ impl State {
                             .collect::<Vec<_>>();
                         let supports_detach =
                             clients.get_server_supports_detach(buffer.server());
+                        let supports_search =
+                            clients.get_server_supports_search(buffer.server());
                         let isupport = clients.get_isupport(buffer.server());
 
                         self.completion.process(
@@ -1483,6 +1512,7 @@ impl State {
                             current_target.as_ref(),
                             buffer.server(),
                             supports_detach,
+                            supports_search,
                             &isupport,
                             config,
                         );
@@ -1570,6 +1600,8 @@ impl State {
                             .collect::<Vec<_>>();
                         let supports_detach =
                             clients.get_server_supports_detach(buffer.server());
+                        let supports_search =
+                            clients.get_server_supports_search(buffer.server());
                         let isupport = clients.get_isupport(buffer.server());
 
                         self.completion.process(
@@ -1583,6 +1615,7 @@ impl State {
                             current_target.as_ref(),
                             buffer.server(),
                             supports_detach,
+                            supports_search,
                             &isupport,
                             config,
                         );

@@ -38,6 +38,7 @@ pub enum Kind {
     Query(Server, target::Query),
     Logs,
     Highlights,
+    SearchResults(Server),
 }
 
 impl Kind {
@@ -75,7 +76,14 @@ impl Kind {
         server: Server,
         message: &Message,
     ) -> Option<Self> {
-        match &message.target {
+        Self::from_message_target(server, &message.target)
+    }
+
+    pub fn from_message_target(
+        server: Server,
+        message_target: &message::Target,
+    ) -> Option<Self> {
+        match &message_target {
             message::Target::Server { .. } => Some(Self::Server(server)),
             message::Target::Channel { channel, .. } => {
                 Some(Self::Channel(server, channel.clone()))
@@ -85,6 +93,9 @@ impl Kind {
             }
             message::Target::Logs { .. } => None,
             message::Target::Highlights { .. } => None,
+            message::Target::SearchResults { .. } => {
+                Some(Self::SearchResults(server))
+            }
         }
     }
 
@@ -105,6 +116,16 @@ impl Kind {
             }
             Buffer::Internal(buffer::Internal::FileTransfers) => None,
             Buffer::Internal(buffer::Internal::ChannelDiscovery(_)) => None,
+            Buffer::Internal(buffer::Internal::SearchResults(server)) => {
+                Some(Kind::SearchResults(server))
+            }
+        }
+    }
+
+    pub fn ordered_by(&self) -> OrderedBy {
+        match self {
+            Kind::SearchResults(_) => OrderedBy::ReceivedAt,
+            _ => OrderedBy::default(),
         }
     }
 }
@@ -117,6 +138,7 @@ impl Kind {
             Kind::Query(server, _) => Some(server),
             Kind::Logs => None,
             Kind::Highlights => None,
+            Kind::SearchResults(server) => Some(server),
         }
     }
 
@@ -127,6 +149,7 @@ impl Kind {
             Kind::Query(_, nick) => Some(Target::Query(nick.clone())),
             Kind::Logs => None,
             Kind::Highlights => None,
+            Kind::SearchResults(_) => None,
         }
     }
 }
@@ -141,6 +164,9 @@ impl fmt::Display for Kind {
             Kind::Query(server, nick) => write!(f, "user {nick} on {server}"),
             Kind::Logs => write!(f, "logs"),
             Kind::Highlights => write!(f, "highlights"),
+            Kind::SearchResults(server) => {
+                write!(f, "search results from {server}")
+            }
         }
     }
 }
@@ -159,6 +185,9 @@ impl From<Kind> for Buffer {
             }
             Kind::Logs => Buffer::Internal(buffer::Internal::Logs),
             Kind::Highlights => Buffer::Internal(buffer::Internal::Highlights),
+            Kind::SearchResults(server) => {
+                Buffer::Internal(buffer::Internal::SearchResults(server))
+            }
         }
     }
 }
@@ -241,7 +270,7 @@ pub async fn append(
 
     let mut all_messages = loaded.messages;
     messages.into_iter().for_each(|message| {
-        insert_message(&mut all_messages, message);
+        insert_message(&mut all_messages, kind.ordered_by(), message);
     });
 
     overwrite(kind, &all_messages, read_marker).await
@@ -285,6 +314,9 @@ async fn path(kind: &Kind) -> Result<PathBuf, Error> {
         }
         Kind::Logs => "logs".to_string(),
         Kind::Highlights => "highlights".to_string(),
+        Kind::SearchResults(server) => {
+            format!("{server:b}search results")
+        }
     };
 
     let hashed_name = seahash::hash(name.as_bytes());
@@ -416,12 +448,14 @@ impl History {
         match self {
             History::Partial {
                 messages,
+                kind,
                 last_updated_at,
                 last_seen,
                 ..
             }
             | History::Full {
                 messages,
+                kind,
                 last_updated_at,
                 last_seen,
                 ..
@@ -430,7 +464,7 @@ impl History {
 
                 update_last_seen(last_seen, &message);
 
-                insert_message(messages, message)
+                insert_message(messages, kind.ordered_by(), message)
             }
         }
     }
@@ -817,8 +851,15 @@ impl History {
 /// this client was replaced by an echo
 pub fn insert_message(
     messages: &mut Vec<Message>,
+    ordered_by: OrderedBy,
     message: Message,
 ) -> Option<ReadMarker> {
+    if messages.is_empty() || matches!(ordered_by, OrderedBy::ReceivedAt) {
+        messages.push(message);
+
+        return None;
+    }
+
     let fuzz_seconds =
         if matches!(message.direction, message::Direction::Received)
             && message.is_echo
@@ -827,12 +868,6 @@ pub fn insert_message(
         } else {
             chrono::Duration::seconds(1)
         };
-
-    if messages.is_empty() {
-        messages.push(message);
-
-        return None;
-    }
 
     let start = message.server_time - fuzz_seconds;
     let end = message.server_time + fuzz_seconds;
@@ -1001,6 +1036,14 @@ pub struct View<'a> {
     pub max_prefix_chars: Option<usize>,
     pub range_timestamp_extra_chars: Option<usize>,
     pub cleared: bool,
+    pub ordered_by: OrderedBy,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub enum OrderedBy {
+    ReceivedAt,
+    #[default]
+    ServerTime,
 }
 
 #[derive(Debug, thiserror::Error)]

@@ -134,6 +134,7 @@ pub enum Command {
     /* Bouncer commands */
     /// <subcommand> <params>...
     BOUNCER(String, Vec<String>),
+    SEARCH(String),
 
     Numeric(Numeric, Vec<String>),
     Unknown(String, Vec<String>),
@@ -271,6 +272,7 @@ impl Command {
                 }
             }
             "BOUNCER" if len > 0 => BOUNCER(req!(), remaining!()),
+            "SEARCH" if len > 0 => SEARCH(req!()),
             _ => Self::Unknown(tag, remaining!()),
         }
     }
@@ -360,6 +362,7 @@ impl Command {
             Command::BOUNCER(command, params) => {
                 std::iter::once(command).chain(params).collect()
             }
+            Command::SEARCH(a) => vec![a],
             Command::Numeric(_, params) => params,
             Command::Unknown(_, params) => params,
             Command::Raw(_) => vec![],
@@ -426,6 +429,7 @@ impl Command {
             WARN(_, _, _, _) => "WARN".into(),
             NOTE(_, _, _, _) => "NOTE".into(),
             BOUNCER(..) => "BOUNCER".into(),
+            SEARCH(_) => "SEARCH".into(),
             Numeric(numeric, _) => format!("{:03}", *numeric as u16).into(),
             Unknown(tag, _) => tag.clone().into(),
             Raw(_) => "".into(),
