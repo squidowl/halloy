@@ -6,34 +6,34 @@ use iced::widget::{
     Scrollable, column, container, horizontal_rule, row, scrollable,
 };
 
-use super::user_context;
+use super::context_menu;
 use crate::widget::{Element, double_pass, message_content, selectable_text};
 use crate::{Theme, font, theme};
 
 #[derive(Debug, Clone)]
 pub enum Event {
-    UserContext(user_context::Event),
+    ContextMenu(context_menu::Event),
     OpenChannel(target::Channel),
     OpenUrl(String),
 }
 
 #[derive(Debug, Clone)]
 pub enum Message {
-    UserContext(user_context::Message),
+    UserContext(context_menu::Message),
     Link(message::Link),
 }
 
 pub fn update(message: Message) -> Option<Event> {
     match message {
         Message::UserContext(message) => {
-            Some(Event::UserContext(user_context::update(message)))
+            Some(Event::ContextMenu(context_menu::update(message)))
         }
         Message::Link(message::Link::Channel(channel)) => {
             Some(Event::OpenChannel(channel))
         }
         Message::Link(message::Link::Url(url)) => Some(Event::OpenUrl(url)),
-        Message::Link(message::Link::User(user)) => Some(Event::UserContext(
-            user_context::Event::InsertNickname(user.nickname().to_owned()),
+        Message::Link(message::Link::User(user)) => Some(Event::ContextMenu(
+            context_menu::Event::InsertNickname(user.nickname().to_owned()),
         )),
         Message::Link(message::Link::GoToMessage(..)) => None,
     }
@@ -60,7 +60,7 @@ pub fn view<'a>(
         // If user is in channel, we return user_context component.
         // Otherwise selectable_text component.
         let content = if let Some(user) = channel_user {
-            user_context::view(
+            context_menu::user(
                 selectable_text(user.nickname().to_string())
                     .font_maybe(
                         theme::font_style::nickname(theme, false)

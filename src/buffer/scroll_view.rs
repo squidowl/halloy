@@ -19,7 +19,7 @@ use iced::{ContentFit, Length, Padding, Size, Task, alignment, padding};
 
 use self::correct_viewport::correct_viewport;
 use self::keyed::keyed;
-use super::user_context;
+use super::context_menu;
 use crate::widget::{
     Element, MESSAGE_MARKER_TEXT, notify_visibility, on_resize,
     selectable_text, tooltip,
@@ -38,7 +38,7 @@ pub enum Message {
         status: Status,
         viewport: scrollable::Viewport,
     },
-    UserContext(user_context::Message),
+    ContextMenu(context_menu::Message),
     Link(message::Link),
     ImagePreview(PathBuf, url::Url),
     ScrollTo(keyed::Hit),
@@ -54,7 +54,7 @@ pub enum Message {
 
 #[derive(Debug, Clone)]
 pub enum Event {
-    UserContext(user_context::Event),
+    UserContext(context_menu::Event),
     OpenBuffer(Target, BufferAction),
     GoToMessage(Server, target::Channel, message::Hash),
     RequestOlderChatHistory,
@@ -622,10 +622,10 @@ impl State {
 
                 return (Task::batch(tasks), event);
             }
-            Message::UserContext(message) => {
+            Message::ContextMenu(message) => {
                 return (
                     Task::none(),
-                    Some(Event::UserContext(user_context::update(message))),
+                    Some(Event::UserContext(context_menu::update(message))),
                 );
             }
             Message::Link(message::Link::Channel(channel)) => {
@@ -651,7 +651,7 @@ impl State {
                         )
                     }
                     data::config::buffer::NicknameClickAction::InsertNickname => {
-                        Event::UserContext(user_context::Event::InsertNickname(
+                        Event::UserContext(context_menu::Event::InsertNickname(
                             user.nickname().to_owned(),
                         ))
                     }

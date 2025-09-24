@@ -6,7 +6,7 @@ use data::{Config, client, history, isupport, message};
 use iced::widget::{container, row};
 use iced::{Length, Size, Task};
 
-use super::{scroll_view, user_context};
+use super::{scroll_view, context_menu};
 use crate::widget::{Element, message_content, selectable_text};
 use crate::{Theme, font, theme};
 
@@ -16,7 +16,7 @@ pub enum Message {
 }
 
 pub enum Event {
-    UserContext(user_context::Event),
+    UserContext(context_menu::Event),
     OpenBuffer(Target, BufferAction),
     History(Task<history::manager::Message>),
     MarkAsRead,

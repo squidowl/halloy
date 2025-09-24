@@ -1911,6 +1911,22 @@ pub enum Link {
     GoToMessage(Server, target::Channel, Hash),
 }
 
+impl Link {
+    pub fn user(&self) -> Option<&User> {
+        match self {
+            Link::User(user) => Some(user),
+            _ => None,
+        }
+    }
+
+    pub fn url(&self) -> Option<&String> {
+        match self {
+            Link::Url(url) => Some(url),
+            _ => None,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct MessageReferences {
     pub timestamp: DateTime<Utc>,
