@@ -278,7 +278,7 @@ impl Buffer {
                     state.update(message, history, clients, config);
 
                 let event = event.map(|event| match event {
-                    logs::Event::UserContext(event) => {
+                    logs::Event::ContextMenu(event) => {
                         Event::ContextMenu(event)
                     }
                     logs::Event::OpenBuffer(target, buffer_action) => {
@@ -301,7 +301,7 @@ impl Buffer {
                     state.update(message, history, clients, config);
 
                 let event = event.map(|event| match event {
-                    highlights::Event::UserContext(event) => {
+                    highlights::Event::ContextMenu(event) => {
                         Event::ContextMenu(event)
                     }
                     highlights::Event::OpenBuffer(target, buffer_action) => {

@@ -19,7 +19,7 @@ pub enum Message {
 }
 
 pub enum Event {
-    UserContext(context_menu::Event),
+    ContextMenu(context_menu::Event),
     OpenBuffer(Target, BufferAction),
     GoToMessage(Server, target::Channel, message::Hash),
     History(Task<history::manager::Message>),
@@ -281,8 +281,8 @@ impl Highlights {
                 );
 
                 let event = event.and_then(|event| match event {
-                    scroll_view::Event::UserContext(event) => {
-                        Some(Event::UserContext(event))
+                    scroll_view::Event::ContextMenu(event) => {
+                        Some(Event::ContextMenu(event))
                     }
                     scroll_view::Event::OpenBuffer(target, buffer_action) => {
                         Some(Event::OpenBuffer(target, buffer_action))

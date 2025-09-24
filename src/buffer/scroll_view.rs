@@ -54,7 +54,7 @@ pub enum Message {
 
 #[derive(Debug, Clone)]
 pub enum Event {
-    UserContext(context_menu::Event),
+    ContextMenu(context_menu::Event),
     OpenBuffer(Target, BufferAction),
     GoToMessage(Server, target::Channel, message::Hash),
     RequestOlderChatHistory,
@@ -625,7 +625,7 @@ impl State {
             Message::ContextMenu(message) => {
                 return (
                     Task::none(),
-                    Some(Event::UserContext(context_menu::update(message))),
+                    Some(Event::ContextMenu(context_menu::update(message))),
                 );
             }
             Message::Link(message::Link::Channel(channel)) => {
@@ -651,7 +651,7 @@ impl State {
                         )
                     }
                     data::config::buffer::NicknameClickAction::InsertNickname => {
-                        Event::UserContext(context_menu::Event::InsertNickname(
+                        Event::ContextMenu(context_menu::Event::InsertNickname(
                             user.nickname().to_owned(),
                         ))
                     }
