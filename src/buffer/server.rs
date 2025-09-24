@@ -6,7 +6,7 @@ use data::{Config, buffer, history, message};
 use iced::widget::{column, container, row, vertical_space};
 use iced::{Length, Size, Task, padding};
 
-use super::{input_view, scroll_view, user_context};
+use super::{input_view, scroll_view, context_menu};
 use crate::widget::{Element, message_content, selectable_text};
 use crate::{Theme, font, theme};
 
@@ -17,7 +17,7 @@ pub enum Message {
 }
 
 pub enum Event {
-    UserContext(user_context::Event),
+    ContextMenu(context_menu::Event),
     OpenBuffers(Vec<(Target, BufferAction)>),
     LeaveBuffers(Vec<Target>, Option<String>),
     History(Task<history::manager::Message>),
@@ -187,7 +187,7 @@ impl Server {
 
                 let event = event.and_then(|event| match event {
                     scroll_view::Event::UserContext(event) => {
-                        Some(Event::UserContext(event))
+                        Some(Event::ContextMenu(event))
                     }
                     scroll_view::Event::OpenBuffer(target, buffer_action) => {
                         Some(Event::OpenBuffers(vec![(target, buffer_action)]))

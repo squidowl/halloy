@@ -27,7 +27,7 @@ mod message_view;
 pub mod query;
 mod scroll_view;
 pub mod server;
-pub mod user_context;
+pub mod context_menu;
 
 #[derive(Clone, Debug)]
 pub enum Buffer {
@@ -51,7 +51,7 @@ pub enum Message {
 }
 
 pub enum Event {
-    UserContext(user_context::Event),
+    ContextMenu(context_menu::Event),
     OpenBuffers(Vec<(Target, BufferAction)>),
     LeaveBuffers(Vec<Target>, Option<String>),
     GoToMessage(data::Server, target::Channel, message::Hash),
@@ -187,8 +187,8 @@ impl Buffer {
                     state.update(message, clients, history, config);
 
                 let event = event.map(|event| match event {
-                    channel::Event::UserContext(event) => {
-                        Event::UserContext(event)
+                    channel::Event::ContextMenu(event) => {
+                        Event::ContextMenu(event)
                     }
                     channel::Event::OpenBuffers(targets) => {
                         Event::OpenBuffers(targets)
@@ -218,8 +218,8 @@ impl Buffer {
                     state.update(message, clients, history, config);
 
                 let event = event.map(|event| match event {
-                    server::Event::UserContext(event) => {
-                        Event::UserContext(event)
+                    server::Event::ContextMenu(event) => {
+                        Event::ContextMenu(event)
                     }
                     server::Event::OpenBuffers(targets) => {
                         Event::OpenBuffers(targets)
@@ -242,8 +242,8 @@ impl Buffer {
                     state.update(message, clients, history, config);
 
                 let event = event.map(|event| match event {
-                    query::Event::UserContext(event) => {
-                        Event::UserContext(event)
+                    query::Event::ContextMenu(event) => {
+                        Event::ContextMenu(event)
                     }
                     query::Event::OpenBuffers(targets) => {
                         Event::OpenBuffers(targets)
@@ -279,7 +279,7 @@ impl Buffer {
 
                 let event = event.map(|event| match event {
                     logs::Event::UserContext(event) => {
-                        Event::UserContext(event)
+                        Event::ContextMenu(event)
                     }
                     logs::Event::OpenBuffer(target, buffer_action) => {
                         Event::OpenBuffers(vec![(target, buffer_action)])
@@ -302,7 +302,7 @@ impl Buffer {
 
                 let event = event.map(|event| match event {
                     highlights::Event::UserContext(event) => {
-                        Event::UserContext(event)
+                        Event::ContextMenu(event)
                     }
                     highlights::Event::OpenBuffer(target, buffer_action) => {
                         Event::OpenBuffers(vec![(target, buffer_action)])

@@ -10,7 +10,7 @@ use iced::widget::{column, container, row};
 use iced::{Length, Size, Task, padding};
 
 use super::message_view::{ChannelQueryLayout, TargetInfo};
-use super::{input_view, scroll_view, user_context};
+use super::{input_view, scroll_view, context_menu};
 use crate::Theme;
 use crate::widget::Element;
 
@@ -20,12 +20,12 @@ mod topic;
 pub enum Message {
     ScrollView(scroll_view::Message),
     InputView(input_view::Message),
-    UserContext(user_context::Message),
+    UserContext(context_menu::Message),
     Topic(topic::Message),
 }
 
 pub enum Event {
-    UserContext(user_context::Event),
+    ContextMenu(context_menu::Event),
     OpenBuffers(Vec<(Target, BufferAction)>),
     LeaveBuffers(Vec<Target>, Option<String>),
     History(Task<history::manager::Message>),
@@ -205,7 +205,7 @@ impl Channel {
 
                 let event = event.and_then(|event| match event {
                     scroll_view::Event::UserContext(event) => {
-                        Some(Event::UserContext(event))
+                        Some(Event::ContextMenu(event))
                     }
                     scroll_view::Event::OpenBuffer(target, buffer_action) => {
                         Some(Event::OpenBuffers(vec![(target, buffer_action)]))
@@ -272,13 +272,13 @@ impl Channel {
             }
             Message::UserContext(message) => (
                 Task::none(),
-                Some(Event::UserContext(user_context::update(message))),
+                Some(Event::ContextMenu(context_menu::update(message))),
             ),
             Message::Topic(message) => (
                 Task::none(),
                 topic::update(message).map(|event| match event {
-                    topic::Event::UserContext(event) => {
-                        Event::UserContext(event)
+                    topic::Event::ContextMenu(event) => {
+                        Event::ContextMenu(event)
                     }
                     topic::Event::OpenChannel(channel) => {
                         Event::OpenBuffers(vec![(
@@ -351,9 +351,9 @@ mod nick_list {
     use iced::Length;
     use iced::advanced::text;
     use iced::widget::{Scrollable, column, scrollable};
-    use user_context::Message;
+    use context_menu::Message;
 
-    use crate::buffer::user_context;
+    use crate::buffer::context_menu;
     use crate::widget::{Element, selectable_text};
     use crate::{Theme, font, theme};
 
@@ -406,7 +406,7 @@ mod nick_list {
             })
             .width(Length::Fixed(width));
 
-            user_context::view(
+            context_menu::user(
                 content,
                 server,
                 prefix,
