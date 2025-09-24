@@ -186,7 +186,7 @@ impl Server {
                 );
 
                 let event = event.and_then(|event| match event {
-                    scroll_view::Event::UserContext(event) => {
+                    scroll_view::Event::ContextMenu(event) => {
                         Some(Event::ContextMenu(event))
                     }
                     scroll_view::Event::OpenBuffer(target, buffer_action) => {

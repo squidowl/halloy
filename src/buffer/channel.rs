@@ -20,7 +20,7 @@ mod topic;
 pub enum Message {
     ScrollView(scroll_view::Message),
     InputView(input_view::Message),
-    UserContext(context_menu::Message),
+    ContextMenu(context_menu::Message),
     Topic(topic::Message),
 }
 
@@ -107,7 +107,7 @@ pub fn view<'a>(
     let nick_list = nick_list::view(
         server, prefix, channel, users, our_user, config, theme,
     )
-    .map(Message::UserContext);
+    .map(Message::ContextMenu);
 
     // If topic toggles from None to Some then it messes with messages' scroll state,
     // so produce a zero-height placeholder when topic is None.
@@ -204,7 +204,7 @@ impl Channel {
                 );
 
                 let event = event.and_then(|event| match event {
-                    scroll_view::Event::UserContext(event) => {
+                    scroll_view::Event::ContextMenu(event) => {
                         Some(Event::ContextMenu(event))
                     }
                     scroll_view::Event::OpenBuffer(target, buffer_action) => {
@@ -270,7 +270,7 @@ impl Channel {
                     None => (command, None),
                 }
             }
-            Message::UserContext(message) => (
+            Message::ContextMenu(message) => (
                 Task::none(),
                 Some(Event::ContextMenu(context_menu::update(message))),
             ),

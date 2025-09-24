@@ -16,7 +16,7 @@ pub enum Message {
 }
 
 pub enum Event {
-    UserContext(context_menu::Event),
+    ContextMenu(context_menu::Event),
     OpenBuffer(Target, BufferAction),
     History(Task<history::manager::Message>),
     MarkAsRead,
@@ -142,8 +142,8 @@ impl Logs {
                 );
 
                 let event = event.and_then(|event| match event {
-                    scroll_view::Event::UserContext(event) => {
-                        Some(Event::UserContext(event))
+                    scroll_view::Event::ContextMenu(event) => {
+                        Some(Event::ContextMenu(event))
                     }
                     scroll_view::Event::OpenBuffer(target, buffer_action) => {
                         Some(Event::OpenBuffer(target, buffer_action))
