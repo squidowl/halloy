@@ -68,17 +68,24 @@ impl<'a> ChannelQueryLayout<'a> {
         &self,
         message: &'a data::Message,
     ) -> Option<Element<'a, Message>> {
-        self.config
-            .buffer
-            .format_timestamp(&message.server_time)
-            .map(|timestamp| {
-                selectable_text(timestamp)
-                    .style(theme::selectable_text::timestamp)
-                    .font_maybe(
-                        theme::font_style::timestamp(self.theme).map(font::get),
-                    )
-            })
-            .map(Element::from)
+        if let message::Source::Internal(
+            message::source::Internal::Condensed(end_date_time),
+        ) = message.target.source()
+        {
+            self.config
+                .buffer
+                .format_range_timestamp(&message.server_time, end_date_time)
+        } else {
+            self.config.buffer.format_timestamp(&message.server_time)
+        }
+        .map(|timestamp| {
+            selectable_text(timestamp)
+                .style(theme::selectable_text::timestamp)
+                .font_maybe(
+                    theme::font_style::timestamp(self.theme).map(font::get),
+                )
+        })
+        .map(Element::from)
     }
 
     fn format_prefixes(
@@ -310,6 +317,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
         message: &'a data::Message,
         max_nick_width: Option<f32>,
         max_prefix_width: Option<f32>,
+        max_excess_timestamp_width: Option<f32>,
     ) -> Option<Element<'a, Message>> {
         let timestamp = self.format_timestamp(message);
         let prefixes =
@@ -389,6 +397,16 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
                 message::Source::Internal(message::source::Internal::Logs(
                     _,
                 )) => None,
+                message::Source::Internal(
+                    message::source::Internal::Condensed(_),
+                ) => Some(self.format_server_message(
+                    message,
+                    max_nick_width.map(|max_nick_width| {
+                        max_nick_width
+                            - max_excess_timestamp_width.unwrap_or_default()
+                    }),
+                    None,
+                )),
             }?;
         let row = row.push(middle).push(space);
         if self.content_on_new_line(message) {

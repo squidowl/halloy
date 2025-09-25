@@ -39,6 +39,7 @@ fn expand(
             hidden_urls: HashSet::default(),
             is_echo: false,
             blocked: false,
+            condensed: None,
         }
     };
 
