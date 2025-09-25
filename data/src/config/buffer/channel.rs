@@ -9,7 +9,8 @@ use crate::config::buffer::Away;
 #[serde(default)]
 pub struct Channel {
     pub nicklist: Nicklist,
-    pub topic: Topic,
+    #[serde(alias = "topic")] // For backwards compatibility
+    pub topic_banner: TopicBanner,
     pub message: Message,
 }
 
@@ -57,12 +58,12 @@ pub enum Alignment {
 
 #[derive(Debug, Clone, Copy, Deserialize)]
 #[serde(default)]
-pub struct Topic {
+pub struct TopicBanner {
     pub enabled: bool,
     pub max_lines: u16,
 }
 
-impl Default for Topic {
+impl Default for TopicBanner {
     fn default() -> Self {
         Self {
             enabled: false,

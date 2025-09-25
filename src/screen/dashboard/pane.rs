@@ -254,8 +254,8 @@ impl TitleBar {
                     && topic.content.is_some()
                 {
                     let topic_enabled = settings.map_or(
-                        config.buffer.channel.topic.enabled,
-                        |settings| settings.channel.topic.enabled,
+                        config.buffer.channel.topic_banner.enabled,
+                        |settings| settings.channel.topic_banner.enabled,
                     );
 
                     let topic_button = button(center(icon::topic()))
