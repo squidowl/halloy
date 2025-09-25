@@ -207,6 +207,7 @@ impl<'de> Deserialize<'de> for Away {
 #[derive(Debug, Clone, Default, Deserialize)]
 #[serde(default)]
 pub struct ServerMessages {
+    pub condense_join_part_quit: bool,
     pub topic: ServerMessage,
     pub join: ServerMessage,
     pub part: ServerMessage,
@@ -385,6 +386,29 @@ impl Buffer {
                     .with_timezone(&Local)
                     .format(&self.timestamp.format)
             )
+        ))
+    }
+
+    pub fn format_range_timestamp(
+        &self,
+        start_date_time: &DateTime<Utc>,
+        end_date_time: &DateTime<Utc>,
+    ) -> Option<String> {
+        if self.timestamp.format.is_empty() {
+            return None;
+        }
+
+        Some(format!(
+            "{} ",
+            self.timestamp.brackets.format(format!(
+                "{}\u{2013}{}",
+                start_date_time
+                    .with_timezone(&Local)
+                    .format(&self.timestamp.format),
+                end_date_time
+                    .with_timezone(&Local)
+                    .format(&self.timestamp.format)
+            ))
         ))
     }
 }
