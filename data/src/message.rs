@@ -2,11 +2,12 @@ use std::borrow::Cow;
 use std::collections::HashSet;
 use std::hash::{DefaultHasher, Hash as _, Hasher};
 use std::iter;
-use std::sync::LazyLock;
+use std::sync::{Arc, LazyLock};
 
 use chrono::{DateTime, Local, Utc};
 use const_format::concatcp;
 use fancy_regex::{Regex, RegexBuilder};
+use indexmap::IndexMap;
 use irc::proto;
 use irc::proto::Command;
 use itertools::{Either, Itertools};
@@ -192,6 +193,7 @@ pub struct Message {
     pub hidden_urls: HashSet<Url>,
     pub is_echo: bool,
     pub blocked: bool,
+    pub condensed: Option<Arc<Message>>,
 }
 
 impl Message {
@@ -246,6 +248,16 @@ impl Message {
         }
 
         true
+    }
+
+    pub fn can_condense(&self) -> bool {
+        if let Source::Server(Some(source)) = self.target.source()
+            && matches!(source.kind(), Kind::Join | Kind::Part | Kind::Quit)
+        {
+            true
+        } else {
+            false
+        }
     }
 
     pub fn references(&self) -> MessageReferences {
@@ -304,6 +316,7 @@ impl Message {
             hidden_urls: HashSet::default(),
             is_echo,
             blocked: false,
+            condensed: None,
         })
     }
 
@@ -323,6 +336,7 @@ impl Message {
             hidden_urls: HashSet::default(),
             is_echo: false,
             blocked: false,
+            condensed: None,
         }
     }
 
@@ -353,6 +367,7 @@ impl Message {
             hidden_urls: HashSet::default(),
             is_echo: false,
             blocked: false,
+            condensed: None,
         }
     }
 
@@ -381,6 +396,7 @@ impl Message {
             hidden_urls: HashSet::default(),
             is_echo: false,
             blocked: false,
+            condensed: None,
         }
     }
 
@@ -420,6 +436,7 @@ impl Message {
             hidden_urls: HashSet::default(),
             is_echo: false,
             blocked: false,
+            condensed: None,
         }
     }
 
@@ -579,7 +596,104 @@ impl<'de> Deserialize<'de> for Message {
             hidden_urls,
             is_echo,
             blocked: false,
+            condensed: None,
         })
+    }
+}
+
+pub fn condense(
+    messages: &[&Message],
+    casemapping: isupport::CaseMap,
+) -> Option<Arc<Message>> {
+    if let (Some(first_message), Some(last_message)) =
+        (messages.first(), messages.last())
+    {
+        let source = Source::Internal(source::Internal::Condensed(
+            last_message.server_time,
+        ));
+
+        let target = match &first_message.target {
+            Target::Server { .. } => Target::Server { source },
+            Target::Channel { channel, .. } => Target::Channel {
+                channel: channel.clone(),
+                source,
+            },
+            Target::Query { query, .. } => Target::Query {
+                query: query.clone(),
+                source,
+            },
+            Target::Logs { .. } => Target::Logs { source },
+            Target::Highlights {
+                server, channel, ..
+            } => Target::Highlights {
+                server: server.clone(),
+                channel: channel.clone(),
+                source,
+            },
+        };
+
+        let mut condensed_text: IndexMap<Nick, String> = IndexMap::new();
+
+        messages.iter().for_each(|message| {
+            if let Source::Server(Some(source)) = message.target.source()
+                && let Some(nick) = source.nick()
+            {
+                let text = condensed_text
+                    .get(nick)
+                    .map(String::to_owned)
+                    .unwrap_or_default()
+                    + match source.kind() {
+                        Kind::Join => "+",
+                        Kind::Part => "-",
+                        Kind::Quit => "-",
+                        _ => "",
+                    };
+
+                condensed_text.insert(nick.clone(), text);
+            }
+        });
+
+        let content = parse_fragments_with_users(
+            condensed_text
+                .iter()
+                .filter_map(|(nick, text)| {
+                    if let Some(first_char) = text.chars().next()
+                        && let Some(last_char) = text.chars().last()
+                    {
+                        // \u{FEFF} is used to prevent first_char & last_char
+                        // from being parsed as part of a nickname (non-breaking
+                        // spaces cannot be used as wrapping will occur in them)
+                        if first_char == last_char {
+                            Some(format!("{last_char}\u{FEFF}{nick}",))
+                        } else {
+                            Some(format!(
+                                "{first_char}\u{FEFF}{last_char}\u{FEFF}{nick}",
+                            ))
+                        }
+                    } else {
+                        None
+                    }
+                })
+                .join("  "),
+            Some(&condensed_text.into_keys().map(User::from).collect()),
+            casemapping,
+        );
+
+        Some(Arc::new(Message {
+            received_at: Posix::now(),
+            server_time: first_message.server_time,
+            direction: Direction::Received,
+            target,
+            content,
+            id: None,
+            hash: first_message.hash,
+            hidden_urls: HashSet::default(),
+            is_echo: false,
+            blocked: false,
+            condensed: None,
+        }))
+    } else {
+        None
     }
 }
 
