@@ -5,7 +5,7 @@ Buffer settings for Halloy.
 1. [Channel](#bufferchannel) - Channel specific settings
    1. [Message](#bufferchannelmessage) - Message settings within a channel buffer
    2. [Nicklist](#bufferchannelnicklist) - Nicklist settings within a channel buffer
-   3. [Topic](#bufferchanneltopic) - Topic settings within a channel buffer
+   3. [Topic Banner](#bufferchanneltopic_banner) - Topic banner settings within a channel buffer
 2. [Chathistory](#bufferchathistory) - IRCv3 Chat History extension settings
 3. [Commands](#buffercommands) - Commands settings
 4. [Backlog Separator](#bufferbacklog_separator) - Customize when the backlog separator is displayed within a buffer
@@ -160,20 +160,20 @@ Click action for when interaction with nicknames.
 click = "open-query"
 ```
 
-### `[buffer.channel.topic]`
+### `[buffer.channel.topic_banner]`
 
-Topic settings within a channel buffer.
+Topic banner settings within a channel buffer.
 
 #### `enabled`
 
-Control if topic should be shown or not by default.
+Control if topic banner should be shown or not by default.
 
 ```toml
 # Type: boolean
 # Values: true, false
 # Default: false
 
-[buffer.channel.topic]
+[buffer.channel.topic_banner]
 enabled = true
 ```
 
@@ -186,7 +186,7 @@ Amount of visible lines before you have to scroll in topic banner.
 # Values: any non-negative integer
 # Default: 2
 
-[buffer.channel.topic]
+[buffer.channel.topic_banner]
 max_lines = 2
 ```
 

@@ -653,7 +653,10 @@ impl Dashboard {
                                     &buffer,
                                     Some(config.buffer.clone().into()),
                                 );
-                                settings.channel.topic.toggle_visibility();
+                                settings
+                                    .channel
+                                    .topic_banner
+                                    .toggle_visibility();
                             }
 
                             self.last_changed = Some(Instant::now());
@@ -1168,7 +1171,10 @@ impl Dashboard {
                                     &buffer,
                                     Some(config.buffer.clone().into()),
                                 );
-                                settings.channel.topic.toggle_visibility();
+                                settings
+                                    .channel
+                                    .topic_banner
+                                    .toggle_visibility();
                             }
 
                             self.last_changed = Some(Instant::now());

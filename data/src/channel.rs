@@ -5,14 +5,14 @@ use crate::config;
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct Settings {
     pub nicklist: Nicklist,
-    pub topic: Topic,
+    pub topic_banner: TopicBanner,
 }
 
 impl From<config::buffer::Channel> for Settings {
     fn from(config: config::buffer::Channel) -> Self {
         Self {
             nicklist: Nicklist::from(config.nicklist),
-            topic: Topic::from(config.topic),
+            topic_banner: TopicBanner::from(config.topic_banner),
         }
     }
 }
@@ -51,19 +51,19 @@ impl Nicklist {
 }
 
 #[derive(Debug, Clone, Copy, Default, Deserialize, Serialize)]
-pub struct Topic {
+pub struct TopicBanner {
     pub enabled: bool,
 }
 
-impl From<config::buffer::channel::Topic> for Topic {
-    fn from(config: config::buffer::channel::Topic) -> Self {
-        Topic {
+impl From<config::buffer::channel::TopicBanner> for TopicBanner {
+    fn from(config: config::buffer::channel::TopicBanner) -> Self {
+        TopicBanner {
             enabled: config.enabled,
         }
     }
 }
 
-impl Topic {
+impl TopicBanner {
     pub fn toggle_visibility(&mut self) {
         self.enabled = !self.enabled;
     }
