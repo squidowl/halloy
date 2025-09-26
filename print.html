@@ -791,7 +791,7 @@ focused_buffer = "close-pane"
 <ol>
 <li><a href="configuration/buffer.html#bufferchannelmessage">Message</a> - Message settings within a channel buffer</li>
 <li><a href="configuration/buffer.html#bufferchannelnicklist">Nicklist</a> - Nicklist settings within a channel buffer</li>
-<li><a href="configuration/buffer.html#bufferchanneltopic">Topic</a> - Topic settings within a channel buffer</li>
+<li><a href="configuration/buffer.html#bufferchanneltopic_banner">Topic Banner</a> - Topic banner settings within a channel buffer</li>
 </ol>
 </li>
 <li><a href="configuration/buffer.html#bufferchathistory">Chathistory</a> - IRCv3 Chat History extension settings</li>
@@ -907,15 +907,15 @@ width = 150
 [buffer.channel.nicklist]
 click = "open-query"
 </code></pre>
-<h3 id="bufferchanneltopic"><a class="header" href="#bufferchanneltopic"><code>[buffer.channel.topic]</code></a></h3>
-<p>Topic settings within a channel buffer.</p>
+<h3 id="bufferchanneltopic_banner"><a class="header" href="#bufferchanneltopic_banner"><code>[buffer.channel.topic_banner]</code></a></h3>
+<p>Topic banner settings within a channel buffer.</p>
 <h4 id="enabled-1"><a class="header" href="#enabled-1"><code>enabled</code></a></h4>
-<p>Control if topic should be shown or not by default.</p>
+<p>Control if topic banner should be shown or not by default.</p>
 <pre><code class="language-toml"># Type: boolean
 # Values: true, false
 # Default: false
 
-[buffer.channel.topic]
+[buffer.channel.topic_banner]
 enabled = true
 </code></pre>
 <h4 id="max_lines"><a class="header" href="#max_lines"><code>max_lines</code></a></h4>
@@ -924,7 +924,7 @@ enabled = true
 # Values: any non-negative integer
 # Default: 2
 
-[buffer.channel.topic]
+[buffer.channel.topic_banner]
 max_lines = 2
 </code></pre>
 <h2 id="bufferchathistory"><a class="header" href="#bufferchathistory"><code>[buffer.chathistory]</code></a></h2>
