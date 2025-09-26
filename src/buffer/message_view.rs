@@ -8,7 +8,7 @@ use iced::advanced::text;
 use iced::widget::{column, container, row};
 
 use super::scroll_view::LayoutMessage;
-use super::user_context;
+use super::context_menu;
 use crate::buffer::scroll_view::Message;
 use crate::widget::{
     Element, message_content, message_marker, selectable_text, tooltip,
@@ -171,7 +171,7 @@ impl<'a> ChannelQueryLayout<'a> {
         }
 
         let nick = tooltip(
-            user_context::view(
+            context_menu::user(
                 text,
                 self.server,
                 self.prefix,
@@ -183,7 +183,7 @@ impl<'a> ChannelQueryLayout<'a> {
                 self.theme,
                 &self.config.buffer.nickname.click,
             )
-            .map(Message::UserContext),
+            .map(Message::ContextMenu),
             // We show the full nickname in the tooltip if truncation is enabled.
             truncate.map(|_| user.as_str()),
             tooltip::Position::Bottom,
@@ -201,26 +201,27 @@ impl<'a> ChannelQueryLayout<'a> {
             theme::selectable_text::default,
             theme::font_style::primary,
             move |link| match link {
-                message::Link::User(_) => user_context::Entry::list(
+                message::Link::User(_) => context_menu::Entry::user_list(
                     fm.target.is_channel(),
                     fm.target.our_user(),
                 ),
+                message::Link::Url(_) => context_menu::Entry::url_list(),
                 _ => vec![],
             },
-            move |link, entry, length| match link {
-                message::Link::User(user) => entry
+            move |link, entry, length| {
+                entry
                     .view(
                         fm.server,
                         fm.prefix,
                         fm.target.channel(),
-                        user,
+                        link.user(),
                         user_in_channel,
+                        link.url(),
                         length,
                         fm.config,
                         fm.theme,
                     )
-                    .map(Message::UserContext),
-                _ => row![].into(),
+                    .map(Message::ContextMenu)
             },
             self.config,
         );
@@ -257,26 +258,32 @@ impl<'a> ChannelQueryLayout<'a> {
             message_style,
             message_font_style,
             move |link| match link {
-                message::Link::User(_) => user_context::Entry::list(
+                message::Link::User(_) => context_menu::Entry::user_list(
                     fm.target.is_channel(),
                     fm.target.our_user(),
                 ),
+                message::Link::Url(_) => context_menu::Entry::url_list(),
                 _ => vec![],
             },
-            move |link, entry, length| match link {
-                message::Link::User(user) => entry
+            move |link, entry, length| {
+                let user = link.user();
+                let current_user = user.and_then(|u| {
+                    fm.target.users().and_then(|users| users.resolve(u))
+                });
+
+                entry
                     .view(
                         fm.server,
                         fm.prefix,
                         fm.target.channel(),
                         user,
-                        fm.target.users().and_then(|users| users.resolve(user)),
+                        current_user,
+                        link.url(),
                         length,
                         fm.config,
                         fm.theme,
                     )
-                    .map(Message::UserContext),
-                _ => row![].into(),
+                    .map(Message::ContextMenu)
             },
             self.config,
         );

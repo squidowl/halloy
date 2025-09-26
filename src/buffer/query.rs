@@ -8,7 +8,7 @@ use iced::widget::{column, container, vertical_space};
 use iced::{Length, Size, Task};
 
 use super::message_view::{ChannelQueryLayout, TargetInfo};
-use super::{input_view, scroll_view, user_context};
+use super::{input_view, scroll_view, context_menu};
 use crate::Theme;
 use crate::widget::Element;
 
@@ -19,7 +19,7 @@ pub enum Message {
 }
 
 pub enum Event {
-    UserContext(user_context::Event),
+    ContextMenu(context_menu::Event),
     OpenBuffers(Vec<(Target, BufferAction)>),
     LeaveBuffers(Vec<Target>, Option<String>),
     History(Task<history::manager::Message>),
@@ -158,8 +158,8 @@ impl Query {
                 );
 
                 let event = event.and_then(|event| match event {
-                    scroll_view::Event::UserContext(event) => {
-                        Some(Event::UserContext(event))
+                    scroll_view::Event::ContextMenu(event) => {
+                        Some(Event::ContextMenu(event))
                     }
                     scroll_view::Event::OpenBuffer(target, buffer_action) => {
                         Some(Event::OpenBuffers(vec![(target, buffer_action)]))

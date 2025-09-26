@@ -3,6 +3,7 @@
 Added:
 
 - `/sysinfo` command to send system information to current buffer
+- Copy URLs from context menu by right-clicking on links
 
 Fixed:
 
