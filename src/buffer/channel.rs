@@ -311,8 +311,8 @@ fn topic<'a>(
     theme: &'a Theme,
 ) -> Option<Element<'a, Message>> {
     let topic_enabled = settings
-        .map_or(config.buffer.channel.topic.enabled, |settings| {
-            settings.channel.topic.enabled
+        .map_or(config.buffer.channel.topic_banner.enabled, |settings| {
+            settings.channel.topic_banner.enabled
         });
 
     if !topic_enabled {
@@ -335,7 +335,7 @@ fn topic<'a>(
             topic.content.as_ref()?,
             topic.who.as_ref().map(Nick::as_nickref),
             topic.time.as_ref(),
-            config.buffer.channel.topic.max_lines,
+            config.buffer.channel.topic_banner.max_lines,
             users,
             our_user,
             config,
