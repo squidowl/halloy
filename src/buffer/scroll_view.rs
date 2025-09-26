@@ -206,8 +206,10 @@ pub fn view<'a>(
         font::width_from_chars(
             usize::max(
                 len,
-                max_excess_timestamp_chars.unwrap_or_default()
-                    + MESSAGE_MARKER_TEXT.chars().count(),
+                usize::max(
+                    max_excess_timestamp_chars.unwrap_or_default(),
+                    MESSAGE_MARKER_TEXT.chars().count(),
+                ),
             ),
             &config.font,
         )
