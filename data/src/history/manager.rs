@@ -320,16 +320,20 @@ impl Manager {
                     buffer_config,
                 );
 
-                let condensers =
-                    (buffer_config.server_messages.condense_join_part_quit
-                        && message.can_condense()
-                        && !message.blocked)
-                        .then_some((kind.clone(), message.clone()));
+                let condensers = (message
+                    .can_condense(&buffer_config.server_messages.condense)
+                    && !message.blocked)
+                    .then_some((kind.clone(), message.clone()));
 
                 let future = self.data.add_message(kind, message);
 
                 if let Some((kind, message)) = condensers {
-                    self.condense_message(message, &kind, casemapping);
+                    self.condense_message(
+                        message,
+                        &kind,
+                        casemapping,
+                        &buffer_config.server_messages.condense,
+                    );
                 }
 
                 future
@@ -634,6 +638,7 @@ impl Manager {
         message: crate::Message,
         kind: &history::Kind,
         casemapping: isupport::CaseMap,
+        config: &config::buffer::Condensation,
     ) {
         if let Some(History::Full { messages, .. }) =
             self.data.map.get_mut(kind)
@@ -665,13 +670,17 @@ impl Manager {
                     .iter()
                     .take(insert_position)
                     .rev()
-                    .position(|message| !message.can_condense())
+                    .position(|message| {
+                        !message.blocked && !message.can_condense(config)
+                    })
                     .map_or(0, |position| insert_position - position);
 
                 let end = messages
                     .iter()
                     .skip(insert_position)
-                    .position(|message| !message.can_condense())
+                    .position(|message| {
+                        !message.blocked && !message.can_condense(config)
+                    })
                     .map_or(messages.len(), |position| {
                         insert_position + position
                     });
@@ -687,6 +696,7 @@ impl Manager {
                         .map(|message| &**message)
                         .collect::<Vec<&message::Message>>(),
                     casemapping,
+                    config,
                 );
 
                 condensable_messages
@@ -814,8 +824,8 @@ impl Manager {
                 .iter_mut()
                 .filter(|message| !message.blocked)
                 .chunk_by(|message| {
-                    if buffer_config.server_messages.condense_join_part_quit
-                        && message.can_condense()
+                    if message
+                        .can_condense(&buffer_config.server_messages.condense)
                     {
                         CondensationKey::Condensable(
                             message
@@ -839,6 +849,7 @@ impl Manager {
                                 .map(|message| &**message)
                                 .collect::<Vec<&message::Message>>(),
                             clients.get_casemapping_or_default(kind.server()),
+                            &buffer_config.server_messages.condense,
                         );
 
                         condensable_messages
@@ -980,8 +991,8 @@ impl Data {
             .flat_map(|message| {
                 if message.blocked {
                     None
-                } else if buffer_config.server_messages.condense_join_part_quit
-                    && message.can_condense()
+                } else if message
+                    .can_condense(&buffer_config.server_messages.condense)
                 {
                     message.condensed.as_ref().map(std::convert::AsRef::as_ref)
                 } else {
@@ -1075,38 +1086,37 @@ impl Data {
             .nickname
             .alignment
             .is_right()
-            && buffer_config.server_messages.condense_join_part_quit)
-            .then(|| {
-                processed
-                    .iter()
-                    .find_map(|message| {
-                        if let message::Source::Internal(
-                            message::source::Internal::Condensed(
-                                end_server_time,
-                            ),
-                        ) = message.target.source()
-                        {
-                            Some(
-                                buffer_config
-                                    .format_range_timestamp(
-                                        &message.server_time,
-                                        end_server_time,
-                                    )
+            && buffer_config.server_messages.condense.any())
+        .then(|| {
+            processed
+                .iter()
+                .find_map(|message| {
+                    if let message::Source::Internal(
+                        message::source::Internal::Condensed(end_server_time),
+                    ) = message.target.source()
+                        && message.server_time != *end_server_time
+                    {
+                        Some(
+                            buffer_config
+                                .format_range_timestamp(
+                                    &message.server_time,
+                                    end_server_time,
+                                )
+                                .unwrap_or_default()
+                                .chars()
+                                .count()
+                                - buffer_config
+                                    .format_timestamp(&message.server_time)
                                     .unwrap_or_default()
                                     .chars()
-                                    .count()
-                                    - buffer_config
-                                        .format_timestamp(&message.server_time)
-                                        .unwrap_or_default()
-                                        .chars()
-                                        .count(),
-                            )
-                        } else {
-                            None
-                        }
-                    })
-                    .unwrap_or_default()
-            });
+                                    .count(),
+                        )
+                    } else {
+                        None
+                    }
+                })
+                .unwrap_or_default()
+        });
 
         let has_read_messages = read_marker
             .map(|marker| {

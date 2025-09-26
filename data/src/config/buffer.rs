@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use chrono::{DateTime, Local, Utc};
 use serde::{Deserialize, Deserializer};
 
@@ -207,7 +209,7 @@ impl<'de> Deserialize<'de> for Away {
 #[derive(Debug, Clone, Default, Deserialize)]
 #[serde(default)]
 pub struct ServerMessages {
-    pub condense_join_part_quit: bool,
+    pub condense: Condensation,
     pub topic: ServerMessage,
     pub join: ServerMessage,
     pub part: ServerMessage,
@@ -255,6 +257,59 @@ impl ServerMessages {
             source::server::Kind::ChangeTopic => Some(&self.change_topic),
         }
     }
+}
+
+#[derive(Debug, Default, Clone, Deserialize)]
+#[serde(default)]
+pub struct Condensation {
+    pub messages: HashSet<CondensationMessage>,
+    pub format: CondensationFormat,
+}
+
+impl Condensation {
+    pub fn kind(&self, server: &source::Server) -> bool {
+        match server.kind() {
+            source::server::Kind::Join => {
+                self.messages.contains(&CondensationMessage::Join)
+            }
+            source::server::Kind::Part => {
+                self.messages.contains(&CondensationMessage::Part)
+            }
+            source::server::Kind::Quit => {
+                self.messages.contains(&CondensationMessage::Quit)
+            }
+            source::server::Kind::ReplyTopic
+            | source::server::Kind::ChangeHost
+            | source::server::Kind::ChangeMode
+            | source::server::Kind::ChangeNick
+            | source::server::Kind::MonitoredOnline
+            | source::server::Kind::MonitoredOffline
+            | source::server::Kind::StandardReply(_)
+            | source::server::Kind::WAllOps
+            | source::server::Kind::Kick
+            | source::server::Kind::ChangeTopic => false,
+        }
+    }
+
+    pub fn any(&self) -> bool {
+        !self.messages.is_empty()
+    }
+}
+
+#[derive(Debug, Clone, Deserialize, Eq, Hash, PartialEq)]
+#[serde(rename_all = "kebab-case")]
+pub enum CondensationMessage {
+    Join,
+    Part,
+    Quit,
+}
+
+#[derive(Debug, Default, Clone, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum CondensationFormat {
+    #[default]
+    Brief,
+    Detailed,
 }
 
 #[derive(Debug, Clone, Deserialize)]

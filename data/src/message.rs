@@ -18,8 +18,8 @@ pub use self::broadcast::Broadcast;
 pub use self::formatting::{Color, Formatting};
 pub use self::source::Source;
 pub use self::source::server::{Kind, StandardReply};
-use crate::config::Highlights;
-use crate::config::buffer::UsernameFormat;
+use crate::config::buffer::{CondensationFormat, UsernameFormat};
+use crate::config::{self, Highlights};
 use crate::log::Level;
 use crate::serde::fail_as_none;
 use crate::server::Server;
@@ -250,11 +250,12 @@ impl Message {
         true
     }
 
-    pub fn can_condense(&self) -> bool {
-        if let Source::Server(Some(source)) = self.target.source()
-            && matches!(source.kind(), Kind::Join | Kind::Part | Kind::Quit)
-        {
-            true
+    pub fn can_condense(
+        &self,
+        condense: &config::buffer::Condensation,
+    ) -> bool {
+        if let Source::Server(Some(source)) = self.target.source() {
+            condense.kind(source)
         } else {
             false
         }
@@ -604,6 +605,7 @@ impl<'de> Deserialize<'de> for Message {
 pub fn condense(
     messages: &[&Message],
     casemapping: isupport::CaseMap,
+    condense: &config::buffer::Condensation,
 ) -> Option<Arc<Message>> {
     if let (Some(first_message), Some(last_message)) =
         (messages.first(), messages.last())
@@ -666,9 +668,12 @@ pub fn condense(
                         if first_char == last_char {
                             Some(format!("{last_char}\u{FEFF}{nick}",))
                         } else {
-                            Some(format!(
-                                "{first_char}\u{FEFF}{last_char}\u{FEFF}{nick}",
-                            ))
+                            match condense.format {
+                                CondensationFormat::Brief => None,
+                                CondensationFormat::Detailed => Some(format!(
+                                    "{first_char}\u{FEFF}{last_char}\u{FEFF}{nick}",
+                                )),
+                            }
                         }
                     } else {
                         None
