@@ -1,9 +1,11 @@
 use std::collections::HashSet;
 
 use chrono::{DateTime, Local, Utc};
+use iced::Color;
 use serde::{Deserialize, Deserializer};
 
 pub use self::channel::Channel;
+use crate::appearance::theme::{alpha_color, alpha_color_calculate};
 use crate::config::buffer::nickname::Nickname;
 
 pub mod channel;
@@ -159,7 +161,7 @@ impl Default for Commands {
 
 #[derive(Debug, Clone, Copy)]
 pub enum Away {
-    Dimmed(Option<f32>),
+    Dimmed(Dimmed),
     None,
 }
 
@@ -171,7 +173,7 @@ impl Away {
 
 impl Default for Away {
     fn default() -> Self {
-        Away::Dimmed(None)
+        Away::Dimmed(Dimmed::default())
     }
 }
 
@@ -195,13 +197,13 @@ impl<'de> Deserialize<'de> for Away {
         let repr = AppearanceRepr::deserialize(deserializer)?;
         match repr {
             AppearanceRepr::String(s) => match s.as_str() {
-                "dimmed" => Ok(Away::Dimmed(None)),
+                "dimmed" => Ok(Away::Dimmed(Dimmed(None))),
                 "solid" | "none" => Ok(Away::None),
                 _ => Err(serde::de::Error::custom(format!(
                     "unknown appearance: {s}",
                 ))),
             },
-            AppearanceRepr::Struct(s) => Ok(Away::Dimmed(s.dimmed)),
+            AppearanceRepr::Struct(s) => Ok(Away::Dimmed(Dimmed(s.dimmed))),
         }
     }
 }
@@ -264,6 +266,7 @@ impl ServerMessages {
 pub struct Condensation {
     pub messages: HashSet<CondensationMessage>,
     pub format: CondensationFormat,
+    pub dimmed: Option<Dimmed>,
 }
 
 impl Condensation {
@@ -456,7 +459,7 @@ impl Buffer {
         Some(format!(
             "{} ",
             self.timestamp.brackets.format(format!(
-                "{}\u{2013}{}",
+                "{} \u{2013} {}",
                 start_date_time
                     .with_timezone(&Local)
                     .format(&self.timestamp.format),
@@ -465,5 +468,19 @@ impl Buffer {
                     .format(&self.timestamp.format)
             ))
         ))
+    }
+}
+
+#[derive(Debug, Default, Clone, Copy, Deserialize)]
+pub struct Dimmed(Option<f32>);
+
+impl Dimmed {
+    pub fn transform_color(&self, color: Color, background: Color) -> Color {
+        match self.0 {
+            // Calculate alpha based on background and foreground.
+            None => alpha_color_calculate(0.20, 0.61, background, color),
+            // Calculate alpha based on user defined alpha value.
+            Some(a) => alpha_color(color, a),
+        }
     }
 }
