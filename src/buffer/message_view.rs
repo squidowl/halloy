@@ -4,6 +4,7 @@ use data::server::Server;
 use data::target::{self};
 use data::user::ChannelUsers;
 use data::{Config, User, message};
+use iced::Color;
 use iced::advanced::text;
 use iced::widget::{column, container, row};
 
@@ -208,6 +209,7 @@ impl<'a> ChannelQueryLayout<'a> {
             Message::Link,
             theme::selectable_text::default,
             theme::font_style::primary,
+            Option::<fn(Color) -> Color>::None,
             move |link| match link {
                 message::Link::User(_) => context_menu::Entry::user_list(
                     fm.target.is_channel(),
@@ -265,6 +267,7 @@ impl<'a> ChannelQueryLayout<'a> {
             Message::Link,
             message_style,
             message_font_style,
+            Option::<fn(Color) -> Color>::None,
             move |link| match link {
                 message::Link::User(_) => context_menu::Entry::user_list(
                     fm.target.is_channel(),
@@ -322,6 +325,18 @@ impl<'a> ChannelQueryLayout<'a> {
             Message::Link,
             message_style,
             message_font_style,
+            Some(|color: Color| -> Color {
+                if let Some(dimmed) =
+                    formatter.config.buffer.server_messages.condense.dimmed
+                {
+                    dimmed.transform_color(
+                        color,
+                        formatter.theme.styles().buffer.background,
+                    )
+                } else {
+                    color
+                }
+            }),
             move |link| match link {
                 message::Link::User(_) => user_context::Entry::list(
                     formatter.target.is_channel(),
@@ -412,6 +427,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
                         Message::Link,
                         theme::selectable_text::action,
                         theme::font_style::action,
+                        Option::<fn(Color) -> Color>::None,
                         self.config,
                     );
 
@@ -444,6 +460,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
                         Message::Link,
                         message_style,
                         message_font_style,
+                        Option::<fn(Color) -> Color>::None,
                         self.config,
                     );
 

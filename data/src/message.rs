@@ -604,7 +604,6 @@ impl<'de> Deserialize<'de> for Message {
 
 pub fn condense(
     messages: &[&Message],
-    casemapping: isupport::CaseMap,
     condense: &config::buffer::Condensation,
 ) -> Option<Arc<Message>> {
     if let (Some(first_message), Some(last_message)) =
@@ -634,62 +633,86 @@ pub fn condense(
             },
         };
 
-        let mut condensed_text: IndexMap<Nick, String> = IndexMap::new();
+        let mut condensed_fragments: IndexMap<Nick, Vec<Fragment>> =
+            IndexMap::new();
 
         messages.iter().for_each(|message| {
             if let Source::Server(Some(source)) = message.target.source()
                 && let Some(nick) = source.nick()
+                && let Some(nick_fragment) = match source.kind() {
+                    Kind::Join => Some(Fragment::Condensed {
+                        text: String::from("+\u{FEFF}"),
+                        source: source.clone(),
+                    }),
+                    Kind::Part => Some(Fragment::Condensed {
+                        text: String::from("-\u{FEFF}"),
+                        source: source.clone(),
+                    }),
+                    Kind::Quit => Some(Fragment::Condensed {
+                        text: String::from("-\u{FEFF}"),
+                        source: source.clone(),
+                    }),
+                    _ => None,
+                }
             {
-                let text = condensed_text
-                    .get(nick)
-                    .map(String::to_owned)
-                    .unwrap_or_default()
-                    + match source.kind() {
-                        Kind::Join => "+",
-                        Kind::Part => "-",
-                        Kind::Quit => "-",
-                        _ => "",
-                    };
-
-                condensed_text.insert(nick.clone(), text);
+                if let Some(nick_fragments) = condensed_fragments.get_mut(nick)
+                {
+                    nick_fragments.push(nick_fragment);
+                } else {
+                    condensed_fragments
+                        .insert(nick.clone(), vec![nick_fragment]);
+                }
             }
         });
 
-        let content = parse_fragments_with_users(
-            condensed_text
-                .iter()
-                .filter_map(|(nick, text)| {
-                    if let Some(first_char) = text.chars().next()
-                        && let Some(last_char) = text.chars().last()
+        let mut condensed_fragments: Vec<Fragment> = condensed_fragments
+            .into_iter()
+            .flat_map(|(nick, nick_fragments)| {
+                if let Some(first_nick_fragment) = nick_fragments.first()
+                    && let Some(last_nick_fragment) = nick_fragments.last()
+                {
+                    if first_nick_fragment.as_str()
+                        == last_nick_fragment.as_str()
                     {
-                        // \u{FEFF} is used to prevent first_char & last_char
-                        // from being parsed as part of a nickname (non-breaking
-                        // spaces cannot be used as wrapping will occur in them)
-                        if first_char == last_char {
-                            Some(format!("{last_char}\u{FEFF}{nick}",))
-                        } else {
-                            match condense.format {
-                                CondensationFormat::Brief => None,
-                                CondensationFormat::Detailed => Some(format!(
-                                    "{first_char}\u{FEFF}{last_char}\u{FEFF}{nick}",
-                                )),
+                        let nick_string = nick.to_string();
+
+                        Some(vec![
+                            last_nick_fragment.clone(),
+                            Fragment::User(User::from(nick), nick_string),
+                            Fragment::Text(String::from("  ")),
+                        ])
+                    } else {
+                        match condense.format {
+                            CondensationFormat::Brief => None,
+                            CondensationFormat::Detailed => {
+                                let nick_string = nick.to_string();
+
+                                Some(vec![
+                                    first_nick_fragment.clone(),
+                                    last_nick_fragment.clone(),
+                                    Fragment::User(
+                                        User::from(nick),
+                                        nick_string,
+                                    ),
+                                    Fragment::Text(String::from("  ")),
+                                ])
                             }
                         }
-                    } else {
-                        None
                     }
-                })
-                .join("  "),
-            Some(&condensed_text.into_keys().map(User::from).collect()),
-            casemapping,
-        );
+                } else {
+                    None
+                }
+            })
+            .flatten()
+            .collect();
+        condensed_fragments.pop(); // Remove trailing whitespace fragment
 
         Some(Arc::new(Message {
             received_at: Posix::now(),
             server_time: first_message.server_time,
             direction: Direction::Received,
             target,
-            content,
+            content: Content::Fragments(condensed_fragments),
             id: None,
             hash: first_message.hash,
             hidden_urls: HashSet::default(),
@@ -1002,6 +1025,10 @@ pub enum Fragment {
     },
     HighlightNick(User, String),
     HighlightMatch(String),
+    Condensed {
+        text: String,
+        source: source::Server,
+    },
 }
 
 impl Fragment {
@@ -1022,6 +1049,7 @@ impl Fragment {
             Fragment::Formatted { text, .. } => text,
             Fragment::HighlightNick(_, s) => s,
             Fragment::HighlightMatch(s) => s,
+            Fragment::Condensed { text, .. } => text,
         }
     }
 }

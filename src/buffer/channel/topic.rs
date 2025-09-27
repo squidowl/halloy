@@ -1,10 +1,10 @@
 use chrono::{DateTime, Local, Utc};
 use data::user::{ChannelUsers, NickRef};
 use data::{Config, Server, User, isupport, message, target};
-use iced::Length;
 use iced::widget::{
     Scrollable, column, container, horizontal_rule, row, scrollable,
 };
+use iced::{Color, Length};
 
 use super::context_menu;
 use crate::widget::{Element, double_pass, message_content, selectable_text};
@@ -118,6 +118,7 @@ pub fn view<'a>(
             Message::Link,
             theme::selectable_text::topic,
             theme::font_style::topic,
+            Option::<fn(Color) -> Color>::None,
             config,
         ),
         set_by

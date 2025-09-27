@@ -1,6 +1,4 @@
-use data::appearance::theme::{
-    alpha_color, alpha_color_calculate, randomize_color,
-};
+use data::appearance::theme::randomize_color;
 use data::config::buffer;
 use iced::widget::text::{Catalog, Style, StyleFn};
 
@@ -105,18 +103,8 @@ pub fn nickname<T: AsRef<str>>(
     is_offline: bool,
 ) -> Style {
     let calculate_alpha_color = |color| {
-        if let Some(buffer::Away::Dimmed(alpha)) = is_away {
-            match alpha {
-                // Calculate alpha based on background and foreground.
-                None => alpha_color_calculate(
-                    0.20,
-                    0.61,
-                    theme.styles().buffer.background,
-                    color,
-                ),
-                // Calculate alpha based on user defined alpha value.
-                Some(a) => alpha_color(color, a),
-            }
+        if let Some(buffer::Away::Dimmed(dimmed)) = is_away {
+            dimmed.transform_color(color, theme.styles().buffer.background)
         } else {
             color
         }
