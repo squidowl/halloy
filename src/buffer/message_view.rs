@@ -4,6 +4,7 @@ use data::server::Server;
 use data::target::{self};
 use data::user::ChannelUsers;
 use data::{Config, User, message};
+use iced::Color;
 use iced::advanced::text;
 use iced::widget::{column, container, row};
 
@@ -68,17 +69,25 @@ impl<'a> ChannelQueryLayout<'a> {
         &self,
         message: &'a data::Message,
     ) -> Option<Element<'a, Message>> {
-        self.config
-            .buffer
-            .format_timestamp(&message.server_time)
-            .map(|timestamp| {
-                selectable_text(timestamp)
-                    .style(theme::selectable_text::timestamp)
-                    .font_maybe(
-                        theme::font_style::timestamp(self.theme).map(font::get),
-                    )
-            })
-            .map(Element::from)
+        if let message::Source::Internal(message::source::Internal::Condensed(
+            end_server_time,
+        )) = message.target.source()
+            && message.server_time != *end_server_time
+        {
+            self.config
+                .buffer
+                .format_range_timestamp(&message.server_time, end_server_time)
+        } else {
+            self.config.buffer.format_timestamp(&message.server_time)
+        }
+        .map(|timestamp| {
+            selectable_text(timestamp)
+                .style(theme::selectable_text::timestamp)
+                .font_maybe(
+                    theme::font_style::timestamp(self.theme).map(font::get),
+                )
+        })
+        .map(Element::from)
     }
 
     fn format_prefixes(
@@ -200,6 +209,7 @@ impl<'a> ChannelQueryLayout<'a> {
             Message::Link,
             theme::selectable_text::default,
             theme::font_style::primary,
+            Option::<fn(Color) -> Color>::None,
             move |link| match link {
                 message::Link::User(_) => user_context::Entry::list(
                     fm.target.is_channel(),
@@ -256,6 +266,7 @@ impl<'a> ChannelQueryLayout<'a> {
             Message::Link,
             message_style,
             message_font_style,
+            Option::<fn(Color) -> Color>::None,
             move |link| match link {
                 message::Link::User(_) => user_context::Entry::list(
                     fm.target.is_channel(),
@@ -284,6 +295,72 @@ impl<'a> ChannelQueryLayout<'a> {
         (marker, container(message_content).into())
     }
 
+    fn format_condensed_message(
+        &self,
+        message: &'a data::Message,
+        spacer_width: Option<f32>,
+    ) -> (Element<'a, Message>, Element<'a, Message>) {
+        let spacer = spacer_width.map(|width| selectable_text("").width(width));
+
+        let message_style = move |message_theme: &Theme| {
+            theme::selectable_text::server(message_theme, None)
+        };
+        let message_font_style = move |message_theme: &Theme| {
+            theme::font_style::server(message_theme, None)
+        };
+
+        let formatter = *self;
+        let message_content = message_content::with_context(
+            &message.content,
+            formatter.chantypes,
+            formatter.casemapping,
+            self.theme,
+            Message::Link,
+            message_style,
+            message_font_style,
+            Some(|color: Color| -> Color {
+                if let Some(dimmed) =
+                    formatter.config.buffer.server_messages.condense.dimmed
+                {
+                    dimmed.transform_color(
+                        color,
+                        formatter.theme.styles().buffer.background,
+                    )
+                } else {
+                    color
+                }
+            }),
+            move |link| match link {
+                message::Link::User(_) => user_context::Entry::list(
+                    formatter.target.is_channel(),
+                    formatter.target.our_user(),
+                ),
+                _ => vec![],
+            },
+            move |link, entry, length| match link {
+                message::Link::User(user) => entry
+                    .view(
+                        formatter.server,
+                        formatter.prefix,
+                        formatter.target.channel(),
+                        user,
+                        formatter
+                            .target
+                            .users()
+                            .and_then(|users| users.resolve(user)),
+                        length,
+                        formatter.config,
+                        formatter.theme,
+                    )
+                    .map(Message::UserContext),
+                _ => row![].into(),
+            },
+            self.config,
+        );
+
+        (spacer.into(), container(message_content).into())
+    }
+
     fn content_on_new_line(&self, message: &data::Message) -> bool {
         use data::buffer::Alignment;
         use message::Source;
@@ -303,6 +380,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
         message: &'a data::Message,
         max_nick_width: Option<f32>,
         max_prefix_width: Option<f32>,
+        max_excess_timestamp_width: Option<f32>,
     ) -> Option<Element<'a, Message>> {
         let timestamp = self.format_timestamp(message);
         let prefixes =
@@ -342,6 +420,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
                         Message::Link,
                         theme::selectable_text::action,
                         theme::font_style::action,
+                        Option::<fn(Color) -> Color>::None,
                         self.config,
                     );
 
@@ -374,6 +453,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
                         Message::Link,
                         message_style,
                         message_font_style,
+                        Option::<fn(Color) -> Color>::None,
                         self.config,
                     );
 
@@ -382,6 +462,24 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
                 message::Source::Internal(message::source::Internal::Logs(
                     _,
                 )) => None,
+                message::Source::Internal(
+                    message::source::Internal::Condensed(end_server_time),
+                ) => {
+                    let spacer_width = if message.server_time
+                        != *end_server_time
+                    {
+                        max_nick_width.map(|max_nick_width| {
+                            max_nick_width
+                                - max_excess_timestamp_width.unwrap_or_default()
+                        })
+                    } else {
+                        max_nick_width
+                    };
+
+                    (!message.text().is_empty()).then_some(
+                        self.format_condensed_message(message, spacer_width),
+                    )
+                }
             }?;
         let row = row.push(middle).push(space);
         if self.content_on_new_line(message) {

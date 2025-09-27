@@ -163,7 +163,7 @@ impl Dashboard {
 
         // rebuild cache for channels with open panes
         for (server, channel) in open_pane_data {
-            self.history.block_messages(
+            self.history.process_messages(
                 history::Kind::Channel(server, channel),
                 clients,
                 buffer_config,
@@ -171,7 +171,7 @@ impl Dashboard {
         }
 
         // always rebuild for highlights
-        self.history.block_messages(
+        self.history.process_messages(
             history::Kind::Highlights,
             clients,
             buffer_config,
