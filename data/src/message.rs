@@ -667,15 +667,21 @@ pub fn condense(
 
         let mut condensed_fragments: Vec<Fragment> = condensed_fragments
             .into_iter()
-            .flat_map(|(nick, nick_fragments)| {
-                if let Some(first_nick_fragment) = nick_fragments.first()
+            .flat_map(|(nick, mut nick_fragments)| {
+                let nick_string = nick.to_string();
+
+                if matches!(condense.format, CondensationFormat::Full) {
+                    nick_fragments
+                        .push(Fragment::User(User::from(nick), nick_string));
+                    nick_fragments.push(Fragment::Text(String::from("  ")));
+
+                    Some(nick_fragments)
+                } else if let Some(first_nick_fragment) = nick_fragments.first()
                     && let Some(last_nick_fragment) = nick_fragments.last()
                 {
                     if first_nick_fragment.as_str()
                         == last_nick_fragment.as_str()
                     {
-                        let nick_string = nick.to_string();
-
                         Some(vec![
                             last_nick_fragment.clone(),
                             Fragment::User(User::from(nick), nick_string),
@@ -684,19 +690,13 @@ pub fn condense(
                     } else {
                         match condense.format {
                             CondensationFormat::Brief => None,
-                            CondensationFormat::Detailed => {
-                                let nick_string = nick.to_string();
-
-                                Some(vec![
-                                    first_nick_fragment.clone(),
-                                    last_nick_fragment.clone(),
-                                    Fragment::User(
-                                        User::from(nick),
-                                        nick_string,
-                                    ),
-                                    Fragment::Text(String::from("  ")),
-                                ])
-                            }
+                            CondensationFormat::Detailed => Some(vec![
+                                first_nick_fragment.clone(),
+                                last_nick_fragment.clone(),
+                                Fragment::User(User::from(nick), nick_string),
+                                Fragment::Text(String::from("  ")),
+                            ]),
+                            CondensationFormat::Full => unreachable!(),
                         }
                     }
                 } else {
