@@ -1,6 +1,6 @@
 # `[pane]`
 
-Pane settings for Halloy. A pane contains a [buffer](../configuration//buffer.md).
+Pane settings for Halloy. A pane contains a [buffer](../configuration/buffer.md).
 
 ## `restore_on_launch`
 
