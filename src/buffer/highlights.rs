@@ -5,7 +5,7 @@ use data::dashboard::BufferAction;
 use data::target::{self, Target};
 use data::{Config, Server, history, message};
 use iced::widget::{container, row, span};
-use iced::{Length, Size, Task};
+use iced::{Color, Length, Size, Task};
 
 use super::{scroll_view, user_context};
 use crate::widget::{
@@ -152,6 +152,7 @@ pub fn view<'a>(
                         scroll_view::Message::Link,
                         theme::selectable_text::default,
                         theme::font_style::primary,
+                        Option::<fn(Color) -> Color>::None,
                         move |link| match link {
                             message::Link::User(_) => {
                                 user_context::Entry::list(true, None)
@@ -228,6 +229,7 @@ pub fn view<'a>(
                         scroll_view::Message::Link,
                         theme::selectable_text::action,
                         theme::font_style::action,
+                        Option::<fn(Color) -> Color>::None,
                         config,
                     );
 

@@ -331,7 +331,6 @@ impl Manager {
                     self.condense_message(
                         message,
                         &kind,
-                        casemapping,
                         &buffer_config.server_messages.condense,
                     );
                 }
@@ -637,7 +636,6 @@ impl Manager {
         &mut self,
         message: crate::Message,
         kind: &history::Kind,
-        casemapping: isupport::CaseMap,
         config: &config::buffer::Condensation,
     ) {
         if let Some(History::Full { messages, .. }) =
@@ -695,7 +693,6 @@ impl Manager {
                         .iter()
                         .map(|message| &**message)
                         .collect::<Vec<&message::Message>>(),
-                    casemapping,
                     config,
                 );
 
@@ -848,7 +845,6 @@ impl Manager {
                                 .iter()
                                 .map(|message| &**message)
                                 .collect::<Vec<&message::Message>>(),
-                            clients.get_casemapping_or_default(kind.server()),
                             &buffer_config.server_messages.condense,
                         );
 
