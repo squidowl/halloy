@@ -266,6 +266,7 @@ impl ServerMessages {
 pub struct Condensation {
     pub messages: HashSet<CondensationMessage>,
     pub format: CondensationFormat,
+    #[serde(deserialize_with = "deserialize_dimmed_maybe")]
     pub dimmed: Option<Dimmed>,
 }
 
@@ -313,6 +314,7 @@ pub enum CondensationFormat {
     #[default]
     Brief,
     Detailed,
+    Full,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -483,4 +485,25 @@ impl Dimmed {
             Some(a) => alpha_color(color, a),
         }
     }
+}
+
+pub fn deserialize_dimmed_maybe<'de, D>(
+    deserializer: D,
+) -> Result<Option<Dimmed>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum Data {
+        Boolean(bool),
+        Float(f32),
+    }
+
+    let dimmed_maybe: Option<Data> = Deserialize::deserialize(deserializer)?;
+
+    Ok(dimmed_maybe.and_then(|dimmed| match dimmed {
+        Data::Boolean(dim) => dim.then_some(Dimmed(None)),
+        Data::Float(dim) => Some(Dimmed(Some(dim))),
+    }))
 }
