@@ -20,7 +20,7 @@ theme = { light = ["ferra-light", "booberry-light"], dark = ["ferra", "booberry"
 
 ## `theme`
 
-Specify the theme name(s) to use. The theme must correspond to a file located in the `themes` folder, which can be found in the Halloy configuration directory. The default theme in Halloy is [Ferra](https://github.com/casperstorm/ferra/).
+Specify the theme name(s) to use. The theme must correspond to a file in the `themes` folder of your Halloy configuration directory. For more details, see the [configuration overview](../README.md). The default theme in Halloy is [Ferra](https://github.com/casperstorm/ferra/).
 
 When multiple themes are specified, Halloy will randomly select one each time the application starts. When a dynamic theme is used, Halloy will match the appearance of the OS.
 
