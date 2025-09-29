@@ -105,23 +105,30 @@ impl Entry {
                     user,
                 );
 
-                let (label, message) = if let (Some(channel), Some(operator_mode), Some(user)) = (channel, operator_mode, user) {
-                    let is_op = user.has_access_level(data::user::AccessLevel::Oper);
-                    let prefix = if is_op { "-" } else { "+" };
-                    let action = format!("{prefix}{operator_mode}");
-                    
-                    (
-                        format!("{} Op ({action})", if is_op { "Take" } else { "Give" }),
-                        Some(Message::ToggleAccessLevel(
-                            server.clone(),
-                            channel.clone(),
-                            user.nickname().to_owned(),
-                            action,
-                        ))
-                    )
-                } else {
-                    (String::new(), None)
-                };
+                let (label, message) =
+                    if let (Some(channel), Some(operator_mode), Some(user)) =
+                        (channel, operator_mode, user)
+                    {
+                        let is_op = user
+                            .has_access_level(data::user::AccessLevel::Oper);
+                        let prefix = if is_op { "-" } else { "+" };
+                        let action = format!("{prefix}{operator_mode}");
+
+                        (
+                            format!(
+                                "{} Op ({action})",
+                                if is_op { "Take" } else { "Give" }
+                            ),
+                            Some(Message::ToggleAccessLevel(
+                                server.clone(),
+                                channel.clone(),
+                                user.nickname().to_owned(),
+                                action,
+                            )),
+                        )
+                    } else {
+                        (String::new(), None)
+                    };
 
                 menu_button(label, message, length, theme)
             }
@@ -134,23 +141,30 @@ impl Entry {
                     user,
                 );
 
-                let (label, message) = if let (Some(channel), Some(voice_mode), Some(user)) = (channel, voice_mode, user) {
-                    let has_voice = user.has_access_level(data::user::AccessLevel::Voice);
-                    let prefix = if has_voice { "-" } else { "+" };
-                    let action = format!("{prefix}{voice_mode}");
-                    
-                    (
-                        format!("{} Voice ({action})", if has_voice { "Take" } else { "Give" }),
-                        Some(Message::ToggleAccessLevel(
-                            server.clone(),
-                            channel.clone(),
-                            user.nickname().to_owned(),
-                            action,
-                        ))
-                    )
-                } else {
-                    (String::new(), None)
-                };
+                let (label, message) =
+                    if let (Some(channel), Some(voice_mode), Some(user)) =
+                        (channel, voice_mode, user)
+                    {
+                        let has_voice = user
+                            .has_access_level(data::user::AccessLevel::Voice);
+                        let prefix = if has_voice { "-" } else { "+" };
+                        let action = format!("{prefix}{voice_mode}");
+
+                        (
+                            format!(
+                                "{} Voice ({action})",
+                                if has_voice { "Take" } else { "Give" }
+                            ),
+                            Some(Message::ToggleAccessLevel(
+                                server.clone(),
+                                channel.clone(),
+                                user.nickname().to_owned(),
+                                action,
+                            )),
+                        )
+                    } else {
+                        (String::new(), None)
+                    };
 
                 menu_button(label, message, length, theme)
             }
