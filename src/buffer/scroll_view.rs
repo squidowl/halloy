@@ -438,29 +438,19 @@ pub struct State {
     hovered_preview: Option<(message::Hash, usize)>,
 }
 
-impl Default for State {
-    fn default() -> Self {
-        Self {
-            scrollable: scrollable::Id::unique(),
-            pane_size: Size::default(), // Will get set initially via `update_size`
-            content_size: Size::default(), // Will get set initially via `on_resize`
-            limit: Limit::Bottom(0),
-            status: Status::default(),
-            pending_scroll_to: None,
-            visible_url_messages: HashMap::new(),
-            hovered_preview: None,
-        }
-    }
-}
-
 impl State {
     pub fn new(pane_size: Size, config: &Config) -> Self {
         let step_messages = step_messages(pane_size.height, config);
 
         Self {
+            scrollable: scrollable::Id::unique(),
             pane_size,
+            content_size: Size::default(), // Will get set initially via `on_resize`
             limit: Limit::Bottom(step_messages),
-            ..Self::default()
+            status: Status::default(),
+            pending_scroll_to: None,
+            visible_url_messages: HashMap::new(),
+            hovered_preview: None,
         }
     }
 
@@ -526,8 +516,10 @@ impl State {
                                 );
                             }
                         } else {
-                            self.limit =
-                                Limit::Bottom(step_messages(height, config));
+                            self.limit = Limit::Bottom(step_messages(
+                                2.0 * height,
+                                config,
+                            ));
                         }
                     }
                     // Scrolling up from bottom & have more to load
@@ -587,8 +579,10 @@ impl State {
                                     );
                                 }
                             } else {
-                                self.limit =
-                                    Limit::Top(step_messages(height, config));
+                                self.limit = Limit::Top(step_messages(
+                                    2.0 * height,
+                                    config,
+                                ));
                             }
                         }
                     }
