@@ -111,7 +111,7 @@ pub fn view<'a>(
         .into()
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct Logs {
     pub scroll_view: scroll_view::State,
 }
