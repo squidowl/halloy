@@ -155,6 +155,7 @@ pub struct Client {
     supports_read_marker: bool,
     supports_chathistory: bool,
     supports_bouncer_networks: bool,
+    supports_detach: bool,
     sasl_succeeded: bool,
     chathistory_requests: HashMap<Target, ChatHistoryRequest>,
     chathistory_exhausted: HashMap<Target, bool>,
@@ -203,6 +204,7 @@ impl Client {
             supports_read_marker: false,
             supports_chathistory: false,
             supports_bouncer_networks: false,
+            supports_detach: false,
             sasl_succeeded: false,
             chathistory_requests: HashMap::new(),
             chathistory_exhausted: HashMap::new(),
@@ -1514,6 +1516,13 @@ impl Client {
                     nick.to_string(),
                     self.casemapping(),
                 ));
+            }
+            Command::Numeric(RPL_MYINFO, args) => {
+                let server_version = ok!(args.get(2));
+
+                if server_version == "soju" {
+                    self.supports_detach = true;
+                }
             }
             // QUIT
             Command::QUIT(comment) => {
@@ -3546,6 +3555,11 @@ impl Map {
         self.client(server).map(|client| {
             client.overwrite_chathistory_targets_timestamp(server_time)
         })
+    }
+
+    pub fn get_server_supports_detach(&self, server: &Server) -> bool {
+        self.client(server)
+            .is_some_and(|client| client.supports_detach)
     }
 
     pub fn get_server_handle(
