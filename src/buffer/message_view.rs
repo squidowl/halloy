@@ -8,8 +8,8 @@ use iced::Color;
 use iced::advanced::text;
 use iced::widget::{column, container, row};
 
-use super::scroll_view::LayoutMessage;
 use super::context_menu;
+use super::scroll_view::LayoutMessage;
 use crate::buffer::scroll_view::Message;
 use crate::widget::{
     Element, message_content, message_marker, selectable_text, tooltip,
@@ -338,29 +338,32 @@ impl<'a> ChannelQueryLayout<'a> {
                 }
             }),
             move |link| match link {
-                message::Link::User(_) => user_context::Entry::list(
+                message::Link::User(_) => context_menu::Entry::user_list(
                     formatter.target.is_channel(),
                     formatter.target.our_user(),
                 ),
+                message::Link::Url(_) => context_menu::Entry::url_list(),
                 _ => vec![],
             },
-            move |link, entry, length| match link {
-                message::Link::User(user) => entry
+            move |link, entry, length| {
+                let user = link.user();
+                let current_user = user.and_then(|u| {
+                    formatter.target.users().and_then(|users| users.resolve(u))
+                });
+
+                entry
                     .view(
                         formatter.server,
                         formatter.prefix,
                         formatter.target.channel(),
                         user,
-                        formatter
-                            .target
-                            .users()
-                            .and_then(|users| users.resolve(user)),
+                        current_user,
+                        link.url(),
                         length,
                         formatter.config,
                         formatter.theme,
                     )
-                    .map(Message::UserContext),
-                _ => row![].into(),
+                    .map(Message::ContextMenu)
             },
             self.config,
         );
