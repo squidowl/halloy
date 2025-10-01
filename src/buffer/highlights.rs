@@ -250,7 +250,7 @@ pub fn view<'a>(
         .into()
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct Highlights {
     pub scroll_view: scroll_view::State,
 }
