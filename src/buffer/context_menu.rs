@@ -11,6 +11,7 @@ use crate::{Theme, font, theme, widget};
 
 #[derive(Debug, Clone, Copy)]
 pub enum Entry {
+    // user context
     Whois,
     Query,
     ToggleAccessLevelOp,
@@ -20,10 +21,16 @@ pub enum Entry {
     HorizontalRule,
     CtcpRequestTime,
     CtcpRequestVersion,
+    // url context
+    CopyUrl,
 }
 
 impl Entry {
-    pub fn list(is_channel: bool, our_user: Option<&User>) -> Vec<Self> {
+    pub fn url_list() -> Vec<Self> {
+        vec![Entry::CopyUrl]
+    }
+
+    pub fn user_list(is_channel: bool, our_user: Option<&User>) -> Vec<Self> {
         if is_channel {
             if our_user.is_some_and(|u| {
                 u.has_access_level(data::user::AccessLevel::Oper)
@@ -63,111 +70,123 @@ impl Entry {
         server: &Server,
         prefix: &[isupport::PrefixMap],
         channel: Option<&target::Channel>,
-        user: &User,
+        user: Option<&User>,
         current_user: Option<&User>,
+        url: Option<&String>,
         length: Length,
         config: &Config,
         theme: &Theme,
     ) -> Element<'a, Message> {
-        let nickname = user.nickname().to_owned();
-
         match self {
-            Entry::Whois => menu_button(
-                "Whois".to_string(),
-                Message::Whois(server.clone(), nickname),
-                length,
-                theme,
-            ),
-            Entry::Query => menu_button(
-                "Message".to_string(),
-                Message::Query(
-                    server.clone(),
-                    target::Query::from(user),
-                    config.actions.buffer.message_user,
-                ),
-                length,
-                theme,
-            ),
+            Entry::Whois => {
+                let message = user.map(|user| {
+                    Message::Whois(server.clone(), user.nickname().to_owned())
+                });
+
+                menu_button("Whois".to_string(), message, length, theme)
+            }
+            Entry::Query => {
+                let message = user.map(|user| {
+                    Message::Query(
+                        server.clone(),
+                        target::Query::from(user.clone()),
+                        config.actions.buffer.message_user,
+                    )
+                });
+
+                menu_button("Message".to_string(), message, length, theme)
+            }
             Entry::ToggleAccessLevelOp => {
-                if let (Some(channel), Some(operator_mode)) = (
+                let (channel, operator_mode, user) = (
                     channel,
                     prefix.iter().find_map(|prefix_map| {
                         (prefix_map.prefix == '@').then_some(prefix_map.mode)
                     }),
-                ) {
-                    if user.has_access_level(data::user::AccessLevel::Oper) {
-                        menu_button(
-                            format!("Take Op (-{operator_mode})"),
-                            Message::ToggleAccessLevel(
+                    user,
+                );
+
+                let (label, message) =
+                    if let (Some(channel), Some(operator_mode), Some(user)) =
+                        (channel, operator_mode, user)
+                    {
+                        let is_op = user
+                            .has_access_level(data::user::AccessLevel::Oper);
+                        let prefix = if is_op { "-" } else { "+" };
+                        let action = format!("{prefix}{operator_mode}");
+
+                        (
+                            format!(
+                                "{} Op ({action})",
+                                if is_op { "Take" } else { "Give" }
+                            ),
+                            Some(Message::ToggleAccessLevel(
                                 server.clone(),
                                 channel.clone(),
-                                nickname,
-                                format!("-{operator_mode}"),
-                            ),
-                            length,
-                            theme,
+                                user.nickname().to_owned(),
+                                action,
+                            )),
                         )
                     } else {
-                        menu_button(
-                            format!("Give Op (+{operator_mode})"),
-                            Message::ToggleAccessLevel(
-                                server.clone(),
-                                channel.clone(),
-                                nickname,
-                                format!("+{operator_mode}"),
-                            ),
-                            length,
-                            theme,
-                        )
-                    }
-                } else {
-                    row![].into()
-                }
+                        (String::new(), None)
+                    };
+
+                menu_button(label, message, length, theme)
             }
             Entry::ToggleAccessLevelVoice => {
-                if let (Some(channel), Some(voice_mode)) = (
+                let (channel, voice_mode, user) = (
                     channel,
                     prefix.iter().find_map(|prefix_map| {
                         (prefix_map.prefix == '+').then_some(prefix_map.mode)
                     }),
-                ) {
-                    if user.has_access_level(data::user::AccessLevel::Voice) {
-                        menu_button(
-                            format!("Take Voice (-{voice_mode})"),
-                            Message::ToggleAccessLevel(
+                    user,
+                );
+
+                let (label, message) =
+                    if let (Some(channel), Some(voice_mode), Some(user)) =
+                        (channel, voice_mode, user)
+                    {
+                        let has_voice = user
+                            .has_access_level(data::user::AccessLevel::Voice);
+                        let prefix = if has_voice { "-" } else { "+" };
+                        let action = format!("{prefix}{voice_mode}");
+
+                        (
+                            format!(
+                                "{} Voice ({action})",
+                                if has_voice { "Take" } else { "Give" }
+                            ),
+                            Some(Message::ToggleAccessLevel(
                                 server.clone(),
                                 channel.clone(),
-                                nickname,
-                                format!("-{voice_mode}"),
-                            ),
-                            length,
-                            theme,
+                                user.nickname().to_owned(),
+                                action,
+                            )),
                         )
                     } else {
-                        menu_button(
-                            format!("Give Voice (+{voice_mode})"),
-                            Message::ToggleAccessLevel(
-                                server.clone(),
-                                channel.clone(),
-                                nickname,
-                                format!("+{voice_mode}"),
-                            ),
-                            length,
-                            theme,
-                        )
-                    }
+                        (String::new(), None)
+                    };
+
+                menu_button(label, message, length, theme)
+            }
+            Entry::SendFile => {
+                let message = user.map(|user| {
+                    Message::SendFile(server.clone(), user.clone())
+                });
+
+                menu_button("Send File".to_string(), message, length, theme)
+            }
+            Entry::UserInfo => {
+                if let Some(user) = user {
+                    user_info(
+                        current_user,
+                        user.nickname().to_owned(),
+                        length,
+                        config,
+                        theme,
+                    )
                 } else {
                     row![].into()
                 }
-            }
-            Entry::SendFile => menu_button(
-                "Send File".to_string(),
-                Message::SendFile(server.clone(), user.clone()),
-                length,
-                theme,
-            ),
-            Entry::UserInfo => {
-                user_info(current_user, nickname, length, config, theme)
             }
             Entry::HorizontalRule => match length {
                 Length::Fill => {
@@ -175,28 +194,44 @@ impl Entry {
                 }
                 _ => Space::new(length, 1).into(),
             },
-            Entry::CtcpRequestTime => menu_button(
-                "Local Time (TIME)".to_string(),
-                Message::CtcpRequest(
-                    ctcp::Command::Time,
-                    server.clone(),
-                    nickname,
-                    None,
-                ),
-                length,
-                theme,
-            ),
-            Entry::CtcpRequestVersion => menu_button(
-                "Client (VERSION)".to_string(),
-                Message::CtcpRequest(
-                    ctcp::Command::Version,
-                    server.clone(),
-                    nickname,
-                    None,
-                ),
-                length,
-                theme,
-            ),
+            Entry::CtcpRequestTime => {
+                let message = user.map(|user| {
+                    Message::CtcpRequest(
+                        ctcp::Command::Time,
+                        server.clone(),
+                        user.nickname().to_owned(),
+                        None,
+                    )
+                });
+
+                menu_button(
+                    "Local Time (TIME)".to_string(),
+                    message,
+                    length,
+                    theme,
+                )
+            }
+            Entry::CtcpRequestVersion => {
+                let message = user.map(|user| {
+                    Message::CtcpRequest(
+                        ctcp::Command::Version,
+                        server.clone(),
+                        user.nickname().to_owned(),
+                        None,
+                    )
+                });
+                menu_button(
+                    "Client (VERSION)".to_string(),
+                    message,
+                    length,
+                    theme,
+                )
+            }
+            Entry::CopyUrl => {
+                let message = url.map(|url| Message::CopyUrl(url.clone()));
+
+                menu_button("Copy URL".to_string(), message, length, theme)
+            }
         }
     }
 }
@@ -209,6 +244,7 @@ pub enum Message {
     SendFile(Server, User),
     InsertNickname(Nick),
     CtcpRequest(ctcp::Command, Server, Nick, Option<String>),
+    CopyUrl(String),
 }
 
 #[derive(Debug, Clone)]
@@ -219,6 +255,7 @@ pub enum Event {
     SendFile(Server, User),
     InsertNickname(Nick),
     CtcpRequest(ctcp::Command, Server, Nick, Option<String>),
+    CopyUrl(String),
 }
 
 pub fn update(message: Message) -> Event {
@@ -235,22 +272,24 @@ pub fn update(message: Message) -> Event {
         Message::CtcpRequest(command, server, nick, params) => {
             Event::CtcpRequest(command, server, nick, params)
         }
+        Message::CopyUrl(url) => Event::CopyUrl(url),
     }
 }
 
-pub fn view<'a>(
+pub fn user<'a>(
     content: impl Into<Element<'a, Message>>,
     server: &'a Server,
     prefix: &'a [isupport::PrefixMap],
     channel: Option<&'a target::Channel>,
     user: &'a User,
     current_user: Option<&'a User>,
+
     our_user: Option<&'a User>,
     config: &'a Config,
     theme: &'a Theme,
     click: &'a config::buffer::NicknameClickAction,
 ) -> Element<'a, Message> {
-    let entries = Entry::list(channel.is_some(), our_user);
+    let entries = Entry::user_list(channel.is_some(), our_user);
 
     let message = match click {
         data::config::buffer::NicknameClickAction::OpenQuery => Message::Query(
@@ -276,8 +315,9 @@ pub fn view<'a>(
                 server,
                 prefix,
                 channel,
-                user,
+                Some(user),
                 current_user,
+                None,
                 length,
                 config,
                 theme,
@@ -289,7 +329,7 @@ pub fn view<'a>(
 
 fn menu_button(
     content: String,
-    message: Message,
+    message: Option<Message>,
     length: Length,
     theme: &Theme,
 ) -> Element<'static, Message> {
@@ -300,7 +340,7 @@ fn menu_button(
     )
     .padding(5)
     .width(length)
-    .on_press(message)
+    .on_press_maybe(message)
     .into()
 }
 

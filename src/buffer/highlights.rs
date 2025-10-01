@@ -7,7 +7,7 @@ use data::{Config, Server, history, message};
 use iced::widget::{container, row, span};
 use iced::{Length, Size, Task};
 
-use super::{scroll_view, user_context};
+use super::{scroll_view, context_menu};
 use crate::widget::{
     Element, message_content, selectable_rich_text, selectable_text, tooltip,
 };
@@ -19,7 +19,7 @@ pub enum Message {
 }
 
 pub enum Event {
-    UserContext(user_context::Event),
+    ContextMenu(context_menu::Event),
     OpenBuffer(Target, BufferAction),
     GoToMessage(Server, target::Channel, message::Hash),
     History(Task<history::manager::Message>),
@@ -125,7 +125,7 @@ pub fn view<'a>(
                     let prefix = clients.get_prefix(server);
 
                     let nick = tooltip(
-                        user_context::view(
+                        context_menu::user(
                             text,
                             server,
                             prefix,
@@ -137,7 +137,7 @@ pub fn view<'a>(
                             theme,
                             &config.buffer.nickname.click,
                         )
-                        .map(scroll_view::Message::UserContext),
+                        .map(scroll_view::Message::ContextMenu),
                         // We show the full nickname in the tooltip if truncation is enabled.
                         truncate.map(|_| user.as_str()),
                         tooltip::Position::Bottom,
@@ -154,24 +154,27 @@ pub fn view<'a>(
                         theme::font_style::primary,
                         move |link| match link {
                             message::Link::User(_) => {
-                                user_context::Entry::list(true, None)
+                                context_menu::Entry::user_list(true, None)
+                            }
+                            message::Link::Url(_) => {
+                                context_menu::Entry::url_list()
                             }
                             _ => vec![],
                         },
-                        move |link, entry, length| match link {
-                            message::Link::User(user) => entry
+                        move |link, entry, length| {
+                            entry
                                 .view(
                                     server,
                                     prefix,
                                     Some(channel),
-                                    user,
+                                    link.user(),
                                     current_user,
+                                    link.url(),
                                     length,
                                     config,
                                     theme,
                                 )
-                                .map(scroll_view::Message::UserContext),
-                            _ => row![].into(),
+                                .map(scroll_view::Message::ContextMenu)
                         },
                         config,
                     );
@@ -278,8 +281,8 @@ impl Highlights {
                 );
 
                 let event = event.and_then(|event| match event {
-                    scroll_view::Event::UserContext(event) => {
-                        Some(Event::UserContext(event))
+                    scroll_view::Event::ContextMenu(event) => {
+                        Some(Event::ContextMenu(event))
                     }
                     scroll_view::Event::OpenBuffer(target, buffer_action) => {
                         Some(Event::OpenBuffer(target, buffer_action))
