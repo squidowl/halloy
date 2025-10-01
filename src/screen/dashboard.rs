@@ -245,9 +245,12 @@ impl Dashboard {
                             };
 
                             match event {
-                                buffer::Event::UserContext(event) => {
+                                buffer::Event::ContextMenu(event) => {
                                     match event {
-                                        buffer::user_context::Event::ToggleAccessLevel(
+                                        buffer::context_menu::Event::CopyUrl(url) => {
+                                            return (clipboard::write(url), None);
+                                        }
+                                        buffer::context_menu::Event::ToggleAccessLevel(
                                             server,
                                             channel,
                                             nick,
@@ -269,7 +272,7 @@ impl Dashboard {
                                                 clients.send(&input.buffer, encoded);
                                             }
                                         }
-                                        buffer::user_context::Event::SendWhois(server, nick) => {
+                                        buffer::context_menu::Event::SendWhois(server, nick) => {
                                             let buffer =
                                                 pane.buffer.upstream().cloned().unwrap_or_else(
                                                     || buffer::Upstream::Server(server.clone()),
@@ -341,7 +344,7 @@ impl Dashboard {
                                                 }
                                             }
                                         }
-                                        buffer::user_context::Event::OpenQuery(
+                                        buffer::context_menu::Event::OpenQuery(
                                             server,
                                             query,
                                             buffer_action,
@@ -360,7 +363,7 @@ impl Dashboard {
                                                 None,
                                             );
                                         }
-                                        buffer::user_context::Event::InsertNickname(nick) => {
+                                        buffer::context_menu::Event::InsertNickname(nick) => {
                                             let Some((_, _, pane, history)) =
                                                 self.get_focused_with_history_mut()
                                             else {
@@ -382,7 +385,7 @@ impl Dashboard {
                                                 None,
                                             );
                                         }
-                                        buffer::user_context::Event::SendFile(server, nick) => {
+                                        buffer::context_menu::Event::SendFile(server, nick) => {
                                             return (
                                                 Task::batch(vec![
                                                     task,
@@ -407,7 +410,7 @@ impl Dashboard {
                                                 None,
                                             );
                                         }
-                                        buffer::user_context::Event::CtcpRequest(
+                                        buffer::context_menu::Event::CtcpRequest(
                                             command,
                                             server,
                                             nick,
