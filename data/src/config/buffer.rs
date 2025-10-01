@@ -458,8 +458,10 @@ impl Buffer {
             return None;
         }
 
+        // Since timestamp ranges are used without a nickname or message marker,
+        // do not include space delimiter in the format.
         Some(format!(
-            "{} ",
+            "{}",
             self.timestamp.brackets.format(format!(
                 "{} \u{2013} {}",
                 start_date_time
