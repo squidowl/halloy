@@ -789,7 +789,7 @@ The color and font style of the symbols is taken from the theme setting for that
 # Default: []
 
 [buffer.server_messages.condense]
-messages = ["join", "part", "quit"
+messages = ["join", "part", "quit"]
 ```
 
  #### `dimmed`
