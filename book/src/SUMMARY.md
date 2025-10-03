@@ -15,6 +15,7 @@
 - [Multiple servers](guides/multiple-servers.md)
 - [Storing passwords in a File](guides/password-file.md)
 - [Single pane](guides/single-pane.md)
+- [Reduce noise](guides/reduce-noise.md)
 - [Text Formatting](guides/text-formatting.md)
 - [Monitor users](guides/monitor-users.md)
 - [YAML migration](guides/migrating-from-yaml.md)
