@@ -4,7 +4,7 @@ use data::buffer::{self, Autocomplete, Upstream};
 use data::dashboard::BufferAction;
 use data::history::{self, ReadMarker};
 use data::input::{self, Cache, RawInput};
-use data::message::server_time;
+use data::message::{self, server_time};
 use data::target::Target;
 use data::user::Nick;
 use data::{Config, client, command};
@@ -45,7 +45,8 @@ pub enum Message {
     Escape,
     SendCommand {
         buffer: Upstream,
-        command: command::Irc,
+        encoded: Option<message::Encoded>,
+        markread_targets: Option<Vec<Target>>,
     },
 }
 
@@ -483,11 +484,16 @@ impl State {
                                     let delayed_join_task = Task::perform(
                                         time::sleep(Duration::from_millis(100)),
                                         move |()| Message::SendCommand {
-                                            buffer: buffer_clone,
-                                            command: command::Irc::Join(
-                                                target_channel_clone,
-                                                None,
-                                            ),
+                                            buffer: buffer_clone.clone(),
+                                            encoded: data::Input::command(
+                                                buffer_clone,
+                                                command::Irc::Join(
+                                                    target_channel_clone,
+                                                    None,
+                                                ),
+                                            )
+                                            .encoded(),
+                                            markread_targets: None,
                                         },
                                     );
 
@@ -568,32 +574,37 @@ impl State {
 
                     history.record_input_history(buffer, raw_input.to_owned());
 
-                    if let Some(encoded) = input.encoded() {
-                        let sent_time = server_time(&encoded);
+                    let send_command = Message::SendCommand {
+                        buffer: buffer.clone(),
+                        encoded: input.encoded(),
+                        markread_targets: config
+                            .buffer
+                            .mark_as_read
+                            .on_message_sent
+                            .then_some({
+                                let chantypes =
+                                    clients.get_chantypes(buffer.server());
+                                let statusmsg =
+                                    clients.get_statusmsg(buffer.server());
+                                let casemapping =
+                                    clients.get_casemapping(buffer.server());
 
-                        clients.send(buffer, encoded);
-
-                        if config.buffer.mark_as_read.on_message_sent {
-                            let chantypes =
-                                clients.get_chantypes(buffer.server());
-                            let statusmsg =
-                                clients.get_statusmsg(buffer.server());
-                            let casemapping =
-                                clients.get_casemapping(buffer.server());
-
-                            if let Some(targets) =
                                 input.targets(chantypes, statusmsg, casemapping)
-                            {
-                                for target in targets {
-                                    clients.send_markread(
-                                        buffer.server(),
-                                        target,
-                                        ReadMarker::from_date_time(sent_time),
-                                    );
-                                }
-                            }
-                        }
-                    }
+                            })
+                            .flatten(),
+                    };
+
+                    let anti_flood = clients.get_anti_flood(buffer.server());
+
+                    let send_command_task = if let Some(anti_flood) = anti_flood
+                    {
+                        Task::perform(
+                            async move { anti_flood.acquire_permit().await },
+                            move |()| send_command,
+                        )
+                    } else {
+                        Task::done(send_command)
+                    };
 
                     let mut history_task = Task::none();
 
@@ -636,7 +647,7 @@ impl State {
                         );
                     }
 
-                    (Task::none(), Some(Event::InputSent { history_task }))
+                    (send_command_task, Some(Event::InputSent { history_task }))
                 } else {
                     (Task::none(), None)
                 }
@@ -757,13 +768,26 @@ impl State {
             // Capture escape so that closing context menu or commands/emojis picker
             // does not defocus input
             Message::Escape => (Task::none(), None),
-            Message::SendCommand { buffer, command } => {
-                let input =
-                    data::Input::command(buffer.clone(), command).encoded();
-
+            Message::SendCommand {
+                buffer,
+                encoded,
+                markread_targets,
+            } => {
                 // Send command.
-                if let Some(input) = input {
-                    clients.send(&buffer, input);
+                if let Some(encoded) = encoded {
+                    let sent_time = server_time(&encoded);
+
+                    clients.send(&buffer, encoded);
+
+                    if let Some(markread_targets) = markread_targets {
+                        for markread_target in markread_targets {
+                            clients.send_markread(
+                                buffer.server(),
+                                markread_target,
+                                ReadMarker::from_date_time(sent_time),
+                            );
+                        }
+                    }
                 }
 
                 (Task::none(), None)
