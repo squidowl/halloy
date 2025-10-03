@@ -139,7 +139,7 @@ Changes the icon which appears when unread highlight messages are present. To di
 ```toml
 # Type: string
 # Values: "dot", "circle-empty", "dot-circled", "certificate", "asterisk", "speaker", "lightbulb", "star", "none"
-# Default: "dot"
+# Default: "circle-empty"
 
 [sidebar.unread_indicator]
 highlight_icon = "circle-empty"
