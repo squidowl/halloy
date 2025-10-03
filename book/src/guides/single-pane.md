@@ -1,6 +1,6 @@
 # Single pane
 
-The settings below will configure Halloy to have a single pane (or fixed number of panes) in regular use.  When needed, new panes can be opened via the context menu on sidebar items (e.g. right-click on a channel in the sidebar and select "Open in new pane").
+The settings below will configure Halloy to have a single pane (or fixed number of panes) in regular use.  After applying these settings, close all but one pane.  Then, when activating another channel or query in the sidebar, that buffer will replace the view in the sole remaining pane (rather than opening a new pane).  When needed, new panes can be opened via the context menu on sidebar items (e.g. right-click on a channel in the sidebar and select "Open in new pane").
 
 ```toml
 [actions.buffer]
