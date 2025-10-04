@@ -1,8 +1,8 @@
 use super::Kind;
-use crate::message::{Source, source};
+use crate::message::{self, Source, source};
 use crate::server::Map as ServerMap;
 use crate::target::{Channel, Query};
-use crate::user::{Nick, NickRef};
+use crate::user::Nick;
 use crate::{Message, Server, User, client, isupport};
 
 #[derive(Debug, Clone)]
@@ -13,8 +13,8 @@ pub struct Filter {
 
 #[derive(Debug, Clone)]
 enum FilterClass {
-    Channel((Server, Channel)),
-    Any,
+    Channel(Server, Channel),
+    Server(Server),
 }
 
 #[derive(Debug, Clone)]
@@ -25,10 +25,6 @@ enum FilterTarget {
 impl FilterTarget {
     pub fn from_nick(nick: Nick) -> Self {
         Self::User(User::from(nick))
-    }
-
-    pub fn from_nickref(nickref: NickRef) -> Self {
-        Self::User(User::from(nickref.to_owned()))
     }
 }
 
@@ -72,10 +68,10 @@ impl Filter {
                 let target =
                     FilterTarget::from_nick(Nick::from_str(nick, casemapping));
 
-                (FilterClass::Channel((server.clone(), channel)), target)
+                (FilterClass::Channel(server.clone(), channel), target)
             }
             None => (
-                FilterClass::Any,
+                FilterClass::Server(server.clone()),
                 FilterTarget::from_nick(Nick::from_str(value, casemapping)),
             ),
         };
@@ -119,7 +115,7 @@ impl Filter {
     pub fn match_query(&self, query: &Query) -> bool {
         match &self.target {
             FilterTarget::User(user) => match &self.class {
-                FilterClass::Channel((_, _)) => false,
+                FilterClass::Channel(_, _) => false,
                 _ => {
                     user.nickname().as_normalized_str()
                         == query.as_normalized_str()
@@ -144,15 +140,18 @@ impl Filter {
     /// [`Server`]:crate::Server
     pub fn match_kind(&self, kind: &Kind) -> bool {
         match &self.class {
-            FilterClass::Channel((target_server, target_channel)) => match kind
-            {
+            FilterClass::Channel(target_server, target_channel) => match kind {
                 Kind::Channel(server, channel) => {
                     target_channel == channel && target_server == server
                 }
-                Kind::Highlights => true,
                 _ => false,
             },
-            FilterClass::Any => true,
+            FilterClass::Server(target_server) => match kind {
+                Kind::Server(server)
+                | Kind::Channel(server, _)
+                | Kind::Query(server, _) => target_server == server,
+                Kind::Highlights | Kind::Logs => false,
+            },
         }
     }
 
@@ -164,10 +163,8 @@ impl Filter {
     /// [`Server`]:crate::Server
     pub fn match_server(&self, server: &Server) -> bool {
         match &self.class {
-            FilterClass::Channel((target_server, ..)) => {
-                target_server == server
-            }
-            FilterClass::Any => true,
+            FilterClass::Channel(target_server, ..)
+            | FilterClass::Server(target_server) => target_server == server,
         }
     }
 
@@ -177,14 +174,14 @@ impl Filter {
         chantypes: &[char],
         casemapping: isupport::CaseMap,
     ) {
-        match &self.target {
+        match &mut self.target {
             FilterTarget::User(user) => {
-                self.target = FilterTarget::from_nickref(user.nickname());
+                user.renormalize(casemapping);
             }
         }
 
         match &self.class {
-            FilterClass::Channel((server, channel)) => {
+            FilterClass::Channel(server, channel) => {
                 if target_server == server {
                     let updated_channel = Channel::from_str(
                         channel.as_str(),
@@ -193,10 +190,10 @@ impl Filter {
                     );
 
                     self.class =
-                        FilterClass::Channel((server.clone(), updated_channel));
+                        FilterClass::Channel(server.clone(), updated_channel);
                 }
             }
-            FilterClass::Any => (),
+            FilterClass::Server(_) => (),
         }
     }
 
@@ -222,17 +219,29 @@ impl<'f> FilterChain<'f> {
         message.blocked = self
             .filters
             .iter()
-            .filter(|f| f.match_kind(kind))
+            .filter(|f| {
+                if let message::Target::Highlights {
+                    server, channel, ..
+                } = &message.target
+                {
+                    f.match_kind(&Kind::Channel(
+                        server.clone(),
+                        channel.clone(),
+                    ))
+                } else {
+                    f.match_kind(kind)
+                }
+            })
             .any(|f| f.match_message(message));
     }
 
-    pub fn sync_channels(
+    pub fn sync_isupport(
         filters: &'f mut [Filter],
         server: &Server,
         chantypes: &[char],
         casemapping: isupport::CaseMap,
     ) {
-        log::debug!("[{server}] updating filter casemapping");
+        log::debug!("[{server}] updating filter ISUPPORT");
         filters
             .iter_mut()
             .filter(|filter| filter.match_server(server))

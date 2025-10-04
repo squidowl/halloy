@@ -12,6 +12,8 @@ Fixed:
 - Larger fonts (and font sizes) can be used without blanking out the sidebar or pane title bar(s)
 - The primary clipboard (with copy on selection & paste with middle click) is supported on Linux
 - Sound effects are now properly reloaded when config file is refreshed from within the application
+- Filters are applied only to the server they are specified for
+- Filters are renormalized properly when ISUPPORT is updated
 
 Thanks:
 

@@ -796,26 +796,13 @@ impl Manager {
 
             let chain = FilterChain::borrow(&self.filters);
 
-            match &kind {
-                history::Kind::Highlights => {
-                    messages.iter_mut().for_each(|message| {
-                        if message.blocked {
-                            return;
-                        }
-
-                        chain.filter_message_of_kind(message, &kind);
-                    });
+            messages.iter_mut().for_each(|message| {
+                if message.blocked {
+                    return;
                 }
-                _ => {
-                    messages.iter_mut().for_each(|message| {
-                        if message.blocked {
-                            return;
-                        }
 
-                        chain.filter_message_of_kind(message, &kind);
-                    });
-                }
-            }
+                chain.filter_message_of_kind(message, &kind);
+            });
 
             messages
                 .iter_mut()
@@ -863,6 +850,20 @@ impl Manager {
         }
 
         log::debug!("processed messages in {kind}");
+    }
+
+    pub fn renormalize_messages(
+        &mut self,
+        kind: history::Kind,
+        casemapping: isupport::CaseMap,
+    ) {
+        if let Some(History::Full { messages, .. }) =
+            self.data.map.get_mut(&kind)
+        {
+            messages
+                .iter_mut()
+                .for_each(|message| message.renormalize(casemapping));
+        }
     }
 }
 

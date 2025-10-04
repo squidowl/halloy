@@ -173,6 +173,16 @@ impl Target {
             Target::Highlights { source, .. } => source,
         }
     }
+
+    pub fn source_mut(&mut self) -> &mut Source {
+        match self {
+            Target::Server { source } => source,
+            Target::Channel { source, .. } => source,
+            Target::Query { source, .. } => source,
+            Target::Logs { source } => source,
+            Target::Highlights { source, .. } => source,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
@@ -495,6 +505,24 @@ impl Message {
         }
 
         None
+    }
+
+    pub fn renormalize(&mut self, casemapping: isupport::CaseMap) {
+        match self.target.source_mut() {
+            Source::User(user) | Source::Action(Some(user)) => {
+                user.renormalize(casemapping);
+            }
+            _ => (),
+        }
+
+        if let Content::Fragments(fragments) = &mut self.content {
+            fragments.iter_mut().for_each(|fragment| match fragment {
+                Fragment::User(user, _) | Fragment::HighlightNick(user, _) => {
+                    user.renormalize(casemapping);
+                }
+                _ => (),
+            });
+        }
     }
 }
 
