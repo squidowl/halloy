@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Text Formatting</title>
+        <title>Reduce noise</title>
 
 
         <!-- Custom HTML head -->
@@ -146,7 +146,7 @@
                         <a href="https://github.com/squidowl/halloy" title="Git repository" aria-label="Git repository">
                             <i id="git-repository-button" class="fa fa-github"></i>
                         </a>
-                        <a href="https://github.com/squidowl/halloy/edit/main/book/src/guides/text-formatting.md" title="Suggest an edit" aria-label="Suggest an edit" rel="edit">
+                        <a href="https://github.com/squidowl/halloy/edit/main/book/src/guides/reduce-noise.md" title="Suggest an edit" aria-label="Suggest an edit" rel="edit">
                             <i id="git-edit-button" class="fa fa-edit"></i>
                         </a>
 
@@ -180,75 +180,63 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1 id="text-formatting"><a class="header" href="#text-formatting">Text Formatting</a></h1>
-<p>Text can be formatted in Halloy by using the <code>/format</code> (or <code>/f</code>) command.</p>
-<h2 id="attributes"><a class="header" href="#attributes">Attributes</a></h2>
-<p>Below is a table with the supported text attributes.</p>
-<div class="table-wrapper"><table><thead><tr><th>Action</th><th>Markdown</th><th>Token</th></tr></thead><tbody>
-<tr><td><em>Italics</em></td><td><code>_italic text_</code></td><td><code>$iitalic text$i</code></td></tr>
-<tr><td><strong>Bold</strong></td><td><code>__bold text__</code></td><td><code>$bbold text$b</code></td></tr>
-<tr><td><strong><em>Italic and Bold</em></strong></td><td><code>___italic and bold___</code></td><td><code>$b$iitalic and bold$i$b</code></td></tr>
-<tr><td><del>Strikethrough</del></td><td><code>~~strikethrough~~</code></td><td><code>$sstrikethrough$s</code></td></tr>
-<tr><td>Underline</td><td>-</td><td><code>$uunderline$u</code></td></tr>
-<tr><td>Code</td><td><code>`code`</code></td><td><code>$mcode$m</code></td></tr>
-<tr><td>Spoiler</td><td><code>||spoiler||</code></td><td>-</td></tr>
-</tbody></table>
-</div>
-<p>Example</p>
-<pre><code class="language-json">/format __this is bold__ $iand this is italic$i
+                        <h1 id="reduce-noise"><a class="header" href="#reduce-noise">Reduce noise</a></h1>
+<p>It's not uncommon for channels to have many server messages for every regular message, resulting in a low signal to noise ratio.  Halloy has various settings that can help reduce the number of visible server messages in the chat log.  This guide will cover some of those settings.</p>
+<h2 id="disable-topic-messages"><a class="header" href="#disable-topic-messages">Disable topic messages</a></h2>
+<p>Most servers and bouncers will send a message with the topic every time Halloy joins a channel.  Since topics rarely change, it's often useful to hide these messages altogether with disabling the topic <a href="/configuration/buffer.html#bufferserver_messages">server message setting</a>:</p>
+<pre><code class="language-toml">[buffer.server_messages.topic]
+enabled = false
 </code></pre>
-<p>Will render the following:</p>
-<blockquote>
-<p><strong>this is bold</strong> <em>and this is italic</em></p>
-</blockquote>
-<h2 id="color"><a class="header" href="#color">Color</a></h2>
-<div class="table-wrapper"><table><thead><tr><th>Action</th><th>Token</th></tr></thead><tbody>
-<tr><td>Text color (fg)</td><td><code>$c0</code></td></tr>
-<tr><td>Text and background (fg &amp; bg)</td><td><code>$c0,1</code></td></tr>
-<tr><td>End color</td><td><code>$c</code></td></tr>
-</tbody></table>
-</div>
-<p>The number next to the <code>$c</code> token indicates the color. For a comprehensive list of all numbers, see the following <a href="https://modern.ircdocs.horse/formatting#colors-16-98">ircdocs.horse documentation</a>. Below, the first 00 to 15 colors are defined and have been assigned aliases for convenience.</p>
-<p>Colors</p>
-<p><span style="display:inline-block;width:12px;height:12px;background-color:#ffffff;"></span> - 00 - white<br />
-<span style="display:inline-block;width:12px;height:12px;background-color:#000000;"></span> - 01 - black<br />
-<span style="display:inline-block;width:12px;height:12px;background-color:#00007f;"></span> - 02 - blue<br />
-<span style="display:inline-block;width:12px;height:12px;background-color:#009300;"></span> - 03 - green<br />
-<span style="display:inline-block;width:12px;height:12px;background-color:#ff0000;"></span> - 04 - red<br />
-<span style="display:inline-block;width:12px;height:12px;background-color:#7f0000;"></span> - 05 - brown<br />
-<span style="display:inline-block;width:12px;height:12px;background-color:#9c009c;"></span> - 06 - magenta<br />
-<span style="display:inline-block;width:12px;height:12px;background-color:#fc7f00;"></span> - 07 - orange<br />
-<span style="display:inline-block;width:12px;height:12px;background-color:#ffff00;"></span> - 08 - yellow<br />
-<span style="display:inline-block;width:12px;height:12px;background-color:#00fc00;"></span> - 09 - lightgreen<br />
-<span style="display:inline-block;width:12px;height:12px;background-color:#009393;"></span> - 10 - cyan<br />
-<span style="display:inline-block;width:12px;height:12px;background-color:#00ffff;"></span> - 11 - lightcyan<br />
-<span style="display:inline-block;width:12px;height:12px;background-color:#0000fc;"></span> - 12 - lightblue<br />
-<span style="display:inline-block;width:12px;height:12px;background-color:#ff00ff;"></span> - 13 - pink<br />
-<span style="display:inline-block;width:12px;height:12px;background-color:#7f7f7f;"></span> - 14 - grey<br />
-<span style="display:inline-block;width:12px;height:12px;background-color:#d2d2d2;"></span> - 15 - lightgrey</p>
-<p>Example</p>
-<pre><code>/format $cred,lightgreenfoobar$c
-/format $c04,09foobar$c
+<p>Note, this will not hide the messages sent when a topic changes, only the topic messages sent on first connection to a channel.</p>
+<p>If topic messages are hidden but a reminder of the current topic is still desired, then a topic banner can be enabled to appear at the top of each pane.  Either with the label icon button in the pane's title bar, or with the <a href="/configuration/buffer.html#bufferchanneltopic">topic banner settings</a>:</p>
+<pre><code class="language-toml">[buffer.channel.topic_banner]
+enabled = true
+max_lines = 2
 </code></pre>
-<p>Will both render the following:</p>
-<span style="display: inline-block; background-color: #00fc00; color: #ff0000;">
-  foobar
-</span>
-<h2 id="configuration"><a class="header" href="#configuration">Configuration</a></h2>
-<p>By default, Halloy will only format text when using the <code>/format</code> command. This, however, can be changed with the <code>auto_format</code> configuration option:</p>
-<pre><code class="language-toml">[buffer.text_input]
-auto_format = "disabled" | "markdown" | "all"
+<h2 id="smart-filters"><a class="header" href="#smart-filters">Smart filters</a></h2>
+<p><a href="/configuration/buffer.html#smart-2">Smart filters</a> can be used for server messages to hide messages for users that have not sent a message recently.  For example, to hide part messages for any user that has not sent a message within the 15 minutes prior to their parting:</p>
+<pre><code class="language-toml">[buffer.server_messages.part]
+smart = 900
+</code></pre>
+<p>For many channels join, part, quit, and nickname changes make up a lot of noise and usually aren't relevant if the user hasn't been active.  To smart filter those messages these settings can be used:</p>
+<pre><code class="language-toml">[buffer.server_messages]
+join.smart = 900
+part.smart = 900
+quit.smart = 900
+change_nick.smart = 900
+</code></pre>
+<p>Smart filters can also be applied to <a href="/configuration/buffer.html#bufferinternal_messages">internal messages</a> as well.  For example, to hide any connect or disconnect message older than five minutes, use these settings:</p>
+<pre><code class="language-toml">[buffer.internal_messages]
+success.smart = 300
+error.smart = 300
+</code></pre>
+<h2 id="condense-server-messages"><a class="header" href="#condense-server-messages">Condense server messages</a></h2>
+<p>It may be preferable to not hide any server messages, in which case an alternative to filtering is to <a href="/configuration/buffer.html#bufferserver_messagescondense">condense server messages</a>.  This setting will combine multiple server messages into a one server message with a shortened style.  To enable condensed messages these settings can be used:</p>
+<pre><code class="language-toml">[buffer.server_messages.condense]
+messages = ["join", "part", "quit"]
+dimmed = true
+</code></pre>
+<p>When using condensed messages, it is recommended that you specify colors for the condensed messages in your <a href="/configuration/themes/index.html">theme</a>.  Those colors will be used for the abbreviations used in the condensed messages.  For example, these theme settings could be added:</p>
+<pre><code class="language-toml">[buffer.server_messages]
+join = "#efff95"
+part = "#ff6b77"
+quit = "#ff6b77"
+</code></pre>
+<h2 id="ignore"><a class="header" href="#ignore">Ignore</a></h2>
+<p>If dealing with a noisy user or bot, an <a href="/configuration/servers.html#filtersignore">ignore filter</a> can be used to hide their messages.  For example, to hide messages produced by <code>ChanServ</code> in the <code>#halloy</code> channel, the following setting can be used:</p>
+<pre><code class="language-toml">[servers.libera.filters]
+ignore = ["#halloy ChanServ"]
 </code></pre>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="../guides/reduce-noise.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="../guides/single-pane.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
 
-                            <a rel="next prefetch" href="../guides/monitor-users.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="../guides/text-formatting.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
 
@@ -258,11 +246,11 @@ auto_format = "disabled" | "markdown" | "all"
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="../guides/reduce-noise.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="../guides/single-pane.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
 
-                    <a rel="next prefetch" href="../guides/monitor-users.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="../guides/text-formatting.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
             </nav>

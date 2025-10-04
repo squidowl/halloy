@@ -725,6 +725,47 @@ include = ["#halloy"]
 [buffer.server_messages.&lt;server_message&gt;]
 username_format = "full"
 </code></pre>
+<h3 id="bufferserver_messagescondense"><a class="header" href="#bufferserver_messagescondense"><code>[buffer.server_messages.condense]</code></a></h3>
+<p>Condense multiple consecutive server messages into a single abbreviated message.</p>
+<h4 id="messages"><a class="header" href="#messages"><code>messages</code></a></h4>
+<p>Message type(s) to condense.  Supported types:</p>
+<div class="table-wrapper"><table><thead><tr><th><strong>Event Type</strong></th><th><strong>Symbol</strong></th></tr></thead><tbody>
+<tr><td><code>join</code></td><td><code>+</code></td></tr>
+<tr><td><code>part</code></td><td><code>-</code></td></tr>
+<tr><td><code>quit</code></td><td><code>-</code></td></tr>
+</tbody></table>
+</div>
+<p>The color and font style of the symbols is taken from the theme setting for that event type.</p>
+<pre><code class="language-toml"># Type: array of strings
+# Values: ["join", "part", "quit"]
+# Default: []
+
+[buffer.server_messages.condense]
+messages = ["join", "part", "quit"]
+</code></pre>
+<h4 id="dimmed"><a class="header" href="#dimmed"><code>dimmed</code></a></h4>
+<p>Dim condensed messages.  Either automatically, based on text/background colors (by setting to <code>true</code>), or specify a dimming value in the range <code>0.0</code> (transparent) to <code>1.0</code> (no dimming).</p>
+<pre><code class="language-toml"># Type: bool or float
+# Values: true, false, or float
+# Default: false
+
+[buffer.server_messages.condense]
+dimmed = true
+</code></pre>
+<h4 id="format-1"><a class="header" href="#format-1"><code>format</code></a></h4>
+<p>How to format condensed messages:</p>
+<ul>
+<li><code>"brief"</code>:  Only show changes to channel state.  If a user joins then leaves, then do not show any message.  If a user joins, leaves, then joins again, then show that they joined the channel (<code>+</code>).</li>
+<li><code>"detailed"</code>: Include messages that do not change channel state, but do not show repeated events.  If a user joins then leaves, show a condensed message with both events (<code>+-</code>).  But, if a user joins and leaves many times in a row, show only indicate that they left and re-joined (i.e. still (<code>+-</code>).</li>
+<li><code>"full</code>":  Include all messages in the condensed message.  If a user joins and leaves three times, then show a symbol for each event (<code>+-+-+-</code>).</li>
+</ul>
+<pre><code class="language-toml"># Type: string
+# Values: "brief", "detailed", "full"
+# Default: "brief"
+
+[buffer.server_messages.condense]
+format = "full"
+</code></pre>
 <h2 id="bufferstatus_message_prefix"><a class="header" href="#bufferstatus_message_prefix"><code>[buffer.status_message_prefix]</code></a></h2>
 <p>Status message prefix settings.</p>
 <h3 id="brackets-1"><a class="header" href="#brackets-1"><code>brackets</code></a></h3>
@@ -798,7 +839,7 @@ completion_suffixes = [": ", " "]
 </code></pre>
 <h2 id="buffertimestamp"><a class="header" href="#buffertimestamp"><code>[buffer.timestamp]</code></a></h2>
 <p>Customize how timestamps are displayed within a buffer.</p>
-<h3 id="format-1"><a class="header" href="#format-1"><code>format</code></a></h3>
+<h3 id="format-2"><a class="header" href="#format-2"><code>format</code></a></h3>
 <p>Controls the timestamp format. The expected format is <a href="https://pubs.opengroup.org/onlinepubs/007908799/xsh/strftime.html">strftime</a>.</p>
 <pre><code class="language-toml"># Type: string
 # Values: any valid strftime string
