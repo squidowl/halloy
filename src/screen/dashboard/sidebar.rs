@@ -8,6 +8,7 @@ use iced::widget::{
     pane_grid, row, scrollable, stack, text, vertical_rule, vertical_space,
 };
 use iced::{Alignment, Length, Padding, Task, padding};
+use itertools::Either;
 use tokio::time;
 
 use super::{Focus, Panes, Server};
@@ -24,6 +25,7 @@ pub enum Message {
     Replace(buffer::Upstream),
     Close(window::Id, pane_grid::Pane),
     Swap(window::Id, pane_grid::Pane),
+    Detach(buffer::Upstream),
     Leave(buffer::Upstream),
     ToggleInternalBuffer(buffer::Internal),
     ToggleCommandBar,
@@ -46,6 +48,7 @@ pub enum Event {
     Replace(buffer::Upstream),
     Close(window::Id, pane_grid::Pane),
     Swap(window::Id, pane_grid::Pane),
+    Detach(buffer::Upstream),
     Leave(buffer::Upstream),
     ToggleInternalBuffer(buffer::Internal),
     ToggleCommandBar,
@@ -102,6 +105,9 @@ impl Sidebar {
             }
             Message::Swap(window, pane) => {
                 (Task::none(), Some(Event::Swap(window, pane)))
+            }
+            Message::Detach(buffer) => {
+                (Task::none(), Some(Event::Detach(buffer)))
             }
             Message::Leave(buffer) => {
                 (Task::none(), Some(Event::Leave(buffer)))
@@ -382,6 +388,7 @@ impl Sidebar {
                     |buffer: buffer::Upstream,
                      connected: bool,
                      server_has_unread: bool,
+                     supports_detach: bool,
                      has_unread: bool,
                      has_highlight: bool| {
                         upstream_buffer_button(
@@ -395,6 +402,7 @@ impl Sidebar {
                             config.sidebar.server_icon_size,
                             config.sidebar.unread_indicator,
                             server_has_unread,
+                            supports_detach,
                             has_unread,
                             has_highlight,
                             width,
@@ -412,6 +420,7 @@ impl Sidebar {
                                 buffer::Upstream::Server(server.clone()),
                                 false,
                                 history.server_has_unread(server.clone()),
+                                clients.get_server_supports_detach(server),
                                 history.has_unread(&history::Kind::Server(
                                     server.clone(),
                                 )),
@@ -426,6 +435,7 @@ impl Sidebar {
                                 buffer::Upstream::Server(server.clone()),
                                 true,
                                 history.server_has_unread(server.clone()),
+                                clients.get_server_supports_detach(server),
                                 history.has_unread(&history::Kind::Server(
                                     server.clone(),
                                 )),
@@ -443,6 +453,7 @@ impl Sidebar {
                                     ),
                                     true,
                                     history.server_has_unread(server.clone()),
+                                    clients.get_server_supports_detach(server),
                                     history.has_unread(
                                         &history::Kind::Channel(
                                             server.clone(),
@@ -472,6 +483,7 @@ impl Sidebar {
                                     ),
                                     true,
                                     history.server_has_unread(server.clone()),
+                                    clients.get_server_supports_detach(server),
                                     history.has_unread(&history::Kind::Query(
                                         server.clone(),
                                         query.clone(),
@@ -627,6 +639,7 @@ enum Entry {
     Close(window::Id, pane_grid::Pane),
     Swap(window::Id, pane_grid::Pane),
     Leave,
+    Detach,
 }
 
 impl Entry {
@@ -635,6 +648,7 @@ impl Entry {
         num_panes: usize,
         open: Option<(window::Id, pane_grid::Pane)>,
         focus: Focus,
+        supports_detach: bool,
     ) -> Vec<Self> {
         [
             match buffer {
@@ -645,23 +659,32 @@ impl Entry {
                 buffer::Upstream::Query(_, _) => vec![],
             },
             match open {
-                None => vec![
-                    Entry::MarkAsRead,
-                    Entry::NewPane,
-                    Entry::Popout,
-                    Entry::Replace,
-                    Entry::Leave,
-                ],
-                Some((window, pane)) => (num_panes > 1)
-                    .then_some(Entry::Close(window, pane))
+                None => Either::Left(
+                    vec![
+                        Entry::MarkAsRead,
+                        Entry::NewPane,
+                        Entry::Popout,
+                        Entry::Replace,
+                    ]
                     .into_iter()
                     .chain(
-                        (Focus { window, pane } != focus)
-                            .then_some(Entry::Swap(window, pane)),
-                    )
-                    .chain(Some(Entry::Leave))
-                    .collect(),
-            },
+                        (matches!(buffer, buffer::Upstream::Channel(_, _))
+                            && supports_detach)
+                            .then_some(Entry::Detach),
+                    ),
+                ),
+                Some((window, pane)) => Either::Right(
+                    (num_panes > 1)
+                        .then_some(Entry::Close(window, pane))
+                        .into_iter()
+                        .chain(
+                            (Focus { window, pane } != focus)
+                                .then_some(Entry::Swap(window, pane)),
+                        ),
+                ),
+            }
+            .chain(Some(Entry::Leave))
+            .collect(),
         ]
         .concat()
     }
@@ -678,6 +701,7 @@ fn upstream_buffer_button<'a>(
     server_icon_size: u32,
     unread_indicator: sidebar::UnreadIndicator,
     server_has_unread: bool,
+    supports_detach: bool,
     has_unread: bool,
     has_highlight: bool,
     width: Length,
@@ -865,7 +889,8 @@ fn upstream_buffer_button<'a>(
                 }
             });
 
-    let entries = Entry::list(&buffer, panes.len(), open, focus);
+    let entries =
+        Entry::list(&buffer, panes.len(), open, focus, supports_detach);
 
     if entries.is_empty() || !connected {
         base.into()
@@ -917,6 +942,10 @@ fn upstream_buffer_button<'a>(
                     Entry::Swap(window, pane) => (
                         "Swap with current pane",
                         Some(Message::Swap(window, pane)),
+                    ),
+                    Entry::Detach => (
+                        "Detach from channel",
+                        Some(Message::Detach(buffer.clone())),
                     ),
                     Entry::Leave => (
                         match &buffer {

@@ -759,6 +759,24 @@ impl Dashboard {
                     sidebar::Event::Swap(window, pane) => {
                         (self.swap_pane_with_focus(window, pane), None)
                     }
+                    sidebar::Event::Detach(buffer) => {
+                        if let Some(target) = buffer.target() {
+                            let server = buffer.server();
+
+                            (
+                                self.leave_server_target(
+                                    clients,
+                                    config,
+                                    server.clone(),
+                                    target,
+                                    Some("detach".to_string()),
+                                ),
+                                None,
+                            )
+                        } else {
+                            (Task::none(), None)
+                        }
+                    }
                     sidebar::Event::Leave(buffer) => {
                         self.leave_buffer(clients, config, buffer)
                     }

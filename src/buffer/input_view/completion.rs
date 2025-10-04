@@ -44,6 +44,7 @@ impl Completion {
         last_seen: &HashMap<Nick, DateTime<Utc>>,
         channels: &[target::Channel],
         current_target: Option<&Target>,
+        supports_detach: bool,
         isupport: &HashMap<isupport::Kind, isupport::Parameter>,
         config: &Config,
     ) {
@@ -63,6 +64,7 @@ impl Completion {
                 input,
                 our_nickname,
                 current_target,
+                supports_detach,
                 isupport,
             );
 
@@ -290,6 +292,7 @@ impl Commands {
         input: &str,
         our_nickname: Option<NickRef>,
         current_target: Option<&Target>,
+        supports_detach: bool,
         isupport: &HashMap<isupport::Kind, isupport::Parameter>,
     ) {
         let Some((head, rest)) = input.split_once('/') else {
@@ -647,6 +650,19 @@ impl Commands {
             },
         ];
 
+        if supports_detach {
+            let default = current_target
+                .and_then(|target| target.as_channel())
+                .map(target::Channel::to_string);
+
+            let channel_len = match isupport.get(&isupport::Kind::CHANNELLEN) {
+                Some(isupport::Parameter::CHANNELLEN(len)) => Some(*len),
+                _ => None,
+            };
+
+            command_list.push(detach_command(default, channel_len));
+        }
+
         let isupport_commands = isupport
             .iter()
             .filter_map(|(_, isupport_parameter)| match isupport_parameter {
@@ -995,6 +1011,9 @@ impl Command {
             "clear" => "Clears the buffer",
             "cleartopic" => "Clear the topic of a channel",
             "sysinfo" => "Send system information",
+            "detach" => {
+                "Hide the channel, leaving the bouncer's connection to the channel active"
+            }
             _ => return None,
         })
     }
@@ -1759,6 +1778,39 @@ static CPRIVMSG_COMMAND: LazyLock<Command> = LazyLock::new(|| Command {
     ],
     subcommands: None,
 });
+
+fn detach_command(
+    default: Option<String>,
+    channel_len: Option<u16>,
+) -> Command {
+    let mut channels_tooltip = String::from("comma-separated");
+
+    if let Some(channel_len) = channel_len {
+        channels_tooltip.push_str(
+            format!("\nmaximum length of each: {channel_len}").as_str(),
+        );
+    }
+
+    if let Some(default) = &default {
+        channels_tooltip.push_str(
+            format!("\nmay be skipped (default: {default})").as_str(),
+        );
+    }
+
+    Command {
+        title: "DETACH",
+        args: vec![Argument {
+            text: "channels",
+            kind: if default.is_some() {
+                ArgumentKind::Optional { skipped: false }
+            } else {
+                ArgumentKind::Required
+            },
+            tooltip: Some(channels_tooltip),
+        }],
+        subcommands: None,
+    }
+}
 
 fn join_command(
     channel_len: Option<u16>,

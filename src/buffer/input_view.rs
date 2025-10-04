@@ -256,6 +256,8 @@ impl State {
                     .get_channels(buffer.server())
                     .cloned()
                     .collect::<Vec<_>>();
+                let supports_detach =
+                    clients.get_server_supports_detach(buffer.server());
                 let isupport = clients.get_isupport(buffer.server());
 
                 self.completion.process(
@@ -265,6 +267,7 @@ impl State {
                     &history.get_last_seen(buffer),
                     &channels,
                     current_target.as_ref(),
+                    supports_detach,
                     &isupport,
                     config,
                 );
@@ -392,6 +395,18 @@ impl State {
                                         Some(Event::LeaveBuffers {
                                             targets,
                                             reason,
+                                        }),
+                                    );
+                                }
+                                command::Internal::Detach(channels) => {
+                                    return (
+                                        Task::none(),
+                                        Some(Event::LeaveBuffers {
+                                            targets: channels
+                                                .into_iter()
+                                                .map(Target::Channel)
+                                                .collect(),
+                                            reason: Some("detach".to_string()),
                                         }),
                                     );
                                 }
@@ -668,6 +683,8 @@ impl State {
                         .get_channels(buffer.server())
                         .cloned()
                         .collect::<Vec<_>>();
+                    let supports_detach =
+                        clients.get_server_supports_detach(buffer.server());
                     let isupport = clients.get_isupport(buffer.server());
 
                     self.completion.process(
@@ -677,6 +694,7 @@ impl State {
                         &history.get_last_seen(buffer),
                         &channels,
                         current_target.as_ref(),
+                        supports_detach,
                         &isupport,
                         config,
                     );
@@ -712,6 +730,8 @@ impl State {
                             .get_channels(buffer.server())
                             .cloned()
                             .collect::<Vec<_>>();
+                        let supports_detach =
+                            clients.get_server_supports_detach(buffer.server());
                         let isupport = clients.get_isupport(buffer.server());
 
                         self.completion.process(
@@ -721,6 +741,7 @@ impl State {
                             &history.get_last_seen(buffer),
                             &channels,
                             current_target.as_ref(),
+                            supports_detach,
                             &isupport,
                             config,
                         );
