@@ -46,7 +46,8 @@ impl ReadMarker {
                 !message.blocked
                     && match message.target.source() {
                         source::Source::Internal(source) => match source {
-                            source::Internal::Status(_) => false,
+                            source::Internal::Status(_)
+                            | source::Internal::Condensed(_) => false,
                             // Logs are in their own buffer and this gives us backlog support there
                             source::Internal::Logs(_) => true,
                         },

@@ -1,3 +1,4 @@
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 pub use self::server::Server;
@@ -15,6 +16,7 @@ pub enum Source {
 pub enum Internal {
     Status(Status),
     Logs(log::Level),
+    Condensed(DateTime<Utc>),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]

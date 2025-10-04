@@ -104,9 +104,10 @@ impl From<Kind<'_>> for history::Kind {
 pub trait LayoutMessage<'a> {
     fn format(
         &self,
-        msg: &'a data::Message,
+        message: &'a data::Message,
         max_nick_width: Option<f32>,
         max_prefix_width: Option<f32>,
+        max_excess_timestamp_width: Option<f32>,
     ) -> Option<Element<'a, Message>>;
 }
 
@@ -116,15 +117,22 @@ where
         &'a data::Message,
         Option<f32>,
         Option<f32>,
+        Option<f32>,
     ) -> Option<Element<'a, Message>>,
 {
     fn format(
         &self,
-        msg: &'a data::Message,
+        message: &'a data::Message,
         max_nick_width: Option<f32>,
         max_prefix_width: Option<f32>,
+        max_excess_timestamp_width: Option<f32>,
     ) -> Option<Element<'a, Message>> {
-        self(msg, max_nick_width, max_prefix_width)
+        self(
+            message,
+            max_nick_width,
+            max_prefix_width,
+            max_excess_timestamp_width,
+        )
     }
 }
 
@@ -148,6 +156,7 @@ pub fn view<'a>(
         new_messages,
         max_nick_chars,
         max_prefix_chars,
+        max_excess_timestamp_chars,
         cleared,
         ..
     }) = history.get_messages(&kind.into(), Some(state.limit), &config.buffer)
@@ -195,7 +204,13 @@ pub fn view<'a>(
 
     let max_nick_width = max_nick_chars.map(|len| {
         font::width_from_chars(
-            usize::max(len, MESSAGE_MARKER_TEXT.chars().count()),
+            usize::max(
+                len,
+                usize::max(
+                    max_excess_timestamp_chars.unwrap_or_default(),
+                    MESSAGE_MARKER_TEXT.chars().count(),
+                ),
+            ),
             &config.font,
         )
     });
@@ -203,13 +218,21 @@ pub fn view<'a>(
     let max_prefix_width =
         max_prefix_chars.map(|len| font::width_from_chars(len, &config.font));
 
+    let max_excess_timestamp_width = max_excess_timestamp_chars
+        .map(|len| font::width_from_chars(len, &config.font));
+
     let message_rows = |last_date: Option<NaiveDate>,
                         messages: &[&'a data::Message]| {
         messages
             .iter()
             .filter_map(|message| {
                 formatter
-                    .format(message, max_nick_width, max_prefix_width)
+                    .format(
+                        message,
+                        max_nick_width,
+                        max_prefix_width,
+                        max_excess_timestamp_width,
+                    )
                     .map(|element| {
                         (message, keyed(keyed::Key::message(message), element))
                     })

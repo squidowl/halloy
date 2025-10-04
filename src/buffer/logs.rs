@@ -4,7 +4,7 @@ use data::dashboard::BufferAction;
 use data::target::Target;
 use data::{Config, client, history, isupport, message};
 use iced::widget::{container, row};
-use iced::{Length, Size, Task};
+use iced::{Color, Length, Size, Task};
 
 use super::{scroll_view, context_menu};
 use crate::widget::{Element, message_content, selectable_text};
@@ -39,7 +39,7 @@ pub fn view<'a>(
             None,
             config,
             theme,
-            move |message: &'a data::Message, _, _| match message
+            move |message: &'a data::Message, _, _, _| match message
                 .target
                 .source()
             {
@@ -84,6 +84,7 @@ pub fn view<'a>(
                         scroll_view::Message::Link,
                         theme::selectable_text::logs,
                         theme::font_style::primary,
+                        Option::<fn(Color) -> Color>::None,
                         config,
                     );
 

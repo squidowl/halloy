@@ -1,8 +1,9 @@
 use std::collections::{HashMap, HashSet, hash_map};
 
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Local, NaiveDate, Utc};
 use futures::future::BoxFuture;
 use futures::{Future, FutureExt, future};
+use itertools::Itertools;
 use tokio::time::Instant;
 
 use super::filter::{Filter, FilterChain};
@@ -136,7 +137,7 @@ impl Manager {
                 self.data.load_full(kind.clone(), loaded);
                 log::debug!("loaded history for {kind}: {len} messages");
 
-                self.block_messages(kind.clone(), clients, buffer_config);
+                self.process_messages(kind.clone(), clients, buffer_config);
 
                 return Some(Event::Loaded(kind));
             }
@@ -319,7 +320,22 @@ impl Manager {
                     buffer_config,
                 );
 
-                self.data.add_message(kind, message)
+                let condensers = (message
+                    .can_condense(&buffer_config.server_messages.condense)
+                    && !message.blocked)
+                    .then_some((kind.clone(), message.clone()));
+
+                let future = self.data.add_message(kind, message);
+
+                if let Some((kind, message)) = condensers {
+                    self.condense_message(
+                        message,
+                        &kind,
+                        &buffer_config.server_messages.condense,
+                    );
+                }
+
+                future
             },
         )
     }
@@ -614,12 +630,96 @@ impl Manager {
             .filter_message_of_kind(message, kind);
     }
 
-    pub fn block_messages(
+    // Whether the message can & should be condensed should be determined prior
+    // to calling this function
+    pub fn condense_message(
+        &mut self,
+        message: crate::Message,
+        kind: &history::Kind,
+        config: &config::buffer::Condensation,
+    ) {
+        if let Some(History::Full { messages, .. }) =
+            self.data.map.get_mut(kind)
+        {
+            let fuzz_seconds = chrono::Duration::seconds(1);
+
+            let start = message.server_time - fuzz_seconds;
+            let end = message.server_time + fuzz_seconds;
+
+            let start_index = match messages
+                .binary_search_by(|stored| stored.server_time.cmp(&start))
+            {
+                Ok(match_index) => match_index,
+                Err(sorted_insert_index) => sorted_insert_index,
+            };
+            let end_index = match messages
+                .binary_search_by(|stored| stored.server_time.cmp(&end))
+            {
+                Ok(match_index) => match_index,
+                Err(sorted_insert_index) => sorted_insert_index,
+            };
+
+            if let Some(insert_position) = messages[start_index..end_index]
+                .iter()
+                .position(|stored| stored.hash == message.hash)
+                .map(|position| position + start_index)
+            {
+                let start = messages
+                    .iter()
+                    .take(insert_position)
+                    .rev()
+                    .position(|message| {
+                        !message.blocked && !message.can_condense(config)
+                    })
+                    .map_or(0, |position| insert_position - position);
+
+                let end = messages
+                    .iter()
+                    .skip(insert_position)
+                    .position(|message| {
+                        !message.blocked && !message.can_condense(config)
+                    })
+                    .map_or(messages.len(), |position| {
+                        insert_position + position
+                    });
+
+                let mut condensable_messages = messages[start..end]
+                    .iter_mut()
+                    .collect::<Vec<&mut message::Message>>(
+                );
+
+                let condensed_message = message::condense(
+                    &condensable_messages
+                        .iter()
+                        .map(|message| &**message)
+                        .collect::<Vec<&message::Message>>(),
+                    config,
+                );
+
+                condensable_messages
+                    .iter_mut()
+                    .for_each(|message| message.condensed = None);
+
+                if let Some(first_message) = condensable_messages.first_mut() {
+                    first_message.condensed = condensed_message;
+                }
+            }
+        }
+    }
+
+    // Block and condense messages
+    pub fn process_messages(
         &mut self,
         kind: history::Kind,
         clients: &client::Map,
         buffer_config: &config::Buffer,
     ) {
+        #[derive(PartialEq)]
+        enum CondensationKey {
+            Condensable(NaiveDate),
+            Singular,
+        }
+
         if let Some(history) = self.data.map.get_mut(&kind) {
             let messages = match history {
                 History::Full { messages, .. } => messages,
@@ -674,6 +774,22 @@ impl Manager {
                             message.server_time,
                         );
                     }
+                    message::Source::Internal(
+                        message::source::Internal::Status(status),
+                    ) => {
+                        if let Some(internal_message) =
+                            buffer_config.internal_messages.get(status)
+                        {
+                            if !internal_message.enabled {
+                                message.blocked = true;
+                            } else if let Some(seconds) = internal_message.smart
+                            {
+                                message.blocked = smart_filter_internal_message(
+                                    message, &seconds,
+                                );
+                            }
+                        }
+                    }
                     _ => (),
                 }
             });
@@ -700,9 +816,53 @@ impl Manager {
                     });
                 }
             }
+
+            messages
+                .iter_mut()
+                .filter(|message| !message.blocked)
+                .chunk_by(|message| {
+                    if message
+                        .can_condense(&buffer_config.server_messages.condense)
+                    {
+                        CondensationKey::Condensable(
+                            message
+                                .server_time
+                                .with_timezone(&Local)
+                                .date_naive(),
+                        )
+                    } else {
+                        CondensationKey::Singular
+                    }
+                })
+                .into_iter()
+                .for_each(|(key, chunk)| match key {
+                    CondensationKey::Condensable(_) => {
+                        let mut condensable_messages =
+                            chunk.collect::<Vec<&mut message::Message>>();
+
+                        let condensed_message = message::condense(
+                            &condensable_messages
+                                .iter()
+                                .map(|message| &**message)
+                                .collect::<Vec<&message::Message>>(),
+                            &buffer_config.server_messages.condense,
+                        );
+
+                        condensable_messages
+                            .iter_mut()
+                            .for_each(|message| message.condensed = None);
+
+                        if let Some(first_message) =
+                            condensable_messages.first_mut()
+                        {
+                            first_message.condensed = condensed_message;
+                        }
+                    }
+                    CondensationKey::Singular => (),
+                });
         }
 
-        log::debug!("blocked messages in {kind}");
+        log::debug!("processed messages in {kind}");
     }
 }
 
@@ -822,13 +982,15 @@ impl Data {
             return None;
         };
 
-        // Perform filtering that depends on the current time.
-
-        let filtered = messages
+        let processed = messages
             .iter()
-            .filter(|message| {
+            .flat_map(|message| {
                 if message.blocked {
-                    false
+                    None
+                } else if message
+                    .can_condense(&buffer_config.server_messages.condense)
+                {
+                    message.condensed.as_ref().map(std::convert::AsRef::as_ref)
                 } else {
                     match message.target.source() {
                         message::Source::Internal(
@@ -838,31 +1000,32 @@ impl Data {
                                 buffer_config.internal_messages.get(status)
                             {
                                 if !internal_message.enabled {
-                                    return false;
-                                }
-
-                                if let Some(seconds) = internal_message.smart {
-                                    return !smart_filter_internal_message(
+                                    return None;
+                                } else if let Some(seconds) =
+                                    internal_message.smart
+                                {
+                                    return (!smart_filter_internal_message(
                                         message, &seconds,
-                                    );
+                                    ))
+                                    .then_some(message);
                                 }
                             }
 
-                            true
+                            Some(message)
                         }
-                        _ => true,
+                        _ => Some(message),
                     }
                 }
             })
             .collect::<Vec<_>>();
 
-        let total = filtered.len();
+        let total = processed.len();
         let with_access_levels = buffer_config.nickname.show_access_levels;
         let truncate = buffer_config.nickname.truncate;
 
         let max_nick_chars =
             buffer_config.nickname.alignment.is_right().then(|| {
-                filtered
+                processed
                     .iter()
                     .filter_map(|message| {
                         if let message::Source::User(user) =
@@ -892,7 +1055,7 @@ impl Data {
         let max_prefix_chars =
             buffer_config.nickname.alignment.is_right().then(|| {
                 if matches!(kind, history::Kind::Channel(..)) {
-                    filtered
+                    processed
                         .iter()
                         .filter_map(|message| {
                             message.target.prefixes().map(|prefixes| {
@@ -912,18 +1075,57 @@ impl Data {
                 }
             });
 
+        // The right-aligned nicknames setting expects timestamps to have a
+        // constant character count to function, so we can utilize that
+        // expectation in this calculation
+        let max_excess_timestamp_chars = (buffer_config
+            .nickname
+            .alignment
+            .is_right()
+            && buffer_config.server_messages.condense.any())
+        .then(|| {
+            processed
+                .iter()
+                .find_map(|message| {
+                    if let message::Source::Internal(
+                        message::source::Internal::Condensed(end_server_time),
+                    ) = message.target.source()
+                        && message.server_time != *end_server_time
+                    {
+                        Some(
+                            buffer_config
+                                .format_range_timestamp(
+                                    &message.server_time,
+                                    end_server_time,
+                                )
+                                .unwrap_or_default()
+                                .chars()
+                                .count()
+                                - buffer_config
+                                    .format_timestamp(&message.server_time)
+                                    .unwrap_or_default()
+                                    .chars()
+                                    .count(),
+                        )
+                    } else {
+                        None
+                    }
+                })
+                .unwrap_or_default()
+        });
+
         let has_read_messages = read_marker
             .map(|marker| {
-                filtered
+                processed
                     .iter()
                     .any(|message| message.server_time <= marker.date_time())
             })
             .unwrap_or_default();
 
-        let first_without_limit = filtered.first().copied();
-        let last_without_limit = filtered.last().copied();
+        let first_without_limit = processed.first().copied();
+        let last_without_limit = processed.last().copied();
 
-        let limited = with_limit(limit, filtered.into_iter());
+        let limited = with_limit(limit, processed.into_iter());
 
         let first_with_limit = limited.first();
         let last_with_limit = limited.last();
@@ -965,6 +1167,7 @@ impl Data {
             new_messages: new.to_vec(),
             max_nick_chars,
             max_prefix_chars,
+            max_excess_timestamp_chars,
             cleared: *cleared,
         })
     }

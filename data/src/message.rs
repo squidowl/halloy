@@ -2,11 +2,12 @@ use std::borrow::Cow;
 use std::collections::HashSet;
 use std::hash::{DefaultHasher, Hash as _, Hasher};
 use std::iter;
-use std::sync::LazyLock;
+use std::sync::{Arc, LazyLock};
 
 use chrono::{DateTime, Local, Utc};
 use const_format::concatcp;
 use fancy_regex::{Regex, RegexBuilder};
+use indexmap::IndexMap;
 use irc::proto;
 use irc::proto::Command;
 use itertools::{Either, Itertools};
@@ -17,8 +18,8 @@ pub use self::broadcast::Broadcast;
 pub use self::formatting::{Color, Formatting};
 pub use self::source::Source;
 pub use self::source::server::{Kind, StandardReply};
-use crate::config::Highlights;
-use crate::config::buffer::UsernameFormat;
+use crate::config::buffer::{CondensationFormat, UsernameFormat};
+use crate::config::{self, Highlights};
 use crate::log::Level;
 use crate::serde::fail_as_none;
 use crate::server::Server;
@@ -192,6 +193,7 @@ pub struct Message {
     pub hidden_urls: HashSet<Url>,
     pub is_echo: bool,
     pub blocked: bool,
+    pub condensed: Option<Arc<Message>>,
 }
 
 impl Message {
@@ -246,6 +248,17 @@ impl Message {
         }
 
         true
+    }
+
+    pub fn can_condense(
+        &self,
+        condense: &config::buffer::Condensation,
+    ) -> bool {
+        if let Source::Server(Some(source)) = self.target.source() {
+            condense.kind(source)
+        } else {
+            false
+        }
     }
 
     pub fn references(&self) -> MessageReferences {
@@ -304,6 +317,7 @@ impl Message {
             hidden_urls: HashSet::default(),
             is_echo,
             blocked: false,
+            condensed: None,
         })
     }
 
@@ -323,6 +337,7 @@ impl Message {
             hidden_urls: HashSet::default(),
             is_echo: false,
             blocked: false,
+            condensed: None,
         }
     }
 
@@ -353,6 +368,7 @@ impl Message {
             hidden_urls: HashSet::default(),
             is_echo: false,
             blocked: false,
+            condensed: None,
         }
     }
 
@@ -381,6 +397,7 @@ impl Message {
             hidden_urls: HashSet::default(),
             is_echo: false,
             blocked: false,
+            condensed: None,
         }
     }
 
@@ -420,6 +437,7 @@ impl Message {
             hidden_urls: HashSet::default(),
             is_echo: false,
             blocked: false,
+            condensed: None,
         }
     }
 
@@ -579,7 +597,131 @@ impl<'de> Deserialize<'de> for Message {
             hidden_urls,
             is_echo,
             blocked: false,
+            condensed: None,
         })
+    }
+}
+
+pub fn condense(
+    messages: &[&Message],
+    condense: &config::buffer::Condensation,
+) -> Option<Arc<Message>> {
+    if let (Some(first_message), Some(last_message)) =
+        (messages.first(), messages.last())
+    {
+        let source = Source::Internal(source::Internal::Condensed(
+            last_message.server_time,
+        ));
+
+        let target = match &first_message.target {
+            Target::Server { .. } => Target::Server { source },
+            Target::Channel { channel, .. } => Target::Channel {
+                channel: channel.clone(),
+                source,
+            },
+            Target::Query { query, .. } => Target::Query {
+                query: query.clone(),
+                source,
+            },
+            Target::Logs { .. } => Target::Logs { source },
+            Target::Highlights {
+                server, channel, ..
+            } => Target::Highlights {
+                server: server.clone(),
+                channel: channel.clone(),
+                source,
+            },
+        };
+
+        let mut condensed_fragments: IndexMap<Nick, Vec<Fragment>> =
+            IndexMap::new();
+
+        messages.iter().for_each(|message| {
+            if let Source::Server(Some(source)) = message.target.source()
+                && let Some(nick) = source.nick()
+                && let Some(nick_fragment) = match source.kind() {
+                    Kind::Join => Some(Fragment::Condensed {
+                        text: String::from("+\u{FEFF}"),
+                        source: source.clone(),
+                    }),
+                    Kind::Part => Some(Fragment::Condensed {
+                        text: String::from("-\u{FEFF}"),
+                        source: source.clone(),
+                    }),
+                    Kind::Quit => Some(Fragment::Condensed {
+                        text: String::from("-\u{FEFF}"),
+                        source: source.clone(),
+                    }),
+                    _ => None,
+                }
+            {
+                if let Some(nick_fragments) = condensed_fragments.get_mut(nick)
+                {
+                    nick_fragments.push(nick_fragment);
+                } else {
+                    condensed_fragments
+                        .insert(nick.clone(), vec![nick_fragment]);
+                }
+            }
+        });
+
+        let mut condensed_fragments: Vec<Fragment> = condensed_fragments
+            .into_iter()
+            .flat_map(|(nick, mut nick_fragments)| {
+                let nick_string = nick.to_string();
+
+                if matches!(condense.format, CondensationFormat::Full) {
+                    nick_fragments
+                        .push(Fragment::User(User::from(nick), nick_string));
+                    nick_fragments.push(Fragment::Text(String::from("  ")));
+
+                    Some(nick_fragments)
+                } else if let Some(first_nick_fragment) = nick_fragments.first()
+                    && let Some(last_nick_fragment) = nick_fragments.last()
+                {
+                    if first_nick_fragment.as_str()
+                        == last_nick_fragment.as_str()
+                    {
+                        Some(vec![
+                            last_nick_fragment.clone(),
+                            Fragment::User(User::from(nick), nick_string),
+                            Fragment::Text(String::from("  ")),
+                        ])
+                    } else {
+                        match condense.format {
+                            CondensationFormat::Brief => None,
+                            CondensationFormat::Detailed => Some(vec![
+                                first_nick_fragment.clone(),
+                                last_nick_fragment.clone(),
+                                Fragment::User(User::from(nick), nick_string),
+                                Fragment::Text(String::from("  ")),
+                            ]),
+                            CondensationFormat::Full => unreachable!(),
+                        }
+                    }
+                } else {
+                    None
+                }
+            })
+            .flatten()
+            .collect();
+        condensed_fragments.pop(); // Remove trailing whitespace fragment
+
+        Some(Arc::new(Message {
+            received_at: Posix::now(),
+            server_time: first_message.server_time,
+            direction: Direction::Received,
+            target,
+            content: Content::Fragments(condensed_fragments),
+            id: None,
+            hash: first_message.hash,
+            hidden_urls: HashSet::default(),
+            is_echo: false,
+            blocked: false,
+            condensed: None,
+        }))
+    } else {
+        None
     }
 }
 
@@ -883,6 +1025,10 @@ pub enum Fragment {
     },
     HighlightNick(User, String),
     HighlightMatch(String),
+    Condensed {
+        text: String,
+        source: source::Server,
+    },
 }
 
 impl Fragment {
@@ -903,6 +1049,7 @@ impl Fragment {
             Fragment::Formatted { text, .. } => text,
             Fragment::HighlightNick(_, s) => s,
             Fragment::HighlightMatch(s) => s,
+            Fragment::Condensed { text, .. } => text,
         }
     }
 }
