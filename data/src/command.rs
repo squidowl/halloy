@@ -9,7 +9,7 @@ use crate::buffer::{self, Upstream};
 use crate::isupport::{self, find_target_limit};
 use crate::message::{self, formatting};
 use crate::user::NickRef;
-use crate::{Target, ctcp};
+use crate::{Target, ctcp, target};
 
 #[derive(Debug, Clone)]
 pub enum Command {
@@ -29,6 +29,7 @@ pub enum Internal {
     Hop(Option<String>, Option<String>),
     Delay(u64),
     SysInfo,
+    Detach(Vec<target::Channel>),
 }
 
 #[derive(Debug, Clone)]
@@ -75,6 +76,7 @@ enum Kind {
     Clear,
     ClearTopic,
     SysInfo,
+    Detach,
     Raw,
 }
 
@@ -105,6 +107,7 @@ impl FromStr for Kind {
             "clear" => Ok(Kind::Clear),
             "cleartopic" | "ct" => Ok(Kind::ClearTopic),
             "sysinfo" => Ok(Kind::SysInfo),
+            "detach" => Ok(Kind::Detach),
             _ => Err(()),
         }
     }
@@ -195,7 +198,7 @@ pub fn parse(
                                 .find(|channel| channel.len() > max_len)
                         {
                             return Err(Error::ArgTooLong {
-                                name: "channel in chanlist",
+                                name: "channel in channels",
                                 len: channel.len(),
                                 max_len,
                             });
@@ -802,6 +805,73 @@ pub fn parse(
             Kind::SysInfo => validated::<0, 0, false>(args, |_, _| {
                 Ok(Command::Internal(Internal::SysInfo))
             }),
+            Kind::Detach => {
+                validated::<0, 1, false>(args, |_, [target_list]| {
+                    let channels = if let Some(target_list) = target_list {
+                        let casemapping =
+                            isupport::get_casemapping_or_default(isupport);
+                        let chantypes =
+                            isupport::get_chantypes_or_default(isupport);
+                        let statusmsg =
+                            isupport::get_statusmsg_or_default(isupport);
+
+                        let Ok(channels) = target_list
+                            .split(',')
+                            .map(|target| {
+                                target::Channel::parse(
+                                    target,
+                                    chantypes,
+                                    statusmsg,
+                                    casemapping,
+                                )
+                            })
+                            .try_collect()
+                        else {
+                            return Err(Error::InvalidChannelName {
+                                requirements: fmt_channel_name_requirements(
+                                    chantypes,
+                                ),
+                            });
+                        };
+
+                        channels
+                    } else {
+                        let Some(channel) = buffer
+                            .and_then(Upstream::target)
+                            .and_then(Target::to_channel)
+                        else {
+                            // If not in a channel then a channel argument is
+                            // required
+                            return Err(Error::IncorrectArgCount {
+                                min: 1,
+                                max: 1,
+                                actual: 0,
+                            });
+                        };
+
+                        vec![channel]
+                    };
+
+                    if let Some(isupport::Parameter::CHANNELLEN(max_len)) =
+                        isupport.get(&isupport::Kind::CHANNELLEN)
+                    {
+                        let max_len = *max_len as usize;
+
+                        if let Some(channel) = channels
+                            .iter()
+                            .find(|channel| channel.as_str().len() > max_len)
+                        {
+                            return Err(Error::ArgTooLong {
+                                name: "channel in channels",
+                                len: channel.as_str().len(),
+                                max_len,
+                            });
+                        }
+                    }
+
+                    Ok(Command::Internal(Internal::Detach(channels)))
+                })
+            }
             Kind::ClearTopic => {
                 validated::<0, 1, false>(args, |_, [channel]| {
                     if let Some(channel) = channel {

@@ -74,6 +74,15 @@ pub fn on_connect(
                                 targets,
                                 reason,
                             ) => Some(Event::LeaveBuffers(targets, reason)),
+                            command::Internal::Detach(channels) => {
+                                Some(Event::LeaveBuffers(
+                                    channels
+                                        .into_iter()
+                                        .map(Target::Channel)
+                                        .collect(),
+                                    Some("detach".to_string()),
+                                ))
+                            }
                             command::Internal::Delay(seconds) => {
                                 time::sleep(Duration::from_secs(seconds)).await;
                                 None
