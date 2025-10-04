@@ -1,7 +1,11 @@
+use std::collections::HashSet;
+
 use chrono::{DateTime, Local, Utc};
+use iced::Color;
 use serde::{Deserialize, Deserializer};
 
 pub use self::channel::Channel;
+use crate::appearance::theme::{alpha_color, alpha_color_calculate};
 use crate::config::buffer::nickname::Nickname;
 
 pub mod channel;
@@ -157,7 +161,7 @@ impl Default for Commands {
 
 #[derive(Debug, Clone, Copy)]
 pub enum Away {
-    Dimmed(Option<f32>),
+    Dimmed(Dimmed),
     None,
 }
 
@@ -169,7 +173,7 @@ impl Away {
 
 impl Default for Away {
     fn default() -> Self {
-        Away::Dimmed(None)
+        Away::Dimmed(Dimmed::default())
     }
 }
 
@@ -193,13 +197,13 @@ impl<'de> Deserialize<'de> for Away {
         let repr = AppearanceRepr::deserialize(deserializer)?;
         match repr {
             AppearanceRepr::String(s) => match s.as_str() {
-                "dimmed" => Ok(Away::Dimmed(None)),
+                "dimmed" => Ok(Away::Dimmed(Dimmed(None))),
                 "solid" | "none" => Ok(Away::None),
                 _ => Err(serde::de::Error::custom(format!(
                     "unknown appearance: {s}",
                 ))),
             },
-            AppearanceRepr::Struct(s) => Ok(Away::Dimmed(s.dimmed)),
+            AppearanceRepr::Struct(s) => Ok(Away::Dimmed(Dimmed(s.dimmed))),
         }
     }
 }
@@ -207,6 +211,7 @@ impl<'de> Deserialize<'de> for Away {
 #[derive(Debug, Clone, Default, Deserialize)]
 #[serde(default)]
 pub struct ServerMessages {
+    pub condense: Condensation,
     pub topic: ServerMessage,
     pub join: ServerMessage,
     pub part: ServerMessage,
@@ -254,6 +259,62 @@ impl ServerMessages {
             source::server::Kind::ChangeTopic => Some(&self.change_topic),
         }
     }
+}
+
+#[derive(Debug, Default, Clone, Deserialize)]
+#[serde(default)]
+pub struct Condensation {
+    pub messages: HashSet<CondensationMessage>,
+    pub format: CondensationFormat,
+    #[serde(deserialize_with = "deserialize_dimmed_maybe")]
+    pub dimmed: Option<Dimmed>,
+}
+
+impl Condensation {
+    pub fn kind(&self, server: &source::Server) -> bool {
+        match server.kind() {
+            source::server::Kind::Join => {
+                self.messages.contains(&CondensationMessage::Join)
+            }
+            source::server::Kind::Part => {
+                self.messages.contains(&CondensationMessage::Part)
+            }
+            source::server::Kind::Quit => {
+                self.messages.contains(&CondensationMessage::Quit)
+            }
+            source::server::Kind::ReplyTopic
+            | source::server::Kind::ChangeHost
+            | source::server::Kind::ChangeMode
+            | source::server::Kind::ChangeNick
+            | source::server::Kind::MonitoredOnline
+            | source::server::Kind::MonitoredOffline
+            | source::server::Kind::StandardReply(_)
+            | source::server::Kind::WAllOps
+            | source::server::Kind::Kick
+            | source::server::Kind::ChangeTopic => false,
+        }
+    }
+
+    pub fn any(&self) -> bool {
+        !self.messages.is_empty()
+    }
+}
+
+#[derive(Debug, Clone, Deserialize, Eq, Hash, PartialEq)]
+#[serde(rename_all = "kebab-case")]
+pub enum CondensationMessage {
+    Join,
+    Part,
+    Quit,
+}
+
+#[derive(Debug, Default, Clone, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum CondensationFormat {
+    #[default]
+    Brief,
+    Detailed,
+    Full,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -387,4 +448,66 @@ impl Buffer {
             )
         ))
     }
+
+    pub fn format_range_timestamp(
+        &self,
+        start_date_time: &DateTime<Utc>,
+        end_date_time: &DateTime<Utc>,
+    ) -> Option<String> {
+        if self.timestamp.format.is_empty() {
+            return None;
+        }
+
+        // Since timestamp ranges are used without a nickname or message marker,
+        // do not include space delimiter in the format.
+        Some(
+            self.timestamp
+                .brackets
+                .format(format!(
+                    "{} \u{2013} {}",
+                    start_date_time
+                        .with_timezone(&Local)
+                        .format(&self.timestamp.format),
+                    end_date_time
+                        .with_timezone(&Local)
+                        .format(&self.timestamp.format)
+                ))
+                .to_string(),
+        )
+    }
+}
+
+#[derive(Debug, Default, Clone, Copy, Deserialize)]
+pub struct Dimmed(Option<f32>);
+
+impl Dimmed {
+    pub fn transform_color(&self, color: Color, background: Color) -> Color {
+        match self.0 {
+            // Calculate alpha based on background and foreground.
+            None => alpha_color_calculate(0.20, 0.61, background, color),
+            // Calculate alpha based on user defined alpha value.
+            Some(a) => alpha_color(color, a),
+        }
+    }
+}
+
+pub fn deserialize_dimmed_maybe<'de, D>(
+    deserializer: D,
+) -> Result<Option<Dimmed>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum Data {
+        Boolean(bool),
+        Float(f32),
+    }
+
+    let dimmed_maybe: Option<Data> = Deserialize::deserialize(deserializer)?;
+
+    Ok(dimmed_maybe.and_then(|dimmed| match dimmed {
+        Data::Boolean(dim) => dim.then_some(Dimmed(None)),
+        Data::Float(dim) => Some(Dimmed(Some(dim))),
+    }))
 }

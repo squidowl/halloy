@@ -4,7 +4,7 @@ use data::dashboard::BufferAction;
 use data::target::Target;
 use data::{Config, buffer, history, message};
 use iced::widget::{column, container, row, vertical_space};
-use iced::{Length, Size, Task, padding};
+use iced::{Color, Length, Size, Task, padding};
 
 use super::{input_view, scroll_view, context_menu};
 use crate::widget::{Element, message_content, selectable_text};
@@ -49,7 +49,7 @@ pub fn view<'a>(
             None,
             config,
             theme,
-            move |message: &'a data::Message, _, _| {
+            move |message: &'a data::Message, _, _, _| {
                 let timestamp = config
                     .buffer
                     .format_timestamp(&message.server_time)
@@ -82,6 +82,7 @@ pub fn view<'a>(
                                     server.as_ref(),
                                 )
                             },
+                            Option::<fn(Color) -> Color>::None,
                             config,
                         );
 
@@ -102,6 +103,7 @@ pub fn view<'a>(
                             move |theme| {
                                 theme::font_style::status(theme, *status)
                             },
+                            Option::<fn(Color) -> Color>::None,
                             config,
                         );
 

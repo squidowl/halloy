@@ -1,10 +1,10 @@
 use chrono::{DateTime, Local, Utc};
 use data::user::{ChannelUsers, NickRef};
 use data::{Config, Server, User, isupport, message, target};
-use iced::Length;
 use iced::widget::{
     Scrollable, column, container, horizontal_rule, row, scrollable,
 };
+use iced::{Color, Length};
 
 use super::context_menu;
 use crate::widget::{Element, double_pass, message_content, selectable_text};
@@ -19,13 +19,13 @@ pub enum Event {
 
 #[derive(Debug, Clone)]
 pub enum Message {
-    UserContext(context_menu::Message),
+    ContextMenu(context_menu::Message),
     Link(message::Link),
 }
 
 pub fn update(message: Message) -> Option<Event> {
     match message {
-        Message::UserContext(message) => {
+        Message::ContextMenu(message) => {
             Some(Event::ContextMenu(context_menu::update(message)))
         }
         Message::Link(message::Link::Channel(channel)) => {
@@ -105,7 +105,7 @@ pub fn view<'a>(
                 .font_maybe(theme::font_style::topic(theme).map(font::get))
                 .style(theme::selectable_text::topic),
             ])
-            .map(Message::UserContext),
+            .map(Message::ContextMenu),
         )
     });
 
@@ -118,6 +118,7 @@ pub fn view<'a>(
             Message::Link,
             theme::selectable_text::topic,
             theme::font_style::topic,
+            Option::<fn(Color) -> Color>::None,
             config,
         ),
         set_by

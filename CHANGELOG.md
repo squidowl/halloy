@@ -4,6 +4,7 @@ Added:
 
 - `/sysinfo` command to send system information to current buffer
 - Copy URLs from context menu by right-clicking on links
+- Settings to condense multiple consecutive server messages into a single abbreviated message
 
 Fixed:
 
@@ -16,6 +17,7 @@ Thanks:
 
 - Contributions: @Toby222, @Frikilinux
 - Bug reports: @Toby222, @deepspaceaxolotl, @zhelezov, @Erroneuz, @dgz0
+- Feature requests: @j0lol
 
 # 2025.9 (2025-09-16)
 
