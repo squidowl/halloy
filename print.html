@@ -461,7 +461,7 @@ server = "irc.libera.chat"
 channels = ["#halloy"]
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="single-pane"><a class="header" href="#single-pane">Single pane</a></h1>
-<p>The settings below will configure Halloy to have a single pane (or fixed number of panes) in regular use.  When needed, new panes can be opened via the context menu on sidebar items (e.g. right-click on a channel in the sidebar and select "Open in new pane").</p>
+<p>The settings below will configure Halloy to have a single pane (or fixed number of panes) in regular use.  After applying these settings, close all but one pane.  Then, when activating another channel or query in the sidebar, that buffer will replace the view in the sole remaining pane (rather than opening a new pane).  When needed, new panes can be opened via the context menu on sidebar items (e.g. right-click on a channel in the sidebar and select "Open in new pane").</p>
 <pre><code class="language-toml">[actions.buffer]
 click_channel_name = "replace-pane"
 click_highlight = "replace-pane"
@@ -2794,7 +2794,7 @@ icon = "dot"
 <p>Changes the icon which appears when unread highlight messages are present. To disable use <code>"none"</code>.</p>
 <pre><code class="language-toml"># Type: string
 # Values: "dot", "circle-empty", "dot-circled", "certificate", "asterisk", "speaker", "lightbulb", "star", "none"
-# Default: "dot"
+# Default: "circle-empty"
 
 [sidebar.unread_indicator]
 highlight_icon = "circle-empty"
