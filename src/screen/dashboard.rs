@@ -201,7 +201,6 @@ impl Dashboard {
                 }
             })
             .collect();
-        println!("open_pane_kinds {open_pane_kinds:?}");
 
         open_pane_kinds.into_iter().for_each(|kind| {
             self.history.renormalize_messages(kind, casemapping);
