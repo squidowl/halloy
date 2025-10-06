@@ -1100,6 +1100,12 @@ impl Halloy {
                                         );
                                     }
                                     data::client::Event::AddedIsupportParam(param) => {
+                                        if matches!(param, data::isupport::Parameter::CASEMAPPING(_)) {
+                                            let casemapping = self.clients.get_casemapping(&server);
+
+                                            dashboard.renormalize_history(&server, casemapping);
+                                        }
+
                                         if matches!(
                                             param,
                                             data::isupport::Parameter::CASEMAPPING(_)
@@ -1108,12 +1114,14 @@ impl Halloy {
                                             let chantypes = self.clients.get_chantypes(&server);
                                             let casemapping = self.clients.get_casemapping(&server);
 
-                                            FilterChain::sync_channels(
+                                            FilterChain::sync_isupport(
                                                 dashboard.get_filters(),
                                                 &server,
                                                 chantypes,
                                                 casemapping
                                             );
+
+                                            dashboard.reprocess_history(&self.clients, &self.config.buffer);
                                         }
                                     }
                                     Event::BouncerNetwork(server, config) => {

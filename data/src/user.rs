@@ -284,6 +284,10 @@ impl User {
         self.away = away;
     }
 
+    pub fn renormalize(&mut self, casemapping: isupport::CaseMap) {
+        self.nickname.renormalize(casemapping);
+    }
+
     pub fn formatted(&self, user_format: UsernameFormat) -> String {
         let user = self.username();
         let host = self.hostname();
