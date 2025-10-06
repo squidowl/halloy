@@ -149,33 +149,62 @@ impl Dashboard {
     ) {
         self.init_filters(servers, clients);
 
-        // get all channels that are open
-        let open_pane_data: Vec<(data::Server, target::Channel)> = self
+        self.reprocess_history(clients, buffer_config);
+    }
+
+    pub fn reprocess_history(
+        &mut self,
+        clients: &client::Map,
+        buffer_config: &config::Buffer,
+    ) {
+        let open_pane_kinds: Vec<history::Kind> = self
             .panes
             .iter()
-            .filter_map(|(_window_id, _grid_pane, pane)| match &pane.buffer {
-                Buffer::Channel(channel) => {
-                    Some((channel.server.clone(), channel.target.clone()))
+            .filter_map(|(_window_id, _grid_pane, pane)| {
+                if matches!(
+                    pane.buffer,
+                    Buffer::Channel(_)
+                        | Buffer::Server(_)
+                        | Buffer::Query(_)
+                        | Buffer::Highlights(_)
+                ) {
+                    pane.buffer.data().and_then(history::Kind::from_buffer)
+                } else {
+                    None
                 }
-                _ => None,
             })
             .collect();
 
-        // rebuild cache for channels with open panes
-        for (server, channel) in open_pane_data {
-            self.history.process_messages(
-                history::Kind::Channel(server, channel),
-                clients,
-                buffer_config,
-            );
-        }
+        open_pane_kinds.into_iter().for_each(|kind| {
+            self.history.process_messages(kind, clients, buffer_config);
+        });
+    }
 
-        // always rebuild for highlights
-        self.history.process_messages(
-            history::Kind::Highlights,
-            clients,
-            buffer_config,
-        );
+    pub fn renormalize_history(
+        &mut self,
+        server: &data::Server,
+        casemapping: isupport::CaseMap,
+    ) {
+        let open_pane_kinds: Vec<history::Kind> = self
+            .panes
+            .iter()
+            .filter_map(|(_window_id, _grid_pane, pane)| {
+                if pane
+                    .buffer
+                    .server()
+                    .is_some_and(|buffer_server| buffer_server == *server)
+                    || matches!(pane.buffer, Buffer::Highlights(_))
+                {
+                    pane.buffer.data().and_then(history::Kind::from_buffer)
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        open_pane_kinds.into_iter().for_each(|kind| {
+            self.history.renormalize_messages(kind, casemapping);
+        });
     }
 
     pub fn update(
