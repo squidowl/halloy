@@ -1,5 +1,5 @@
 use std::borrow::Cow;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::hash::{DefaultHasher, Hash as _, Hasher};
 use std::iter;
 use std::sync::{Arc, LazyLock};
@@ -680,10 +680,124 @@ pub fn condense(
                         text: String::from("-\u{FEFF}"),
                         source: source.clone(),
                     }),
+                    Kind::ChangeNick => Some(Fragment::Condensed {
+                        text: String::from("→\u{FEFF}"),
+                        source: source.clone(),
+                    }),
                     _ => None,
                 }
             {
-                if let Some(nick_fragments) = condensed_fragments.get_mut(nick)
+                if matches!(source.kind(), Kind::ChangeNick) {
+                    // Find the destination nickname of the nick change
+                    let new_user_fragment =
+                        if let Content::Fragments(fragments) = &message.content
+                        {
+                            fragments.iter().find_map(|fragment| {
+                                if let Fragment::User(user, _) = fragment {
+                                    (user.nickname() != *nick)
+                                        .then_some(fragment.clone())
+                                } else {
+                                    None
+                                }
+                            })
+                        } else {
+                            None
+                        };
+
+                    // Update the condensation's key to the new nick,
+                    // concatenating the two nick's histories if they exist, in
+                    // order to group related condensed messages together
+                    if let Some(Fragment::User(new_user, new_user_string)) =
+                        new_user_fragment
+                    {
+                        let new_nick = new_user.nickname().to_owned();
+
+                        let index = condensed_fragments.get_index_of(nick);
+                        let new_index =
+                            condensed_fragments.get_index_of(&new_nick);
+
+                        let new_user_fragment =
+                            Fragment::User(new_user, new_user_string);
+
+                        match (index, new_index) {
+                            (None, None) => {
+                                condensed_fragments.insert(
+                                    new_nick,
+                                    vec![nick_fragment, new_user_fragment],
+                                );
+                            }
+                            (Some(index), None) => {
+                                let _ = condensed_fragments
+                                    .replace_index(index, new_nick.clone());
+
+                                if let Some((_, nick_fragments)) =
+                                    condensed_fragments.get_index_mut(index)
+                                {
+                                    nick_fragments.push(nick_fragment);
+                                    nick_fragments.push(new_user_fragment);
+                                } else {
+                                    unreachable!();
+                                }
+                            }
+                            (None, Some(new_index)) => {
+                                if let Some((_, nick_fragments)) =
+                                    condensed_fragments.get_index_mut(new_index)
+                                {
+                                    nick_fragments.push(nick_fragment);
+                                    nick_fragments.push(new_user_fragment);
+                                } else {
+                                    unreachable!();
+                                }
+                            }
+                            (Some(index), Some(new_index)) => {
+                                let index = if index < new_index {
+                                    if let Some((_, mut new_nick_fragments)) =
+                                        condensed_fragments
+                                            .shift_remove_index(new_index)
+                                        && let Some((_, nick_fragments)) =
+                                            condensed_fragments
+                                                .get_index_mut(index)
+                                    {
+                                        nick_fragments
+                                            .append(&mut new_nick_fragments);
+                                    } else {
+                                        unreachable!();
+                                    }
+
+                                    let _ = condensed_fragments
+                                        .replace_index(index, new_nick);
+
+                                    index
+                                } else {
+                                    if let Some((_, mut nick_fragments)) =
+                                        condensed_fragments
+                                            .shift_remove_index(index)
+                                        && let Some((_, new_nick_fragments)) =
+                                            condensed_fragments
+                                                .get_index_mut(new_index)
+                                    {
+                                        new_nick_fragments
+                                            .append(&mut nick_fragments);
+                                    } else {
+                                        unreachable!();
+                                    }
+
+                                    new_index
+                                };
+
+                                if let Some((_, nick_fragments)) =
+                                    condensed_fragments.get_index_mut(index)
+                                {
+                                    nick_fragments.push(nick_fragment);
+                                    nick_fragments.push(new_user_fragment);
+                                } else {
+                                    unreachable!();
+                                }
+                            }
+                        }
+                    }
+                } else if let Some(nick_fragments) =
+                    condensed_fragments.get_mut(nick)
                 {
                     nick_fragments.push(nick_fragment);
                 } else {
@@ -695,43 +809,157 @@ pub fn condense(
 
         let mut condensed_fragments: Vec<Fragment> = condensed_fragments
             .into_iter()
-            .flat_map(|(nick, mut nick_fragments)| {
-                let nick_string = nick.to_string();
+            .filter_map(|(_, nick_fragments)| {
+                if matches!(condense.format, CondensationFormat::Brief) {
+                    // Filter chains of condensed messages that result in no
+                    // state change
+                    let nick_counts: HashMap<NickRef, i32> = nick_fragments
+                        .iter()
+                        .fold(HashMap::new(), |mut counts, fragment| {
+                            let update = match fragment {
+                                Fragment::Condensed { source, .. } => {
+                                    match source.kind() {
+                                        Kind::Join => {
+                                            source.nick().map(|nick| {
+                                                (NickRef::from(nick), 1)
+                                            })
+                                        }
+                                        Kind::Part
+                                        | Kind::Quit
+                                        | Kind::ChangeNick => {
+                                            source.nick().map(|nick| {
+                                                (NickRef::from(nick), -1)
+                                            })
+                                        }
 
-                if matches!(condense.format, CondensationFormat::Full) {
-                    nick_fragments
-                        .push(Fragment::User(User::from(nick), nick_string));
-                    nick_fragments.push(Fragment::Text(String::from("  ")));
+                                        _ => None,
+                                    }
+                                }
+                                Fragment::User(user, _) => {
+                                    Some((user.nickname(), 1))
+                                }
+                                _ => None,
+                            };
 
-                    Some(nick_fragments)
-                } else if let Some(first_nick_fragment) = nick_fragments.first()
-                    && let Some(last_nick_fragment) = nick_fragments.last()
-                {
-                    if first_nick_fragment.as_str()
-                        == last_nick_fragment.as_str()
-                    {
-                        Some(vec![
-                            last_nick_fragment.clone(),
-                            Fragment::User(User::from(nick), nick_string),
-                            Fragment::Text(String::from("  ")),
-                        ])
-                    } else {
-                        match condense.format {
-                            CondensationFormat::Brief => None,
-                            CondensationFormat::Detailed => Some(vec![
-                                first_nick_fragment.clone(),
-                                last_nick_fragment.clone(),
-                                Fragment::User(User::from(nick), nick_string),
-                                Fragment::Text(String::from("  ")),
-                            ]),
-                            CondensationFormat::Full => unreachable!(),
-                        }
-                    }
+                            if let Some((nick, delta)) = update {
+                                if let Some(count) = counts.get_mut(&nick) {
+                                    *count += delta;
+                                } else {
+                                    counts.insert(nick, delta);
+                                }
+                            }
+
+                            counts
+                        });
+
+                    nick_counts
+                        .into_iter()
+                        .any(|(_, count)| count != 0)
+                        .then_some(nick_fragments)
                 } else {
-                    None
+                    Some(nick_fragments)
                 }
             })
-            .flatten()
+            .flat_map(|nick_fragments| {
+                nick_fragments
+                    .into_iter()
+                    .chunk_by(|fragment| {
+                        if let Fragment::Condensed { source, .. } = &fragment {
+                            (
+                                source.nick().cloned(),
+                                matches!(source.kind(), Kind::ChangeNick),
+                            )
+                        } else {
+                            (None, true)
+                        }
+                    })
+                    .into_iter()
+                    .flat_map(|((nick, is_change_nick), nick_fragments)| {
+                        let mut nick_fragments: Vec<Fragment> =
+                            nick_fragments.collect();
+
+                        if is_change_nick {
+                            if let Some(nick) = nick {
+                                let nick_string = nick.to_string() + "\u{FEFF}";
+
+                                nick_fragments.insert(
+                                    0,
+                                    Fragment::User(
+                                        User::from(nick),
+                                        nick_string,
+                                    ),
+                                );
+
+                                Some(nick_fragments)
+                            } else {
+                                nick_fragments
+                                    .push(Fragment::Text(String::from("  ")));
+
+                                Some(nick_fragments)
+                            }
+                        } else {
+                            nick.and_then(|nick| {
+                                let nick_string = nick.to_string();
+
+                                if matches!(
+                                    condense.format,
+                                    CondensationFormat::Full
+                                ) {
+                                    nick_fragments.push(Fragment::User(
+                                        User::from(nick),
+                                        nick_string,
+                                    ));
+                                    nick_fragments.push(Fragment::Text(
+                                        String::from("  "),
+                                    ));
+
+                                    Some(nick_fragments)
+                                } else if let Some(first_nick_fragment) =
+                                    nick_fragments.first()
+                                    && let Some(last_nick_fragment) =
+                                        nick_fragments.last()
+                                {
+                                    if first_nick_fragment.as_str()
+                                        == last_nick_fragment.as_str()
+                                    {
+                                        Some(vec![
+                                            last_nick_fragment.clone(),
+                                            Fragment::User(
+                                                User::from(nick),
+                                                nick_string,
+                                            ),
+                                            Fragment::Text(String::from("  ")),
+                                        ])
+                                    } else {
+                                        match condense.format {
+                                            CondensationFormat::Brief => None,
+                                            CondensationFormat::Detailed => {
+                                                Some(vec![
+                                                    first_nick_fragment.clone(),
+                                                    last_nick_fragment.clone(),
+                                                    Fragment::User(
+                                                        User::from(nick),
+                                                        nick_string,
+                                                    ),
+                                                    Fragment::Text(
+                                                        String::from("  "),
+                                                    ),
+                                                ])
+                                            }
+                                            CondensationFormat::Full => {
+                                                unreachable!()
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    None
+                                }
+                            })
+                        }
+                    })
+                    .flatten()
+                    .collect::<Vec<Fragment>>()
+            })
             .collect();
         condensed_fragments.pop(); // Remove trailing whitespace fragment
 
