@@ -777,6 +777,7 @@ Condense multiple consecutive server messages into a single abbreviated message.
 
 | **Event Type** | **Symbol** |
 | -------------- | -----------|
+| `change-nick`  | `→`        |
 | `join`         | `+`        |
 | `part`         | `-`        |
 | `quit`         | `-`        |
@@ -785,14 +786,14 @@ The color and font style of the symbols is taken from the theme setting for that
 
 ```toml
 # Type: array of strings
-# Values: ["join", "part", "quit"]
+# Values: ["change-nick", "join", "part", "quit"]
 # Default: []
 
 [buffer.server_messages.condense]
-messages = ["join", "part", "quit"]
+messages = ["change-nick", "join", "part", "quit"]
 ```
 
- #### `dimmed`
+#### `dimmed`
 
 Dim condensed messages.  Either automatically, based on text/background colors (by setting to `true`), or specify a dimming value in the range `0.0` (transparent) to `1.0` (no dimming).
 
