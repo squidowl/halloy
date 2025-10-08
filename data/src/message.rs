@@ -704,9 +704,10 @@ pub fn condense(
                             None
                         };
 
-                    // Update the condensation's key to the new nick,
-                    // concatenating the two nick's histories if they exist, in
-                    // order to group related condensed messages together
+                    // Update the key for the condensed fragments to the new
+                    // nick, concatenating the two nick's histories if they
+                    // exist, in order to group related condensed fragments
+                    // together
                     if let Some(Fragment::User(new_user, new_user_string)) =
                         new_user_fragment
                     {
@@ -810,155 +811,10 @@ pub fn condense(
         let mut condensed_fragments: Vec<Fragment> = condensed_fragments
             .into_iter()
             .filter_map(|(_, nick_fragments)| {
-                if matches!(condense.format, CondensationFormat::Brief) {
-                    // Filter chains of condensed messages that result in no
-                    // state change
-                    let nick_counts: HashMap<NickRef, i32> = nick_fragments
-                        .iter()
-                        .fold(HashMap::new(), |mut counts, fragment| {
-                            let update = match fragment {
-                                Fragment::Condensed { source, .. } => {
-                                    match source.kind() {
-                                        Kind::Join => {
-                                            source.nick().map(|nick| {
-                                                (NickRef::from(nick), 1)
-                                            })
-                                        }
-                                        Kind::Part
-                                        | Kind::Quit
-                                        | Kind::ChangeNick => {
-                                            source.nick().map(|nick| {
-                                                (NickRef::from(nick), -1)
-                                            })
-                                        }
-
-                                        _ => None,
-                                    }
-                                }
-                                Fragment::User(user, _) => {
-                                    Some((user.nickname(), 1))
-                                }
-                                _ => None,
-                            };
-
-                            if let Some((nick, delta)) = update {
-                                if let Some(count) = counts.get_mut(&nick) {
-                                    *count += delta;
-                                } else {
-                                    counts.insert(nick, delta);
-                                }
-                            }
-
-                            counts
-                        });
-
-                    nick_counts
-                        .into_iter()
-                        .any(|(_, count)| count != 0)
-                        .then_some(nick_fragments)
-                } else {
-                    Some(nick_fragments)
-                }
+                pre_filter_fragments(nick_fragments, condense)
             })
             .flat_map(|nick_fragments| {
-                nick_fragments
-                    .into_iter()
-                    .chunk_by(|fragment| {
-                        if let Fragment::Condensed { source, .. } = &fragment {
-                            (
-                                source.nick().cloned(),
-                                matches!(source.kind(), Kind::ChangeNick),
-                            )
-                        } else {
-                            (None, true)
-                        }
-                    })
-                    .into_iter()
-                    .flat_map(|((nick, is_change_nick), nick_fragments)| {
-                        let mut nick_fragments: Vec<Fragment> =
-                            nick_fragments.collect();
-
-                        if is_change_nick {
-                            if let Some(nick) = nick {
-                                let nick_string = nick.to_string() + "\u{FEFF}";
-
-                                nick_fragments.insert(
-                                    0,
-                                    Fragment::User(
-                                        User::from(nick),
-                                        nick_string,
-                                    ),
-                                );
-
-                                Some(nick_fragments)
-                            } else {
-                                nick_fragments
-                                    .push(Fragment::Text(String::from("  ")));
-
-                                Some(nick_fragments)
-                            }
-                        } else {
-                            nick.and_then(|nick| {
-                                let nick_string = nick.to_string();
-
-                                if matches!(
-                                    condense.format,
-                                    CondensationFormat::Full
-                                ) {
-                                    nick_fragments.push(Fragment::User(
-                                        User::from(nick),
-                                        nick_string,
-                                    ));
-                                    nick_fragments.push(Fragment::Text(
-                                        String::from("  "),
-                                    ));
-
-                                    Some(nick_fragments)
-                                } else if let Some(first_nick_fragment) =
-                                    nick_fragments.first()
-                                    && let Some(last_nick_fragment) =
-                                        nick_fragments.last()
-                                {
-                                    if first_nick_fragment.as_str()
-                                        == last_nick_fragment.as_str()
-                                    {
-                                        Some(vec![
-                                            last_nick_fragment.clone(),
-                                            Fragment::User(
-                                                User::from(nick),
-                                                nick_string,
-                                            ),
-                                            Fragment::Text(String::from("  ")),
-                                        ])
-                                    } else {
-                                        match condense.format {
-                                            CondensationFormat::Brief => None,
-                                            CondensationFormat::Detailed => {
-                                                Some(vec![
-                                                    first_nick_fragment.clone(),
-                                                    last_nick_fragment.clone(),
-                                                    Fragment::User(
-                                                        User::from(nick),
-                                                        nick_string,
-                                                    ),
-                                                    Fragment::Text(
-                                                        String::from("  "),
-                                                    ),
-                                                ])
-                                            }
-                                            CondensationFormat::Full => {
-                                                unreachable!()
-                                            }
-                                        }
-                                    }
-                                } else {
-                                    None
-                                }
-                            })
-                        }
-                    })
-                    .flatten()
-                    .collect::<Vec<Fragment>>()
+                condense_fragments(nick_fragments, condense)
             })
             .collect();
         condensed_fragments.pop(); // Remove trailing whitespace fragment
@@ -979,6 +835,187 @@ pub fn condense(
     } else {
         None
     }
+}
+
+fn pre_filter_fragments(
+    mut fragments: Vec<Fragment>,
+    condense: &config::buffer::Condensation,
+) -> Option<Vec<Fragment>> {
+    if matches!(condense.format, CondensationFormat::Brief) {
+        // Remove the longest chain of condensed messages that results in no
+        // state change
+        let mut nick_initial_state: HashMap<NickRef, bool> = HashMap::new();
+
+        for fragment in fragments.iter() {
+            match fragment {
+                Fragment::Condensed { source, .. } => {
+                    if let Some(nick) = source.nick().map(NickRef::from) {
+                        match source.kind() {
+                            Kind::Join => {
+                                nick_initial_state.entry(nick).or_insert(false);
+                            }
+                            Kind::Part | Kind::Quit | Kind::ChangeNick => {
+                                nick_initial_state.entry(nick).or_insert(true);
+                            }
+                            _ => (),
+                        }
+                    }
+                }
+                Fragment::User(user, _) => {
+                    let nick = user.nickname();
+
+                    nick_initial_state.entry(nick).or_insert(false);
+                }
+                _ => (),
+            }
+        }
+
+        let mut changeless_chain_len = 0;
+
+        let mut nick_state: HashMap<NickRef, bool> = HashMap::new();
+
+        for (index, fragment) in fragments.iter().enumerate() {
+            let check_state = match fragment {
+                Fragment::Condensed { source, .. } => {
+                    match source.kind() {
+                        Kind::Join => {
+                            if let Some(nick) = source.nick() {
+                                nick_state.insert(NickRef::from(nick), true);
+                            }
+
+                            true
+                        }
+                        Kind::Part | Kind::Quit | Kind::ChangeNick => {
+                            if let Some(nick) = source.nick() {
+                                nick_state.insert(NickRef::from(nick), false);
+                            }
+
+                            // Don't check state after the first part of a nick
+                            // change (the second part is a `Fragment::User`) to
+                            // avoid a partial nick change
+                            !matches!(source.kind(), Kind::ChangeNick)
+                        }
+                        _ => false,
+                    }
+                }
+                Fragment::User(user, _) => {
+                    nick_state.insert(user.nickname(), true);
+
+                    true
+                }
+                _ => false,
+            };
+
+            if check_state
+                && nick_state.iter().all(|(nick, state)| {
+                    nick_initial_state
+                        .get(nick)
+                        .is_some_and(|initial_state| state == initial_state)
+                })
+            {
+                changeless_chain_len = index + 1;
+            }
+        }
+
+        (changeless_chain_len < fragments.len())
+            .then_some(fragments.drain(changeless_chain_len..).collect())
+    } else {
+        Some(fragments)
+    }
+}
+
+fn condense_fragments(
+    fragments: Vec<Fragment>,
+    condense: &config::buffer::Condensation,
+) -> Vec<Fragment> {
+    fragments
+        .into_iter()
+        .chunk_by(|fragment| {
+            if let Fragment::Condensed { source, .. } = &fragment {
+                (
+                    source.nick().cloned(),
+                    matches!(source.kind(), Kind::ChangeNick),
+                )
+            } else {
+                (None, true)
+            }
+        })
+        .into_iter()
+        .flat_map(|((nick, is_change_nick), nick_fragments)| {
+            let mut nick_fragments: Vec<Fragment> = nick_fragments.collect();
+
+            if is_change_nick {
+                if let Some(nick) = nick {
+                    let nick_string = nick.to_string() + "\u{FEFF}";
+
+                    nick_fragments.insert(
+                        0,
+                        Fragment::User(User::from(nick), nick_string),
+                    );
+
+                    Some(nick_fragments)
+                } else {
+                    nick_fragments.push(Fragment::Text(String::from("  ")));
+
+                    Some(nick_fragments)
+                }
+            } else {
+                nick.and_then(|nick| {
+                    let nick_string = nick.to_string();
+
+                    match condense.format {
+                        CondensationFormat::Brief
+                        | CondensationFormat::Detailed => {
+                            let mut nick_fragments = nick_fragments.into_iter();
+                            let first_fragment = nick_fragments.next();
+                            let last_fragment = nick_fragments.last();
+
+                            first_fragment.and_then(|first_fragment| {
+                                if let Some(last_fragment) = last_fragment
+                                    && last_fragment.as_str()
+                                        != first_fragment.as_str()
+                                {
+                                    matches!(
+                                        condense.format,
+                                        CondensationFormat::Detailed
+                                    )
+                                    .then_some(vec![
+                                        first_fragment,
+                                        last_fragment,
+                                        Fragment::User(
+                                            User::from(nick),
+                                            nick_string,
+                                        ),
+                                        Fragment::Text(String::from("  ")),
+                                    ])
+                                } else {
+                                    Some(vec![
+                                        first_fragment,
+                                        Fragment::User(
+                                            User::from(nick),
+                                            nick_string,
+                                        ),
+                                        Fragment::Text(String::from("  ")),
+                                    ])
+                                }
+                            })
+                        }
+                        CondensationFormat::Full => {
+                            nick_fragments.push(Fragment::User(
+                                User::from(nick),
+                                nick_string,
+                            ));
+                            nick_fragments
+                                .push(Fragment::Text(String::from("  ")));
+
+                            Some(nick_fragments)
+                        }
+                    }
+                })
+            }
+        })
+        .flatten()
+        .collect::<Vec<Fragment>>()
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
