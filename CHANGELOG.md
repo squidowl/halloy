@@ -15,11 +15,12 @@ Fixed:
 - Sound effects are now properly reloaded when config file is refreshed from within the application
 - Filters are applied only to the server they are specified for
 - Filters are renormalized properly when ISUPPORT is updated
+- Crash when typing `/bouncer` into the message box
 
 Thanks:
 
-- Contributions: @Toby222, @Frikilinux
-- Bug reports: @Toby222, @deepspaceaxolotl, @zhelezov, @Erroneuz, @dgz0
+- Contributions: @Toby222, @Frikilinux, @4e554c4c
+- Bug reports: @Toby222, @deepspaceaxolotl, @zhelezov, @Erroneuz, @dgz0, @csmith
 - Feature requests: @j0lol, @xcfrg
 
 # 2025.9 (2025-09-16)
