@@ -631,6 +631,7 @@ impl Commands {
                         tooltip: Some(
                             "    ACTION: Display <text> as a third-person action or emote\
                            \nCLIENTINFO: Request a list of the CTCP messages <nick> supports\
+                           \n  USERINFO: Request miscellaneous information about the user\
                            \n      PING: Request a reply containing the same <info> that was sent\
                            \n    SOURCE: Request a URL where the source code for <nick>'s IRC client can be found\
                            \n      TIME: Request the <nick>'s local time in a human-readable format\
@@ -641,6 +642,7 @@ impl Commands {
                 subcommands: Some(vec![
                         ctcp_action_command(),
                         ctcp_clientinfo_command(),
+                        ctcp_userinfo_command(),
                         ctcp_ping_command(),
                         ctcp_source_command(),
                         ctcp_time_command(),
@@ -1464,6 +1466,14 @@ fn ctcp_action_command() -> Command {
 fn ctcp_clientinfo_command() -> Command {
     Command {
         title: "CTCP CLIENTINFO",
+        args: vec![],
+        subcommands: None,
+    }
+}
+
+fn ctcp_userinfo_command() -> Command {
+    Command {
+        title: "CTCP USERINFO",
         args: vec![],
         subcommands: None,
     }
