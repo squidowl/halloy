@@ -209,7 +209,7 @@ impl Command {
             "PRIVMSG" if len > 1 => PRIVMSG(req!(), req!()),
             "NOTICE" if len > 1 => NOTICE(req!(), req!()),
             "WHO" if len > 0 => WHO(req!(), opt!(), opt!()),
-            "WHOIS" => {
+            "WHOIS" if len > 0 => {
                 let a = req!();
                 match opt!() {
                     Some(b) => WHOIS(Some(a), b),
@@ -270,7 +270,7 @@ impl Command {
                     NOTE(a, b, None, d)
                 }
             }
-            "BOUNCER" => BOUNCER(req!(), remaining!()),
+            "BOUNCER" if len > 0 => BOUNCER(req!(), remaining!()),
             _ => Self::Unknown(tag, remaining!()),
         }
     }
