@@ -73,6 +73,9 @@ Whether Halloy will respond to a [CTCP USERINFO](https://modern.ircdocs.horse/ct
 # Values: any string
 # Default: not set
 
+# Example usage: <nickname> (<realname>)
+# KVIrc usage:   Age=<age>; Gender=<gender>; Location=<location>; Languages=<languages>; <other>
+
 [ctcp]
-userinfo = true
+userinfo = "<nickname> (<realname>)"
 ```
