@@ -19,8 +19,8 @@ Fixed:
 
 Thanks:
 
-- Contributions: @Toby222, @Frikilinux
-- Bug reports: @Toby222, @deepspaceaxolotl, @zhelezov, @Erroneuz, @dgz0
+- Contributions: @Toby222, @Frikilinux, @4e554c4c
+- Bug reports: @Toby222, @deepspaceaxolotl, @zhelezov, @Erroneuz, @dgz0, @csmith
 - Feature requests: @j0lol, @xcfrg
 
 # 2025.9 (2025-09-16)
