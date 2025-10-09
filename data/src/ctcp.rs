@@ -8,6 +8,7 @@ use irc::proto;
 pub enum Command {
     Action,
     ClientInfo,
+    UserInfo,
     DCC,
     Ping,
     Source,
@@ -21,6 +22,7 @@ impl From<&str> for Command {
         match command.to_uppercase().as_ref() {
             "ACTION" => Command::Action,
             "CLIENTINFO" => Command::ClientInfo,
+            "USERINFO" => Command::UserInfo,
             "DCC" => Command::DCC,
             "PING" => Command::Ping,
             "SOURCE" => Command::Source,
@@ -36,6 +38,7 @@ impl AsRef<str> for Command {
         match self {
             Command::Action => "ACTION",
             Command::ClientInfo => "CLIENTINFO",
+            Command::UserInfo => "USERINFO",
             Command::DCC => "DCC",
             Command::Ping => "PING",
             Command::Source => "SOURCE",

@@ -1337,6 +1337,17 @@ impl Client {
                                             ),
                                         )?;
                                     }
+                                    ctcp::Command::UserInfo => {
+                                        if ctcp_config.userinfo.is_some() {
+                                            (self.handle).try_send(
+                                                ctcp::response_message(
+                                                    &query.command,
+                                                    user.nickname().to_string(),
+                                                    ctcp_config.userinfo.clone()
+                                                )
+                                            )?;
+                                        }
+                                    }
                                     ctcp::Command::DCC => (),
                                     ctcp::Command::Ping => {
                                         if ctcp_config.ping {
