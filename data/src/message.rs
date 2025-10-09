@@ -928,6 +928,43 @@ fn condense_fragments(
     fragments: Vec<Fragment>,
     condense: &config::buffer::Condensation,
 ) -> Vec<Fragment> {
+    let fragments = if matches!(condense.format, CondensationFormat::Brief) {
+        // Condense nickname change chains
+        fragments
+            .into_iter()
+            .chunk_by(|fragment| {
+                if matches!(fragment, Fragment::User(_, _)) {
+                    true
+                } else if let Fragment::Condensed { source, .. } = &fragment
+                    && matches!(source.kind(), Kind::ChangeNick)
+                {
+                    true
+                } else {
+                    false
+                }
+            })
+            .into_iter()
+            .flat_map(|(is_change_nick_chain, fragments)| {
+                if is_change_nick_chain {
+                    let mut fragments = fragments.into_iter();
+                    let first_fragment = fragments.next();
+                    let last_fragment = fragments.last();
+
+                    first_fragment.and_then(|first_fragment| {
+                        last_fragment.map(|last_fragment| {
+                            vec![first_fragment, last_fragment]
+                        })
+                    })
+                } else {
+                    Some(fragments.collect())
+                }
+            })
+            .flatten()
+            .collect()
+    } else {
+        fragments
+    };
+
     fragments
         .into_iter()
         .chunk_by(|fragment| {
@@ -941,11 +978,13 @@ fn condense_fragments(
             }
         })
         .into_iter()
-        .flat_map(|((nick, is_change_nick), nick_fragments)| {
+        .flat_map(|((nick, is_change_nick_fragment), nick_fragments)| {
             let mut nick_fragments: Vec<Fragment> = nick_fragments.collect();
 
-            if is_change_nick {
+            if is_change_nick_fragment {
                 if let Some(nick) = nick {
+                    // nick_fragments = 1x Fragment::Condensed with kind
+                    // Kind::ChangeNick
                     let nick_string = nick.to_string() + "\u{FEFF}";
 
                     nick_fragments.insert(
@@ -955,6 +994,7 @@ fn condense_fragments(
 
                     Some(nick_fragments)
                 } else {
+                    // nick_fragments = 1x Fragment::User
                     nick_fragments.push(Fragment::Text(String::from("  ")));
 
                     Some(nick_fragments)
