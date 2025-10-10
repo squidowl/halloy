@@ -63,3 +63,19 @@ Whether Halloy will respond to a [CTCP VERSION](https://modern.ircdocs.horse/ctc
 [ctcp]
 version = true
 ```
+
+# `userinfo`
+
+Whether Halloy will respond to a [CTCP USERINFO](https://modern.ircdocs.horse/ctcp#userinfo) message. The response is enabled if this option is set to a string, which will be used as the reply.
+
+```toml
+# Type: string
+# Values: any string
+# Default: not set
+
+# Example usage: <nickname> (<realname>)
+# KVIrc usage:   Age=<age>; Gender=<gender>; Location=<location>; Languages=<languages>; <other>
+
+[ctcp]
+userinfo = "<nickname> (<realname>)"
+```
