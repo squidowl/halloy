@@ -7,6 +7,7 @@ pub struct Ctcp {
     pub source: bool,
     pub time: bool,
     pub version: bool,
+    pub userinfo: Option<String>,
 }
 
 impl Default for Ctcp {
@@ -16,6 +17,7 @@ impl Default for Ctcp {
             source: true,
             time: true,
             version: true,
+            userinfo: Option::default(),
         }
     }
 }
@@ -38,6 +40,10 @@ impl Ctcp {
 
         if self.version {
             commands.push("VERSION");
+        }
+
+        if self.userinfo.is_some() {
+            commands.push("USERINFO");
         }
 
         commands.join(" ")

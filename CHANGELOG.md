@@ -6,6 +6,7 @@ Added:
 - Copy URLs from context menu by right-clicking on links
 - Settings to condense multiple consecutive server messages into a single abbreviated message
 - `/detach` command to detach from channels (soju feature)
+- Support for USERINFO CTCP query
 
 Fixed:
 

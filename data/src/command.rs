@@ -763,6 +763,7 @@ pub fn parse(
                                 target.to_uppercase().as_str(),
                                 "ACTION"
                                     | "CLIENTINFO"
+                                    | "USERINFO"
                                     | "PING"
                                     | "SOURCE"
                                     | "TIME"
