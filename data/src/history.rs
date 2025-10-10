@@ -213,6 +213,14 @@ pub async fn append(
     overwrite(kind, &all_messages, read_marker).await
 }
 
+pub async fn delete(kind: &Kind) -> Result<(), Error> {
+    let path = path(kind).await?;
+
+    fs::remove_file(path).await?;
+
+    Ok(())
+}
+
 async fn read_all(path: &PathBuf) -> Result<Vec<Message>, Error> {
     let bytes = fs::read(path).await?;
     Ok(compression::decompress(&bytes)?)
