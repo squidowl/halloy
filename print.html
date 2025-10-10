@@ -1573,6 +1573,18 @@ time = true
 [ctcp]
 version = true
 </code></pre>
+<h1 id="userinfo"><a class="header" href="#userinfo"><code>userinfo</code></a></h1>
+<p>Whether Halloy will respond to a <a href="https://modern.ircdocs.horse/ctcp#userinfo">CTCP USERINFO</a> message. The response is enabled if this option is set to a string, which will be used as the reply.</p>
+<pre><code class="language-toml"># Type: string
+# Values: any string
+# Default: not set
+
+# Example usage: &lt;nickname&gt; (&lt;realname&gt;)
+# KVIrc usage:   Age=&lt;age&gt;; Gender=&lt;gender&gt;; Location=&lt;location&gt;; Languages=&lt;languages&gt;; &lt;other&gt;
+
+[ctcp]
+userinfo = "&lt;nickname&gt; (&lt;realname&gt;)"
+</code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="file_transfer"><a class="header" href="#file_transfer"><code>[file_transfer]</code></a></h1>
 <p>File transfer configuration options.</p>
 <h2 id="save_directory"><a class="header" href="#save_directory"><code>save_directory</code></a></h2>
