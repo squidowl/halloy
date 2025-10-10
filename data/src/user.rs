@@ -173,7 +173,7 @@ impl User {
     }
 
     pub fn seed(&self) -> &str {
-        self.as_str()
+        self.nickname.seed()
     }
 
     pub fn display(
@@ -404,12 +404,6 @@ pub enum ParseUserError {
 }
 
 #[derive(Debug, Clone)]
-pub struct NickColor {
-    pub seed: Option<String>,
-    pub color: iced_core::Color,
-}
-
-#[derive(Debug, Clone)]
 pub struct Nick {
     raw: String,
     normalized: String,
@@ -500,6 +494,10 @@ impl<'a> Nick {
 
     pub fn renormalize(&mut self, casemapping: isupport::CaseMap) {
         self.normalized = casemapping.normalize(self.raw.as_str());
+    }
+
+    pub fn seed(&self) -> &str {
+        self.normalized.as_ref()
     }
 }
 

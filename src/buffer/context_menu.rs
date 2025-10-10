@@ -391,15 +391,11 @@ fn user_info<'a>(
         .is_offline(current_user.is_none());
     let seed = match config.buffer.nickname.color {
         data::buffer::Color::Solid => None,
-        data::buffer::Color::Unique => Some(nickname.to_string()),
+        data::buffer::Color::Unique => Some(nickname.seed()),
     };
 
-    let style = theme::text::nickname(
-        theme,
-        seed.clone(),
-        is_user_away,
-        is_user_offline,
-    );
+    let style =
+        theme::text::nickname(theme, seed, is_user_away, is_user_offline);
 
     let nickname = text(nickname.to_string()).style(move |_| style).font_maybe(
         theme::font_style::nickname(theme, is_user_offline).map(font::get),
