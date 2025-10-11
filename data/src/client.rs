@@ -24,6 +24,7 @@ use crate::isupport::{
     WhoXPollParameters,
 };
 use crate::message::{message_id, server_time, source};
+use crate::rate_limit::{BackoffInterval, TokenBucket};
 use crate::target::{self, Target};
 use crate::time::Posix;
 use crate::user::{ChannelUsers, Nick, NickRef};
@@ -166,6 +167,7 @@ pub struct Client {
     who_polls: VecDeque<WhoPoll>,
     who_poll_interval: BackoffInterval,
     resolved_netid: Option<String>,
+    anti_flood: Option<TokenBucket>,
 }
 
 impl fmt::Debug for Client {
@@ -214,10 +216,9 @@ impl Client {
             registration_required_channels: vec![],
             isupport: HashMap::new(),
             who_polls: VecDeque::new(),
-            who_poll_interval: BackoffInterval::from_duration(
-                config.who_poll_interval,
-            ),
+            who_poll_interval: BackoffInterval::from(config.who_poll_interval),
             resolved_netid: None,
+            anti_flood: Some(TokenBucket::new(Duration::from_secs(2), 8)),
             config,
         }
     }
@@ -2258,6 +2259,9 @@ impl Client {
                                                         .try_send(message)?;
                                                 }
                                             }
+                                            isupport::Parameter::SAFERATE => {
+                                                self.anti_flood = None;
+                                            }
                                             isupport::Parameter::BOUNCER_NETID(ref id) => {
                                                 match self.server.bouncer_netid() {
                                                     Some(requested_id) if id != requested_id => {
@@ -2488,7 +2492,7 @@ impl Client {
                     log::debug!(
                         "[{}] self.who_poll_interval is too short → duration = {:?}",
                         self.server,
-                        self.who_poll_interval.duration
+                        self.who_poll_interval.duration()
                     );
 
                     if !self.who_polls.iter().any(|who_poll| {
@@ -3018,6 +3022,10 @@ impl Client {
     }
 
     pub fn tick(&mut self, now: Instant) -> Result<()> {
+        if let Some(ref mut anti_flood) = self.anti_flood {
+            anti_flood.add_permit(now.into());
+        }
+
         match self.highlight_notification_blackout {
             HighlightNotificationBlackout::Blackout(instant) => {
                 if now.duration_since(instant) >= HIGHLIGHT_BLACKOUT_INTERVAL {
@@ -3045,15 +3053,15 @@ impl Client {
                             |channel| {
                                 (!channel.who_init
                                     && (now.duration_since(*last)
-                                        >= self.who_poll_interval.duration))
-                                    .then_some(Request::Poll)
+                                        >= self.who_poll_interval.duration()))
+                                .then_some(Request::Poll)
                             },
                         )
                     } else {
                         (self.config.who_poll_enabled
                             && (now.duration_since(*last)
-                                >= self.who_poll_interval.duration))
-                            .then_some(Request::Poll)
+                                >= self.who_poll_interval.duration()))
+                        .then_some(Request::Poll)
                     }
                 }
                 WhoStatus::Requested(source, requested, _) => {
@@ -3063,8 +3071,8 @@ impl Client {
                         None
                     } else {
                         (now.duration_since(*requested)
-                            >= 5 * self.who_poll_interval.duration)
-                            .then_some(Request::Retry)
+                            >= 5 * self.who_poll_interval.duration())
+                        .then_some(Request::Retry)
                     }
                 }
                 _ => None,
@@ -3292,6 +3300,11 @@ impl Map {
         } else {
             Ok(Vec::default())
         }
+    }
+
+    pub fn get_anti_flood(&self, server: &Server) -> Option<TokenBucket> {
+        self.client(server)
+            .and_then(|client| client.anti_flood.clone())
     }
 
     pub fn send(
@@ -3769,64 +3782,6 @@ pub enum WhoStatus {
 pub enum WhoSource {
     User,
     Poll,
-}
-
-pub struct BackoffInterval {
-    duration: Duration,
-    previous: Duration,
-    original: Duration,
-    mode: BackoffMode,
-}
-
-pub enum BackoffMode {
-    Set,
-    BackingOff(usize),
-    EasingOn,
-}
-
-impl BackoffInterval {
-    pub fn from_duration(duration: Duration) -> Self {
-        BackoffInterval {
-            duration,
-            previous: duration,
-            original: duration,
-            mode: BackoffMode::Set,
-        }
-    }
-
-    pub fn long_enough(&mut self) {
-        match &mut self.mode {
-            BackoffMode::Set => (),
-            BackoffMode::EasingOn => {
-                self.previous = self.duration;
-                self.duration =
-                    std::cmp::max(self.duration.mul_f64(0.9), self.original);
-            }
-            BackoffMode::BackingOff(count) => {
-                *count += 1;
-
-                if *count > 8 {
-                    self.mode = BackoffMode::EasingOn;
-                }
-            }
-        }
-    }
-
-    pub fn too_short(&mut self) {
-        match &mut self.mode {
-            BackoffMode::EasingOn => {
-                self.duration = self.previous;
-                self.mode = BackoffMode::Set;
-            }
-            _ => {
-                self.mode = BackoffMode::BackingOff(0);
-                self.duration = std::cmp::min(
-                    self.duration.mul_f64(2.0),
-                    256 * self.original,
-                );
-            }
-        }
-    }
 }
 
 fn group_capability_requests<'a>(
