@@ -16,6 +16,10 @@ Fixed:
 - Filters are applied only to the server they are specified for
 - Filters are renormalized properly when ISUPPORT is updated
 
+Changed:
+
+- The logs pane will only contain log messages since the last of launch of Halloy (i.e. for the current session only)
+
 Thanks:
 
 - Contributions: @Toby222, @Frikilinux
