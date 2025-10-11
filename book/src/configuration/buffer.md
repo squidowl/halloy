@@ -879,7 +879,7 @@ Customize autocomplete.
 Ordering that autocomplete uses to select from matching users.
 
 - `"recent"`: Autocomplete users by their last message in the channel;  the user with most recent message autocompletes first, then increasingly older messages.  Users with no seen messages are matched last, in the order specified by `sort_direction`.
-- `"alpha"`: Autocomplete users based on alphabetical ordering of potential matches.  Ordering is asecnding/descinding based on `sort_direction`.
+- `"alpha"`: Autocomplete users based on alphabetical ordering of potential matches.  Ordering is ascending/descending based on `sort_direction`.
 
 ```toml
 # Type: string
