@@ -64,19 +64,22 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let logs_config = Config::load_logs().unwrap_or_default();
 
+    // spin up a single-threaded tokio runtime to run the logs deletion and
+    // config loading tasks to completion we don't want to wrap our whole
+    // program with a runtime since iced starts its own.
+    let rt = runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()?;
+
+    let _ = rt.block_on(history::delete(&history::Kind::Logs));
+
     let log_stream =
         logger::setup(is_debug, logs_config).expect("setup logging");
     log::info!("halloy {} has started", environment::formatted_version());
     log::info!("config dir: {:?}", environment::config_dir());
     log::info!("data dir: {:?}", environment::data_dir());
 
-    // spin up a single-threaded tokio runtime to run the config loading task to completion
-    // we don't want to wrap our whole program with a runtime since iced starts its own.
     let (config_load, window_load) = {
-        let rt = runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()?;
-
         rt.block_on(async {
             let config = Config::load().await;
             let window = data::Window::load().await;
@@ -84,6 +87,11 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
             (config, window)
         })
     };
+
+    // Futures have only been run via block_on, so we should be able to
+    // shutdown_background without leaks
+    rt.shutdown_background();
+
     // DANGER ZONE - font must be set using config
     // before we do any iced related stuff w/ it
     font::set(config_load.as_ref().ok());
