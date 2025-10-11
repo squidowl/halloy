@@ -951,8 +951,17 @@ fn condense_fragments(
                     let last_fragment = fragments.last();
 
                     first_fragment.and_then(|first_fragment| {
-                        last_fragment.map(|last_fragment| {
-                            vec![first_fragment, last_fragment]
+                        last_fragment.and_then(|last_fragment| {
+                            if let Fragment::Condensed { source, .. } =
+                                &first_fragment
+                                && let Some(nick) = source.nick()
+                                && let Fragment::User(user, _) = &last_fragment
+                                && nick.as_nickref() != user.nickname()
+                            {
+                                Some(vec![first_fragment, last_fragment])
+                            } else {
+                                None
+                            }
                         })
                     })
                 } else {
