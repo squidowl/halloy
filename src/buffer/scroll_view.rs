@@ -463,7 +463,7 @@ pub struct State {
 
 impl State {
     pub fn new(pane_size: Size, config: &Config) -> Self {
-        let step_messages = step_messages(pane_size.height, config);
+        let step_messages = step_messages(2.0 * pane_size.height, config);
 
         Self {
             scrollable: scrollable::Id::unique(),
