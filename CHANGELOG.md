@@ -18,6 +18,10 @@ Fixed:
 - Filters are renormalized properly when ISUPPORT is updated
 - Crash when typing `/bouncer` into the message box
 
+Changed:
+
+- The logs pane will only contain log messages since the last of launch of Halloy (i.e. for the current session only)
+
 Thanks:
 
 - Contributions: @Toby222, @Frikilinux, @4e554c4c

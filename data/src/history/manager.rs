@@ -1115,14 +1115,6 @@ impl Data {
                 .unwrap_or_default()
         });
 
-        let has_read_messages = read_marker
-            .map(|marker| {
-                processed
-                    .iter()
-                    .any(|message| message.server_time <= marker.date_time())
-            })
-            .unwrap_or_default();
-
         let first_without_limit = processed.first().copied();
         let last_without_limit = processed.last().copied();
 
@@ -1139,10 +1131,7 @@ impl Data {
                     message.server_time <= read_marker.date_time()
                 })
                 .map_or_else(
-                    || {
-                        // Backlog is before this limit view of messages
-                        if has_read_messages { 0 } else { limited.len() }
-                    },
+                    || 0, // Backlog is before this limit view of messages
                     |position| limited.len() - position,
                 )
         });
