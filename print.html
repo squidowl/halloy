@@ -1381,6 +1381,7 @@ username_format = "full"
 <h4 id="messages"><a class="header" href="#messages"><code>messages</code></a></h4>
 <p>Message type(s) to condense.  Supported types:</p>
 <div class="table-wrapper"><table><thead><tr><th><strong>Event Type</strong></th><th><strong>Symbol</strong></th></tr></thead><tbody>
+<tr><td><code>change-nick</code></td><td><code>→</code></td></tr>
 <tr><td><code>join</code></td><td><code>+</code></td></tr>
 <tr><td><code>part</code></td><td><code>-</code></td></tr>
 <tr><td><code>quit</code></td><td><code>-</code></td></tr>
@@ -1388,11 +1389,11 @@ username_format = "full"
 </div>
 <p>The color and font style of the symbols is taken from the theme setting for that event type.</p>
 <pre><code class="language-toml"># Type: array of strings
-# Values: ["join", "part", "quit"]
+# Values: ["change-nick", "join", "part", "quit"]
 # Default: []
 
 [buffer.server_messages.condense]
-messages = ["join", "part", "quit"]
+messages = ["change-nick", "join", "part", "quit"]
 </code></pre>
 <h4 id="dimmed"><a class="header" href="#dimmed"><code>dimmed</code></a></h4>
 <p>Dim condensed messages.  Either automatically, based on text/background colors (by setting to <code>true</code>), or specify a dimming value in the range <code>0.0</code> (transparent) to <code>1.0</code> (no dimming).</p>
