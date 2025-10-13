@@ -183,7 +183,7 @@ impl Dashboard {
     pub fn renormalize_history(
         &mut self,
         server: &data::Server,
-        casemapping: isupport::CaseMap,
+        clients: &client::Map,
     ) {
         let open_pane_kinds: Vec<history::Kind> = self
             .panes
@@ -203,7 +203,7 @@ impl Dashboard {
             .collect();
 
         open_pane_kinds.into_iter().for_each(|kind| {
-            self.history.renormalize_messages(kind, casemapping);
+            self.history.renormalize_messages(kind, clients);
         });
     }
 

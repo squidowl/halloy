@@ -1109,9 +1109,7 @@ impl Halloy {
                                     }
                                     data::client::Event::AddedIsupportParam(param) => {
                                         if matches!(param, data::isupport::Parameter::CASEMAPPING(_)) {
-                                            let casemapping = self.clients.get_casemapping(&server);
-
-                                            dashboard.renormalize_history(&server, casemapping);
+                                            dashboard.renormalize_history(&server, &self.clients);
                                         }
 
                                         if matches!(
