@@ -282,10 +282,12 @@ impl Condensation {
             source::server::Kind::Quit => {
                 self.messages.contains(&CondensationMessage::Quit)
             }
+            source::server::Kind::ChangeNick => {
+                self.messages.contains(&CondensationMessage::ChangeNick)
+            }
             source::server::Kind::ReplyTopic
             | source::server::Kind::ChangeHost
             | source::server::Kind::ChangeMode
-            | source::server::Kind::ChangeNick
             | source::server::Kind::MonitoredOnline
             | source::server::Kind::MonitoredOffline
             | source::server::Kind::StandardReply(_)
@@ -306,6 +308,7 @@ pub enum CondensationMessage {
     Join,
     Part,
     Quit,
+    ChangeNick,
 }
 
 #[derive(Debug, Default, Clone, Deserialize)]
