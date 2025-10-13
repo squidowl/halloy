@@ -137,6 +137,8 @@ impl Manager {
                 self.data.load_full(kind.clone(), loaded);
                 log::debug!("loaded history for {kind}: {len} messages");
 
+                self.renormalize_messages(kind.clone(), clients);
+
                 self.process_messages(kind.clone(), clients, buffer_config);
 
                 return Some(Event::Loaded(kind));
@@ -737,8 +739,10 @@ impl Manager {
                             buffer_config.server_messages.get(source)
                         {
                             // Check if target is a channel, and if included/excluded.
-                            if let message::Target::Channel { channel, .. } =
-                                &message.target
+                            if let message::Target::Channel { channel, .. }
+                            | message::Target::Highlights {
+                                channel, ..
+                            } = &message.target
                                 && !server_message
                                     .should_send_message(channel.as_str())
                             {
@@ -747,10 +751,18 @@ impl Manager {
                                 let nick = match source.nick() {
                                     Some(nick) => Some(nick.clone()),
                                     None => message.plain().and_then(|s| {
+                                        let server = if let Some(server) = kind.server() {
+                                            Some(server)
+                                        } else if let message::Target::Highlights { server, .. } =
+                                            &message.target
+                                        {
+                                            Some(server)
+                                        } else {
+                                            None
+                                        };
+
                                         let casemapping = clients
-                                            .get_casemapping_or_default(
-                                                kind.server(),
-                                            );
+                                            .get_casemapping_or_default(server);
 
                                         s.split(' ').nth(1).map(|nick| {
                                             Nick::from_str(nick, casemapping)
@@ -855,14 +867,36 @@ impl Manager {
     pub fn renormalize_messages(
         &mut self,
         kind: history::Kind,
-        casemapping: isupport::CaseMap,
+        clients: &client::Map,
     ) {
-        if let Some(History::Full { messages, .. }) =
-            self.data.map.get_mut(&kind)
-        {
-            messages
-                .iter_mut()
-                .for_each(|message| message.renormalize(casemapping));
+        if let Some(history) = self.data.map.get_mut(&kind) {
+            let messages = match history {
+                History::Full { messages, .. } => messages,
+                History::Partial { messages, .. } => messages,
+            };
+
+            match kind {
+                history::Kind::Highlights => {
+                    messages.iter_mut().for_each(|message| {
+                        if let message::Target::Highlights { server, .. } =
+                            &message.target
+                        {
+                            let casemapping = clients
+                                .get_casemapping_or_default(Some(server));
+
+                            message.renormalize(casemapping);
+                        }
+                    });
+                }
+                _ => {
+                    let casemapping =
+                        clients.get_casemapping_or_default(kind.server());
+
+                    messages
+                        .iter_mut()
+                        .for_each(|message| message.renormalize(casemapping));
+                }
+            }
         }
     }
 }
