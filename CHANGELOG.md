@@ -21,6 +21,7 @@ Fixed:
 Changed:
 
 - The logs pane will only contain log messages since the last of launch of Halloy (i.e. for the current session only)
+- Always show version number in user menu
 
 Thanks:
 
