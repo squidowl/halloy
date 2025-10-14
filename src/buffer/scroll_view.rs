@@ -263,36 +263,17 @@ pub fn view<'a>(
                             .visible_url_messages
                             .contains_key(&message.hash);
 
-                        let element = if is_message_visible {
-                            notify_visibility(
-                                element,
-                                2000.0,
-                                notify_visibility::When::NotVisible,
-                                Message::ExitingViewport(message.hash),
-                            )
-                        } else {
-                            notify_visibility(
-                                element,
-                                1000.0,
-                                notify_visibility::When::Visible,
-                                Message::EnteringViewport(
-                                    message.hash,
-                                    urls.clone(),
-                                ),
-                            )
-                        };
-
                         let mut column = column![element];
 
-                        for (idx, url) in urls.into_iter().enumerate() {
-                            if message.hidden_urls.contains(&url) {
+                        for (idx, url) in urls.iter().enumerate() {
+                            if message.hidden_urls.contains(url) {
                                 continue;
                             }
 
                             if let (
                                 true,
                                 Some(preview::State::Loaded(preview)),
-                            ) = (is_message_visible, previews.get(&url))
+                            ) = (is_message_visible, previews.get(url))
                             {
                                 let is_hovered =
                                     state.hovered_preview.is_some_and(
@@ -302,7 +283,7 @@ pub fn view<'a>(
                                 column = column.push(preview_row(
                                     message,
                                     preview,
-                                    &url,
+                                    url,
                                     idx,
                                     max_nick_width,
                                     max_prefix_width,
@@ -313,7 +294,21 @@ pub fn view<'a>(
                             }
                         }
 
-                        column.into()
+                        if is_message_visible {
+                            notify_visibility(
+                                column,
+                                2000.0,
+                                notify_visibility::When::NotVisible,
+                                Message::ExitingViewport(message.hash),
+                            )
+                        } else {
+                            notify_visibility(
+                                column,
+                                1000.0,
+                                notify_visibility::When::Visible,
+                                Message::EnteringViewport(message.hash, urls),
+                            )
+                        }
                     } else {
                         element
                     }
