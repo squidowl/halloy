@@ -17,6 +17,7 @@ Fixed:
 - Filters are applied only to the server they are specified for
 - Filters are renormalized properly when ISUPPORT is updated
 - Crash when typing `/bouncer` into the message box
+- Scroll state no longer changes rapidly when long previews for URL(s) are present in history
 
 Changed:
 
@@ -25,7 +26,7 @@ Changed:
 Thanks:
 
 - Contributions: @Toby222, @Frikilinux, @4e554c4c
-- Bug reports: @Toby222, @deepspaceaxolotl, @zhelezov, @Erroneuz, @dgz0, @csmith
+- Bug reports: @Toby222, @deepspaceaxolotl, @zhelezov, @Erroneuz, @dgz0, @csmith, @otonoton
 - Feature requests: @j0lol, @xcfrg
 
 # 2025.9 (2025-09-16)
