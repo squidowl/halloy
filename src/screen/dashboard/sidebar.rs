@@ -163,7 +163,7 @@ impl Sidebar {
     ) -> Element<'a, Message> {
         let base = button(icon::menu()).padding(5).width(Length::Shrink);
 
-        let menu = Menu::list();
+        let menu = Menu::list(version.is_old());
 
         let logs_has_unread = history.has_unread(&history::Kind::Logs);
 
@@ -296,33 +296,27 @@ impl Sidebar {
                                     .into(),
                                 _ => Space::new(length, 1).into(),
                             },
-                            Menu::Version => match version.is_old() {
-                                true => context_button(
-                                    text("New version available")
-                                        .style(theme::text::tertiary)
-                                        .font_maybe(
-                                            theme::font_style::tertiary(theme)
-                                                .map(font::get),
-                                        ),
-                                    None,
-                                    icon::megaphone()
-                                        .style(theme::text::tertiary),
-                                    Message::OpenReleaseWebsite,
-                                ),
-                                false => container(
-                                    text(format!(
-                                        "Halloy ({})",
-                                        version.current
-                                    ))
+                            Menu::Update => context_button(
+                                text("New version available")
+                                    .style(theme::text::tertiary)
+                                    .font_maybe(
+                                        theme::font_style::tertiary(theme)
+                                            .map(font::get),
+                                    ),
+                                None,
+                                icon::megaphone().style(theme::text::tertiary),
+                                Message::OpenReleaseWebsite,
+                            ),
+                            Menu::Version => container(
+                                text(format!("Halloy ({})", version.current))
                                     .style(theme::text::secondary)
                                     .font_maybe(
                                         theme::font_style::secondary(theme)
                                             .map(font::get),
                                     ),
-                                )
-                                .padding(5)
-                                .into(),
-                            },
+                            )
+                            .padding(5)
+                            .into(),
                             Menu::Documentation => context_button(
                                 text("Documentation"),
                                 None,
@@ -607,25 +601,33 @@ enum Menu {
     Logs,
     FileTransfers,
     Version,
+    Update,
     HorizontalRule,
     Documentation,
     OpenConfigFile,
 }
 
 impl Menu {
-    fn list() -> Vec<Self> {
-        vec![
-            Menu::Version,
-            Menu::HorizontalRule,
-            Menu::CommandBar,
-            Menu::Documentation,
-            Menu::FileTransfers,
-            Menu::Highlights,
-            Menu::Logs,
-            Menu::OpenConfigFile,
-            Menu::RefreshConfig,
-            Menu::ThemeEditor,
-        ]
+    fn list(has_new_version: bool) -> Vec<Self> {
+        let mut list = vec![Self::Version];
+
+        if has_new_version {
+            list.push(Self::Update);
+        }
+
+        list.extend([
+            Self::HorizontalRule,
+            Self::CommandBar,
+            Self::Documentation,
+            Self::FileTransfers,
+            Self::Highlights,
+            Self::Logs,
+            Self::OpenConfigFile,
+            Self::RefreshConfig,
+            Self::ThemeEditor,
+        ]);
+
+        list
     }
 }
 
