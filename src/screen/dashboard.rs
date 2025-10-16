@@ -273,395 +273,15 @@ impl Dashboard {
                                 return (task, None);
                             };
 
-                            match event {
-                                buffer::Event::ContextMenu(event) => {
-                                    match event {
-                                        buffer::context_menu::Event::CopyUrl(url) => {
-                                            return (clipboard::write(url), None);
-                                        }
-                                        buffer::context_menu::Event::ToggleAccessLevel(
-                                            server,
-                                            channel,
-                                            nick,
-                                            mode,
-                                        ) => {
-                                            let buffer = buffer::Upstream::Channel(
-                                                server.clone(),
-                                                channel.clone(),
-                                            );
+                            let (buffer_task, buffer_event) = self
+                                .handle_buffer_event(
+                                    window, id, event, clients, config,
+                                );
 
-                                            let command = command::Irc::Mode(
-                                                channel.to_string(),
-                                                Some(mode),
-                                                Some(vec![nick.to_string()]),
-                                            );
-                                            let input = data::Input::command(buffer, command);
-
-                                            if let Some(encoded) = input.encoded() {
-                                                clients.send(&input.buffer, encoded);
-                                            }
-                                        }
-                                        buffer::context_menu::Event::SendWhois(server, nick) => {
-                                            let buffer =
-                                                pane.buffer.upstream().cloned().unwrap_or_else(
-                                                    || buffer::Upstream::Server(server.clone()),
-                                                );
-
-                                            let command =
-                                                command::Irc::Whois(None, nick.to_string());
-
-                                            let input =
-                                                data::Input::command(buffer.clone(), command);
-
-                                            if let Some(encoded) = input.encoded() {
-                                                clients.send(&input.buffer, encoded);
-                                            }
-
-                                            if let Some(nick) = clients.nickname(buffer.server()) {
-                                                let mut user = nick.to_owned().into();
-                                                let mut channel_users = None;
-                                                let chantypes =
-                                                    clients.get_chantypes(buffer.server());
-                                                let statusmsg =
-                                                    clients.get_statusmsg(buffer.server());
-                                                let casemapping =
-                                                    clients.get_casemapping(buffer.server());
-
-                                                // Resolve our attributes if sending this message in a channel
-                                                if let buffer::Upstream::Channel(server, channel) =
-                                                    &buffer
-                                                {
-                                                    channel_users =
-                                                        clients.get_channel_users(server, channel);
-
-                                                    if let Some(user_with_attributes) = clients
-                                                        .resolve_user_attributes(
-                                                            server, channel, &user,
-                                                        )
-                                                    {
-                                                        user = user_with_attributes.clone();
-                                                    }
-                                                }
-
-                                                if let Some(messages) = input.messages(
-                                                    user,
-                                                    channel_users,
-                                                    chantypes,
-                                                    statusmsg,
-                                                    casemapping,
-                                                    config,
-                                                ) {
-                                                    let mut tasks = vec![task];
-
-                                                    for message in messages {
-                                                        if let Some(task) = self
-                                                            .history
-                                                            .record_message(
-                                                                input.server(),
-                                                                casemapping,
-                                                                message,
-                                                                &config.buffer,
-                                                        ) {
-                                                            tasks.push(Task::perform(
-                                                                task,
-                                                                Message::History,
-                                                            ));
-                                                        }
-                                                    }
-
-                                                    return (Task::batch(tasks), None);
-                                                }
-                                            }
-                                        }
-                                        buffer::context_menu::Event::OpenQuery(
-                                            server,
-                                            query,
-                                            buffer_action,
-                                        ) => {
-                                            let buffer = buffer::Upstream::Query(server, query);
-                                            return (
-                                                Task::batch(vec![
-                                                    task,
-                                                    self.open_buffer(
-                                                        data::Buffer::Upstream(buffer),
-                                                        buffer_action,
-                                                        clients,
-                                                        config,
-                                                    ),
-                                                ]),
-                                                None,
-                                            );
-                                        }
-                                        buffer::context_menu::Event::InsertNickname(nick) => {
-                                            let Some((_, _, pane, history)) =
-                                                self.get_focused_with_history_mut()
-                                            else {
-                                                return (task, None);
-                                            };
-
-                                            return (
-                                                Task::batch(vec![
-                                                    task,
-                                                    pane.buffer
-                                                        .insert_user_to_input(nick, history, &config.buffer.text_input.autocomplete)
-                                                        .map(move |message| {
-                                                            Message::Pane(
-                                                                window,
-                                                                pane::Message::Buffer(id, message),
-                                                            )
-                                                        }),
-                                                ]),
-                                                None,
-                                            );
-                                        }
-                                        buffer::context_menu::Event::SendFile(server, nick) => {
-                                            return (
-                                                Task::batch(vec![
-                                                    task,
-                                                    Task::perform(
-                                                        async move {
-                                                            rfd::AsyncFileDialog::new()
-                                                                .pick_file()
-                                                                .await
-                                                                .map(|handle| {
-                                                                    handle.path().to_path_buf()
-                                                                })
-                                                        },
-                                                        move |file| {
-                                                            Message::SendFileSelected(
-                                                                server.clone(),
-                                                                nick.clone(),
-                                                                file,
-                                                            )
-                                                        },
-                                                    ),
-                                                ]),
-                                                None,
-                                            );
-                                        }
-                                        buffer::context_menu::Event::CtcpRequest(
-                                            command,
-                                            server,
-                                            nick,
-                                            params,
-                                        ) => {
-                                            let buffer =
-                                                pane.buffer.upstream().cloned().unwrap_or_else(
-                                                    || buffer::Upstream::Server(server.clone()),
-                                                );
-
-                                            let command = command::Irc::Ctcp(
-                                                command,
-                                                nick.to_string(),
-                                                params,
-                                            );
-
-                                            let input =
-                                                data::Input::command(buffer.clone(), command);
-
-                                            if let Some(encoded) = input.encoded() {
-                                                clients.send(&input.buffer, encoded);
-                                            }
-
-                                            return (Task::none(), None);
-                                        }
-                                    }
-                                }
-                                buffer::Event::OpenBuffers(targets) => {
-                                    let mut tasks = vec![task];
-
-                                    if let Some(server) = pane
-                                        .buffer
-                                        .upstream()
-                                        .map(buffer::Upstream::server)
-                                        .cloned()
-                                    {
-                                        for (target, buffer_action) in targets {
-                                            tasks.push(self.open_target(
-                                                server.clone(),
-                                                target,
-                                                clients,
-                                                buffer_action,
-                                                config,
-                                            ));
-                                        }
-                                    }
-
-                                    return (Task::batch(tasks), None);
-                                }
-                                buffer::Event::LeaveBuffers(
-                                    targets,
-                                    reason,
-                                ) => {
-                                    if let Some(server) = pane
-                                        .buffer
-                                        .upstream()
-                                        .map(buffer::Upstream::server)
-                                        .cloned()
-                                    {
-                                        let mut tasks = vec![];
-
-                                        for target in targets {
-                                            tasks.push(
-                                                self.leave_server_target(
-                                                    clients,
-                                                    config,
-                                                    server.clone(),
-                                                    target,
-                                                    reason.clone(),
-                                                ),
-                                            );
-                                        }
-
-                                        return (Task::batch(tasks), None);
-                                    }
-                                }
-                                buffer::Event::History(history_task) => {
-                                    return (
-                                        Task::batch(vec![
-                                            task,
-                                            history_task.map(Message::History),
-                                        ]),
-                                        None,
-                                    );
-                                }
-                                buffer::Event::GoToMessage(
-                                    server,
-                                    channel,
-                                    message,
-                                ) => {
-                                    let buffer = data::Buffer::Upstream(
-                                        buffer::Upstream::Channel(
-                                            server, channel,
-                                        ),
-                                    );
-
-                                    let mut tasks = vec![];
-
-                                    if self
-                                        .panes
-                                        .get_mut_by_buffer(&buffer)
-                                        .is_none()
-                                    {
-                                        tasks.push(
-                                            self.open_buffer(
-                                                buffer.clone(),
-                                                config
-                                                    .actions
-                                                    .buffer
-                                                    .click_highlight,
-                                                clients,
-                                                config,
-                                            ),
-                                        );
-                                    }
-
-                                    if let Some((window, pane, state)) =
-                                        self.panes.get_mut_by_buffer(&buffer)
-                                    {
-                                        tasks.push(
-                                            state
-                                                .buffer
-                                                .scroll_to_message(
-                                                    message,
-                                                    &self.history,
-                                                    config,
-                                                )
-                                                .map(move |message| {
-                                                    Message::Pane(
-                                                        window,
-                                                        pane::Message::Buffer(
-                                                            pane, message,
-                                                        ),
-                                                    )
-                                                }),
-                                        );
-                                    }
-
-                                    return (Task::batch(tasks), None);
-                                }
-                                buffer::Event::RequestOlderChatHistory => {
-                                    if let Some(buffer) = pane.buffer.data() {
-                                        self.request_older_chathistory(
-                                            clients, &buffer,
-                                        );
-                                    }
-                                }
-                                buffer::Event::PreviewChanged => {
-                                    let visible = self.panes.visible_urls();
-                                    let tracking = self
-                                        .previews
-                                        .keys()
-                                        .cloned()
-                                        .collect::<HashSet<_>>();
-                                    let missing = visible
-                                        .difference(&tracking)
-                                        .cloned()
-                                        .collect::<Vec<_>>();
-                                    let removed = tracking.difference(&visible);
-
-                                    for url in &missing {
-                                        self.previews.insert(
-                                            url.clone(),
-                                            preview::State::Loading,
-                                        );
-                                    }
-
-                                    for url in removed {
-                                        self.previews.remove(url);
-                                    }
-
-                                    return (
-                                        Task::batch(missing.into_iter().map(
-                                            |url| {
-                                                Task::perform(
-                                                    data::preview::load(
-                                                        url.clone(),
-                                                        config.preview.clone(),
-                                                    ),
-                                                    move |result| {
-                                                        Message::LoadPreview((
-                                                            url.clone(),
-                                                            result,
-                                                        ))
-                                                    },
-                                                )
-                                            },
-                                        )),
-                                        None,
-                                    );
-                                }
-                                buffer::Event::HidePreview(kind, hash, url) => {
-                                    self.history.hide_preview(kind, hash, url);
-                                }
-                                buffer::Event::MarkAsRead(kind) => {
-                                    mark_as_read(
-                                        kind,
-                                        &mut self.history,
-                                        clients,
-                                    );
-                                }
-                                buffer::Event::OpenUrl(url) => {
-                                    return (
-                                        Task::none(),
-                                        Some(Event::OpenUrl(
-                                            url,
-                                            config
-                                                .buffer
-                                                .url
-                                                .prompt_before_open,
-                                        )),
-                                    );
-                                }
-                                buffer::Event::ImagePreview(path, url) => {
-                                    return (
-                                        Task::none(),
-                                        Some(Event::ImagePreview(path, url)),
-                                    );
-                                }
-                            }
-
-                            return (task, None);
+                            return (
+                                Task::batch(vec![task, buffer_task]),
+                                buffer_event,
+                            );
                         }
                     }
                     pane::Message::ToggleShowUserList => {
@@ -856,8 +476,15 @@ impl Dashboard {
                     }
                 };
 
+                let window = main_window.id;
+
                 return (
                     Task::batch(vec![
+                        context_menu::close(convert::identity).map(
+                            move |any_closed| {
+                                Message::CloseContextMenu(window, any_closed)
+                            },
+                        ),
                         event_task,
                         command.map(Message::Sidebar),
                     ]),
@@ -1833,6 +1460,340 @@ impl Dashboard {
         };
 
         shortcut(base, config.keyboard.shortcuts(), Message::Shortcut)
+    }
+
+    pub fn handle_buffer_event(
+        &mut self,
+        window: window::Id,
+        id: pane_grid::Pane,
+        event: buffer::Event,
+        clients: &mut data::client::Map,
+        config: &Config,
+    ) -> (Task<Message>, Option<Event>) {
+        let Some(pane) = self.panes.get_mut(window, id) else {
+            return (Task::none(), None);
+        };
+
+        match event {
+            buffer::Event::ContextMenu(event) => {
+                let mut tasks =
+                    vec![context_menu::close(convert::identity).map(
+                        move |any_closed| {
+                            Message::CloseContextMenu(window, any_closed)
+                        },
+                    )];
+
+                match event {
+                    buffer::context_menu::Event::CopyUrl(url) => {
+                        tasks.push(clipboard::write(url));
+                    }
+                    buffer::context_menu::Event::ToggleAccessLevel(
+                        server,
+                        channel,
+                        nick,
+                        mode,
+                    ) => {
+                        let buffer = buffer::Upstream::Channel(
+                            server.clone(),
+                            channel.clone(),
+                        );
+
+                        let command = command::Irc::Mode(
+                            channel.to_string(),
+                            Some(mode),
+                            Some(vec![nick.to_string()]),
+                        );
+                        let input = data::Input::command(buffer, command);
+
+                        if let Some(encoded) = input.encoded() {
+                            clients.send(&input.buffer, encoded);
+                        }
+                    }
+                    buffer::context_menu::Event::SendWhois(server, nick) => {
+                        let buffer =
+                            pane.buffer.upstream().cloned().unwrap_or_else(
+                                || buffer::Upstream::Server(server.clone()),
+                            );
+
+                        let command =
+                            command::Irc::Whois(None, nick.to_string());
+
+                        let input =
+                            data::Input::command(buffer.clone(), command);
+
+                        if let Some(encoded) = input.encoded() {
+                            clients.send(&input.buffer, encoded);
+                        }
+
+                        if let Some(nick) = clients.nickname(buffer.server()) {
+                            let mut user = nick.to_owned().into();
+                            let mut channel_users = None;
+                            let chantypes =
+                                clients.get_chantypes(buffer.server());
+                            let statusmsg =
+                                clients.get_statusmsg(buffer.server());
+                            let casemapping =
+                                clients.get_casemapping(buffer.server());
+
+                            // Resolve our attributes if sending this message in a channel
+                            if let buffer::Upstream::Channel(server, channel) =
+                                &buffer
+                            {
+                                channel_users =
+                                    clients.get_channel_users(server, channel);
+
+                                if let Some(user_with_attributes) = clients
+                                    .resolve_user_attributes(
+                                        server, channel, &user,
+                                    )
+                                {
+                                    user = user_with_attributes.clone();
+                                }
+                            }
+
+                            if let Some(messages) = input.messages(
+                                user,
+                                channel_users,
+                                chantypes,
+                                statusmsg,
+                                casemapping,
+                                config,
+                            ) {
+                                for message in messages {
+                                    if let Some(task) =
+                                        self.history.record_message(
+                                            input.server(),
+                                            casemapping,
+                                            message,
+                                            &config.buffer,
+                                        )
+                                    {
+                                        tasks.push(Task::perform(
+                                            task,
+                                            Message::History,
+                                        ));
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    buffer::context_menu::Event::OpenQuery(
+                        server,
+                        query,
+                        buffer_action,
+                    ) => {
+                        let buffer = buffer::Upstream::Query(server, query);
+
+                        tasks.push(self.open_buffer(
+                            data::Buffer::Upstream(buffer),
+                            buffer_action,
+                            clients,
+                            config,
+                        ));
+                    }
+                    buffer::context_menu::Event::InsertNickname(nick) => {
+                        if let Some((_, _, pane, history)) =
+                            self.get_focused_with_history_mut()
+                        {
+                            tasks.push(
+                                pane.buffer
+                                    .insert_user_to_input(
+                                        nick,
+                                        history,
+                                        &config.buffer.text_input.autocomplete,
+                                    )
+                                    .map(move |message| {
+                                        Message::Pane(
+                                            window,
+                                            pane::Message::Buffer(id, message),
+                                        )
+                                    }),
+                            );
+                        }
+                    }
+                    buffer::context_menu::Event::SendFile(server, nick) => {
+                        tasks.push(Task::perform(
+                            async move {
+                                rfd::AsyncFileDialog::new()
+                                    .pick_file()
+                                    .await
+                                    .map(|handle| handle.path().to_path_buf())
+                            },
+                            move |file| {
+                                Message::SendFileSelected(
+                                    server.clone(),
+                                    nick.clone(),
+                                    file,
+                                )
+                            },
+                        ));
+                    }
+                    buffer::context_menu::Event::CtcpRequest(
+                        command,
+                        server,
+                        nick,
+                        params,
+                    ) => {
+                        let buffer =
+                            pane.buffer.upstream().cloned().unwrap_or_else(
+                                || buffer::Upstream::Server(server.clone()),
+                            );
+
+                        let command = command::Irc::Ctcp(
+                            command,
+                            nick.to_string(),
+                            params,
+                        );
+
+                        let input =
+                            data::Input::command(buffer.clone(), command);
+
+                        if let Some(encoded) = input.encoded() {
+                            clients.send(&input.buffer, encoded);
+                        }
+                    }
+                }
+
+                return (Task::batch(tasks), None);
+            }
+            buffer::Event::OpenBuffers(targets) => {
+                let mut tasks = vec![];
+
+                if let Some(server) = pane
+                    .buffer
+                    .upstream()
+                    .map(buffer::Upstream::server)
+                    .cloned()
+                {
+                    for (target, buffer_action) in targets {
+                        tasks.push(self.open_target(
+                            server.clone(),
+                            target,
+                            clients,
+                            buffer_action,
+                            config,
+                        ));
+                    }
+                }
+
+                return (Task::batch(tasks), None);
+            }
+            buffer::Event::LeaveBuffers(targets, reason) => {
+                if let Some(server) = pane
+                    .buffer
+                    .upstream()
+                    .map(buffer::Upstream::server)
+                    .cloned()
+                {
+                    let mut tasks = vec![];
+
+                    for target in targets {
+                        tasks.push(self.leave_server_target(
+                            clients,
+                            config,
+                            server.clone(),
+                            target,
+                            reason.clone(),
+                        ));
+                    }
+
+                    return (Task::batch(tasks), None);
+                }
+            }
+            buffer::Event::History(history_task) => {
+                return (history_task.map(Message::History), None);
+            }
+            buffer::Event::GoToMessage(server, channel, message) => {
+                let buffer = data::Buffer::Upstream(buffer::Upstream::Channel(
+                    server, channel,
+                ));
+
+                let mut tasks = vec![];
+
+                if self.panes.get_mut_by_buffer(&buffer).is_none() {
+                    tasks.push(self.open_buffer(
+                        buffer.clone(),
+                        config.actions.buffer.click_highlight,
+                        clients,
+                        config,
+                    ));
+                }
+
+                if let Some((window, pane, state)) =
+                    self.panes.get_mut_by_buffer(&buffer)
+                {
+                    tasks.push(
+                        state
+                            .buffer
+                            .scroll_to_message(message, &self.history, config)
+                            .map(move |message| {
+                                Message::Pane(
+                                    window,
+                                    pane::Message::Buffer(pane, message),
+                                )
+                            }),
+                    );
+                }
+
+                return (Task::batch(tasks), None);
+            }
+            buffer::Event::RequestOlderChatHistory => {
+                if let Some(buffer) = pane.buffer.data() {
+                    self.request_older_chathistory(clients, &buffer);
+                }
+            }
+            buffer::Event::PreviewChanged => {
+                let visible = self.panes.visible_urls();
+                let tracking =
+                    self.previews.keys().cloned().collect::<HashSet<_>>();
+                let missing =
+                    visible.difference(&tracking).cloned().collect::<Vec<_>>();
+                let removed = tracking.difference(&visible);
+
+                for url in &missing {
+                    self.previews.insert(url.clone(), preview::State::Loading);
+                }
+
+                for url in removed {
+                    self.previews.remove(url);
+                }
+
+                return (
+                    Task::batch(missing.into_iter().map(|url| {
+                        Task::perform(
+                            data::preview::load(
+                                url.clone(),
+                                config.preview.clone(),
+                            ),
+                            move |result| {
+                                Message::LoadPreview((url.clone(), result))
+                            },
+                        )
+                    })),
+                    None,
+                );
+            }
+            buffer::Event::HidePreview(kind, hash, url) => {
+                self.history.hide_preview(kind, hash, url);
+            }
+            buffer::Event::MarkAsRead(kind) => {
+                mark_as_read(kind, &mut self.history, clients);
+            }
+            buffer::Event::OpenUrl(url) => {
+                return (
+                    Task::none(),
+                    Some(Event::OpenUrl(
+                        url,
+                        config.buffer.url.prompt_before_open,
+                    )),
+                );
+            }
+            buffer::Event::ImagePreview(path, url) => {
+                return (Task::none(), Some(Event::ImagePreview(path, url)));
+            }
+        }
+
+        (Task::none(), None)
     }
 
     pub fn handle_event(

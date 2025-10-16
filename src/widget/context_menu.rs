@@ -75,7 +75,7 @@ pub struct State {
 impl State {
     pub fn new() -> Self {
         State {
-            status: Status::Closed(false),
+            status: Status::Closed,
             menu_tree: widget::Tree::empty(),
         }
     }
@@ -83,15 +83,28 @@ impl State {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Status {
-    Closed(bool),
-    Open(Point),
+    Closed,
+    Open {
+        position: Point,
+        // Keep context menu open if button press is inside specified bounds
+        keep_open_bounds: Option<Rectangle>,
+    },
 }
 
 impl Status {
-    pub fn open(self) -> Option<Point> {
+    pub fn position(self) -> Option<Point> {
         match self {
-            Status::Closed(_) => None,
-            Status::Open(position) => Some(position),
+            Status::Closed => None,
+            Status::Open { position, .. } => Some(position),
+        }
+    }
+
+    pub fn keep_open_bounds(&self) -> Option<&Rectangle> {
+        match self {
+            Status::Closed => None,
+            Status::Open {
+                keep_open_bounds, ..
+            } => keep_open_bounds.as_ref(),
         }
     }
 }
@@ -154,7 +167,7 @@ where
 
     fn state(&self) -> tree::State {
         tree::State::new(State {
-            status: Status::Closed(false),
+            status: Status::Closed,
             menu_tree: widget::Tree::empty(),
         })
     }
@@ -198,13 +211,8 @@ where
         viewport: &Rectangle,
     ) {
         // is this a mouse event we are waiting for?
-        let is_mouse_event = matches!(
-            event,
-            Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left))
-                | Event::Mouse(mouse::Event::ButtonPressed(
-                    mouse::Button::Right
-                ))
-        );
+        let is_mouse_event =
+            matches!(event, Event::Mouse(mouse::Event::ButtonPressed(_)));
 
         if is_mouse_event {
             let state = tree.state.downcast_mut::<State>();
@@ -244,25 +252,33 @@ where
                 self.toggle_behavior,
                 position,
             ) {
-                (true, _, ToggleBehavior::KeepOpen, Some(position))
-                | (
+                (true, _, ToggleBehavior::KeepOpen, Some(position)) => {
+                    Status::Open {
+                        position,
+                        keep_open_bounds: None,
+                    }
+                }
+                (
                     true,
-                    Status::Closed(false),
+                    Status::Closed,
                     ToggleBehavior::Close,
                     Some(position),
-                ) => Status::Open(position),
-
-                (false, Status::Open(_), _, None)
-                | (true, Status::Open(_), _, None)
-                | (true, Status::Open(_), ToggleBehavior::Close, Some(_))
-                | (_, Status::Closed(true), _, _) => Status::Closed(false),
+                ) => Status::Open {
+                    position,
+                    keep_open_bounds: Some(layout.bounds()),
+                },
+                (_, Status::Open { .. }, _, None)
+                | (true, Status::Open { .. }, ToggleBehavior::Close, Some(_)) => {
+                    Status::Closed
+                }
                 _ => prev_status, // keep status
             };
 
             if next_status != prev_status {
                 state.status = next_status;
-                if !matches!(next_status, Status::Closed(_))
-                    || !matches!(prev_status, Status::Closed(_))
+
+                if matches!(next_status, Status::Open { .. })
+                    != matches!(prev_status, Status::Open { .. })
                 {
                     shell.request_redraw();
                 }
@@ -389,7 +405,7 @@ where
 
     // Ensure overlay is created / diff'd
     match state.status {
-        Status::Open(_) => match menu {
+        Status::Open { .. } => match menu {
             Some(menu) => state.menu_tree.diff(&*menu),
             None => {
                 let _menu = build_menu(entries, entry);
@@ -397,14 +413,14 @@ where
                 *menu = Some(_menu);
             }
         },
-        Status::Closed(_) => {
+        Status::Closed => {
             *menu = None;
         }
     }
 
     state
         .status
-        .open()
+        .position()
         .zip(menu.as_mut())
         .map(|(position, menu)| {
             overlay::Element::new(Box::new(Overlay {
@@ -438,9 +454,9 @@ pub fn close<Message: 'static + Send>(f: fn(bool) -> Message) -> Task<Message> {
             state: &mut dyn std::any::Any,
         ) {
             if let Some(state) = state.downcast_mut::<State>()
-                && let Status::Open(_) = state.status
+                && let Status::Open { .. } = state.status
             {
-                state.status = Status::Closed(true);
+                state.status = Status::Closed;
                 self.any_closed = true;
             }
         }
@@ -566,15 +582,13 @@ where
     ) {
         if let Event::Mouse(mouse::Event::ButtonPressed(_)) = &event
             && cursor.position_over(layout.bounds()).is_none()
+            && self.state.status.keep_open_bounds().is_none_or(
+                |keep_open_bounds| {
+                    cursor.position_over(*keep_open_bounds).is_none()
+                },
+            )
         {
-            self.state.status = Status::Closed(true);
-        }
-
-        if let Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Left)) =
-            &event
-            && cursor.position_over(layout.bounds()).is_some()
-        {
-            self.state.status = Status::Closed(true);
+            self.state.status = Status::Closed;
         }
 
         self.menu.as_widget_mut().update(

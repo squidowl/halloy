@@ -18,6 +18,7 @@ Fixed:
 - Filters are renormalized properly when ISUPPORT is updated
 - Crash when typing `/bouncer` into the message box
 - Scroll state no longer changes rapidly when long previews for URL(s) are present in history
+- Sidebar menu always takes one click to open (would sometimes require two clicks)
 
 Changed:
 
@@ -27,7 +28,7 @@ Changed:
 Thanks:
 
 - Contributions: @Toby222, @Frikilinux, @4e554c4c
-- Bug reports: @Toby222, @deepspaceaxolotl, @zhelezov, @Erroneuz, @dgz0, @csmith, @otonoton
+- Bug reports: @Toby222, @deepspaceaxolotl, @zhelezov, @Erroneuz, @dgz0, @csmith, @otonoton, @mefistoso
 - Feature requests: @j0lol, @xcfrg
 
 # 2025.9 (2025-09-16)
