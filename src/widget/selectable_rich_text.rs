@@ -536,10 +536,11 @@ where
                             None
                         })
                 {
-                    state.context_menu.status = context_menu::Status::Open(
+                    state.context_menu.status = context_menu::Status::Open {
                         // Need absolute position. Infallible since we're within position_in
-                        cursor.position_over(bounds).unwrap(),
-                    );
+                        position: cursor.position_over(bounds).unwrap(),
+                        keep_open_bounds: None,
+                    };
                     state.context_menu_link = Some(link);
                     self.cached_entries = entries;
                 }
@@ -804,7 +805,7 @@ where
             .downcast_mut::<State<Link, Renderer::Paragraph>>();
 
         // Sync local state w/ context menu change
-        if state.context_menu.status.open().is_none() {
+        if matches!(state.context_menu.status, context_menu::Status::Closed) {
             state.context_menu_link = None;
         }
 
