@@ -1,0 +1,13 @@
+verbose = "info"
+no_progress = true
+
+include_fragments = true
+
+# Reduce rate of checks to respect limits
+max-retries = 1 # default: 3
+retry-wait-time = 5 # seconds, default: 1
+max-concurrency = 32 # default: 128
+
+exclude-all-private = true
+exclude = [ '.*' ]
+include = [ '^http://.*', '^https://.*' ]
