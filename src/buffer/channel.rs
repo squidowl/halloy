@@ -157,6 +157,7 @@ pub fn view<'a>(
     container(body)
         .width(Length::Fill)
         .height(Length::Fill)
+        .padding(1)
         .into()
 }
 
