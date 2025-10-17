@@ -4,7 +4,7 @@ use data::{Config, Server, User, isupport, message, target};
 use iced::widget::{
     Scrollable, column, container, horizontal_rule, row, scrollable,
 };
-use iced::{Color, Length};
+use iced::{padding, Color, Length};
 
 use super::context_menu;
 use crate::widget::{Element, double_pass, message_content, selectable_text};
@@ -144,6 +144,7 @@ pub fn view<'a>(
             .width(Length::Fill)
             .padding([0, 11])
     ]
+    .padding(padding::top(4))
     .spacing(8)
     .into()
 }
