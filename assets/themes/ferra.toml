@@ -19,8 +19,8 @@ trace = "#dcdcdc"
 
 [buffer]
 background = "#242226"
-background_text_input = "#1d1b1e"
-background_title_bar = "#222024"
+background_text_input = "#201e21"
+background_title_bar = "#201e21"
 timestamp = "#685650"
 action = "#b1b695"
 topic = "#ab8a79"

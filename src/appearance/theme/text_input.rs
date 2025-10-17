@@ -17,11 +17,9 @@ impl Catalog for Theme {
 
 pub fn primary(theme: &Theme, status: Status) -> Style {
     let active = Style {
-        background: Background::Color(
-            theme.styles().buffer.background_text_input,
-        ),
+        background: Background::Color(Color::TRANSPARENT),
         border: Border {
-            radius: 4.0.into(),
+            radius: 0.0.into(),
             width: 0.0,
             color: Color::TRANSPARENT,
             // XXX Not currently displayed in application.
@@ -35,9 +33,7 @@ pub fn primary(theme: &Theme, status: Status) -> Style {
     match status {
         Status::Active | Status::Hovered | Status::Focused { .. } => active,
         Status::Disabled => Style {
-            background: Background::Color(
-                theme.styles().buffer.background_text_input,
-            ),
+            background: Background::Color(Color::TRANSPARENT),
             placeholder: Color {
                 a: 0.2,
                 ..theme.styles().text.secondary.color
