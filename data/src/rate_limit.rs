@@ -1,12 +1,11 @@
-use std::sync::Arc;
+use std::collections::VecDeque;
 
-use tokio::sync::Semaphore;
 use tokio::time::{Duration, Instant};
 
 pub struct BackoffInterval {
     duration: Duration,
     previous: Duration,
-    original: Duration,
+    minimum: Duration,
     mode: BackoffMode,
 }
 
@@ -21,7 +20,7 @@ impl From<Duration> for BackoffInterval {
         BackoffInterval {
             duration,
             previous: duration,
-            original: duration,
+            minimum: duration,
             mode: BackoffMode::Set,
         }
     }
@@ -38,7 +37,11 @@ impl BackoffInterval {
             BackoffMode::EasingOn => {
                 self.previous = self.duration;
                 self.duration =
-                    std::cmp::max(self.duration.mul_f64(0.9), self.original);
+                    std::cmp::max(self.duration.mul_f64(0.9), self.minimum);
+
+                if self.previous == self.duration {
+                    self.mode = BackoffMode::Set;
+                }
             }
             BackoffMode::BackingOff(count) => {
                 *count += 1;
@@ -59,37 +62,60 @@ impl BackoffInterval {
             _ => {
                 self.mode = BackoffMode::BackingOff(0);
                 self.duration = std::cmp::min(
-                    self.duration.mul_f64(2.0),
-                    256 * self.original,
+                    self.duration.saturating_mul(2),
+                    self.max_duration(),
                 );
             }
         }
     }
+
+    pub fn set_min(&mut self, duration: Duration) {
+        // If the interval shows no sign of having had to back off, then attempt
+        // to ease on
+        if self.duration == self.minimum
+            && matches!(self.mode, BackoffMode::Set)
+        {
+            self.mode = BackoffMode::EasingOn;
+        }
+
+        self.minimum = duration;
+        self.duration = std::cmp::min(self.duration, self.max_duration());
+        self.duration = std::cmp::max(self.duration, self.minimum);
+    }
+
+    fn max_duration(&self) -> Duration {
+        self.minimum.saturating_mul(256)
+    }
 }
 
-#[derive(Clone)]
-pub struct TokenBucket {
+pub struct TokenBucket<T> {
     duration: Duration,
     capacity: usize,
-    semaphore: Arc<Semaphore>,
+    available_permits: usize,
     last: Option<Instant>,
+    user_tokens: VecDeque<T>,
+    high_priority_tokens: VecDeque<T>,
+    low_priority_tokens: VecDeque<T>,
 }
 
-impl TokenBucket {
+impl<T> TokenBucket<T> {
     pub fn new(duration: Duration, capacity: usize) -> Self {
         Self {
             duration,
             capacity,
-            semaphore: Arc::new(Semaphore::new(capacity)),
+            available_permits: capacity,
             last: Some(Instant::now()),
+            user_tokens: VecDeque::new(),
+            high_priority_tokens: VecDeque::new(),
+            low_priority_tokens: VecDeque::new(),
         }
     }
 
     pub fn add_permit(&mut self, now: Instant) {
-        if self.semaphore.available_permits() < self.capacity {
+        if self.available_permits < self.capacity {
             if let Some(last) = self.last {
                 if now.duration_since(last) >= self.duration {
-                    self.semaphore.add_permits(1);
+                    self.available_permits += 1;
                     self.last = Some(now);
                 }
             } else {
@@ -100,11 +126,59 @@ impl TokenBucket {
         }
     }
 
-    pub async fn acquire_permit(&self) {
-        if let Ok(permit) = self.semaphore.acquire().await {
-            // Do not release permit back to semaphore, forget it in order to
-            // reduce the number of available tokens until they are refilled.
-            permit.forget();
+    pub fn add_token(&mut self, token: T, token_priority: TokenPriority) {
+        match token_priority {
+            TokenPriority::User => self.user_tokens.push_back(token),
+            TokenPriority::High => self.high_priority_tokens.push_back(token),
+            TokenPriority::Low => self.low_priority_tokens.push_back(token),
         }
     }
+
+    // Returns as many available tokens as are permitted
+    pub fn acquire_tokens(&mut self) -> impl Iterator<Item = T> {
+        let number_of_user_tokens =
+            self.available_permits.min(self.user_tokens.len());
+
+        self.available_permits =
+            self.available_permits.saturating_sub(number_of_user_tokens);
+
+        let number_of_high_priority_tokens =
+            self.available_permits.min(self.high_priority_tokens.len());
+
+        self.available_permits = self
+            .available_permits
+            .saturating_sub(number_of_high_priority_tokens);
+
+        let number_of_low_priority_tokens =
+            self.available_permits.min(self.low_priority_tokens.len());
+
+        self.available_permits = self
+            .available_permits
+            .saturating_sub(number_of_low_priority_tokens);
+
+        self.user_tokens
+            .drain(..number_of_user_tokens)
+            .chain(
+                self.high_priority_tokens
+                    .drain(..number_of_high_priority_tokens),
+            )
+            .chain(
+                self.low_priority_tokens
+                    .drain(..number_of_low_priority_tokens),
+            )
+    }
+
+    // Returns all tokens, regardless of permit status
+    pub fn drain_tokens(&mut self) -> impl Iterator<Item = T> {
+        self.user_tokens
+            .drain(..)
+            .chain(self.high_priority_tokens.drain(..))
+            .chain(self.low_priority_tokens.drain(..))
+    }
+}
+
+pub enum TokenPriority {
+    Low,  // Polls & other automated messages for retrieving metadata
+    High, // Most automated messages
+    User, // Messages that the user triggers directly
 }

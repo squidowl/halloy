@@ -92,7 +92,7 @@ pub struct Server {
     /// Enable WHO polling. Defaults to `true`.
     pub who_poll_enabled: bool,
     /// WHO poll interval for servers without away-notify.
-    #[serde(deserialize_with = "deserialize_duration_from_u64")]
+    #[serde(deserialize_with = "deserialize_who_poll_interval")]
     pub who_poll_interval: Duration,
     /// A list of nicknames to monitor (if MONITOR is supported by the server).
     pub monitor: Vec<String>,
@@ -332,12 +332,20 @@ pub struct Filters {
     pub ignore: Vec<String>,
 }
 
-fn deserialize_duration_from_u64<'de, D>(
+fn deserialize_who_poll_interval<'de, D>(
     deserializer: D,
 ) -> Result<Duration, D::Error>
 where
     D: Deserializer<'de>,
 {
     let seconds: u64 = Deserialize::deserialize(deserializer)?;
-    Ok(Duration::from_secs(seconds.clamp(1, 3600)))
+
+    if !(1..=3600).contains(&seconds) {
+        Err(serde::de::Error::invalid_value(
+            serde::de::Unexpected::Unsigned(seconds),
+            &"integer in the range 1 .. 3600",
+        ))
+    } else {
+        Ok(Duration::from_secs(seconds))
+    }
 }

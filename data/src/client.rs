@@ -24,7 +24,7 @@ use crate::isupport::{
     WhoXPollParameters,
 };
 use crate::message::{message_id, server_time, source};
-use crate::rate_limit::{BackoffInterval, TokenBucket};
+use crate::rate_limit::{BackoffInterval, TokenBucket, TokenPriority};
 use crate::target::{self, Target};
 use crate::time::Posix;
 use crate::user::{ChannelUsers, Nick, NickRef};
@@ -38,6 +38,7 @@ pub mod on_connect;
 const HIGHLIGHT_BLACKOUT_INTERVAL: Duration = Duration::from_secs(5);
 const CLIENT_CHATHISTORY_LIMIT: u16 = 500;
 const CHATHISTORY_REQUEST_TIMEOUT: Duration = Duration::from_secs(120);
+const ANTI_FLOOD_DURATION_PER_MESSAGE: Duration = Duration::from_secs(2);
 
 #[derive(Debug, Clone, Copy)]
 pub enum Status {
@@ -167,7 +168,7 @@ pub struct Client {
     who_polls: VecDeque<WhoPoll>,
     who_poll_interval: BackoffInterval,
     resolved_netid: Option<String>,
-    anti_flood: Option<TokenBucket>,
+    anti_flood: Option<TokenBucket<message::Encoded>>,
 }
 
 impl fmt::Debug for Client {
@@ -216,9 +217,16 @@ impl Client {
             registration_required_channels: vec![],
             isupport: HashMap::new(),
             who_polls: VecDeque::new(),
-            who_poll_interval: BackoffInterval::from(config.who_poll_interval),
+            who_poll_interval: BackoffInterval::from(
+                config
+                    .who_poll_interval
+                    .min(ANTI_FLOOD_DURATION_PER_MESSAGE.saturating_mul(2)),
+            ),
             resolved_netid: None,
-            anti_flood: Some(TokenBucket::new(Duration::from_secs(2), 8)),
+            anti_flood: Some(TokenBucket::new(
+                ANTI_FLOOD_DURATION_PER_MESSAGE,
+                10,
+            )),
             config,
         }
     }
@@ -357,21 +365,24 @@ impl Client {
 
     fn send(
         &mut self,
-        buffer: &buffer::Upstream,
+        buffer: Option<&buffer::Upstream>,
         mut message: message::Encoded,
+        priority: TokenPriority,
     ) {
-        if self.supports_labels {
-            let label = generate_label();
-            let context = Context::new(&message, buffer.clone());
+        if let Some(buffer) = buffer {
+            if self.supports_labels {
+                let label = generate_label();
+                let context = Context::new(&message, buffer.clone());
 
-            self.labels.insert(label.clone(), context);
+                self.labels.insert(label.clone(), context);
 
-            // IRC: Encode tags
-            message.tags = tags!["label" => label];
+                // IRC: Encode tags
+                message.tags = tags!["label" => label];
+            }
+
+            self.reroute_responses_to =
+                self.start_reroute(&message.command).then(|| buffer.clone());
         }
-
-        self.reroute_responses_to =
-            self.start_reroute(&message.command).then(|| buffer.clone());
 
         if matches!(message.command, Command::WHO(..)) {
             let params = message.command.clone().parameters();
@@ -417,7 +428,9 @@ impl Client {
             }
         }
 
-        if let Err(e) = self.handle.try_send(message.into()) {
+        if let Some(ref mut anti_flood) = self.anti_flood {
+            anti_flood.add_token(message, priority);
+        } else if let Err(e) = self.handle.try_send(message.into()) {
             log::warn!("[{}] Error sending message: {e}", self.server);
         }
     }
@@ -674,6 +687,7 @@ impl Client {
                                         {
                                             self.send_chathistory_request(
                                                 continuation_subcommand,
+                                                TokenPriority::High,
                                             );
                                         }
                                     }
@@ -1330,59 +1344,76 @@ impl Client {
                                 match query.command {
                                     ctcp::Command::Action => (),
                                     ctcp::Command::ClientInfo => {
-                                        self.handle.try_send(
+                                        self.send(
+                                            None,
                                             ctcp::response_message(
                                                 &query.command,
                                                 user.nickname().to_string(),
                                                 Some(ctcp_config.client_info()),
-                                            ),
-                                        )?;
+                                            )
+                                            .into(),
+                                            TokenPriority::High,
+                                        );
                                     }
                                     ctcp::Command::UserInfo => {
                                         if ctcp_config.userinfo.is_some() {
-                                            (self.handle).try_send(
+                                            self.send(
+                                                None,
                                                 ctcp::response_message(
                                                     &query.command,
                                                     user.nickname().to_string(),
-                                                    ctcp_config.userinfo.clone()
+                                                    ctcp_config
+                                                        .userinfo
+                                                        .clone(),
                                                 )
-                                            )?;
+                                                .into(),
+                                                TokenPriority::High,
+                                            );
                                         }
                                     }
                                     ctcp::Command::DCC => (),
                                     ctcp::Command::Ping => {
                                         if ctcp_config.ping {
-                                            self.handle.try_send(
+                                            self.send(
+                                                None,
                                                 ctcp::response_message(
                                                     &query.command,
                                                     user.nickname().to_string(),
                                                     query.params,
-                                                ),
-                                            )?;
+                                                )
+                                                .into(),
+                                                TokenPriority::High,
+                                            );
                                         }
                                     }
                                     ctcp::Command::Source => {
                                         if ctcp_config.source {
-                                            self.handle.try_send(
+                                            self.send(
+                                                None,
                                                 ctcp::response_message(
                                                     &query.command,
                                                     user.nickname().to_string(),
                                                     Some(SOURCE_WEBSITE),
-                                                ),
-                                            )?;
+                                                )
+                                                .into(),
+                                                TokenPriority::High,
+                                            );
                                         }
                                     }
                                     ctcp::Command::Version => {
                                         if ctcp_config.version {
-                                            self.handle.try_send(
+                                            self.send(
+                                                None,
                                                 ctcp::response_message(
                                                     &query.command,
                                                     user.nickname().to_string(),
                                                     Some(format!(
                                                         "Halloy {VERSION}"
                                                     )),
-                                                ),
-                                            )?;
+                                                )
+                                                .into(),
+                                                TokenPriority::High,
+                                            );
                                         }
                                     }
                                     ctcp::Command::Time => {
@@ -1394,13 +1425,16 @@ impl Client {
                                                 true,
                                             );
 
-                                            self.handle.try_send(
+                                            self.send(
+                                                None,
                                                 ctcp::response_message(
                                                     &query.command,
                                                     user.nickname().to_string(),
                                                     Some(formatted),
-                                                ),
-                                            )?;
+                                                )
+                                                .into(),
+                                                TokenPriority::High,
+                                            );
                                         }
                                     }
                                     ctcp::Command::Unknown(command) => {
@@ -2183,13 +2217,13 @@ impl Client {
             Command::Numeric(RPL_CHANNELMODEIS, args) => {
                 let channel = ok!(args.get(1));
 
-                if let Some(channel) =
-                    self.chanmap.get_mut(&context!(target::Channel::parse(
-                        channel,
-                        self.chantypes(),
-                        self.statusmsg(),
-                        self.casemapping(),
-                    )))
+                if let Ok(target_channel) = target::Channel::parse(
+                    channel,
+                    self.chantypes(),
+                    self.statusmsg(),
+                    self.casemapping(),
+                ) && let Some(channel) =
+                    self.chanmap.get_mut(&target_channel)
                 {
                     channel.mode = args.get(2).cloned();
                 }
@@ -2260,7 +2294,17 @@ impl Client {
                                                 }
                                             }
                                             isupport::Parameter::SAFERATE => {
+                                                if let Some(ref mut anti_flood) = self.anti_flood {
+                                                    for message in anti_flood.drain_tokens() {
+                                                        if let Err(e) = self.handle.try_send(message.into()) {
+                                                            log::warn!("[{}] Error sending message: {e}", self.server);
+                                                        }
+                                                    }
+                                                }
+
                                                 self.anti_flood = None;
+
+                                                self.who_poll_interval.set_min(self.config.who_poll_interval);
                                             }
                                             isupport::Parameter::BOUNCER_NETID(ref id) => {
                                                 match self.server.bouncer_netid() {
@@ -2489,8 +2533,9 @@ impl Client {
 
                 if command == "WHO" && self.config.who_poll_enabled {
                     self.who_poll_interval.too_short();
+
                     log::debug!(
-                        "[{}] self.who_poll_interval is too short → duration = {:?}",
+                        "[{}] WHO poll interval is too short → duration = {:?}",
                         self.server,
                         self.who_poll_interval.duration()
                     );
@@ -2650,15 +2695,23 @@ impl Client {
         Ok(vec![Event::Single(message, self.nickname().to_owned())])
     }
 
-    pub fn send_markread(&mut self, target: Target, read_marker: ReadMarker) {
-        if self.supports_read_marker
-            && let Err(e) = self.handle.try_send(command!(
-                "MARKREAD",
-                target.as_str().to_string(),
-                format!("timestamp={read_marker}"),
-            ))
-        {
-            log::warn!("[{}] Error sending markread: {e}", self.server);
+    fn send_markread(
+        &mut self,
+        target: Target,
+        read_marker: ReadMarker,
+        priority: TokenPriority,
+    ) {
+        if self.supports_read_marker {
+            self.send(
+                None,
+                command!(
+                    "MARKREAD",
+                    target.as_str().to_string(),
+                    format!("timestamp={read_marker}"),
+                )
+                .into(),
+                priority,
+            );
         }
     }
 
@@ -2739,6 +2792,7 @@ impl Client {
     pub fn send_chathistory_request(
         &mut self,
         subcommand: ChatHistorySubcommand,
+        priority: TokenPriority,
     ) {
         use std::collections::hash_map;
 
@@ -2785,13 +2839,18 @@ impl Client {
                         command_message_reference,
                     );
 
-                    let _ = self.handle.try_send(command!(
-                        "CHATHISTORY",
-                        "LATEST",
-                        target.to_string(),
-                        command_message_reference.to_string(),
-                        limit.to_string(),
-                    ));
+                    self.send(
+                        None,
+                        command!(
+                            "CHATHISTORY",
+                            "LATEST",
+                            target.to_string(),
+                            command_message_reference.to_string(),
+                            limit.to_string(),
+                        )
+                        .into(),
+                        priority,
+                    );
                 }
                 ChatHistorySubcommand::Before(
                     target,
@@ -2807,13 +2866,18 @@ impl Client {
                         command_message_reference,
                     );
 
-                    let _ = self.handle.try_send(command!(
-                        "CHATHISTORY",
-                        "BEFORE",
-                        target.to_string(),
-                        command_message_reference.to_string(),
-                        limit.to_string(),
-                    ));
+                    self.send(
+                        None,
+                        command!(
+                            "CHATHISTORY",
+                            "BEFORE",
+                            target.to_string(),
+                            command_message_reference.to_string(),
+                            limit.to_string(),
+                        )
+                        .into(),
+                        priority,
+                    );
                 }
                 ChatHistorySubcommand::Between(
                     target,
@@ -2836,14 +2900,19 @@ impl Client {
                         command_end_message_reference,
                     );
 
-                    let _ = self.handle.try_send(command!(
-                        "CHATHISTORY",
-                        "BETWEEN",
-                        target.to_string(),
-                        command_start_message_reference.to_string(),
-                        command_end_message_reference.to_string(),
-                        limit.to_string(),
-                    ));
+                    self.send(
+                        None,
+                        command!(
+                            "CHATHISTORY",
+                            "BETWEEN",
+                            target.to_string(),
+                            command_start_message_reference.to_string(),
+                            command_end_message_reference.to_string(),
+                            limit.to_string(),
+                        )
+                        .into(),
+                        priority,
+                    );
                 }
                 ChatHistorySubcommand::Targets(
                     start_message_reference,
@@ -2885,13 +2954,18 @@ impl Client {
                         command_end_message_reference,
                     );
 
-                    let _ = self.handle.try_send(command!(
-                        "CHATHISTORY",
-                        "TARGETS",
-                        command_start_message_reference.to_string(),
-                        command_end_message_reference.to_string(),
-                        limit.to_string(),
-                    ));
+                    self.send(
+                        None,
+                        command!(
+                            "CHATHISTORY",
+                            "TARGETS",
+                            command_start_message_reference.to_string(),
+                            command_end_message_reference.to_string(),
+                            limit.to_string(),
+                        )
+                        .into(),
+                        priority,
+                    );
                 }
             }
         }
@@ -3024,6 +3098,12 @@ impl Client {
     pub fn tick(&mut self, now: Instant) -> Result<()> {
         if let Some(ref mut anti_flood) = self.anti_flood {
             anti_flood.add_permit(now.into());
+
+            for message in anti_flood.acquire_tokens() {
+                if let Err(e) = self.handle.try_send(message.into()) {
+                    log::warn!("[{}] Error sending message: {e}", self.server);
+                }
+            }
         }
 
         match self.highlight_notification_blackout {
@@ -3079,38 +3159,6 @@ impl Client {
             };
 
             if let Some(request) = request {
-                if self.isupport.contains_key(&isupport::Kind::WHOX) {
-                    let whox_params = if self.supports_account_notify {
-                        WhoXPollParameters::WithAccountName
-                    } else {
-                        WhoXPollParameters::Default
-                    };
-
-                    who_poll.status = WhoStatus::Requested(
-                        WhoSource::Poll,
-                        Instant::now(),
-                        Some(whox_params.token()),
-                    );
-
-                    self.handle.try_send(command!(
-                        "WHO",
-                        who_poll.channel.to_string(),
-                        whox_params.fields().to_string(),
-                        whox_params.token().to_owned()
-                    ))?;
-                } else {
-                    who_poll.status = WhoStatus::Requested(
-                        WhoSource::Poll,
-                        Instant::now(),
-                        None,
-                    );
-
-                    self.handle.try_send(command!(
-                        "WHO",
-                        who_poll.channel.to_string()
-                    ))?;
-                }
-
                 log::debug!(
                     "[{}] {} - WHO {}",
                     self.server,
@@ -3120,6 +3168,38 @@ impl Client {
                         Request::Retry => "retry",
                     }
                 );
+
+                let message =
+                    if self.isupport.contains_key(&isupport::Kind::WHOX) {
+                        let whox_params = if self.supports_account_notify {
+                            WhoXPollParameters::WithAccountName
+                        } else {
+                            WhoXPollParameters::Default
+                        };
+
+                        who_poll.status = WhoStatus::Requested(
+                            WhoSource::Poll,
+                            Instant::now(),
+                            Some(whox_params.token()),
+                        );
+
+                        command!(
+                            "WHO",
+                            who_poll.channel.to_string(),
+                            whox_params.fields().to_string(),
+                            whox_params.token().to_owned()
+                        )
+                    } else {
+                        who_poll.status = WhoStatus::Requested(
+                            WhoSource::Poll,
+                            Instant::now(),
+                            None,
+                        );
+
+                        command!("WHO", who_poll.channel.to_string())
+                    };
+
+                self.send(None, message.into(), TokenPriority::Low);
             }
         }
 
@@ -3302,18 +3382,14 @@ impl Map {
         }
     }
 
-    pub fn get_anti_flood(&self, server: &Server) -> Option<TokenBucket> {
-        self.client(server)
-            .and_then(|client| client.anti_flood.clone())
-    }
-
     pub fn send(
         &mut self,
         buffer: &buffer::Upstream,
         message: message::Encoded,
+        priority: TokenPriority,
     ) {
         if let Some(client) = self.client_mut(buffer.server()) {
-            client.send(buffer, message);
+            client.send(Some(buffer), message, priority);
         }
     }
 
@@ -3322,9 +3398,10 @@ impl Map {
         server: &Server,
         target: Target,
         read_marker: ReadMarker,
+        priority: TokenPriority,
     ) {
         if let Some(client) = self.client_mut(server) {
-            client.send_markread(target, read_marker);
+            client.send_markread(target, read_marker, priority);
         }
     }
 
@@ -3516,9 +3593,10 @@ impl Map {
         &mut self,
         server: &Server,
         subcommand: ChatHistorySubcommand,
+        priority: TokenPriority,
     ) {
         if let Some(client) = self.client_mut(server) {
-            client.send_chathistory_request(subcommand);
+            client.send_chathistory_request(subcommand, priority);
         }
     }
 
