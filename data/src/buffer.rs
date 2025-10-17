@@ -146,12 +146,24 @@ impl From<config::Buffer> for Settings {
     }
 }
 
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
 pub struct TextInput {
     pub visibility: TextInputVisibility,
     pub auto_format: AutoFormat,
     pub autocomplete: Autocomplete,
+    pub show_own_nickname: bool,
+}
+
+impl Default for TextInput {
+    fn default() -> Self {
+        Self {
+            visibility: TextInputVisibility::default(),
+            auto_format: AutoFormat::default(),
+            autocomplete: Autocomplete::default(),
+            show_own_nickname: true,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, Default, Deserialize)]

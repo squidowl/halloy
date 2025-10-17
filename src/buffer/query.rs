@@ -3,12 +3,13 @@ use std::path::PathBuf;
 use data::dashboard::BufferAction;
 use data::preview::{self, Previews};
 use data::target::{self, Target};
-use data::{Config, Server, buffer, history, message};
+use data::user::Nick;
+use data::{Config, Server, User, buffer, history, message};
 use iced::widget::{column, container, vertical_space};
 use iced::{Length, Size, Task};
 
 use super::message_view::{ChannelQueryLayout, TargetInfo};
-use super::{input_view, scroll_view, context_menu};
+use super::{context_menu, input_view, scroll_view};
 use crate::Theme;
 use crate::widget::Element;
 
@@ -48,6 +49,8 @@ pub fn view<'a>(
     let status = clients.status(server);
     let buffer = &state.buffer;
     let input = history.input(buffer);
+    let our_nick = clients.nickname(&state.server);
+    let our_user = our_nick.map(|our_nick| User::from(Nick::from(our_nick)));
 
     let chathistory_state =
         clients.get_chathistory_state(server, &query.to_target());
@@ -96,6 +99,7 @@ pub fn view<'a>(
                 &state.input_view,
                 input,
                 is_focused,
+                our_user.as_ref(),
                 !status.connected(),
                 config,
                 theme,
@@ -105,12 +109,11 @@ pub fn view<'a>(
         .width(Length::Fill)
     });
 
-    let scrollable = column![messages, text_input,].height(Length::Fill);
+    let scrollable = column![messages, text_input].height(Length::Fill);
 
     container(scrollable)
         .width(Length::Fill)
         .height(Length::Fill)
-        .padding(8)
         .into()
 }
 
