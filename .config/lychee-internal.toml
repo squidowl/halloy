@@ -1,0 +1,7 @@
+verbose = "info"
+no_progress = true
+
+include_fragments = true
+
+exclude-all-private = true
+exclude = [ '^http://.*', '^https://.*', '^irc://.*', '^ircs://.*' ]
