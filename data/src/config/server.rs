@@ -97,6 +97,8 @@ pub struct Server {
     /// A list of nicknames to monitor (if MONITOR is supported by the server).
     pub monitor: Vec<String>,
     pub chathistory: bool,
+    #[serde(deserialize_with = "deserialize_anti_flood")]
+    pub anti_flood: Duration,
     #[serde(skip)]
     pub order: u16,
 }
@@ -209,6 +211,7 @@ impl Default for Server {
             who_poll_interval: Duration::from_secs(2),
             monitor: Vec::default(),
             chathistory: true,
+            anti_flood: Duration::from_millis(2000),
             order: 0,
         }
     }
@@ -330,6 +333,22 @@ impl Sasl {
 #[serde(default)]
 pub struct Filters {
     pub ignore: Vec<String>,
+}
+
+fn deserialize_anti_flood<'de, D>(deserializer: D) -> Result<Duration, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let milliseconds: u64 = Deserialize::deserialize(deserializer)?;
+
+    if !(100..=60000).contains(&milliseconds) {
+        Err(serde::de::Error::invalid_value(
+            serde::de::Unexpected::Unsigned(milliseconds),
+            &"integer in the range 100 .. 60000",
+        ))
+    } else {
+        Ok(Duration::from_millis(milliseconds))
+    }
 }
 
 fn deserialize_who_poll_interval<'de, D>(
