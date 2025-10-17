@@ -920,6 +920,19 @@ Sets what suffix is added after autocompleting. The first option is for when a n
 completion_suffixes = [": ", " "]
 ```
 
+### `show_own_nickname`
+
+Display own nickname next to text input field
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: true
+
+[buffer.text_input]
+show_own_nickname = true
+```
+
 ## `[buffer.timestamp]`
 
 Customize how timestamps are displayed within a buffer.

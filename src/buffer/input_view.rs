@@ -8,9 +8,9 @@ use data::message::server_time;
 use data::rate_limit::TokenPriority;
 use data::target::Target;
 use data::user::Nick;
-use data::{Config, client, command};
-use iced::Task;
-use iced::widget::{column, container, text, text_input};
+use data::{Config, User, client, command};
+use iced::widget::{column, container, row, text, text_input, vertical_rule};
+use iced::{Alignment, Task, padding};
 use tokio::time;
 
 use self::completion::Completion;
@@ -54,6 +54,7 @@ pub fn view<'a>(
     state: &'a State,
     cache: Cache<'a>,
     buffer_focused: bool,
+    our_user: Option<&User>,
     disabled: bool,
     config: &Config,
     theme: &'a Theme,
@@ -67,7 +68,7 @@ pub fn view<'a>(
     let mut text_input = text_input("Send message...", cache.text)
         .on_submit(Message::Send)
         .id(state.input_id.clone())
-        .padding(8)
+        .padding([0, 4])
         .style(style);
 
     if !disabled {
@@ -75,7 +76,7 @@ pub fn view<'a>(
     }
 
     // Add tab support
-    let mut input = key_press(
+    let input = key_press(
         key_press(
             text_input,
             key_press::Key::Named(key_press::Named::Tab),
@@ -87,12 +88,61 @@ pub fn view<'a>(
         Message::Tab(false),
     );
 
+    let our_user_style = {
+        let is_user_away = config
+            .buffer
+            .nickname
+            .away
+            .is_away(our_user.is_none_or(User::is_away));
+
+        let seed = match config.buffer.nickname.color {
+            data::buffer::Color::Solid => None,
+            data::buffer::Color::Unique => {
+                our_user.map(|user| Some(user.seed()))
+            }
+        }
+        .flatten();
+
+        theme::text::nickname(theme, seed, is_user_away, false)
+    };
+
+    let maybe_our_user =
+        config.buffer.text_input.show_own_nickname.then(move || {
+            our_user.map(|user| {
+                container(
+                    text(user.display(true, None))
+                        .style(move |_| our_user_style)
+                        .font_maybe(
+                            theme::font_style::nickname(theme, false)
+                                .map(font::get),
+                        ),
+                )
+                .padding(padding::right(4).left(2))
+            })
+        });
+
+    let maybe_vertical_rule =
+        maybe_our_user.is_some().then(move || vertical_rule(1.0));
+
+    let mut content = column![
+        container(
+            row![maybe_our_user, maybe_vertical_rule, input]
+                .spacing(4)
+                .height(22)
+                .align_y(Alignment::Center)
+        )
+        .padding([8, 14])
+        .style(theme::container::buffer_text_input),
+    ]
+    .spacing(4)
+    .into();
+
     // Add up / down support for history cycling
     if buffer_focused {
-        input = key_press(
+        content = key_press(
             key_press(
                 key_press(
-                    input,
+                    content,
                     key_press::Key::Named(key_press::Named::ArrowUp),
                     key_press::Modifiers::default(),
                     Message::Up,
@@ -114,9 +164,10 @@ pub fn view<'a>(
             .as_deref()
             .map(|error_str| error(error_str, theme)),
     ]
+    .padding([0, 8])
     .spacing(4);
 
-    anchored_overlay(input, overlay, anchored_overlay::Anchor::AboveTop, 4.0)
+    anchored_overlay(content, overlay, anchored_overlay::Anchor::AboveTop, 4.0)
 }
 
 fn error<'a, 'b, Message: 'a>(
