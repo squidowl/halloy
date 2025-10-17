@@ -2598,6 +2598,15 @@ root_cert_path = ""
 [servers.&lt;name&gt;]
 on_connect = ["/msg NickServ IDENTIFY foo bar", "/delay 2", "/join registered-club"]
 </code></pre>
+<h2 id="anti_flood"><a class="header" href="#anti_flood"><code>anti_flood</code></a></h2>
+<p>The time (in milliseconds) between sending messages to servers without SAFERATE.  Timing is not strictly guaranteed;  small groups of messages may be allowed to be sent at a faster rate, messages may be delayed in order to be batched, automated messages are included in the queue (most at a lower priority than user messages), etc.</p>
+<pre><code class="language-toml"># Type: integer
+# Values: 100 .. 60000
+# Default: 2000
+
+[servers.&lt;name&gt;]
+anti_flood = 2000
+</code></pre>
 <h2 id="who_poll_enabled"><a class="header" href="#who_poll_enabled"><code>who_poll_enabled</code></a></h2>
 <p>Whether or not to WHO polling is enabled.</p>
 <pre><code class="language-toml"># Type: boolean
@@ -2608,7 +2617,7 @@ on_connect = ["/msg NickServ IDENTIFY foo bar", "/delay 2", "/join registered-cl
 who_poll_enabled = true
 </code></pre>
 <h2 id="who_poll_interval"><a class="header" href="#who_poll_interval"><code>who_poll_interval</code></a></h2>
-<p>WHO poll interval (in seconds) for servers without away-notify.  Specifically, the time between individual WHO requests. Will be increased automatically if the server sends a rate-limiting message.</p>
+<p>WHO poll interval (in seconds) for servers without away-notify.  Specifically, the time between individual WHO requests. Will be increased automatically if the server sends a rate-limiting message.  When the server does not support SAFERATE (and anti-flood protections are enabled) then <code>who_poll_interval</code> will be increased to than twice <code>anti_flood</code> if it is not already.</p>
 <pre><code class="language-toml"># Type: integer
 # Values: 1 .. 3600
 # Default: 2
