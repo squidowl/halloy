@@ -111,11 +111,22 @@ impl<T> TokenBucket<T> {
         }
     }
 
-    pub fn add_permit(&mut self, now: Instant) {
+    pub fn add_permits(&mut self, now: Instant) {
         if self.available_permits < self.capacity {
             if let Some(last) = self.last {
-                if now.duration_since(last) >= self.duration {
-                    self.available_permits += 1;
+                // If tick rate is slower than configured anti_flood then
+                // multiple permits may need to be created
+                let new_permits = now.duration_since(last).as_millis()
+                    / self.duration.as_millis();
+
+                if new_permits > 0 {
+                    self.available_permits = self
+                        .available_permits
+                        .saturating_add(
+                            new_permits.try_into().unwrap_or(self.capacity),
+                        )
+                        .max(self.capacity);
+
                     self.last = Some(now);
                 }
             } else {

@@ -38,7 +38,6 @@ pub mod on_connect;
 const HIGHLIGHT_BLACKOUT_INTERVAL: Duration = Duration::from_secs(5);
 const CLIENT_CHATHISTORY_LIMIT: u16 = 500;
 const CHATHISTORY_REQUEST_TIMEOUT: Duration = Duration::from_secs(120);
-const ANTI_FLOOD_DURATION_PER_MESSAGE: Duration = Duration::from_secs(2);
 
 #[derive(Debug, Clone, Copy)]
 pub enum Status {
@@ -220,13 +219,10 @@ impl Client {
             who_poll_interval: BackoffInterval::from(
                 config
                     .who_poll_interval
-                    .min(ANTI_FLOOD_DURATION_PER_MESSAGE.saturating_mul(2)),
+                    .min(config.anti_flood.saturating_mul(2)),
             ),
             resolved_netid: None,
-            anti_flood: Some(TokenBucket::new(
-                ANTI_FLOOD_DURATION_PER_MESSAGE,
-                10,
-            )),
+            anti_flood: Some(TokenBucket::new(config.anti_flood, 10)),
             config,
         }
     }
@@ -3097,7 +3093,7 @@ impl Client {
 
     pub fn tick(&mut self, now: Instant) -> Result<()> {
         if let Some(ref mut anti_flood) = self.anti_flood {
-            anti_flood.add_permit(now.into());
+            anti_flood.add_permits(now.into());
 
             for message in anti_flood.acquire_tokens() {
                 if let Err(e) = self.handle.try_send(message.into()) {
