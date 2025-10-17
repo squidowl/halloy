@@ -380,7 +380,9 @@ impl Client {
                 self.start_reroute(&message.command).then(|| buffer.clone());
         }
 
-        if matches!(message.command, Command::WHO(..)) {
+        if matches!(message.command, Command::WHO(..))
+            && matches!(priority, TokenPriority::User)
+        {
             let params = message.command.clone().parameters();
 
             if let Some(mask) = params.first() {
