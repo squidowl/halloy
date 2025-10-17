@@ -5,7 +5,7 @@ use data::target::Target;
 use data::user::Nick;
 use data::{buffer, history, message, Config, User};
 use iced::widget::{column, container, row, vertical_space};
-use iced::{Color, Length, Size, Task, padding};
+use iced::{Color, Length, Size, Task};
 
 use super::{input_view, scroll_view, context_menu};
 use crate::widget::{Element, message_content, selectable_text};
