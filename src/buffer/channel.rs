@@ -54,7 +54,7 @@ pub fn view<'a>(
     let channel = &state.target;
     let buffer = &state.buffer;
     let input = history.input(buffer);
-    let our_nick = clients.nickname(&state.server);
+    let our_nick: Option<data::user::NickRef<'_>> = clients.nickname(&state.server);
 
     let our_user = our_nick
         .map(|our_nick| User::from(Nick::from(our_nick)))
@@ -135,7 +135,7 @@ pub fn view<'a>(
         .map(Message::InputView)
     });
 
-    let content = column![topic, messages].spacing(4);
+    let content = column![topic, messages];
 
     let nicklist_enabled = settings
         .map_or(config.buffer.channel.nicklist.enabled, |settings| {
