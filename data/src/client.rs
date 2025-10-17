@@ -38,6 +38,8 @@ pub mod on_connect;
 const HIGHLIGHT_BLACKOUT_INTERVAL: Duration = Duration::from_secs(5);
 const CLIENT_CHATHISTORY_LIMIT: u16 = 500;
 const CHATHISTORY_REQUEST_TIMEOUT: Duration = Duration::from_secs(120);
+const MODE_REQUEST_DELAY: Duration = Duration::from_millis(600);
+const MODE_REQUEST_TIMEOUT: Duration = Duration::from_secs(120);
 
 #[derive(Debug, Clone, Copy)]
 pub enum Status {
@@ -168,6 +170,7 @@ pub struct Client {
     who_poll_interval: BackoffInterval,
     resolved_netid: Option<String>,
     anti_flood: Option<TokenBucket<message::Encoded>>,
+    mode_requests: Vec<ModeRequest>,
 }
 
 impl fmt::Debug for Client {
@@ -223,6 +226,7 @@ impl Client {
             ),
             resolved_netid: None,
             anti_flood: Some(TokenBucket::new(config.anti_flood, 10)),
+            mode_requests: Vec::new(),
             config,
         }
     }
@@ -1647,6 +1651,15 @@ impl Client {
                         });
                     }
 
+                    if !self.mode_requests.iter().any(|mode_request| {
+                        mode_request.channel == target_channel
+                    }) {
+                        self.mode_requests.push(ModeRequest {
+                            channel: target_channel.clone(),
+                            status: ModeStatus::Joined(Instant::now()),
+                        });
+                    }
+
                     return Ok(vec![Event::JoinedChannel(
                         target_channel,
                         server_time(&message),
@@ -2223,7 +2236,21 @@ impl Client {
                 ) && let Some(channel) =
                     self.chanmap.get_mut(&target_channel)
                 {
+                    let mode_request_response = if let Some(position) =
+                        self.mode_requests.iter().position(|mode_request| {
+                            mode_request.channel == target_channel
+                        }) {
+                        self.mode_requests.swap_remove(position);
+                        true
+                    } else {
+                        false
+                    };
+
                     channel.mode = args.get(2).cloned();
+
+                    if mode_request_response {
+                        return Ok(vec![]);
+                    }
                 }
             }
             Command::Numeric(ERR_NOCHANMODES, args) => {
@@ -3094,16 +3121,6 @@ impl Client {
     }
 
     pub fn tick(&mut self, now: Instant) -> Result<()> {
-        if let Some(ref mut anti_flood) = self.anti_flood {
-            anti_flood.add_permits(now.into());
-
-            for message in anti_flood.acquire_tokens() {
-                if let Err(e) = self.handle.try_send(message.into()) {
-                    log::warn!("[{}] Error sending message: {e}", self.server);
-                }
-            }
-        }
-
         match self.highlight_notification_blackout {
             HighlightNotificationBlackout::Blackout(instant) => {
                 if now.duration_since(instant) >= HIGHLIGHT_BLACKOUT_INTERVAL {
@@ -3201,10 +3218,46 @@ impl Client {
             }
         }
 
+        self.mode_requests.retain(|mode_request| {
+            if let ModeStatus::Requested(requested_at) = mode_request.status
+                && now.duration_since(requested_at) >= MODE_REQUEST_TIMEOUT
+            {
+                false
+            } else {
+                true
+            }
+        });
+
+        let mut mode_requests = Vec::new();
+
+        for mode_request in self.mode_requests.iter_mut() {
+            if let ModeStatus::Joined(joined_at) = mode_request.status
+                && now.duration_since(joined_at) > MODE_REQUEST_DELAY
+            {
+                mode_request.status = ModeStatus::Requested(Instant::now());
+                mode_requests
+                    .push(command!("MODE", mode_request.channel.to_string()));
+            }
+        }
+
+        for mode_request in mode_requests {
+            self.send(None, mode_request.into(), TokenPriority::Low);
+        }
+
         self.chathistory_requests.retain(|_, chathistory_request| {
             now.duration_since(chathistory_request.requested_at)
                 < CHATHISTORY_REQUEST_TIMEOUT
         });
+
+        if let Some(ref mut anti_flood) = self.anti_flood {
+            anti_flood.add_permits(now.into());
+
+            for message in anti_flood.acquire_tokens() {
+                if let Err(e) = self.handle.try_send(message.into()) {
+                    log::warn!("[{}] Error sending message: {e}", self.server);
+                }
+            }
+        }
 
         Ok(())
     }
@@ -3858,6 +3911,18 @@ pub enum WhoStatus {
 pub enum WhoSource {
     User,
     Poll,
+}
+
+#[derive(Debug, Clone)]
+pub struct ModeRequest {
+    pub channel: target::Channel,
+    pub status: ModeStatus,
+}
+
+#[derive(Debug, Clone)]
+pub enum ModeStatus {
+    Requested(Instant),
+    Joined(Instant),
 }
 
 fn group_capability_requests<'a>(
