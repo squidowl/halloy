@@ -4,7 +4,8 @@ use data::buffer::{self, Autocomplete, Upstream};
 use data::dashboard::BufferAction;
 use data::history::{self, ReadMarker};
 use data::input::{self, Cache, RawInput};
-use data::message::{self, server_time};
+use data::message::server_time;
+use data::rate_limit::TokenPriority;
 use data::target::Target;
 use data::user::Nick;
 use data::{Config, client, command};
@@ -45,8 +46,7 @@ pub enum Message {
     Escape,
     SendCommand {
         buffer: Upstream,
-        encoded: Option<message::Encoded>,
-        markread_targets: Option<Vec<Target>>,
+        command: command::Irc,
     },
 }
 
@@ -238,7 +238,7 @@ impl State {
                     &clients.get_isupport(buffer.server()),
                 ) && let Some(encoded) = input.encoded()
                 {
-                    clients.send(buffer, encoded);
+                    clients.send(buffer, encoded, TokenPriority::User);
                 }
 
                 (Task::none(), None)
@@ -473,7 +473,11 @@ impl State {
 
                                     // Send part command.
                                     if let Some(part_command) = part_command {
-                                        clients.send(buffer, part_command);
+                                        clients.send(
+                                            buffer,
+                                            part_command,
+                                            TokenPriority::User,
+                                        );
                                     }
 
                                     // Create a delay task that will execute the join after waiting
@@ -484,16 +488,11 @@ impl State {
                                     let delayed_join_task = Task::perform(
                                         time::sleep(Duration::from_millis(100)),
                                         move |()| Message::SendCommand {
-                                            buffer: buffer_clone.clone(),
-                                            encoded: data::Input::command(
-                                                buffer_clone,
-                                                command::Irc::Join(
-                                                    target_channel_clone,
-                                                    None,
-                                                ),
-                                            )
-                                            .encoded(),
-                                            markread_targets: None,
+                                            buffer: buffer_clone,
+                                            command: command::Irc::Join(
+                                                target_channel_clone,
+                                                None,
+                                            ),
                                         },
                                     );
 
@@ -574,37 +573,33 @@ impl State {
 
                     history.record_input_history(buffer, raw_input.to_owned());
 
-                    let send_command = Message::SendCommand {
-                        buffer: buffer.clone(),
-                        encoded: input.encoded(),
-                        markread_targets: config
-                            .buffer
-                            .mark_as_read
-                            .on_message_sent
-                            .then_some({
-                                let chantypes =
-                                    clients.get_chantypes(buffer.server());
-                                let statusmsg =
-                                    clients.get_statusmsg(buffer.server());
-                                let casemapping =
-                                    clients.get_casemapping(buffer.server());
+                    if let Some(encoded) = input.encoded() {
+                        let sent_time = server_time(&encoded);
 
+                        clients.send(buffer, encoded, TokenPriority::User);
+
+                        if config.buffer.mark_as_read.on_message_sent {
+                            let chantypes =
+                                clients.get_chantypes(buffer.server());
+                            let statusmsg =
+                                clients.get_statusmsg(buffer.server());
+                            let casemapping =
+                                clients.get_casemapping(buffer.server());
+
+                            if let Some(targets) =
                                 input.targets(chantypes, statusmsg, casemapping)
-                            })
-                            .flatten(),
-                    };
-
-                    let anti_flood = clients.get_anti_flood(buffer.server());
-
-                    let send_command_task = if let Some(anti_flood) = anti_flood
-                    {
-                        Task::perform(
-                            async move { anti_flood.acquire_permit().await },
-                            move |()| send_command,
-                        )
-                    } else {
-                        Task::done(send_command)
-                    };
+                            {
+                                for target in targets {
+                                    clients.send_markread(
+                                        buffer.server(),
+                                        target,
+                                        ReadMarker::from_date_time(sent_time),
+                                        TokenPriority::High,
+                                    );
+                                }
+                            }
+                        }
+                    }
 
                     let mut history_task = Task::none();
 
@@ -647,7 +642,7 @@ impl State {
                         );
                     }
 
-                    (send_command_task, Some(Event::InputSent { history_task }))
+                    (Task::none(), Some(Event::InputSent { history_task }))
                 } else {
                     (Task::none(), None)
                 }
@@ -768,26 +763,13 @@ impl State {
             // Capture escape so that closing context menu or commands/emojis picker
             // does not defocus input
             Message::Escape => (Task::none(), None),
-            Message::SendCommand {
-                buffer,
-                encoded,
-                markread_targets,
-            } => {
+            Message::SendCommand { buffer, command } => {
+                let input =
+                    data::Input::command(buffer.clone(), command).encoded();
+
                 // Send command.
-                if let Some(encoded) = encoded {
-                    let sent_time = server_time(&encoded);
-
-                    clients.send(&buffer, encoded);
-
-                    if let Some(markread_targets) = markread_targets {
-                        for markread_target in markread_targets {
-                            clients.send_markread(
-                                buffer.server(),
-                                markread_target,
-                                ReadMarker::from_date_time(sent_time),
-                            );
-                        }
-                    }
+                if let Some(input) = input {
+                    clients.send(&buffer, input, TokenPriority::User);
                 }
 
                 (Task::none(), None)

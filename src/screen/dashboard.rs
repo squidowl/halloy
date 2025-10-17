@@ -10,6 +10,7 @@ use data::history::ReadMarker;
 use data::history::filter::Filter;
 use data::isupport::{self, ChatHistorySubcommand, MessageReference};
 use data::message::Broadcast;
+use data::rate_limit::TokenPriority;
 use data::target::{self, Target};
 use data::{
     Config, Notification, Server, User, Version, client, command, config,
@@ -353,7 +354,12 @@ impl Dashboard {
                                 .data()
                                 .and_then(history::Kind::from_buffer)
                         {
-                            mark_as_read(kind, &mut self.history, clients);
+                            mark_as_read(
+                                kind,
+                                &mut self.history,
+                                clients,
+                                TokenPriority::User,
+                            );
                         }
                     }
                     pane::Message::ContentResized(id, size) => {
@@ -465,7 +471,12 @@ impl Dashboard {
                         if let Some(kind) = history::Kind::from_buffer(
                             data::Buffer::Upstream(buffer),
                         ) {
-                            mark_as_read(kind, &mut self.history, clients);
+                            mark_as_read(
+                                kind,
+                                &mut self.history,
+                                clients,
+                                TokenPriority::User,
+                            );
                         }
 
                         (Task::none(), None)
@@ -568,6 +579,7 @@ impl Dashboard {
                                     server,
                                     target,
                                     read_marker,
+                                    TokenPriority::High,
                                 );
                             }
                         }
@@ -1089,7 +1101,12 @@ impl Dashboard {
                                 .data()
                                 .and_then(history::Kind::from_buffer)
                         {
-                            mark_as_read(kind, &mut self.history, clients);
+                            mark_as_read(
+                                kind,
+                                &mut self.history,
+                                clients,
+                                TokenPriority::User,
+                            );
                         }
                     }
                 }
@@ -1177,7 +1194,11 @@ impl Dashboard {
             }
             Message::Client(message) => match message {
                 client::Message::ChatHistoryRequest(server, subcommand) => {
-                    clients.send_chathistory_request(&server, subcommand);
+                    clients.send_chathistory_request(
+                        &server,
+                        subcommand,
+                        TokenPriority::High,
+                    );
                 }
                 client::Message::ChatHistoryTargetsTimestampUpdated(
                     server,
@@ -1228,6 +1249,7 @@ impl Dashboard {
                             message_reference,
                             limit,
                         ),
+                        TokenPriority::High,
                     );
                 }
                 client::Message::RequestChatHistoryTargets(
@@ -1252,6 +1274,7 @@ impl Dashboard {
                             end_message_reference,
                             limit,
                         ),
+                        TokenPriority::High,
                     );
                 }
             },
@@ -1506,7 +1529,11 @@ impl Dashboard {
                         let input = data::Input::command(buffer, command);
 
                         if let Some(encoded) = input.encoded() {
-                            clients.send(&input.buffer, encoded);
+                            clients.send(
+                                &input.buffer,
+                                encoded,
+                                TokenPriority::User,
+                            );
                         }
                     }
                     buffer::context_menu::Event::SendWhois(server, nick) => {
@@ -1522,7 +1549,11 @@ impl Dashboard {
                             data::Input::command(buffer.clone(), command);
 
                         if let Some(encoded) = input.encoded() {
-                            clients.send(&input.buffer, encoded);
+                            clients.send(
+                                &input.buffer,
+                                encoded,
+                                TokenPriority::User,
+                            );
                         }
 
                         if let Some(nick) = clients.nickname(buffer.server()) {
@@ -1649,7 +1680,11 @@ impl Dashboard {
                             data::Input::command(buffer.clone(), command);
 
                         if let Some(encoded) = input.encoded() {
-                            clients.send(&input.buffer, encoded);
+                            clients.send(
+                                &input.buffer,
+                                encoded,
+                                TokenPriority::High,
+                            );
                         }
                     }
                 }
@@ -1777,7 +1812,12 @@ impl Dashboard {
                 self.history.hide_preview(kind, hash, url);
             }
             buffer::Event::MarkAsRead(kind) => {
-                mark_as_read(kind, &mut self.history, clients);
+                mark_as_read(
+                    kind,
+                    &mut self.history,
+                    clients,
+                    TokenPriority::User,
+                );
             }
             buffer::Event::OpenUrl(url) => {
                 return (
@@ -2094,7 +2134,7 @@ impl Dashboard {
                 let input = data::Input::command(buffer.clone(), command);
 
                 if let Some(encoded) = input.encoded() {
-                    clients.send(&buffer, encoded);
+                    clients.send(&buffer, encoded, TokenPriority::High);
                 }
 
                 tasks.push(
@@ -2155,7 +2195,7 @@ impl Dashboard {
                 let input = data::Input::command(buffer.clone(), command);
 
                 if let Some(encoded) = input.encoded() {
-                    clients.send(&buffer, encoded);
+                    clients.send(&buffer, encoded, TokenPriority::User);
                 }
 
                 tasks.push(
@@ -2292,7 +2332,11 @@ impl Dashboard {
                     )
                 };
 
-            clients.send_chathistory_request(server, subcommand);
+            clients.send_chathistory_request(
+                server,
+                subcommand,
+                TokenPriority::User,
+            );
         }
     }
 
@@ -3059,7 +3103,7 @@ impl Dashboard {
         }
         .into_iter()
         .for_each(|kind| {
-            mark_as_read(kind, &mut self.history, clients);
+            mark_as_read(kind, &mut self.history, clients, TokenPriority::High);
         });
 
         let history = self.history.exit();
@@ -3145,7 +3189,7 @@ fn mark_server_as_read(
     clients: &mut data::client::Map,
 ) {
     for kind in history.server_kinds(server) {
-        mark_as_read(kind, history, clients);
+        mark_as_read(kind, history, clients, TokenPriority::User);
     }
 }
 
@@ -3153,13 +3197,14 @@ fn mark_as_read(
     kind: history::Kind,
     history: &mut history::Manager,
     clients: &mut data::client::Map,
+    priority: TokenPriority,
 ) {
     let read_marker = history.mark_as_read(&kind);
 
     if let (Some(server), Some(target), Some(read_marker)) =
         (kind.server(), kind.target(), read_marker)
     {
-        clients.send_markread(server, target, read_marker);
+        clients.send_markread(server, target, read_marker, priority);
     }
 }
 
@@ -3176,7 +3221,7 @@ fn mark_as_read_on_buffer_close(
         .mark_as_read(buffer.is_scrolled_to_bottom())
         && let Some(kind) = buffer.data().and_then(history::Kind::from_buffer)
     {
-        mark_as_read(kind, history, clients);
+        mark_as_read(kind, history, clients, TokenPriority::High);
     }
 }
 
