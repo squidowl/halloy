@@ -36,6 +36,7 @@ pub enum Kind {
     NICKLEN,
     PREFIX,
     SAFELIST,
+    SAFERATE,
     STATUSMSG,
     TARGMAX,
     TOPICLEN,
@@ -440,6 +441,9 @@ impl FromStr for Operation {
                             }
                         }
                         "SAFELIST" => Ok(Operation::Add(Parameter::SAFELIST)),
+                        "SAFERATE" | "soju.im/SAFERATE" => {
+                            Ok(Operation::Add(Parameter::SAFERATE))
+                        }
                         "SECURELIST" => {
                             Ok(Operation::Add(Parameter::SECURELIST))
                         }
@@ -579,6 +583,9 @@ impl FromStr for Operation {
                             Ok(Operation::Add(Parameter::PREFIX(vec![])))
                         }
                         "SAFELIST" => Ok(Operation::Add(Parameter::SAFELIST)),
+                        "SAFERATE" | "soju.im/SAFERATE" => {
+                            Ok(Operation::Add(Parameter::SAFERATE))
+                        }
                         "SECURELIST" => {
                             Ok(Operation::Add(Parameter::SECURELIST))
                         }
@@ -630,6 +637,7 @@ impl Operation {
                 "NICKLEN" => Some(Kind::NICKLEN),
                 "PREFIX" => Some(Kind::PREFIX),
                 "SAFELIST" => Some(Kind::SAFELIST),
+                "SAFERATE" | "soju.im/SAFERATE" => Some(Kind::SAFERATE),
                 "STATUSMSG" => Some(Kind::STATUSMSG),
                 "TARGMAX" => Some(Kind::TARGMAX),
                 "TOPICLEN" => Some(Kind::TOPICLEN),
@@ -650,6 +658,7 @@ impl Operation {
 // - https://ircv3.net/specs/extensions/utf8-only
 // - https://ircv3.net/specs/extensions/whox
 // - https://github.com/ircv3/ircv3-specifications/pull/464/files
+// - https://codeberg.org/emersion/soju/src/branch/master/doc/ext/saferate.md
 #[allow(non_camel_case_types)]
 #[derive(Clone, Debug)]
 pub enum Parameter {
@@ -699,6 +708,7 @@ pub enum Parameter {
     OVERRIDE,
     PREFIX(Vec<PrefixMap>),
     SAFELIST,
+    SAFERATE,
     SECURELIST,
     SILENCE(Option<u16>),
     STATUSMSG(Vec<char>),
@@ -736,6 +746,7 @@ impl Parameter {
             Parameter::NICKLEN(_) => Some(Kind::NICKLEN),
             Parameter::PREFIX(_) => Some(Kind::PREFIX),
             Parameter::SAFELIST => Some(Kind::SAFELIST),
+            Parameter::SAFERATE => Some(Kind::SAFERATE),
             Parameter::STATUSMSG(_) => Some(Kind::STATUSMSG),
             Parameter::TARGMAX(_) => Some(Kind::TARGMAX),
             Parameter::TOPICLEN(_) => Some(Kind::TOPICLEN),

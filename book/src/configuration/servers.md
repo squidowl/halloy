@@ -383,6 +383,19 @@ Commands which are executed once connected, in the order they are specified. The
 [servers.<name>]
 on_connect = ["/msg NickServ IDENTIFY foo bar", "/delay 2", "/join registered-club"]
 ```
+
+## `anti_flood`
+
+The time (in milliseconds) between sending messages to servers without SAFERATE.  Timing is not strictly guaranteed;  small groups of messages may be allowed to be sent at a faster rate, messages may be delayed in order to be batched, automated messages are included in the queue (most at a lower priority than user messages), etc.
+
+```toml
+# Type: integer
+# Values: 100 .. 60000
+# Default: 2000
+
+[servers.<name>]
+anti_flood = 2000
+```
   
 ## `who_poll_enabled`
 
@@ -399,7 +412,7 @@ who_poll_enabled = true
 
 ## `who_poll_interval`
 
-WHO poll interval (in seconds) for servers without away-notify.  Specifically, the time between individual WHO requests. Will be increased automatically if the server sends a rate-limiting message.
+WHO poll interval (in seconds) for servers without away-notify.  Specifically, the time between individual WHO requests. Will be increased automatically if the server sends a rate-limiting message.  When the server does not support SAFERATE (and anti-flood protections are enabled) then `who_poll_interval` will be increased to than twice `anti_flood` if it is not already.
 
 ```toml
 # Type: integer
@@ -409,7 +422,6 @@ WHO poll interval (in seconds) for servers without away-notify.  Specifically, t
 [servers.<name>]
 who_poll_interval = 2
 ```
-
 
 ## `monitor`
 

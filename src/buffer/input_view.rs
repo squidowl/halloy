@@ -5,6 +5,7 @@ use data::dashboard::BufferAction;
 use data::history::{self, ReadMarker};
 use data::input::{self, Cache, RawInput};
 use data::message::server_time;
+use data::rate_limit::TokenPriority;
 use data::target::Target;
 use data::user::Nick;
 use data::{Config, client, command};
@@ -237,7 +238,7 @@ impl State {
                     &clients.get_isupport(buffer.server()),
                 ) && let Some(encoded) = input.encoded()
                 {
-                    clients.send(buffer, encoded);
+                    clients.send(buffer, encoded, TokenPriority::User);
                 }
 
                 (Task::none(), None)
@@ -472,7 +473,11 @@ impl State {
 
                                     // Send part command.
                                     if let Some(part_command) = part_command {
-                                        clients.send(buffer, part_command);
+                                        clients.send(
+                                            buffer,
+                                            part_command,
+                                            TokenPriority::User,
+                                        );
                                     }
 
                                     // Create a delay task that will execute the join after waiting
@@ -571,7 +576,7 @@ impl State {
                     if let Some(encoded) = input.encoded() {
                         let sent_time = server_time(&encoded);
 
-                        clients.send(buffer, encoded);
+                        clients.send(buffer, encoded, TokenPriority::User);
 
                         if config.buffer.mark_as_read.on_message_sent {
                             let chantypes =
@@ -589,6 +594,7 @@ impl State {
                                         buffer.server(),
                                         target,
                                         ReadMarker::from_date_time(sent_time),
+                                        TokenPriority::High,
                                     );
                                 }
                             }
@@ -763,7 +769,7 @@ impl State {
 
                 // Send command.
                 if let Some(input) = input {
-                    clients.send(&buffer, input);
+                    clients.send(&buffer, input, TokenPriority::User);
                 }
 
                 (Task::none(), None)

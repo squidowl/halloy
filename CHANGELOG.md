@@ -7,6 +7,7 @@ Added:
 - Settings to condense multiple consecutive server messages into a single abbreviated message
 - `/detach` command to detach from channels (soju feature)
 - Support for USERINFO CTCP query
+- Configurable anti-flood protection for servers that do not advertise SAFERATE
 
 Fixed:
 
