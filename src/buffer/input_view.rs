@@ -138,6 +138,7 @@ pub fn view<'a>(
         .style(theme::container::buffer_text_input),
     ]
     .spacing(4)
+    .padding(padding::top(4))
     .into();
 
     // Add up / down support for history cycling
