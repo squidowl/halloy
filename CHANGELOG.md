@@ -9,7 +9,7 @@ Added:
 - Support for USERINFO CTCP query
 - Configurable anti-flood protection for servers that do not advertise SAFERATE
 - Channel modes will be retrieved on joining a channel (to be shown in the pane title bar)
-- Display own nickname next to text input field
+- Server messages can be dimmed (enabled by default), to lessen their visual impact relative to user messages
 
 Fixed:
 

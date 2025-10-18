@@ -752,6 +752,19 @@ If you pass `["#halloy"]`, the channel `#halloy` will receive the server message
 include = ["#halloy"]
 ```
 
+### `dimmed`
+
+Dim condensed server message.  Either automatically, based on text/background colors (by setting to `true`), or specify a dimming value in the range `0.0` (transparent) to `1.0` (no dimming).
+
+```toml
+# Type: bool or float
+# Values: true, false, or float
+# Default: true
+
+[buffer.server_messages.<server_message>]
+dimmed = true
+```
+
 ### `username_format`
 
 Adjust the amount of information displayed for a username in server messages. If you choose `"short"`, only the nickname will be shown. If you choose `"full"`, the nickname, username, and hostname (if available) will be displayed.
@@ -800,7 +813,7 @@ Dim condensed messages.  Either automatically, based on text/background colors (
 ```toml
 # Type: bool or float
 # Values: true, false, or float
-# Default: false
+# Default: true
 
 [buffer.server_messages.condense]
 dimmed = true
