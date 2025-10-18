@@ -8,6 +8,7 @@ Added:
 - `/detach` command to detach from channels (soju feature)
 - Support for USERINFO CTCP query
 - Configurable anti-flood protection for servers that do not advertise SAFERATE
+- Channel modes will be retrieved on joining a channel (to be shown in the pane title bar)
 
 Fixed:
 
