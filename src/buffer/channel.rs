@@ -54,7 +54,8 @@ pub fn view<'a>(
     let channel = &state.target;
     let buffer = &state.buffer;
     let input = history.input(buffer);
-    let our_nick: Option<data::user::NickRef<'_>> = clients.nickname(&state.server);
+    let our_nick: Option<data::user::NickRef<'_>> =
+        clients.nickname(&state.server);
 
     let our_user = our_nick
         .map(|our_nick| User::from(Nick::from(our_nick)))
@@ -157,7 +158,6 @@ pub fn view<'a>(
     container(body)
         .width(Length::Fill)
         .height(Length::Fill)
-        .padding(1)
         .into()
 }
 
