@@ -107,17 +107,20 @@ pub fn view<'a>(
     };
 
     let maybe_our_user =
-        config.buffer.text_input.show_own_nickname.then(move || {
+        config.buffer.text_input.nickname.enabled.then(move || {
             our_user.map(|user| {
                 container(
-                    text(user.display(true, None))
-                        .style(move |_| our_user_style)
-                        .font_maybe(
-                            theme::font_style::nickname(theme, false)
-                                .map(font::get),
-                        ),
+                    text(user.display(
+                        config.buffer.text_input.nickname.show_access_level,
+                        None,
+                    ))
+                    .style(move |_| our_user_style)
+                    .font_maybe(
+                        theme::font_style::nickname(theme, false)
+                            .map(font::get),
+                    ),
                 )
-                .padding(padding::right(4).left(2))
+                .padding(padding::right(4))
             })
         });
 
@@ -128,10 +131,10 @@ pub fn view<'a>(
         container(
             row![maybe_our_user, maybe_vertical_rule, input]
                 .spacing(4)
-                .height(22)
+                .height(20.0)
                 .align_y(Alignment::Center)
         )
-        .padding([8, 14])
+        .padding(8)
         .style(theme::container::buffer_text_input),
     ]
     .spacing(4)
