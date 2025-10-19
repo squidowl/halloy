@@ -2,11 +2,12 @@ use std::path::PathBuf;
 
 use data::dashboard::BufferAction;
 use data::target::Target;
-use data::{Config, buffer, history, message};
+use data::user::Nick;
+use data::{Config, User, buffer, history, message};
 use iced::widget::{column, container, row, vertical_space};
-use iced::{Color, Length, Size, Task, padding};
+use iced::{Color, Length, Size, Task};
 
-use super::{input_view, scroll_view, context_menu};
+use super::{context_menu, input_view, scroll_view};
 use crate::widget::{Element, message_content, selectable_text};
 use crate::{Theme, font, theme};
 
@@ -39,6 +40,9 @@ pub fn view<'a>(
     let casemapping = clients.get_casemapping(&state.server);
     let buffer = &state.buffer;
     let input = history.input(buffer);
+    let our_nick: Option<data::user::NickRef<'_>> =
+        clients.nickname(&state.server);
+    let our_user = our_nick.map(|our_nick| User::from(Nick::from(our_nick)));
 
     let messages = container(
         scroll_view::view(
@@ -129,6 +133,7 @@ pub fn view<'a>(
                 &state.input_view,
                 input,
                 is_focused,
+                our_user.as_ref(),
                 !status.connected(),
                 config,
                 theme,
@@ -143,7 +148,6 @@ pub fn view<'a>(
     container(scrollable)
         .width(Length::Fill)
         .height(Length::Fill)
-        .padding(padding::all(8).top(4))
         .into()
 }
 

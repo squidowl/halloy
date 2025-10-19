@@ -776,7 +776,7 @@ Condense multiple consecutive server messages into a single abbreviated message.
  Message type(s) to condense.  Supported types:
 
 | **Event Type** | **Symbol** |
-| -------------- | -----------|
+| -------------- | ---------- |
 | `change-nick`  | `→`        |
 | `join`         | `+`        |
 | `part`         | `-`        |
@@ -918,6 +918,34 @@ Sets what suffix is added after autocompleting. The first option is for when a n
 
 [buffer.text_input.autocomplete]
 completion_suffixes = [": ", " "]
+```
+
+### `[buffer.text_input.nickname]`
+
+#### `enabled`
+
+Display own nickname next to text input field
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: true
+
+[buffer.text_input.nickname]
+enabled = true
+```
+
+#### `show_access_level`
+
+Show access levels in front of nickname (`@`, `+`, `~`, etc.).
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: true
+
+[buffer.text_input.nickname]
+show_access_level = true
 ```
 
 ## `[buffer.timestamp]`

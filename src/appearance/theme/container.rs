@@ -48,6 +48,21 @@ pub fn buffer_title_bar(theme: &Theme) -> Style {
     }
 }
 
+pub fn buffer_text_input(theme: &Theme) -> Style {
+    let styles = theme.styles().buffer;
+
+    Style {
+        background: Some(Background::Color(styles.background_text_input)),
+        text_color: Some(theme.styles().text.secondary.color),
+        border: Border {
+            radius: border::bottom_left(4).bottom_right(4),
+            width: 1.0,
+            color: Color::TRANSPARENT,
+        },
+        ..Default::default()
+    }
+}
+
 pub fn table(theme: &Theme, idx: usize) -> Style {
     let general = theme.styles().general;
     let buffer = theme.styles().buffer;
