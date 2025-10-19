@@ -10,7 +10,7 @@ use iced::widget::{column, container, row};
 use iced::{Length, Size, Task, padding};
 
 use super::message_view::{ChannelQueryLayout, TargetInfo};
-use super::{input_view, scroll_view, context_menu};
+use super::{context_menu, input_view, scroll_view};
 use crate::Theme;
 use crate::widget::Element;
 
@@ -54,7 +54,8 @@ pub fn view<'a>(
     let channel = &state.target;
     let buffer = &state.buffer;
     let input = history.input(buffer);
-    let our_nick = clients.nickname(&state.server);
+    let our_nick: Option<data::user::NickRef<'_>> =
+        clients.nickname(&state.server);
 
     let our_user = our_nick
         .map(|our_nick| User::from(Nick::from(our_nick)))
@@ -127,6 +128,7 @@ pub fn view<'a>(
             &state.input_view,
             input,
             is_focused,
+            our_user,
             !is_connected_to_channel,
             config,
             theme,
@@ -134,7 +136,7 @@ pub fn view<'a>(
         .map(Message::InputView)
     });
 
-    let content = column![topic, messages].spacing(4);
+    let content = column![topic, messages];
 
     let nicklist_enabled = settings
         .map_or(config.buffer.channel.nicklist.enabled, |settings| {
@@ -147,16 +149,15 @@ pub fn view<'a>(
             (true, data::channel::Position::Right) => row![content, nick_list],
             (false, _) => { row![content] }.height(Length::Fill),
         }
-        .spacing(4);
+        .spacing(4)
+        .padding(padding::left(8).right(8));
 
     let body = column![container(content).height(Length::Fill), text_input]
-        .spacing(4)
         .height(Length::Fill);
 
     container(body)
         .width(Length::Fill)
         .height(Length::Fill)
-        .padding(padding::all(8).top(4))
         .into()
 }
 
@@ -346,12 +347,12 @@ fn topic<'a>(
 }
 
 mod nick_list {
+    use context_menu::Message;
     use data::user::ChannelUsers;
     use data::{Config, Server, User, config, isupport, target};
     use iced::Length;
     use iced::advanced::text;
     use iced::widget::{Scrollable, column, scrollable};
-    use context_menu::Message;
 
     use crate::buffer::context_menu;
     use crate::widget::{Element, selectable_text};
