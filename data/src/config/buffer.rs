@@ -35,6 +35,7 @@ pub struct Buffer {
     pub mark_as_read: MarkAsRead,
     pub url: Url,
     pub line_spacing: u32,
+    pub scroll_position_on_open: ScrollPosition,
 }
 
 #[derive(Debug, Clone, Deserialize, Default)]
@@ -69,6 +70,14 @@ impl Default for Emojis {
 #[serde(default)]
 pub struct Url {
     pub prompt_before_open: bool,
+}
+
+#[derive(Debug, Default, Clone, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ScrollPosition {
+    #[default]
+    OldestUnread,
+    Newest,
 }
 
 #[derive(Debug, Clone, Deserialize)]
