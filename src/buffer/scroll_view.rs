@@ -704,7 +704,7 @@ impl State {
 
                     if !matches!(self.limit, Limit::Bottom(_)) {
                         self.limit = Limit::Bottom(step_messages(
-                            self.pane_size.height,
+                            2.0 * self.pane_size.height,
                             config,
                         ));
                     }
@@ -822,7 +822,8 @@ impl State {
 
     pub fn scroll_to_start(&mut self, config: &Config) -> Task<Message> {
         self.status = Status::Unlocked;
-        self.limit = Limit::Top(step_messages(self.pane_size.height, config));
+        self.limit =
+            Limit::Top(step_messages(2.0 * self.pane_size.height, config));
         correct_viewport::scroll_to(
             self.scrollable.clone(),
             scrollable::AbsoluteOffset { x: 0.0, y: 0.0 },
@@ -832,7 +833,7 @@ impl State {
     pub fn scroll_to_end(&mut self, config: &Config) -> Task<Message> {
         self.status = Status::Bottom;
         self.limit =
-            Limit::Bottom(step_messages(self.pane_size.height, config));
+            Limit::Bottom(step_messages(2.0 * self.pane_size.height, config));
         correct_viewport::scroll_to(
             self.scrollable.clone(),
             scrollable::AbsoluteOffset { x: 0.0, y: 0.0 },
@@ -877,7 +878,7 @@ impl State {
         let offset = total - pos + 1;
 
         self.limit = Limit::Bottom(
-            offset.max(step_messages(self.pane_size.height, config)),
+            offset.max(step_messages(2.0 * self.pane_size.height, config)),
         );
 
         keyed::find(self.scrollable.clone(), keyed::Key::Message(message))
@@ -911,7 +912,7 @@ impl State {
         let offset = total - old_messages.len() + 1;
 
         self.limit = Limit::Bottom(
-            offset.max(step_messages(self.pane_size.height, config)),
+            offset.max(step_messages(2.0 * self.pane_size.height, config)),
         );
 
         keyed::find(self.scrollable.clone(), keyed::Key::Divider)
