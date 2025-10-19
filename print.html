@@ -1489,6 +1489,25 @@ sort_direction = "asc"
 [buffer.text_input.autocomplete]
 completion_suffixes = [": ", " "]
 </code></pre>
+<h3 id="buffertext_inputnickname"><a class="header" href="#buffertext_inputnickname"><code>[buffer.text_input.nickname]</code></a></h3>
+<h4 id="enabled-5"><a class="header" href="#enabled-5"><code>enabled</code></a></h4>
+<p>Display own nickname next to text input field</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: true
+
+[buffer.text_input.nickname]
+enabled = true
+</code></pre>
+<h4 id="show_access_level"><a class="header" href="#show_access_level"><code>show_access_level</code></a></h4>
+<p>Show access levels in front of nickname (<code>@</code>, <code>+</code>, <code>~</code>, etc.).</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: true
+
+[buffer.text_input.nickname]
+show_access_level = true
+</code></pre>
 <h2 id="buffertimestamp"><a class="header" href="#buffertimestamp"><code>[buffer.timestamp]</code></a></h2>
 <p>Customize how timestamps are displayed within a buffer.</p>
 <h3 id="format-2"><a class="header" href="#format-2"><code>format</code></a></h3>
@@ -1656,7 +1675,7 @@ bind_port_last = 5000
 </code></pre>
 <h1 id="file_transferauto_accept"><a class="header" href="#file_transferauto_accept"><code>[file_transfer.auto_accept]</code></a></h1>
 <p>Configuration for automatically accepting incoming file transfers.</p>
-<h2 id="enabled-5"><a class="header" href="#enabled-5"><code>enabled</code></a></h2>
+<h2 id="enabled-6"><a class="header" href="#enabled-6"><code>enabled</code></a></h2>
 <p>If true, automatically accept incoming file transfers. Requires <code>save_directory</code> to be set.</p>
 <pre><code class="language-toml"># Type: boolean
 # Values: true, false
@@ -2185,7 +2204,7 @@ It accepts no further configuration.</p>
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="preview"><a class="header" href="#preview"><code>[preview]</code></a></h1>
 <p>URL preview settings for Halloy.</p>
-<h2 id="enabled-6"><a class="header" href="#enabled-6"><code>enabled</code></a></h2>
+<h2 id="enabled-7"><a class="header" href="#enabled-7"><code>enabled</code></a></h2>
 <p>Enable or disable previews globally</p>
 <pre><code class="language-toml"># Type: boolean
 # Values: true, false

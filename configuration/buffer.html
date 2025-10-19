@@ -838,6 +838,25 @@ sort_direction = "asc"
 [buffer.text_input.autocomplete]
 completion_suffixes = [": ", " "]
 </code></pre>
+<h3 id="buffertext_inputnickname"><a class="header" href="#buffertext_inputnickname"><code>[buffer.text_input.nickname]</code></a></h3>
+<h4 id="enabled-5"><a class="header" href="#enabled-5"><code>enabled</code></a></h4>
+<p>Display own nickname next to text input field</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: true
+
+[buffer.text_input.nickname]
+enabled = true
+</code></pre>
+<h4 id="show_access_level"><a class="header" href="#show_access_level"><code>show_access_level</code></a></h4>
+<p>Show access levels in front of nickname (<code>@</code>, <code>+</code>, <code>~</code>, etc.).</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: true
+
+[buffer.text_input.nickname]
+show_access_level = true
+</code></pre>
 <h2 id="buffertimestamp"><a class="header" href="#buffertimestamp"><code>[buffer.timestamp]</code></a></h2>
 <p>Customize how timestamps are displayed within a buffer.</p>
 <h3 id="format-2"><a class="header" href="#format-2"><code>format</code></a></h3>
