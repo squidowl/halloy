@@ -1366,6 +1366,15 @@ If you pass <code>["#halloy"]</code>, the channel <code>#halloy</code> will rece
 [buffer.server_messages.&lt;server_message&gt;]
 include = ["#halloy"]
 </code></pre>
+<h3 id="dimmed"><a class="header" href="#dimmed"><code>dimmed</code></a></h3>
+<p>Dim condensed server message.  Either automatically, based on text/background colors (by setting to <code>true</code>), or specify a dimming value in the range <code>0.0</code> (transparent) to <code>1.0</code> (no dimming).</p>
+<pre><code class="language-toml"># Type: bool or float
+# Values: true, false, or float
+# Default: true
+
+[buffer.server_messages.&lt;server_message&gt;]
+dimmed = true
+</code></pre>
 <h3 id="username_format"><a class="header" href="#username_format"><code>username_format</code></a></h3>
 <p>Adjust the amount of information displayed for a username in server messages. If you choose <code>"short"</code>, only the nickname will be shown. If you choose <code>"full"</code>, the nickname, username, and hostname (if available) will be displayed.</p>
 <p>Note: Not all server messages uses this setting.</p>
@@ -1395,11 +1404,11 @@ username_format = "full"
 [buffer.server_messages.condense]
 messages = ["change-nick", "join", "part", "quit"]
 </code></pre>
-<h4 id="dimmed"><a class="header" href="#dimmed"><code>dimmed</code></a></h4>
+<h4 id="dimmed-1"><a class="header" href="#dimmed-1"><code>dimmed</code></a></h4>
 <p>Dim condensed messages.  Either automatically, based on text/background colors (by setting to <code>true</code>), or specify a dimming value in the range <code>0.0</code> (transparent) to <code>1.0</code> (no dimming).</p>
 <pre><code class="language-toml"># Type: bool or float
 # Values: true, false, or float
-# Default: false
+# Default: true
 
 [buffer.server_messages.condense]
 dimmed = true
