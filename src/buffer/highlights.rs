@@ -7,7 +7,8 @@ use data::{Config, Server, history, message};
 use iced::widget::{container, row, span};
 use iced::{Color, Length, Size, Task};
 
-use super::{scroll_view, context_menu};
+use super::context_menu::{self, Context};
+use super::scroll_view;
 use crate::widget::{
     Element, message_content, selectable_rich_text, selectable_text, tooltip,
 };
@@ -55,12 +56,18 @@ pub fn view<'a>(
                         .buffer
                         .format_timestamp(&message.server_time)
                         .map(|timestamp| {
-                            selectable_text(timestamp)
-                                .font_maybe(
-                                    theme::font_style::timestamp(theme)
-                                        .map(font::get),
-                                )
-                                .style(theme::selectable_text::timestamp)
+                            context_menu::timestamp(
+                                selectable_text(timestamp)
+                                    .font_maybe(
+                                        theme::font_style::timestamp(theme)
+                                            .map(font::get),
+                                    )
+                                    .style(theme::selectable_text::timestamp),
+                                &message.server_time,
+                                config,
+                                theme,
+                            )
+                            .map(scroll_view::Message::ContextMenu)
                         });
 
                     let channel_text =
@@ -163,18 +170,20 @@ pub fn view<'a>(
                             _ => vec![],
                         },
                         move |link, entry, length| {
-                            entry
-                                .view(
+                            let context = if let Some(user) = link.user() {
+                                Some(Context::User {
                                     server,
                                     prefix,
-                                    Some(channel),
-                                    link.user(),
+                                    channel: Some(channel),
+                                    user,
                                     current_user,
-                                    link.url(),
-                                    length,
-                                    config,
-                                    theme,
-                                )
+                                })
+                            } else {
+                                link.url().map(Context::Url)
+                            };
+
+                            entry
+                                .view(context, length, config, theme)
                                 .map(scroll_view::Message::ContextMenu)
                         },
                         config,

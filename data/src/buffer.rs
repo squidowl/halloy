@@ -228,6 +228,8 @@ pub struct Timestamp {
     #[serde(deserialize_with = "deserialize_strftime_date")]
     pub format: String,
     pub brackets: Brackets,
+    #[serde(deserialize_with = "deserialize_strftime_date")]
+    pub context_menu_format: String,
 }
 
 impl Default for Timestamp {
@@ -235,6 +237,7 @@ impl Default for Timestamp {
         Self {
             format: "%R".to_string(),
             brackets: Brackets::default(),
+            context_menu_format: "%x".to_string(),
         }
     }
 }
