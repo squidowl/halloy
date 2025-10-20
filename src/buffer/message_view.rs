@@ -1,9 +1,8 @@
 use data::config::buffer::nickname::ShownStatus;
 use data::isupport::{CaseMap, PrefixMap};
 use data::server::Server;
-use data::target::{self};
 use data::user::ChannelUsers;
-use data::{Config, User, message};
+use data::{Config, User, message, target};
 use iced::Color;
 use iced::advanced::text;
 use iced::widget::{column, container, row};
@@ -245,12 +244,29 @@ impl<'a> ChannelQueryLayout<'a> {
         max_nick_width: Option<f32>,
         server: Option<&'a message::source::Server>,
     ) -> (Element<'a, Message>, Element<'a, Message>) {
+        let formatter = *self;
+
+        let dimmed = formatter.config.buffer.server_messages.dimmed(server);
+
         let message_style = move |message_theme: &Theme| {
-            theme::selectable_text::server(message_theme, server)
+            let mut style =
+                theme::selectable_text::server(message_theme, server);
+
+            if let Some(dimmed) = dimmed {
+                style.color = style.color.map(|color| {
+                    dimmed.transform_color(
+                        color,
+                        formatter.theme.styles().buffer.background,
+                    )
+                });
+            }
+
+            style
         };
         let message_font_style = move |message_theme: &Theme| {
             theme::font_style::server(message_theme, server)
         };
+
         let marker = message_marker(
             max_nick_width,
             self.theme,
@@ -258,20 +274,28 @@ impl<'a> ChannelQueryLayout<'a> {
             message_font_style,
         );
 
-        let fm = *self;
         let message_content = message_content::with_context(
             &message.content,
-            fm.chantypes,
-            fm.casemapping,
+            formatter.chantypes,
+            formatter.casemapping,
             self.theme,
             Message::Link,
             message_style,
             message_font_style,
-            Option::<fn(Color) -> Color>::None,
+            Some(|color: Color| -> Color {
+                if let Some(dimmed) = dimmed {
+                    dimmed.transform_color(
+                        color,
+                        formatter.theme.styles().buffer.background,
+                    )
+                } else {
+                    color
+                }
+            }),
             move |link| match link {
                 message::Link::User(_) => context_menu::Entry::user_list(
-                    fm.target.is_channel(),
-                    fm.target.our_user(),
+                    formatter.target.is_channel(),
+                    formatter.target.our_user(),
                 ),
                 message::Link::Url(_) => context_menu::Entry::url_list(),
                 _ => vec![],
@@ -279,20 +303,20 @@ impl<'a> ChannelQueryLayout<'a> {
             move |link, entry, length| {
                 let user = link.user();
                 let current_user = user.and_then(|u| {
-                    fm.target.users().and_then(|users| users.resolve(u))
+                    formatter.target.users().and_then(|users| users.resolve(u))
                 });
 
                 entry
                     .view(
-                        fm.server,
-                        fm.prefix,
-                        fm.target.channel(),
+                        formatter.server,
+                        formatter.prefix,
+                        formatter.target.channel(),
                         user,
                         current_user,
                         link.url(),
                         length,
-                        fm.config,
-                        fm.theme,
+                        formatter.config,
+                        formatter.theme,
                     )
                     .map(Message::ContextMenu)
             },
