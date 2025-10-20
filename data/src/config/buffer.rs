@@ -259,15 +259,31 @@ impl ServerMessages {
             source::server::Kind::ChangeTopic => Some(&self.change_topic),
         }
     }
+
+    pub fn dimmed(&self, server: Option<&source::Server>) -> Option<&Dimmed> {
+        server.and_then(|server| {
+            self.get(server).and_then(|kind| kind.dimmed.as_ref())
+        })
+    }
 }
 
-#[derive(Debug, Default, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
 pub struct Condensation {
     pub messages: HashSet<CondensationMessage>,
     pub format: CondensationFormat,
     #[serde(deserialize_with = "deserialize_dimmed_maybe")]
     pub dimmed: Option<Dimmed>,
+}
+
+impl Default for Condensation {
+    fn default() -> Self {
+        Self {
+            messages: HashSet::new(),
+            format: CondensationFormat::default(),
+            dimmed: Some(Dimmed(None)),
+        }
+    }
 }
 
 impl Condensation {
@@ -328,6 +344,8 @@ pub struct ServerMessage {
     pub username_format: UsernameFormat,
     pub exclude: Vec<String>,
     pub include: Vec<String>,
+    #[serde(deserialize_with = "deserialize_dimmed_maybe")]
+    pub dimmed: Option<Dimmed>,
 }
 
 impl Default for ServerMessage {
@@ -338,6 +356,7 @@ impl Default for ServerMessage {
             username_format: UsernameFormat::default(),
             exclude: Vec::default(),
             include: Vec::default(),
+            dimmed: Some(Dimmed(None)),
         }
     }
 }
