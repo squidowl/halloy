@@ -1,3 +1,4 @@
+use chrono::{DateTime, Local, Utc};
 use data::dashboard::BufferAction;
 use data::user::Nick;
 use data::{Config, Server, User, config, ctcp, isupport, target};
@@ -8,6 +9,18 @@ use iced::{Length, Padding, padding};
 
 use crate::widget::{Element, context_menu, double_pass};
 use crate::{Theme, font, theme, widget};
+
+pub enum Context<'a> {
+    User {
+        server: &'a Server,
+        prefix: &'a [isupport::PrefixMap],
+        channel: Option<&'a target::Channel>,
+        user: &'a User,
+        current_user: Option<&'a User>,
+    },
+    Url(&'a String),
+    Timestamp(&'a DateTime<Utc>),
+}
 
 #[derive(Debug, Clone, Copy)]
 pub enum Entry {
@@ -23,9 +36,28 @@ pub enum Entry {
     CtcpRequestVersion,
     // url context
     CopyUrl,
+    // timestamp context
+    Timestamp,
+    CopyBufferTimestamp,
+    CopyContextTimestamp,
+    CopyRfc3339Timestamp,
 }
 
 impl Entry {
+    pub fn timestamp_list(config: &Config) -> Vec<Self> {
+        if config.buffer.timestamp.context_menu_format.is_empty() {
+            vec![Entry::CopyBufferTimestamp, Entry::CopyRfc3339Timestamp]
+        } else {
+            vec![
+                Entry::Timestamp,
+                Entry::HorizontalRule,
+                Entry::CopyBufferTimestamp,
+                Entry::CopyContextTimestamp,
+                Entry::CopyRfc3339Timestamp,
+            ]
+        }
+    }
+
     pub fn url_list() -> Vec<Self> {
         vec![Entry::CopyUrl]
     }
@@ -67,47 +99,44 @@ impl Entry {
 
     pub fn view<'a>(
         self,
-        server: &Server,
-        prefix: &[isupport::PrefixMap],
-        channel: Option<&target::Channel>,
-        user: Option<&User>,
-        current_user: Option<&User>,
-        url: Option<&String>,
+        context: Option<Context<'_>>,
         length: Length,
         config: &Config,
         theme: &Theme,
     ) -> Element<'a, Message> {
-        match self {
-            Entry::Whois => {
-                let message = user.map(|user| {
-                    Message::Whois(server.clone(), user.nickname().to_owned())
-                });
+        context.map_or(row![].into(), |context| match (self, context) {
+            (Entry::Whois, Context::User { server, user, .. }) => {
+                let message =
+                    Message::Whois(server.clone(), user.nickname().to_owned());
 
-                menu_button("Whois".to_string(), message, length, theme)
+                menu_button("Whois".to_string(), Some(message), length, theme)
             }
-            Entry::Query => {
-                let message = user.map(|user| {
-                    Message::Query(
-                        server.clone(),
-                        target::Query::from(user.clone()),
-                        config.actions.buffer.message_user,
-                    )
-                });
-
-                menu_button("Message".to_string(), message, length, theme)
-            }
-            Entry::ToggleAccessLevelOp => {
-                let (channel, operator_mode, user) = (
-                    channel,
-                    prefix.iter().find_map(|prefix_map| {
-                        (prefix_map.prefix == '@').then_some(prefix_map.mode)
-                    }),
-                    user,
+            (Entry::Query, Context::User { server, user, .. }) => {
+                let message = Message::Query(
+                    server.clone(),
+                    target::Query::from(user.clone()),
+                    config.actions.buffer.message_user,
                 );
 
+                menu_button("Message".to_string(), Some(message), length, theme)
+            }
+            (
+                Entry::ToggleAccessLevelOp,
+                Context::User {
+                    server,
+                    prefix,
+                    channel,
+                    user,
+                    ..
+                },
+            ) => {
+                let operator_mode = prefix.iter().find_map(|prefix_map| {
+                    (prefix_map.prefix == '@').then_some(prefix_map.mode)
+                });
+
                 let (label, message) =
-                    if let (Some(channel), Some(operator_mode), Some(user)) =
-                        (channel, operator_mode, user)
+                    if let (Some(channel), Some(operator_mode)) =
+                        (channel, operator_mode)
                     {
                         let is_op = user
                             .has_access_level(data::user::AccessLevel::Oper);
@@ -132,18 +161,23 @@ impl Entry {
 
                 menu_button(label, message, length, theme)
             }
-            Entry::ToggleAccessLevelVoice => {
-                let (channel, voice_mode, user) = (
+            (
+                Entry::ToggleAccessLevelVoice,
+                Context::User {
+                    server,
+                    prefix,
                     channel,
-                    prefix.iter().find_map(|prefix_map| {
-                        (prefix_map.prefix == '+').then_some(prefix_map.mode)
-                    }),
                     user,
-                );
+                    ..
+                },
+            ) => {
+                let voice_mode = prefix.iter().find_map(|prefix_map| {
+                    (prefix_map.prefix == '+').then_some(prefix_map.mode)
+                });
 
                 let (label, message) =
-                    if let (Some(channel), Some(voice_mode), Some(user)) =
-                        (channel, voice_mode, user)
+                    if let (Some(channel), Some(voice_mode)) =
+                        (channel, voice_mode)
                     {
                         let has_voice = user
                             .has_access_level(data::user::AccessLevel::Voice);
@@ -168,71 +202,137 @@ impl Entry {
 
                 menu_button(label, message, length, theme)
             }
-            Entry::SendFile => {
-                let message = user.map(|user| {
-                    Message::SendFile(server.clone(), user.clone())
-                });
+            (Entry::SendFile, Context::User { server, user, .. }) => {
+                let message = Message::SendFile(server.clone(), user.clone());
 
-                menu_button("Send File".to_string(), message, length, theme)
+                menu_button(
+                    "Send File".to_string(),
+                    Some(message),
+                    length,
+                    theme,
+                )
             }
-            Entry::UserInfo => {
-                if let Some(user) = user {
-                    user_info(
-                        current_user,
-                        user.nickname().to_owned(),
-                        length,
-                        config,
-                        theme,
-                    )
-                } else {
-                    row![].into()
-                }
-            }
-            Entry::HorizontalRule => match length {
+            (
+                Entry::UserInfo,
+                Context::User {
+                    user, current_user, ..
+                },
+            ) => user_info(
+                current_user,
+                user.nickname().to_owned(),
+                length,
+                config,
+                theme,
+            ),
+            (Entry::HorizontalRule, _) => match length {
                 Length::Fill => {
                     container(horizontal_rule(1)).padding([0, 6]).into()
                 }
                 _ => Space::new(length, 1).into(),
             },
-            Entry::CtcpRequestTime => {
-                let message = user.map(|user| {
-                    Message::CtcpRequest(
-                        ctcp::Command::Time,
-                        server.clone(),
-                        user.nickname().to_owned(),
-                        None,
-                    )
-                });
+            (Entry::CtcpRequestTime, Context::User { server, user, .. }) => {
+                let message = Message::CtcpRequest(
+                    ctcp::Command::Time,
+                    server.clone(),
+                    user.nickname().to_owned(),
+                    None,
+                );
 
                 menu_button(
                     "Local Time (TIME)".to_string(),
-                    message,
+                    Some(message),
                     length,
                     theme,
                 )
             }
-            Entry::CtcpRequestVersion => {
-                let message = user.map(|user| {
-                    Message::CtcpRequest(
-                        ctcp::Command::Version,
-                        server.clone(),
-                        user.nickname().to_owned(),
-                        None,
-                    )
-                });
+            (Entry::CtcpRequestVersion, Context::User { server, user, .. }) => {
+                let message = Message::CtcpRequest(
+                    ctcp::Command::Version,
+                    server.clone(),
+                    user.nickname().to_owned(),
+                    None,
+                );
+
                 menu_button(
                     "Client (VERSION)".to_string(),
-                    message,
+                    Some(message),
                     length,
                     theme,
                 )
             }
-            Entry::CopyUrl => {
-                let message = url.map(|url| Message::CopyUrl(url.clone()));
+            (Entry::CopyUrl, Context::Url(url)) => {
+                let message = Message::CopyUrl(url.clone());
 
-                menu_button("Copy URL".to_string(), message, length, theme)
+                menu_button(
+                    "Copy URL".to_string(),
+                    Some(message),
+                    length,
+                    theme,
+                )
             }
-        }
+            (Entry::Timestamp, Context::Timestamp(date_time))
+                if !config.buffer.timestamp.context_menu_format.is_empty() =>
+            {
+                column![
+                    text(format!(
+                        "{}",
+                        date_time.with_timezone(&Local).format(
+                            &config.buffer.timestamp.context_menu_format
+                        )
+                    ))
+                    .style(theme::text::timestamp)
+                    .font_maybe(
+                        theme::font_style::timestamp(theme).map(font::get)
+                    )
+                    .width(length)
+                ]
+                .padding(right_justified_padding())
+                .into()
+            }
+            (Entry::CopyBufferTimestamp, Context::Timestamp(date_time))
+                if !config.buffer.timestamp.format.is_empty() =>
+            {
+                let message = Message::CopyTimestamp(
+                    *date_time,
+                    config.buffer.timestamp.format.clone(),
+                );
+
+                menu_button(
+                    "Copy Timestamp (Buffer Format)".to_string(),
+                    Some(message),
+                    length,
+                    theme,
+                )
+            }
+            (Entry::CopyContextTimestamp, Context::Timestamp(date_time))
+                if !config.buffer.timestamp.context_menu_format.is_empty() =>
+            {
+                let message = Message::CopyTimestamp(
+                    *date_time,
+                    config.buffer.timestamp.context_menu_format.clone(),
+                );
+
+                menu_button(
+                    "Copy Timestamp (Context Menu Format)".to_string(),
+                    Some(message),
+                    length,
+                    theme,
+                )
+            }
+            (Entry::CopyRfc3339Timestamp, Context::Timestamp(date_time))
+                if !config.buffer.timestamp.context_menu_format.is_empty() =>
+            {
+                let message = Message::CopyRfc3339Timestamp(*date_time);
+
+                menu_button(
+                    "Copy Timestamp (RFC3339 Format)".to_string(),
+                    Some(message),
+                    length,
+                    theme,
+                )
+            }
+            _ => row![].into(),
+        })
     }
 }
 
@@ -245,6 +345,8 @@ pub enum Message {
     InsertNickname(Nick),
     CtcpRequest(ctcp::Command, Server, Nick, Option<String>),
     CopyUrl(String),
+    CopyTimestamp(DateTime<Utc>, String),
+    CopyRfc3339Timestamp(DateTime<Utc>),
 }
 
 #[derive(Debug, Clone)]
@@ -256,6 +358,8 @@ pub enum Event {
     InsertNickname(Nick),
     CtcpRequest(ctcp::Command, Server, Nick, Option<String>),
     CopyUrl(String),
+    CopyTimestamp(DateTime<Utc>, String),
+    CopyRfc3339Timestamp(DateTime<Utc>),
 }
 
 pub fn update(message: Message) -> Event {
@@ -273,6 +377,12 @@ pub fn update(message: Message) -> Event {
             Event::CtcpRequest(command, server, nick, params)
         }
         Message::CopyUrl(url) => Event::CopyUrl(url),
+        Message::CopyTimestamp(date_time, format) => {
+            Event::CopyTimestamp(date_time, format)
+        }
+        Message::CopyRfc3339Timestamp(date_time) => {
+            Event::CopyRfc3339Timestamp(date_time)
+        }
     }
 }
 
@@ -283,7 +393,6 @@ pub fn user<'a>(
     channel: Option<&'a target::Channel>,
     user: &'a User,
     current_user: Option<&'a User>,
-
     our_user: Option<&'a User>,
     config: &'a Config,
     theme: &'a Theme,
@@ -312,12 +421,39 @@ pub fn user<'a>(
         entries,
         move |entry, length| {
             entry.view(
-                server,
-                prefix,
-                channel,
-                Some(user),
-                current_user,
-                None,
+                Some(Context::User {
+                    server,
+                    prefix,
+                    channel,
+                    user,
+                    current_user,
+                }),
+                length,
+                config,
+                theme,
+            )
+        },
+    )
+    .into()
+}
+
+pub fn timestamp<'a>(
+    content: impl Into<Element<'a, Message>>,
+    date_time: &'a DateTime<Utc>,
+    config: &'a Config,
+    theme: &'a Theme,
+) -> Element<'a, Message> {
+    let entries = Entry::timestamp_list(config);
+
+    context_menu(
+        context_menu::MouseButton::default(),
+        context_menu::Anchor::Cursor,
+        context_menu::ToggleBehavior::KeepOpen,
+        content,
+        entries,
+        move |entry, length| {
+            entry.view(
+                Some(Context::Timestamp(date_time)),
                 length,
                 config,
                 theme,
