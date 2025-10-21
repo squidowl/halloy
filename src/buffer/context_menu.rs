@@ -38,24 +38,11 @@ pub enum Entry {
     CopyUrl,
     // timestamp context
     Timestamp,
-    CopyBufferTimestamp,
-    CopyContextTimestamp,
-    CopyRfc3339Timestamp,
 }
 
 impl Entry {
-    pub fn timestamp_list(config: &Config) -> Vec<Self> {
-        if config.buffer.timestamp.context_menu_format.is_empty() {
-            vec![Entry::CopyBufferTimestamp, Entry::CopyRfc3339Timestamp]
-        } else {
-            vec![
-                Entry::Timestamp,
-                Entry::HorizontalRule,
-                Entry::CopyBufferTimestamp,
-                Entry::CopyContextTimestamp,
-                Entry::CopyRfc3339Timestamp,
-            ]
-        }
+    pub fn timestamp_list() -> Vec<Self> {
+        vec![Entry::Timestamp]
     }
 
     pub fn url_list() -> Vec<Self> {
@@ -270,62 +257,19 @@ impl Entry {
                     theme,
                 )
             }
-            (Entry::Timestamp, Context::Timestamp(date_time))
-                if !config.buffer.timestamp.context_menu_format.is_empty() =>
-            {
-                column![
-                    text(format!(
+            (Entry::Timestamp, Context::Timestamp(date_time)) => {
+                let message = Message::CopyTimestamp(
+                    *date_time,
+                    config.buffer.timestamp.copy_format.clone(),
+                );
+
+                menu_button(
+                    format!(
                         "{}",
                         date_time.with_timezone(&Local).format(
                             &config.buffer.timestamp.context_menu_format
                         )
-                    ))
-                    .style(theme::text::timestamp)
-                    .font_maybe(
-                        theme::font_style::timestamp(theme).map(font::get)
-                    )
-                    .width(length)
-                ]
-                .padding(right_justified_padding())
-                .into()
-            }
-            (Entry::CopyBufferTimestamp, Context::Timestamp(date_time))
-                if !config.buffer.timestamp.format.is_empty() =>
-            {
-                let message = Message::CopyTimestamp(
-                    *date_time,
-                    config.buffer.timestamp.format.clone(),
-                );
-
-                menu_button(
-                    "Copy Timestamp (Buffer Format)".to_string(),
-                    Some(message),
-                    length,
-                    theme,
-                )
-            }
-            (Entry::CopyContextTimestamp, Context::Timestamp(date_time))
-                if !config.buffer.timestamp.context_menu_format.is_empty() =>
-            {
-                let message = Message::CopyTimestamp(
-                    *date_time,
-                    config.buffer.timestamp.context_menu_format.clone(),
-                );
-
-                menu_button(
-                    "Copy Timestamp (Context Menu Format)".to_string(),
-                    Some(message),
-                    length,
-                    theme,
-                )
-            }
-            (Entry::CopyRfc3339Timestamp, Context::Timestamp(date_time))
-                if !config.buffer.timestamp.context_menu_format.is_empty() =>
-            {
-                let message = Message::CopyRfc3339Timestamp(*date_time);
-
-                menu_button(
-                    "Copy Timestamp (RFC3339 Format)".to_string(),
+                    ),
                     Some(message),
                     length,
                     theme,
@@ -345,8 +289,7 @@ pub enum Message {
     InsertNickname(Nick),
     CtcpRequest(ctcp::Command, Server, Nick, Option<String>),
     CopyUrl(String),
-    CopyTimestamp(DateTime<Utc>, String),
-    CopyRfc3339Timestamp(DateTime<Utc>),
+    CopyTimestamp(DateTime<Utc>, Option<String>),
 }
 
 #[derive(Debug, Clone)]
@@ -358,8 +301,7 @@ pub enum Event {
     InsertNickname(Nick),
     CtcpRequest(ctcp::Command, Server, Nick, Option<String>),
     CopyUrl(String),
-    CopyTimestamp(DateTime<Utc>, String),
-    CopyRfc3339Timestamp(DateTime<Utc>),
+    CopyTimestamp(DateTime<Utc>, Option<String>),
 }
 
 pub fn update(message: Message) -> Event {
@@ -379,9 +321,6 @@ pub fn update(message: Message) -> Event {
         Message::CopyUrl(url) => Event::CopyUrl(url),
         Message::CopyTimestamp(date_time, format) => {
             Event::CopyTimestamp(date_time, format)
-        }
-        Message::CopyRfc3339Timestamp(date_time) => {
-            Event::CopyRfc3339Timestamp(date_time)
         }
     }
 }
@@ -443,7 +382,7 @@ pub fn timestamp<'a>(
     config: &'a Config,
     theme: &'a Theme,
 ) -> Element<'a, Message> {
-    let entries = Entry::timestamp_list(config);
+    let entries = Entry::timestamp_list();
 
     context_menu(
         context_menu::MouseButton::default(),

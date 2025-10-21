@@ -192,6 +192,7 @@ pub fn view<'a>(
                     Some(
                         container(row![
                             timestamp,
+                            selectable_text(" "),
                             channel_text,
                             nick,
                             selectable_text(" "),
@@ -245,7 +246,15 @@ pub fn view<'a>(
                         config,
                     );
 
-                    Some(container(row![timestamp, channel_text, text]).into())
+                    Some(
+                        container(row![
+                            timestamp,
+                            selectable_text(" "),
+                            channel_text,
+                            text
+                        ])
+                        .into(),
+                    )
                 }
                 _ => None,
             },

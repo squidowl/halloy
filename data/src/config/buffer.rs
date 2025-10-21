@@ -461,41 +461,47 @@ impl Buffer {
             return None;
         }
 
-        Some(format!(
-            "{} ",
+        Some(
             self.timestamp.brackets.format(
                 date_time
                     .with_timezone(&Local)
-                    .format(&self.timestamp.format)
-            )
-        ))
+                    .format(&self.timestamp.format),
+            ),
+        )
     }
 
     pub fn format_range_timestamp(
         &self,
         start_date_time: &DateTime<Utc>,
         end_date_time: &DateTime<Utc>,
-    ) -> Option<String> {
+    ) -> Option<(String, String, String)> {
         if self.timestamp.format.is_empty() {
             return None;
         }
 
         // Since timestamp ranges are used without a nickname or message marker,
         // do not include space delimiter in the format.
-        Some(
+        Some((
             self.timestamp
                 .brackets
                 .format(format!(
-                    "{} \u{2013} {}",
+                    "{}",
                     start_date_time
                         .with_timezone(&Local)
-                        .format(&self.timestamp.format),
+                        .format(&self.timestamp.format)
+                ))
+                .to_string(),
+            " \u{2013} ".to_string(),
+            self.timestamp
+                .brackets
+                .format(format!(
+                    "{}",
                     end_date_time
                         .with_timezone(&Local)
                         .format(&self.timestamp.format)
                 ))
                 .to_string(),
-        )
+        ))
     }
 }
 

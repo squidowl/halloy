@@ -6,7 +6,7 @@ use data::{Config, client, history, isupport, message};
 use iced::widget::{container, row};
 use iced::{Color, Length, Size, Task};
 
-use super::{scroll_view, context_menu};
+use super::{context_menu, scroll_view};
 use crate::widget::{Element, message_content, selectable_text};
 use crate::{Theme, font, theme};
 
@@ -91,6 +91,7 @@ pub fn view<'a>(
                     Some(
                         row![
                             timestamp,
+                            selectable_text(" "),
                             log_level,
                             selectable_text(" "),
                             message,

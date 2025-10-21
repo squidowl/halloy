@@ -10,6 +10,7 @@ Added:
 - Configurable anti-flood protection for servers that do not advertise SAFERATE
 - Channel modes will be retrieved on joining a channel (to be shown in the pane title bar)
 - Server messages can be dimmed (enabled by default), to lessen their visual impact relative to user messages
+- Context menu to timestamps that shows the message date, and will copy the timestamp to the clipboard when clicked
 
 Fixed:
 
