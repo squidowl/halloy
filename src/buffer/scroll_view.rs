@@ -1121,7 +1121,7 @@ mod keyed {
             translation: Vector,
             _state: &mut dyn widget::operation::Scrollable,
         ) {
-            if id == Some(&self.scrollable_id.clone().into()) {
+            if id == Some(&self.scrollable_id.clone()) {
                 self.scrollable = Some(Scrollable {
                     viewport: bounds,
                     content: content_bounds,
@@ -1136,13 +1136,13 @@ mod keyed {
             }
         }
 
-        fn container(
+        fn container(&mut self, _id: Option<&widget::Id>, _bounds: Rectangle) {}
+
+        fn traverse(
             &mut self,
-            _id: Option<&widget::Id>,
-            _bounds: Rectangle,
-            operate_on_children: &mut dyn FnMut(&mut dyn Operation<Hit>),
+            operate: &mut dyn FnMut(&mut dyn Operation<Hit>),
         ) {
-            operate_on_children(self);
+            operate(self);
         }
 
         fn custom(
@@ -1194,7 +1194,7 @@ mod keyed {
             translation: Vector,
             _state: &mut dyn widget::operation::Scrollable,
         ) {
-            if id == Some(&self.scrollable_id.clone().into()) {
+            if id == Some(&self.scrollable_id.clone()) {
                 self.scrollable = Some(Scrollable {
                     viewport: bounds,
                     content: content_bounds,
@@ -1209,13 +1209,13 @@ mod keyed {
             }
         }
 
-        fn container(
+        fn container(&mut self, _id: Option<&widget::Id>, _bounds: Rectangle) {}
+
+        fn traverse(
             &mut self,
-            _id: Option<&widget::Id>,
-            _bounds: Rectangle,
-            operate_on_children: &mut dyn FnMut(&mut dyn Operation<Hit>),
+            operate: &mut dyn FnMut(&mut dyn Operation<Hit>),
         ) {
-            operate_on_children(self);
+            operate(self);
         }
 
         fn custom(
@@ -1522,7 +1522,7 @@ mod correct_viewport {
                                 );
 
                                 let mut operation = scrollable::scroll_to(
-                                    scrollable.clone().into(),
+                                    scrollable.clone(),
                                     scrollable::AbsoluteOffset {
                                         x: 0.0,
                                         y: new_offset,
@@ -1623,7 +1623,7 @@ mod correct_viewport {
                     let mut is_scroll_to = false;
 
                     operation.custom(
-                        Some(&scrollable.clone().into()),
+                        Some(&scrollable.clone()),
                         layout.bounds(),
                         &mut is_scroll_to,
                     );
@@ -1671,13 +1671,13 @@ mod correct_viewport {
         }
 
         impl<T> Operation<T> for ScrollTo {
-            fn container(
+            fn container(&mut self, _id: Option<&Id>, _bounds: Rectangle) {}
+
+            fn traverse(
                 &mut self,
-                _id: Option<&Id>,
-                _bounds: Rectangle,
-                operate_on_children: &mut dyn FnMut(&mut dyn Operation<T>),
+                operate: &mut dyn FnMut(&mut dyn Operation<T>),
             ) {
-                operate_on_children(self);
+                operate(self);
             }
 
             fn scrollable(
@@ -1725,13 +1725,13 @@ mod correct_viewport {
         }
 
         impl<T> Operation<T> for ScrollBy {
-            fn container(
+            fn container(&mut self, _id: Option<&Id>, _bounds: Rectangle) {}
+
+            fn traverse(
                 &mut self,
-                _id: Option<&Id>,
-                _bounds: Rectangle,
-                operate_on_children: &mut dyn FnMut(&mut dyn Operation<T>),
+                operate: &mut dyn FnMut(&mut dyn Operation<T>),
             ) {
-                operate_on_children(self);
+                operate(self);
             }
 
             fn scrollable(

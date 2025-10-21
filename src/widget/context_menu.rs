@@ -438,13 +438,10 @@ pub fn close<Message: 'static + Send>(f: fn(bool) -> Message) -> Task<Message> {
     }
 
     impl<T> Operation<T> for Close<T> {
-        fn container(
-            &mut self,
-            _id: Option<&widget::Id>,
-            _bounds: Rectangle,
-            operate_on_children: &mut dyn FnMut(&mut dyn Operation<T>),
-        ) {
-            operate_on_children(self);
+        fn container(&mut self, _id: Option<&widget::Id>, _bounds: Rectangle) {}
+
+        fn traverse(&mut self, operate: &mut dyn FnMut(&mut dyn Operation<T>)) {
+            operate(self);
         }
 
         fn custom(
