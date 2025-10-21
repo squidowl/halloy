@@ -1528,6 +1528,24 @@ show_access_level = true
 [buffer.timestamp]
 format = "%R"
 </code></pre>
+<h3 id="context_menu_format"><a class="header" href="#context_menu_format"><code>context_menu_format</code></a></h3>
+<p>Controls the format of shown in a timestamp's context menu. The expected format is <a href="https://pubs.opengroup.org/onlinepubs/007908799/xsh/strftime.html">strftime</a>.</p>
+<pre><code class="language-toml"># Type: string
+# Values: any valid strftime string
+# Default: "%x"
+
+[buffer.timestamp]
+context_menu_format = "%x"
+</code></pre>
+<h3 id="copy_format"><a class="header" href="#copy_format"><code>copy_format</code></a></h3>
+<p>Controls the format used when copying the timestamp into the clipboard from its context menu. The expected format is <a href="https://pubs.opengroup.org/onlinepubs/007908799/xsh/strftime.html">strftime</a>.  If not set, then the timestamp is copied in the <a href="https://en.wikipedia.org/wiki/ISO_8601">date and time of day in UTC using extended format ISO 8601:2004(E) 4.3.2 with millisecond precision</a> as is utilized in IRCv3.</p>
+<pre><code class="language-toml"># Type: string
+# Values: any valid strftime string or not set
+# Default: not set
+
+[buffer.timestamp]
+copy_format = "%Y-%m-%d %H:%M:%S"
+</code></pre>
 <h3 id="brackets-2"><a class="header" href="#brackets-2"><code>brackets</code></a></h3>
 <p>Brackets around timestamps.</p>
 <pre><code class="language-toml"># Type: string
