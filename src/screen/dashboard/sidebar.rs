@@ -294,7 +294,9 @@ impl Sidebar {
                                 Length::Fill => container(rule::horizontal(1))
                                     .padding([0, 6])
                                     .into(),
-                                _ => Space::new(length, 1).into(),
+                                _ => {
+                                    Space::new().width(length).height(1).into()
+                                }
                             },
                             Menu::Update => context_button(
                                 text("New version available")
@@ -830,7 +832,7 @@ fn upstream_buffer_button<'a>(
                             .style(buffer_title_style)
                             .font_maybe(buffer_title_font.clone())
                             .shaping(text::Shaping::Advanced),
-                        Space::with_width(6),
+                        Space::new().width(6),
                         text(server.name.to_string())
                             .style(theme::text::secondary)
                             .font_maybe(buffer_title_font)

@@ -213,7 +213,7 @@ impl Entry {
                 Length::Fill => {
                     container(rule::horizontal(1)).padding([0, 6]).into()
                 }
-                _ => Space::new(length, 1).into(),
+                _ => Space::new().width(length).height(1).into(),
             },
             (Entry::CtcpRequestTime, Context::User { server, user, .. }) => {
                 let message = Message::CtcpRequest(

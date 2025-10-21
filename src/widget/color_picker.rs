@@ -66,7 +66,7 @@ fn bordered<'a, Message: 'a>(
 }
 
 fn preview<'a, Message: 'a>(color: Color) -> Element<'a, Message> {
-    decorate(Space::new(Fill, Fill))
+    decorate(Space::new().width(Fill).height(Fill))
         .draw(
             move |_state: &(),
                   _inner: &Element<'a, Message>,
@@ -325,7 +325,7 @@ fn picker<'a, Message: 'a>(
 ) -> Element<'a, Message> {
     let color = data::appearance::theme::to_hsva(color);
 
-    decorate(Space::new(width, height))
+    decorate(Space::new().width(width).height(height))
         .update(
             move |state: &mut Option<Rectangle>,
                   _inner: &mut Element<'a, Message>,

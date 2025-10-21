@@ -11,8 +11,8 @@ use data::server::Server;
 use data::target::{self, Target};
 use data::{Config, Preview, client, history};
 use iced::widget::{
-    Scrollable, button, center, column, container, image, mouse_area, right,
-    row, rule, scrollable, space, stack, text,
+    self, Scrollable, button, center, column, container, image, mouse_area,
+    right, row, rule, scrollable, space, stack, text,
 };
 use iced::{ContentFit, Length, Padding, Size, Task, alignment, padding};
 
@@ -445,7 +445,7 @@ pub fn view<'a>(
 
 #[derive(Debug, Clone)]
 pub struct State {
-    pub scrollable: scrollable::Id,
+    pub scrollable: widget::Id,
     pane_size: Size,
     content_size: Size,
     limit: Limit,
@@ -460,7 +460,7 @@ impl State {
         let step_messages = step_messages(2.0 * pane_size.height, config);
 
         Self {
-            scrollable: scrollable::Id::unique(),
+            scrollable: widget::Id::unique(),
             pane_size,
             content_size: Size::default(), // Will get set initially via `on_resize`
             limit: Limit::Bottom(step_messages),
@@ -1091,7 +1091,7 @@ mod keyed {
         }
     }
 
-    pub fn find(scrollable: scrollable::Id, key: Key) -> Task<Hit> {
+    pub fn find(scrollable: widget::Id, key: Key) -> Task<Hit> {
         widget::operate(Find {
             active: false,
             scrollable_id: scrollable,
@@ -1106,7 +1106,7 @@ mod keyed {
     pub struct Find {
         pub active: bool,
         pub key: Key,
-        pub scrollable_id: scrollable::Id,
+        pub scrollable_id: widget::Id,
         pub scrollable: Option<Scrollable>,
         pub hit_bounds: Option<Rectangle>,
         pub prev_bounds: Option<Rectangle>,
@@ -1180,7 +1180,7 @@ mod keyed {
     #[derive(Debug, Clone)]
     pub struct TopOfViewport {
         pub active: bool,
-        pub scrollable_id: scrollable::Id,
+        pub scrollable_id: widget::Id,
         pub scrollable: Option<Scrollable>,
         pub hit_bounds: Option<(Key, Rectangle)>,
     }
@@ -1455,7 +1455,7 @@ mod correct_viewport {
 
     pub fn correct_viewport<'a>(
         inner: impl Into<Element<'a, Message>>,
-        scrollable: iced::widget::scrollable::Id,
+        scrollable: iced::widget::Id,
         enabled: bool,
     ) -> Element<'a, Message> {
         decorate(inner)

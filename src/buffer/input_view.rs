@@ -9,7 +9,9 @@ use data::rate_limit::TokenPriority;
 use data::target::Target;
 use data::user::Nick;
 use data::{Config, User, client, command};
-use iced::widget::{column, container, row, rule, text, text_input};
+use iced::widget::{
+    self, column, container, operation, row, rule, text, text_input,
+};
 use iced::{Alignment, Task, padding};
 use tokio::time;
 
@@ -190,7 +192,7 @@ fn error<'a, 'b, Message: 'a>(
 
 #[derive(Debug, Clone)]
 pub struct State {
-    input_id: text_input::Id,
+    input_id: widget::Id,
     error: Option<String>,
     completion: Completion,
     selected_history: Option<usize>,
@@ -205,7 +207,7 @@ impl Default for State {
 impl State {
     pub fn new() -> Self {
         Self {
-            input_id: text_input::Id::unique(),
+            input_id: widget::Id::unique(),
             error: None,
             completion: Completion::default(),
             selected_history: None,
@@ -851,17 +853,17 @@ impl State {
             });
         }
 
-        (text_input::move_cursor_to_end(self.input_id.clone()), None)
+        (operation::move_cursor_to_end(self.input_id.clone()), None)
     }
 
     pub fn focus(&self) -> Task<Message> {
         let input_id = self.input_id.clone();
 
-        text_input::is_focused(input_id.clone()).then(move |is_focused| {
+        operation::is_focused(input_id.clone()).then(move |is_focused| {
             if is_focused {
                 Task::none()
             } else {
-                text_input::focus(input_id.clone())
+                operation::focus(input_id.clone())
             }
         })
     }
@@ -903,7 +905,7 @@ impl State {
 
         history.record_draft(RawInput { buffer, text });
 
-        text_input::move_cursor_to_end(self.input_id.clone())
+        operation::move_cursor_to_end(self.input_id.clone())
     }
 
     pub fn close_picker(&mut self) -> bool {
