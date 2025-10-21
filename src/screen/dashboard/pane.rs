@@ -221,32 +221,36 @@ impl TitleBar {
                 None
             },
             {
-                let can_scroll_to_bottom =
-                    !buffer.is_scrolled_to_bottom().unwrap_or_default();
-                let scroll_to_bottom_button =
-                    button(center(icon::scroll_to_bottom()))
-                        .padding(5)
-                        .width(22)
-                        .height(22)
-                        .on_press_maybe(
-                            can_scroll_to_bottom
-                                .then_some(Message::ScrollToBottom),
-                        )
-                        .style(|theme, status| {
-                            theme::button::secondary(theme, status, false)
-                        });
+                if maybe_buffer_kind.is_some() {
+                    let can_scroll_to_bottom =
+                        !buffer.is_scrolled_to_bottom().unwrap_or_default();
+                    let scroll_to_bottom_button =
+                        button(center(icon::scroll_to_bottom()))
+                            .padding(5)
+                            .width(22)
+                            .height(22)
+                            .on_press_maybe(
+                                can_scroll_to_bottom
+                                    .then_some(Message::ScrollToBottom),
+                            )
+                            .style(|theme, status| {
+                                theme::button::secondary(theme, status, false)
+                            });
 
-                let scroll_to_bottom_button_with_tooltip = tooltip(
-                    scroll_to_bottom_button,
-                    show_tooltips.then_some(if can_scroll_to_bottom {
-                        "Scroll to bottom"
-                    } else {
-                        "Already at bottom"
-                    }),
-                    tooltip::Position::Bottom,
-                    theme,
-                );
-                Some(scroll_to_bottom_button_with_tooltip)
+                    let scroll_to_bottom_button_with_tooltip = tooltip(
+                        scroll_to_bottom_button,
+                        show_tooltips.then_some(if can_scroll_to_bottom {
+                            "Scroll to bottom"
+                        } else {
+                            "Already at bottom"
+                        }),
+                        tooltip::Position::Bottom,
+                        theme,
+                    );
+                    Some(scroll_to_bottom_button_with_tooltip)
+                } else {
+                    None
+                }
             },
             if let Buffer::Channel(state) = &buffer {
                 if let Some(topic) =
