@@ -1462,10 +1462,12 @@ impl Dashboard {
         let base = if let Some(command_bar) = self.command_bar.as_ref() {
             let background = anchored_overlay(
                 base,
-                container(Space::new(Length::Fill, Length::Fill))
-                    .width(Length::Fill)
-                    .height(Length::Fill)
-                    .style(theme::container::transparent_overlay),
+                container(
+                    Space::new().width(Length::Fill).height(Length::Fill),
+                )
+                .width(Length::Fill)
+                .height(Length::Fill)
+                .style(theme::container::transparent_overlay),
                 anchored_overlay::Anchor::BelowTopCentered,
                 0.0,
             );
