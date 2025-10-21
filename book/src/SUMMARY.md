@@ -41,6 +41,7 @@
   - [Scale factor](configuration/scale-factor.md)
   - [Servers](configuration/servers.md)
   - [Sidebar](configuration/sidebar.md)
+  - [Platform Specific](configuration/platform-specific.md)
   - [Themes](configuration/themes/README.md)
     - [Community](configuration/themes/community.md)
     - [Base16](configuration/themes/base16.md)

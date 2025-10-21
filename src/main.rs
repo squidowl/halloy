@@ -10,6 +10,7 @@ mod icon;
 mod logger;
 mod modal;
 mod notification;
+mod platform_specific;
 mod screen;
 mod stream;
 mod url;
@@ -303,12 +304,15 @@ impl Halloy {
         let position =
             position.map(window::Position::Specific).unwrap_or_default();
 
+        let default_config = Config::default();
+        let config = config_load.as_ref().unwrap_or(&default_config);
+
         let (main_window, open_main_window) = window::open(window::Settings {
             size,
             position,
             min_size: Some(window::MIN_SIZE),
             exit_on_close_request: false,
-            ..window::settings()
+            ..window::settings(config)
         });
 
         let (mut halloy, command) =
@@ -350,6 +354,7 @@ impl Halloy {
                             styles,
                             &self.main_window,
                             &mut self.theme,
+                            &self.config,
                         )
                         .map(Message::Dashboard);
                 }
@@ -454,6 +459,7 @@ impl Halloy {
                                 );
                             }
                         };
+
                         Task::none()
                     }
                     Some(dashboard::Event::ReloadThemes) => {
@@ -1438,10 +1444,8 @@ impl Halloy {
     }
 
     fn view(&self, id: window::Id) -> Element<'_, Message> {
-        // The height margin varies across different operating systems due to design differences.
-        // For instance, on macOS, the menubar is hidden, resulting in a need for additional padding to accommodate the
-        // space occupied by the traffic light buttons.
-        let height_margin = if cfg!(target_os = "macos") { 20 } else { 0 };
+        let platform_specific_padding =
+            platform_specific::content_padding(&self.config);
 
         // Main window.
         if id == self.main_window.id {
@@ -1471,7 +1475,7 @@ impl Halloy {
                     .height(Length::Fill)
                     .style(theme::container::general),
             )
-            .padding(padding::top(height_margin));
+            .padding(padding::top(platform_specific_padding));
 
             // Modals might have a id representing which window to be presented on.
             // If modal has no id, we show them on main_window.
@@ -1495,7 +1499,7 @@ impl Halloy {
                     .view_window(id, &self.clients, &self.config, &self.theme)
                     .map(Message::Dashboard),
             )
-            .padding(padding::top(height_margin));
+            .padding(padding::top(platform_specific_padding));
 
             // Modals might have a id representing which window to be presented on.
             // If modal id match the current id we show it.
