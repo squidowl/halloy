@@ -5,6 +5,7 @@ use std::{convert, slice};
 
 use chrono::format::SecondsFormat;
 use chrono::{DateTime, Local, Utc};
+use data::config::buffer::ScrollPosition;
 use data::dashboard::{self, BufferAction};
 use data::environment::{RELEASE_WEBSITE, WIKI_WEBSITE};
 use data::history::ReadMarker;
@@ -547,20 +548,24 @@ impl Dashboard {
                                 self.panes.get_mut_by_buffer(&buffer)
                             {
                                 return (
-                                    state
-                                        .buffer
-                                        .scroll_to_backlog(
-                                            &self.history,
-                                            config,
-                                        )
-                                        .map(move |message| {
-                                            Message::Pane(
-                                                window,
-                                                pane::Message::Buffer(
-                                                    pane, message,
-                                                ),
+                                    match config.buffer.scroll_position_on_open
+                                    {
+                                        ScrollPosition::OldestUnread => state
+                                            .buffer
+                                            .scroll_to_backlog(
+                                                &self.history,
+                                                config,
                                             )
-                                        }),
+                                            .map(move |message| {
+                                                Message::Pane(
+                                                    window,
+                                                    pane::Message::Buffer(
+                                                        pane, message,
+                                                    ),
+                                                )
+                                            }),
+                                        ScrollPosition::Newest => Task::none(),
+                                    },
                                     None,
                                 );
                             }
