@@ -50,12 +50,18 @@ pub fn view<'a>(
                         .buffer
                         .format_timestamp(&message.server_time)
                         .map(|timestamp| {
-                            selectable_text(timestamp)
-                                .style(theme::selectable_text::timestamp)
-                                .font_maybe(
-                                    theme::font_style::timestamp(theme)
-                                        .map(font::get),
-                                )
+                            context_menu::timestamp(
+                                selectable_text(timestamp)
+                                    .style(theme::selectable_text::timestamp)
+                                    .font_maybe(
+                                        theme::font_style::timestamp(theme)
+                                            .map(font::get),
+                                    ),
+                                &message.server_time,
+                                config,
+                                theme,
+                            )
+                            .map(scroll_view::Message::ContextMenu)
                         });
 
                     let log_level_style = move |message_theme: &Theme| {
