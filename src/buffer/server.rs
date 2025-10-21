@@ -90,7 +90,14 @@ pub fn view<'a>(
                             config,
                         );
 
-                        Some(container(row![timestamp, message]).into())
+                        Some(
+                            container(row![
+                                timestamp,
+                                selectable_text(" "),
+                                message
+                            ])
+                            .into(),
+                        )
                     }
                     message::Source::Internal(
                         message::source::Internal::Status(status),
@@ -111,7 +118,14 @@ pub fn view<'a>(
                             config,
                         );
 
-                        Some(container(row![timestamp, message]).into())
+                        Some(
+                            container(row![
+                                timestamp,
+                                selectable_text(" "),
+                                message
+                            ])
+                            .into(),
+                        )
                     }
                     _ => None,
                 }
@@ -148,6 +162,7 @@ pub fn view<'a>(
     container(scrollable)
         .width(Length::Fill)
         .height(Length::Fill)
+        .padding(8)
         .into()
 }
 
