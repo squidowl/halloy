@@ -1,8 +1,6 @@
 use data::Config;
 use data::environment::WIKI_WEBSITE;
-use iced::widget::{
-    button, column, container, image, row, text, vertical_space,
-};
+use iced::widget::{button, column, container, image, row, space, text};
 use iced::{Length, alignment};
 
 use crate::widget::Element;
@@ -84,9 +82,9 @@ impl Welcome {
         let content = column![]
             .spacing(1)
             .push(image(image::Handle::from_bytes(logo_bytes)).width(150))
-            .push(vertical_space().height(10))
+            .push(space::vertical().height(10))
             .push(text("Welcome to Halloy!").font(font::MONO_BOLD.clone()))
-            .push(vertical_space().height(4))
+            .push(space::vertical().height(4))
             .push(text("Halloy is configured through a config file."))
             .push(row![
                 text("You can find the "),
@@ -95,11 +93,11 @@ impl Welcome {
                 ),
                 text(" file at the following path:"),
             ])
-            .push(vertical_space().height(8))
+            .push(space::vertical().height(8))
             .push(config_button)
-            .push(vertical_space().height(10))
+            .push(space::vertical().height(10))
             .push(text("To begin and view config options, see below."))
-            .push(vertical_space().height(10))
+            .push(space::vertical().height(10))
             .push(
                 column![]
                     .width(250)

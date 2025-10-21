@@ -1,4 +1,4 @@
-use iced::widget::{button, column, container, text, vertical_space};
+use iced::widget::{button, column, container, space, text};
 use iced::{Length, alignment};
 
 use super::Message;
@@ -15,7 +15,7 @@ pub fn view<'a>(payload: &'a str, theme: &'a Theme) -> Element<'a, Message> {
                     .font_maybe(theme::font_style::url(theme).map(font::get))
                     .wrapping(text::Wrapping::Glyph)
                     .width(Length::Shrink),
-                vertical_space().height(8),
+                space::vertical().height(8),
                 text("Are you sure you want to go there?"),
             ]
             .align_x(iced::Alignment::Center)

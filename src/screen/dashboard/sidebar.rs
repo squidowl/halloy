@@ -4,8 +4,8 @@ use data::config::{self, Config, sidebar};
 use data::dashboard::{BufferAction, BufferFocusedAction};
 use data::{Version, buffer, file_transfer, history, server};
 use iced::widget::{
-    Column, Row, Scrollable, Space, button, column, container, horizontal_rule,
-    pane_grid, row, scrollable, stack, text, vertical_rule, vertical_space,
+    Column, Row, Scrollable, Space, button, column, container, pane_grid, row,
+    rule, scrollable, space, stack, text,
 };
 use iced::{Alignment, Length, Padding, Task, padding};
 use itertools::Either;
@@ -291,7 +291,7 @@ impl Sidebar {
                                 Message::ToggleThemeEditor,
                             ),
                             Menu::HorizontalRule => match length {
-                                Length::Fill => container(horizontal_rule(1))
+                                Length::Fill => container(rule::horizontal(1))
                                     .padding([0, 6])
                                     .into(),
                                 _ => Space::new(length, 1).into(),
@@ -495,7 +495,7 @@ impl Sidebar {
                             if config.sidebar.position.is_horizontal() {
                                 if client_enumeration < clients.len() {
                                     buffers.push(
-                                        container(vertical_rule(1))
+                                        container(rule::vertical(1))
                                             .padding(padding::top(6))
                                             .height(20)
                                             .width(12)
@@ -505,7 +505,7 @@ impl Sidebar {
                                 }
                             } else {
                                 buffers
-                                    .push(vertical_space().height(12).into());
+                                    .push(space::vertical().height(12).into());
                             }
                         }
                     }

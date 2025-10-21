@@ -11,9 +11,8 @@ use data::server::Server;
 use data::target::{self, Target};
 use data::{Config, Preview, client, history};
 use iced::widget::{
-    Scrollable, button, center, column, container, horizontal_rule,
-    horizontal_space, image, mouse_area, right, row, scrollable, stack, text,
-    vertical_space,
+    Scrollable, button, center, column, container, image, mouse_area, right,
+    row, rule, scrollable, space, stack, text,
 };
 use iced::{ContentFit, Length, Padding, Size, Task, alignment, padding};
 
@@ -185,7 +184,7 @@ pub fn view<'a>(
             .on_press_maybe(message);
 
         Some(
-            row![horizontal_space(), top_row_button, horizontal_space()]
+            row![space::horizontal(), top_row_button, space::horizontal()]
                 .padding(padding::top(2).bottom(6))
                 .width(Length::Fill)
                 .align_y(iced::Alignment::Center),
@@ -320,7 +319,7 @@ pub fn view<'a>(
                     Some(
                         column![
                             row![
-                                container(horizontal_rule(1))
+                                container(rule::horizontal(1))
                                     .width(Length::Fill)
                                     .padding(padding::right(6)),
                                 text(
@@ -353,7 +352,7 @@ pub fn view<'a>(
                                     theme::font_style::secondary(theme)
                                         .map(font::get)
                                 ),
-                                container(horizontal_rule(1))
+                                container(rule::horizontal(1))
                                     .width(Length::Fill)
                                     .padding(padding::left(6))
                             ]
@@ -393,14 +392,14 @@ pub fn view<'a>(
 
     let divider = if show_backlog_divier {
         row![
-            container(horizontal_rule(1))
+            container(rule::horizontal(1))
                 .width(Length::Fill)
                 .padding(padding::right(6)),
             text("backlog")
                 .size(divider_font_size)
                 .style(theme::text::secondary)
                 .font_maybe(theme::font_style::secondary(theme).map(font::get)),
-            container(horizontal_rule(1))
+            container(rule::horizontal(1))
                 .width(Length::Fill)
                 .padding(padding::left(6))
         ]
@@ -416,7 +415,7 @@ pub fn view<'a>(
             column(old).spacing(config.buffer.line_spacing),
             keyed(keyed::Key::Divider, divider),
             column(new).spacing(config.buffer.line_spacing),
-            vertical_space().height(config.buffer.line_spacing),
+            space::vertical().height(config.buffer.line_spacing),
         ]
         .spacing(config.buffer.line_spacing),
         Message::ContentResized,
@@ -1419,7 +1418,7 @@ fn preview_row<'a>(
             theme,
         ))
     } else {
-        container(horizontal_space().width(Length::Fixed(HIDE_BUTTON_WIDTH)))
+        container(space::horizontal().width(Length::Fixed(HIDE_BUTTON_WIDTH)))
     };
 
     // Iced hack: using a stack with right-aligned hide_button ensures the button always stays visible

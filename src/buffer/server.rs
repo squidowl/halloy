@@ -4,7 +4,7 @@ use data::dashboard::BufferAction;
 use data::target::Target;
 use data::user::Nick;
 use data::{Config, User, buffer, history, message};
-use iced::widget::{column, container, row, vertical_space};
+use iced::widget::{column, container, row, space};
 use iced::{Color, Length, Size, Task};
 
 use super::{context_menu, input_view, scroll_view};
@@ -148,7 +148,7 @@ pub fn view<'a>(
 
     let text_input = show_text_input.then(|| {
         column![
-            vertical_space().height(4),
+            space::vertical().height(4),
             input_view::view(
                 &state.input_view,
                 input,

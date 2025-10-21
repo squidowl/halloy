@@ -1,9 +1,7 @@
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
-use iced::widget::{
-    button, center, column, container, horizontal_space, image, row,
-};
+use iced::widget::{button, center, column, container, image, row, space};
 use iced::{ContentFit, Length};
 
 use super::Message;
@@ -20,7 +18,7 @@ pub fn view<'a>(
     container(transparent_button(
         column![
             container(row![
-                horizontal_space(),
+                space::horizontal(),
                 container(
                     row![
                         tooltip(
