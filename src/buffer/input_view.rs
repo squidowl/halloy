@@ -9,7 +9,7 @@ use data::rate_limit::TokenPriority;
 use data::target::Target;
 use data::user::Nick;
 use data::{Config, User, client, command};
-use iced::widget::{column, container, row, text, text_input, vertical_rule};
+use iced::widget::{column, container, row, rule, text, text_input};
 use iced::{Alignment, Task, padding};
 use tokio::time;
 
@@ -125,7 +125,7 @@ pub fn view<'a>(
         });
 
     let maybe_vertical_rule =
-        maybe_our_user.is_some().then(move || vertical_rule(1.0));
+        maybe_our_user.is_some().then(move || rule::vertical(1.0));
 
     let mut content = column![
         container(

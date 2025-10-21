@@ -2,9 +2,7 @@ use chrono::{DateTime, Local, Utc};
 use data::dashboard::BufferAction;
 use data::user::Nick;
 use data::{Config, Server, User, config, ctcp, isupport, target};
-use iced::widget::{
-    Space, button, column, container, horizontal_rule, row, text,
-};
+use iced::widget::{Space, button, column, container, row, rule, text};
 use iced::{Length, Padding, padding};
 
 use crate::widget::{Element, context_menu, double_pass};
@@ -213,7 +211,7 @@ impl Entry {
             ),
             (Entry::HorizontalRule, _) => match length {
                 Length::Fill => {
-                    container(horizontal_rule(1)).padding([0, 6]).into()
+                    container(rule::horizontal(1)).padding([0, 6]).into()
                 }
                 _ => Space::new(length, 1).into(),
             },

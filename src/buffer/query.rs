@@ -5,7 +5,7 @@ use data::preview::{self, Previews};
 use data::target::{self, Target};
 use data::user::Nick;
 use data::{Config, Server, User, buffer, history, message};
-use iced::widget::{column, container, vertical_space};
+use iced::widget::{column, container, space};
 use iced::{Length, Size, Task};
 
 use super::message_view::{ChannelQueryLayout, TargetInfo};
@@ -94,7 +94,7 @@ pub fn view<'a>(
 
     let text_input = show_text_input.then(|| {
         column![
-            vertical_space().height(4),
+            space::vertical().height(4),
             input_view::view(
                 &state.input_view,
                 input,
