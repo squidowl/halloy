@@ -2273,19 +2273,18 @@ impl Client {
                     self.chantypes(),
                     self.statusmsg(),
                     self.casemapping(),
-                ) {
-                    let mode_request_response = if let Some(position) =
-                        self.mode_requests.iter().position(|mode_request| {
-                            mode_request.channel == target_channel
-                                && matches!(
-                                    mode_request.status,
-                                    ModeStatus::Received(_)
-                                )
-                        }) {
-                        self.mode_requests.swap_remove(position);
+                ) && let Some(position) =
+                    self.mode_requests.iter().position(|mode_request| {
+                        mode_request.channel == target_channel
+                            && matches!(
+                                mode_request.status,
+                                ModeStatus::Received(_)
+                            )
+                    })
+                {
+                    self.mode_requests.swap_remove(position);
 
-                        return Ok(vec![]);
-                    }
+                    return Ok(vec![]);
                 }
             }
             Command::Numeric(ERR_NOCHANMODES, args) => {
