@@ -631,10 +631,10 @@ impl Commands {
                         tooltip: Some(
                             "    ACTION: Display <text> as a third-person action or emote\
                            \nCLIENTINFO: Request a list of the CTCP messages <nick> supports\
-                           \n  USERINFO: Request miscellaneous information about the user\
                            \n      PING: Request a reply containing the same <info> that was sent\
                            \n    SOURCE: Request a URL where the source code for <nick>'s IRC client can be found\
                            \n      TIME: Request the <nick>'s local time in a human-readable format\
+                           \n  USERINFO: Request miscellaneous information about the user\
                            \n   VERSION: Request the name and version of <nick>'s IRC client".to_string(),
                         ),
                     },
