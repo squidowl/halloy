@@ -2992,7 +2992,7 @@ dependencies = [
 [[package]]
 name = "iced"
 version = "0.14.0-dev"
-source = "git+https://github.com/squidowl/iced?rev=489f3aeac407c1a69a67274a9b8daae6e5fb4a13#489f3aeac407c1a69a67274a9b8daae6e5fb4a13"
+source = "git+https://github.com/squidowl/iced?rev=6b04e0bb0a85b6baad8b507c89e84bff225f75ab#6b04e0bb0a85b6baad8b507c89e84bff225f75ab"
 dependencies = [
  "iced_core",
  "iced_debug",
@@ -3003,13 +3003,13 @@ dependencies = [
  "iced_widget",
  "iced_winit",
  "image 0.25.6",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
 ]
 
 [[package]]
 name = "iced_beacon"
 version = "0.14.0-dev"
-source = "git+https://github.com/squidowl/iced?rev=489f3aeac407c1a69a67274a9b8daae6e5fb4a13#489f3aeac407c1a69a67274a9b8daae6e5fb4a13"
+source = "git+https://github.com/squidowl/iced?rev=6b04e0bb0a85b6baad8b507c89e84bff225f75ab#6b04e0bb0a85b6baad8b507c89e84bff225f75ab"
 dependencies = [
  "bincode",
  "futures",
@@ -3017,14 +3017,14 @@ dependencies = [
  "log",
  "semver",
  "serde",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "tokio",
 ]
 
 [[package]]
 name = "iced_core"
 version = "0.14.0-dev"
-source = "git+https://github.com/squidowl/iced?rev=489f3aeac407c1a69a67274a9b8daae6e5fb4a13#489f3aeac407c1a69a67274a9b8daae6e5fb4a13"
+source = "git+https://github.com/squidowl/iced?rev=6b04e0bb0a85b6baad8b507c89e84bff225f75ab#6b04e0bb0a85b6baad8b507c89e84bff225f75ab"
 dependencies = [
  "bitflags 2.9.1",
  "bytes",
@@ -3035,14 +3035,14 @@ dependencies = [
  "rustc-hash 2.1.1",
  "serde",
  "smol_str",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "web-time",
 ]
 
 [[package]]
 name = "iced_debug"
 version = "0.14.0-dev"
-source = "git+https://github.com/squidowl/iced?rev=489f3aeac407c1a69a67274a9b8daae6e5fb4a13#489f3aeac407c1a69a67274a9b8daae6e5fb4a13"
+source = "git+https://github.com/squidowl/iced?rev=6b04e0bb0a85b6baad8b507c89e84bff225f75ab#6b04e0bb0a85b6baad8b507c89e84bff225f75ab"
 dependencies = [
  "iced_beacon",
  "iced_core",
@@ -3053,7 +3053,7 @@ dependencies = [
 [[package]]
 name = "iced_devtools"
 version = "0.14.0-dev"
-source = "git+https://github.com/squidowl/iced?rev=489f3aeac407c1a69a67274a9b8daae6e5fb4a13#489f3aeac407c1a69a67274a9b8daae6e5fb4a13"
+source = "git+https://github.com/squidowl/iced?rev=6b04e0bb0a85b6baad8b507c89e84bff225f75ab#6b04e0bb0a85b6baad8b507c89e84bff225f75ab"
 dependencies = [
  "iced_debug",
  "iced_program",
@@ -3064,7 +3064,7 @@ dependencies = [
 [[package]]
 name = "iced_futures"
 version = "0.14.0-dev"
-source = "git+https://github.com/squidowl/iced?rev=489f3aeac407c1a69a67274a9b8daae6e5fb4a13#489f3aeac407c1a69a67274a9b8daae6e5fb4a13"
+source = "git+https://github.com/squidowl/iced?rev=6b04e0bb0a85b6baad8b507c89e84bff225f75ab#6b04e0bb0a85b6baad8b507c89e84bff225f75ab"
 dependencies = [
  "futures",
  "iced_core",
@@ -3078,7 +3078,7 @@ dependencies = [
 [[package]]
 name = "iced_graphics"
 version = "0.14.0-dev"
-source = "git+https://github.com/squidowl/iced?rev=489f3aeac407c1a69a67274a9b8daae6e5fb4a13#489f3aeac407c1a69a67274a9b8daae6e5fb4a13"
+source = "git+https://github.com/squidowl/iced?rev=6b04e0bb0a85b6baad8b507c89e84bff225f75ab#6b04e0bb0a85b6baad8b507c89e84bff225f75ab"
 dependencies = [
  "bitflags 2.9.1",
  "bytemuck",
@@ -3091,14 +3091,14 @@ dependencies = [
  "log",
  "raw-window-handle",
  "rustc-hash 2.1.1",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "unicode-segmentation",
 ]
 
 [[package]]
 name = "iced_program"
 version = "0.14.0-dev"
-source = "git+https://github.com/squidowl/iced?rev=489f3aeac407c1a69a67274a9b8daae6e5fb4a13#489f3aeac407c1a69a67274a9b8daae6e5fb4a13"
+source = "git+https://github.com/squidowl/iced?rev=6b04e0bb0a85b6baad8b507c89e84bff225f75ab#6b04e0bb0a85b6baad8b507c89e84bff225f75ab"
 dependencies = [
  "iced_graphics",
  "iced_runtime",
@@ -3107,32 +3107,32 @@ dependencies = [
 [[package]]
 name = "iced_renderer"
 version = "0.14.0-dev"
-source = "git+https://github.com/squidowl/iced?rev=489f3aeac407c1a69a67274a9b8daae6e5fb4a13#489f3aeac407c1a69a67274a9b8daae6e5fb4a13"
+source = "git+https://github.com/squidowl/iced?rev=6b04e0bb0a85b6baad8b507c89e84bff225f75ab#6b04e0bb0a85b6baad8b507c89e84bff225f75ab"
 dependencies = [
  "iced_graphics",
  "iced_tiny_skia",
  "iced_wgpu",
  "log",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
 ]
 
 [[package]]
 name = "iced_runtime"
 version = "0.14.0-dev"
-source = "git+https://github.com/squidowl/iced?rev=489f3aeac407c1a69a67274a9b8daae6e5fb4a13#489f3aeac407c1a69a67274a9b8daae6e5fb4a13"
+source = "git+https://github.com/squidowl/iced?rev=6b04e0bb0a85b6baad8b507c89e84bff225f75ab#6b04e0bb0a85b6baad8b507c89e84bff225f75ab"
 dependencies = [
  "bytes",
  "iced_core",
  "iced_debug",
  "iced_futures",
  "raw-window-handle",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
 ]
 
 [[package]]
 name = "iced_tiny_skia"
 version = "0.14.0-dev"
-source = "git+https://github.com/squidowl/iced?rev=489f3aeac407c1a69a67274a9b8daae6e5fb4a13#489f3aeac407c1a69a67274a9b8daae6e5fb4a13"
+source = "git+https://github.com/squidowl/iced?rev=6b04e0bb0a85b6baad8b507c89e84bff225f75ab#6b04e0bb0a85b6baad8b507c89e84bff225f75ab"
 dependencies = [
  "bytemuck",
  "cosmic-text",
@@ -3148,7 +3148,7 @@ dependencies = [
 [[package]]
 name = "iced_wgpu"
 version = "0.14.0-dev"
-source = "git+https://github.com/squidowl/iced?rev=489f3aeac407c1a69a67274a9b8daae6e5fb4a13#489f3aeac407c1a69a67274a9b8daae6e5fb4a13"
+source = "git+https://github.com/squidowl/iced?rev=6b04e0bb0a85b6baad8b507c89e84bff225f75ab#6b04e0bb0a85b6baad8b507c89e84bff225f75ab"
 dependencies = [
  "bitflags 2.9.1",
  "bytemuck",
@@ -3160,36 +3160,35 @@ dependencies = [
  "iced_graphics",
  "log",
  "rustc-hash 2.1.1",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "wgpu",
 ]
 
 [[package]]
 name = "iced_widget"
 version = "0.14.0-dev"
-source = "git+https://github.com/squidowl/iced?rev=489f3aeac407c1a69a67274a9b8daae6e5fb4a13#489f3aeac407c1a69a67274a9b8daae6e5fb4a13"
+source = "git+https://github.com/squidowl/iced?rev=6b04e0bb0a85b6baad8b507c89e84bff225f75ab#6b04e0bb0a85b6baad8b507c89e84bff225f75ab"
 dependencies = [
  "iced_renderer",
- "iced_runtime",
  "log",
  "num-traits",
  "ouroboros",
  "rustc-hash 2.1.1",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "unicode-segmentation",
 ]
 
 [[package]]
 name = "iced_winit"
 version = "0.14.0-dev"
-source = "git+https://github.com/squidowl/iced?rev=489f3aeac407c1a69a67274a9b8daae6e5fb4a13#489f3aeac407c1a69a67274a9b8daae6e5fb4a13"
+source = "git+https://github.com/squidowl/iced?rev=6b04e0bb0a85b6baad8b507c89e84bff225f75ab#6b04e0bb0a85b6baad8b507c89e84bff225f75ab"
 dependencies = [
  "iced_debug",
  "iced_program",
  "log",
  "rustc-hash 2.1.1",
  "sysinfo",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
  "tracing",
  "wasm-bindgen-futures",
  "web-sys",
