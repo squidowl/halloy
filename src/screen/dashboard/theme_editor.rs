@@ -55,7 +55,10 @@ pub struct ThemeEditor {
 }
 
 impl ThemeEditor {
-    pub fn open(main_window: &Window) -> (Self, Task<window::Id>) {
+    pub fn open(
+        main_window: &Window,
+        config: &Config,
+    ) -> (Self, Task<window::Id>) {
         let (window, task) = window::open(window::Settings {
             // Just big enough to show all components in combobox
             size: iced::Size::new(555.0, 300.0),
@@ -67,7 +70,7 @@ impl ThemeEditor {
                 })
                 .unwrap_or_default(),
             exit_on_close_request: false,
-            ..window::settings()
+            ..window::settings(config)
         });
 
         (

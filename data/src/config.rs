@@ -19,6 +19,7 @@ pub use self::keys::Keyboard;
 pub use self::logs::Logs;
 pub use self::notification::Notifications;
 pub use self::pane::Pane;
+pub use self::platform_specific::PlatformSpecific;
 pub use self::preview::Preview;
 pub use self::proxy::Proxy;
 pub use self::server::Server;
@@ -40,6 +41,7 @@ pub mod keys;
 pub mod logs;
 pub mod notification;
 pub mod pane;
+pub mod platform_specific;
 pub mod preview;
 pub mod proxy;
 pub mod server;
@@ -67,6 +69,7 @@ pub struct Config {
     pub actions: Actions,
     pub ctcp: Ctcp,
     pub logs: Logs,
+    pub platform_specific: PlatformSpecific,
 }
 
 #[derive(Debug, Clone, Copy, Deserialize)]
@@ -314,6 +317,7 @@ impl Config {
             pub actions: Actions,
             pub ctcp: Ctcp,
             pub logs: Logs,
+            pub platform_specific: PlatformSpecific,
         }
 
         impl Default for Configuration {
@@ -336,6 +340,7 @@ impl Config {
                     actions: Actions::default(),
                     ctcp: Ctcp::default(),
                     logs: Logs::default(),
+                    platform_specific: PlatformSpecific::default(),
                 }
             }
         }
@@ -370,6 +375,7 @@ impl Config {
             actions,
             ctcp,
             logs,
+            platform_specific,
         } = serde_ignored::deserialize(config, |ignored| {
             log::warn!("[config.toml] Ignoring unknown setting: {ignored}");
         })
@@ -399,6 +405,7 @@ impl Config {
             actions,
             ctcp,
             logs,
+            platform_specific,
         })
     }
 

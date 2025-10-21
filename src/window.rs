@@ -1,3 +1,4 @@
+use data::Config;
 pub use data::window::{Error, MIN_SIZE};
 use futures::stream::BoxStream;
 use futures::{Stream, StreamExt};
@@ -74,12 +75,12 @@ pub enum Event {
     target_os = "linux",
     target_os = "windows"
 )))]
-pub fn settings() -> Settings {
+pub fn settings(_config: &Config) -> Settings {
     Settings::default()
 }
 
 #[cfg(target_os = "linux")]
-pub fn settings() -> Settings {
+pub fn settings(config: &Config) -> Settings {
     use data::environment;
     use iced::window;
 
@@ -88,12 +89,13 @@ pub fn settings() -> Settings {
             application_id: environment::APPLICATION_ID.to_string(),
             override_redirect: false,
         },
+        decorations: config.platform_specific.linux.decorations,
         ..Default::default()
     }
 }
 
 #[cfg(target_os = "macos")]
-pub fn settings() -> Settings {
+pub fn settings(config: &Config) -> Settings {
     use iced::window;
 
     Settings {
@@ -102,12 +104,13 @@ pub fn settings() -> Settings {
             titlebar_transparent: true,
             fullsize_content_view: true,
         },
+        decorations: config.platform_specific.macos.decorations,
         ..Default::default()
     }
 }
 
 #[cfg(target_os = "windows")]
-pub fn settings() -> Settings {
+pub fn settings(config: &Config) -> Settings {
     use iced::window;
     use image::EncodableLayout;
 
@@ -124,6 +127,7 @@ pub fn settings() -> Settings {
                     icon.height(),
                 )
                 .ok(),
+                decorations: config.platform_specific.windows.decorations,
                 ..Default::default()
             },
             None => Settings::default(),
