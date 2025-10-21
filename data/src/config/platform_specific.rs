@@ -44,8 +44,8 @@ impl Default for MacOS {
     fn default() -> Self {
         Self {
             decorations: true,
-            content_padding: TitlebarPadding::default(),
-            sidebar_padding: TitlebarPadding::default(),
+            content_padding: TitlebarPadding::EmbeddedContent,
+            sidebar_padding: TitlebarPadding::PaddedContent,
         }
     }
 }
