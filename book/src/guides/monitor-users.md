@@ -6,8 +6,8 @@ Halloy has [monitor](https://ircv3.net/specs/extensions/monitor) support if the 
 
 To use the feature you need to add the user(s) you wish to monitor. This can be done in two ways:
 
-* You can add a list of user directly to the configuration file. [See configuration option.](../configuration/servers.md#monitor)
-* You can add users through `/monitor` directly in Halloy. 
+* You can add a list of user directly to the configuration file. [See configuration option.](../configuration/servers/index.md#monitor)
+* You can add users through `/monitor` directly in Halloy.
 
 Examples with the `/monitor` command:
 

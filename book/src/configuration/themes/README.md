@@ -1,5 +1,15 @@
 # Themes
 
+- [Themes](#themes)
+  - [Example](#example)
+  - [Configuration](#configuration)
+    - [theme](#theme)
+  - [Custom themes](#custom-themes)
+  - [Sub-sections](#sub-sections)
+    - [Community](#community)
+    - [Base16](#base16)
+
+
 ## Example
 
 ```toml
@@ -16,11 +26,13 @@ theme = { light = "ferra-light", dark = "ferra" }
 theme = { light = ["ferra-light", "booberry-light"], dark = ["ferra", "booberry"] }
 ```
 
+## Configuration
+
 > ⚠️  `theme` is a root key, so it must be placed before every section.
 
-## `theme`
+### theme
 
-Specify the theme name(s) to use. The theme must correspond to a file in the `themes` folder of your Halloy configuration directory. For more details, see the [configuration overview](../README.md). The default theme in Halloy is [Ferra](https://github.com/casperstorm/ferra/).
+Specify the theme name(s) to use. The theme must correspond to a file in the `themes` folder of your Halloy configuration directory. For more details, see the [configuration overview](../../configuration.md). The default theme in Halloy is [Ferra](https://github.com/casperstorm/ferra/).
 
 When multiple themes are specified, Halloy will randomly select one each time the application starts. When a dynamic theme is used, Halloy will match the appearance of the OS.
 
@@ -28,7 +40,7 @@ When multiple themes are specified, Halloy will randomly select one each time th
 - **values**: `"<string>"`, `["<string>", "<string>"]`, `{ light = "<string>", dark = "<string>" }`, `{ light = ["<string>", "<string>"], dark = ["<string>", "<string>"] }`
 - **default**: `"ferra"`
   
-> 💡  See all community created themes [here](./community.md) and base16 themes [here](./base16.md).
+> 💡  See all [community created themes](./community.md) and [base16 themes](./base16.md).
 
 ## Custom themes
 
@@ -114,4 +126,16 @@ url = "<string>"
 # wallops = "<string>"
 default = "<string>"
 ```
-> 💡  The default Ferra theme toml file can be viewed [here](https://github.com/squidowl/halloy/blob/main/assets/themes/ferra.toml).
+
+> 💡  The default Ferra theme toml file can be viewed [on GitHub](https://github.com/squidowl/halloy/blob/main/assets/themes/ferra.toml).
+
+
+## Sub-sections
+
+### [Community](community.md)
+
+Community created themes for Halloy
+
+### [Base16](base16.md)
+
+Community collection of base16 themes

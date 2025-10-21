@@ -12,8 +12,7 @@ username = "<your-username>"
 password = "<your-password>"
 ```
 
-> 💡  as of 2025.1 Halloy supports [`chathistory`](../configuration/servers.md#chathistory), so the machine name (like `@desktop`) is no longer needed when `chathistory` is enabled
-
+> 💡  as of 2025.1 Halloy supports [`chathistory`](../configuration/servers/index.md#chathistory), so the machine name (like `@desktop`) is no longer needed when `chathistory` is enabled
 
 ## Using bouncer networks
 
@@ -23,16 +22,16 @@ As of 2025.9 Halloy supports [`bouncer networks`](https://codeberg.org/emersion/
 
 If this is not desired, you can still add individual servers with the ZNC username syntax, for example:
 
-```
+```toml
 [servers.libera]
 nickname = "<your-nickname>"
 server = "<your-bouncer-url>"
 port = 6697
+
 [servers.soju.sasl.plain]
 username = "<your-username>/irc.libera.chat"
 password = "<your-password>"
 ```
-
 
 ## Using chathistory
 
