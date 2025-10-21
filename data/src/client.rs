@@ -2236,21 +2236,55 @@ impl Client {
                 ) && let Some(channel) =
                     self.chanmap.get_mut(&target_channel)
                 {
-                    let mode_request_response = if let Some(position) =
-                        self.mode_requests.iter().position(|mode_request| {
-                            mode_request.channel == target_channel
-                        }) {
-                        self.mode_requests.swap_remove(position);
-                        true
-                    } else {
-                        false
-                    };
+                    let mode_request_response =
+                        if let Some((instant, mode_request)) = self
+                            .mode_requests
+                            .iter_mut()
+                            .find_map(|mode_request| {
+                                if mode_request.channel == target_channel
+                                    && let ModeStatus::Joined(instant)
+                                    | ModeStatus::Requested(instant) =
+                                        mode_request.status
+                                {
+                                    Some((instant, mode_request))
+                                } else {
+                                    None
+                                }
+                            })
+                        {
+                            mode_request.status = ModeStatus::Received(instant);
+                            true
+                        } else {
+                            false
+                        };
 
                     channel.mode = args.get(2).cloned();
 
                     if mode_request_response {
                         return Ok(vec![]);
                     }
+                }
+            }
+            Command::Numeric(RPL_CREATIONTIME, args) => {
+                let channel = ok!(args.get(1));
+
+                if let Ok(target_channel) = target::Channel::parse(
+                    channel,
+                    self.chantypes(),
+                    self.statusmsg(),
+                    self.casemapping(),
+                ) && let Some(position) =
+                    self.mode_requests.iter().position(|mode_request| {
+                        mode_request.channel == target_channel
+                            && matches!(
+                                mode_request.status,
+                                ModeStatus::Received(_)
+                            )
+                    })
+                {
+                    self.mode_requests.swap_remove(position);
+
+                    return Ok(vec![]);
                 }
             }
             Command::Numeric(ERR_NOCHANMODES, args) => {
@@ -3219,8 +3253,9 @@ impl Client {
         }
 
         self.mode_requests.retain(|mode_request| {
-            if let ModeStatus::Requested(requested_at) = mode_request.status
-                && now.duration_since(requested_at) >= MODE_REQUEST_TIMEOUT
+            if let ModeStatus::Requested(instant)
+            | ModeStatus::Received(instant) = mode_request.status
+                && now.duration_since(instant) >= MODE_REQUEST_TIMEOUT
             {
                 false
             } else {
@@ -3921,8 +3956,9 @@ pub struct ModeRequest {
 
 #[derive(Debug, Clone)]
 pub enum ModeStatus {
-    Requested(Instant),
     Joined(Instant),
+    Requested(Instant),
+    Received(Instant),
 }
 
 fn group_capability_requests<'a>(
