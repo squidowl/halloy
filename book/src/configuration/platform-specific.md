@@ -26,7 +26,7 @@ Controls if the sidebar is rendered inside the the titlebar content view, or pad
 ```toml
 # Type: string
 # Values: "embedded-content", "padded-content"
-# Default: "embedded-content"
+# Default: "padded-content"
 
 [platform_specific]
 macos.sidebar_padding = "embedded-content"
@@ -35,8 +35,7 @@ macos.sidebar_padding = "embedded-content"
 ### `decorations`
 
 Whether the window should have a border, traffic light, a title bar, etc. or not.
-
-> ⚠️  You need a third party application to move the window around if set to false. Eg: Rectangle.app.
+A restart is required for this change to take effect.
 
 ```toml
 # Type: boolean
@@ -54,6 +53,7 @@ Linux specific settings
 ### `decorations`
 
 Whether the window should have a border, a title bar, etc. or not.
+A restart is required for this change to take effect.
 
 ```toml
 # Type: boolean
@@ -71,6 +71,7 @@ Windows specific settings
 ### `decorations`
 
 Whether the window should have a border, a title bar, etc. or not.
+A restart is required for this change to take effect.
 
 ```toml
 # Type: boolean
