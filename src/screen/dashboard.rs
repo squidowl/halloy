@@ -1692,20 +1692,21 @@ impl Dashboard {
                         date_time,
                         format,
                     ) => {
-                        tasks.push(clipboard::write(
-                            date_time
-                                .with_timezone(&Local)
-                                .format(&format)
-                                .to_string(),
-                        ));
-                    }
-                    buffer::context_menu::Event::CopyRfc3339Timestamp(
-                        date_time,
-                    ) => {
-                        tasks.push(clipboard::write(
-                            date_time
-                                .to_rfc3339_opts(SecondsFormat::Millis, true),
-                        ));
+                        if let Some(format) = format {
+                            tasks.push(clipboard::write(
+                                date_time
+                                    .with_timezone(&Local)
+                                    .format(&format)
+                                    .to_string(),
+                            ));
+                        } else {
+                            tasks.push(clipboard::write(
+                                date_time.to_rfc3339_opts(
+                                    SecondsFormat::Millis,
+                                    true,
+                                ),
+                            ));
+                        }
                     }
                 }
 

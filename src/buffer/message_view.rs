@@ -76,22 +76,60 @@ impl<'a> ChannelQueryLayout<'a> {
             self.config
                 .buffer
                 .format_range_timestamp(&message.server_time, end_server_time)
+                .map(|(start_timestamp, dash, end_timestamp)| {
+                    row![
+                        context_menu::timestamp(
+                            selectable_text(start_timestamp)
+                                .style(theme::selectable_text::timestamp)
+                                .font_maybe(
+                                    theme::font_style::timestamp(self.theme)
+                                        .map(font::get),
+                                ),
+                            &message.server_time,
+                            self.config,
+                            self.theme,
+                        )
+                        .map(Message::ContextMenu),
+                        selectable_text(dash)
+                            .style(theme::selectable_text::timestamp)
+                            .font_maybe(
+                                theme::font_style::timestamp(self.theme)
+                                    .map(font::get),
+                            ),
+                        context_menu::timestamp(
+                            selectable_text(end_timestamp)
+                                .style(theme::selectable_text::timestamp)
+                                .font_maybe(
+                                    theme::font_style::timestamp(self.theme)
+                                        .map(font::get),
+                                ),
+                            end_server_time,
+                            self.config,
+                            self.theme,
+                        )
+                        .map(Message::ContextMenu)
+                    ]
+                    .into()
+                })
         } else {
-            self.config.buffer.format_timestamp(&message.server_time)
+            self.config
+                .buffer
+                .format_timestamp(&message.server_time)
+                .map(|timestamp| {
+                    context_menu::timestamp(
+                        selectable_text(timestamp)
+                            .style(theme::selectable_text::timestamp)
+                            .font_maybe(
+                                theme::font_style::timestamp(self.theme)
+                                    .map(font::get),
+                            ),
+                        &message.server_time,
+                        self.config,
+                        self.theme,
+                    )
+                    .map(Message::ContextMenu)
+                })
         }
-        .map(|timestamp| {
-            context_menu::timestamp(
-                selectable_text(timestamp)
-                    .style(theme::selectable_text::timestamp)
-                    .font_maybe(
-                        theme::font_style::timestamp(self.theme).map(font::get),
-                    ),
-                &message.server_time,
-                self.config,
-                self.theme,
-            )
-            .map(Message::ContextMenu)
-        })
     }
 
     fn format_prefixes(
@@ -420,9 +458,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
         let prefixes =
             self.format_prefixes(message, max_nick_width, max_prefix_width);
 
-        let space = selectable_text(" ");
-
-        let row = row![timestamp, prefixes];
+        let row = row![timestamp, selectable_text(" "), prefixes];
 
         let (middle, content): (Element<'a, Message>, Element<'a, Message>) =
             match message.target.source() {
@@ -515,7 +551,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
                     )
                 }
             }?;
-        let row = row.push(middle).push(space);
+        let row = row.push(middle).push(selectable_text(" "));
         if self.content_on_new_line(message) {
             Some(container(column![row, content]).into())
         } else {
