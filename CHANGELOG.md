@@ -33,7 +33,7 @@ Thanks:
 
 - Contributions: @Toby222, @Frikilinux, @4e554c4c, @apollo7321, @Bartkk0, @seraxis
 - Bug reports: @Toby222, @deepspaceaxolotl, @zhelezov, @Erroneuz, @dgz0, @csmith, @otonoton, @mefistoso
-- Feature requests: @j0lol, @xcfrg
+- Feature requests: @j0lol, @xcfrg, ThePendulum, i_like_halloy
 
 # 2025.9 (2025-09-16)
 
