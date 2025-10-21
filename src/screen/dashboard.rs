@@ -457,9 +457,10 @@ impl Dashboard {
                         let _ = open::that_detached(RELEASE_WEBSITE);
                         (Task::none(), None)
                     }
-                    sidebar::Event::ToggleThemeEditor => {
-                        (self.toggle_theme_editor(theme, main_window), None)
-                    }
+                    sidebar::Event::ToggleThemeEditor => (
+                        self.toggle_theme_editor(theme, main_window, config),
+                        None,
+                    ),
                     sidebar::Event::OpenDocumentation => {
                         let _ = open::that_detached(WIKI_WEBSITE);
                         (Task::none(), None)
@@ -685,7 +686,7 @@ impl Dashboard {
                                     if let Some(editor) = &self.theme_editor {
                                         (window::gain_focus(editor.window), None)
                                     } else {
-                                        let (editor, task) = ThemeEditor::open(main_window);
+                                        let (editor, task) = ThemeEditor::open(main_window, config);
 
                                         self.theme_editor = Some(editor);
 
@@ -921,7 +922,11 @@ impl Dashboard {
                     }
                     ThemeEditor => {
                         return (
-                            self.toggle_theme_editor(theme, main_window),
+                            self.toggle_theme_editor(
+                                theme,
+                                main_window,
+                                config,
+                            ),
                             None,
                         );
                     }
@@ -1918,12 +1923,13 @@ impl Dashboard {
         &mut self,
         theme: &mut Theme,
         main_window: &Window,
+        config: &Config,
     ) -> Task<Message> {
         if let Some(editor) = self.theme_editor.take() {
             *theme = theme.selected();
             window::close(editor.window)
         } else {
-            let (editor, task) = ThemeEditor::open(main_window);
+            let (editor, task) = ThemeEditor::open(main_window, config);
 
             self.theme_editor = Some(editor);
 
@@ -2109,6 +2115,7 @@ impl Dashboard {
                         config,
                     ));
 
+                    let config = config.clone();
                     move |main_window_position| {
                         let (_, task) = window::open(window::Settings {
                             // Just big enough to show all components in combobox
@@ -2120,7 +2127,7 @@ impl Dashboard {
                                 })
                                 .unwrap_or_default(),
                             exit_on_close_request: false,
-                            ..window::settings()
+                            ..window::settings(&config)
                         });
 
                         task.map({
@@ -3089,13 +3096,14 @@ impl Dashboard {
         styles: theme::Styles,
         main_window: &Window,
         theme: &mut Theme,
+        config: &Config,
     ) -> Task<Message> {
         *theme = theme.preview(data::Theme::new("Custom Theme".into(), styles));
 
         if let Some(editor) = &self.theme_editor {
             window::gain_focus(editor.window)
         } else {
-            let (editor, task) = ThemeEditor::open(main_window);
+            let (editor, task) = ThemeEditor::open(main_window, config);
 
             self.theme_editor = Some(editor);
 
