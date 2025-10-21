@@ -13,7 +13,7 @@ use tokio::time;
 
 use super::{Focus, Panes, Server};
 use crate::widget::{Element, Text, context_menu, double_pass};
-use crate::{Theme, font, icon, theme, window};
+use crate::{Theme, font, icon, platform_specific, theme, window};
 
 const CONFIG_RELOAD_DELAY: Duration = Duration::from_secs(1);
 
@@ -563,18 +563,33 @@ impl Sidebar {
             }
         };
 
+        let platform_specific_padding =
+            platform_specific::sidebar_padding(config);
+
         let padding = match config.sidebar.position {
-            sidebar::Position::Left => padding::top(8).bottom(6).left(6),
-            sidebar::Position::Right => padding::top(8).bottom(6).right(6),
-            sidebar::Position::Top => padding::top(8).left(6).right(6),
-            sidebar::Position::Bottom => padding::bottom(8).left(6).right(6),
+            sidebar::Position::Left => {
+                padding::top(8 + platform_specific_padding)
+                    .bottom(6)
+                    .left(6)
+            }
+            sidebar::Position::Right => {
+                padding::top(8 + platform_specific_padding)
+                    .bottom(6)
+                    .right(6)
+            }
+            sidebar::Position::Top => {
+                padding::top(8 + platform_specific_padding).right(6)
+            }
+            sidebar::Position::Bottom => padding::bottom(8)
+                .left(6)
+                .right(6)
+                .top(platform_specific_padding),
         };
 
         let content = if config.sidebar.position.is_horizontal() {
             container(
                 content(Length::Shrink).width(Length::Fill).padding(padding),
             )
-            .into()
         } else {
             let first_pass = content(Length::Shrink);
             let second_pass = content(Length::Fill);
@@ -585,10 +600,9 @@ impl Sidebar {
                 )
                 .width(Length::Shrink)
                 .padding(padding)
-                .into()
         };
 
-        Some(content)
+        Some(content.into())
     }
 }
 
