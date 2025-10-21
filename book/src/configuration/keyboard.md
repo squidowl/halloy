@@ -1,8 +1,13 @@
-# `[keyboard]`
+<!-- markdownlint-disable MD033 -->
+# Keyboard
 
 Customize keyboard shortcuts. Below is a list of all actions which can be mapped.
 
-**Example**
+- [Keyboard](#keyboard)
+  - [Example](#example)
+  - [Types](#types)
+
+## Example
 
 ```toml
 [keyboard]
@@ -11,6 +16,8 @@ move_down = "alt+j"
 move_left = "alt+h"
 move_right = "alt+l"
 ```
+
+## Types
 
 | Key                            | Description                  | Default MacOS                                       | Default Other                                       |
 | ------------------------------ | ---------------------------- | --------------------------------------------------- | --------------------------------------------------- |

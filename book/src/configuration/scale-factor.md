@@ -1,7 +1,16 @@
-# `[scale_factor]`
+# Scale Factor
 
 Application wide scale factor.
-Note: `scale_factor` is a root key, so it must be placed before any section.
+
+- [Scale Factor](#scale-factor)
+  - [Configuration](#configuration)
+    - [scale\_factor](#scale_factor)
+
+## Configuration
+
+### scale_factor
+
+> ⚠️ `scale_factor` is a root key, so it must be placed before any section.
 
 ```toml
 # Type: float
