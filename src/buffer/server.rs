@@ -168,7 +168,6 @@ pub fn view<'a>(
     container(scrollable)
         .width(Length::Fill)
         .height(Length::Fill)
-        .padding(8)
         .into()
 }
 
