@@ -2,7 +2,9 @@ use core::fmt;
 
 use serde::{Deserialize, Serialize};
 
-use crate::serde::deserialize_strftime_date;
+use crate::serde::{
+    deserialize_strftime_date, deserialize_strftime_date_maybe,
+};
 use crate::target::{self, Target};
 use crate::{Server, channel, config, message};
 
@@ -228,6 +230,10 @@ pub struct Timestamp {
     #[serde(deserialize_with = "deserialize_strftime_date")]
     pub format: String,
     pub brackets: Brackets,
+    #[serde(deserialize_with = "deserialize_strftime_date")]
+    pub context_menu_format: String,
+    #[serde(deserialize_with = "deserialize_strftime_date_maybe")]
+    pub copy_format: Option<String>,
 }
 
 impl Default for Timestamp {
@@ -235,6 +241,8 @@ impl Default for Timestamp {
         Self {
             format: "%R".to_string(),
             brackets: Brackets::default(),
+            context_menu_format: "%x".to_string(),
+            copy_format: None,
         }
     }
 }
