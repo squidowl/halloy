@@ -1133,14 +1133,20 @@ impl Data {
                                     &message.server_time,
                                     end_server_time,
                                 )
+                                .map(
+                                    |(start_timestamp, dash, end_timestamp)| {
+                                        start_timestamp.chars().count()
+                                            + dash.chars().count()
+                                            + end_timestamp.chars().count()
+                                    },
+                                )
                                 .unwrap_or_default()
-                                .chars()
-                                .count()
                                 - buffer_config
                                     .format_timestamp(&message.server_time)
-                                    .unwrap_or_default()
-                                    .chars()
-                                    .count(),
+                                    .map(|timestamp| {
+                                        timestamp.chars().count() + 1
+                                    })
+                                    .unwrap_or_default(),
                         )
                     } else {
                         None

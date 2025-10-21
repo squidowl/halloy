@@ -92,6 +92,27 @@ where
     }
 }
 
+pub fn deserialize_strftime_date_maybe<'de, D>(
+    deserializer: D,
+) -> Result<Option<String>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let strftime_string_maybe: Option<String> =
+        Deserialize::deserialize(deserializer)?;
+
+    if let Some(strftime_string) = &strftime_string_maybe
+        && StrftimeItems::new(strftime_string).parse().is_err()
+    {
+        Err(serde::de::Error::invalid_value(
+            serde::de::Unexpected::Str(strftime_string),
+            &"valid strftime string",
+        ))
+    } else {
+        Ok(strftime_string_maybe)
+    }
+}
+
 pub fn deserialize_positive_integer_maybe<'de, D>(
     deserializer: D,
 ) -> Result<Option<u8>, D::Error>

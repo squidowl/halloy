@@ -58,12 +58,18 @@ pub fn view<'a>(
                     .buffer
                     .format_timestamp(&message.server_time)
                     .map(|timestamp| {
-                        selectable_text(timestamp)
-                            .font_maybe(
-                                theme::font_style::timestamp(theme)
-                                    .map(font::get),
-                            )
-                            .style(theme::selectable_text::timestamp)
+                        context_menu::timestamp(
+                            selectable_text(timestamp)
+                                .font_maybe(
+                                    theme::font_style::timestamp(theme)
+                                        .map(font::get),
+                                )
+                                .style(theme::selectable_text::timestamp),
+                            &message.server_time,
+                            config,
+                            theme,
+                        )
+                        .map(scroll_view::Message::ContextMenu)
                     });
 
                 match message.target.source() {
@@ -90,7 +96,14 @@ pub fn view<'a>(
                             config,
                         );
 
-                        Some(container(row![timestamp, message]).into())
+                        Some(
+                            container(row![
+                                timestamp,
+                                selectable_text(" "),
+                                message
+                            ])
+                            .into(),
+                        )
                     }
                     message::Source::Internal(
                         message::source::Internal::Status(status),
@@ -111,7 +124,14 @@ pub fn view<'a>(
                             config,
                         );
 
-                        Some(container(row![timestamp, message]).into())
+                        Some(
+                            container(row![
+                                timestamp,
+                                selectable_text(" "),
+                                message
+                            ])
+                            .into(),
+                        )
                     }
                     _ => None,
                 }

@@ -3,7 +3,8 @@ use std::path::PathBuf;
 use std::time::{Duration, Instant};
 use std::{convert, slice};
 
-use chrono::{DateTime, Utc};
+use chrono::format::SecondsFormat;
+use chrono::{DateTime, Local, Utc};
 use data::dashboard::{self, BufferAction};
 use data::environment::{RELEASE_WEBSITE, WIKI_WEBSITE};
 use data::history::ReadMarker;
@@ -1685,6 +1686,26 @@ impl Dashboard {
                                 encoded,
                                 TokenPriority::High,
                             );
+                        }
+                    }
+                    buffer::context_menu::Event::CopyTimestamp(
+                        date_time,
+                        format,
+                    ) => {
+                        if let Some(format) = format {
+                            tasks.push(clipboard::write(
+                                date_time
+                                    .with_timezone(&Local)
+                                    .format(&format)
+                                    .to_string(),
+                            ));
+                        } else {
+                            tasks.push(clipboard::write(
+                                date_time.to_rfc3339_opts(
+                                    SecondsFormat::Millis,
+                                    true,
+                                ),
+                            ));
                         }
                     }
                 }

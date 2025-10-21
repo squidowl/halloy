@@ -7,7 +7,7 @@ use iced::Color;
 use iced::advanced::text;
 use iced::widget::{column, container, row};
 
-use super::context_menu;
+use super::context_menu::{self, Context};
 use super::scroll_view::LayoutMessage;
 use crate::buffer::scroll_view::Message;
 use crate::widget::{
@@ -76,17 +76,60 @@ impl<'a> ChannelQueryLayout<'a> {
             self.config
                 .buffer
                 .format_range_timestamp(&message.server_time, end_server_time)
+                .map(|(start_timestamp, dash, end_timestamp)| {
+                    row![
+                        context_menu::timestamp(
+                            selectable_text(start_timestamp)
+                                .style(theme::selectable_text::timestamp)
+                                .font_maybe(
+                                    theme::font_style::timestamp(self.theme)
+                                        .map(font::get),
+                                ),
+                            &message.server_time,
+                            self.config,
+                            self.theme,
+                        )
+                        .map(Message::ContextMenu),
+                        selectable_text(dash)
+                            .style(theme::selectable_text::timestamp)
+                            .font_maybe(
+                                theme::font_style::timestamp(self.theme)
+                                    .map(font::get),
+                            ),
+                        context_menu::timestamp(
+                            selectable_text(end_timestamp)
+                                .style(theme::selectable_text::timestamp)
+                                .font_maybe(
+                                    theme::font_style::timestamp(self.theme)
+                                        .map(font::get),
+                                ),
+                            end_server_time,
+                            self.config,
+                            self.theme,
+                        )
+                        .map(Message::ContextMenu)
+                    ]
+                    .into()
+                })
         } else {
-            self.config.buffer.format_timestamp(&message.server_time)
+            self.config
+                .buffer
+                .format_timestamp(&message.server_time)
+                .map(|timestamp| {
+                    context_menu::timestamp(
+                        selectable_text(timestamp)
+                            .style(theme::selectable_text::timestamp)
+                            .font_maybe(
+                                theme::font_style::timestamp(self.theme)
+                                    .map(font::get),
+                            ),
+                        &message.server_time,
+                        self.config,
+                        self.theme,
+                    )
+                    .map(Message::ContextMenu)
+                })
         }
-        .map(|timestamp| {
-            selectable_text(timestamp)
-                .style(theme::selectable_text::timestamp)
-                .font_maybe(
-                    theme::font_style::timestamp(self.theme).map(font::get),
-                )
-        })
-        .map(Element::from)
     }
 
     fn format_prefixes(
@@ -198,7 +241,7 @@ impl<'a> ChannelQueryLayout<'a> {
             self.theme,
         );
 
-        let fm = *self;
+        let formatter = *self;
 
         let message_content = message_content::with_context(
             &message.content,
@@ -211,8 +254,8 @@ impl<'a> ChannelQueryLayout<'a> {
             Option::<fn(Color) -> Color>::None,
             move |link| match link {
                 message::Link::User(_) => context_menu::Entry::user_list(
-                    fm.target.is_channel(),
-                    fm.target.our_user(),
+                    formatter.target.is_channel(),
+                    formatter.target.our_user(),
                 ),
                 message::Link::Url(_) => context_menu::Entry::url_list(),
                 _ => vec![],
@@ -220,15 +263,10 @@ impl<'a> ChannelQueryLayout<'a> {
             move |link, entry, length| {
                 entry
                     .view(
-                        fm.server,
-                        fm.prefix,
-                        fm.target.channel(),
-                        link.user(),
-                        user_in_channel,
-                        link.url(),
+                        formatter.link_context(link),
                         length,
-                        fm.config,
-                        fm.theme,
+                        formatter.config,
+                        formatter.theme,
                     )
                     .map(Message::ContextMenu)
             },
@@ -301,19 +339,9 @@ impl<'a> ChannelQueryLayout<'a> {
                 _ => vec![],
             },
             move |link, entry, length| {
-                let user = link.user();
-                let current_user = user.and_then(|u| {
-                    formatter.target.users().and_then(|users| users.resolve(u))
-                });
-
                 entry
                     .view(
-                        formatter.server,
-                        formatter.prefix,
-                        formatter.target.channel(),
-                        user,
-                        current_user,
-                        link.url(),
+                        formatter.link_context(link),
                         length,
                         formatter.config,
                         formatter.theme,
@@ -370,19 +398,9 @@ impl<'a> ChannelQueryLayout<'a> {
                 _ => vec![],
             },
             move |link, entry, length| {
-                let user = link.user();
-                let current_user = user.and_then(|u| {
-                    formatter.target.users().and_then(|users| users.resolve(u))
-                });
-
                 entry
                     .view(
-                        formatter.server,
-                        formatter.prefix,
-                        formatter.target.channel(),
-                        user,
-                        current_user,
-                        link.url(),
+                        formatter.link_context(link),
                         length,
                         formatter.config,
                         formatter.theme,
@@ -406,6 +424,26 @@ impl<'a> ChannelQueryLayout<'a> {
             (Source::User(_), Alignment::Top)
         )
     }
+
+    fn link_context<'b>(
+        &'b self,
+        link: &'b message::Link,
+    ) -> Option<Context<'b>> {
+        if let Some(user) = link.user() {
+            let current_user =
+                self.target.users().and_then(|users| users.resolve(user));
+
+            Some(Context::User {
+                server: self.server,
+                prefix: self.prefix,
+                channel: self.target.channel(),
+                user,
+                current_user,
+            })
+        } else {
+            link.url().map(Context::Url)
+        }
+    }
 }
 
 impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
@@ -420,9 +458,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
         let prefixes =
             self.format_prefixes(message, max_nick_width, max_prefix_width);
 
-        let space = selectable_text(" ");
-
-        let row = row![timestamp, prefixes];
+        let row = row![timestamp, selectable_text(" "), prefixes];
 
         let (middle, content): (Element<'a, Message>, Element<'a, Message>) =
             match message.target.source() {
@@ -515,7 +551,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
                     )
                 }
             }?;
-        let row = row.push(middle).push(space);
+        let row = row.push(middle).push(selectable_text(" "));
         if self.content_on_new_line(message) {
             Some(container(column![row, content]).into())
         } else {

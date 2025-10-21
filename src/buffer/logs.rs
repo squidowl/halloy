@@ -6,7 +6,7 @@ use data::{Config, client, history, isupport, message};
 use iced::widget::{container, row};
 use iced::{Color, Length, Size, Task};
 
-use super::{scroll_view, context_menu};
+use super::{context_menu, scroll_view};
 use crate::widget::{Element, message_content, selectable_text};
 use crate::{Theme, font, theme};
 
@@ -50,12 +50,18 @@ pub fn view<'a>(
                         .buffer
                         .format_timestamp(&message.server_time)
                         .map(|timestamp| {
-                            selectable_text(timestamp)
-                                .style(theme::selectable_text::timestamp)
-                                .font_maybe(
-                                    theme::font_style::timestamp(theme)
-                                        .map(font::get),
-                                )
+                            context_menu::timestamp(
+                                selectable_text(timestamp)
+                                    .style(theme::selectable_text::timestamp)
+                                    .font_maybe(
+                                        theme::font_style::timestamp(theme)
+                                            .map(font::get),
+                                    ),
+                                &message.server_time,
+                                config,
+                                theme,
+                            )
+                            .map(scroll_view::Message::ContextMenu)
                         });
 
                     let log_level_style = move |message_theme: &Theme| {
@@ -91,6 +97,7 @@ pub fn view<'a>(
                     Some(
                         row![
                             timestamp,
+                            selectable_text(" "),
                             log_level,
                             selectable_text(" "),
                             message,
