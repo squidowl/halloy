@@ -601,7 +601,7 @@ impl State {
                                     );
 
                                     let event = history
-                                        .clear_messages(kind)
+                                        .clear_messages(kind, clients)
                                         .map(|history_task| Event::Cleared {
                                             history_task: Task::future(
                                                 history_task,

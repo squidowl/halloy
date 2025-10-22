@@ -30,7 +30,7 @@ use crate::time::Posix;
 use crate::user::{ChannelUsers, Nick, NickRef};
 use crate::{
     Server, User, buffer, compression, config, ctcp, dcc, environment,
-    file_transfer, isupport, message, mode, server,
+    file_transfer, history, isupport, message, mode, server,
 };
 
 pub mod on_connect;
@@ -3748,6 +3748,29 @@ impl Map {
     pub fn get_server_supports_detach(&self, server: &Server) -> bool {
         self.client(server)
             .is_some_and(|client| client.supports_detach)
+    }
+
+    pub fn get_seed(&self, kind: &history::Kind) -> Option<history::Seed> {
+        match kind {
+            history::Kind::Highlights => {
+                let casemappings: HashMap<Server, isupport::CaseMap> = self
+                    .servers()
+                    .filter_map(|server| {
+                        self.client(server)
+                            .map(Client::casemapping)
+                            .map(|casemapping| (server.clone(), casemapping))
+                    })
+                    .collect();
+
+                (!casemappings.is_empty())
+                    .then_some(history::Seed::Multiple(casemappings))
+            }
+            _ => kind.server().and_then(|server| {
+                self.client(server)
+                    .map(Client::casemapping)
+                    .map(history::Seed::Single)
+            }),
+        }
     }
 
     pub fn get_server_handle(

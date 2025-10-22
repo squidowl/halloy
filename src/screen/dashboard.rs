@@ -117,7 +117,7 @@ impl Dashboard {
             buffer_settings: dashboard::BufferSettings::default(),
         };
 
-        let command = dashboard.track();
+        let command = dashboard.track(None);
 
         (dashboard, command)
     }
@@ -130,7 +130,7 @@ impl Dashboard {
         let (mut dashboard, task) =
             Dashboard::from_data(dashboard, config, main_window);
 
-        let tasks = Task::batch(vec![task, dashboard.track()]);
+        let tasks = Task::batch(vec![task, dashboard.track(None)]);
 
         (dashboard, tasks)
     }
@@ -206,7 +206,7 @@ impl Dashboard {
             .collect();
 
         open_pane_kinds.into_iter().for_each(|kind| {
-            self.history.renormalize_messages(kind, clients);
+            self.history.renormalize_messages(&kind, clients);
         });
     }
 
@@ -2172,7 +2172,7 @@ impl Dashboard {
 
                 tasks.push(
                     self.history
-                        .close(history::Kind::Channel(server, channel))
+                        .close(history::Kind::Channel(server, channel), clients)
                         .map_or_else(Task::none, |task| {
                             Task::perform(task, Message::History)
                         }),
@@ -2183,7 +2183,7 @@ impl Dashboard {
             buffer::Upstream::Query(server, nick) => {
                 tasks.push(
                     self.history
-                        .close(history::Kind::Query(server, nick))
+                        .close(history::Kind::Query(server, nick), clients)
                         .map_or_else(Task::none, |task| {
                             Task::perform(task, Message::History)
                         }),
@@ -2233,7 +2233,7 @@ impl Dashboard {
 
                 tasks.push(
                     self.history
-                        .close(history::Kind::Channel(server, channel))
+                        .close(history::Kind::Channel(server, channel), clients)
                         .map_or_else(Task::none, |task| {
                             Task::perform(task, Message::History)
                         }),
@@ -2244,7 +2244,7 @@ impl Dashboard {
             Target::Query(nick) => {
                 tasks.push(
                     self.history
-                        .close(history::Kind::Query(server, nick))
+                        .close(history::Kind::Query(server, nick), clients)
                         .map_or_else(Task::none, |task| {
                             Task::perform(task, Message::History)
                         }),
@@ -2773,22 +2773,29 @@ impl Dashboard {
         }
     }
 
-    pub fn track(&mut self) -> Task<Message> {
+    pub fn track(
+        &mut self,
+        clients: Option<&data::client::Map>,
+    ) -> Task<Message> {
         let resources = self.panes.resources().collect();
 
         Task::batch(
             self.history
-                .track(resources)
+                .track(resources, clients)
                 .into_iter()
                 .map(|fut| Task::perform(fut, Message::History))
                 .collect::<Vec<_>>(),
         )
     }
 
-    pub fn tick(&mut self, now: Instant) -> Task<Message> {
+    pub fn tick(
+        &mut self,
+        now: Instant,
+        clients: &data::client::Map,
+    ) -> Task<Message> {
         let history = Task::batch(
             self.history
-                .tick(now.into())
+                .tick(now.into(), clients)
                 .into_iter()
                 .map(|task| Task::perform(task, Message::History))
                 .collect::<Vec<_>>(),
@@ -3140,7 +3147,7 @@ impl Dashboard {
             mark_as_read(kind, &mut self.history, clients, TokenPriority::High);
         });
 
-        let history = self.history.exit();
+        let history = self.history.exit(clients);
         let last_changed = self.last_changed.take();
         let dashboard = data::Dashboard::from(&*self);
 
