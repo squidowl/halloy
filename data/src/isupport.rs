@@ -1001,7 +1001,7 @@ const DEFAULT_DEAF_LETTER: char = 'D';
 const DEFAULT_INVITE_EXCEPTION_LETTER: char = 'I';
 
 // Reference: https://modern.ircdocs.horse/#channel-membership-prefixes
-const DEFAULT_PREFIX: &[PrefixMap] = &[
+pub const DEFAULT_PREFIX: &[PrefixMap] = &[
     PrefixMap {
         prefix: proto::FOUNDER_PREFIX,
         mode: 'q',
@@ -1210,10 +1210,6 @@ pub fn find_target_limit(
 pub fn get_casemapping_or_default(
     isupport: &HashMap<Kind, Parameter>,
 ) -> CaseMap {
-    get_casemapping(isupport).unwrap_or_default()
-}
-
-pub fn get_casemapping(isupport: &HashMap<Kind, Parameter>) -> Option<CaseMap> {
     if let Some(Parameter::CASEMAPPING(casemapping)) =
         isupport.get(&Kind::CASEMAPPING)
     {
@@ -1221,6 +1217,7 @@ pub fn get_casemapping(isupport: &HashMap<Kind, Parameter>) -> Option<CaseMap> {
     } else {
         None
     }
+    .unwrap_or_default()
 }
 
 // https://modern.ircdocs.horse/#chanmodes-parameter
