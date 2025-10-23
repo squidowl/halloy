@@ -61,3 +61,5 @@ Configure automatic acceptance of incoming file transfers
 ### [Server](server.md)
 
 Server configuration for file transfers (required when `passive = true`)
+
+[^1]: Relative paths are prefixed with the config directory (i.e. if you have your config.toml in `/home/me/.config/halloy/config.toml`, path `.passwd/libera` will be converted to `/home/me/.config/halloy/.passwd/libera`).
