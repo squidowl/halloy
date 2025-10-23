@@ -6,21 +6,20 @@ Buffer settings for Halloy.
   - [Configuration](#configuration)
     - [line\_spacing](#line_spacing)
     - [scroll\_position\_on\_open](#scroll_position_on_open)
-  - [Sub-sections](#sub-sections)
-    - [Channel](#channel)
-    - [Chat History](#chat-history)
-    - [Commands](#commands)
-    - [Backlog Separator](#backlog-separator)
-    - [Date Separators](#date-separators)
-    - [Emojis](#emojis)
-    - [Internal Messages](#internal-messages)
-    - [Mark as Read](#mark-as-read)
-    - [Nickname](#nickname)
-    - [Server Messages](#server-messages)
-    - [Status message prefix](#status-message-prefix)
-    - [Text Input](#text-input)
-    - [Timestamp](#timestamp)
-    - [Url](#url)
+  - [Channel](#channel)
+  - [Chat History](#chat-history)
+  - [Commands](#commands)
+  - [Backlog Separator](#backlog-separator)
+  - [Date Separators](#date-separators)
+  - [Emojis](#emojis)
+  - [Internal Messages](#internal-messages)
+  - [Mark as Read](#mark-as-read)
+  - [Nickname](#nickname)
+  - [Server Messages](#server-messages)
+  - [Status message prefix](#status-message-prefix)
+  - [Text Input](#text-input)
+  - [Timestamp](#timestamp)
+  - [Url](#url)
 
 ## Configuration
 
@@ -50,60 +49,58 @@ Scroll position of the buffer when it opens.
 scroll_position_on_open = "newest"
 ```
 
-## Sub-sections
-
-### [Channel](channel/)
+## [Channel](channel/)
 
 Channel specific settings
 
-### [Chat History](chat-history/)
+## [Chat History](chat-history/)
 
 IRCv3 Chat History extension settings
 
-### [Commands](commands/)
+## [Commands](commands/)
 
 Commands settings.
 
-### [Backlog Separator](backlog-separator/)
+## [Backlog Separator](backlog-separator/)
 
 Customize when the backlog separator is displayed within a buffer
 
-### [Date Separators](date-separators/)
+## [Date Separators](date-separators/)
 
 Customize how date separators are displayed within a buffer
 
-### [Emojis](emojis/)
+## [Emojis](emojis/)
 
 Emojis settings.
 
-### [Internal Messages](internal-messages/)
+## [Internal Messages](internal-messages/)
 
 Internal messages are messages sent from Halloy itself.
 
-### [Mark as Read](mark-as-read/)
+## [Mark as Read](mark-as-read/)
 
 When to mark a buffer as read
 
-### [Nickname](nickname/)
+## [Nickname](nickname/)
 
 Customize how nicknames are displayed within a buffer.
 
-### [Server Messages](server-messages/)
+## [Server Messages](server-messages/)
 
 Server messages are messages sent from an IRC server.
 
-### [Status message prefix](status-message-prefix/)
+## [Status message prefix](status-message-prefix/)
 
 Status message prefix settings.
 
-### [Text Input](text-input/)
+## [Text Input](text-input/)
 
 Customize the text input for in buffers.
 
-### [Timestamp](timestamp/)
+## [Timestamp](timestamp/)
 
 Customize how timestamps are displayed within a buffer.
 
-### [Url](url/)
+## [Url](url/)
 
 Customize how urls behave in buffers

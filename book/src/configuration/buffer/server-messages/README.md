@@ -12,8 +12,7 @@ Server messages are messages sent from an IRC server.
     - [include](#include)
     - [dimmed](#dimmed)
     - [username\_format](#username_format)
-  - [Sub-sections](#sub-sections)
-    - [Condense](#condense)
+  - [Condense](#condense)
 
 ## Example
 
@@ -133,8 +132,6 @@ Adjust the amount of information displayed for a username in server messages. If
 username_format = "full"
 ```
 
-## Sub-sections
-
-### [Condense](condense.md)
+## [Condense](condense.md)
 
 Condense multiple consecutive server messages into a single abbreviated message

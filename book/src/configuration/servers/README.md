@@ -37,10 +37,9 @@ You can define multiple server sections in the configuration file. Each server s
     - [who\_poll\_interval](#who_poll_interval)
     - [monitor](#monitor)
     - [chathistory](#chathistory)
-  - [Sub-sections](#sub-sections)
-    - [Filters](#filters)
-    - [SASL Plain](#sasl-plain)
-    - [SASL External](#sasl-external)
+  - [Filters](#filters)
+  - [SASL Plain](#sasl-plain)
+  - [SASL External](#sasl-external)
 
 ## Example
 
@@ -480,16 +479,14 @@ Whether or not to enable [IRCv3 Chat History](https://ircv3.net/specs/extensions
 chathistory = true
 ```
 
-## Sub-sections
-
-### [Filters](filters.md)
+## [Filters](filters.md)
 
 Filter messages based on various criteria
 
-### [SASL Plain](sasl-plain.md)
+## [SASL Plain](sasl-plain.md)
 
 Plain SASL auth using a username and password
 
-### [SASL External](sasl-external.md)
+## [SASL External](sasl-external.md)
 
 External SASL auth uses a PEM encoded X509 certificate.
