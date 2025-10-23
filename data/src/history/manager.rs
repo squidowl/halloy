@@ -68,9 +68,10 @@ impl Manager {
     pub fn clear_messages(
         &mut self,
         kind: history::Kind,
+        clients: &client::Map,
     ) -> Option<BoxFuture<'static, Message>> {
         if let Some(history) = self.data.map.get_mut(&kind) {
-            let task = history.flush(None);
+            let task = history.flush(None, clients.get_seed(&kind));
 
             match history {
                 History::Full {
@@ -98,13 +99,17 @@ impl Manager {
     pub fn track(
         &mut self,
         new_resources: HashSet<Resource>,
+        clients: Option<&client::Map>,
     ) -> Vec<BoxFuture<'static, Message>> {
         let added = new_resources.difference(&self.resources).cloned();
         let removed = self.resources.difference(&new_resources).cloned();
 
         let added = added.into_iter().map(|resource| {
+            let seed =
+                clients.and_then(|clients| clients.get_seed(&resource.kind));
+
             async move {
-                history::load(resource.kind.clone())
+                history::load(resource.kind.clone(), seed)
                     .map(move |result| Message::LoadFull(resource.kind, result))
                     .await
             }
@@ -136,8 +141,6 @@ impl Manager {
                 let len = loaded.messages.len();
                 self.data.load_full(kind.clone(), loaded);
                 log::debug!("loaded history for {kind}: {len} messages");
-
-                self.renormalize_messages(kind.clone(), clients);
 
                 self.process_messages(kind.clone(), clients, buffer_config);
 
@@ -212,25 +215,40 @@ impl Manager {
         &mut self.filters
     }
 
-    pub fn tick(&mut self, now: Instant) -> Vec<BoxFuture<'static, Message>> {
-        self.data.flush_all(now)
+    pub fn tick(
+        &mut self,
+        now: Instant,
+        clients: &client::Map,
+    ) -> Vec<BoxFuture<'static, Message>> {
+        self.data.flush_all(now, clients)
     }
 
     pub fn close(
         &mut self,
         kind: history::Kind,
+        clients: &client::Map,
     ) -> Option<impl Future<Output = Message> + use<>> {
         let history = self.data.map.remove(&kind)?;
 
-        Some(history.close().map(|result| Message::Closed(kind, result)))
+        Some(
+            history
+                .close(clients.get_seed(&kind))
+                .map(|result| Message::Closed(kind, result)),
+        )
     }
 
-    pub fn exit(&mut self) -> impl Future<Output = Message> + use<> {
+    pub fn exit(
+        &mut self,
+        clients: &client::Map,
+    ) -> impl Future<Output = Message> + use<> {
         let map = std::mem::take(&mut self.data).map;
+        let seeds: Vec<Option<history::Seed>> =
+            map.keys().map(|kind| clients.get_seed(kind)).collect();
+        let seeded_map = map.into_iter().zip(seeds);
 
         async move {
-            let tasks = map.into_iter().map(|(kind, state)| {
-                state.close().map(move |result| (kind, result))
+            let tasks = seeded_map.into_iter().map(|((kind, state), seed)| {
+                state.close(seed).map(move |result| (kind, result))
             });
 
             Message::Exited(future::join_all(tasks).await)
@@ -866,37 +884,18 @@ impl Manager {
 
     pub fn renormalize_messages(
         &mut self,
-        kind: history::Kind,
+        kind: &history::Kind,
         clients: &client::Map,
     ) {
-        if let Some(history) = self.data.map.get_mut(&kind) {
+        if let Some(history) = self.data.map.get_mut(kind)
+            && let Some(seed) = clients.get_seed(kind)
+        {
             let messages = match history {
                 History::Full { messages, .. } => messages,
                 History::Partial { messages, .. } => messages,
             };
 
-            match kind {
-                history::Kind::Highlights => {
-                    messages.iter_mut().for_each(|message| {
-                        if let message::Target::Highlights { server, .. } =
-                            &message.target
-                        {
-                            let casemapping = clients
-                                .get_casemapping_or_default(Some(server));
-
-                            message.renormalize(casemapping);
-                        }
-                    });
-                }
-                _ => {
-                    let casemapping =
-                        clients.get_casemapping_or_default(kind.server());
-
-                    messages
-                        .iter_mut()
-                        .for_each(|message| message.renormalize(casemapping));
-                }
-            }
+            history::renormalize_messages(messages, seed);
         }
     }
 }
@@ -1329,16 +1328,22 @@ impl Data {
         self.map.get_mut(kind).and_then(History::make_partial)
     }
 
-    fn flush_all(&mut self, now: Instant) -> Vec<BoxFuture<'static, Message>> {
+    fn flush_all(
+        &mut self,
+        now: Instant,
+        clients: &client::Map,
+    ) -> Vec<BoxFuture<'static, Message>> {
         self.map
             .iter_mut()
             .filter_map(|(kind, state)| {
                 let kind = kind.clone();
 
-                state.flush(Some(now)).map(move |task| {
-                    task.map(move |result| Message::Flushed(kind, result))
-                        .boxed()
-                })
+                state.flush(Some(now), clients.get_seed(&kind)).map(
+                    move |task| {
+                        task.map(move |result| Message::Flushed(kind, result))
+                            .boxed()
+                    },
+                )
             })
             .collect()
     }

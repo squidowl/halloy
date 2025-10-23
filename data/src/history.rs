@@ -168,13 +168,45 @@ pub struct Loaded {
     pub metadata: Metadata,
 }
 
-pub async fn load(kind: Kind) -> Result<Loaded, Error> {
+pub enum Seed {
+    Single(isupport::CaseMap),
+    Multiple(HashMap<Server, isupport::CaseMap>),
+}
+
+pub async fn load(kind: Kind, seed: Option<Seed>) -> Result<Loaded, Error> {
     let path = path(&kind).await?;
 
-    let messages = read_all(&path).await.unwrap_or_default();
+    let mut messages = read_all(&path).await.unwrap_or_default();
+
+    if let Some(seed) = seed {
+        // TODO: Utilize DeserializeSeed (or equivalent) so proper normalization
+        // happens inside read_all, rather than having to renormalize afterward
+        renormalize_messages(&mut messages, seed);
+    }
+
     let metadata = metadata::load(kind).await.unwrap_or_default();
 
     Ok(Loaded { messages, metadata })
+}
+
+pub fn renormalize_messages(messages: &mut [Message], seed: Seed) {
+    match seed {
+        Seed::Multiple(casemappings) => {
+            messages.iter_mut().for_each(|message| {
+                if let message::Target::Highlights { server, .. } =
+                    &message.target
+                    && let Some(casemapping) = casemappings.get(server)
+                {
+                    message.renormalize(*casemapping);
+                }
+            });
+        }
+        Seed::Single(casemapping) => {
+            messages
+                .iter_mut()
+                .for_each(|message| message.renormalize(casemapping));
+        }
+    }
 }
 
 pub async fn overwrite(
@@ -200,10 +232,11 @@ pub async fn overwrite(
 
 pub async fn append(
     kind: &Kind,
+    seed: Option<Seed>,
     messages: Vec<Message>,
     read_marker: Option<ReadMarker>,
 ) -> Result<(), Error> {
-    let loaded = load(kind.clone()).await?;
+    let loaded = load(kind.clone(), seed).await?;
 
     let mut all_messages = loaded.messages;
     messages.into_iter().for_each(|message| {
@@ -406,6 +439,7 @@ impl History {
     fn flush(
         &mut self,
         now: Option<Instant>,
+        seed: Option<Seed>,
     ) -> Option<BoxFuture<'static, Result<(), Error>>> {
         match self {
             History::Partial {
@@ -428,11 +462,11 @@ impl History {
                     *last_updated_at = None;
 
                     return Some(
-                            async move {
-                                append(&kind, messages, read_marker).await
-                            }
-                            .boxed(),
-                        );
+                        async move {
+                            append(&kind, seed, messages, read_marker).await
+                        }
+                        .boxed(),
+                    );
                 }
 
                 None
@@ -517,14 +551,14 @@ impl History {
         }
     }
 
-    async fn close(self) -> Result<(), Error> {
+    async fn close(self, seed: Option<Seed>) -> Result<(), Error> {
         match self {
             History::Partial {
                 kind,
                 messages,
                 read_marker,
                 ..
-            } => append(&kind, messages, read_marker).await,
+            } => append(&kind, seed, messages, read_marker).await,
             History::Full {
                 kind,
                 messages,

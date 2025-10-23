@@ -401,7 +401,7 @@ impl Halloy {
                 );
 
                 // Retrack after dashboard state changes
-                let track = dashboard.track();
+                let track = dashboard.track(Some(&self.clients));
 
                 let event_task = match event {
                     Some(dashboard::Event::ConfigReloaded(config)) => {
@@ -1214,7 +1214,7 @@ impl Halloy {
                 }
 
                 if let Screen::Dashboard(dashboard) = &mut self.screen {
-                    dashboard.tick(now).map(Message::Dashboard)
+                    dashboard.tick(now, &self.clients).map(Message::Dashboard)
                 } else {
                     Task::none()
                 }
