@@ -179,8 +179,8 @@ pub async fn load(kind: Kind, seed: Option<Seed>) -> Result<Loaded, Error> {
     let mut messages = read_all(&path).await.unwrap_or_default();
 
     if let Some(seed) = seed {
-        // TODO: Utilize DeserializeSeed so proper normalization happens inside
-        // read_all ratheer than having to renormalize afterward
+        // TODO: Utilize DeserializeSeed (or equivalent) so proper normalization
+        // happens inside read_all, rather than having to renormalize afterward
         renormalize_messages(&mut messages, seed);
     }
 
