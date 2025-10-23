@@ -37,4 +37,4 @@ Below is a few URL examples.
 
 The `halloy://` scheme is used to import themes.
 The syntax for that is `halloy:///theme?e=base64EncodedThemeData`.
-A list of community created themes can be found [here](./configuration/themes/community.md).
+A list of community created themes can be found [here](../configuration/themes/community.md).

@@ -53,4 +53,4 @@ The argument(s) for a command are shown in [tooltips](configuration/tooltips.md)
 [^4]: The `targets` argument can be skipped; in a channel or query buffer it will target the current buffer.
 [^5]: Command must be supported by the bouncer/server to be executed successfully; if not supported then the command will not appear in the command picker.
 [^6]: See [soju](https://soju.im/)'s [documentation on detaching from channels](https://man.sr.ht/chat.sr.ht/bouncer-usage.md#detaching-from-channels) for more information.
-[^7]: Can only be used in [on_connect](./configuration/servers/index.md#on_connect).
+[^7]: Can only be used in [on_connect](./configuration/servers/README.md#on_connect).
