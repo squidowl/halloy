@@ -23,7 +23,7 @@ max_lines = 2
 
 ## Smart Filters
 
-[Smart filters](../configuration/buffer/server-messages/README.md#smart) can be used for server messages to hide messages for users that have not sent a message recently.  For example, to hide part messages for any user that has not sent a message within the 15 minutes prior to their parting:
+[Smart filters](../configuration/buffer/server-messages/#smart) can be used for server messages to hide messages for users that have not sent a message recently.  For example, to hide part messages for any user that has not sent a message within the 15 minutes prior to their parting:
 
 ```toml
 [buffer.server_messages.part]

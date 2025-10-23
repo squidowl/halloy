@@ -12,7 +12,7 @@ username = "<your-username>"
 password = "<your-password>"
 ```
 
-> 💡  as of 2025.1 Halloy supports [`chathistory`](../configuration/servers/README.md#chathistory), so the machine name (like `@desktop`) is no longer needed when `chathistory` is enabled
+> 💡  as of 2025.1 Halloy supports [`chathistory`](../configuration/servers/#chathistory), so the machine name (like `@desktop`) is no longer needed when `chathistory` is enabled
 
 ## Using `bouncer-networks`
 
