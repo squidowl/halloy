@@ -1,10 +1,8 @@
 use chrono::{DateTime, Local, Utc};
 use data::user::{ChannelUsers, NickRef};
 use data::{Config, Server, User, isupport, message, target};
-use iced::widget::{
-    Scrollable, column, container, horizontal_rule, row, scrollable,
-};
-use iced::{padding, Color, Length};
+use iced::widget::{Scrollable, column, container, row, rule, scrollable};
+use iced::{Color, Length, padding};
 
 use super::context_menu;
 use crate::widget::{Element, double_pass, message_content, selectable_text};
@@ -140,7 +138,7 @@ pub fn view<'a>(
                 .padding(padding()),
             column![container(scrollable)].width(Length::Fill),
         ),
-        container(horizontal_rule(1))
+        container(rule::horizontal(1))
             .width(Length::Fill)
             .padding([0, 11])
     ]

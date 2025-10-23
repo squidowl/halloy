@@ -1,6 +1,6 @@
 use data::environment::WIKI_WEBSITE;
 use data::{Config, config};
-use iced::widget::{button, column, container, text, vertical_space};
+use iced::widget::{button, column, container, space, text};
 use iced::{Length, alignment};
 
 use crate::widget::Element;
@@ -77,15 +77,15 @@ impl Help {
 
         let content = column![]
             .push(icon::error().style(theme::text::error).size(35))
-            .push(vertical_space().height(10))
+            .push(space::vertical().height(10))
             .push(text("Error reading configuration file"))
-            .push(vertical_space().height(10))
+            .push(space::vertical().height(10))
             .push(
                 text(self.error.to_string())
                     .style(theme::text::error)
                     .font_maybe(theme::font_style::error(theme).map(font::get)),
             )
-            .push(vertical_space().height(10))
+            .push(space::vertical().height(10))
             .push(
                 column![]
                     .width(250)

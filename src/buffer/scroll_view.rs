@@ -11,9 +11,8 @@ use data::server::Server;
 use data::target::{self, Target};
 use data::{Config, Preview, client, history};
 use iced::widget::{
-    Scrollable, button, center, column, container, horizontal_rule,
-    horizontal_space, image, mouse_area, right, row, scrollable, stack, text,
-    vertical_space,
+    self, Scrollable, button, center, column, container, image, mouse_area,
+    right, row, rule, scrollable, space, stack, text,
 };
 use iced::{ContentFit, Length, Padding, Size, Task, alignment, padding};
 
@@ -185,7 +184,7 @@ pub fn view<'a>(
             .on_press_maybe(message);
 
         Some(
-            row![horizontal_space(), top_row_button, horizontal_space()]
+            row![space::horizontal(), top_row_button, space::horizontal()]
                 .padding(padding::top(2).bottom(6))
                 .width(Length::Fill)
                 .align_y(iced::Alignment::Center),
@@ -320,7 +319,7 @@ pub fn view<'a>(
                     Some(
                         column![
                             row![
-                                container(horizontal_rule(1))
+                                container(rule::horizontal(1))
                                     .width(Length::Fill)
                                     .padding(padding::right(6)),
                                 text(
@@ -353,7 +352,7 @@ pub fn view<'a>(
                                     theme::font_style::secondary(theme)
                                         .map(font::get)
                                 ),
-                                container(horizontal_rule(1))
+                                container(rule::horizontal(1))
                                     .width(Length::Fill)
                                     .padding(padding::left(6))
                             ]
@@ -393,14 +392,14 @@ pub fn view<'a>(
 
     let divider = if show_backlog_divier {
         row![
-            container(horizontal_rule(1))
+            container(rule::horizontal(1))
                 .width(Length::Fill)
                 .padding(padding::right(6)),
             text("backlog")
                 .size(divider_font_size)
                 .style(theme::text::secondary)
                 .font_maybe(theme::font_style::secondary(theme).map(font::get)),
-            container(horizontal_rule(1))
+            container(rule::horizontal(1))
                 .width(Length::Fill)
                 .padding(padding::left(6))
         ]
@@ -416,7 +415,7 @@ pub fn view<'a>(
             column(old).spacing(config.buffer.line_spacing),
             keyed(keyed::Key::Divider, divider),
             column(new).spacing(config.buffer.line_spacing),
-            vertical_space().height(config.buffer.line_spacing),
+            space::vertical().height(config.buffer.line_spacing),
         ]
         .spacing(config.buffer.line_spacing),
         Message::ContentResized,
@@ -446,7 +445,7 @@ pub fn view<'a>(
 
 #[derive(Debug, Clone)]
 pub struct State {
-    pub scrollable: scrollable::Id,
+    pub scrollable: widget::Id,
     pane_size: Size,
     content_size: Size,
     limit: Limit,
@@ -461,7 +460,7 @@ impl State {
         let step_messages = step_messages(2.0 * pane_size.height, config);
 
         Self {
-            scrollable: scrollable::Id::unique(),
+            scrollable: widget::Id::unique(),
             pane_size,
             content_size: Size::default(), // Will get set initially via `on_resize`
             limit: Limit::Bottom(step_messages),
@@ -1092,7 +1091,7 @@ mod keyed {
         }
     }
 
-    pub fn find(scrollable: scrollable::Id, key: Key) -> Task<Hit> {
+    pub fn find(scrollable: widget::Id, key: Key) -> Task<Hit> {
         widget::operate(Find {
             active: false,
             scrollable_id: scrollable,
@@ -1107,7 +1106,7 @@ mod keyed {
     pub struct Find {
         pub active: bool,
         pub key: Key,
-        pub scrollable_id: scrollable::Id,
+        pub scrollable_id: widget::Id,
         pub scrollable: Option<Scrollable>,
         pub hit_bounds: Option<Rectangle>,
         pub prev_bounds: Option<Rectangle>,
@@ -1122,7 +1121,7 @@ mod keyed {
             translation: Vector,
             _state: &mut dyn widget::operation::Scrollable,
         ) {
-            if id == Some(&self.scrollable_id.clone().into()) {
+            if id == Some(&self.scrollable_id.clone()) {
                 self.scrollable = Some(Scrollable {
                     viewport: bounds,
                     content: content_bounds,
@@ -1137,13 +1136,13 @@ mod keyed {
             }
         }
 
-        fn container(
+        fn container(&mut self, _id: Option<&widget::Id>, _bounds: Rectangle) {}
+
+        fn traverse(
             &mut self,
-            _id: Option<&widget::Id>,
-            _bounds: Rectangle,
-            operate_on_children: &mut dyn FnMut(&mut dyn Operation<Hit>),
+            operate: &mut dyn FnMut(&mut dyn Operation<Hit>),
         ) {
-            operate_on_children(self);
+            operate(self);
         }
 
         fn custom(
@@ -1181,7 +1180,7 @@ mod keyed {
     #[derive(Debug, Clone)]
     pub struct TopOfViewport {
         pub active: bool,
-        pub scrollable_id: scrollable::Id,
+        pub scrollable_id: widget::Id,
         pub scrollable: Option<Scrollable>,
         pub hit_bounds: Option<(Key, Rectangle)>,
     }
@@ -1195,7 +1194,7 @@ mod keyed {
             translation: Vector,
             _state: &mut dyn widget::operation::Scrollable,
         ) {
-            if id == Some(&self.scrollable_id.clone().into()) {
+            if id == Some(&self.scrollable_id.clone()) {
                 self.scrollable = Some(Scrollable {
                     viewport: bounds,
                     content: content_bounds,
@@ -1210,13 +1209,13 @@ mod keyed {
             }
         }
 
-        fn container(
+        fn container(&mut self, _id: Option<&widget::Id>, _bounds: Rectangle) {}
+
+        fn traverse(
             &mut self,
-            _id: Option<&widget::Id>,
-            _bounds: Rectangle,
-            operate_on_children: &mut dyn FnMut(&mut dyn Operation<Hit>),
+            operate: &mut dyn FnMut(&mut dyn Operation<Hit>),
         ) {
-            operate_on_children(self);
+            operate(self);
         }
 
         fn custom(
@@ -1419,7 +1418,7 @@ fn preview_row<'a>(
             theme,
         ))
     } else {
-        container(horizontal_space().width(Length::Fixed(HIDE_BUTTON_WIDTH)))
+        container(space::horizontal().width(Length::Fixed(HIDE_BUTTON_WIDTH)))
     };
 
     // Iced hack: using a stack with right-aligned hide_button ensures the button always stays visible
@@ -1456,7 +1455,7 @@ mod correct_viewport {
 
     pub fn correct_viewport<'a>(
         inner: impl Into<Element<'a, Message>>,
-        scrollable: iced::widget::scrollable::Id,
+        scrollable: iced::widget::Id,
         enabled: bool,
     ) -> Element<'a, Message> {
         decorate(inner)
@@ -1523,7 +1522,7 @@ mod correct_viewport {
                                 );
 
                                 let mut operation = scrollable::scroll_to(
-                                    scrollable.clone().into(),
+                                    scrollable.clone(),
                                     scrollable::AbsoluteOffset {
                                         x: 0.0,
                                         y: new_offset,
@@ -1624,7 +1623,7 @@ mod correct_viewport {
                     let mut is_scroll_to = false;
 
                     operation.custom(
-                        Some(&scrollable.clone().into()),
+                        Some(&scrollable.clone()),
                         layout.bounds(),
                         &mut is_scroll_to,
                     );
@@ -1672,13 +1671,13 @@ mod correct_viewport {
         }
 
         impl<T> Operation<T> for ScrollTo {
-            fn container(
+            fn container(&mut self, _id: Option<&Id>, _bounds: Rectangle) {}
+
+            fn traverse(
                 &mut self,
-                _id: Option<&Id>,
-                _bounds: Rectangle,
-                operate_on_children: &mut dyn FnMut(&mut dyn Operation<T>),
+                operate: &mut dyn FnMut(&mut dyn Operation<T>),
             ) {
-                operate_on_children(self);
+                operate(self);
             }
 
             fn scrollable(
@@ -1726,13 +1725,13 @@ mod correct_viewport {
         }
 
         impl<T> Operation<T> for ScrollBy {
-            fn container(
+            fn container(&mut self, _id: Option<&Id>, _bounds: Rectangle) {}
+
+            fn traverse(
                 &mut self,
-                _id: Option<&Id>,
-                _bounds: Rectangle,
-                operate_on_children: &mut dyn FnMut(&mut dyn Operation<T>),
+                operate: &mut dyn FnMut(&mut dyn Operation<T>),
             ) {
-                operate_on_children(self);
+                operate(self);
             }
 
             fn scrollable(
