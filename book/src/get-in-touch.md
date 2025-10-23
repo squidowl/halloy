@@ -1,4 +1,4 @@
-# Get in touch
+# Get in Touch
 
 Join `#halloy` on `libera.chat` ([link](ircs://irc.libera.chat/#halloy)) if you have questions, looking for help or just want to say hello.
 For feature requests or reporting issues, please open a ticket on [GitHub](https://github.com/squidowl/halloy).

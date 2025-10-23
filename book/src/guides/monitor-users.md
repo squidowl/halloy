@@ -1,4 +1,4 @@
-# Monitor users
+# Monitor Users
 
 Halloy has [monitor](https://ircv3.net/specs/extensions/monitor) support if the server has the IRCv3 Monitor extension.
 

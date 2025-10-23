@@ -1,4 +1,4 @@
-# Getting started
+# Getting Started
 
 To get started with Halloy, you need to connect to at least one IRC server. The template config file has been set up with the [Libera](https://libera.chat/) server. However, there are many other servers available: [OFTC](https://www.oftc.net/), [Undernet](https://www.undernet.org/), [QuakeNet](https://www.quakenet.org/) and [many more](https://netsplit.de/networks/). Halloy can connect to multiple servers at the same time.
 

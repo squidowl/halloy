@@ -4,24 +4,24 @@
 [Halloy](README.md)
 
 - [Installation](installation.md)
-- [Getting started](getting-started.md)
+- [Getting Started](getting-started.md)
 - [Configuration](configuration.md)
-- [Get in touch](get-in-touch.md)
+- [Get in Touch](get-in-touch.md)
 
 # Guides
 
-- [Building for flatpak](guides/flatpaks.md)
+- [Building for Flatpak](guides/flatpaks.md)
 - [Building for macOS](guides/macos-application.md)
 - [Connect with soju](guides/connect-with-soju.md)
 - [Connect with ZNC](guides/connect-with-znc.md)
-- [Monitor users](guides/monitor-users.md)
-- [Multiple servers](guides/multiple-servers.md)
+- [Monitor Users](guides/monitor-users.md)
+- [Multiple Servers](guides/multiple-servers.md)
 - [Optional Features](guides/optional-features.md)
-- [Portable mode](guides/portable-mode.md)
+- [Portable Mode](guides/portable-mode.md)
 - [Pronunciation](guides/pronunciation.md)
-- [Reduce noise](guides/reduce-noise.md)
-- [Single pane](guides/single-pane.md)
-- [Storing passwords in a File](guides/password-file.md)
+- [Reduce Noise](guides/reduce-noise.md)
+- [Single Pane](guides/single-pane.md)
+- [Storing Passwords in a File](guides/password-file.md)
 - [Text Formatting](guides/text-formatting.md)
 - [URL Schemes](guides/url-schemes.md)
 
