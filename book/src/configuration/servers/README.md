@@ -441,7 +441,7 @@ who_poll_enabled = true
 
 ### who_poll_interval
 
-WHO poll interval (in seconds) for servers without away-notify.  Specifically, the time between individual WHO requests. Will be increased automatically if the server sends a rate-limiting message.  When the server does not support SAFERATE (and anti-flood protections are enabled) then `who_poll_interval` will be increased to than twice `anti_flood` if it is not already.
+WHO poll interval (in seconds) for servers without away-notify.  Specifically, the time between individual WHO requests. Will be increased automatically if the server sends a rate-limiting message.  When the server does not support SAFERATE (and anti-flood protections are enabled) then `who_poll_interval` will be increased to more than twice `anti_flood` if it is not already.
 
 ```toml
 # Type: integer

@@ -56,7 +56,7 @@ theme = "foobar"
 
 > 💡  Halloy has a built in theme editor which makes theme creation easier
 
- Each `"<string>"` is expected to be a valid hex color. If invalid, or if the key is removed, the color will fallback to transparent. A custom theme is structured as follows:
+ Each `"<string>"` is expected to be a valid hex color. If invalid, or if the key is removed, the color will fall back to transparent. A custom theme is structured as follows:
 
 ```toml
 [general]
