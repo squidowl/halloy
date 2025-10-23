@@ -13,7 +13,7 @@ your local machine.
 
 Be sure to install all the dependencies for the above tools.
 
-## Generating flatpak build sources file
+## Generating Flatpak Build Sources File
 
 To generate the `generated-sources.json` file that is used by the flatpak
 manifest, run the following command:
