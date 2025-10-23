@@ -1,8 +1,8 @@
-# Reduce noise
+# Reduce Noise
 
 It's not uncommon for channels to have many server messages for every regular message, resulting in a low signal to noise ratio.  Halloy has various settings that can help reduce the number of visible server messages in the chat log.  This guide will cover some of those settings.
 
-## Disable topic messages
+## Disable Topic Messages
 
 Most servers and bouncers will send a message with the topic every time Halloy joins a channel.  Since topics rarely change, it's often useful to hide these messages altogether with disabling the topic [server message setting](../configuration/buffer/server-messages):
 
@@ -21,7 +21,7 @@ enabled = true
 max_lines = 2
 ```
 
-## Smart filters
+## Smart Filters
 
 [Smart filters](../configuration/buffer/server-messages/README.md#smart) can be used for server messages to hide messages for users that have not sent a message recently.  For example, to hide part messages for any user that has not sent a message within the 15 minutes prior to their parting:
 
@@ -48,7 +48,7 @@ success.smart = 300
 error.smart = 300
 ```
 
-## Condense server messages
+## Condense Server Messages
 
 It may be preferable to not hide any server messages, in which case an alternative to filtering is to [condense server messages](../configuration/buffer/server-messages/condense.md).  This setting will combine multiple server messages into a one server message with a shortened style.  To enable condensed messages these settings can be used:
 
