@@ -1,8 +1,8 @@
-# internal_messages
+# Internal Messages
 
 Internal messages are messages sent from Halloy itself.
 
-- [internal\_messages](#internal_messages)
+- [Internal Messages](#internal-messages)
   - [Sub-sections](#sub-sections)
     - [Success](#success)
     - [Error](#error)
