@@ -1,8 +1,8 @@
-# Chat history
+# Chat History
 
-IRCv3 Chat History extension settings
+IRCv3 [`chathistory`](https://ircv3.net/specs/extensions/chathistory) extension settings
 
-- [Chat history](#chat-history)
+- [Chat History](#chat-history)
   - [Configuration](#configuration)
     - [infinite\_scroll](#infinite_scroll)
 
