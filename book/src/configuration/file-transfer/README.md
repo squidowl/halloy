@@ -7,9 +7,8 @@ File transfer configuration options.
     - [save\_directory](#save_directory)
     - [passive](#passive)
     - [timeout](#timeout)
-  - [Sub-sections](#sub-sections)
-    - [Auto Accept](#auto-accept)
-    - [Server](#server)
+  - [Auto Accept](#auto-accept)
+  - [Server](#server)
 
 ## Configuration
 
@@ -52,13 +51,11 @@ Time (in seconds) to wait before timing out a transfer waiting to be accepted.
 timeout = 300
 ```
 
-## Sub-sections
-
-### [Auto Accept](auto_accept.md)
+## [Auto Accept](auto_accept.md)
 
 Configure automatic acceptance of incoming file transfers
 
-### [Server](server.md)
+## [Server](server.md)
 
 Server configuration for file transfers (required when `passive = true`)
 

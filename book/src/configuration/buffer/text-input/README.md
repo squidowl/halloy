@@ -6,9 +6,8 @@ Customize the text input for in buffers.
   - [Configuration](#configuration)
     - [visibility](#visibility)
     - [auto\_format](#auto_format)
-  - [Sub-sections](#sub-sections)
-    - [Autocomplete](#autocomplete)
-    - [Nickname](#nickname)
+  - [Autocomplete](#autocomplete)
+  - [Nickname](#nickname)
 
 ## Configuration
 
@@ -40,12 +39,10 @@ auto_format = "markdown"
 
 > 💡 Read more about [text formatting](../../../guides/text-formatting.md).
 
-## Sub-sections
-
-### [Autocomplete](autocomplete.md)
+## [Autocomplete](autocomplete.md)
 
 Customize autocomplete
 
-### [Nickname](nickname.md)
+## [Nickname](nickname.md)
 
 Customize nickname left of text input

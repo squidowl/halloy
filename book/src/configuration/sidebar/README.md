@@ -9,9 +9,8 @@ Sidebar settings for Halloy.
     - [max\_width](#max_width)
     - [show\_menu\_button](#show_menu_button)
     - [order\_by](#order_by)
-  - [Sub-sections](#sub-sections)
-    - [Scrollbar](#scrollbar)
-    - [Unread Indicator](#unread-indicator)
+  - [Scrollbar](#scrollbar)
+  - [Unread Indicator](#unread-indicator)
 
 ## Configuration
 
@@ -85,12 +84,10 @@ Ordering that servers are listed in the sidebar uses to select from matching use
 order_by = "config"
 ```
 
-## Sub-sections
-
-### [Scrollbar](scrollbar.md)
+## [Scrollbar](scrollbar.md)
 
 Scrollbar in sidebar
 
-### [Unread Indicator](unread-indicator.md)
+## [Unread Indicator](unread-indicator.md)
 
 Unread buffer indicator style

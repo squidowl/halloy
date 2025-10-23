@@ -5,9 +5,8 @@
   - [Configuration](#configuration)
     - [theme](#theme)
   - [Custom themes](#custom-themes)
-  - [Sub-sections](#sub-sections)
-    - [Community](#community)
-    - [Base16](#base16)
+  - [Community](#community)
+  - [Base16](#base16)
 
 
 ## Example
@@ -129,13 +128,10 @@ default = "<string>"
 
 > 💡  The default Ferra theme toml file can be viewed [on GitHub](https://github.com/squidowl/halloy/blob/main/assets/themes/ferra.toml).
 
-
-## Sub-sections
-
-### [Community](community.md)
+## [Community](community.md)
 
 Community created themes for Halloy
 
-### [Base16](base16.md)
+## [Base16](base16.md)
 
 Community collection of base16 themes

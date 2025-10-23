@@ -5,10 +5,9 @@ URL preview settings for Halloy.
 - [Preview](#preview)
   - [Configuration](#configuration)
     - [enabled](#enabled)
-  - [Sub-sections](#sub-sections)
-    - [Request](#request)
-    - [Image](#image)
-    - [Card](#card)
+  - [Request](#request)
+  - [Image](#image)
+  - [Card](#card)
 
 ## Configuration
 
@@ -25,16 +24,14 @@ Enable or disable previews globally
 enabled = true
 ```
 
-## Sub-sections
-
-### [Request](request.md)
+## [Request](request.md)
 
 Request settings for previews.
 
-### [Image](image.md)
+## [Image](image.md)
 
 Specific image preview settings.
 
-### [Card](card.md)
+## [Card](card.md)
 
 Specific card preview settings.
