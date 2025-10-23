@@ -1,6 +1,6 @@
 use data::Config;
 use data::environment::MIGRATION_WEBSITE;
-use iced::widget::{button, column, container, text, vertical_space};
+use iced::widget::{button, column, container, space, text};
 use iced::{Length, alignment};
 
 use crate::widget::Element;
@@ -78,15 +78,15 @@ impl Migration {
 
         let content = column![]
             .spacing(1)
-            .push(vertical_space().height(10))
+            .push(space::vertical().height(10))
             .push(text("Your configuration file is outdated :(").font(font::MONO_BOLD.clone()))
-            .push(vertical_space().height(4))
+            .push(space::vertical().height(4))
             .push(text(
                 "Halloy recently switched configuration file format from YAML to TOML. This was done in an effort to make it easier to work with as a user.",
             ))
-            .push(vertical_space().height(8))
+            .push(space::vertical().height(8))
             .push(text("To migrate your configuration file, please visit the migration guide below."))
-            .push(vertical_space().height(10))
+            .push(space::vertical().height(10))
             .push(
                 column![]
                     .width(250)
