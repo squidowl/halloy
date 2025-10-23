@@ -1,6 +1,6 @@
 # Server
 
-This section is **required** if [passive is true](./index.md#passive). One side of the file transfer must
+This section is **required** if [passive is true](./README.md#passive). One side of the file transfer must
 operate as the "server", who the other user connects with to establish a connection.
 
 - [Server](#server)
