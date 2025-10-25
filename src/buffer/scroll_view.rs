@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::time::Duration;
 
-use chrono::{DateTime, Local, NaiveDate, NaiveTime, Utc};
+use chrono::{Local, NaiveDate, NaiveTime};
 use data::buffer::DateSeparators;
 use data::dashboard::BufferAction;
 use data::isupport::ChatHistoryState;
@@ -15,6 +16,7 @@ use iced::widget::{
     right, row, rule, scrollable, space, stack, text,
 };
 use iced::{ContentFit, Length, Padding, Size, Task, alignment, padding};
+use tokio::time;
 
 use self::correct_viewport::correct_viewport;
 use self::keyed::keyed;
@@ -26,6 +28,7 @@ use crate::widget::{
 use crate::{Theme, font, icon, theme};
 
 const HIDE_BUTTON_WIDTH: f32 = 22.0;
+const SCROLL_TO_TIMEOUT: Duration = Duration::from_millis(200);
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -33,7 +36,6 @@ pub enum Message {
         count: usize,
         has_more_older_messages: bool,
         has_more_newer_messages: bool,
-        oldest: DateTime<Utc>,
         status: Status,
         viewport: scrollable::Viewport,
     },
@@ -49,6 +51,7 @@ pub enum Message {
     HidePreview(message::Hash, url::Url),
     MarkAsRead,
     ContentResized(Size),
+    PendingScrollTo,
 }
 
 #[derive(Debug, Clone)]
@@ -194,11 +197,6 @@ pub fn view<'a>(
     };
 
     let count = old_messages.len() + new_messages.len();
-    let oldest = old_messages
-        .iter()
-        .chain(&new_messages)
-        .next()
-        .map_or_else(Utc::now, |message| message.server_time);
     let status = state.status;
 
     let max_nick_width = max_nick_chars.map(|len| {
@@ -433,7 +431,6 @@ pub fn view<'a>(
                 has_more_older_messages,
                 has_more_newer_messages,
                 count,
-                oldest,
                 status,
                 viewport,
             })
@@ -450,7 +447,7 @@ pub struct State {
     content_size: Size,
     limit: Limit,
     status: Status,
-    pending_scroll_to: Option<message::Hash>,
+    pending_scroll_to: Option<keyed::Key>,
     visible_url_messages: HashMap<message::Hash, Vec<url::Url>>,
     hovered_preview: Option<(message::Hash, usize)>,
 }
@@ -485,7 +482,6 @@ impl State {
                 count,
                 has_more_older_messages,
                 has_more_newer_messages,
-                oldest,
                 status: old_status,
                 viewport,
             } => {
@@ -551,19 +547,14 @@ impl State {
                             count + step_messages(height, config),
                         );
 
-                        // Get new oldest message w/ new limit and use that w/ Since
-                        if let Some(history::View {
-                            old_messages,
-                            new_messages,
-                            ..
-                        }) = history.get_messages(
-                            &kind.into(),
-                            Some(self.limit),
-                            &config.buffer,
-                        ) && let Some(oldest) =
-                            old_messages.iter().chain(&new_messages).next()
+                        if let Some(history::View { total, .. }) = history
+                            .get_messages(
+                                &kind.into(),
+                                Some(self.limit),
+                                &config.buffer,
+                            )
                         {
-                            self.limit = Limit::Since(oldest.server_time);
+                            self.limit = Limit::Bottom(total);
                         }
                     }
                     // Hit top
@@ -608,14 +599,14 @@ impl State {
                         if !old_status.is_bottom(relative_offset) =>
                     {
                         self.status = Status::Unlocked;
-                        self.limit = Limit::Since(oldest);
+                        self.limit = Limit::Bottom(count);
                     }
                     // Normal scrolling, always unlocked
                     _ => {
                         self.status = Status::Unlocked;
 
                         if !matches!(self.limit, Limit::Top(_)) {
-                            self.limit = Limit::Since(oldest);
+                            self.limit = Limit::Bottom(count);
                         }
                     }
                 }
@@ -772,9 +763,27 @@ impl State {
             }
             Message::ContentResized(size) => {
                 self.content_size = size;
+
+                if let Some(key) = &self.pending_scroll_to {
+                    let scroll_to = keyed::find(self.scrollable.clone(), *key)
+                        .map(Message::ScrollTo);
+
+                    self.pending_scroll_to = None;
+                    return (scroll_to, None);
+                }
             }
             Message::ImagePreview(path, url) => {
                 return (Task::none(), Some(Event::ImagePreview(path, url)));
+            }
+            Message::PendingScrollTo => {
+                if let Some(key) = &self.pending_scroll_to {
+                    println!("pending_scroll_to → Task");
+                    let scroll_to = keyed::find(self.scrollable.clone(), *key)
+                        .map(Message::ScrollTo);
+
+                    self.pending_scroll_to = None;
+                    return (scroll_to, None);
+                }
             }
         }
 
@@ -857,10 +866,9 @@ impl State {
             ..
         }) = history.get_messages(&kind.into(), None, &config.buffer)
         else {
-            // We're still loading history, which will trigger
-            // scroll_to_backlog after loading. If this is set,
-            // we will scroll_to_message
-            self.pending_scroll_to = Some(message);
+            // We're still loading history, which will trigger scroll_to_backlog
+            // after loading. If this is set, we will scroll_to_message
+            self.pending_scroll_to = Some(keyed::Key::Message(message));
 
             return Task::none();
         };
@@ -880,8 +888,11 @@ impl State {
             offset.max(step_messages(2.0 * self.pane_size.height, config)),
         );
 
-        keyed::find(self.scrollable.clone(), keyed::Key::Message(message))
-            .map(Message::ScrollTo)
+        self.pending_scroll_to = Some(keyed::Key::Message(message));
+
+        Task::perform(time::sleep(SCROLL_TO_TIMEOUT), move |()| {
+            Message::PendingScrollTo
+        })
     }
 
     pub fn scroll_to_backlog(
@@ -890,12 +901,10 @@ impl State {
         history: &history::Manager,
         config: &Config,
     ) -> Task<Message> {
-        if let Some(message) = self.pending_scroll_to.take() {
-            return self.scroll_to_message(message, kind, history, config);
-        }
-
-        if history.read_marker(&kind.into()).is_none() {
-            return Task::none();
+        if self.pending_scroll_to.is_some() {
+            return Task::perform(time::sleep(SCROLL_TO_TIMEOUT), move |()| {
+                Message::PendingScrollTo
+            });
         }
 
         let Some(history::View {
@@ -914,8 +923,11 @@ impl State {
             offset.max(step_messages(2.0 * self.pane_size.height, config)),
         );
 
-        keyed::find(self.scrollable.clone(), keyed::Key::Divider)
-            .map(Message::ScrollTo)
+        self.pending_scroll_to = Some(keyed::Key::Divider);
+
+        Task::perform(time::sleep(SCROLL_TO_TIMEOUT), move |()| {
+            Message::PendingScrollTo
+        })
     }
 
     pub fn visible_urls(&self) -> impl Iterator<Item = &url::Url> {
@@ -1688,7 +1700,7 @@ mod correct_viewport {
                 _translation: Vector,
                 state: &mut dyn Scrollable,
             ) {
-                if Some(&self.target) == id {
+                if id.is_some_and(|id| *id == self.target) {
                     state.scroll_to(self.offset);
                 }
             }

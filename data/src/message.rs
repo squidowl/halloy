@@ -2276,11 +2276,10 @@ fn content<'a>(
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Limit {
     Top(usize),
     Bottom(usize),
-    Since(DateTime<Utc>),
 }
 
 pub fn is_action(text: &str) -> bool {
