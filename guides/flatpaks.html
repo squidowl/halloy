@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Building for flatpak</title>
+        <title>Building for Flatpak</title>
 
 
         <!-- Custom HTML head -->
@@ -180,7 +180,7 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1 id="building-for-flatpak"><a class="header" href="#building-for-flatpak">Building for flatpak</a></h1>
+                        <h1 id="building-for-flatpak"><a class="header" href="#building-for-flatpak">Building for Flatpak</a></h1>
 <p>This guide will help you to build and/or test pre-released commits of Halloy
 for flatpak.</p>
 <p>If you haven't done so already, clone the <a href="https://github.com/squidowl/halloy">Halloy repository</a> to
@@ -191,12 +191,12 @@ your local machine.</p>
 <li><a href="https://github.com/flatpak/flatpak-builder-tools/tree/master/cargo">flatpak-cargo-generator</a></li>
 </ul>
 <p>Be sure to install all the dependencies for the above tools.</p>
-<h2 id="generating-flatpak-build-sources-file"><a class="header" href="#generating-flatpak-build-sources-file">Generating flatpak build sources file</a></h2>
+<h2 id="generating-flatpak-build-sources-file"><a class="header" href="#generating-flatpak-build-sources-file">Generating Flatpak Build Sources File</a></h2>
 <p>To generate the <code>generated-sources.json</code> file that is used by the flatpak
 manifest, run the following command:</p>
 <pre><code class="language-bash">python3 &lt;flatpak-builder-tools-path&gt;/cargo/flatpak-cargo-generator.py -o &lt;halloy-checkout-path&gt;/assets/flatpak/generated-sources.json
 </code></pre>
-<h2 id="building-and-installing-flatpak-locally"><a class="header" href="#building-and-installing-flatpak-locally">Building and installing flatpak locally</a></h2>
+<h2 id="building-and-installing-flatpak-locally"><a class="header" href="#building-and-installing-flatpak-locally">Building and Installing Flatpak Locally</a></h2>
 <p>Finally, to build and install the flatpak locally, run the following command:</p>
 <pre><code class="language-bash">flatpak-builder --force-clean --user --install-deps-from=flathub --repo=.flatpak-builder/repo --install .flatpak-builder/build &lt;halloy-checkout-path&gt;/assets/flatpak/org.squidowl.halloy.json
 </code></pre>
@@ -232,7 +232,7 @@ example.</p>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="../guides/pronunciation.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="../get-in-touch.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
 
@@ -246,7 +246,7 @@ example.</p>
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="../guides/pronunciation.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="../get-in-touch.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
 
