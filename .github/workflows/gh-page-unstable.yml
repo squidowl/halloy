@@ -17,7 +17,7 @@ jobs:
         id: lychee-interal
         uses: lycheeverse/lychee-action@v2
         with:
-          args: --config ./.config/lychee-internal.toml './book/**/*.md'
+          args: --index-files README.md --config ./.config/lychee-internal.toml './book/**/*.md'
           fail: true
 
       - name: Check external links

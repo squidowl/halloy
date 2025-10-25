@@ -11,7 +11,7 @@ To use these themes, download `themes.tar.gz` from the
 and unpack it to the `themes` folder in the Halloy configuration directory. Then
 you can enable themes individually in `config.toml`.
 
-**Example**
+## Example
 
 ```toml
 # Static

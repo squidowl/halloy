@@ -24,7 +24,7 @@ jobs:
         id: lychee-external
         uses: lycheeverse/lychee-action@v2
         with:
-          args: --config ./.config/lychee-external.toml './book/**/*.md'
+          args: --index-files README.md --config ./.config/lychee-external.toml './book/**/*.md'
           fail: true
         continue-on-error: true
 
