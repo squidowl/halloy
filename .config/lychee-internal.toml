@@ -1,6 +1,8 @@
 verbose = "info"
 no_progress = true
 
+index_files = ["README.md"]
+
 include_fragments = true
 
 exclude-all-private = true

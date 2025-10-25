@@ -1,4 +1,4 @@
-# Storing passwords in a File
+# Storing Passwords in a File
 
 If you need to commit your configuration file to a public repository, you can keep your passwords in a separate file for security. Below is an example of using a file for nickname password for NICKSERV.
 

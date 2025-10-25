@@ -1,4 +1,4 @@
-# Building for flatpak
+# Building for Flatpak
 
 This guide will help you to build and/or test pre-released commits of Halloy
 for flatpak.
@@ -13,7 +13,7 @@ your local machine.
 
 Be sure to install all the dependencies for the above tools.
 
-## Generating flatpak build sources file
+## Generating Flatpak Build Sources File
 
 To generate the `generated-sources.json` file that is used by the flatpak
 manifest, run the following command:
@@ -22,7 +22,7 @@ manifest, run the following command:
 python3 <flatpak-builder-tools-path>/cargo/flatpak-cargo-generator.py -o <halloy-checkout-path>/assets/flatpak/generated-sources.json
 ```
 
-## Building and installing flatpak locally
+## Building and Installing Flatpak Locally
 
 Finally, to build and install the flatpak locally, run the following command:
 
