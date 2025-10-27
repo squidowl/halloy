@@ -1,5 +1,7 @@
 # Unreleased
 
+# 2025.10 (2025-10-27)
+
 Added:
 
 - `/sysinfo` command to send system information to current buffer
