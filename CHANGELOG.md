@@ -15,6 +15,7 @@ Added:
 - Setting to open new buffers scrolled to the bottom (rather than scrolled to the last unread message, the default and current behavior)
 - macOS: Ability to adjust content rendering to account for titlebar
 - Setting to remove all window decorations
+- New sounds: Zone, Bloop, Drop, Tweep.
 
 Fixed:
 

@@ -39,6 +39,10 @@ pub enum Internal {
     Whistle,
     Bonk,
     Sing,
+    Bloop,
+    Drop,
+    Tweep,
+    Zone
 }
 
 impl Internal {
@@ -55,6 +59,10 @@ impl Internal {
             }
             Internal::Bonk => include_bytes!("../../sounds/bonk.ogg").to_vec(),
             Internal::Sing => include_bytes!("../../sounds/sing.ogg").to_vec(),
+            Internal::Bloop => include_bytes!("../../sounds/bloop.ogg").to_vec(),
+            Internal::Drop => include_bytes!("../../sounds/drop.ogg").to_vec(),
+            Internal::Tweep => include_bytes!("../../sounds/tweep.ogg").to_vec(),
+            Internal::Zone => include_bytes!("../../sounds/zone.ogg").to_vec(),
         }
     }
 }
@@ -71,6 +79,10 @@ impl TryFrom<&str> for Internal {
             "whistle" => Ok(Self::Whistle),
             "bonk" => Ok(Self::Bonk),
             "sing" => Ok(Self::Sing),
+            "bloop" => Ok(Self::Bloop),
+            "drop" => Ok(Self::Drop),
+            "tweep" => Ok(Self::Tweep),
+            "zone" => Ok(Self::Zone),
             _ => Err(()),
         }
     }

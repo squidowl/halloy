@@ -1,3 +1,4 @@
+<!-- markdownlint-disable MD033 -->
 # Notifications
 
 Customize and enable notifications.
@@ -5,6 +6,7 @@ Customize and enable notifications.
 - [Notifications](#notifications)
   - [Example](#example)
   - [Types](#types)
+  - [Built-in Sounds](#built-in-sounds)
   - [Configuration](#configuration)
     - [sound](#sound)
     - [show\_toast](#show_toast)
@@ -39,6 +41,24 @@ Following notifications are available:
 | `monitored_offline`     | Triggered when a user you're monitoring is offline | N/A                               |
 | `reconnected`           | Triggered when a server reconnects                 | N/A                               |
 
+## Built-in Sounds
+
+The following table shows all available built-in sounds
+
+| Sound Name | Preview |
+|------------|---------|
+| `bloop` | <audio controls><source src="../../sounds/bloop.ogg" type="audio/ogg"></audio> |
+| `bonk` | <audio controls><source src="../../sounds/bonk.ogg" type="audio/ogg"></audio> |
+| `dong` | <audio controls><source src="../../sounds/dong.ogg" type="audio/ogg"></audio> |
+| `drop` | <audio controls><source src="../../sounds/drop.ogg" type="audio/ogg"></audio> |
+| `peck` | <audio controls><source src="../../sounds/peck.ogg" type="audio/ogg"></audio> |
+| `ring` | <audio controls><source src="../../sounds/ring.ogg" type="audio/ogg"></audio> |
+| `sing` | <audio controls><source src="../../sounds/sing.ogg" type="audio/ogg"></audio> |
+| `squeak` | <audio controls><source src="../../sounds/squeak.ogg" type="audio/ogg"></audio> |
+| `tweep` | <audio controls><source src="../../sounds/tweep.ogg" type="audio/ogg"></audio> |
+| `whistle` | <audio controls><source src="../../sounds/whistle.ogg" type="audio/ogg"></audio> |
+| `zone` | <audio controls><source src="../../sounds/zone.ogg" type="audio/ogg"></audio> |
+
 ## Configuration
 
 ### sound
@@ -48,11 +68,11 @@ Supports both built-in sounds, and external sound files (`mp3`, `ogg`, `flac` or
 
 ```toml
 # Type: string
-# Values: "dong", "peck", "ring", "squeak", "whistle", "bonk", "sing" or external sound.
+# Values: see above for built-in sounds, eg: "zone" or external sound.
 # Default: not set
 
 [notifications.<notification>]
-sound = "dong"
+sound = "zone"
 ```
 
 ### show_toast
