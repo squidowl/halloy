@@ -247,10 +247,18 @@ impl Default for Timestamp {
     }
 }
 
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
 pub struct BacklogSeparator {
     pub hide_when_all_read: bool,
+}
+
+impl Default for BacklogSeparator {
+    fn default() -> Self {
+        Self {
+            hide_when_all_read: true,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]
