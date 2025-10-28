@@ -1,5 +1,13 @@
 # Unreleased
 
+Fixed:
+
+- Hide jitter in backlog divider caused by read marker updates when marking read on send
+
+Changed:
+
+- By default the backlog separator is hidden when all messages in a pane have been marked as read (`buffer.backlog_separator.hide_when_all_read`)
+
 # 2025.11 (2025-10-27)
 
 Fixed:
