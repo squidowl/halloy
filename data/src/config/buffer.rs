@@ -518,6 +518,10 @@ impl Buffer {
 pub struct Dimmed(Option<f32>);
 
 impl Dimmed {
+    pub fn new(alpha: Option<f32>) -> Self {
+        Dimmed(alpha)
+    }
+
     pub fn transform_color(&self, color: Color, background: Color) -> Color {
         match self.0 {
             // Calculate alpha based on background and foreground.

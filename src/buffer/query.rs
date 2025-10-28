@@ -45,6 +45,7 @@ pub fn view<'a>(
     let chantypes = clients.get_chantypes(server);
     let casemapping = clients.get_casemapping(server);
     let prefix = clients.get_prefix(server);
+    let supports_echoes = clients.get_server_supports_echoes(server);
     let query = &state.target;
     let status = clients.status(server);
     let buffer = &state.buffer;
@@ -67,6 +68,7 @@ pub fn view<'a>(
         chantypes,
         casemapping,
         prefix,
+        supports_echoes,
         server,
         theme,
         target: TargetInfo::Query,

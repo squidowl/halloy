@@ -1,6 +1,8 @@
-use data::config::buffer;
+use data::config::buffer::{self, Dimmed};
 use data::message::source::server::{Kind, StandardReply};
 use data::{Config, User, log, message};
+use iced::Color;
+use iced::theme::Base;
 
 use super::{Theme, text};
 use crate::widget::selectable_rich_text;
@@ -222,5 +224,23 @@ impl selectable_rich_text::Link for message::Link {
             | data::message::Link::Channel(_)
             | data::message::Link::GoToMessage(..) => false,
         }
+    }
+}
+
+pub fn dimmed(
+    style: Style,
+    theme: &Theme,
+    dimmed: Option<(Dimmed, Color)>,
+) -> Style {
+    if let Some((dimmed, background)) = dimmed {
+        Style {
+            color: Some(dimmed.transform_color(
+                style.color.unwrap_or(theme.base().text_color),
+                background,
+            )),
+            selection_color: style.selection_color,
+        }
+    } else {
+        style
     }
 }
