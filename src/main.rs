@@ -36,7 +36,7 @@ use data::{
 };
 use iced::widget::{column, container};
 use iced::{Length, Subscription, Task, padding};
-use screen::{dashboard, help, migration, welcome};
+use screen::{dashboard, help, welcome};
 use tokio::runtime;
 use tokio_stream::wrappers::ReceiverStream;
 
@@ -215,20 +215,8 @@ impl Halloy {
                     command.map(Message::Dashboard),
                 )
             }
-            // If we have a YAML file, but end up in this arm
-            // it means the user tried to load Halloy with a YAML configuration, but it expected TOML.
-            Err(config::Error::ConfigMissing {
-                has_yaml_config: true,
-            }) => (
-                Screen::Migration(screen::Migration::new()),
-                server::Map::default(),
-                Config::default(),
-                Task::none(),
-            ),
             // Show regular welcome screen for new users.
-            Err(config::Error::ConfigMissing {
-                has_yaml_config: false,
-            }) => (
+            Err(config::Error::ConfigMissing) => (
                 Screen::Welcome(screen::Welcome::new()),
                 server::Map::default(),
                 Config::default(),
@@ -267,7 +255,6 @@ pub enum Screen {
     Dashboard(screen::Dashboard),
     Help(screen::Help),
     Welcome(screen::Welcome),
-    Migration(screen::Migration),
     Exit { pending_exit: HashSet<Server> },
 }
 
@@ -279,7 +266,6 @@ pub enum Message {
     Stream(stream::Update),
     Help(help::Message),
     Welcome(welcome::Message),
-    Migration(migration::Message),
     Event(window::Id, Event),
     Tick(Instant),
     Version(Option<String>),
@@ -552,21 +538,6 @@ impl Halloy {
 
                 match welcome.update(message) {
                     Some(welcome::Event::RefreshConfiguration) => {
-                        Task::perform(
-                            Config::load(),
-                            Message::ScreenConfigReloaded,
-                        )
-                    }
-                    None => Task::none(),
-                }
-            }
-            Message::Migration(message) => {
-                let Screen::Migration(migration) = &mut self.screen else {
-                    return Task::none();
-                };
-
-                match migration.update(message) {
-                    Some(migration::Event::RefreshConfiguration) => {
                         Task::perform(
                             Config::load(),
                             Message::ScreenConfigReloaded,
@@ -1462,9 +1433,6 @@ impl Halloy {
                 Screen::Help(help) => help.view(&self.theme).map(Message::Help),
                 Screen::Welcome(welcome) => {
                     welcome.view(&self.theme).map(Message::Welcome)
-                }
-                Screen::Migration(migration) => {
-                    migration.view().map(Message::Migration)
                 }
                 Screen::Exit { .. } => column![].into(),
             };
