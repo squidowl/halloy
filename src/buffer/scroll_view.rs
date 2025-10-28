@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::Duration;
 
-use chrono::{Local, NaiveDate, NaiveTime};
+use chrono::{DateTime, Local, NaiveDate, NaiveTime, Utc};
 use data::buffer::DateSeparators;
 use data::dashboard::BufferAction;
 use data::isupport::ChatHistoryState;
@@ -36,6 +36,7 @@ pub enum Message {
         count: usize,
         has_more_older_messages: bool,
         has_more_newer_messages: bool,
+        oldest: DateTime<Utc>,
         status: Status,
         viewport: scrollable::Viewport,
     },
@@ -197,6 +198,11 @@ pub fn view<'a>(
     };
 
     let count = old_messages.len() + new_messages.len();
+    let oldest = old_messages
+        .iter()
+        .chain(&new_messages)
+        .next()
+        .map_or_else(Utc::now, |message| message.server_time);
     let status = state.status;
 
     let max_nick_width = max_nick_chars.map(|len| {
@@ -431,6 +437,7 @@ pub fn view<'a>(
                 has_more_older_messages,
                 has_more_newer_messages,
                 count,
+                oldest,
                 status,
                 viewport,
             })
@@ -482,6 +489,7 @@ impl State {
                 count,
                 has_more_older_messages,
                 has_more_newer_messages,
+                oldest,
                 status: old_status,
                 viewport,
             } => {
@@ -547,14 +555,19 @@ impl State {
                             count + step_messages(height, config),
                         );
 
-                        if let Some(history::View { total, .. }) = history
-                            .get_messages(
-                                &kind.into(),
-                                Some(self.limit),
-                                &config.buffer,
-                            )
+                        // Get new oldest message w/ new limit and use that w/ Since
+                        if let Some(history::View {
+                            old_messages,
+                            new_messages,
+                            ..
+                        }) = history.get_messages(
+                            &kind.into(),
+                            Some(self.limit),
+                            &config.buffer,
+                        ) && let Some(oldest) =
+                            old_messages.iter().chain(&new_messages).next()
                         {
-                            self.limit = Limit::Bottom(total);
+                            self.limit = Limit::Since(oldest.server_time);
                         }
                     }
                     // Hit top
@@ -599,14 +612,14 @@ impl State {
                         if !old_status.is_bottom(relative_offset) =>
                     {
                         self.status = Status::Unlocked;
-                        self.limit = Limit::Bottom(count);
+                        self.limit = Limit::Since(oldest);
                     }
                     // Normal scrolling, always unlocked
                     _ => {
                         self.status = Status::Unlocked;
 
                         if !matches!(self.limit, Limit::Top(_)) {
-                            self.limit = Limit::Bottom(count);
+                            self.limit = Limit::Since(oldest);
                         }
                     }
                 }
