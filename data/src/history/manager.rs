@@ -911,6 +911,9 @@ fn with_limit<'a>(
             let length = collected.len();
             collected[length.saturating_sub(n)..length].to_vec()
         }
+        Some(Limit::Since(timestamp)) => messages
+            .skip_while(|message| message.server_time < timestamp)
+            .collect(),
         None => messages.collect(),
     }
 }
