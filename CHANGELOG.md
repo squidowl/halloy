@@ -1,5 +1,15 @@
 # Unreleased
 
+# 2025.11 (2025-10-27)
+
+Fixed:
+
+- Regression when loading chat history in a channel
+
+Thanks:
+
+- Bug reports: @Erroneuz
+
 # 2025.10 (2025-10-27)
 
 Added:
