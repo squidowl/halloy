@@ -27,7 +27,6 @@ pub use self::sidebar::Sidebar;
 use crate::appearance::theme::Styles;
 use crate::appearance::{self, Appearance};
 use crate::audio::{self};
-use crate::environment::config_dir;
 use crate::serde::deserialize_positive_integer_maybe;
 use crate::server::{ConfigMap as ServerMap, ServerName};
 use crate::{Theme, environment};
@@ -347,9 +346,7 @@ impl Config {
 
         let path = Self::path();
         if !path.try_exists()? {
-            return Err(Error::ConfigMissing {
-                has_yaml_config: has_yaml_config()?,
-            });
+            return Err(Error::ConfigMissing);
         }
         let content = fs::read_to_string(path)
             .await
@@ -534,11 +531,6 @@ pub fn random_nickname_with_seed<R: Rng>(rng: &mut R) -> String {
     rand_nick
 }
 
-/// Has YAML configuration file.
-fn has_yaml_config() -> Result<bool, Error> {
-    Ok(config_dir().join("config.yaml").try_exists()?)
-}
-
 #[derive(Debug, Error, Clone)]
 pub enum Error {
     #[error("config could not be read: {0}")]
@@ -568,7 +560,7 @@ pub enum Error {
     )]
     DuplicateSaslPassword,
     #[error("Config does not exist")]
-    ConfigMissing { has_yaml_config: bool },
+    ConfigMissing,
 }
 
 impl From<std::io::Error> for Error {
