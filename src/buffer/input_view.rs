@@ -637,7 +637,14 @@ impl State {
 
                         clients.send(buffer, encoded, TokenPriority::User);
 
-                        if config.buffer.mark_as_read.on_message_sent {
+                        let supports_echoes =
+                            clients.get_server_supports_echoes(buffer.server());
+
+                        if config.buffer.mark_as_read.on_message_sent
+                            // If the server supports echoes, then send MARKREAD
+                            // on echo only (not when recording the input)
+                            && !supports_echoes
+                        {
                             let chantypes =
                                 clients.get_chantypes(buffer.server());
                             let statusmsg =
