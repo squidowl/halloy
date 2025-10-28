@@ -1,3 +1,4 @@
+use data::config::buffer::Dimmed;
 use data::config::buffer::nickname::ShownStatus;
 use data::isupport::{CaseMap, PrefixMap};
 use data::server::Server;
@@ -58,6 +59,7 @@ pub struct ChannelQueryLayout<'a> {
     pub chantypes: &'a [char],
     pub casemapping: CaseMap,
     pub prefix: &'a [PrefixMap],
+    pub supports_echoes: bool,
     pub server: &'a Server,
     pub theme: &'a Theme,
     pub target: TargetInfo<'a>,
@@ -243,15 +245,38 @@ impl<'a> ChannelQueryLayout<'a> {
 
         let formatter = *self;
 
+        let dimmed = (self.supports_echoes
+            && matches!(message.direction, message::Direction::Sent))
+        .then_some(Dimmed::new(None));
+
+        let message_style = move |message_theme: &Theme| {
+            theme::selectable_text::dimmed(
+                theme::selectable_text::default(message_theme),
+                message_theme,
+                dimmed.map(|dimmed| {
+                    (dimmed, formatter.theme.styles().buffer.background)
+                }),
+            )
+        };
+
+        let color_transformation = dimmed.map(|dimmed| {
+            move |color: Color| -> Color {
+                dimmed.transform_color(
+                    color,
+                    formatter.theme.styles().buffer.background,
+                )
+            }
+        });
+
         let message_content = message_content::with_context(
             &message.content,
             self.chantypes,
             self.casemapping,
             self.theme,
             Message::Link,
-            theme::selectable_text::default,
+            message_style,
             theme::font_style::primary,
-            Option::<fn(Color) -> Color>::None,
+            color_transformation,
             move |link| match link {
                 message::Link::User(_) => context_menu::Entry::user_list(
                     formatter.target.is_channel(),
@@ -287,19 +312,13 @@ impl<'a> ChannelQueryLayout<'a> {
         let dimmed = formatter.config.buffer.server_messages.dimmed(server);
 
         let message_style = move |message_theme: &Theme| {
-            let mut style =
-                theme::selectable_text::server(message_theme, server);
-
-            if let Some(dimmed) = dimmed {
-                style.color = style.color.map(|color| {
-                    dimmed.transform_color(
-                        color,
-                        formatter.theme.styles().buffer.background,
-                    )
-                });
-            }
-
-            style
+            theme::selectable_text::dimmed(
+                theme::selectable_text::server(message_theme, server),
+                message_theme,
+                dimmed.map(|dimmed| {
+                    (*dimmed, formatter.theme.styles().buffer.background)
+                }),
+            )
         };
         let message_font_style = move |message_theme: &Theme| {
             theme::font_style::server(message_theme, server)
