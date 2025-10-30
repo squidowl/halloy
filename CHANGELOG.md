@@ -1,5 +1,13 @@
 # Unreleased
 
+Fixed:
+
+- Larger fonts (and font sizes) can be used without blanking out the input box
+
+Thanks:
+
+- Bug reports: @Frikilinux
+
 # 2025.11 (2025-10-27)
 
 Fixed:

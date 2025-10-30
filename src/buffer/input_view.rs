@@ -133,7 +133,9 @@ pub fn view<'a>(
         container(
             row![maybe_our_user, maybe_vertical_rule, input]
                 .spacing(4)
-                .height(20.0)
+                .height(
+                    (theme::line_height(&config.font).ceil() + 4.0).max(20.0)
+                )
                 .align_y(Alignment::Center)
         )
         .padding(8)
