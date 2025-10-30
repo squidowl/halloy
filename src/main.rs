@@ -449,9 +449,13 @@ impl Halloy {
                         Task::none()
                     }
                     Some(dashboard::Event::ReloadThemes) => {
-                        Task::future(Config::load())
-                            .and_then(|config| Task::done(config.appearance))
-                            .map(Message::AppearanceReloaded)
+                        Task::future(Config::load()).then(|config| match config
+                        {
+                            Ok(config) => Task::done(
+                                Message::AppearanceReloaded(config.appearance),
+                            ),
+                            Err(_) => Task::none(),
+                        })
                     }
                     Some(dashboard::Event::QuitServer(server, reason)) => {
                         self.clients.quit(&server, reason);

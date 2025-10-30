@@ -3,10 +3,11 @@
 Fixed:
 
 - Larger fonts (and font sizes) can be used without blanking out the input box
+- Standard Exif rotation data is used when displaying images
 
 Thanks:
 
-- Bug reports: @Frikilinux
+- Bug reports: @Frikilinux, ThePendulum
 
 # 2025.11 (2025-10-27)
 
