@@ -1142,9 +1142,7 @@ impl Data {
                                 .unwrap_or_default()
                                 - buffer_config
                                     .format_timestamp(&message.server_time)
-                                    .map(|timestamp| {
-                                        timestamp.chars().count() + 1
-                                    })
+                                    .map(|timestamp| timestamp.chars().count())
                                     .unwrap_or_default(),
                         )
                     } else {
