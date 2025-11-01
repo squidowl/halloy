@@ -2096,7 +2096,8 @@ impl Client {
                         self.casemapping(),
                     )))
                 {
-                    let casemapping = isupport::get_casemapping(&self.isupport);
+                    let casemapping =
+                        isupport::get_casemapping_or_default(&self.isupport);
                     let prefix = isupport::get_prefix(&self.isupport);
                     for user in args[3].split(' ') {
                         if let Ok(user) = User::parse(user, casemapping, prefix)
@@ -2189,7 +2190,9 @@ impl Client {
                     channel.topic.who = Some(
                         context!(User::parse(
                             ok!(args.get(2)),
-                            isupport::get_casemapping(&self.isupport),
+                            isupport::get_casemapping_or_default(
+                                &self.isupport
+                            ),
                             isupport::get_prefix(&self.isupport),
                         ))
                         .nickname()
@@ -2485,17 +2488,15 @@ impl Client {
                 })]);
             }
             Command::Numeric(RPL_MONONLINE, args) => {
-                let casemapping = isupport::get_casemapping(&self.isupport);
+                let casemapping =
+                    isupport::get_casemapping_or_default(&self.isupport);
                 let prefix = isupport::get_prefix(&self.isupport);
 
                 let targets = ok!(args.get(1))
                     .split(',')
                     .map(|target| {
                         User::parse(target, casemapping, prefix).unwrap_or(
-                            User::from(Nick::from_str(
-                                target,
-                                casemapping.unwrap_or_default(),
-                            )),
+                            User::from(Nick::from_str(target, casemapping)),
                         )
                     })
                     .collect::<Vec<_>>();
