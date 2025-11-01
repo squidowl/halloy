@@ -22,7 +22,7 @@ use self::correct_viewport::correct_viewport;
 use self::keyed::keyed;
 use super::context_menu;
 use crate::widget::{
-    Element, MESSAGE_MARKER_TEXT, notify_visibility, on_resize,
+    Element, notify_visibility, on_resize,
     selectable_text, tooltip,
 };
 use crate::{Theme, font, icon, theme};
@@ -211,7 +211,9 @@ pub fn view<'a>(
                 len,
                 usize::max(
                     max_excess_timestamp_chars.unwrap_or_default(),
-                    MESSAGE_MARKER_TEXT.chars().count(),
+                    4
+                    // TODO: get the width of the message marker text?
+                    // MESSAGE_MARKER_TEXT.chars().count(), 
                 ),
             ),
             &config.font,
