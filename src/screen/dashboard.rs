@@ -380,6 +380,9 @@ impl Dashboard {
                 };
 
                 let (event_task, event) = match event {
+                    sidebar::Event::QuitApplication => {
+                        (self.exit(clients, config), None)
+                    }
                     sidebar::Event::New(buffer) => (
                         self.open_buffer(
                             data::Buffer::Upstream(buffer),
