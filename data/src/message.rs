@@ -661,12 +661,16 @@ pub fn condense(
             },
         };
 
-        let mut condensed_fragments: IndexMap<Nick, Vec<Fragment>> =
+        let nick_associations = find_nickname_associations(messages);
+
+        let mut condensed_fragments: IndexMap<NickRef, Vec<Fragment>> =
             IndexMap::new();
 
+        // Convert messages to condensed fragments while grouping them based on
+        // nickname association
         messages.iter().for_each(|message| {
             if let Source::Server(Some(source)) = message.target.source()
-                && let Some(nick) = source.nick()
+                && let Some(nick) = source.nick().map(NickRef::from)
                 && let Some(nick_fragment) = match source.kind() {
                     Kind::Join => Some(Fragment::Condensed {
                         text: String::from("+\u{FEFF}"),
@@ -686,15 +690,33 @@ pub fn condense(
                     }),
                     _ => None,
                 }
+                && let Some(associated_nick) = nick_associations
+                    .get(&nick)
+                    .and_then(|association| match association {
+                        NickAssociation::Association(_) => Some(nick),
+                        NickAssociation::Associate(association_index) => {
+                            nick_associations
+                                .get_index(*association_index)
+                                .map(|(nick, _)| *nick)
+                        }
+                    })
             {
-                if matches!(source.kind(), Kind::ChangeNick) {
-                    // Find the destination nickname of the nick change
-                    let new_user_fragment =
+                if let Some(nick_fragments) =
+                    condensed_fragments.get_mut(&associated_nick)
+                {
+                    nick_fragments.push(nick_fragment);
+                } else {
+                    condensed_fragments
+                        .insert(associated_nick, vec![nick_fragment]);
+                }
+
+                if matches!(source.kind(), Kind::ChangeNick)
+                    && let Some(new_nick_fragment) =
                         if let Content::Fragments(fragments) = &message.content
                         {
                             fragments.iter().find_map(|fragment| {
                                 if let Fragment::User(user, _) = fragment {
-                                    (user.nickname() != *nick)
+                                    (user.nickname() != nick)
                                         .then_some(fragment.clone())
                                 } else {
                                     None
@@ -702,108 +724,11 @@ pub fn condense(
                             })
                         } else {
                             None
-                        };
-
-                    // Update the key for the condensed fragments to the new
-                    // nick, concatenating the two nick's histories if they
-                    // exist, in order to group related condensed fragments
-                    // together
-                    if let Some(Fragment::User(new_user, new_user_string)) =
-                        new_user_fragment
-                    {
-                        let new_nick = new_user.nickname().to_owned();
-
-                        let index = condensed_fragments.get_index_of(nick);
-                        let new_index =
-                            condensed_fragments.get_index_of(&new_nick);
-
-                        let new_user_fragment =
-                            Fragment::User(new_user, new_user_string);
-
-                        match (index, new_index) {
-                            (None, None) => {
-                                condensed_fragments.insert(
-                                    new_nick,
-                                    vec![nick_fragment, new_user_fragment],
-                                );
-                            }
-                            (Some(index), None) => {
-                                let _ = condensed_fragments
-                                    .replace_index(index, new_nick.clone());
-
-                                if let Some((_, nick_fragments)) =
-                                    condensed_fragments.get_index_mut(index)
-                                {
-                                    nick_fragments.push(nick_fragment);
-                                    nick_fragments.push(new_user_fragment);
-                                } else {
-                                    unreachable!();
-                                }
-                            }
-                            (None, Some(new_index)) => {
-                                if let Some((_, nick_fragments)) =
-                                    condensed_fragments.get_index_mut(new_index)
-                                {
-                                    nick_fragments.push(nick_fragment);
-                                    nick_fragments.push(new_user_fragment);
-                                } else {
-                                    unreachable!();
-                                }
-                            }
-                            (Some(index), Some(new_index)) => {
-                                let index = if index < new_index {
-                                    if let Some((_, mut new_nick_fragments)) =
-                                        condensed_fragments
-                                            .shift_remove_index(new_index)
-                                        && let Some((_, nick_fragments)) =
-                                            condensed_fragments
-                                                .get_index_mut(index)
-                                    {
-                                        nick_fragments
-                                            .append(&mut new_nick_fragments);
-                                    } else {
-                                        unreachable!();
-                                    }
-
-                                    let _ = condensed_fragments
-                                        .replace_index(index, new_nick);
-
-                                    index
-                                } else {
-                                    if let Some((_, mut nick_fragments)) =
-                                        condensed_fragments
-                                            .shift_remove_index(index)
-                                        && let Some((_, new_nick_fragments)) =
-                                            condensed_fragments
-                                                .get_index_mut(new_index)
-                                    {
-                                        new_nick_fragments
-                                            .append(&mut nick_fragments);
-                                    } else {
-                                        unreachable!();
-                                    }
-
-                                    new_index
-                                };
-
-                                if let Some((_, nick_fragments)) =
-                                    condensed_fragments.get_index_mut(index)
-                                {
-                                    nick_fragments.push(nick_fragment);
-                                    nick_fragments.push(new_user_fragment);
-                                } else {
-                                    unreachable!();
-                                }
-                            }
                         }
-                    }
-                } else if let Some(nick_fragments) =
-                    condensed_fragments.get_mut(nick)
+                    && let Some(nick_fragments) =
+                        condensed_fragments.get_mut(&associated_nick)
                 {
-                    nick_fragments.push(nick_fragment);
-                } else {
-                    condensed_fragments
-                        .insert(nick.clone(), vec![nick_fragment]);
+                    nick_fragments.push(new_nick_fragment);
                 }
             }
         });
@@ -834,6 +759,195 @@ pub fn condense(
         }))
     } else {
         None
+    }
+}
+
+#[derive(Clone, Debug)]
+enum NickAssociation<'a> {
+    Association(HashSet<NickRef<'a>>),
+    Associate(usize), // Index of an association (not an index of another associate)
+}
+
+// Finds associations between nicknames via nickname changes
+fn find_nickname_associations<'a>(
+    messages: &'a [&'a Message],
+) -> IndexMap<NickRef<'a>, NickAssociation<'a>> {
+    let mut nick_associations: IndexMap<NickRef, NickAssociation> =
+        IndexMap::new();
+
+    messages.iter().for_each(|message| {
+        if let Source::Server(Some(source)) = message.target.source()
+            && let Some(nick) = source.nick().map(NickRef::from)
+        {
+            match source.kind() {
+                Kind::Join | Kind::Part | Kind::Quit => {
+                    // If the nick does not have an entry then create an
+                    // association for it
+                    nick_associations.entry(nick).or_insert(
+                        NickAssociation::Association(HashSet::new()),
+                    );
+                }
+                Kind::ChangeNick => {
+                    if let Some(new_nick) =
+                        if let Content::Fragments(fragments) = &message.content
+                        {
+                            fragments.iter().find_map(|fragment| {
+                                if let Fragment::User(user, _) = fragment {
+                                    (user.nickname() != nick)
+                                        .then_some(user.nickname())
+                                } else {
+                                    None
+                                }
+                            })
+                        } else {
+                            None
+                        }
+                    {
+                        associate_nicknames(
+                            nick,
+                            new_nick,
+                            &mut nick_associations,
+                        );
+                    }
+                }
+                _ => (),
+            }
+        }
+    });
+
+    nick_associations
+}
+
+fn associate_nicknames<'a>(
+    nick: NickRef<'a>,
+    new_nick: NickRef<'a>,
+    nick_associations: &mut IndexMap<NickRef<'a>, NickAssociation<'a>>,
+) {
+    match (
+        nick_associations.get_index_of(&nick),
+        nick_associations.get_index_of(&new_nick),
+    ) {
+        (None, None) => {
+            let (nick_index, _) = nick_associations.insert_full(
+                nick,
+                NickAssociation::Association(HashSet::from([new_nick])),
+            );
+            nick_associations
+                .insert(new_nick, NickAssociation::Associate(nick_index));
+        }
+        (Some(nick_index), None) => {
+            // Existing entry is either an association or contains the index of
+            // an association.
+            if let Some(association_index) = nick_associations
+                .get_index(nick_index)
+                .map(|(_, nick_association)| match nick_association {
+                    NickAssociation::Association(_) => nick_index,
+                    NickAssociation::Associate(association_index) => {
+                        *association_index
+                    }
+                })
+                && let Some((_, NickAssociation::Association(associated_nicks))) =
+                    nick_associations.get_index_mut(association_index)
+            {
+                associated_nicks.insert(new_nick);
+                nick_associations.insert(
+                    new_nick,
+                    NickAssociation::Associate(association_index),
+                );
+            }
+        }
+        (None, Some(new_nick_index)) => {
+            // Existing entry is either an association or contains the index of
+            // an association.
+            if let Some(association_index) = nick_associations
+                .get_index(new_nick_index)
+                .map(|(_, new_nick_association)| match new_nick_association {
+                    NickAssociation::Association(_) => new_nick_index,
+                    NickAssociation::Associate(association_index) => {
+                        *association_index
+                    }
+                })
+                && let Some((_, NickAssociation::Association(associated_nicks))) =
+                    nick_associations.get_index_mut(association_index)
+            {
+                associated_nicks.insert(nick);
+                nick_associations.insert(
+                    nick,
+                    NickAssociation::Associate(association_index),
+                );
+            }
+        }
+        (Some(nick_index), Some(new_nick_index)) => {
+            // Existing entries are either an association or contain the index
+            // of an association.  Which association absorbs the other is
+            // immaterial to how nickname associations are used, so we will
+            // arbitrarily absorb new_nick's associations into nick's.
+            if let Some(nick_association_index) = nick_associations
+                .get_index(nick_index)
+                .map(|(_, nick_association)| match nick_association {
+                    NickAssociation::Association(_) => nick_index,
+                    NickAssociation::Associate(association_index) => {
+                        *association_index
+                    }
+                })
+                && let Some(new_nick_association_index) = nick_associations
+                    .get_index(new_nick_index)
+                    .map(|(_, new_nick_association)| match new_nick_association
+                    {
+                        NickAssociation::Association(_) => new_nick_index,
+                        NickAssociation::Associate(association_index) => {
+                            *association_index
+                        }
+                    })
+                && let Some((_, new_nick_association)) =
+                    nick_associations.get_index(new_nick_association_index)
+                && let new_nick_association = new_nick_association.clone()
+                && let Some((_, nick_association)) =
+                    nick_associations.get_index_mut(nick_association_index)
+            {
+                if let NickAssociation::Association(nick_associated_nicks) =
+                    nick_association
+                    && let NickAssociation::Association(
+                        ref new_nick_associated_nicks,
+                    ) = new_nick_association
+                {
+                    // Move all associated nicks from the absorbed association
+                    // into the absorbing association
+                    for new_nick_associated_nick in
+                        new_nick_associated_nicks.iter()
+                    {
+                        nick_associated_nicks.insert(*new_nick_associated_nick);
+                    }
+
+                    // Add the key nick for the absorbed association to the
+                    // absorbing association
+                    nick_associated_nicks.insert(new_nick);
+                }
+
+                //
+                if let NickAssociation::Association(new_nick_associated_nicks) =
+                    new_nick_association
+                {
+                    // Update the association index for all newly absorbed nicks
+                    // to the index of the absorbing association
+                    for new_nick_associated_nick in
+                        new_nick_associated_nicks.into_iter()
+                    {
+                        nick_associations.insert(
+                            new_nick_associated_nick,
+                            NickAssociation::Associate(nick_association_index),
+                        );
+                    }
+
+                    // Overwrite absorbed association with the association index
+                    // of the absorbing association
+                    nick_associations.insert(
+                        new_nick,
+                        NickAssociation::Associate(nick_association_index),
+                    );
+                }
+            }
+        }
     }
 }
 
