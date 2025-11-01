@@ -1208,12 +1208,19 @@ impl Data {
             hash_map::Entry::Occupied(mut entry) => {
                 let read_marker = entry.get_mut().add_message(message);
 
-                read_marker.map(|read_marker| {
-                    async move {
-                        Message::SentMessageUpdated(kind.clone(), read_marker)
-                    }
-                    .boxed()
-                })
+                if let Some(read_marker) = read_marker {
+                    // Update the read marker immediately so the split is correct
+                    entry.get_mut().update_read_marker(read_marker);
+
+                    Some(
+                        async move {
+                            Message::SentMessageUpdated(kind.clone(), read_marker)
+                        }
+                        .boxed(),
+                    )
+                } else {
+                    None
+                }
             }
             hash_map::Entry::Vacant(entry) => {
                 let _ = entry
