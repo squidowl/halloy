@@ -155,8 +155,8 @@ pub fn view<'a>(
     let Some(history::View {
         has_more_older_messages,
         has_more_newer_messages,
-        mut old_messages,
-        mut new_messages,
+        old_messages,
+        new_messages,
         max_nick_chars,
         max_prefix_chars,
         max_excess_timestamp_chars,
@@ -166,21 +166,6 @@ pub fn view<'a>(
     else {
         return column![].into();
     };
-
-    if config.buffer.mark_as_read.on_message_sent {
-        let now = Utc::now();
-        // Show recently sent messages (or echoes thereof) as marked as read,
-        // under the assumption that they will soon will be
-        if let Some(position) = new_messages.iter().position(|message| {
-            !(matches!(message.direction, message::Direction::Sent)
-                && message.is_echo)
-                || now.signed_duration_since(message.server_time).num_seconds()
-                    > 2
-        }) && position > 0
-        {
-            old_messages.extend(new_messages.drain(..position));
-        }
-    }
 
     let top_row = if !cleared
         && let (false, Some(chathistory_state)) =
