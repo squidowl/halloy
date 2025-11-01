@@ -137,6 +137,10 @@ pub fn lightbulb<'a>() -> Text<'a> {
     to_text('\u{F0EB}')
 }
 
+pub fn quit<'a>() -> Text<'a> {
+    to_text('\u{F02D}')
+}
+
 fn to_text<'a>(unicode: char) -> Text<'a> {
     text(unicode.to_string())
         .line_height(LineHeight::Relative(1.0))

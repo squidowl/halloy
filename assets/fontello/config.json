@@ -221,6 +221,12 @@
       "css": "lightbulb",
       "code": 61675,
       "src": "fontawesome"
+    },
+    {
+      "uid": "a6b6f85116fc55e4a7c83d66973035a7",
+      "css": "logout",
+      "code": 61485,
+      "src": "mfglabs"
     }
   ]
 }

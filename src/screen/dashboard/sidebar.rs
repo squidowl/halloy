@@ -38,6 +38,7 @@ pub enum Message {
     ReloadComplete,
     MarkAsRead(buffer::Upstream),
     MarkServerAsRead(Server),
+    QuitApplication,
 }
 
 #[derive(Debug, Clone)]
@@ -59,6 +60,7 @@ pub enum Event {
     ConfigReloaded(Result<Config, config::Error>),
     MarkAsRead(buffer::Upstream),
     MarkServerAsRead(Server),
+    QuitApplication,
 }
 
 #[derive(Clone)]
@@ -90,6 +92,7 @@ impl Sidebar {
         message: Message,
     ) -> (Task<Message>, Option<Event>) {
         match message {
+            Message::QuitApplication => (Task::none(), Some(Event::QuitApplication)),
             Message::New(source) => (Task::none(), Some(Event::New(source))),
             Message::Popout(source) => {
                 (Task::none(), Some(Event::Popout(source)))
@@ -214,6 +217,12 @@ impl Sidebar {
                             };
 
                         match menu {
+                            Menu::QuitApplication => context_button(
+                                text("Quit Halloy"),
+                                keyboard.quit_application.as_ref(),
+                                icon::quit(),
+                                Message::QuitApplication,
+                            ),
                             Menu::RefreshConfig => context_button(
                                 text("Reload config file"),
                                 Some(&keyboard.reload_configuration),
@@ -621,6 +630,7 @@ enum Menu {
     HorizontalRule,
     Documentation,
     OpenConfigFile,
+    QuitApplication,
 }
 
 impl Menu {
@@ -641,6 +651,7 @@ impl Menu {
             Self::OpenConfigFile,
             Self::RefreshConfig,
             Self::ThemeEditor,
+            Self::QuitApplication,
         ]);
 
         list
