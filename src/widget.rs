@@ -1,6 +1,11 @@
 #![allow(dead_code)]
-use data::appearance::theme::FontStyle;
-use iced::advanced::text;
+use data::{Config, appearance};
+use iced::{
+    Length, Padding,
+    advanced::text,
+    alignment,
+    widget::{container, text::LineHeight},
+};
 
 pub use self::anchored_overlay::anchored_overlay;
 pub use self::color_picker::color_picker;
@@ -18,7 +23,7 @@ pub use self::selectable_rich_text::selectable_rich_text;
 pub use self::selectable_text::selectable_text;
 pub use self::shortcut::shortcut;
 pub use self::tooltip::tooltip;
-use crate::{Theme, font};
+use crate::{Theme, appearance::theme::TEXT_SIZE, font};
 
 pub mod anchored_overlay;
 pub mod color_picker;
@@ -55,23 +60,24 @@ pub type Button<'a, Message> = iced::widget::Button<'a, Message, Theme>;
 
 pub fn message_marker<'a, M: 'a>(
     width: Option<f32>,
-    theme: &'a Theme,
+    config: &'a Config,
     style: impl Fn(&Theme) -> selectable_text::Style + 'a,
-    font_style: impl Fn(&Theme) -> Option<FontStyle>,
 ) -> Element<'a, M> {
-    let marker = selectable_text(MESSAGE_MARKER_TEXT);
+    let font_size =
+    config.font.size.map_or(TEXT_SIZE, f32::from) * 1.33;
+
+    let marker = selectable_text("\u{E81A}")
+        .line_height(LineHeight::Relative(1.0))
+        .font(font::ICON)
+        .style(style).size(font_size);
 
     if let Some(width) = width {
         marker.width(width).align_x(text::Alignment::Right)
     } else {
         marker
     }
-    .style(style)
-    .font_maybe(font_style(theme).map(font::get))
     .into()
 }
-
-pub const MESSAGE_MARKER_TEXT: &str = " ∙";
 
 pub mod button {
     use super::Element;

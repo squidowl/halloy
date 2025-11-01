@@ -305,12 +305,7 @@ impl<'a> ChannelQueryLayout<'a> {
             theme::font_style::server(message_theme, server)
         };
 
-        let marker = message_marker(
-            max_nick_width,
-            self.theme,
-            message_style,
-            message_font_style,
-        );
+        let marker = message_marker(max_nick_width, self.config, message_style);
 
         let message_content = message_content::with_context(
             &message.content,
@@ -477,9 +472,8 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
                 message::Source::Action(_) => {
                     let marker = message_marker(
                         max_nick_width,
-                        self.theme,
+                        self.config,
                         theme::selectable_text::action,
-                        theme::font_style::action,
                     );
 
                     let message_content = message_content(
@@ -510,9 +504,8 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
 
                     let marker = message_marker(
                         max_nick_width,
-                        self.theme,
+                        self.config,
                         message_style,
-                        message_font_style,
                     );
 
                     let message = message_content(
