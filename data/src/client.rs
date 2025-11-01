@@ -151,6 +151,7 @@ pub struct Client {
     logged_in: bool,
     registration_step: RegistrationStep,
     listed_caps: Vec<String>,
+    supports_echoes: bool,
     supports_labels: bool,
     supports_away_notify: bool,
     supports_account_notify: bool,
@@ -202,6 +203,7 @@ impl Client {
             logged_in: false,
             registration_step: RegistrationStep::Start,
             listed_caps: vec![],
+            supports_echoes: false,
             supports_labels: false,
             supports_away_notify: false,
             supports_account_notify: false,
@@ -1043,6 +1045,9 @@ impl Client {
 
                 let caps = caps.split(' ').collect::<Vec<_>>();
 
+                if caps.contains(&"echo-message") {
+                    self.supports_echoes = true;
+                }
                 if caps.contains(&"labeled-response") {
                     self.supports_labels = true;
                 }
@@ -1192,6 +1197,9 @@ impl Client {
 
                 let del_caps = caps.split(' ').collect::<Vec<_>>();
 
+                if del_caps.contains(&"echo-message") {
+                    self.supports_echoes = false;
+                }
                 if del_caps.contains(&"labeled-response") {
                     self.supports_labels = false;
                 }
@@ -3643,6 +3651,11 @@ impl Map {
         self.client(server)
             .map(Client::statusmsg)
             .unwrap_or_default()
+    }
+
+    pub fn get_server_supports_echoes(&self, server: &Server) -> bool {
+        self.client(server)
+            .is_some_and(|client| client.supports_echoes)
     }
 
     pub fn get_server_chathistory_message_reference_types(

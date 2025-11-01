@@ -5,6 +5,11 @@ Fixed:
 - Larger fonts (and font sizes) can be used without blanking out the input box
 - Standard Exif rotation data is used when displaying images
 - Server messages reporting an inability to send to a nick/channel are routed to the relevant buffer
+- Hide jitter in backlog divider caused by read marker updates when marking read on send
+
+Changed:
+
+- By default the backlog separator is hidden when all messages in a pane have been marked as read (`buffer.backlog_separator.hide_when_all_read`)
 
 Thanks:
 
