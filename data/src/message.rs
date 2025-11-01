@@ -1661,7 +1661,23 @@ fn target(
                 None,
             ))),
         }),
-
+        Command::Numeric(ERR_CANNOTSENDTOCHAN, params) => {
+            match target::Target::parse(
+                params.get(1)?,
+                chantypes,
+                statusmsg,
+                casemapping,
+            ) {
+                target::Target::Channel(channel) => Some(Target::Channel {
+                    channel,
+                    source: Source::Server(None),
+                }),
+                target::Target::Query(query) => Some(Target::Query {
+                    query,
+                    source: Source::Server(None),
+                }),
+            }
+        }
         // Server
         Command::PASS(_)
         | Command::NICK(_)
@@ -2261,6 +2277,21 @@ fn content<'a>(
                 &User::from(our_nick.clone()),
                 casemapping,
             ))
+        }
+        Command::Numeric(ERR_CANNOTSENDTOCHAN, params) => {
+            match target::Target::parse(
+                params.get(1)?,
+                chantypes,
+                statusmsg,
+                casemapping,
+            ) {
+                target::Target::Channel(_) => {
+                    Some(Content::Plain("Cannot send to channel".to_string()))
+                }
+                target::Target::Query(_) => {
+                    Some(Content::Plain("Cannot send to user".to_string()))
+                }
+            }
         }
         Command::Numeric(_, responses) | Command::Unknown(_, responses) => {
             Some(parse_fragments(
