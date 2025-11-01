@@ -1,5 +1,9 @@
 # Unreleased
 
+Added:
+
+- Exit application from user menu
+
 Fixed:
 
 - Larger fonts (and font sizes) can be used without blanking out the input box
