@@ -10,6 +10,7 @@ Fixed:
 - Standard Exif rotation data is used when displaying images
 - Server messages reporting an inability to send to a nick/channel are routed to the relevant buffer
 - Hide jitter in backlog divider caused by read marker updates when marking read on send
+- Flickering logo on Welcome screen
 
 Changed:
 
@@ -17,6 +18,7 @@ Changed:
 
 Thanks:
 
+- Contributions: @kasperkronborg
 - Bug reports: @Frikilinux, ThePendulum, @crabbedhaloablution
 
 # 2025.11 (2025-10-27)
@@ -120,7 +122,7 @@ Thanks:
 
 Added:
 
-- Clear buffers with `/clear` command 
+- Clear buffers with `/clear` command
 - Notification indicator on sidebar menu for application updates and file transfers
 
 Fixed:
