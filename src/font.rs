@@ -124,6 +124,31 @@ pub fn width_from_chars(len: usize, config: &config::Font) -> f32 {
     .width
 }
 
+pub fn width_of_message_marker(config: &config::Font) -> f32 {
+    use iced::advanced::graphics::text::Paragraph;
+    use iced::advanced::text::{self, Paragraph as _, Text};
+    use iced::{Size, alignment};
+
+    use crate::theme;
+
+    let font_size = config.size.map_or(theme::TEXT_SIZE, f32::from) * 1.33;
+
+    Paragraph::with_text(Text {
+        content: "\u{E81A}",
+        bounds: Size::INFINITE,
+        size: font_size.into(),
+        line_height: text::LineHeight::default(),
+        font: ICON,
+        align_x: text::Alignment::Right,
+        align_y: alignment::Vertical::Top,
+        shaping: text::Shaping::Basic,
+        wrapping: text::Wrapping::default(),
+    })
+    .min_bounds()
+    .expand(Size::new(1.0, 0.0))
+    .width
+}
+
 pub fn get(font_style: FontStyle) -> Font {
     match font_style {
         FontStyle::Normal => MONO.clone(),

@@ -1,10 +1,8 @@
 #![allow(dead_code)]
-use data::{Config, appearance};
+use data::Config;
 use iced::{
-    Length, Padding,
     advanced::text,
-    alignment,
-    widget::{container, text::LineHeight},
+    widget::text::LineHeight,
 };
 
 pub use self::anchored_overlay::anchored_overlay;
