@@ -217,7 +217,7 @@ impl Halloy {
             }
             // Show regular welcome screen for new users.
             Err(config::Error::ConfigMissing) => (
-                Screen::Welcome(screen::Welcome::new()),
+                Screen::Welcome(screen::Welcome::default()),
                 server::Map::default(),
                 Config::default(),
                 Task::none(),

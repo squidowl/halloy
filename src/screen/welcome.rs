@@ -119,3 +119,9 @@ impl Welcome {
             .into()
     }
 }
+
+impl Default for Welcome {
+    fn default() -> Self {
+        Self::new()
+    }
+}
