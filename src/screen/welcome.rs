@@ -18,15 +18,20 @@ pub enum Event {
     RefreshConfiguration,
 }
 
-#[derive(Debug, Default, Clone)]
-pub struct Welcome;
+#[derive(Debug, Clone)]
+pub struct Welcome {
+    logo: image::Handle,
+}
 
 impl Welcome {
     pub fn new() -> Self {
         // Create initial config file.
         Config::create_initial_config();
 
-        Welcome
+        let logo_bytes = include_bytes!("../../assets/logo.png").to_vec();
+        let logo = image::Handle::from_bytes(logo_bytes);
+
+        Welcome { logo }
     }
 
     pub fn update(&mut self, message: Message) -> Option<Event> {
@@ -78,10 +83,9 @@ impl Welcome {
         .style(|theme, status| theme::button::secondary(theme, status, false))
         .on_press(Message::RefreshConfiguration);
 
-        let logo_bytes = include_bytes!("../../assets/logo.png").to_vec();
         let content = column![]
             .spacing(1)
-            .push(image(image::Handle::from_bytes(logo_bytes)).width(150))
+            .push(image(self.logo.clone()).width(150))
             .push(space::vertical().height(10))
             .push(text("Welcome to Halloy!").font(font::MONO_BOLD.clone()))
             .push(space::vertical().height(4))
