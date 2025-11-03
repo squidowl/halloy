@@ -1,36 +1,57 @@
 # Connect with soju
 
-To connect with a [**soju**](https://soju.im/) bouncer, the configuration below can be used as a template. Simply change so it fits your credentials.
+Halloy supports two different ways to connect with a [**soju**](https://soju.im/) bouncer
+
+1. Automatic network detection using the [`bouncer-networks`](https://codeberg.org/emersion/soju/src/branch/master/doc/ext/bouncer-networks.md) extension
+2. Manual per-network configuration (legacy)
+
+
+## Automatic network detection using the `bouncer-networks` extension
+
+To connect using the `bouncer-networks` extension, you can use the following configuration template. This will ensure you are automatically connected to all your networks.
 
 ```toml
-[servers.soju]
+[servers.<name>]
 nickname = "<your-nickname>"
 server = "<your-bouncer-url>"
-port = 6697
-[servers.soju.sasl.plain]
+
+[servers.<name>.sasl.plain]
 username = "<your-username>"
 password = "<your-password>"
 ```
 
-> 💡  as of 2025.1 Halloy supports [`chathistory`](../configuration/servers/#chathistory), so the machine name (like `@desktop`) is no longer needed when `chathistory` is enabled
+If you haven't configured any networks beforehand, you can do so after connecting. Note that you might need to restart Halloy to see newly created networks in the sidebar.
 
-## Using Bouncer Networks
+```sh
+/msg BouncerServ net create -addr irc.libera.chat
+```
 
-> ⚠️  The soju `bouncer-networks` specification *requires* that SASL be used. If you do not use SASL, you must add servers in the legacy fashion.
 
-As of 2025.9 Halloy supports [`bouncer-networks`](https://codeberg.org/emersion/soju/src/branch/master/doc/ext/bouncer-networks.md) so connecting to individual servers is no longer needed. Instead, Halloy can communicate with soju to determine what networks you are currently connected to and then automatically add them in the UI.
+## Manual per-network configuration (legacy)
 
-If this is not desired, you can still add individual servers with the ZNC username syntax, for example:
+If you would rather manually connect to each server, you can use the following configuration template.
 
 ```toml
-[servers.libera]
+[servers.<name>]
 nickname = "<your-nickname>"
 server = "<your-bouncer-url>"
 port = 6697
 
-[servers.soju.sasl.plain]
-username = "<your-username>"
+[servers.<name>.sasl.plain]
+username = "<your-username>/<network>"
 password = "<your-password>"
+```
+
+Here is an example configuration for connecting to Libera:
+
+```toml
+[servers.libera]
+nickname = "casperstorm"
+server = "irc.your-bouncer-url.org"
+
+[servers.libera.sasl.plain]
+username = "casperstorm/irc.libera.chat"
+password = "my-password"
 ```
 
 ## Using Chat History
