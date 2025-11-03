@@ -29,7 +29,7 @@ server = "<your-bouncer-url>"
 port = 6697
 
 [servers.soju.sasl.plain]
-username = "<your-username>/irc.libera.chat"
+username = "<your-username>"
 password = "<your-password>"
 ```
 
