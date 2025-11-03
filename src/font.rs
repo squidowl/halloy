@@ -96,6 +96,12 @@ pub fn load() -> Vec<Cow<'static, [u8]>> {
         include_bytes!("../fonts/iosevka-term-light.ttf")
             .as_slice()
             .into(),
+        include_bytes!("../fonts/iosevka-term-semibold.ttf")
+            .as_slice()
+            .into(),
+        include_bytes!("../fonts/iosevka-term-lightitalic.ttf")
+            .as_slice()
+            .into(),
         include_bytes!("../fonts/halloy-icons.ttf")
             .as_slice()
             .into(),
@@ -132,7 +138,8 @@ pub fn width_of_message_marker(config: &config::Font) -> f32 {
 
     use crate::theme;
 
-    let font_size = config.size.map_or(theme::TEXT_SIZE, f32::from) * MESSAGE_MARKER_FONT_SCALE;
+    let font_size = config.size.map_or(theme::TEXT_SIZE, f32::from)
+        * MESSAGE_MARKER_FONT_SCALE;
 
     Paragraph::with_text(Text {
         content: "\u{E81A}",
