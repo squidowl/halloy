@@ -227,6 +227,12 @@
       "css": "logout",
       "code": 61485,
       "src": "mfglabs"
+    },
+    {
+      "uid": "d2c6b59d9a239140cb76be0627480855",
+      "css": "dot",
+      "code": 59418,
+      "src": "entypo"
     }
   ]
 }
