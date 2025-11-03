@@ -10,6 +10,7 @@ pub static MONO_BOLD: Font = Font::new(true, false);
 pub static MONO_ITALICS: Font = Font::new(false, true);
 pub static MONO_BOLD_ITALICS: Font = Font::new(true, true);
 pub const ICON: iced::Font = iced::Font::with_name("halloy-icons");
+pub const MESSAGE_MARKER_FONT_SCALE: f32 = 1.33;
 
 #[derive(Debug, Clone)]
 pub struct Font {
@@ -92,6 +93,15 @@ pub fn load() -> Vec<Cow<'static, [u8]>> {
         include_bytes!("../fonts/iosevka-term-italic.ttf")
             .as_slice()
             .into(),
+        include_bytes!("../fonts/iosevka-term-light.ttf")
+            .as_slice()
+            .into(),
+        include_bytes!("../fonts/iosevka-term-semibold.ttf")
+            .as_slice()
+            .into(),
+        include_bytes!("../fonts/iosevka-term-lightitalic.ttf")
+            .as_slice()
+            .into(),
         include_bytes!("../fonts/halloy-icons.ttf")
             .as_slice()
             .into(),
@@ -106,11 +116,37 @@ pub fn width_from_chars(len: usize, config: &config::Font) -> f32 {
     use crate::theme;
 
     Paragraph::with_text(Text {
-        content: &" ".repeat(len),
+        content: &"W".repeat(len),
         bounds: Size::INFINITE,
         size: config.size.map_or(theme::TEXT_SIZE, f32::from).into(),
         line_height: text::LineHeight::default(),
         font: MONO.clone().into(),
+        align_x: text::Alignment::Right,
+        align_y: alignment::Vertical::Top,
+        shaping: text::Shaping::Basic,
+        wrapping: text::Wrapping::default(),
+    })
+    .min_bounds()
+    .expand(Size::new(1.0, 0.0))
+    .width
+}
+
+pub fn width_of_message_marker(config: &config::Font) -> f32 {
+    use iced::advanced::graphics::text::Paragraph;
+    use iced::advanced::text::{self, Paragraph as _, Text};
+    use iced::{Size, alignment};
+
+    use crate::theme;
+
+    let font_size = config.size.map_or(theme::TEXT_SIZE, f32::from)
+        * MESSAGE_MARKER_FONT_SCALE;
+
+    Paragraph::with_text(Text {
+        content: "\u{E81A}",
+        bounds: Size::INFINITE,
+        size: font_size.into(),
+        line_height: text::LineHeight::default(),
+        font: ICON,
         align_x: text::Alignment::Right,
         align_y: alignment::Vertical::Top,
         shaping: text::Shaping::Basic,

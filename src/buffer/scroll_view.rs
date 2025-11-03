@@ -22,7 +22,7 @@ use self::correct_viewport::correct_viewport;
 use self::keyed::keyed;
 use super::context_menu;
 use crate::widget::{
-    Element, MESSAGE_MARKER_TEXT, notify_visibility, on_resize,
+    Element, notify_visibility, on_resize,
     selectable_text, tooltip,
 };
 use crate::{Theme, font, icon, theme};
@@ -206,16 +206,11 @@ pub fn view<'a>(
     let status = state.status;
 
     let max_nick_width = max_nick_chars.map(|len| {
-        font::width_from_chars(
-            usize::max(
-                len,
-                usize::max(
-                    max_excess_timestamp_chars.unwrap_or_default(),
-                    MESSAGE_MARKER_TEXT.chars().count(),
-                ),
-            ),
-            &config.font,
-        )
+        let max_chars = len.max(max_excess_timestamp_chars.unwrap_or_default());
+        let max_char_width = font::width_from_chars(max_chars, &config.font);
+        let message_marker_width = font::width_of_message_marker(&config.font);
+
+        max_char_width.max(message_marker_width)
     });
 
     let max_prefix_width =
