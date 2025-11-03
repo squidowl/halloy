@@ -107,9 +107,9 @@ pub trait LayoutMessage<'a> {
     fn format(
         &self,
         message: &'a data::Message,
-        max_nick_width: Option<f32>,
+        right_aligned_width: Option<f32>,
         max_prefix_width: Option<f32>,
-        max_excess_timestamp_width: Option<f32>,
+        range_timestamp_excess_width: Option<f32>,
     ) -> Option<Element<'a, Message>>;
 }
 
@@ -125,15 +125,15 @@ where
     fn format(
         &self,
         message: &'a data::Message,
-        max_nick_width: Option<f32>,
+        right_aligned_width: Option<f32>,
         max_prefix_width: Option<f32>,
-        max_excess_timestamp_width: Option<f32>,
+        range_timestamp_excess_width: Option<f32>,
     ) -> Option<Element<'a, Message>> {
         self(
             message,
-            max_nick_width,
+            right_aligned_width,
             max_prefix_width,
-            max_excess_timestamp_width,
+            range_timestamp_excess_width,
         )
     }
 }
@@ -158,7 +158,7 @@ pub fn view<'a>(
         new_messages,
         max_nick_chars,
         max_prefix_chars,
-        max_excess_timestamp_chars,
+        range_timestamp_extra_chars,
         cleared,
         ..
     }) = history.get_messages(&kind.into(), Some(state.limit), &config.buffer)
@@ -204,8 +204,9 @@ pub fn view<'a>(
         .map_or_else(Utc::now, |message| message.server_time);
     let status = state.status;
 
-    let max_nick_width = max_nick_chars.map(|len| {
-        let max_chars = len.max(max_excess_timestamp_chars.unwrap_or_default());
+    let right_aligned_width = max_nick_chars.map(|len| {
+        let max_chars =
+            len.max(range_timestamp_extra_chars.unwrap_or_default());
         let max_char_width = font::width_from_chars(max_chars, &config.font);
         let message_marker_width = font::width_of_message_marker(&config.font);
 
@@ -215,7 +216,7 @@ pub fn view<'a>(
     let max_prefix_width =
         max_prefix_chars.map(|len| font::width_from_chars(len, &config.font));
 
-    let max_excess_timestamp_width = max_excess_timestamp_chars
+    let range_timestamp_excess_width = range_timestamp_extra_chars
         .map(|len| font::width_from_chars(len, &config.font));
 
     let message_rows = |last_date: Option<NaiveDate>,
@@ -226,9 +227,9 @@ pub fn view<'a>(
                 formatter
                     .format(
                         message,
-                        max_nick_width,
+                        right_aligned_width,
                         max_prefix_width,
-                        max_excess_timestamp_width,
+                        range_timestamp_excess_width,
                     )
                     .map(|element| {
                         (message, keyed(keyed::Key::message(message), element))
@@ -282,7 +283,7 @@ pub fn view<'a>(
                                     preview,
                                     url,
                                     idx,
-                                    max_nick_width,
+                                    right_aligned_width,
                                     max_prefix_width,
                                     is_hovered,
                                     config,
@@ -1281,7 +1282,7 @@ fn preview_row<'a>(
     preview: &'a Preview,
     url: &url::Url,
     idx: usize,
-    max_nick_width: Option<f32>,
+    right_aligned_width: Option<f32>,
     max_prefix_width: Option<f32>,
     is_hovered: bool,
     config: &'a Config,
@@ -1380,7 +1381,7 @@ fn preview_row<'a>(
         data::buffer::Alignment::Left => row![timestamp_gap, content].into(),
         data::buffer::Alignment::Right => {
             let prefixes = message.target.prefixes().map_or(
-                max_nick_width.and_then(|_| {
+                right_aligned_width.and_then(|_| {
                     max_prefix_width
                         .map(|width| selectable_text("").width(width))
                 }),
@@ -1425,7 +1426,7 @@ fn preview_row<'a>(
                     ),
                 );
 
-                if let Some(width) = max_nick_width {
+                if let Some(width) = right_aligned_width {
                     nick = nick.width(width);
                 }
 

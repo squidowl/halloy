@@ -889,7 +889,7 @@ pub struct View<'a> {
     pub new_messages: Vec<&'a Message>,
     pub max_nick_chars: Option<usize>,
     pub max_prefix_chars: Option<usize>,
-    pub max_excess_timestamp_chars: Option<usize>,
+    pub range_timestamp_extra_chars: Option<usize>,
     pub cleared: bool,
 }
 

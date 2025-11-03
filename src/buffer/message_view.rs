@@ -137,14 +137,14 @@ impl<'a> ChannelQueryLayout<'a> {
     fn format_prefixes(
         &self,
         message: &'a data::Message,
-        max_nick_width: Option<f32>,
+        right_aligned_width: Option<f32>,
         max_prefix_width: Option<f32>,
     ) -> Option<Element<'a, Message>> {
         message
             .target
             .prefixes()
             .map_or(
-                max_nick_width.and_then(|_| {
+                right_aligned_width.and_then(|_| {
                     max_prefix_width.map(|width| {
                         selectable_text("")
                             .width(width)
@@ -178,7 +178,7 @@ impl<'a> ChannelQueryLayout<'a> {
     fn format_user_message(
         &self,
         message: &'a data::Message,
-        max_nick_width: Option<f32>,
+        right_aligned_width: Option<f32>,
         user: &'a User,
     ) -> (Element<'a, Message>, Element<'a, Message>) {
         let with_access_levels = self.config.buffer.nickname.show_access_levels;
@@ -219,7 +219,7 @@ impl<'a> ChannelQueryLayout<'a> {
                 .map(font::get),
         );
 
-        if let Some(width) = max_nick_width {
+        if let Some(width) = right_aligned_width {
             text = text.width(width).align_x(text::Alignment::Right);
         }
 
@@ -304,7 +304,7 @@ impl<'a> ChannelQueryLayout<'a> {
     fn format_server_message(
         &self,
         message: &'a data::Message,
-        max_nick_width: Option<f32>,
+        right_aligned_width: Option<f32>,
         server: Option<&'a message::source::Server>,
     ) -> (Element<'a, Message>, Element<'a, Message>) {
         let formatter = *self;
@@ -324,7 +324,8 @@ impl<'a> ChannelQueryLayout<'a> {
             theme::font_style::server(message_theme, server)
         };
 
-        let marker = message_marker(max_nick_width, self.config, message_style);
+        let marker =
+            message_marker(right_aligned_width, self.config, message_style);
 
         let message_content = message_content::with_context(
             &message.content,
@@ -464,13 +465,16 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
     fn format(
         &self,
         message: &'a data::Message,
-        max_nick_width: Option<f32>,
+        right_aligned_width: Option<f32>,
         max_prefix_width: Option<f32>,
-        max_excess_timestamp_width: Option<f32>,
+        range_timestamp_excess_width: Option<f32>,
     ) -> Option<Element<'a, Message>> {
         let timestamp = self.format_timestamp(message);
-        let prefixes =
-            self.format_prefixes(message, max_nick_width, max_prefix_width);
+        let prefixes = self.format_prefixes(
+            message,
+            right_aligned_width,
+            max_prefix_width,
+        );
 
         let row = row![timestamp, selectable_text(" "), prefixes];
 
@@ -478,19 +482,19 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
             match message.target.source() {
                 message::Source::User(user) => Some(self.format_user_message(
                     message,
-                    max_nick_width,
+                    right_aligned_width,
                     user,
                 )),
                 message::Source::Server(server_message) => {
                     Some(self.format_server_message(
                         message,
-                        max_nick_width,
+                        right_aligned_width,
                         server_message.as_ref(),
                     ))
                 }
                 message::Source::Action(_) => {
                     let marker = message_marker(
-                        max_nick_width,
+                        right_aligned_width,
                         self.config,
                         theme::selectable_text::action,
                     );
@@ -522,7 +526,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
                     };
 
                     let marker = message_marker(
-                        max_nick_width,
+                        right_aligned_width,
                         self.config,
                         message_style,
                     );
@@ -547,16 +551,16 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
                 message::Source::Internal(
                     message::source::Internal::Condensed(end_server_time),
                 ) => {
-                    let spacer_width = if message.server_time
-                        != *end_server_time
-                    {
-                        max_nick_width.map(|max_nick_width| {
-                            max_nick_width
-                                - max_excess_timestamp_width.unwrap_or_default()
-                        })
-                    } else {
-                        max_nick_width
-                    };
+                    let spacer_width =
+                        if message.server_time != *end_server_time {
+                            right_aligned_width.map(|right_aligned_width| {
+                                right_aligned_width
+                                    - range_timestamp_excess_width
+                                        .unwrap_or_default()
+                            })
+                        } else {
+                            right_aligned_width
+                        };
 
                     (!message.text().is_empty()).then_some(
                         self.format_condensed_message(message, spacer_width),

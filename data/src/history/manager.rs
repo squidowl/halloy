@@ -1112,7 +1112,7 @@ impl Data {
         // The right-aligned nicknames setting expects timestamps to have a
         // constant character count to function, so we can utilize that
         // expectation in this calculation
-        let max_excess_timestamp_chars = (buffer_config
+        let range_timestamp_extra_chars = (buffer_config
             .nickname
             .alignment
             .is_right()
@@ -1194,7 +1194,7 @@ impl Data {
             new_messages: new.to_vec(),
             max_nick_chars,
             max_prefix_chars,
-            max_excess_timestamp_chars,
+            range_timestamp_extra_chars,
             cleared: *cleared,
         })
     }
