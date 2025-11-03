@@ -206,14 +206,11 @@ pub fn view<'a>(
     let status = state.status;
 
     let max_nick_width = max_nick_chars.map(|len| {
-        let nick_width = font::width_from_chars(len, &config.font);
-        let timestamp_width = font::width_from_chars(
-            max_excess_timestamp_chars.unwrap_or_default(),
-            &config.font,
-        );
+        let max_chars = len.max(max_excess_timestamp_chars.unwrap_or_default());
+        let max_char_width = font::width_from_chars(max_chars, &config.font);
         let message_marker_width = font::width_of_message_marker(&config.font);
 
-        nick_width.max(timestamp_width).max(message_marker_width)
+        max_char_width.max(message_marker_width)
     });
 
     let max_prefix_width =

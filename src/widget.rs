@@ -62,7 +62,7 @@ pub fn message_marker<'a, M: 'a>(
     style: impl Fn(&Theme) -> selectable_text::Style + 'a,
 ) -> Element<'a, M> {
     let font_size =
-    config.font.size.map_or(TEXT_SIZE, f32::from) * 1.33;
+    config.font.size.map_or(TEXT_SIZE, f32::from) * font::MESSAGE_MARKER_FONT_SCALE;
 
     let marker = selectable_text("\u{E81A}")
         .line_height(LineHeight::Relative(1.0))
