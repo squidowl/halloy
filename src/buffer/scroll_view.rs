@@ -1322,7 +1322,9 @@ fn preview_row<'a>(
                         }),
                         config.preview.card.show_image.then_some(
                             container(
-                                image(path).content_fit(ContentFit::ScaleDown)
+                                image(path)
+                                    .border_radius(4)
+                                    .content_fit(ContentFit::ScaleDown)
                             )
                             .max_height(200)
                         ),
@@ -1338,9 +1340,13 @@ fn preview_row<'a>(
         data::Preview::Image(preview::Image { path, url, .. }) => keyed(
             keyed::Key::Preview(message.hash, idx),
             button(
-                container(image(path).content_fit(ContentFit::ScaleDown))
-                    .max_width(550)
-                    .max_height(350),
+                container(
+                    image(path)
+                        .border_radius(4)
+                        .content_fit(ContentFit::ScaleDown),
+                )
+                .max_width(550)
+                .max_height(350),
             )
             .on_press(match config.preview.image.action {
                 data::config::preview::ImageAction::OpenUrl => {

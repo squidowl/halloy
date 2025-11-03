@@ -3,6 +3,7 @@
 Added:
 
 - Exit application from user menu
+- Border radius on both image previews and cards displaying images through meta tags
 
 Fixed:
 
