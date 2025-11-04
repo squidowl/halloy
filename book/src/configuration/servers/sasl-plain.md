@@ -76,3 +76,6 @@ Executes the command with `sh` (or equivalent) and reads `password` as the outpu
 [servers.<name>.sasl.plain]
 password_command = ""
 ```
+
+[^1]: Windows path strings should usually be specified as literal strings (e.g. `'C:\Users\Default\'`), otherwise directory separators will need to be escaped (e.g. `"C:\\Users\\Default\\"`).
+[^2]: Relative paths are prefixed with the config directory (i.e. if you have your config.toml in `/home/me/.config/halloy/config.toml`, path `.passwd/libera` will be converted to `/home/me/.config/halloy/.passwd/libera`).
