@@ -503,32 +503,43 @@ cd halloy
 </li>
 </ol>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="connect-with-soju"><a class="header" href="#connect-with-soju">Connect with soju</a></h1>
-<p>To connect with a <a href="https://soju.im/"><strong>soju</strong></a> bouncer, the configuration below can be used as a template. Simply change so it fits your credentials.</p>
-<pre><code class="language-toml">[servers.soju]
+<p>Halloy supports two different ways to connect with a <a href="https://soju.im/"><strong>soju</strong></a> bouncer</p>
+<ol>
+<li>Automatic network detection using the <a href="https://codeberg.org/emersion/soju/src/branch/master/doc/ext/bouncer-networks.md"><code>bouncer-networks</code></a> extension</li>
+<li>Manual per-network configuration (legacy)</li>
+</ol>
+<h2 id="automatic-network-detection-using-the-bouncer-networks-extension"><a class="header" href="#automatic-network-detection-using-the-bouncer-networks-extension">Automatic network detection using the <code>bouncer-networks</code> extension</a></h2>
+<p>To connect using the <code>bouncer-networks</code> extension, you can use the following configuration template. This will ensure you are automatically connected to all your networks.</p>
+<pre><code class="language-toml">[servers.&lt;name&gt;]
 nickname = "&lt;your-nickname&gt;"
 server = "&lt;your-bouncer-url&gt;"
-port = 6697
-[servers.soju.sasl.plain]
+
+[servers.&lt;name&gt;.sasl.plain]
 username = "&lt;your-username&gt;"
 password = "&lt;your-password&gt;"
 </code></pre>
-<blockquote>
-<p>💡  as of 2025.1 Halloy supports <a href="guides/../configuration/servers/#chathistory"><code>chathistory</code></a>, so the machine name (like <code>@desktop</code>) is no longer needed when <code>chathistory</code> is enabled</p>
-</blockquote>
-<h2 id="using-bouncer-networks"><a class="header" href="#using-bouncer-networks">Using Bouncer Networks</a></h2>
-<blockquote>
-<p>⚠️  The soju <code>bouncer-networks</code> specification <em>requires</em> that SASL be used. If you do not use SASL, you must add servers in the legacy fashion.</p>
-</blockquote>
-<p>As of 2025.9 Halloy supports <a href="https://codeberg.org/emersion/soju/src/branch/master/doc/ext/bouncer-networks.md"><code>bouncer-networks</code></a> so connecting to individual servers is no longer needed. Instead, Halloy can communicate with soju to determine what networks you are currently connected to and then automatically add them in the UI.</p>
-<p>If this is not desired, you can still add individual servers with the ZNC username syntax, for example:</p>
-<pre><code class="language-toml">[servers.libera]
+<p>If you haven't configured any networks beforehand, you can do so after connecting. Note that you might need to restart Halloy to see newly created networks in the sidebar.</p>
+<pre><code class="language-sh">/msg BouncerServ net create -addr irc.libera.chat
+</code></pre>
+<h2 id="manual-per-network-configuration-legacy"><a class="header" href="#manual-per-network-configuration-legacy">Manual per-network configuration (legacy)</a></h2>
+<p>If you would rather manually connect to each server, you can use the following configuration template.</p>
+<pre><code class="language-toml">[servers.&lt;name&gt;]
 nickname = "&lt;your-nickname&gt;"
 server = "&lt;your-bouncer-url&gt;"
 port = 6697
 
-[servers.soju.sasl.plain]
-username = "&lt;your-username&gt;/irc.libera.chat"
+[servers.&lt;name&gt;.sasl.plain]
+username = "&lt;your-username&gt;/&lt;network&gt;"
 password = "&lt;your-password&gt;"
+</code></pre>
+<p>Here is an example configuration for connecting to Libera:</p>
+<pre><code class="language-toml">[servers.libera]
+nickname = "casperstorm"
+server = "irc.your-bouncer-url.org"
+
+[servers.libera.sasl.plain]
+username = "casperstorm/irc.libera.chat"
+password = "my-password"
 </code></pre>
 <h2 id="using-chat-history"><a class="header" href="#using-chat-history">Using Chat History</a></h2>
 <p>You can enable infinite scrolling history if you want to automatically load older messages.</p>
@@ -3434,7 +3445,7 @@ nickname = ""
 nick_password = ""
 </code></pre>
 <h3 id="nick_password_file"><a class="header" href="#nick_password_file">nick_password_file</a></h3>
-<p>Read <code>nick_password</code> from the file at the given path.[^1] [^2]</p>
+<p>Read <code>nick_password</code> from the file at the given path.<sup class="footnote-reference" id="fr-1-1"><a href="#footnote-1">1</a></sup> <sup class="footnote-reference" id="fr-2-1"><a href="#footnote-2">2</a></sup></p>
 <pre><code class="language-toml"># Type: string
 # Values: any string
 # Default: not set
@@ -3524,7 +3535,7 @@ port = 6697
 password = ""
 </code></pre>
 <h3 id="password_file"><a class="header" href="#password_file">password_file</a></h3>
-<p>Read password from the file at the given path.[^1] [^2]</p>
+<p>Read password from the file at the given path.<sup class="footnote-reference" id="fr-1-2"><a href="#footnote-1">1</a></sup> <sup class="footnote-reference" id="fr-2-2"><a href="#footnote-2">2</a></sup></p>
 <pre><code class="language-toml"># Type: string
 # Values: any string
 # Default: not set
@@ -3641,7 +3652,7 @@ use_tls = true
 dangerously_accept_invalid_certs = false
 </code></pre>
 <h3 id="root_cert_path"><a class="header" href="#root_cert_path">root_cert_path</a></h3>
-<p>The path to the root TLS certificate for this server in PEM format.[^1] [^2]</p>
+<p>The path to the root TLS certificate for this server in PEM format.<sup class="footnote-reference" id="fr-1-3"><a href="#footnote-1">1</a></sup> <sup class="footnote-reference" id="fr-2-3"><a href="#footnote-2">2</a></sup></p>
 <pre><code class="language-toml"># Type: string
 # Values: any string
 # Default: not set
@@ -3712,7 +3723,14 @@ chathistory = true
 <p>Plain SASL auth using a username and password</p>
 <h2 id="sasl-external"><a class="header" href="#sasl-external"><a href="configuration/servers/sasl-external.html">SASL External</a></a></h2>
 <p>External SASL auth uses a PEM encoded X509 certificate.</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="filters-1"><a class="header" href="#filters-1">Filters</a></h1>
+<hr>
+<ol class="footnote-definition"><li id="footnote-1">
+<p>Windows path strings should usually be specified as literal strings (e.g. <code>'C:\Users\Default\'</code>), otherwise directory separators will need to be escaped (e.g. <code>"C:\\Users\\Default\\"</code>). <a href="#fr-1-1">↩</a> <a href="#fr-1-2">↩2</a> <a href="#fr-1-3">↩3</a></p>
+</li>
+<li id="footnote-2">
+<p>Relative paths are prefixed with the config directory (i.e. if you have your config.toml in <code>/home/me/.config/halloy/config.toml</code>, path <code>.passwd/libera</code> will be converted to <code>/home/me/.config/halloy/.passwd/libera</code>). <a href="#fr-2-1">↩</a> <a href="#fr-2-2">↩2</a> <a href="#fr-2-3">↩3</a></p>
+</li>
+</ol><div style="break-before: page; page-break-before: always;"></div><h1 id="filters-1"><a class="header" href="#filters-1">Filters</a></h1>
 <p>Filter messages based on various criteria.</p>
 <ul>
 <li><a href="configuration/servers/filters.html#filters">Filters</a>
@@ -3816,7 +3834,7 @@ username = "username"
 password = "password"
 </code></pre>
 <h3 id="password_file-1"><a class="header" href="#password_file-1">password_file</a></h3>
-<p>Read <code>password</code> from the file at the given path.[^1] [^2]</p>
+<p>Read <code>password</code> from the file at the given path.<sup class="footnote-reference" id="fr-1-1"><a href="#footnote-1">1</a></sup> <sup class="footnote-reference" id="fr-2-1"><a href="#footnote-2">2</a></sup></p>
 <pre><code class="language-toml"># Type: string
 # Values: any string
 # Default: not set
@@ -3842,7 +3860,14 @@ password_file_first_line_only = true
 [servers.&lt;name&gt;.sasl.plain]
 password_command = ""
 </code></pre>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="sidebar-2"><a class="header" href="#sidebar-2">Sidebar</a></h1>
+<hr>
+<ol class="footnote-definition"><li id="footnote-1">
+<p>Windows path strings should usually be specified as literal strings (e.g. <code>'C:\Users\Default\'</code>), otherwise directory separators will need to be escaped (e.g. <code>"C:\\Users\\Default\\"</code>). <a href="#fr-1-1">↩</a></p>
+</li>
+<li id="footnote-2">
+<p>Relative paths are prefixed with the config directory (i.e. if you have your config.toml in <code>/home/me/.config/halloy/config.toml</code>, path <code>.passwd/libera</code> will be converted to <code>/home/me/.config/halloy/.passwd/libera</code>). <a href="#fr-2-1">↩</a></p>
+</li>
+</ol><div style="break-before: page; page-break-before: always;"></div><h1 id="sidebar-2"><a class="header" href="#sidebar-2">Sidebar</a></h1>
 <p>Sidebar settings for Halloy.</p>
 <ul>
 <li><a href="configuration/sidebar/index.html#sidebar">Sidebar</a>
