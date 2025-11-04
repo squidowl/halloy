@@ -87,7 +87,7 @@ pub enum Status {
     Open {
         position: Point,
         // Keep context menu open if button press is inside specified bounds
-        keep_open_bounds: Option<Rectangle>,
+        keep_open_bounds: Option<(Vector, Size)>,
     },
 }
 
@@ -99,7 +99,7 @@ impl Status {
         }
     }
 
-    pub fn keep_open_bounds(&self) -> Option<&Rectangle> {
+    pub fn keep_open_bounds(&self) -> Option<&(Vector, Size)> {
         match self {
             Status::Closed => None,
             Status::Open {
@@ -227,7 +227,7 @@ where
             let position = if is_activation_mouse_event {
                 match self.anchor {
                     Anchor::Widget => {
-                        cursor.position_over(layout.bounds()).map(|_| {
+                        cursor.is_over(layout.bounds()).then_some({
                             let widget = layout.bounds();
                             Point::new(
                                 widget.x + widget.width,
@@ -263,10 +263,19 @@ where
                     Status::Closed,
                     ToggleBehavior::Close,
                     Some(position),
-                ) => Status::Open {
-                    position,
-                    keep_open_bounds: Some(layout.bounds()),
-                },
+                ) => {
+                    let layout_bounds = layout.bounds();
+
+                    // Position may be relative to containing scrollable, so
+                    // store bounds as offset vector and size
+                    Status::Open {
+                        position,
+                        keep_open_bounds: Some((
+                            layout_bounds.position() - position,
+                            layout_bounds.size(),
+                        )),
+                    }
+                }
                 (_, Status::Open { .. }, _, None)
                 | (true, Status::Open { .. }, ToggleBehavior::Close, Some(_)) => {
                     Status::Closed
@@ -580,8 +589,13 @@ where
         if let Event::Mouse(mouse::Event::ButtonPressed(_)) = &event
             && cursor.position_over(layout.bounds()).is_none()
             && self.state.status.keep_open_bounds().is_none_or(
-                |keep_open_bounds| {
-                    cursor.position_over(*keep_open_bounds).is_none()
+                |(keep_open_vector, keep_open_size)| {
+                    let keep_open_bounds = Rectangle::new(
+                        self.position + *keep_open_vector,
+                        *keep_open_size,
+                    );
+
+                    cursor.position_over(keep_open_bounds).is_none()
                 },
             )
         {
