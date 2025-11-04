@@ -4,6 +4,7 @@ Added:
 
 - Exit application from user menu
 - Border radius on both image previews and cards displaying images through meta tags
+- Context menu item added to server-wide buffers to close all queries
 
 Fixed:
 
@@ -16,6 +17,7 @@ Fixed:
 Changed:
 
 - By default the backlog separator is hidden when all messages in a pane have been marked as read (`buffer.backlog_separator.hide_when_all_read`)
+- Buffer context menu items in sidebar are sorted alphabetically 
 
 Thanks:
 
