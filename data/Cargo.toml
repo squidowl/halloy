@@ -17,7 +17,7 @@ required-features = ["message_tests"]
 [features]
 dev = []
 tor = ["irc/tor"]
-message_tests = []
+message_tests = ["iced/tokio"]
 
 [dependencies]
 thiserror = { workspace = true }

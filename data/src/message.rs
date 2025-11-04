@@ -2237,12 +2237,9 @@ fn content<'a>(
             ))
         }
         Command::Numeric(RPL_TOPICWHOTIME, params) => {
-            let user = User::parse(
-                params.get(2)?.as_str(),
-                Some(casemapping),
-                Some(prefix),
-            )
-            .ok()?;
+            let user =
+                User::parse(params.get(2)?.as_str(), casemapping, Some(prefix))
+                    .ok()?;
 
             let datetime = params
                 .get(3)?
@@ -2303,11 +2300,9 @@ fn content<'a>(
                 .get(1)?
                 .split(',')
                 .map(|target| {
-                    User::parse(target, Some(casemapping), Some(prefix))
-                        .unwrap_or(User::from(Nick::from_str(
-                            target,
-                            casemapping,
-                        )))
+                    User::parse(target, casemapping, Some(prefix)).unwrap_or(
+                        User::from(Nick::from_str(target, casemapping)),
+                    )
                 })
                 .collect::<ChannelUsers>();
 
@@ -3020,7 +3015,7 @@ pub mod tests {
             Broadcast::Quit {
                 user: User::parse(
                     "+nieve!snow@yeti",
-                    isupport::get_casemapping(&isupport),
+                    isupport::get_casemapping_or_default(&isupport),
                     isupport::get_prefix(&isupport),
                 )
                 .unwrap(),
@@ -3070,7 +3065,7 @@ pub mod tests {
             Broadcast::ChangeHost {
                 old_user: User::parse(
                     "our_nick!old_user@old_host",
-                    isupport::get_casemapping(&isupport),
+                    isupport::get_casemapping_or_default(&isupport),
                     isupport::get_prefix(&isupport),
                 )
                 .unwrap(),
@@ -3084,7 +3079,7 @@ pub mod tests {
             Broadcast::ChangeHost {
                 old_user: User::parse(
                     "+nieve!snow@yeti",
-                    isupport::get_casemapping(&isupport),
+                    isupport::get_casemapping_or_default(&isupport),
                     isupport::get_prefix(&isupport),
                 )
                 .unwrap(),

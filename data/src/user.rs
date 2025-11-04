@@ -116,7 +116,7 @@ impl Serialize for User {
             .map(|hostname| format!("@{hostname}"))
             .unwrap_or_default();
 
-        format!("{access_levels}{nickname}{username}{hostname}")
+        format!("{access_levels} {nickname}{username}{hostname}")
             .serialize(serializer)
     }
 }
@@ -128,12 +128,35 @@ impl<'de> Deserialize<'de> for User {
     {
         let value = String::deserialize(deserializer)?;
 
-        User::parse(&value, None, None).map_err(|_| {
-            serde::de::Error::invalid_value(
-                serde::de::Unexpected::Str(&value),
-                &"{access_levels}{nickname}{username}{hostname}",
+        if let Some((access_levels, names)) = value.split_once(' ') {
+            let access_levels = access_levels
+                .chars()
+                .filter_map(|c| AccessLevel::try_from(c).ok())
+                .collect::<BTreeSet<_>>();
+
+            let (nickname, username, hostname) =
+                parse_user_names(names, isupport::CaseMap::default());
+
+            Ok(User {
+                nickname,
+                username,
+                hostname,
+                accountname: None,
+                access_levels,
+                away: false,
+            })
+        } else {
+            // Older format for user string, with no space; attempt to parse
+            // with default
+            User::parse(&value, isupport::CaseMap::default(), None).map_err(
+                |_| {
+                    serde::de::Error::invalid_value(
+                        serde::de::Unexpected::Str(&value),
+                        &"{access_levels}{nickname}{username}{hostname}",
+                    )
+                },
             )
-        })
+        }
     }
 }
 
@@ -332,7 +355,7 @@ impl User {
 
     pub fn parse(
         value: &str,
-        casemapping: Option<isupport::CaseMap>,
+        casemapping: isupport::CaseMap,
         prefix: Option<&[isupport::PrefixMap]>,
     ) -> Result<Self, ParseUserError> {
         if value.is_empty() {
@@ -351,7 +374,7 @@ impl User {
             return Err(ParseUserError::NicknameEmpty);
         };
 
-        let (access_levels, rest) = (&value[..index], &value[index..]);
+        let (access_levels, names) = (&value[..index], &value[index..]);
 
         let access_levels = access_levels
             .chars()
@@ -359,35 +382,10 @@ impl User {
             .collect::<BTreeSet<_>>();
 
         let (nickname, username, hostname) =
-            match (rest.find('!'), rest.find('@')) {
-                (None, None) => (rest, None, None),
-                (Some(i), None) => {
-                    (&rest[..i], Some(rest[i + 1..].to_string()), None)
-                }
-                (None, Some(i)) => {
-                    (&rest[..i], None, Some(rest[i + 1..].to_string()))
-                }
-                (Some(i), Some(j)) => {
-                    if i < j {
-                        (
-                            &rest[..i],
-                            Some(rest[i + 1..j].to_string()),
-                            Some(rest[j + 1..].to_string()),
-                        )
-                    } else if let Some(k) = rest[i + 1..].find('@') {
-                        (
-                            &rest[..i],
-                            Some(rest[i + 1..i + k + 1].to_string()),
-                            Some(rest[i + k + 2..].to_string()),
-                        )
-                    } else {
-                        (&rest[..i], Some(rest[i + 1..].to_string()), None)
-                    }
-                }
-            };
+            parse_user_names(names, casemapping);
 
         Ok(User {
-            nickname: Nick::from_str(nickname, casemapping.unwrap_or_default()),
+            nickname,
             username,
             hostname,
             accountname: None,
@@ -395,6 +393,41 @@ impl User {
             away: false,
         })
     }
+}
+
+fn parse_user_names(
+    names: &str,
+    casemapping: isupport::CaseMap,
+) -> (Nick, Option<String>, Option<String>) {
+    let (nickname, username, hostname) =
+        match (names.find('!'), names.find('@')) {
+            (None, None) => (names, None, None),
+            (Some(i), None) => {
+                (&names[..i], Some(names[i + 1..].to_string()), None)
+            }
+            (None, Some(i)) => {
+                (&names[..i], None, Some(names[i + 1..].to_string()))
+            }
+            (Some(i), Some(j)) => {
+                if i < j {
+                    (
+                        &names[..i],
+                        Some(names[i + 1..j].to_string()),
+                        Some(names[j + 1..].to_string()),
+                    )
+                } else if let Some(k) = names[i + 1..].find('@') {
+                    (
+                        &names[..i],
+                        Some(names[i + 1..i + k + 1].to_string()),
+                        Some(names[i + k + 2..].to_string()),
+                    )
+                } else {
+                    (&names[..i], Some(names[i + 1..].to_string()), None)
+                }
+            }
+        };
+
+    (Nick::from_str(nickname, casemapping), username, hostname)
 }
 
 #[derive(Error, Debug)]
@@ -696,7 +729,7 @@ mod tests {
                     ]),
                     away: false,
                 },
-                [Token::String("+@dan")],
+                [Token::String("+@ dan")],
             ),
             (
                 User {
@@ -710,7 +743,7 @@ mod tests {
                     access_levels: BTreeSet::<AccessLevel>::new(),
                     away: false,
                 },
-                [Token::String("dan!d@localhost")],
+                [Token::String(" dan!d@localhost")],
             ),
             (
                 User {
@@ -726,7 +759,7 @@ mod tests {
                     ]),
                     away: false,
                 },
-                [Token::String("@d@n!d@localhost")],
+                [Token::String("@ d@n!d@localhost")],
             ),
             (
                 User {
@@ -740,7 +773,7 @@ mod tests {
                     access_levels: BTreeSet::<AccessLevel>::new(),
                     away: false,
                 },
-                [Token::String("foobar")],
+                [Token::String(" foobar")],
             ),
             (
                 User {
@@ -757,7 +790,7 @@ mod tests {
                     away: false,
                 },
                 [Token::String(
-                    "foobar!8a027a9a4a@2201:12f1:2:1162:1242:1fg:he11:abde",
+                    " foobar!8a027a9a4a@2201:12f1:2:1162:1242:1fg:he11:abde",
                 )],
             ),
             (
@@ -775,7 +808,7 @@ mod tests {
                     ]),
                     away: false,
                 },
-                [Token::String("+@foobar!~foobar@12.521.212.521")],
+                [Token::String("+@ foobar!~foobar@12.521.212.521")],
             ),
             (
                 User {
@@ -791,7 +824,7 @@ mod tests {
                     ]),
                     away: false,
                 },
-                [Token::String("@H1N5!the.flu@in.you")],
+                [Token::String("@ H1N5!the.flu@in.you")],
             ),
             (
                 User {
@@ -805,7 +838,7 @@ mod tests {
                     access_levels: BTreeSet::<AccessLevel>::new(),
                     away: false,
                 },
-                [Token::String("*status")],
+                [Token::String(" *status")],
             ),
             (
                 User {
@@ -821,7 +854,7 @@ mod tests {
                     ]),
                     away: false,
                 },
-                [Token::String("@714user")],
+                [Token::String("@ 714user")],
             ),
         ];
 
@@ -879,7 +912,7 @@ mod tests {
         .map(|(a, b)| {
             (
                 Nick::from_str(a, isupport::CaseMap::default()),
-                User::parse(b, None, None).unwrap(),
+                User::parse(b, isupport::CaseMap::default(), None).unwrap(),
             )
         });
         let channel_users: ChannelUsers =
