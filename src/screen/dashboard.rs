@@ -2172,7 +2172,6 @@ impl Dashboard {
             .collect();
 
         // Close all queries
-        let clients = &*clients;
         let history_tasks: Vec<_> = queries
             .into_iter()
             .filter_map(|query| {

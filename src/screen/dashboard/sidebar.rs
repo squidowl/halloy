@@ -8,7 +8,6 @@ use iced::widget::{
     rule, scrollable, space, stack, text,
 };
 use iced::{Alignment, Length, Padding, Task, padding};
-use itertools::Either;
 use tokio::time;
 
 use super::{Focus, Panes, Server};
