@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use data::config::{self, Config, sidebar};
 use data::dashboard::{BufferAction, BufferFocusedAction};
-use data::{Version, buffer, file_transfer, history, server};
+use data::{Version, buffer, file_transfer, history, server, target};
 use iced::widget::{
     Column, Row, Scrollable, Space, button, column, container, pane_grid, row,
     rule, scrollable, space, stack, text,
@@ -27,6 +27,7 @@ pub enum Message {
     Swap(window::Id, pane_grid::Pane),
     Detach(buffer::Upstream),
     Leave(buffer::Upstream),
+    CloseAllQueries(Server, Vec<target::Query>),
     ToggleInternalBuffer(buffer::Internal),
     ToggleCommandBar,
     ToggleThemeEditor,
@@ -51,6 +52,7 @@ pub enum Event {
     Swap(window::Id, pane_grid::Pane),
     Detach(buffer::Upstream),
     Leave(buffer::Upstream),
+    CloseAllQueries(Server, Vec<target::Query>),
     ToggleInternalBuffer(buffer::Internal),
     ToggleCommandBar,
     ToggleThemeEditor,
@@ -92,7 +94,12 @@ impl Sidebar {
         message: Message,
     ) -> (Task<Message>, Option<Event>) {
         match message {
-            Message::QuitApplication => (Task::none(), Some(Event::QuitApplication)),
+            Message::CloseAllQueries(server, queries) => {
+                (Task::none(), Some(Event::CloseAllQueries(server, queries)))
+            }
+            Message::QuitApplication => {
+                (Task::none(), Some(Event::QuitApplication))
+            }
             Message::New(source) => (Task::none(), Some(Event::New(source))),
             Message::Popout(source) => {
                 (Task::none(), Some(Event::Popout(source)))
@@ -410,6 +417,7 @@ impl Sidebar {
                             supports_detach,
                             has_unread,
                             has_highlight,
+                            history,
                             width,
                             theme,
                         )
@@ -658,17 +666,18 @@ impl Menu {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 enum Entry {
-    MarkServerAsRead,
+    Close(window::Id, pane_grid::Pane),
+    CloseAllQueries,
+    Detach,
+    Leave,
     MarkAsRead,
+    MarkServerAsRead,
     NewPane,
     Popout,
     Replace,
-    Close(window::Id, pane_grid::Pane),
     Swap(window::Id, pane_grid::Pane),
-    Leave,
-    Detach,
 }
 
 impl Entry {
@@ -679,43 +688,38 @@ impl Entry {
         focus: Focus,
         supports_detach: bool,
     ) -> Vec<Self> {
-        [
+        use Entry::*;
+        use itertools::Itertools;
+
+        itertools::chain!(
             match buffer {
-                buffer::Upstream::Server(_) => {
-                    vec![Entry::MarkServerAsRead]
-                }
+                buffer::Upstream::Server(_) =>
+                    vec![CloseAllQueries, MarkServerAsRead],
                 buffer::Upstream::Channel(_, _) => vec![],
                 buffer::Upstream::Query(_, _) => vec![],
             },
             match open {
-                None => Either::Left(
-                    vec![
-                        Entry::MarkAsRead,
-                        Entry::NewPane,
-                        Entry::Popout,
-                        Entry::Replace,
-                    ]
+                None => vec![MarkAsRead, NewPane, Popout, Replace]
                     .into_iter()
                     .chain(
                         (matches!(buffer, buffer::Upstream::Channel(_, _))
                             && supports_detach)
-                            .then_some(Entry::Detach),
-                    ),
-                ),
-                Some((window, pane)) => Either::Right(
-                    (num_panes > 1)
-                        .then_some(Entry::Close(window, pane))
-                        .into_iter()
-                        .chain(
-                            (Focus { window, pane } != focus)
-                                .then_some(Entry::Swap(window, pane)),
-                        ),
-                ),
-            }
-            .chain(Some(Entry::Leave))
-            .collect(),
-        ]
-        .concat()
+                            .then_some(Detach),
+                    )
+                    .collect_vec(),
+                Some((window, pane)) => (num_panes > 1)
+                    .then_some(Close(window, pane))
+                    .into_iter()
+                    .chain(
+                        (Focus { window, pane } != focus)
+                            .then_some(Swap(window, pane)),
+                    )
+                    .collect_vec(),
+            },
+            vec![Leave]
+        )
+        .sorted()
+        .collect_vec()
     }
 }
 
@@ -733,6 +737,7 @@ fn upstream_buffer_button<'a>(
     supports_detach: bool,
     has_unread: bool,
     has_highlight: bool,
+    history: &'a history::Manager,
     width: Length,
     theme: &'a Theme,
 ) -> Element<'a, Message> {
@@ -932,6 +937,25 @@ fn upstream_buffer_button<'a>(
             entries,
             move |entry, length| {
                 let (content, message) = match entry {
+                    Entry::CloseAllQueries => {
+                        let queries = history
+                            .get_unique_queries(buffer.server())
+                            .into_iter()
+                            .cloned()
+                            .collect::<Vec<_>>();
+
+                        (
+                            "Close all queries",
+                            if queries.is_empty() {
+                                None
+                            } else {
+                                Some(Message::CloseAllQueries(
+                                    buffer.server().clone(),
+                                    queries,
+                                ))
+                            },
+                        )
+                    }
                     Entry::MarkServerAsRead => (
                         "Mark entire server as read",
                         if server_has_unread {
