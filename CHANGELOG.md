@@ -3,7 +3,7 @@
 Added:
 
 - Exit application from user menu
-- Border radius on both image previews and cards displaying images through meta tags
+- Border radius on both image previews and cards displaying images through meta tags (configurable)
 - Context menu item added to server-wide buffers to close all queries
 
 Fixed:
