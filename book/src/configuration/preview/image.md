@@ -6,6 +6,7 @@ Specific image preview settings.
   - [Example](#example)
   - [Configuration](#configuration)
     - [action](#action)
+    - [round\_corners](#round_corners)
     - [include](#include)
     - [exclude](#exclude)
 
@@ -30,6 +31,19 @@ Action when clicking on a image. `open-url` will open the image in the browser, 
 
 [preview.image]
 action = "preview"
+```
+
+### round_corners
+
+Round the corners of the image.
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: true
+
+[preview.image]
+round_corners = true
 ```
 
 ### include

@@ -70,6 +70,7 @@ pub struct Card {
     pub exclude: Vec<String>,
     pub include: Vec<String>,
     pub show_image: bool,
+    pub round_image_corners: bool,
 }
 
 impl Default for Card {
@@ -78,6 +79,7 @@ impl Default for Card {
             exclude: Vec::default(),
             include: Vec::default(),
             show_image: true,
+            round_image_corners: true,
         }
     }
 }
@@ -92,12 +94,24 @@ impl Card {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Default)]
+#[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
 pub struct Image {
     pub action: ImageAction,
     pub exclude: Vec<String>,
     pub include: Vec<String>,
+    pub round_corners: bool,
+}
+
+impl Default for Image {
+    fn default() -> Self {
+        Self {
+            action: ImageAction::default(),
+            exclude: Vec::default(),
+            include: Vec::default(),
+            round_corners: true,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, Default)]
