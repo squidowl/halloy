@@ -73,6 +73,7 @@ iced = { version = "0.14.0-dev", default-features = false, features = [
     "lazy",
     "advanced",
     "image",
+    "svg",
 ] }
 unicode-segmentation = "1.6"
 open = "5.0.1"
