@@ -380,6 +380,12 @@ impl Dashboard {
                 };
 
                 let (event_task, event) = match event {
+                    sidebar::Event::CloseAllQueries(server, queries) => (
+                        self.leave_all_queries(
+                            clients, config, server, queries,
+                        ),
+                        None,
+                    ),
                     sidebar::Event::QuitApplication => {
                         (self.exit(clients, config), None)
                     }
@@ -2143,6 +2149,27 @@ impl Dashboard {
                 })
             }
         }
+    }
+
+    pub fn leave_all_queries(
+        &mut self,
+        clients: &mut data::client::Map,
+        config: &Config,
+        server: Server,
+        queries: Vec<target::Query>,
+    ) -> Task<Message> {
+        let tasks: Vec<Task<Message>> = queries
+            .into_iter()
+            .map(|query| {
+                let buffer =
+                    buffer::Upstream::Query(server.clone(), query.clone());
+
+                self.leave_buffer(clients, config, buffer).0
+            })
+            .collect();
+
+
+        Task::batch(tasks)
     }
 
     pub fn leave_buffer(
