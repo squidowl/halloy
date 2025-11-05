@@ -6,6 +6,7 @@ Specific card preview settings.
   - [Example](#example)
   - [Configuration](#configuration)
     - [show\_image](#show_image)
+    - [round\_image\_corners](#round_image_corners)
     - [include](#include)
     - [exclude](#exclude)
 
@@ -30,6 +31,19 @@ Show image for card previews.
 
 [preview.card]
 show_image = true
+```
+
+### round_image_corners
+
+Round the corners of the image in the card preview (if shown).
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: true
+
+[preview.card]
+round_image_corners = true
 ```
 
 ### include

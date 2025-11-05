@@ -22,8 +22,7 @@ use self::correct_viewport::correct_viewport;
 use self::keyed::keyed;
 use super::context_menu;
 use crate::widget::{
-    Element, notify_visibility, on_resize,
-    selectable_text, tooltip,
+    Element, notify_visibility, on_resize, selectable_text, tooltip,
 };
 use crate::{Theme, font, icon, theme};
 
@@ -1318,7 +1317,17 @@ fn preview_row<'a>(
                         config.preview.card.show_image.then_some(
                             container(
                                 image(path)
-                                    .border_radius(4)
+                                    .border_radius(
+                                        if config
+                                            .preview
+                                            .card
+                                            .round_image_corners
+                                        {
+                                            4
+                                        } else {
+                                            0
+                                        }
+                                    )
                                     .content_fit(ContentFit::ScaleDown)
                             )
                             .max_height(200)
@@ -1337,7 +1346,11 @@ fn preview_row<'a>(
             button(
                 container(
                     image(path)
-                        .border_radius(4)
+                        .border_radius(if config.preview.image.round_corners {
+                            4
+                        } else {
+                            0
+                        })
                         .content_fit(ContentFit::ScaleDown),
                 )
                 .max_width(550)
