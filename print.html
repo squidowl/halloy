@@ -3000,6 +3000,7 @@ enabled = true
 <li><a href="configuration/preview/card.html#configuration">Configuration</a>
 <ul>
 <li><a href="configuration/preview/card.html#show_image">show_image</a></li>
+<li><a href="configuration/preview/card.html#round_image_corners">round_image_corners</a></li>
 <li><a href="configuration/preview/card.html#include">include</a></li>
 <li><a href="configuration/preview/card.html#exclude">exclude</a></li>
 </ul>
@@ -3021,6 +3022,15 @@ include = ["#halloy"] # show card previews in #halloy
 
 [preview.card]
 show_image = true
+</code></pre>
+<h3 id="round_image_corners"><a class="header" href="#round_image_corners">round_image_corners</a></h3>
+<p>Round the corners of the image in the card preview (if shown).</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: true
+
+[preview.card]
+round_image_corners = true
 </code></pre>
 <h3 id="include-4"><a class="header" href="#include-4">include</a></h3>
 <p>Include card previews from channels &amp; queries.
@@ -3051,6 +3061,7 @@ exclude = []
 <li><a href="configuration/preview/image.html#configuration">Configuration</a>
 <ul>
 <li><a href="configuration/preview/image.html#action">action</a></li>
+<li><a href="configuration/preview/image.html#round_corners">round_corners</a></li>
 <li><a href="configuration/preview/image.html#include">include</a></li>
 <li><a href="configuration/preview/image.html#exclude">exclude</a></li>
 </ul>
@@ -3072,6 +3083,15 @@ include = ["#halloy"] # show image previews in #halloy
 
 [preview.image]
 action = "preview"
+</code></pre>
+<h3 id="round_corners"><a class="header" href="#round_corners">round_corners</a></h3>
+<p>Round the corners of the image.</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: true
+
+[preview.image]
+round_corners = true
 </code></pre>
 <h3 id="include-5"><a class="header" href="#include-5">include</a></h3>
 <p>Include image previews from channels &amp; queries.

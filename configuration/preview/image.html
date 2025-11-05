@@ -189,6 +189,7 @@
 <li><a href="#configuration">Configuration</a>
 <ul>
 <li><a href="#action">action</a></li>
+<li><a href="#round_corners">round_corners</a></li>
 <li><a href="#include">include</a></li>
 <li><a href="#exclude">exclude</a></li>
 </ul>
@@ -210,6 +211,15 @@ include = ["#halloy"] # show image previews in #halloy
 
 [preview.image]
 action = "preview"
+</code></pre>
+<h3 id="round_corners"><a class="header" href="#round_corners">round_corners</a></h3>
+<p>Round the corners of the image.</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: true
+
+[preview.image]
+round_corners = true
 </code></pre>
 <h3 id="include"><a class="header" href="#include">include</a></h3>
 <p>Include image previews from channels &amp; queries.
