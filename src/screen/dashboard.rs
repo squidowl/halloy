@@ -380,9 +380,12 @@ impl Dashboard {
                 };
 
                 let (event_task, event) = match event {
-                    sidebar::Event::CloseAllQueries(server, queries) => {
-                        (self.leave_all_queries(clients, config, server, queries), None)
-                    }
+                    sidebar::Event::CloseAllQueries(server, queries) => (
+                        self.leave_all_queries(
+                            clients, config, server, queries,
+                        ),
+                        None,
+                    ),
                     sidebar::Event::QuitApplication => {
                         (self.exit(clients, config), None)
                     }
@@ -2152,36 +2155,20 @@ impl Dashboard {
         &mut self,
         clients: &mut data::client::Map,
         config: &Config,
-        server: Server, 
+        server: Server,
         queries: Vec<target::Query>,
     ) -> Task<Message> {
-        let panes_to_close: Vec<_> = queries
-            .iter()
-            .filter_map(|query| {
-                let buffer = buffer::Upstream::Query(server.clone(), query.clone());
-                self.panes.iter().find_map(|(w, p, state)| {
-                    (state.buffer.upstream() == Some(&buffer)).then_some((w, p))
-                })
+        let tasks: Vec<Task<Message>> = queries
+            .into_iter()
+            .map(|query| {
+                let buffer =
+                    buffer::Upstream::Query(server.clone(), query.clone());
+
+                self.leave_buffer(clients, config, buffer).0
             })
             .collect();
 
-        // Close all panes
-        let mut tasks: Vec<_> = panes_to_close
-            .into_iter()
-            .map(|(window, pane)| self.close_pane(clients, config, window, pane))
-            .collect();
 
-        // Close all queries
-        let history_tasks: Vec<_> = queries
-            .into_iter()
-            .filter_map(|query| {
-                self.history
-                    .close(history::Kind::Query(server.clone(), query), clients)
-                    .map(|task| Task::perform(task, Message::History))
-            })
-            .collect();
-
-        tasks.extend(history_tasks);
         Task::batch(tasks)
     }
 
