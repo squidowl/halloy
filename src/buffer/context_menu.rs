@@ -1,7 +1,7 @@
 use chrono::{DateTime, Local, Utc};
 use data::dashboard::BufferAction;
 use data::user::Nick;
-use data::{Config, Server, User, config, ctcp, isupport, target};
+use data::{Config, Server, User, config, ctcp, isupport, message, target};
 use iced::widget::{Space, button, column, container, row, rule, text};
 use iced::{Length, Padding, padding};
 
@@ -18,6 +18,7 @@ pub enum Context<'a> {
     },
     Url(&'a String),
     Timestamp(&'a DateTime<Utc>),
+    NotSentMessage(&'a DateTime<Utc>, &'a message::Hash),
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -36,9 +37,20 @@ pub enum Entry {
     CopyUrl,
     // timestamp context
     Timestamp,
+    // not sent message context
+    DeleteMessage,
+    ResendMessage,
 }
 
 impl Entry {
+    pub fn not_sent_message_list(can_resend: bool) -> Vec<Self> {
+        if can_resend {
+            vec![Entry::DeleteMessage, Entry::ResendMessage]
+        } else {
+            vec![Entry::DeleteMessage]
+        }
+    }
+
     pub fn timestamp_list() -> Vec<Self> {
         vec![Entry::Timestamp]
     }
@@ -273,6 +285,32 @@ impl Entry {
                     theme,
                 )
             }
+            (
+                Entry::DeleteMessage,
+                Context::NotSentMessage(server_time, hash),
+            ) => {
+                let message = Message::DeleteMessage(*server_time, *hash);
+
+                menu_button(
+                    "Delete Message".to_string(),
+                    Some(message),
+                    length,
+                    theme,
+                )
+            }
+            (
+                Entry::ResendMessage,
+                Context::NotSentMessage(server_time, hash),
+            ) => {
+                let message = Message::ResendMessage(*server_time, *hash);
+
+                menu_button(
+                    "Re-send Message".to_string(),
+                    Some(message),
+                    length,
+                    theme,
+                )
+            }
             _ => row![].into(),
         })
     }
@@ -288,6 +326,10 @@ pub enum Message {
     CtcpRequest(ctcp::Command, Server, Nick, Option<String>),
     CopyUrl(String),
     CopyTimestamp(DateTime<Utc>, Option<String>),
+    #[allow(clippy::enum_variant_names)]
+    DeleteMessage(DateTime<Utc>, message::Hash),
+    #[allow(clippy::enum_variant_names)]
+    ResendMessage(DateTime<Utc>, message::Hash),
 }
 
 #[derive(Debug, Clone)]
@@ -300,6 +342,8 @@ pub enum Event {
     CtcpRequest(ctcp::Command, Server, Nick, Option<String>),
     CopyUrl(String),
     CopyTimestamp(DateTime<Utc>, Option<String>),
+    DeleteMessage(DateTime<Utc>, message::Hash),
+    ResendMessage(DateTime<Utc>, message::Hash),
 }
 
 pub fn update(message: Message) -> Event {
@@ -319,6 +363,12 @@ pub fn update(message: Message) -> Event {
         Message::CopyUrl(url) => Event::CopyUrl(url),
         Message::CopyTimestamp(date_time, format) => {
             Event::CopyTimestamp(date_time, format)
+        }
+        Message::DeleteMessage(sesrver_time, hash) => {
+            Event::DeleteMessage(sesrver_time, hash)
+        }
+        Message::ResendMessage(sesrver_time, hash) => {
+            Event::ResendMessage(sesrver_time, hash)
         }
     }
 }
@@ -391,6 +441,34 @@ pub fn timestamp<'a>(
         move |entry, length| {
             entry.view(
                 Some(Context::Timestamp(date_time)),
+                length,
+                config,
+                theme,
+            )
+        },
+    )
+    .into()
+}
+
+pub fn not_sent_message<'a>(
+    content: impl Into<Element<'a, Message>>,
+    server_time: &'a DateTime<Utc>,
+    hash: &'a message::Hash,
+    can_resend: bool,
+    config: &'a Config,
+    theme: &'a Theme,
+) -> Element<'a, Message> {
+    let entries = Entry::not_sent_message_list(can_resend);
+
+    context_menu(
+        context_menu::MouseButton::Left,
+        context_menu::Anchor::Widget,
+        context_menu::ToggleBehavior::Close,
+        content,
+        entries,
+        move |entry, length| {
+            entry.view(
+                Some(Context::NotSentMessage(server_time, hash)),
                 length,
                 config,
                 theme,

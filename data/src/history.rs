@@ -434,6 +434,48 @@ impl History {
         }
     }
 
+    fn remove_message(
+        &mut self,
+        server_time: DateTime<Utc>,
+        hash: message::Hash,
+    ) -> Option<Message> {
+        match self {
+            History::Partial { messages, .. }
+            | History::Full { messages, .. } => {
+                if messages.is_empty() {
+                    return None;
+                }
+
+                let fuzz_seconds = chrono::Duration::seconds(1);
+
+                let start = server_time - fuzz_seconds;
+                let end = server_time + fuzz_seconds;
+
+                let start_index = match messages
+                    .binary_search_by(|stored| stored.server_time.cmp(&start))
+                {
+                    Ok(match_index) => match_index,
+                    Err(sorted_insert_index) => sorted_insert_index,
+                };
+                let end_index = match messages
+                    .binary_search_by(|stored| stored.server_time.cmp(&end))
+                {
+                    Ok(match_index) => match_index,
+                    Err(sorted_insert_index) => sorted_insert_index,
+                };
+
+                messages[start_index..end_index]
+                    .iter()
+                    .enumerate()
+                    .find_map(|(slice_index, message)| {
+                        (message.hash == hash)
+                            .then_some(start_index + slice_index)
+                    })
+                    .map(|index| messages.remove(index))
+            }
+        }
+    }
+
     // If now is None then history will be flushed regardless of time
     // since last received
     fn flush(
