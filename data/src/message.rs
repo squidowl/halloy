@@ -26,7 +26,7 @@ use crate::server::Server;
 use crate::target::{Channel, join_targets};
 use crate::time::Posix;
 use crate::user::{ChannelUsers, Nick, NickRef};
-use crate::{Config, User, ctcp, isupport, target};
+use crate::{Config, User, command, ctcp, isupport, target};
 
 // References:
 // - https://datatracker.ietf.org/doc/html/rfc1738#section-5
@@ -201,9 +201,10 @@ pub struct Message {
     pub id: Option<String>,
     pub hash: Hash,
     pub hidden_urls: HashSet<Url>,
-    pub is_echo: bool,
+    pub is_echo: bool, // Only relevant if direction == Direction::Received
     pub blocked: bool,
     pub condensed: Option<Arc<Message>>,
+    pub command: Option<command::Irc>, // Only relevant if direction == Direction::Sent
 }
 
 impl Message {
@@ -328,10 +329,15 @@ impl Message {
             is_echo,
             blocked: false,
             condensed: None,
+            command: None,
         })
     }
 
-    pub fn sent(target: Target, content: Content) -> Self {
+    pub fn sent(
+        target: Target,
+        content: Content,
+        command: Option<command::Irc>,
+    ) -> Self {
         let received_at = Posix::now();
         let server_time = Utc::now();
         let hash = Hash::new(&server_time, &content);
@@ -348,6 +354,7 @@ impl Message {
             is_echo: false,
             blocked: false,
             condensed: None,
+            command,
         }
     }
 
@@ -379,6 +386,7 @@ impl Message {
             is_echo: false,
             blocked: false,
             condensed: None,
+            command: None,
         }
     }
 
@@ -408,6 +416,7 @@ impl Message {
             is_echo: false,
             blocked: false,
             condensed: None,
+            command: None,
         }
     }
 
@@ -448,6 +457,7 @@ impl Message {
             is_echo: false,
             blocked: false,
             condensed: None,
+            command: None,
         }
     }
 
@@ -547,6 +557,7 @@ impl Serialize for Message {
             text: Cow<'a, str>,
             hidden_urls: &'a HashSet<url::Url>,
             is_echo: &'a bool,
+            command: &'a Option<command::Irc>,
         }
 
         Data {
@@ -559,6 +570,7 @@ impl Serialize for Message {
             text: self.content.text(),
             hidden_urls: &self.hidden_urls,
             is_echo: &self.is_echo,
+            command: &self.command,
         }
         .serialize(serializer)
     }
@@ -586,6 +598,8 @@ impl<'de> Deserialize<'de> for Message {
             // New field, optional for upgrade compatibility
             #[serde(default, deserialize_with = "fail_as_none")]
             is_echo: Option<bool>,
+            #[serde(default, deserialize_with = "fail_as_none")]
+            command: Option<command::Irc>,
         }
 
         let Data {
@@ -598,6 +612,7 @@ impl<'de> Deserialize<'de> for Message {
             id,
             hidden_urls,
             is_echo,
+            command,
         } = Data::deserialize(deserializer)?;
 
         let content = if let Some(content) = content {
@@ -626,6 +641,7 @@ impl<'de> Deserialize<'de> for Message {
             is_echo,
             blocked: false,
             condensed: None,
+            command,
         })
     }
 }
@@ -756,6 +772,7 @@ pub fn condense(
             is_echo: false,
             blocked: false,
             condensed: None,
+            command: None,
         }))
     } else {
         None

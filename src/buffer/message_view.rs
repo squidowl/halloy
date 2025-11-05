@@ -1,3 +1,4 @@
+use chrono::{TimeDelta, Utc};
 use data::config::buffer::Dimmed;
 use data::config::buffer::nickname::ShownStatus;
 use data::isupport::{CaseMap, PrefixMap};
@@ -6,7 +7,7 @@ use data::user::ChannelUsers;
 use data::{Config, User, message, target};
 use iced::Color;
 use iced::advanced::text;
-use iced::widget::{column, container, row};
+use iced::widget::{button, column, container, right, row, space, stack};
 
 use super::context_menu::{self, Context};
 use super::scroll_view::LayoutMessage;
@@ -14,7 +15,7 @@ use crate::buffer::scroll_view::Message;
 use crate::widget::{
     Element, message_content, message_marker, selectable_text, tooltip,
 };
-use crate::{Theme, font, theme};
+use crate::{Theme, font, icon, theme};
 
 #[derive(Clone, Copy)]
 pub enum TargetInfo<'a> {
@@ -60,6 +61,7 @@ pub struct ChannelQueryLayout<'a> {
     pub casemapping: CaseMap,
     pub prefix: &'a [PrefixMap],
     pub supports_echoes: bool,
+    pub connected: bool,
     pub server: &'a Server,
     pub theme: &'a Theme,
     pub target: TargetInfo<'a>,
@@ -181,6 +183,13 @@ impl<'a> ChannelQueryLayout<'a> {
         right_aligned_width: Option<f32>,
         user: &'a User,
     ) -> (Element<'a, Message>, Element<'a, Message>) {
+        let not_confirmed = (self.supports_echoes || message.command.is_some())
+            && matches!(message.direction, message::Direction::Sent);
+
+        let dimmed = not_confirmed.then_some(Dimmed::new(None));
+        let dimmed_background_tuple = dimmed
+            .map(|dimmed| (dimmed, self.theme.styles().buffer.background));
+
         let with_access_levels = self.config.buffer.nickname.show_access_levels;
         let truncate = self.config.buffer.nickname.truncate;
         let user_in_channel = self
@@ -196,14 +205,18 @@ impl<'a> ChannelQueryLayout<'a> {
             ShownStatus::Historical => false,
         };
 
-        let nickname_style = theme::selectable_text::nickname(
+        let nickname_style = theme::selectable_text::dimmed(
+            theme::selectable_text::nickname(
+                self.theme,
+                self.config,
+                match self.config.buffer.nickname.shown_status {
+                    ShownStatus::Current => user_in_channel.unwrap_or(user),
+                    ShownStatus::Historical => user,
+                },
+                is_user_offline,
+            ),
             self.theme,
-            self.config,
-            match self.config.buffer.nickname.shown_status {
-                ShownStatus::Current => user_in_channel.unwrap_or(user),
-                ShownStatus::Historical => user,
-            },
-            is_user_offline,
+            dimmed_background_tuple,
         );
 
         let mut text = selectable_text(
@@ -245,17 +258,11 @@ impl<'a> ChannelQueryLayout<'a> {
 
         let formatter = *self;
 
-        let dimmed = (self.supports_echoes
-            && matches!(message.direction, message::Direction::Sent))
-        .then_some(Dimmed::new(None));
-
         let message_style = move |message_theme: &Theme| {
             theme::selectable_text::dimmed(
                 theme::selectable_text::default(message_theme),
                 message_theme,
-                dimmed.map(|dimmed| {
-                    (dimmed, formatter.theme.styles().buffer.background)
-                }),
+                dimmed_background_tuple,
             )
         };
 
@@ -298,7 +305,42 @@ impl<'a> ChannelQueryLayout<'a> {
             self.config,
         );
 
-        (nick, Element::from(container(message_content)))
+        let content = if not_confirmed
+            && Utc::now().signed_duration_since(message.server_time)
+                > TimeDelta::seconds(10)
+        {
+            let not_sent_button_size = theme::line_height(&self.config.font);
+
+            Element::from(stack![
+                row![
+                    message_content,
+                    space::horizontal().width(not_sent_button_size + 4.0)
+                ],
+                right(
+                    context_menu::not_sent_message(
+                        button(icon::not_sent().style(|theme, status| {
+                            theme::svg::error(theme, status)
+                        }))
+                        .style(|theme, status| {
+                            theme::button::bare(theme, status)
+                        })
+                        .height(not_sent_button_size)
+                        .width(not_sent_button_size)
+                        .padding(1),
+                        &message.server_time,
+                        &message.hash,
+                        message.command.is_some() && self.connected,
+                        self.config,
+                        self.theme,
+                    )
+                    .map(Message::ContextMenu)
+                )
+            ])
+        } else {
+            Element::from(message_content)
+        };
+
+        (nick, content)
     }
 
     fn format_server_message(

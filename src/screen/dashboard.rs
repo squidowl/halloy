@@ -11,7 +11,7 @@ use data::environment::{RELEASE_WEBSITE, WIKI_WEBSITE};
 use data::history::ReadMarker;
 use data::history::filter::Filter;
 use data::isupport::{self, ChatHistorySubcommand, MessageReference};
-use data::message::Broadcast;
+use data::message::{self, Broadcast};
 use data::rate_limit::TokenPriority;
 use data::target::{self, Target};
 use data::{
@@ -21,6 +21,7 @@ use data::{
 use iced::widget::pane_grid::{self, PaneGrid};
 use iced::widget::{Space, column, container, row};
 use iced::{Length, Size, Task, Vector, advanced, clipboard};
+use irc::proto;
 
 use self::command_bar::CommandBar;
 use self::pane::Pane;
@@ -597,6 +598,89 @@ impl Dashboard {
                                     read_marker,
                                     TokenPriority::High,
                                 );
+                            }
+                        }
+                        history::manager::Event::ResendMessage(
+                            kind,
+                            message,
+                        ) => {
+                            if let Some(buffer) =
+                                data::Buffer::from(kind).upstream()
+                                && let Some(user) = clients
+                                    .nickname(buffer.server())
+                                    .map(|nick| User::from(nick.to_owned()))
+                                && let Some(command) = message.command
+                            {
+                                let (user, channel_users) =
+                                    if let buffer::Upstream::Channel(
+                                        server,
+                                        channel,
+                                    ) = &buffer
+                                    {
+                                        (
+                                            clients
+                                                .resolve_user_attributes(
+                                                    server, channel, &user,
+                                                )
+                                                .cloned()
+                                                .unwrap_or(user),
+                                            clients.get_channel_users(
+                                                server, channel,
+                                            ),
+                                        )
+                                    } else {
+                                        (user, None)
+                                    };
+                                let chantypes =
+                                    clients.get_chantypes(buffer.server());
+                                let statusmsg =
+                                    clients.get_statusmsg(buffer.server());
+                                let casemapping =
+                                    clients.get_casemapping(buffer.server());
+                                let supports_echoes = clients
+                                    .get_server_supports_echoes(
+                                        buffer.server(),
+                                    );
+
+                                if let Some(messages) = command.messages(
+                                    user,
+                                    channel_users,
+                                    chantypes,
+                                    statusmsg,
+                                    casemapping,
+                                    supports_echoes,
+                                    config,
+                                ) && let Some(encoded) =
+                                    proto::Command::try_from(command)
+                                        .ok()
+                                        .map(proto::Message::from)
+                                        .map(message::Encoded::from)
+                                {
+                                    clients.send(
+                                        buffer,
+                                        encoded,
+                                        TokenPriority::User,
+                                    );
+
+                                    return (
+                                        Task::batch(
+                                            messages
+                                                .into_iter()
+                                                .flat_map(|message| {
+                                                    self.history
+                                                        .record_input_message(
+                                                            message,
+                                                            buffer.server(),
+                                                            casemapping,
+                                                            config,
+                                                        )
+                                                })
+                                                .map(Task::future),
+                                        )
+                                        .map(Message::History),
+                                        None,
+                                    );
+                                }
                             }
                         }
                     }
@@ -1587,6 +1671,8 @@ impl Dashboard {
                                 clients.get_statusmsg(buffer.server());
                             let casemapping =
                                 clients.get_casemapping(buffer.server());
+                            let supports_echoes = clients
+                                .get_server_supports_echoes(buffer.server());
 
                             // Resolve our attributes if sending this message in a channel
                             if let buffer::Upstream::Channel(server, channel) =
@@ -1610,6 +1696,7 @@ impl Dashboard {
                                 chantypes,
                                 statusmsg,
                                 casemapping,
+                                supports_echoes,
                                 config,
                             ) {
                                 for message in messages {
@@ -1727,6 +1814,46 @@ impl Dashboard {
                                     true,
                                 ),
                             ));
+                        }
+                    }
+                    buffer::context_menu::Event::DeleteMessage(
+                        server_time,
+                        hash,
+                    ) => {
+                        if let Some(kind) =
+                            pane.buffer.upstream().map(|buffer| {
+                                history::Kind::from_input_buffer(buffer.clone())
+                            })
+                            && let Some(future) = self.history.remove_message(
+                                kind,
+                                server_time,
+                                hash,
+                                false,
+                            )
+                        {
+                            tasks.push(
+                                Task::future(future).map(Message::History),
+                            );
+                        }
+                    }
+                    buffer::context_menu::Event::ResendMessage(
+                        server_time,
+                        hash,
+                    ) => {
+                        if let Some(kind) =
+                            pane.buffer.upstream().map(|buffer| {
+                                history::Kind::from_input_buffer(buffer.clone())
+                            })
+                            && let Some(future) = self.history.remove_message(
+                                kind,
+                                server_time,
+                                hash,
+                                true,
+                            )
+                        {
+                            tasks.push(
+                                Task::future(future).map(Message::History),
+                            );
                         }
                     }
                 }

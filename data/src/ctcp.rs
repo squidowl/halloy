@@ -1,10 +1,11 @@
 use std::fmt;
 
 use irc::proto;
+use serde::{Deserialize, Serialize};
 
 // Reference: https://rawgit.com/DanielOaks/irc-rfcs/master/dist/draft-oakley-irc-ctcp-latest.html
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub enum Command {
     Action,
     ClientInfo,

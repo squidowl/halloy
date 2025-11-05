@@ -4,7 +4,7 @@ use data::dashboard::BufferAction;
 use data::preview::{self, Previews};
 use data::target::{self, Target};
 use data::user::Nick;
-use data::{Config, Server, User, buffer, history, message};
+use data::{Config, Server, User, buffer, client, history, message};
 use iced::widget::{column, container, space};
 use iced::{Length, Size, Task};
 
@@ -42,6 +42,7 @@ pub fn view<'a>(
     is_focused: bool,
 ) -> Element<'a, Message> {
     let server = &state.server;
+    let connected = matches!(clients.status(server), client::Status::Connected);
     let chantypes = clients.get_chantypes(server);
     let casemapping = clients.get_casemapping(server);
     let prefix = clients.get_prefix(server);
@@ -69,6 +70,7 @@ pub fn view<'a>(
         casemapping,
         prefix,
         supports_echoes,
+        connected,
         server,
         theme,
         target: TargetInfo::Query,
