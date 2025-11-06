@@ -18,10 +18,11 @@ enum NotificationDelayKey {
     Disconnected,
     Reconnected,
     DirectMessage(Box<str>),
-    Highlight,
+    Highlight(Box<str>),
     FileTransferRequest(Box<str>),
     MonitoredOnline,
     MonitoredOffline,
+    Channel(Box<str>),
 }
 
 impl From<&Notification> for NotificationDelayKey {
@@ -35,7 +36,11 @@ impl From<&Notification> for NotificationDelayKey {
                     user.nickname().as_normalized_str().into(),
                 )
             }
-            Notification::Highlight { .. } => NotificationDelayKey::Highlight,
+            Notification::Highlight { channel, .. } => {
+                NotificationDelayKey::Highlight(
+                    channel.as_normalized_str().into(),
+                )
+            }
             Notification::FileTransferRequest { nick, .. } => {
                 NotificationDelayKey::FileTransferRequest(
                     nick.as_normalized_str().into(),
@@ -46,6 +51,11 @@ impl From<&Notification> for NotificationDelayKey {
             }
             Notification::MonitoredOffline(..) => {
                 NotificationDelayKey::MonitoredOffline
+            }
+            Notification::Channel { channel, .. } => {
+                NotificationDelayKey::Channel(
+                    channel.as_normalized_str().into(),
+                )
             }
         }
     }
@@ -207,6 +217,39 @@ impl Notifications {
                             notification,
                             &format!(
                                 "{} {description} in {channel}",
+                                user.nickname()
+                            ),
+                            &server.name,
+                        );
+                    }
+                }
+            }
+            Notification::Channel {
+                user,
+                channel,
+                message,
+            } => {
+                if let Some(notification_config) =
+                    config.channels.get(channel.as_str())
+                    && notification_config
+                        .should_notify(vec![user.nickname().to_string()])
+                {
+                    if notification_config.show_content {
+                        self.execute(
+                            &config.highlight,
+                            notification,
+                            &format!(
+                                "{} sent a message in {channel} on {server}",
+                                user.nickname()
+                            ),
+                            message,
+                        );
+                    } else {
+                        self.execute(
+                            &config.highlight,
+                            notification,
+                            &format!(
+                                "{} sent a message in {channel}",
                                 user.nickname()
                             ),
                             &server.name,
