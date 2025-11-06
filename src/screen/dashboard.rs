@@ -1215,8 +1215,6 @@ impl Dashboard {
             Message::SendFileSelected(server, to, path) => {
                 if let Some(server_handle) = clients.get_server_handle(&server)
                 {
-                    let casemapping = clients.get_casemapping(&server);
-
                     let query = target::Query::from(&to);
 
                     if let Some(path) = path
@@ -1233,7 +1231,6 @@ impl Dashboard {
                         return (
                             self.handle_file_transfer_event(
                                 &server,
-                                casemapping,
                                 &query,
                                 event,
                                 &config.buffer,
@@ -1697,7 +1694,6 @@ impl Dashboard {
                                     if let Some(task) =
                                         self.history.record_message(
                                             input.server(),
-                                            casemapping,
                                             message,
                                             &config.buffer,
                                         )
@@ -2289,7 +2285,6 @@ impl Dashboard {
             })
             .collect();
 
-
         Task::batch(tasks)
     }
 
@@ -2412,11 +2407,26 @@ impl Dashboard {
     pub fn record_message(
         &mut self,
         server: &Server,
+        message: data::Message,
+        buffer_config: &config::Buffer,
+    ) -> Task<Message> {
+        if let Some(task) =
+            self.history.record_message(server, message, buffer_config)
+        {
+            Task::perform(task, Message::History)
+        } else {
+            Task::none()
+        }
+    }
+
+    pub fn block_and_record_message(
+        &mut self,
+        server: &Server,
         casemapping: isupport::CaseMap,
         message: data::Message,
         buffer_config: &config::Buffer,
     ) -> Task<Message> {
-        if let Some(task) = self.history.record_message(
+        if let Some(task) = self.history.block_and_record_message(
             server,
             casemapping,
             message,
@@ -3023,7 +3033,6 @@ impl Dashboard {
     pub fn receive_file_transfer(
         &mut self,
         server: &Server,
-        casemapping: isupport::CaseMap,
         request: file_transfer::ReceiveRequest,
         config: &Config,
     ) -> Option<Task<Message>> {
@@ -3056,7 +3065,6 @@ impl Dashboard {
 
         Some(self.handle_file_transfer_event(
             server,
-            casemapping,
             &query,
             event,
             &config.buffer,
@@ -3066,7 +3074,6 @@ impl Dashboard {
     pub fn handle_file_transfer_event(
         &mut self,
         server: &Server,
-        casemapping: isupport::CaseMap,
         query: &target::Query,
         event: file_transfer::manager::Event,
         buffer_config: &config::Buffer,
@@ -3079,7 +3086,6 @@ impl Dashboard {
                     file_transfer::Direction::Received => {
                         tasks.push(self.record_message(
                             server,
-                            casemapping,
                             data::Message::file_transfer_request_received(
                                 &transfer.remote_user,
                                 query,
@@ -3091,7 +3097,6 @@ impl Dashboard {
                     file_transfer::Direction::Sent => {
                         tasks.push(self.record_message(
                             server,
-                            casemapping,
                             data::Message::file_transfer_request_sent(
                                 &transfer.remote_user,
                                 query,
