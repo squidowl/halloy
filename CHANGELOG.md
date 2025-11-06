@@ -22,7 +22,7 @@ Changed:
 
 Thanks:
 
-- Contributions: @kasperkronborg
+- Contributions: @kasperkronborg, @mistivia
 - Bug reports: @Frikilinux, ThePendulum, @crabbedhaloablution
 
 # 2025.11 (2025-10-27)

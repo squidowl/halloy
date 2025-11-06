@@ -207,6 +207,12 @@ mod test {
             "dan@id/network!d@remote.host",
             "test!test@5555:5555:0:55:5555:5555:5555:5555",
             "[asdf]!~asdf@user/asdf/x-5555555",
+            "中文名!chinese@localhost",
+            "にほんじん!japanese@localhost",
+            "한국사람!korean@localhost",
+            "Ἀλέξανδρος!greek@localhost",
+            "Володи́мир!cyrillic@localhost",
+            "🐶Woof🐶!emoji@localhost",
         ];
 
         for test in tests {
