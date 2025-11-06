@@ -23,4 +23,9 @@ pub enum Notification {
     },
     MonitoredOnline(Vec<User>),
     MonitoredOffline(Vec<Nick>),
+    Channel {
+        user: User,
+        channel: Channel,
+        message: String,
+    },
 }

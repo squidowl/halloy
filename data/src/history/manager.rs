@@ -280,8 +280,13 @@ impl Manager {
         }
 
         tasks.extend(
-            self.record_message(server, casemapping, message, &config.buffer)
-                .map(futures::FutureExt::boxed),
+            self.block_and_record_message(
+                server,
+                casemapping,
+                message,
+                &config.buffer,
+            )
+            .map(futures::FutureExt::boxed),
         );
 
         tasks
@@ -303,22 +308,17 @@ impl Manager {
         self.data.input.store_text(raw_input);
     }
 
+    // The message's blocked state should be determined prior to using this
+    // function.  In most cases, the best way to do that is by using the
+    // block_and_record_message function.
     pub fn record_message(
         &mut self,
         server: &Server,
-        casemapping: isupport::CaseMap,
-        mut message: crate::Message,
+        message: crate::Message,
         buffer_config: &config::Buffer,
     ) -> Option<impl Future<Output = Message> + use<>> {
         history::Kind::from_server_message(server.clone(), &message).and_then(
             |kind| {
-                self.block_message(
-                    &mut message,
-                    &kind,
-                    casemapping,
-                    buffer_config,
-                );
-
                 let condensers = (message
                     .can_condense(&buffer_config.server_messages.condense)
                     && !message.blocked)
@@ -339,6 +339,22 @@ impl Manager {
         )
     }
 
+    pub fn block_and_record_message(
+        &mut self,
+        server: &Server,
+        casemapping: isupport::CaseMap,
+        mut message: crate::Message,
+        buffer_config: &config::Buffer,
+    ) -> Option<impl Future<Output = Message> + use<>> {
+        if let Some(kind) =
+            history::Kind::from_server_message(server.clone(), &message)
+        {
+            self.block_message(&mut message, &kind, casemapping, buffer_config);
+        }
+
+        self.record_message(server, message, buffer_config)
+    }
+
     pub fn record_log(
         &mut self,
         record: crate::log::Record,
@@ -347,8 +363,9 @@ impl Manager {
             .add_message(history::Kind::Logs, crate::Message::log(record))
     }
 
-    // Unlike record_message, the message's blocked status should be determined
-    // before recording a highlight in order to block highlight notifications.
+    // Unlike block_and_record_message, the message's blocked status should be
+    // determined before recording a highlight in order to block highlight
+    // notifications.
     pub fn record_highlight(
         &mut self,
         message: crate::Message,
@@ -538,7 +555,7 @@ impl Manager {
         messages
             .into_iter()
             .filter_map(|message| {
-                self.record_message(
+                self.block_and_record_message(
                     server,
                     casemapping,
                     message,
