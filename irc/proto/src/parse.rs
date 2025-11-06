@@ -149,7 +149,7 @@ fn user(input: &str) -> IResult<&str, User> {
     let special = |input| one_of("-[]\\`_^{|}*/@")(input);
     // *( <letter> | <number> | <special> )
     let strict_nick = recognize(many1_count(alt((
-        satisfy(|c| c.is_ascii_alphanumeric()),
+        satisfy(|c| c.is_ascii_alphanumeric() || !c.is_ascii()),
         special,
     ))));
     // Used by things like matrix bridge
@@ -159,7 +159,7 @@ fn user(input: &str) -> IResult<&str, User> {
     let expanded_nick = verify(
         recognize(terminated(
             many1_count(alt((
-                satisfy(|c| c.is_ascii_alphanumeric()),
+                satisfy(|c| c.is_ascii_alphanumeric() || !c.is_ascii()),
                 special,
                 one_of(":."),
             ))),

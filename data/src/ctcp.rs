@@ -66,7 +66,7 @@ pub fn parse_query(text: &str) -> Option<Query<'_>> {
         .strip_prefix('\u{1}')?;
 
     let (command, params) = if let Some((command, params)) =
-        query.split_once(char::is_whitespace)
+        query.split_once(|c| char::is_ascii_whitespace(&c))
     {
         (command.to_uppercase(), Some(params))
     } else {
