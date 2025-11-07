@@ -462,8 +462,8 @@ pub fn not_sent_message<'a>(
 
     context_menu(
         context_menu::MouseButton::Left,
-        context_menu::Anchor::Widget,
-        context_menu::ToggleBehavior::Close,
+        context_menu::Anchor::Cursor,
+        context_menu::ToggleBehavior::KeepOpen,
         content,
         entries,
         move |entry, length| {

@@ -143,8 +143,7 @@ pub fn quit<'a>() -> Text<'a> {
 
 pub fn not_sent<'a>() -> Svg<'a, Theme> {
     let fontawesome_attention_circled =
-        include_bytes!("../assets/fontello/fontawesome-attention-circled.svg")
-            .to_vec();
+        include_bytes!("../assets/fontello/fontawesome-attention.svg").to_vec();
 
     svg(svg::Handle::from_memory(fontawesome_attention_circled))
 }
