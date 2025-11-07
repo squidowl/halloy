@@ -40,6 +40,7 @@ fn expand(
             is_echo: false,
             blocked: false,
             condensed: None,
+            command: None,
         }
     };
 

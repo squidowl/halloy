@@ -1,11 +1,13 @@
+use chrono::{TimeDelta, Utc};
+use data::config::buffer::Dimmed;
 use data::config::buffer::nickname::ShownStatus;
 use data::isupport::{CaseMap, PrefixMap};
 use data::server::Server;
 use data::user::ChannelUsers;
 use data::{Config, User, message, target};
-use iced::Color;
-use iced::advanced::text;
-use iced::widget::{column, container, row};
+use iced::widget::text::LineHeight;
+use iced::widget::{button, column, container, row, text};
+use iced::{Color, Length, alignment};
 
 use super::context_menu::{self, Context};
 use super::scroll_view::LayoutMessage;
@@ -13,7 +15,7 @@ use crate::buffer::scroll_view::Message;
 use crate::widget::{
     Element, message_content, message_marker, selectable_text, tooltip,
 };
-use crate::{Theme, font, theme};
+use crate::{Theme, font, icon, theme};
 
 #[derive(Clone, Copy)]
 pub enum TargetInfo<'a> {
@@ -58,6 +60,8 @@ pub struct ChannelQueryLayout<'a> {
     pub chantypes: &'a [char],
     pub casemapping: CaseMap,
     pub prefix: &'a [PrefixMap],
+    pub supports_echoes: bool,
+    pub connected: bool,
     pub server: &'a Server,
     pub theme: &'a Theme,
     pub target: TargetInfo<'a>,
@@ -135,14 +139,14 @@ impl<'a> ChannelQueryLayout<'a> {
     fn format_prefixes(
         &self,
         message: &'a data::Message,
-        max_nick_width: Option<f32>,
+        right_aligned_width: Option<f32>,
         max_prefix_width: Option<f32>,
     ) -> Option<Element<'a, Message>> {
         message
             .target
             .prefixes()
             .map_or(
-                max_nick_width.and_then(|_| {
+                right_aligned_width.and_then(|_| {
                     max_prefix_width.map(|width| {
                         selectable_text("")
                             .width(width)
@@ -176,9 +180,18 @@ impl<'a> ChannelQueryLayout<'a> {
     fn format_user_message(
         &self,
         message: &'a data::Message,
-        max_nick_width: Option<f32>,
+        right_aligned_width: Option<f32>,
         user: &'a User,
     ) -> (Element<'a, Message>, Element<'a, Message>) {
+        let not_sent = (self.supports_echoes || message.command.is_some())
+            && matches!(message.direction, message::Direction::Sent)
+            && Utc::now().signed_duration_since(message.server_time)
+                > TimeDelta::seconds(10);
+
+        let dimmed = not_sent.then_some(Dimmed::new(None));
+        let dimmed_background_tuple = dimmed
+            .map(|dimmed| (dimmed, self.theme.styles().buffer.background));
+
         let with_access_levels = self.config.buffer.nickname.show_access_levels;
         let truncate = self.config.buffer.nickname.truncate;
         let user_in_channel = self
@@ -194,17 +207,21 @@ impl<'a> ChannelQueryLayout<'a> {
             ShownStatus::Historical => false,
         };
 
-        let nickname_style = theme::selectable_text::nickname(
+        let nickname_style = theme::selectable_text::dimmed(
+            theme::selectable_text::nickname(
+                self.theme,
+                self.config,
+                match self.config.buffer.nickname.shown_status {
+                    ShownStatus::Current => user_in_channel.unwrap_or(user),
+                    ShownStatus::Historical => user,
+                },
+                is_user_offline,
+            ),
             self.theme,
-            self.config,
-            match self.config.buffer.nickname.shown_status {
-                ShownStatus::Current => user_in_channel.unwrap_or(user),
-                ShownStatus::Historical => user,
-            },
-            is_user_offline,
+            dimmed_background_tuple,
         );
 
-        let mut text = selectable_text(
+        let mut nick_text = selectable_text(
             self.config
                 .buffer
                 .nickname
@@ -217,13 +234,13 @@ impl<'a> ChannelQueryLayout<'a> {
                 .map(font::get),
         );
 
-        if let Some(width) = max_nick_width {
-            text = text.width(width).align_x(text::Alignment::Right);
+        if let Some(width) = right_aligned_width {
+            nick_text = nick_text.width(width).align_x(text::Alignment::Right);
         }
 
         let nick = tooltip(
             context_menu::user(
-                text,
+                nick_text,
                 self.server,
                 self.prefix,
                 self.target.channel(),
@@ -243,15 +260,32 @@ impl<'a> ChannelQueryLayout<'a> {
 
         let formatter = *self;
 
+        let message_style = move |message_theme: &Theme| {
+            theme::selectable_text::dimmed(
+                theme::selectable_text::default(message_theme),
+                message_theme,
+                dimmed_background_tuple,
+            )
+        };
+
+        let color_transformation = dimmed.map(|dimmed| {
+            move |color: Color| -> Color {
+                dimmed.transform_color(
+                    color,
+                    formatter.theme.styles().buffer.background,
+                )
+            }
+        });
+
         let message_content = message_content::with_context(
             &message.content,
             self.chantypes,
             self.casemapping,
             self.theme,
             Message::Link,
-            theme::selectable_text::default,
+            message_style,
             theme::font_style::primary,
-            Option::<fn(Color) -> Color>::None,
+            color_transformation,
             move |link| match link {
                 message::Link::User(_) => context_menu::Entry::user_list(
                     formatter.target.is_channel(),
@@ -273,13 +307,52 @@ impl<'a> ChannelQueryLayout<'a> {
             self.config,
         );
 
-        (nick, Element::from(container(message_content)))
+        let content = if not_sent {
+            let font_size = 0.85
+                * self.config.font.size.map_or(theme::TEXT_SIZE, f32::from);
+            let icon_size =
+                LineHeight::default().to_absolute(font_size.into()).0;
+
+            Element::from(column![
+                message_content,
+                context_menu::not_sent_message(
+                    button(
+                        row![
+                            icon::not_sent()
+                                .style(|theme, status| {
+                                    theme::svg::error(theme, status)
+                                })
+                                .height(icon_size)
+                                .width(Length::Shrink),
+                            text(" Message failed to send")
+                                .style(theme::text::error)
+                                .size(font_size)
+                        ]
+                        .align_y(alignment::Vertical::Center)
+                    )
+                    .style(|theme, status| {
+                        theme::button::bare(theme, status)
+                    })
+                    .padding(0),
+                    &message.server_time,
+                    &message.hash,
+                    message.command.is_some() && self.connected,
+                    self.config,
+                    self.theme,
+                )
+                .map(Message::ContextMenu)
+            ])
+        } else {
+            Element::from(message_content)
+        };
+
+        (nick, content)
     }
 
     fn format_server_message(
         &self,
         message: &'a data::Message,
-        max_nick_width: Option<f32>,
+        right_aligned_width: Option<f32>,
         server: Option<&'a message::source::Server>,
     ) -> (Element<'a, Message>, Element<'a, Message>) {
         let formatter = *self;
@@ -287,25 +360,20 @@ impl<'a> ChannelQueryLayout<'a> {
         let dimmed = formatter.config.buffer.server_messages.dimmed(server);
 
         let message_style = move |message_theme: &Theme| {
-            let mut style =
-                theme::selectable_text::server(message_theme, server);
-
-            if let Some(dimmed) = dimmed {
-                style.color = style.color.map(|color| {
-                    dimmed.transform_color(
-                        color,
-                        formatter.theme.styles().buffer.background,
-                    )
-                });
-            }
-
-            style
+            theme::selectable_text::dimmed(
+                theme::selectable_text::server(message_theme, server),
+                message_theme,
+                dimmed.map(|dimmed| {
+                    (*dimmed, formatter.theme.styles().buffer.background)
+                }),
+            )
         };
         let message_font_style = move |message_theme: &Theme| {
             theme::font_style::server(message_theme, server)
         };
 
-        let marker = message_marker(max_nick_width, self.config, message_style);
+        let marker =
+            message_marker(right_aligned_width, self.config, message_style);
 
         let message_content = message_content::with_context(
             &message.content,
@@ -445,13 +513,16 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
     fn format(
         &self,
         message: &'a data::Message,
-        max_nick_width: Option<f32>,
+        right_aligned_width: Option<f32>,
         max_prefix_width: Option<f32>,
-        max_excess_timestamp_width: Option<f32>,
+        range_timestamp_excess_width: Option<f32>,
     ) -> Option<Element<'a, Message>> {
         let timestamp = self.format_timestamp(message);
-        let prefixes =
-            self.format_prefixes(message, max_nick_width, max_prefix_width);
+        let prefixes = self.format_prefixes(
+            message,
+            right_aligned_width,
+            max_prefix_width,
+        );
 
         let row = row![timestamp, selectable_text(" "), prefixes];
 
@@ -459,19 +530,19 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
             match message.target.source() {
                 message::Source::User(user) => Some(self.format_user_message(
                     message,
-                    max_nick_width,
+                    right_aligned_width,
                     user,
                 )),
                 message::Source::Server(server_message) => {
                     Some(self.format_server_message(
                         message,
-                        max_nick_width,
+                        right_aligned_width,
                         server_message.as_ref(),
                     ))
                 }
                 message::Source::Action(_) => {
                     let marker = message_marker(
-                        max_nick_width,
+                        right_aligned_width,
                         self.config,
                         theme::selectable_text::action,
                     );
@@ -503,7 +574,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
                     };
 
                     let marker = message_marker(
-                        max_nick_width,
+                        right_aligned_width,
                         self.config,
                         message_style,
                     );
@@ -528,16 +599,16 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
                 message::Source::Internal(
                     message::source::Internal::Condensed(end_server_time),
                 ) => {
-                    let spacer_width = if message.server_time
-                        != *end_server_time
-                    {
-                        max_nick_width.map(|max_nick_width| {
-                            max_nick_width
-                                - max_excess_timestamp_width.unwrap_or_default()
-                        })
-                    } else {
-                        max_nick_width
-                    };
+                    let spacer_width =
+                        if message.server_time != *end_server_time {
+                            right_aligned_width.map(|right_aligned_width| {
+                                right_aligned_width
+                                    - range_timestamp_excess_width
+                                        .unwrap_or_default()
+                            })
+                        } else {
+                            right_aligned_width
+                        };
 
                     (!message.text().is_empty()).then_some(
                         self.format_condensed_message(message, spacer_width),
