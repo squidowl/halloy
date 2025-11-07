@@ -677,6 +677,8 @@ impl State {
                         let statusmsg = clients.get_statusmsg(buffer.server());
                         let casemapping =
                             clients.get_casemapping(buffer.server());
+                        let supports_echoes =
+                            clients.get_server_supports_echoes(buffer.server());
 
                         // Resolve our attributes if sending this message in a channel
                         if let buffer::Upstream::Channel(server, channel) =
@@ -692,19 +694,33 @@ impl State {
                             }
                         }
 
+                        let mut history_tasks = vec![];
+
+                        if let Some(messages) = input.messages(
+                            user,
+                            channel_users,
+                            chantypes,
+                            statusmsg,
+                            casemapping,
+                            supports_echoes,
+                            config,
+                        ) {
+                            for message in messages {
+                                history_tasks.extend(
+                                    history
+                                        .record_input_message(
+                                            message,
+                                            buffer.server(),
+                                            casemapping,
+                                            config,
+                                        )
+                                        .into_iter(),
+                                );
+                            }
+                        }
+
                         history_task = Task::batch(
-                            history
-                                .record_input_message(
-                                    input,
-                                    user,
-                                    channel_users,
-                                    chantypes,
-                                    statusmsg,
-                                    casemapping,
-                                    config,
-                                )
-                                .into_iter()
-                                .map(Task::future),
+                            history_tasks.into_iter().map(Task::future),
                         );
                     }
 

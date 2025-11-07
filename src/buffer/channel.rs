@@ -5,7 +5,7 @@ use data::preview::{self, Previews};
 use data::server::Server;
 use data::target::{self, Target};
 use data::user::{ChannelUsers, Nick};
-use data::{Config, User, buffer, history, message};
+use data::{Config, User, buffer, client, history, message};
 use iced::widget::{column, container, row};
 use iced::{Length, Size, Task, padding};
 
@@ -48,9 +48,11 @@ pub fn view<'a>(
     is_focused: bool,
 ) -> Element<'a, Message> {
     let server = &state.server;
+    let connected = matches!(clients.status(server), client::Status::Connected);
     let chantypes = clients.get_chantypes(server);
     let casemapping = clients.get_casemapping(server);
     let prefix = clients.get_prefix(server);
+    let supports_echoes = clients.get_server_supports_echoes(server);
     let channel = &state.target;
     let buffer = &state.buffer;
     let input = history.input(buffer);
@@ -80,6 +82,8 @@ pub fn view<'a>(
         chantypes,
         casemapping,
         prefix,
+        supports_echoes,
+        connected,
         server,
         theme,
         target: TargetInfo::Channel {

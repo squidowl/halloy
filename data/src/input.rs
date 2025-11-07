@@ -79,59 +79,20 @@ impl Input {
         chantypes: &[char],
         statusmsg: &[char],
         casemapping: isupport::CaseMap,
+        supports_echoes: bool,
         config: &Config,
     ) -> Option<Vec<Message>> {
-        let to_target = |target: &str, source| match Target::parse(
-            target,
-            chantypes,
-            statusmsg,
-            casemapping,
-        ) {
-            Target::Channel(channel) => {
-                message::Target::Channel { channel, source }
-            }
-            Target::Query(query) => message::Target::Query { query, source },
-        };
-
-        let command = self.content.command(&self.buffer)?;
-
-        match command {
-            command::Irc::Msg(targets, text)
-            | command::Irc::Notice(targets, text) => Some(
-                targets
-                    .split(',')
-                    .map(|target| {
-                        Message::sent(
-                            to_target(
-                                target,
-                                message::Source::User(user.clone()),
-                            ),
-                            message::parse_fragments_with_highlights(
-                                text.clone(),
-                                channel_users,
-                                target,
-                                None,
-                                &config.highlights,
-                                casemapping,
-                            ),
-                        )
-                    })
-                    .collect(),
-            ),
-            command::Irc::Me(target, action) => Some(vec![Message::sent(
-                to_target(&target, message::Source::Action(Some(user.clone()))),
-                message::action_text(
-                    user.nickname(),
-                    Some(&action),
-                    channel_users,
-                    &target,
-                    None,
-                    &config.highlights,
-                    casemapping,
-                ),
-            )]),
-            _ => None,
-        }
+        self.content.command(&self.buffer).and_then(|command| {
+            command.messages(
+                user,
+                channel_users,
+                chantypes,
+                statusmsg,
+                casemapping,
+                supports_echoes,
+                config,
+            )
+        })
     }
 
     pub fn targets(

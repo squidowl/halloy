@@ -1,9 +1,9 @@
 use data::config;
-use iced::widget::text;
 use iced::widget::text::LineHeight;
+use iced::widget::{Svg, svg, text};
 
 use crate::widget::Text;
-use crate::{font, theme};
+use crate::{Theme, font, theme};
 
 pub fn dot<'a>() -> Text<'a> {
     to_text('\u{F111}')
@@ -139,6 +139,13 @@ pub fn lightbulb<'a>() -> Text<'a> {
 
 pub fn quit<'a>() -> Text<'a> {
     to_text('\u{F02D}')
+}
+
+pub fn not_sent<'a>() -> Svg<'a, Theme> {
+    let fontawesome_attention_circled =
+        include_bytes!("../assets/fontello/fontawesome-attention.svg").to_vec();
+
+    svg(svg::Handle::from_memory(fontawesome_attention_circled))
 }
 
 fn to_text<'a>(unicode: char) -> Text<'a> {

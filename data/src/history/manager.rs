@@ -11,11 +11,8 @@ use crate::history::{self, History, MessageReferences, ReadMarker};
 use crate::message::broadcast::{self, Broadcast};
 use crate::message::{self, Limit};
 use crate::target::{self, Target};
-use crate::user::{ChannelUsers, Nick};
-use crate::{
-    Config, Input, Server, User, buffer, client, config, input, isupport,
-    server,
-};
+use crate::user::Nick;
+use crate::{Config, Server, buffer, client, config, input, isupport, server};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Resource {
@@ -49,12 +46,14 @@ pub enum Message {
     Flushed(history::Kind, Result<(), history::Error>),
     Exited(Vec<(history::Kind, Result<(), history::Error>)>),
     SentMessageUpdated(history::Kind, history::ReadMarker),
+    ResendMessage(history::Kind, message::Message),
 }
 
 pub enum Event {
     Loaded(history::Kind),
     Exited,
     SentMessageUpdated(history::Kind, history::ReadMarker),
+    ResendMessage(history::Kind, message::Message),
 }
 
 #[derive(Debug, Default)]
@@ -198,6 +197,9 @@ impl Manager {
             Message::SentMessageUpdated(kind, read_marker) => {
                 return Some(Event::SentMessageUpdated(kind, read_marker));
             }
+            Message::ResendMessage(kind, message) => {
+                return Some(Event::ResendMessage(kind, message));
+            }
         }
 
         None
@@ -257,53 +259,30 @@ impl Manager {
 
     pub fn record_input_message(
         &mut self,
-        input: Input,
-        user: User,
-        channel_users: Option<&ChannelUsers>,
-        chantypes: &[char],
-        statusmsg: &[char],
+        message: message::Message,
+        server: &Server,
         casemapping: isupport::CaseMap,
         config: &Config,
     ) -> Vec<BoxFuture<'static, Message>> {
         let mut tasks = vec![];
 
-        if let Some(messages) = input.messages(
-            user,
-            channel_users,
-            chantypes,
-            statusmsg,
-            casemapping,
-            config,
-        ) {
-            for message in messages {
-                if config.buffer.mark_as_read.on_message_sent
-                    && let Some(kind) = history::Kind::from_server_message(
-                        input.server().clone(),
-                        &message,
-                    )
-                {
-                    tasks.extend(
-                        self.update_read_marker(
-                            kind,
-                            history::ReadMarker::from_date_time(
-                                message.server_time,
-                            ),
-                        )
-                        .map(futures::FutureExt::boxed),
-                    );
-                }
-
-                tasks.extend(
-                    self.record_message(
-                        input.server(),
-                        casemapping,
-                        message,
-                        &config.buffer,
-                    )
-                    .map(futures::FutureExt::boxed),
-                );
-            }
+        if config.buffer.mark_as_read.on_message_sent
+            && let Some(kind) =
+                history::Kind::from_server_message(server.clone(), &message)
+        {
+            tasks.extend(
+                self.update_read_marker(
+                    kind,
+                    history::ReadMarker::from_date_time(message.server_time),
+                )
+                .map(futures::FutureExt::boxed),
+            );
         }
+
+        tasks.extend(
+            self.record_message(server, casemapping, message, &config.buffer)
+                .map(futures::FutureExt::boxed),
+        );
 
         tasks
     }
@@ -375,6 +354,16 @@ impl Manager {
         message: crate::Message,
     ) -> Option<impl Future<Output = Message> + use<>> {
         self.data.add_message(history::Kind::Highlights, message)
+    }
+
+    pub fn remove_message(
+        &mut self,
+        kind: history::Kind,
+        server_time: DateTime<Utc>,
+        hash: message::Hash,
+        resend: bool,
+    ) -> Option<impl Future<Output = Message> + use<>> {
+        self.data.remove_message(kind, server_time, hash, resend)
     }
 
     pub fn update_read_marker<T: Into<history::Kind>>(
@@ -1112,7 +1101,7 @@ impl Data {
         // The right-aligned nicknames setting expects timestamps to have a
         // constant character count to function, so we can utilize that
         // expectation in this calculation
-        let max_excess_timestamp_chars = (buffer_config
+        let range_timestamp_extra_chars = (buffer_config
             .nickname
             .alignment
             .is_right()
@@ -1194,7 +1183,7 @@ impl Data {
             new_messages: new.to_vec(),
             max_nick_chars,
             max_prefix_chars,
-            max_excess_timestamp_chars,
+            range_timestamp_extra_chars,
             cleared: *cleared,
         })
     }
@@ -1214,7 +1203,10 @@ impl Data {
 
                     Some(
                         async move {
-                            Message::SentMessageUpdated(kind.clone(), read_marker)
+                            Message::SentMessageUpdated(
+                                kind.clone(),
+                                read_marker,
+                            )
                         }
                         .boxed(),
                     )
@@ -1237,6 +1229,25 @@ impl Data {
                 )
             }
         }
+    }
+
+    fn remove_message(
+        &mut self,
+        kind: history::Kind,
+        server_time: DateTime<Utc>,
+        hash: message::Hash,
+        resend: bool,
+    ) -> Option<impl Future<Output = Message> + use<>> {
+        self.map.get_mut(&kind).and_then(|history| {
+            history
+                .remove_message(server_time, hash)
+                .and_then(|message| {
+                    resend.then_some(
+                        async move { Message::ResendMessage(kind, message) }
+                            .boxed(),
+                    )
+                })
+        })
     }
 
     fn update_read_marker<T: Into<history::Kind>>(

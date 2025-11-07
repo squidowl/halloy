@@ -4,12 +4,13 @@ use std::str::FromStr;
 use fancy_regex::Regex;
 use irc::proto;
 use itertools::Itertools;
+use serde::{Deserialize, Serialize};
 
 use crate::buffer::{self, Upstream};
 use crate::isupport::{self, find_target_limit};
 use crate::message::{self, formatting};
-use crate::user::NickRef;
-use crate::{Target, ctcp, target};
+use crate::user::{ChannelUsers, NickRef};
+use crate::{Config, Message, Target, User, ctcp, target};
 
 #[derive(Debug, Clone)]
 pub enum Command {
@@ -32,7 +33,7 @@ pub enum Internal {
     Detach(Vec<target::Channel>),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub enum Irc {
     Join(String, Option<String>),
     Motd(Option<String>),
@@ -51,6 +52,98 @@ pub enum Irc {
     Raw(String),
     Unknown(String, Vec<String>),
     Ctcp(ctcp::Command, String, Option<String>),
+}
+
+impl Irc {
+    pub fn messages(
+        &self,
+        user: User,
+        channel_users: Option<&ChannelUsers>,
+        chantypes: &[char],
+        statusmsg: &[char],
+        casemapping: isupport::CaseMap,
+        supports_echoes: bool,
+        config: &Config,
+    ) -> Option<Vec<Message>> {
+        let to_target = |target: &str, source| match Target::parse(
+            target,
+            chantypes,
+            statusmsg,
+            casemapping,
+        ) {
+            Target::Channel(channel) => {
+                message::Target::Channel { channel, source }
+            }
+            Target::Query(query) => message::Target::Query { query, source },
+        };
+
+        match self {
+            Irc::Msg(targets, text) => Some(
+                targets
+                    .split(',')
+                    .map(|target| {
+                        Message::sent(
+                            to_target(
+                                target,
+                                message::Source::User(user.clone()),
+                            ),
+                            message::parse_fragments_with_highlights(
+                                text.clone(),
+                                channel_users,
+                                target,
+                                None,
+                                &config.highlights,
+                                casemapping,
+                            ),
+                            supports_echoes.then_some(Irc::Msg(
+                                target.to_string(),
+                                text.clone(),
+                            )),
+                        )
+                    })
+                    .collect(),
+            ),
+            Irc::Notice(targets, text) => Some(
+                targets
+                    .split(',')
+                    .map(|target| {
+                        Message::sent(
+                            to_target(
+                                target,
+                                message::Source::User(user.clone()),
+                            ),
+                            message::parse_fragments_with_highlights(
+                                text.clone(),
+                                channel_users,
+                                target,
+                                None,
+                                &config.highlights,
+                                casemapping,
+                            ),
+                            supports_echoes.then_some(Irc::Notice(
+                                target.to_string(),
+                                text.clone(),
+                            )),
+                        )
+                    })
+                    .collect(),
+            ),
+            Irc::Me(target, action) => Some(vec![Message::sent(
+                to_target(target, message::Source::Action(Some(user.clone()))),
+                message::action_text(
+                    user.nickname(),
+                    Some(action),
+                    channel_users,
+                    target,
+                    None,
+                    &config.highlights,
+                    casemapping,
+                ),
+                supports_echoes.then_some(self.clone()),
+            )]),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
