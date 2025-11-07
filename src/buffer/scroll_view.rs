@@ -943,8 +943,9 @@ impl State {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Default)]
 pub enum Status {
+    #[default]
     Bottom,
     Unlocked,
 }
@@ -1015,12 +1016,6 @@ impl Status {
         } else {
             None
         }
-    }
-}
-
-impl Default for Status {
-    fn default() -> Self {
-        Self::Bottom
     }
 }
 

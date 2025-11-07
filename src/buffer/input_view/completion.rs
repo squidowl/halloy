@@ -267,8 +267,9 @@ impl Entry {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 enum Commands {
+    #[default]
     Idle,
     Selecting {
         highlighted: Option<usize>,
@@ -278,12 +279,6 @@ enum Commands {
         command: Command,
         subcommand: Option<Command>,
     },
-}
-
-impl Default for Commands {
-    fn default() -> Self {
-        Self::Idle
-    }
 }
 
 impl Commands {
@@ -2527,8 +2522,9 @@ fn whois_command(target_limit: Option<u16>) -> Command {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 enum Emojis {
+    #[default]
     Idle,
     Selecting {
         highlighted: Option<usize>,
@@ -2537,12 +2533,6 @@ enum Emojis {
     Selected {
         emoji: &'static str,
     },
-}
-
-impl Default for Emojis {
-    fn default() -> Self {
-        Self::Idle
-    }
 }
 
 impl Emojis {
