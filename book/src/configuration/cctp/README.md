@@ -39,7 +39,7 @@ ping = true
 
 ### source
 
-Whether Halloy will respond to a [CTCP TIME](https://modern.ircdocs.horse/ctcp#source) message.
+Whether Halloy will respond to a [CTCP SOURCE](https://modern.ircdocs.horse/ctcp#source) message.
 
 ```toml
 # Type: boolean
