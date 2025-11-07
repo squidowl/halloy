@@ -5,9 +5,9 @@ use data::isupport::{CaseMap, PrefixMap};
 use data::server::Server;
 use data::user::ChannelUsers;
 use data::{Config, User, message, target};
-use iced::Color;
-use iced::advanced::text;
-use iced::widget::{button, column, container, right, row, space, stack};
+use iced::widget::text::LineHeight;
+use iced::widget::{button, column, container, row, text};
+use iced::{Color, Length, alignment};
 
 use super::context_menu::{self, Context};
 use super::scroll_view::LayoutMessage;
@@ -221,7 +221,7 @@ impl<'a> ChannelQueryLayout<'a> {
             dimmed_background_tuple,
         );
 
-        let mut text = selectable_text(
+        let mut nick_text = selectable_text(
             self.config
                 .buffer
                 .nickname
@@ -235,12 +235,12 @@ impl<'a> ChannelQueryLayout<'a> {
         );
 
         if let Some(width) = right_aligned_width {
-            text = text.width(width).align_x(text::Alignment::Right);
+            nick_text = nick_text.width(width).align_x(text::Alignment::Right);
         }
 
         let nick = tooltip(
             context_menu::user(
-                text,
+                nick_text,
                 self.server,
                 self.prefix,
                 self.target.channel(),
@@ -308,32 +308,39 @@ impl<'a> ChannelQueryLayout<'a> {
         );
 
         let content = if not_sent {
-            let not_sent_button_size = theme::line_height(&self.config.font);
+            let font_size = 0.85
+                * self.config.font.size.map_or(theme::TEXT_SIZE, f32::from);
+            let icon_size =
+                LineHeight::default().to_absolute(font_size.into()).0;
 
-            Element::from(stack![
-                row![
-                    message_content,
-                    space::horizontal().width(not_sent_button_size + 4.0)
-                ],
-                right(
-                    context_menu::not_sent_message(
-                        button(icon::not_sent().style(|theme, status| {
-                            theme::svg::error(theme, status)
-                        }))
-                        .style(|theme, status| {
-                            theme::button::bare(theme, status)
-                        })
-                        .height(not_sent_button_size)
-                        .width(not_sent_button_size)
-                        .padding(1),
-                        &message.server_time,
-                        &message.hash,
-                        message.command.is_some() && self.connected,
-                        self.config,
-                        self.theme,
+            Element::from(column![
+                message_content,
+                context_menu::not_sent_message(
+                    button(
+                        row![
+                            icon::not_sent()
+                                .style(|theme, status| {
+                                    theme::svg::error(theme, status)
+                                })
+                                .height(icon_size)
+                                .width(Length::Shrink),
+                            text(" Message failed to send")
+                                .style(theme::text::error)
+                                .size(font_size)
+                        ]
+                        .align_y(alignment::Vertical::Center)
                     )
-                    .map(Message::ContextMenu)
+                    .style(|theme, status| {
+                        theme::button::bare(theme, status)
+                    })
+                    .padding(0),
+                    &message.server_time,
+                    &message.hash,
+                    message.command.is_some() && self.connected,
+                    self.config,
+                    self.theme,
                 )
+                .map(Message::ContextMenu)
             ])
         } else {
             Element::from(message_content)
