@@ -183,10 +183,12 @@ impl<'a> ChannelQueryLayout<'a> {
         right_aligned_width: Option<f32>,
         user: &'a User,
     ) -> (Element<'a, Message>, Element<'a, Message>) {
-        let not_confirmed = (self.supports_echoes || message.command.is_some())
-            && matches!(message.direction, message::Direction::Sent);
+        let not_sent = (self.supports_echoes || message.command.is_some())
+            && matches!(message.direction, message::Direction::Sent)
+            && Utc::now().signed_duration_since(message.server_time)
+                > TimeDelta::seconds(10);
 
-        let dimmed = not_confirmed.then_some(Dimmed::new(None));
+        let dimmed = not_sent.then_some(Dimmed::new(None));
         let dimmed_background_tuple = dimmed
             .map(|dimmed| (dimmed, self.theme.styles().buffer.background));
 
@@ -305,10 +307,7 @@ impl<'a> ChannelQueryLayout<'a> {
             self.config,
         );
 
-        let content = if not_confirmed
-            && Utc::now().signed_duration_since(message.server_time)
-                > TimeDelta::seconds(10)
-        {
+        let content = if not_sent {
             let not_sent_button_size = theme::line_height(&self.config.font);
 
             Element::from(stack![
