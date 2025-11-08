@@ -8,3 +8,8 @@ src = "src"
 cname = "halloy.chat"
 git-repository-url = "https://github.com/squidowl/halloy"
 edit-url-template = "https://github.com/squidowl/halloy/edit/main/book/{path}"
+
+[output.html.redirect]
+"/configuration/servers.html" = "/configuration/servers/index.html"
+"/configuration/servers.html#saslplain" = "/configuration/servers/sasl-plain.html"
+"/guides/migrating-from-yaml.html" = "/configuration.html"
