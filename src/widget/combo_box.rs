@@ -1,4 +1,5 @@
 use std::cell::RefCell;
+use std::cmp::Reverse;
 use std::fmt::Display;
 use std::time::Instant;
 
@@ -11,6 +12,9 @@ use iced::overlay::menu;
 use iced::widget::text::LineHeight;
 use iced::widget::{TextInput, text_input};
 use iced::{Event, Length, Padding, Rectangle, Vector, keyboard, window};
+
+use nucleo_matcher::pattern::{AtomKind, CaseMatching, Normalization, Pattern};
+use nucleo_matcher::{Config, Matcher, Utf32Str};
 
 use super::Element;
 use crate::Theme;
@@ -777,32 +781,58 @@ where
     }
 }
 
-/// Search list of options for a given query.
+/// Search list of options for a given query using fuzzy matching.
 pub fn search<'a, T, A>(
     options: impl IntoIterator<Item = T> + 'a,
     option_matchers: impl IntoIterator<Item = &'a A> + 'a,
     query: &'a str,
 ) -> impl Iterator<Item = T> + 'a
 where
+    T: Clone + 'a,
     A: AsRef<str> + 'a,
 {
-    let query: Vec<String> = query
-        .to_lowercase()
-        .split(|c: char| !c.is_ascii_alphanumeric())
-        .map(String::from)
-        .collect();
+    let query = query.trim();
+    if query.is_empty() {
+        return options.into_iter().collect::<Vec<_>>().into_iter();
+    }
 
-    options
+    let opts = options.into_iter().collect::<Vec<_>>();
+    let matchers_vec = option_matchers
         .into_iter()
-        .zip(option_matchers)
-        // Make sure each part of the query is found in the option
-        .filter_map(move |(option, matcher)| {
-            if query.iter().all(|part| matcher.as_ref().contains(part)) {
-                Some(option)
-            } else {
-                None
-            }
-        })
+        .map(|a| a.as_ref().to_string().to_lowercase())
+        .collect::<Vec<_>>();
+
+    let q_lower = query.to_lowercase();
+    let mut buffer = Vec::new();
+    let mut matcher = Matcher::new(Config::DEFAULT);
+
+    let pattern = Pattern::new(
+        &q_lower,
+        CaseMatching::Ignore,
+        Normalization::Smart,
+        AtomKind::Fuzzy,
+    );
+
+    let mut hits = Vec::with_capacity(opts.len());
+
+    for (idx, m_str) in matchers_vec.iter().enumerate() {
+        let pos = m_str.find(&q_lower).unwrap_or(usize::MAX);
+        let hay = Utf32Str::new(m_str.as_str(), &mut buffer);
+        let score = pattern.score(hay, &mut matcher).unwrap_or(0);
+
+        // add matches to the list
+        if score > 0 || pos != usize::MAX {
+            hits.push((idx, score, pos));
+        }
+    }
+
+    // literal matches first, then matches starting earlier in the text, then higher fuzzy score
+    hits.sort_unstable_by_key(|h| (h.2 == usize::MAX, h.2, Reverse(h.1)));
+
+    hits.into_iter()
+        .map(|(idx, _, _)| opts[idx].clone())
+        .collect::<Vec<_>>()
+        .into_iter()
 }
 
 /// Build matchers from given list of options.
@@ -814,11 +844,7 @@ where
 {
     options
         .into_iter()
-        .map(|opt| {
-            let mut matcher = opt.to_string();
-            matcher.retain(|c| c.is_ascii_alphanumeric());
-            matcher.to_lowercase()
-        })
+        .map(|opt| opt.to_string().to_lowercase())
         .collect()
 }
 

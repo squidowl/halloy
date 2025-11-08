@@ -8,6 +8,7 @@ Added:
 - Messages that fail to send are dimmed and marked, and can be deleted or re-sent (for servers that support the `echo-message` capability)
 - Reload Halloy by sending `SIGUSR1` on Unix system
 - Ability to hide the indicator when a new version of Halloy is available 
+- Fuzzy matching when searching in command bar
 
 Fixed:
 
@@ -16,6 +17,7 @@ Fixed:
 - Server messages reporting an inability to send to a nick/channel are routed to the relevant buffer
 - Hide jitter in backlog divider caused by read marker updates when marking read on send
 - Flickering logo on Welcome screen
+- Channels with the same name as servers now appear before servers when searching in command bar
 
 Changed:
 
@@ -27,7 +29,7 @@ Changed:
 Thanks:
 
 - Contributions: @kasperkronborg, @mistivia
-- Bug reports: @Frikilinux, ThePendulum, @crabbedhaloablution, @findus
+- Bug reports: @Frikilinux, ThePendulum, @crabbedhaloablution, @findus, @Darksecond
 - Feature requests: @cyrneko, ilya
 
 # 2025.11 (2025-10-27)

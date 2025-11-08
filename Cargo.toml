@@ -64,6 +64,7 @@ ipc = { version = "0.1.0", path = "ipc" }
 irc = { version = "0.1.0", path = "irc" }
 
 signal-hook = "0.3.18"
+nucleo-matcher = "0.3.1"
 notify-rust = "4.11"
 fern = "0.7.1"
 iced = { version = "0.14.0-dev", default-features = false, features = [
