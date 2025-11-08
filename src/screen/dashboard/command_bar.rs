@@ -124,14 +124,14 @@ pub enum Command {
     Version(Version),
     Buffer(Buffer),
     Configuration(Configuration),
-    UI(Ui),
     Theme(Theme),
-    Window(Window),
 }
 
 #[derive(Debug, Clone)]
 pub enum Application {
     Quit,
+    ToggleFullscreen,
+    ToggleSidebarVisibility,
 }
 
 #[derive(Debug, Clone)]
@@ -161,16 +161,6 @@ pub enum Configuration {
 }
 
 #[derive(Debug, Clone)]
-pub enum Ui {
-    ToggleSidebarVisibility,
-}
-
-#[derive(Debug, Clone)]
-pub enum Window {
-    ToggleFullscreen,
-}
-
-#[derive(Debug, Clone)]
 pub enum Theme {
     Switch(data::Theme),
     OpenEditor,
@@ -194,10 +184,6 @@ impl Command {
             .into_iter()
             .map(Command::Configuration);
 
-        let uis = Ui::list().into_iter().map(Command::UI);
-
-        let windows = Window::list().into_iter().map(Command::Window);
-
         let themes = Theme::list(config).into_iter().map(Command::Theme);
 
         let version = Version::list(version).into_iter().map(Command::Version);
@@ -210,8 +196,6 @@ impl Command {
             .chain(buffers)
             .chain(configs)
             .chain(themes)
-            .chain(uis)
-            .chain(windows)
             .collect()
     }
 }
@@ -223,12 +207,10 @@ impl std::fmt::Display for Command {
             Command::Configuration(config) => {
                 write!(f, "Configuration: {config}")
             }
-            Command::UI(ui) => write!(f, "UI: {ui}"),
             Command::Theme(theme) => write!(f, "Theme: {theme}"),
             Command::Version(application) => {
                 write!(f, "Version: {application}")
             }
-            Command::Window(window) => write!(f, "Window: {window}"),
             Command::Application(application) => {
                 write!(f, "Application: {application}")
             }
@@ -273,7 +255,11 @@ impl Buffer {
 
 impl Application {
     fn list() -> Vec<Self> {
-        vec![Application::Quit]
+        vec![
+            Application::Quit,
+            Application::ToggleFullscreen,
+            Application::ToggleSidebarVisibility,
+        ]
     }
 }
 
@@ -296,18 +282,6 @@ impl Configuration {
     }
 }
 
-impl Ui {
-    fn list() -> Vec<Self> {
-        vec![Ui::ToggleSidebarVisibility]
-    }
-}
-
-impl Window {
-    fn list() -> Vec<Self> {
-        vec![Window::ToggleFullscreen]
-    }
-}
-
 impl Theme {
     fn list(config: &Config) -> Vec<Self> {
         Some(Self::OpenEditor)
@@ -321,15 +295,9 @@ impl Theme {
 impl std::fmt::Display for Application {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Application::Quit => write!(f, "Quit"),
-        }
-    }
-}
-
-impl std::fmt::Display for Window {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Window::ToggleFullscreen => write!(f, "Toggle Fullscreen"),
+            Application::Quit => write!(f, "Quit Halloy"),
+            Application::ToggleFullscreen => write!(f, "Fullscreen"),
+            Application::ToggleSidebarVisibility => write!(f, "Toggle Sidebar"),
         }
     }
 }
@@ -355,33 +323,37 @@ impl std::fmt::Display for Version {
 impl std::fmt::Display for Buffer {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Buffer::Maximize(maximize) => {
-                write!(
-                    f,
-                    "{}",
-                    if *maximize {
-                        "Maximize"
-                    } else {
-                        "Restore size"
-                    }
-                )
-            }
+            Buffer::Maximize(maximize) => write!(
+                f,
+                "{}",
+                if *maximize {
+                    "Maximize buffer"
+                } else {
+                    "Restore buffer"
+                }
+            ),
             Buffer::New => write!(f, "New buffer"),
             Buffer::Close => write!(f, "Close buffer"),
-            Buffer::Replace(buffer) => match buffer {
-                buffer::Upstream::Server(server) => {
-                    write!(f, "Change to {server}")
-                }
-                buffer::Upstream::Channel(server, channel) => {
-                    write!(f, "Change to {channel} ({server})")
-                }
-                buffer::Upstream::Query(_, nick) => {
-                    write!(f, "Change to {nick}")
-                }
-            },
             Buffer::Popout => write!(f, "Pop out buffer"),
             Buffer::Merge => write!(f, "Merge buffer"),
-            Buffer::ToggleInternal(internal) => write!(f, "Toggle {internal}"),
+            Buffer::ToggleInternal(internal) => match internal {
+                buffer::Internal::FileTransfers => {
+                    write!(f, "Open file transfers")
+                }
+                buffer::Internal::Logs => write!(f, "Open logs"),
+                buffer::Internal::Highlights => write!(f, "Open highlights"),
+            },
+            Buffer::Replace(buffer) => match buffer {
+                buffer::Upstream::Server(server) => {
+                    write!(f, "Open server {server}")
+                }
+                buffer::Upstream::Channel(server, channel) => {
+                    write!(f, "Open {channel} on {server}")
+                }
+                buffer::Upstream::Query(server, nick) => {
+                    write!(f, "Open query with {nick} on {server}")
+                }
+            },
         }
     }
 }
@@ -404,16 +376,6 @@ impl std::fmt::Display for Configuration {
             }
             Configuration::OpenConfigFile => {
                 write!(f, "Open config file in default editor")
-            }
-        }
-    }
-}
-
-impl std::fmt::Display for Ui {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Ui::ToggleSidebarVisibility => {
-                write!(f, "Toggle sidebar visibility")
             }
         }
     }
