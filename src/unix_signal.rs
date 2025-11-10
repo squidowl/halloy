@@ -32,7 +32,7 @@ impl subscription::Recipe for UnixSignal {
             let mut signals_iter = match Signals::new(&signals) {
                 Ok(iter) => iter,
                 Err(e) => {
-                    log::error!("Failed to create signal listener: {}", e);
+                    log::error!("Failed to create signal listener: {e}");
                     return;
                 }
             };
