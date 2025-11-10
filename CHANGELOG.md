@@ -6,6 +6,7 @@ Added:
 - Border radius on both image previews and cards displaying images through meta tags (configurable)
 - Context menu item added to server-wide buffers to close all queries
 - Messages that fail to send are dimmed and marked, and can be deleted or re-sent (for servers that support the `echo-message` capability)
+- Reload Halloy by sending `SIGUSR1` on Unix system
 
 Fixed:
 
@@ -25,6 +26,7 @@ Thanks:
 
 - Contributions: @kasperkronborg, @mistivia
 - Bug reports: @Frikilinux, ThePendulum, @crabbedhaloablution, @findus
+- Feature requests: @cyrneko
 
 # 2025.11 (2025-10-27)
 
