@@ -18,6 +18,7 @@ use url::Url;
 
 pub use self::card::Card;
 pub use self::image::Image;
+use crate::message::Source;
 use crate::target::Target;
 use crate::{config, isupport};
 
@@ -85,6 +86,13 @@ impl Preview {
         match self {
             Self::Card(card) => &card.image,
             Self::Image(image) => image,
+        }
+    }
+
+    pub fn visible_for_source(&self, source: &Source, config: &config::Preview) -> bool {
+        match self {
+            Self::Card(_) => config.card.visible_for_source(source),
+            Self::Image(_) => config.image.visible_for_source(source),
         }
     }
 }
