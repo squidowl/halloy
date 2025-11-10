@@ -1,6 +1,9 @@
 use serde::Deserialize;
 
-use crate::{Target, isupport};
+use crate::{
+    Target, isupport,
+    message::{Kind, Source},
+};
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
@@ -92,6 +95,10 @@ impl Card {
     ) -> bool {
         is_visible(&self.include, &self.exclude, target, casemapping)
     }
+
+    pub fn visible_for_source(&self, source: &Source) -> bool {
+        is_visible_for_source(&self.exclude, source)
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -130,6 +137,23 @@ impl Image {
     ) -> bool {
         is_visible(&self.include, &self.exclude, target, casemapping)
     }
+
+    pub fn visible_for_source(&self, source: &Source) -> bool {
+        is_visible_for_source(&self.exclude, source)
+    }
+}
+
+pub fn is_visible_for_source(exclude: &[String], source: &Source) -> bool {
+    if let Source::Server(Some(server)) = source {
+        let kind = server.kind();
+        return !exclude.iter().any(|item| match item.to_lowercase().as_str() {
+            "topic" => matches!(kind, Kind::ReplyTopic | Kind::ChangeTopic),
+            "part" => matches!(kind, Kind::Part),
+            "quit" => matches!(kind, Kind::Quit),
+            _ => false,
+        });
+    }
+    true
 }
 
 fn is_visible(
