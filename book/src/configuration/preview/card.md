@@ -62,8 +62,14 @@ include = []
 
 ### exclude
 
-Exclude card previews from channels & queries.
+Exclude card previews from channels, queries and specific server messages.
 If you pass `["#halloy"]`, the channel `#halloy` will not show image previews. You can also exclude all channels & queries by using a wildcard: `["*"]`.
+
+If you want to exclude certain server messages, the following is available to exclude:
+
+- `["topic"]`
+- `["part"]`
+- `["quit"]`
 
 ```toml
 # Type: array of strings
@@ -71,5 +77,5 @@ If you pass `["#halloy"]`, the channel `#halloy` will not show image previews. Y
 # Default: []
 
 [preview.card]
-exclude = []
+exclude = ["topic", "#linux"] # exclude previews from topic changes in any channel, and all previews from all messages in #linux.
 ```

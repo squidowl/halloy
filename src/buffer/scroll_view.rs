@@ -297,17 +297,25 @@ pub fn view<'a>(
                                         |(a, b)| a == message.hash && b == idx,
                                     );
 
-                                column = column.push(preview_row(
-                                    message,
-                                    preview,
-                                    url,
-                                    idx,
-                                    right_aligned_width,
-                                    max_prefix_width,
-                                    is_hovered,
-                                    config,
-                                    theme,
-                                ));
+                                let visible_for_source = preview
+                                    .visible_for_source(
+                                        message.target.source(),
+                                        &config.preview,
+                                    );
+
+                                if visible_for_source {
+                                    column = column.push(preview_row(
+                                        message,
+                                        preview,
+                                        url,
+                                        idx,
+                                        right_aligned_width,
+                                        max_prefix_width,
+                                        is_hovered,
+                                        config,
+                                        theme,
+                                    ));
+                                }
                             }
                         }
 
