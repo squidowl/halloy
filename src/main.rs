@@ -1530,7 +1530,6 @@ impl Halloy {
                 self.config = updated;
 
                 for (server, _) in removed_servers {
-                    println!("quitting server: {:?}", server);
                     self.clients.quit(&server, None);
                 }
                 if let Screen::Dashboard(dashboard) =
