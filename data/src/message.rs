@@ -1305,7 +1305,22 @@ pub fn parse_fragments_with_highlights(
                 if let Fragment::Text(text) = &fragment {
                     return Either::Left(
                         parse_regex_fragments(regex, text, |text| {
-                            if highlight_kind.is_none() {
+                            let set_highlight_kind = if highlight_kind.is_none()
+                            {
+                                true
+                            } else if sound.is_some()
+                                && let Some(HighlightKind::Match {
+                                    sound: highlight_kind_sound,
+                                    ..
+                                }) = &highlight_kind
+                                && highlight_kind_sound.is_none()
+                            {
+                                true
+                            } else {
+                                false
+                            };
+
+                            if set_highlight_kind {
                                 highlight_kind = Some(HighlightKind::Match {
                                     matching: regex.to_string(),
                                     sound: sound.clone(),
