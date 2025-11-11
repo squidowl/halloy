@@ -16,6 +16,7 @@ mod stream;
 mod url;
 mod widget;
 mod window;
+mod unix_signal;
 
 use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
@@ -276,6 +277,8 @@ pub enum Message {
     WindowSettingsSaved(Result<(), window::Error>),
     Logging(Vec<logger::Record>),
     OnConnect(Server, client::on_connect::Event),
+    UnixSignal(i32),
+    ConfigReloaded(Result<Config, config::Error>),
 }
 
 impl Halloy {
@@ -359,6 +362,10 @@ impl Halloy {
 
     fn update(&mut self, message: Message) -> Task<Message> {
         match message {
+            Message::ConfigReloaded(config) => {
+                self.config_file_reloaded(config);
+                Task::none()
+            }
             Message::AppearanceReloaded(appearance) => {
                 self.config.appearance = appearance;
                 Task::none()
@@ -391,61 +398,7 @@ impl Halloy {
 
                 let event_task = match event {
                     Some(dashboard::Event::ConfigReloaded(config)) => {
-                        match config {
-                            Ok(updated) => {
-                                let removed_servers = self
-                                    .servers
-                                    .extract_if(|server, _| {
-                                        !updated.servers.contains(&server.name)
-                                    })
-                                    .collect::<Vec<_>>();
-
-                                for (server, config) in updated.servers.iter() {
-                                    let server = server.clone().into();
-                                    if let Some(server) =
-                                        self.servers.get_mut(&server)
-                                    {
-                                        *server = config.clone();
-                                    } else {
-                                        self.servers
-                                            .insert(server, config.clone());
-                                    }
-                                }
-
-                                self.servers
-                                    .set_order(updated.sidebar.order_by);
-
-                                self.theme = self
-                                    .current_mode
-                                    .theme(&updated.appearance.selected)
-                                    .into();
-
-                                // Load new notification sounds.
-                                self.notifications =
-                                    Notifications::new(&updated);
-
-                                self.config = updated;
-
-                                for (server, _) in removed_servers {
-                                    self.clients.quit(&server, None);
-                                }
-                                if let Screen::Dashboard(dashboard) =
-                                    &mut self.screen
-                                {
-                                    dashboard.update_filters(
-                                        &self.servers,
-                                        &self.clients,
-                                        &self.config.buffer,
-                                    );
-                                }
-                            }
-                            Err(error) => {
-                                self.modal = Some(
-                                    Modal::ReloadConfigurationError(error),
-                                );
-                            }
-                        };
-
+                        self.config_file_reloaded(config);
                         Task::none()
                     }
                     Some(dashboard::Event::ReloadThemes) => {
@@ -1415,6 +1368,17 @@ impl Halloy {
                     Task::batch(commands).map(Message::Dashboard)
                 }
             },
+            Message::UnixSignal(signal) => {
+                match signal {
+                    signal_hook::consts::SIGUSR1 => {
+                        Task::perform(
+                            Config::load(),
+                            Message::ConfigReloaded,
+                        )
+                    }
+                    _ => Task::none(),
+                }
+            }
         }
     }
 
@@ -1515,6 +1479,10 @@ impl Halloy {
             streams,
         ];
 
+        if cfg!(target_family = "unix") {
+            subscriptions.push(unix_signal::subscription().map(Message::UnixSignal));
+        }
+
         // We only want to listen for appearance changes if user has dynamic themes.
         if self.config.appearance.selected.is_dynamic() {
             subscriptions.push(
@@ -1523,5 +1491,62 @@ impl Halloy {
         }
 
         Subscription::batch(subscriptions)
+    }
+
+    fn config_file_reloaded(&mut self, config: Result<Config, config::Error>) {
+        match config {
+            Ok(updated) => {
+                let removed_servers = self
+                    .servers
+                    .extract_if(|server, _| {
+                        !updated.servers.contains(&server.name)
+                    })
+                    .collect::<Vec<_>>();
+
+                for (server, config) in updated.servers.iter() {
+                    let server = server.clone().into();
+                    if let Some(server) =
+                        self.servers.get_mut(&server)
+                    {
+                        *server = config.clone();
+                    } else {
+                        self.servers
+                            .insert(server, config.clone());
+                    }
+                }
+
+                self.servers
+                    .set_order(updated.sidebar.order_by);
+
+                self.theme = self
+                    .current_mode
+                    .theme(&updated.appearance.selected)
+                    .into();
+
+                // Load new notification sounds.
+                self.notifications =
+                    Notifications::new(&updated);
+
+                self.config = updated;
+
+                for (server, _) in removed_servers {
+                    self.clients.quit(&server, None);
+                }
+                if let Screen::Dashboard(dashboard) =
+                    &mut self.screen
+                {
+                    dashboard.update_filters(
+                        &self.servers,
+                        &self.clients,
+                        &self.config.buffer,
+                    );
+                }
+            }
+            Err(error) => {
+                self.modal = Some(
+                    Modal::ReloadConfigurationError(error),
+                );
+            }
+        };
     }
 }

@@ -22,6 +22,7 @@
 - [Reduce Noise](guides/reduce-noise.md)
 - [Single Pane](guides/single-pane.md)
 - [Storing Passwords in a File](guides/password-file.md)
+- [Unix Signals](guides/unix-signals.md)
 - [Text Formatting](guides/text-formatting.md)
 - [URL Schemes](guides/url-schemes.md)
 
