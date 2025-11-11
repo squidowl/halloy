@@ -5,7 +5,8 @@ use std::{fmt, iter};
 
 use chrono::{DateTime, Utc};
 use const_format::concatcp;
-use data::buffer::{OrderBy, SkinTone, SortDirection};
+use data::buffer::SkinTone;
+use data::config::buffer::text_input::{OrderBy, SortDirection};
 use data::isupport::{self, find_target_limit};
 use data::target::{self, Target};
 use data::user::{ChannelUsers, Nick, NickRef};

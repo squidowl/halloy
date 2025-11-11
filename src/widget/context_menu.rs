@@ -52,6 +52,7 @@ pub fn context_menu<'a, T, Message, Theme, Renderer>(
         anchor,
         toggle_behavior,
         menu: None,
+        mouse_interaction_on_hover: mouse::Interaction::Pointer,
     }
 }
 
@@ -64,6 +65,7 @@ pub struct ContextMenu<'a, T, Message, Theme, Renderer> {
     toggle_behavior: ToggleBehavior,
     // Cached, recreated during overlay if menu is open
     menu: Option<Element<'a, Message, Theme, Renderer>>,
+    mouse_interaction_on_hover: mouse::Interaction,
 }
 
 #[derive(Debug)]
@@ -106,6 +108,16 @@ impl Status {
                 keep_open_bounds, ..
             } => keep_open_bounds.as_ref(),
         }
+    }
+}
+
+impl<'a, T, Message, Theme, Renderer> ContextMenu<'a, T, Message, Theme, Renderer> {
+    pub fn mouse_interaction_on_hover(
+        mut self,
+        interaction: mouse::Interaction,
+    ) -> Self {
+        self.mouse_interaction_on_hover = interaction;
+        self
     }
 }
 
@@ -315,7 +327,7 @@ where
         _renderer: &Renderer,
     ) -> mouse::Interaction {
         if cursor.is_over(layout.bounds()) {
-            mouse::Interaction::Pointer
+            self.mouse_interaction_on_hover
         } else {
             mouse::Interaction::default()
         }

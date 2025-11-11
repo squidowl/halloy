@@ -2,6 +2,7 @@
 
 Added:
 
+- Context menu added to text input when right clicking 
 - Exit application from user menu
 - Border radius on both image previews and cards displaying images through meta tags (configurable)
 - Context menu item added to server-wide buffers to close all queries
@@ -19,6 +20,8 @@ Added:
 - Change-host and kick server messages messages can be condensed
 - `/plain` command to send text with automatic formatting disabled
 - `Whowas` instead of `Whois` action in context menu for offline nicknames
+- Ability to set Emacs-like keybindings for text input
+- Keyboard shortcuts can now be unset
 
 Fixed:
 
