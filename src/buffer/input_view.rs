@@ -8,16 +8,16 @@ use data::message::server_time;
 use data::rate_limit::TokenPriority;
 use data::target::Target;
 use data::user::Nick;
-use data::{Config, User, client, command};
+use data::{Config, User, client, command, shortcut};
 use iced::widget::{
-    self, column, container, operation, row, rule, text, text_input,
+    self, button, column, container, operation, row, rule, text, text_input,
 };
-use iced::{Alignment, Task, padding};
+use iced::{Alignment, Length, Task, padding};
 use tokio::time;
 
 use self::completion::Completion;
-use crate::widget::{Element, anchored_overlay, key_press};
-use crate::{Theme, font, theme};
+use crate::widget::{Element, Text, anchored_overlay, context_menu, key_press};
+use crate::{Theme, font, icon, theme};
 
 mod completion;
 
@@ -39,6 +39,8 @@ pub enum Event {
 
 #[derive(Debug, Clone)]
 pub enum Message {
+    Copy,
+    Paste,
     SysInfoReceived(iced::system::Information),
     Input(String),
     Send,
@@ -52,13 +54,25 @@ pub enum Message {
     },
 }
 
+#[derive(Debug, Clone, Copy)]
+enum Menu {
+    Copy,
+    Paste,
+}
+
+impl Menu {
+    fn list() -> Vec<Self> {
+        vec![Self::Copy, Self::Paste]
+    }
+}
+
 pub fn view<'a>(
     state: &'a State,
     cache: Cache<'a>,
     buffer_focused: bool,
     our_user: Option<&User>,
     disabled: bool,
-    config: &Config,
+    config: &'a Config,
     theme: &'a Theme,
 ) -> Element<'a, Message> {
     let style = if state.error.is_some() {
@@ -77,10 +91,59 @@ pub fn view<'a>(
         text_input = text_input.on_input(Message::Input);
     }
 
+    let menu = Menu::list();
+    let foo: Element<'a, Message> = context_menu(
+        context_menu::MouseButton::Right,
+        context_menu::Anchor::Cursor,
+        context_menu::ToggleBehavior::Close,
+        text_input,
+        menu,
+        move |menu, length| {
+            let context_button =
+                |title: Text<'a>,
+                 keybind: data::shortcut::KeyBind,
+                 message: Message| {
+                    button(
+                        row![
+                            title,
+                            text(format!("({keybind})"))
+                                .shaping(text::Shaping::Advanced)
+                                .size(theme::TEXT_SIZE - 2.0)
+                                .style(theme::text::secondary)
+                                .font_maybe(
+                                    theme::font_style::secondary(theme,)
+                                        .map(font::get),
+                                )
+                        ]
+                        .spacing(8)
+                        .align_y(iced::Alignment::Center),
+                    )
+                    .width(length)
+                    .padding(5)
+                    .on_press(message)
+                    .into()
+                };
+
+            match menu {
+                Menu::Copy => context_button(
+                    text("Copy"),
+                    shortcut::copy(),
+                    Message::Copy,
+                ),
+                Menu::Paste => context_button(
+                    text("Paste"),
+                    shortcut::paste(),
+                    Message::Paste,
+                ),
+            }
+        },
+    )
+    .into();
+
     // Add tab support
     let input = key_press(
         key_press(
-            text_input,
+            foo,
             key_press::Key::Named(key_press::Named::Tab),
             key_press::Modifiers::SHIFT,
             Message::Tab(true),
@@ -842,8 +905,6 @@ impl State {
 
                 (Task::none(), None)
             }
-            // Capture escape so that closing context menu or commands/emojis picker
-            // does not defocus input
             Message::Escape => (Task::none(), None),
             Message::SendCommand { buffer, command } => {
                 let input =
@@ -856,6 +917,8 @@ impl State {
 
                 (Task::none(), None)
             }
+            Message::Copy => todo!(),
+            Message::Paste => todo!(),
         }
     }
 
