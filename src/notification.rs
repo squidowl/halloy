@@ -69,7 +69,12 @@ pub struct Notifications {
 impl Notifications {
     pub fn new(config: &Config) -> Self {
         // Load sounds from different sources.
-        let sounds = config.notifications.load_sounds();
+        let sounds =
+            config.notifications.load_sounds(
+                config.highlights.matches.iter().filter_map(
+                    |highlight_match| highlight_match.sound.as_deref(),
+                ),
+            );
 
         Self {
             recent_notifications: HashMap::new(),
@@ -90,6 +95,7 @@ impl Notifications {
                     notification,
                     "Connected",
                     &server.to_string(),
+                    None,
                 );
             }
             Notification::Disconnected => {
@@ -98,6 +104,7 @@ impl Notifications {
                     notification,
                     "Disconnected",
                     &server.to_string(),
+                    None,
                 );
             }
             Notification::Reconnected => {
@@ -106,6 +113,7 @@ impl Notifications {
                     notification,
                     "Reconnected",
                     &server.to_string(),
+                    None,
                 );
             }
             Notification::MonitoredOnline(targets) => {
@@ -118,6 +126,7 @@ impl Notifications {
                         "Monitored users are online"
                     },
                     &join_targets(targets.iter().map(User::as_str).collect()),
+                    None,
                 );
             }
             Notification::MonitoredOffline(targets) => {
@@ -130,6 +139,7 @@ impl Notifications {
                         "Monitored users are offline"
                     },
                     &join_targets(targets.iter().map(Nick::as_str).collect()),
+                    None,
                 );
             }
             Notification::FileTransferRequest { nick, filename } => {
@@ -157,6 +167,7 @@ impl Notifications {
                         notification,
                         title,
                         body,
+                        None,
                     );
                 }
             }
@@ -188,6 +199,7 @@ impl Notifications {
                         notification,
                         title,
                         body,
+                        None,
                     );
                 }
             }
@@ -196,11 +208,14 @@ impl Notifications {
                 channel,
                 message,
                 description,
+                sound,
             } => {
                 if config.highlight.should_notify(vec![
                     channel.to_string(),
                     user.nickname().to_string(),
                 ]) {
+                    // Description is expected to be expanded by the calling
+                    // routine when show_content is true
                     if config.highlight.show_content {
                         self.execute(
                             &config.highlight,
@@ -210,6 +225,7 @@ impl Notifications {
                                 user.nickname()
                             ),
                             message,
+                            sound.as_deref(),
                         );
                     } else {
                         self.execute(
@@ -220,6 +236,7 @@ impl Notifications {
                                 user.nickname()
                             ),
                             &server.name,
+                            sound.as_deref(),
                         );
                     }
                 }
@@ -243,6 +260,7 @@ impl Notifications {
                                 user.nickname()
                             ),
                             message,
+                            None,
                         );
                     } else {
                         self.execute(
@@ -253,6 +271,7 @@ impl Notifications {
                                 user.nickname()
                             ),
                             &server.name,
+                            None,
                         );
                     }
                 }
@@ -266,6 +285,7 @@ impl Notifications {
         notification: &Notification,
         title: &str,
         body: &str,
+        sound_name: Option<&str>,
     ) {
         let now = Utc::now();
         let delay_key = notification.into();
@@ -283,8 +303,12 @@ impl Notifications {
             toast::show(title, body);
         }
 
-        if let Some(sound_name) = &config.sound
-            && let Some(sound) = self.sounds.get(sound_name)
+        if let Some(sound) = sound_name
+            .and_then(|sound_name| self.sounds.get(sound_name))
+            .or(config
+                .sound
+                .as_ref()
+                .and_then(|sound_name| self.sounds.get(sound_name)))
         {
             audio::play(sound.clone());
         }

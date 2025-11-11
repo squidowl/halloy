@@ -16,6 +16,7 @@ pub enum Notification {
         channel: Channel,
         message: String,
         description: String,
+        sound: Option<String>,
     },
     FileTransferRequest {
         nick: Nick,

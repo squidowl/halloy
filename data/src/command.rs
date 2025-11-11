@@ -94,7 +94,8 @@ impl Irc {
                                 None,
                                 &config.highlights,
                                 casemapping,
-                            ),
+                            )
+                            .0,
                             supports_echoes.then_some(Irc::Msg(
                                 target.to_string(),
                                 text.clone(),
@@ -119,7 +120,8 @@ impl Irc {
                                 None,
                                 &config.highlights,
                                 casemapping,
-                            ),
+                            )
+                            .0,
                             supports_echoes.then_some(Irc::Notice(
                                 target.to_string(),
                                 text.clone(),
@@ -138,7 +140,8 @@ impl Irc {
                     None,
                     &config.highlights,
                     casemapping,
-                ),
+                )
+                .0,
                 supports_echoes.then_some(self.clone()),
             )]),
             _ => None,
