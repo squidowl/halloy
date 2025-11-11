@@ -386,7 +386,7 @@ impl Sidebar {
         let content = |width| {
             let user_menu_button = config.sidebar.show_user_menu.then(|| {
                 self.user_menu_button(
-                    &config,
+                    config,
                     history,
                     file_transfers,
                     version,
