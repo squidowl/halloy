@@ -92,3 +92,4 @@
   - [Base16](configuration/themes/base16.md)
   - [Community](configuration/themes/community.md)
 - [Tooltips](configuration/tooltips.md)
+- [Version](configuration/version.md)
