@@ -295,6 +295,8 @@ impl Halloy {
 
         let default_config = Config::default();
         let config = config_load.as_ref().unwrap_or(&default_config);
+        let show_new_version_indicator =
+            config.version.show_new_version_indicator;
 
         let (main_window, open_main_window) = window::open(window::Settings {
             size,
@@ -306,15 +308,19 @@ impl Halloy {
 
         let (mut halloy, command) =
             Halloy::load_from_state(main_window, config_load, current_mode);
-        let latest_remote_version =
-            Task::perform(version::latest_remote_version(), Message::Version);
 
         let mut commands = vec![
             open_main_window.then(|_| Task::none()),
             command,
-            latest_remote_version,
             Task::stream(log_stream).map(Message::Logging),
         ];
+
+        if show_new_version_indicator {
+            commands.push(Task::perform(
+                version::latest_remote_version(),
+                Message::Version,
+            ));
+        }
 
         if let Some(url) = url_received {
             commands.push(halloy.handle_url(url));
