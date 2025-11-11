@@ -205,22 +205,27 @@ impl Sidebar {
                              keybind: Option<&data::shortcut::KeyBind>,
                              icon: Text<'a>,
                              message: Message| {
+                                let keybind = keybind.and_then(|kb| match kb {
+                                    data::shortcut::KeyBind::Set { .. } => {
+                                        Some(
+                                            text(format!("({kb})"))
+                                                .shaping(text::Shaping::Advanced)
+                                                .size(theme::TEXT_SIZE - 2.0)
+                                                .style(theme::text::secondary)
+                                                .font_maybe(
+                                                    theme::font_style::secondary(theme)
+                                                        .map(font::get),
+                                                ),
+                                        )
+                                    }
+                                    data::shortcut::KeyBind::NotSet => None,
+                                });
+
                                 button(
                                     row![
                                         icon.width(Length::Fixed(12.0)),
                                         title,
-                                        keybind.map(|kb| {
-                                            text(format!("({kb})"))
-                                            .shaping(text::Shaping::Advanced)
-                                            .size(theme::TEXT_SIZE - 2.0)
-                                            .style(theme::text::secondary)
-                                            .font_maybe(
-                                                theme::font_style::secondary(
-                                                    theme,
-                                                )
-                                                .map(font::get),
-                                            )
-                                        }),
+                                        keybind
                                     ]
                                     .spacing(8)
                                     .align_y(iced::Alignment::Center),
@@ -234,7 +239,7 @@ impl Sidebar {
                         match menu {
                             Menu::QuitApplication => context_button(
                                 text("Quit Halloy"),
-                                keyboard.quit_application.as_ref(),
+                                Some(&keyboard.quit_application),
                                 icon::quit(),
                                 Message::QuitApplication,
                             ),

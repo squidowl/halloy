@@ -15,7 +15,11 @@ move_up = "alt+k"
 move_down = "alt+j"
 move_left = "alt+h"
 move_right = "alt+l"
+command_bar = "noop" # <- use noop, none or unset to disable key bind.
+quit_application = "ctrl+q"
 ```
+
+Note you can disable a key bind by setting it to `"noop"`, `"none"` or `"unset"`.
 
 ## Types
 
