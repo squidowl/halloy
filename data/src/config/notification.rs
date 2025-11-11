@@ -61,7 +61,10 @@ pub struct Notifications {
 }
 
 impl Notifications {
-    pub fn load_sounds(&self) -> HashMap<String, Sound> {
+    pub fn load_sounds<'a>(
+        &self,
+        highlight_matches_sounds: impl Iterator<Item = &'a str>,
+    ) -> HashMap<String, Sound> {
         let mut sounds = HashMap::new();
 
         // Helper function to load a sound and add it to the map
@@ -107,6 +110,9 @@ impl Notifications {
             if let Some(sound_name) = notification.sound.as_deref() {
                 load_and_insert(sound_name);
             }
+        }
+        for sound_name in highlight_matches_sounds {
+            load_and_insert(sound_name);
         }
 
         sounds
