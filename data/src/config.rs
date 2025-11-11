@@ -69,6 +69,18 @@ pub struct Config {
     pub ctcp: Ctcp,
     pub logs: Logs,
     pub platform_specific: PlatformSpecific,
+    pub version: Version,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct Version {
+    pub show_new_version_indicator: bool,
+}
+
+impl Default for Version {
+    fn default() -> Self {
+        Self { show_new_version_indicator: true }
+    }
 }
 
 #[derive(Debug, Clone, Copy, Deserialize)]
@@ -317,6 +329,7 @@ impl Config {
             pub ctcp: Ctcp,
             pub logs: Logs,
             pub platform_specific: PlatformSpecific,
+            pub version: Version,
         }
 
         impl Default for Configuration {
@@ -340,6 +353,7 @@ impl Config {
                     ctcp: Ctcp::default(),
                     logs: Logs::default(),
                     platform_specific: PlatformSpecific::default(),
+                    version: Version::default(),
                 }
             }
         }
@@ -373,6 +387,7 @@ impl Config {
             ctcp,
             logs,
             platform_specific,
+            version,
         } = serde_ignored::deserialize(config, |ignored| {
             log::warn!("[config.toml] Ignoring unknown setting: {ignored}");
         })
@@ -403,6 +418,7 @@ impl Config {
             ctcp,
             logs,
             platform_specific,
+            version,
         })
     }
 
