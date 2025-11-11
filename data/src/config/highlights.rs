@@ -39,6 +39,7 @@ pub struct Match {
     pub regex: Regex,
     pub exclude: Vec<String>,
     pub include: Vec<String>,
+    pub sound: Option<String>,
 }
 
 impl<'de> Deserialize<'de> for Match {
@@ -57,6 +58,8 @@ impl<'de> Deserialize<'de> for Match {
                 include: Vec<String>,
                 #[serde(default)]
                 case_insensitive: bool,
+                #[serde(default)]
+                sound: Option<String>,
             },
             Regex {
                 regex: String,
@@ -64,6 +67,8 @@ impl<'de> Deserialize<'de> for Match {
                 exclude: Vec<String>,
                 #[serde(default)]
                 include: Vec<String>,
+                #[serde(default)]
+                sound: Option<String>,
             },
         }
 
@@ -73,6 +78,7 @@ impl<'de> Deserialize<'de> for Match {
                 exclude,
                 include,
                 case_insensitive,
+                sound,
             } => {
                 let words =
                     words.iter().map(|s| fancy_regex::escape(s)).join("|");
@@ -92,12 +98,14 @@ impl<'de> Deserialize<'de> for Match {
                     regex,
                     exclude,
                     include,
+                    sound,
                 })
             }
             Inner::Regex {
                 regex,
                 exclude,
                 include,
+                sound,
             } => {
                 let regex =
                     RegexBuilder::new(&regex).build().map_err(|err| {
@@ -110,6 +118,7 @@ impl<'de> Deserialize<'de> for Match {
                     regex,
                     exclude,
                     include,
+                    sound,
                 })
             }
         }

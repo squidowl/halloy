@@ -692,18 +692,23 @@ impl Halloy {
                                         our_nick,
                                         notification_enabled,
                                     ) => {
-                                        if let Some(mut message) = data::Message::received(
-                                            encoded,
-                                            our_nick,
-                                            &self.config,
-                                            resolve_user_attributes,
-                                            channel_users,
-                                            chantypes,
-                                            statusmsg,
-                                            casemapping,
-                                            prefix,
-                                        ) {
-                                            if let Some(kind) = history::Kind::from_server_message(server.clone(), &message) {
+                                        if let Some((mut message, highlight)) =
+                                            data::Message::received_with_highlight(
+                                                encoded,
+                                                our_nick,
+                                                &self.config,
+                                                resolve_user_attributes,
+                                                channel_users,
+                                                &server,
+                                                chantypes,
+                                                statusmsg,
+                                                casemapping,
+                                                prefix,
+                                            )
+                                        {
+                                            if let Some(kind) =
+                                                history::Kind::from_server_message(server.clone(), &message)
+                                            {
                                                 dashboard.block_message(
                                                     &mut message,
                                                     &kind,
@@ -712,24 +717,44 @@ impl Halloy {
                                                 );
                                             }
 
-                                            if let Some((message, channel, user, description)) =
-                                                message.into_highlight(server.clone())
+                                            if let Some(message::Highlight {
+                                                kind: highlight_kind,
+                                                channel: highlight_channel,
+                                                user: highlight_user,
+                                                message: mut highlight_message,
+                                            }) = highlight
                                             {
-                                                if !message.blocked && notification_enabled {
+                                                highlight_message.blocked = message.blocked;
+
+                                                if !highlight_message.blocked && notification_enabled {
+                                                    let (description, sound) = match highlight_kind {
+                                                        message::HighlightKind::Nick => {
+                                                            ("highlighted you".to_string(), None)
+                                                        }
+                                                        message::HighlightKind::Match {
+                                                            matching,
+                                                            sound,
+                                                        } => (
+                                                            format!("matched highlight {matching}"),
+                                                            sound,
+                                                        ),
+                                                    };
+
                                                     self.notifications.notify(
                                                         &self.config.notifications,
                                                         &Notification::Highlight {
-                                                            user,
-                                                            channel,
-                                                            message: message.text(),
+                                                            user: highlight_user,
+                                                            channel: highlight_channel,
+                                                            message: highlight_message.text(),
                                                             description,
+                                                            sound,
                                                         },
                                                         &server,
                                                     );
                                                 }
 
                                                 let task = dashboard.record_highlight(
-                                                    message,
+                                                    highlight_message,
                                                 );
                                                 commands.push(task.map(Message::Dashboard));
                                             } else if !message.blocked
