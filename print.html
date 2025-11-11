@@ -689,6 +689,13 @@ nick_password_file = "~/.config/halloy/password"
 server = "irc.libera.chat"
 channels = ["#halloy"]
 </code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="unix-signals"><a class="header" href="#unix-signals">Unix Signals</a></h1>
+<p>Halloy supports Unix signals to control the application without restarting it.</p>
+<h2 id="sigusr1"><a class="header" href="#sigusr1">SIGUSR1</a></h2>
+<p>When Halloy receives a <code>SIGUSR1</code> the application will reload the configuration file.</p>
+<h3 id="example"><a class="header" href="#example">Example</a></h3>
+<pre><code class="language-bash">pkill -u "$USER" --signal=SIGUSR1 ^halloy$
+</code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="text-formatting"><a class="header" href="#text-formatting">Text Formatting</a></h1>
 <p>Text can be formatted in Halloy by using the <code>/format</code> (or <code>/f</code>) command.</p>
 <h2 id="attributes"><a class="header" href="#attributes">Attributes</a></h2>
@@ -816,7 +823,7 @@ A list of community created themes can be found <a href="guides/../configuration
 </ul>
 </li>
 </ul>
-<h2 id="example"><a class="header" href="#example">Example</a></h2>
+<h2 id="example-1"><a class="header" href="#example-1">Example</a></h2>
 <pre><code class="language-toml"># Replace pane when clicking on channel/user names in a pane,
 
 [actions.buffer]
@@ -893,7 +900,7 @@ message_user = "replace-pane"
 </ul>
 </li>
 </ul>
-<h2 id="example-1"><a class="header" href="#example-1">Example</a></h2>
+<h2 id="example-2"><a class="header" href="#example-2">Example</a></h2>
 <pre><code class="language-toml"># Open a new pane when clicking on a buffer in the sidebar
 # (or close the buffer if it's already open)
 
@@ -1357,7 +1364,7 @@ show = true
 </ul>
 </li>
 </ul>
-<h2 id="example-2"><a class="header" href="#example-2">Example</a></h2>
+<h2 id="example-3"><a class="header" href="#example-3">Example</a></h2>
 <pre><code class="language-toml">[buffer.emojis]
 show_picker = true
 skin_tone = "default"
@@ -1671,7 +1678,7 @@ truncate = 10
 </ul>
 </li>
 </ul>
-<h2 id="example-3"><a class="header" href="#example-3">Example</a></h2>
+<h2 id="example-4"><a class="header" href="#example-4">Example</a></h2>
 <pre><code class="language-toml"># Hide all join messages except for #halloy channel:
 
 [buffer.server_messages.join]
@@ -2054,7 +2061,7 @@ prompt_before_open = true
 </ul>
 </li>
 </ul>
-<h2 id="example-4"><a class="header" href="#example-4">Example</a></h2>
+<h2 id="example-5"><a class="header" href="#example-5">Example</a></h2>
 <pre><code class="language-sh">/me says halloy!
 </code></pre>
 <h2 id="types-1"><a class="header" href="#types-1">Types</a></h2>
@@ -2129,7 +2136,7 @@ The argument(s) for a command are shown in <a href="configuration/tooltips.html"
 </ul>
 </li>
 </ul>
-<h2 id="example-5"><a class="header" href="#example-5">Example</a></h2>
+<h2 id="example-6"><a class="header" href="#example-6">Example</a></h2>
 <pre><code class="language-toml"># Disable responses for TIME and VERSION responses
 
 [ctcp]
@@ -2437,7 +2444,7 @@ bold-weight = "semibold"
 </ul>
 </li>
 </ul>
-<h2 id="example-6"><a class="header" href="#example-6">Example</a></h2>
+<h2 id="example-7"><a class="header" href="#example-7">Example</a></h2>
 <pre><code class="language-toml"># Highlight on 'boat' and 'car' in any channel.
 [[highlights.match]]
 words = ["boat", "car"]
@@ -2526,7 +2533,7 @@ include = ["#halloy"]
 </ul>
 </li>
 </ul>
-<h2 id="example-7"><a class="header" href="#example-7">Example</a></h2>
+<h2 id="example-8"><a class="header" href="#example-8">Example</a></h2>
 <pre><code class="language-toml"># Enable nickname highlights only in channel #halloy.
 [highlights.nickname]
 exclude = ["*"]
@@ -2575,7 +2582,7 @@ case_insensitive = false
 </ul>
 </li>
 </ul>
-<h2 id="example-8"><a class="header" href="#example-8">Example</a></h2>
+<h2 id="example-9"><a class="header" href="#example-9">Example</a></h2>
 <pre><code class="language-toml">[keyboard]
 move_up = "alt+k"
 move_down = "alt+j"
@@ -2680,7 +2687,7 @@ pane_level = "info"
 </ul>
 </li>
 </ul>
-<h2 id="example-9"><a class="header" href="#example-9">Example</a></h2>
+<h2 id="example-10"><a class="header" href="#example-10">Example</a></h2>
 <pre><code class="language-toml">[notifications]
 direct_message = { sound = "peck", show_toast = true }
 
@@ -3008,7 +3015,7 @@ enabled = true
 </ul>
 </li>
 </ul>
-<h2 id="example-10"><a class="header" href="#example-10">Example</a></h2>
+<h2 id="example-11"><a class="header" href="#example-11">Example</a></h2>
 <pre><code class="language-toml">[preview.card]
 exclude = ["*"] # hide card previews in all channels
 include = ["#halloy"] # show card previews in #halloy
@@ -3069,7 +3076,7 @@ exclude = []
 </ul>
 </li>
 </ul>
-<h2 id="example-11"><a class="header" href="#example-11">Example</a></h2>
+<h2 id="example-12"><a class="header" href="#example-12">Example</a></h2>
 <pre><code class="language-toml">[preview.image]
 exclude = ["*"] # hide image previews in all channels
 include = ["#halloy"] # show image previews in #halloy
@@ -3220,7 +3227,7 @@ delay_ms = 500
 </ul>
 </li>
 </ul>
-<h2 id="example-12"><a class="header" href="#example-12">Example</a></h2>
+<h2 id="example-13"><a class="header" href="#example-13">Example</a></h2>
 <pre><code class="language-toml">[proxy.http]
 host = "192.168.1.100"
 port = 1080
@@ -3289,7 +3296,7 @@ password = "password"
 </ul>
 </li>
 </ul>
-<h2 id="example-13"><a class="header" href="#example-13">Example</a></h2>
+<h2 id="example-14"><a class="header" href="#example-14">Example</a></h2>
 <pre><code class="language-toml">[proxy.socks5]
 host = "192.168.1.100"
 port = 1080
@@ -3354,7 +3361,7 @@ password = "password"
 </ul>
 </li>
 </ul>
-<h2 id="example-14"><a class="header" href="#example-14">Example</a></h2>
+<h2 id="example-15"><a class="header" href="#example-15">Example</a></h2>
 <pre><code class="language-toml">[proxy.tor]
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="scale-factor"><a class="header" href="#scale-factor">Scale Factor</a></h1>
@@ -3429,7 +3436,7 @@ scale_factor = 1.0
 </ul>
 </li>
 </ul>
-<h2 id="example-15"><a class="header" href="#example-15">Example</a></h2>
+<h2 id="example-16"><a class="header" href="#example-16">Example</a></h2>
 <pre><code class="language-toml"># with tls
 [servers.liberachat]
 server = "irc.libera.chat"
@@ -4075,7 +4082,7 @@ highlight_icon_size = 8
 </ul>
 </li>
 </ul>
-<h2 id="example-16"><a class="header" href="#example-16">Example</a></h2>
+<h2 id="example-17"><a class="header" href="#example-17">Example</a></h2>
 <pre><code class="language-toml"># Static single
 theme = "ferra"
 
@@ -4199,7 +4206,7 @@ repository.</p>
 <a href="https://github.com/4e554c4c/base16-halloy/releases/latest">latest release</a>
 and unpack it to the <code>themes</code> folder in the Halloy configuration directory. Then
 you can enable themes individually in <code>config.toml</code>.</p>
-<h2 id="example-17"><a class="header" href="#example-17">Example</a></h2>
+<h2 id="example-18"><a class="header" href="#example-18">Example</a></h2>
 <pre><code class="language-toml"># Static
 theme = "base16-gruvbox-dark-hard"
 </code></pre>
