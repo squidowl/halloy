@@ -645,6 +645,7 @@ impl Dashboard {
                                 if let Some(messages) = command.messages(
                                     user,
                                     channel_users,
+                                    buffer.server(),
                                     chantypes,
                                     statusmsg,
                                     casemapping,
@@ -1690,6 +1691,7 @@ impl Dashboard {
                             if let Some(messages) = input.messages(
                                 user,
                                 channel_users,
+                                &server,
                                 chantypes,
                                 statusmsg,
                                 casemapping,

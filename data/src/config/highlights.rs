@@ -4,6 +4,7 @@ use serde::{Deserialize, Deserializer};
 
 use crate::config::inclusivities::{Inclusivities, is_target_included};
 use crate::isupport;
+use crate::server::Server;
 use crate::target::Target;
 
 #[derive(Debug, Clone, Deserialize, Default)]
@@ -36,12 +37,14 @@ impl Nickname {
     pub fn is_target_included(
         &self,
         target: &Target,
+        server: &Server,
         casemapping: isupport::CaseMap,
     ) -> bool {
         is_target_included(
             self.include.as_ref(),
             self.exclude.as_ref(),
             target,
+            server,
             casemapping,
         )
     }
@@ -142,12 +145,14 @@ impl Match {
     pub fn is_target_included(
         &self,
         target: &Target,
+        server: &Server,
         casemapping: isupport::CaseMap,
     ) -> bool {
         is_target_included(
             self.include.as_ref(),
             self.exclude.as_ref(),
             target,
+            server,
             casemapping,
         )
     }
