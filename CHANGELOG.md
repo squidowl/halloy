@@ -22,6 +22,7 @@ Changed:
 - By default the backlog separator is hidden when all messages in a pane have been marked as read (`buffer.backlog_separator.hide_when_all_read`)
 - Buffer context menu items in sidebar are sorted alphabetically
 - Unicode nicknames are now supported
+- User menu configuration moved to `[sidebar.user_menu]` section
 
 Thanks:
 
