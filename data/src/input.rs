@@ -76,6 +76,7 @@ impl Input {
         &self,
         user: User,
         channel_users: Option<&ChannelUsers>,
+        server: &Server,
         chantypes: &[char],
         statusmsg: &[char],
         casemapping: isupport::CaseMap,
@@ -86,6 +87,7 @@ impl Input {
             command.messages(
                 user,
                 channel_users,
+                server,
                 chantypes,
                 statusmsg,
                 casemapping,

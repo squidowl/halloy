@@ -5,6 +5,7 @@ use serde::Deserialize;
 use crate::audio::Sound;
 use crate::config::inclusivities::{Inclusivities, is_user_included};
 use crate::isupport;
+use crate::server::Server;
 use crate::target::Channel;
 use crate::user::User;
 
@@ -37,6 +38,7 @@ impl Notification {
         &self,
         user: &User,
         channel: Option<&Channel>,
+        server: &Server,
         casemapping: isupport::CaseMap,
     ) -> bool {
         is_user_included(
@@ -44,6 +46,7 @@ impl Notification {
             self.exclude.as_ref(),
             user,
             channel,
+            server,
             casemapping,
         )
     }

@@ -2,6 +2,7 @@ use irc::proto;
 use serde::{Deserialize, Deserializer};
 
 use crate::isupport;
+use crate::server::Server;
 use crate::target::{Channel, Query, Target};
 use crate::user::User;
 
@@ -9,22 +10,25 @@ pub fn is_target_included(
     include: Option<&Inclusivities>,
     exclude: Option<&Inclusivities>,
     target: &Target,
+    server: &Server,
     casemapping: isupport::CaseMap,
 ) -> bool {
-    let is_inclusive =
-        |inclusivities: Option<&Inclusivities>, target: &Target| -> bool {
-            inclusivities.is_some_and(|inclusivities| match target {
+    let is_inclusive = |inclusivities: Option<&Inclusivities>,
+                        target: &Target,
+                        server: &Server|
+     -> bool {
+        inclusivities.is_some_and(|inclusivities| match target {
                 Target::Channel(channel) => {
                     inclusivities.is_channel_inclusive(channel, casemapping)
                 }
                 Target::Query(query) => {
                     inclusivities.is_query_inclusive(query, casemapping)
                 }
-            })
-        };
+            } && inclusivities.is_server_inclusive(server))
+    };
 
-    let is_included = is_inclusive(include, target);
-    let is_excluded = is_inclusive(exclude, target);
+    let is_included = is_inclusive(include, target, server);
+    let is_excluded = is_inclusive(exclude, target, server);
 
     is_included || !is_excluded
 }
@@ -34,22 +38,25 @@ pub fn is_user_included(
     exclude: Option<&Inclusivities>,
     user: &User,
     channel: Option<&Channel>,
+    server: &Server,
     casemapping: isupport::CaseMap,
 ) -> bool {
     let is_inclusive = |inclusivities: Option<&Inclusivities>,
                         user: &User,
-                        channel: Option<&Channel>|
+                        channel: Option<&Channel>,
+                        server: &Server|
      -> bool {
         inclusivities.is_some_and(|inclusivities| {
             inclusivities.is_user_inclusive(user, casemapping)
                 && channel.is_none_or(|channel| {
                     inclusivities.is_channel_inclusive(channel, casemapping)
                 })
+                && inclusivities.is_server_inclusive(server)
         })
     };
 
-    let is_included = is_inclusive(include, user, channel);
-    let is_excluded = is_inclusive(exclude, user, channel);
+    let is_included = is_inclusive(include, user, channel, server);
+    let is_excluded = is_inclusive(exclude, user, channel, server);
 
     is_included || !is_excluded
 }
@@ -58,6 +65,7 @@ pub fn is_user_included(
 pub struct Inclusivities {
     pub users: Option<Inclusivity>,
     pub channels: Option<Inclusivity>,
+    pub servers: Option<Inclusivity>,
 }
 
 impl<'de> Deserialize<'de> for Inclusivities {
@@ -73,14 +81,22 @@ impl<'de> Deserialize<'de> for Inclusivities {
                 users: Option<Inclusivity>,
                 #[serde(default)]
                 channels: Option<Inclusivity>,
+                #[serde(default)]
+                servers: Option<Inclusivity>,
             },
             Legacy(Vec<String>),
         }
 
         match Format::deserialize(deserializer)? {
-            Format::Inclusivities { users, channels } => {
-                Ok(Inclusivities { users, channels })
-            }
+            Format::Inclusivities {
+                users,
+                channels,
+                servers,
+            } => Ok(Inclusivities {
+                users,
+                channels,
+                servers,
+            }),
             Format::Legacy(strings) => Ok(Inclusivities::parse(strings)),
         }
     }
@@ -91,6 +107,7 @@ impl Inclusivities {
         Self {
             users: Some(Inclusivity::All),
             channels: Some(Inclusivity::All),
+            servers: Some(Inclusivity::All),
         }
     }
 
@@ -106,6 +123,7 @@ impl Inclusivities {
             users: (!users.is_empty()).then_some(Inclusivity::Any(users)),
             channels: (!channels.is_empty())
                 .then_some(Inclusivity::Any(channels)),
+            servers: Some(Inclusivity::All),
         }
     }
 
@@ -142,6 +160,19 @@ impl Inclusivities {
                     inclusivity_users.iter().any(|inclusivity_user| {
                         query.as_normalized_str()
                             == casemapping.normalize(inclusivity_user).as_str()
+                    })
+                }
+            })
+    }
+
+    pub fn is_server_inclusive(&self, server: &Server) -> bool {
+        self.servers
+            .as_ref()
+            .is_some_and(|inclusivity| match inclusivity {
+                Inclusivity::All => true,
+                Inclusivity::Any(inclusivity_servers) => {
+                    inclusivity_servers.iter().any(|inclusivity_server| {
+                        server.name.as_ref() == inclusivity_server.as_str()
                     })
                 }
             })
