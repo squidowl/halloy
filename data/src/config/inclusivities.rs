@@ -24,7 +24,7 @@ pub fn is_target_included(
                 Target::Query(query) => {
                     inclusivities.is_query_inclusive(query, casemapping)
                 }
-            } && inclusivities.is_server_inclusive(server))
+            } || inclusivities.is_server_inclusive(server))
     };
 
     let is_included = is_inclusive(include, target, server);
@@ -33,7 +33,7 @@ pub fn is_target_included(
     is_included || !is_excluded
 }
 
-pub fn is_user_included(
+pub fn is_user_channel_server_included(
     include: Option<&Inclusivities>,
     exclude: Option<&Inclusivities>,
     user: &User,
@@ -48,10 +48,10 @@ pub fn is_user_included(
      -> bool {
         inclusivities.is_some_and(|inclusivities| {
             inclusivities.is_user_inclusive(user, casemapping)
-                && channel.is_none_or(|channel| {
+                || channel.is_none_or(|channel| {
                     inclusivities.is_channel_inclusive(channel, casemapping)
                 })
-                && inclusivities.is_server_inclusive(server)
+                || inclusivities.is_server_inclusive(server)
         })
     };
 

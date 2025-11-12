@@ -3,7 +3,9 @@ use std::collections::HashMap;
 use serde::Deserialize;
 
 use crate::audio::Sound;
-use crate::config::inclusivities::{Inclusivities, is_user_included};
+use crate::config::inclusivities::{
+    Inclusivities, is_user_channel_server_included,
+};
 use crate::isupport;
 use crate::server::Server;
 use crate::target::Channel;
@@ -41,7 +43,7 @@ impl Notification {
         server: &Server,
         casemapping: isupport::CaseMap,
     ) -> bool {
-        is_user_included(
+        is_user_channel_server_included(
             self.include.as_ref(),
             self.exclude.as_ref(),
             user,
