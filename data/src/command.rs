@@ -65,16 +65,23 @@ impl Irc {
         supports_echoes: bool,
         config: &Config,
     ) -> Option<Vec<Message>> {
-        let to_target = |target: &str, source| match Target::parse(
-            target,
-            chantypes,
-            statusmsg,
-            casemapping,
-        ) {
-            Target::Channel(channel) => {
-                message::Target::Channel { channel, source }
-            }
-            Target::Query(query) => message::Target::Query { query, source },
+        let to_targets = |target: &str, source| {
+            let target =
+                Target::parse(target, chantypes, statusmsg, casemapping);
+
+            let message_target = match &target {
+                Target::Channel(channel) => message::Target::Channel {
+                    channel: channel.clone(),
+                    source,
+                },
+
+                Target::Query(query) => message::Target::Query {
+                    query: query.clone(),
+                    source,
+                },
+            };
+
+            (target, message_target)
         };
 
         match self {
@@ -82,15 +89,17 @@ impl Irc {
                 targets
                     .split(',')
                     .map(|target| {
+                        let (target, message_target) = to_targets(
+                            target,
+                            message::Source::User(user.clone()),
+                        );
+
                         Message::sent(
-                            to_target(
-                                target,
-                                message::Source::User(user.clone()),
-                            ),
+                            message_target,
                             message::parse_fragments_with_highlights(
                                 text.clone(),
                                 channel_users,
-                                target,
+                                &target,
                                 None,
                                 &config.highlights,
                                 casemapping,
@@ -108,15 +117,17 @@ impl Irc {
                 targets
                     .split(',')
                     .map(|target| {
+                        let (target, message_target) = to_targets(
+                            target,
+                            message::Source::User(user.clone()),
+                        );
+
                         Message::sent(
-                            to_target(
-                                target,
-                                message::Source::User(user.clone()),
-                            ),
+                            message_target,
                             message::parse_fragments_with_highlights(
                                 text.clone(),
                                 channel_users,
-                                target,
+                                &target,
                                 None,
                                 &config.highlights,
                                 casemapping,
@@ -130,20 +141,27 @@ impl Irc {
                     })
                     .collect(),
             ),
-            Irc::Me(target, action) => Some(vec![Message::sent(
-                to_target(target, message::Source::Action(Some(user.clone()))),
-                message::action_text(
-                    user.nickname(),
-                    Some(action),
-                    channel_users,
+            Irc::Me(target, action) => {
+                let (target, message_target) = to_targets(
                     target,
-                    None,
-                    &config.highlights,
-                    casemapping,
-                )
-                .0,
-                supports_echoes.then_some(self.clone()),
-            )]),
+                    message::Source::Action(Some(user.clone())),
+                );
+
+                Some(vec![Message::sent(
+                    message_target,
+                    message::action_text(
+                        user.nickname(),
+                        Some(action),
+                        channel_users,
+                        &target,
+                        None,
+                        &config.highlights,
+                        casemapping,
+                    )
+                    .0,
+                    supports_echoes.then_some(self.clone()),
+                )])
+            }
             _ => None,
         }
     }
