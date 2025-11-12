@@ -3,6 +3,9 @@ use std::collections::HashMap;
 use serde::Deserialize;
 
 use crate::audio::Sound;
+use crate::config::inclusivities::{Inclusivities, is_user_included};
+use crate::target::Channel;
+use crate::user::User;
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
@@ -11,8 +14,8 @@ pub struct Notification {
     pub show_content: bool,
     pub sound: Option<String>,
     pub delay: Option<u32>,
-    pub exclude: Vec<String>,
-    pub include: Vec<String>,
+    pub exclude: Option<Inclusivities>,
+    pub include: Option<Inclusivities>,
 }
 
 impl Default for Notification {
@@ -22,26 +25,24 @@ impl Default for Notification {
             show_content: false,
             sound: None,
             delay: Some(500),
-            exclude: Vec::default(),
-            include: Vec::default(),
+            exclude: None,
+            include: None,
         }
     }
 }
 
 impl Notification {
-    pub fn should_notify(&self, targets: Vec<String>) -> bool {
-        let is_target_filtered =
-            |list: &Vec<String>, targets: &Vec<String>| -> bool {
-                let wildcards = ["*", "all"];
-
-                list.iter().any(|item| {
-                    wildcards.contains(&item.as_str()) || targets.contains(item)
-                })
-            };
-        let target_included = is_target_filtered(&self.include, &targets);
-        let target_excluded = is_target_filtered(&self.exclude, &targets);
-
-        target_included || !target_excluded
+    pub fn should_notify(
+        &self,
+        user: &User,
+        channel: Option<&Channel>,
+    ) -> bool {
+        is_user_included(
+            self.include.as_ref(),
+            self.exclude.as_ref(),
+            user,
+            channel,
+        )
     }
 }
 

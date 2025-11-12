@@ -145,7 +145,7 @@ impl Notifications {
             Notification::FileTransferRequest { nick, filename } => {
                 if config
                     .file_transfer_request
-                    .should_notify(vec![nick.to_string()])
+                    .should_notify(&User::from(nick.clone()), None)
                 {
                     let (title, body) = if config
                         .file_transfer_request
@@ -172,10 +172,7 @@ impl Notifications {
                 }
             }
             Notification::DirectMessage { user, message } => {
-                if config
-                    .direct_message
-                    .should_notify(vec![user.nickname().to_string()])
-                {
+                if config.direct_message.should_notify(user, None) {
                     let (title, body) = if config.direct_message.show_content {
                         (
                             &format!(
@@ -210,10 +207,7 @@ impl Notifications {
                 description,
                 sound,
             } => {
-                if config.highlight.should_notify(vec![
-                    channel.to_string(),
-                    user.nickname().to_string(),
-                ]) {
+                if config.highlight.should_notify(user, Some(channel)) {
                     // Description is expected to be expanded by the calling
                     // routine when show_content is true
                     if config.highlight.show_content {
@@ -248,8 +242,7 @@ impl Notifications {
             } => {
                 if let Some(notification_config) =
                     config.channels.get(channel.as_str())
-                    && notification_config
-                        .should_notify(vec![user.nickname().to_string()])
+                    && notification_config.should_notify(user, None)
                 {
                     if notification_config.show_content {
                         self.execute(

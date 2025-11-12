@@ -2,6 +2,9 @@ use fancy_regex::{Regex, RegexBuilder};
 use itertools::Itertools;
 use serde::{Deserialize, Deserializer};
 
+use crate::config::inclusivities::{Inclusivities, is_target_included};
+use crate::target::Target;
+
 #[derive(Debug, Clone, Deserialize, Default)]
 #[serde(default)]
 pub struct Highlights {
@@ -13,32 +16,32 @@ pub struct Highlights {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
 pub struct Nickname {
-    pub exclude: Vec<String>,
-    pub include: Vec<String>,
+    pub exclude: Option<Inclusivities>,
+    pub include: Option<Inclusivities>,
     pub case_insensitive: bool,
 }
 
 impl Default for Nickname {
     fn default() -> Self {
         Self {
-            exclude: Vec::default(),
-            include: Vec::default(),
+            exclude: None,
+            include: None,
             case_insensitive: true,
         }
     }
 }
 
 impl Nickname {
-    pub fn is_target_included(&self, target: &str) -> bool {
-        is_target_included(&self.include, &self.exclude, target)
+    pub fn is_target_included(&self, target: &Target) -> bool {
+        is_target_included(self.include.as_ref(), self.exclude.as_ref(), target)
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct Match {
     pub regex: Regex,
-    pub exclude: Vec<String>,
-    pub include: Vec<String>,
+    pub exclude: Option<Inclusivities>,
+    pub include: Option<Inclusivities>,
     pub sound: Option<String>,
 }
 
@@ -53,9 +56,9 @@ impl<'de> Deserialize<'de> for Match {
             Words {
                 words: Vec<String>,
                 #[serde(default)]
-                exclude: Vec<String>,
+                exclude: Option<Inclusivities>,
                 #[serde(default)]
-                include: Vec<String>,
+                include: Option<Inclusivities>,
                 #[serde(default)]
                 case_insensitive: bool,
                 #[serde(default)]
@@ -64,9 +67,9 @@ impl<'de> Deserialize<'de> for Match {
             Regex {
                 regex: String,
                 #[serde(default)]
-                exclude: Vec<String>,
+                exclude: Option<Inclusivities>,
                 #[serde(default)]
-                include: Vec<String>,
+                include: Option<Inclusivities>,
                 #[serde(default)]
                 sound: Option<String>,
             },
@@ -126,24 +129,7 @@ impl<'de> Deserialize<'de> for Match {
 }
 
 impl Match {
-    pub fn is_target_included(&self, target: &str) -> bool {
-        is_target_included(&self.include, &self.exclude, target)
+    pub fn is_target_included(&self, target: &Target) -> bool {
+        is_target_included(self.include.as_ref(), self.exclude.as_ref(), target)
     }
-}
-
-fn is_target_included(
-    include: &[String],
-    exclude: &[String],
-    target: &str,
-) -> bool {
-    let is_channel_filtered = |list: &[String], target: &str| -> bool {
-        let wildcards = ["*", "all"];
-        list.iter()
-            .any(|item| wildcards.contains(&item.as_str()) || item == target)
-    };
-
-    let channel_included = is_channel_filtered(include, target);
-    let channel_excluded = is_channel_filtered(exclude, target);
-
-    channel_included || !channel_excluded
 }
