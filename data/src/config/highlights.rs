@@ -3,6 +3,7 @@ use itertools::Itertools;
 use serde::{Deserialize, Deserializer};
 
 use crate::config::inclusivities::{Inclusivities, is_target_included};
+use crate::isupport;
 use crate::target::Target;
 
 #[derive(Debug, Clone, Deserialize, Default)]
@@ -32,8 +33,17 @@ impl Default for Nickname {
 }
 
 impl Nickname {
-    pub fn is_target_included(&self, target: &Target) -> bool {
-        is_target_included(self.include.as_ref(), self.exclude.as_ref(), target)
+    pub fn is_target_included(
+        &self,
+        target: &Target,
+        casemapping: isupport::CaseMap,
+    ) -> bool {
+        is_target_included(
+            self.include.as_ref(),
+            self.exclude.as_ref(),
+            target,
+            casemapping,
+        )
     }
 }
 
@@ -129,7 +139,16 @@ impl<'de> Deserialize<'de> for Match {
 }
 
 impl Match {
-    pub fn is_target_included(&self, target: &Target) -> bool {
-        is_target_included(self.include.as_ref(), self.exclude.as_ref(), target)
+    pub fn is_target_included(
+        &self,
+        target: &Target,
+        casemapping: isupport::CaseMap,
+    ) -> bool {
+        is_target_included(
+            self.include.as_ref(),
+            self.exclude.as_ref(),
+            target,
+            casemapping,
+        )
     }
 }

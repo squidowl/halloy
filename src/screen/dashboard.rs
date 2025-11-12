@@ -3033,6 +3033,7 @@ impl Dashboard {
     pub fn receive_file_transfer(
         &mut self,
         server: &Server,
+        casemapping: isupport::CaseMap,
         request: file_transfer::ReceiveRequest,
         config: &Config,
     ) -> Option<Task<Message>> {
@@ -3051,6 +3052,7 @@ impl Dashboard {
             &config.notifications,
             &Notification::FileTransferRequest {
                 nick: request.from.nickname().to_owned(),
+                casemapping,
                 filename: match event {
                     file_transfer::manager::Event::NewTransfer(
                         ref transfer,
