@@ -1267,7 +1267,7 @@ pub fn plain(text: String) -> Content {
 pub fn parse_fragments_with_highlights(
     text: String,
     channel_users: Option<&ChannelUsers>,
-    target: &str,
+    target: &target::Target,
     our_nick: Option<&Nick>,
     highlights: &Highlights,
     casemapping: isupport::CaseMap,
@@ -2176,14 +2176,14 @@ fn content<'a>(
             }
         }
         Command::PRIVMSG(target, text) | Command::NOTICE(target, text) => {
-            let channel_users = target::Channel::parse(
+            let target = target::Target::parse(
                 target,
                 chantypes,
                 statusmsg,
                 casemapping,
-            )
-            .ok()
-            .and_then(|channel| channel_users(&channel));
+            );
+
+            let channel_users = target.as_channel().and_then(channel_users);
 
             // Check if a synthetic action message
 
@@ -2193,7 +2193,7 @@ fn content<'a>(
                     nick,
                     text,
                     channel_users,
-                    target,
+                    &target,
                     Some(our_nick),
                     &config.highlights,
                     casemapping,
@@ -2203,7 +2203,7 @@ fn content<'a>(
             }
 
             if let Some(query) = ctcp::parse_query(text) {
-                let arrow = if casemapping.normalize(target)
+                let arrow = if target.as_normalized_str()
                     == our_nick.as_normalized_str()
                 {
                     "⟵"
@@ -2225,7 +2225,7 @@ fn content<'a>(
             Some(parse_fragments_with_highlights(
                 text.clone(),
                 channel_users,
-                target,
+                &target,
                 Some(our_nick),
                 &config.highlights,
                 casemapping,
@@ -2632,7 +2632,7 @@ fn parse_action(
     nick: NickRef,
     text: &str,
     channel_users: Option<&ChannelUsers>,
-    target: &str,
+    target: &target::Target,
     our_nick: Option<&Nick>,
     highlights: &Highlights,
     casemapping: isupport::CaseMap,
@@ -2658,7 +2658,7 @@ pub fn action_text(
     nick: NickRef,
     action: Option<&str>,
     channel_users: Option<&ChannelUsers>,
-    target: &str,
+    target: &target::Target,
     our_nick: Option<&Nick>,
     highlights: &Highlights,
     casemapping: isupport::CaseMap,
@@ -2818,6 +2818,8 @@ pub mod tests {
     use crate::config::Highlights;
     #[allow(unused_imports)]
     use crate::config::highlights::Nickname;
+    #[allow(unused_imports)]
+    use crate::config::inclusivities::Inclusivities;
     #[allow(unused_imports)]
     use crate::message::formatting::Color;
     #[allow(unused_imports)]
@@ -3018,7 +3020,13 @@ pub mod tests {
 
     #[test]
     fn fragments_with_highlights_parsing() {
-        let casemapping = isupport::CaseMap::default();
+        use std::collections::HashMap;
+
+        let isupport = HashMap::<isupport::Kind, isupport::Parameter>::new();
+
+        let chantypes = isupport::get_chantypes_or_default(&isupport);
+        let statusmsg = isupport::get_statusmsg_or_default(&isupport);
+        let casemapping = isupport::get_casemapping_or_default(&isupport);
 
         let tests = [
             (
@@ -3031,10 +3039,10 @@ pub mod tests {
                         "George_",
                         "`Bill`",
                     ].into_iter().map(|nick| User::from(Nick::from_str(nick, casemapping))).collect::<ChannelUsers>(),
-                    "#interesting",
+                    target::Target::parse("#interesting", chantypes, statusmsg, casemapping),
                     Some(Nick::from_str("Bob", casemapping)),
                     &Highlights {
-                        nickname: Nickname {exclude: vec![], include: vec!["#interesting".into()], case_insensitive: true},
+                        nickname: Nickname {exclude: None, include: Some(Inclusivities::parse(vec!["#interesting".into()])), case_insensitive: true},
                         matches: vec![],
                     },
                 ),
@@ -3063,10 +3071,10 @@ pub mod tests {
                         "George_",
                         "`Bill`",
                     ].into_iter().map(|nick| User::from(Nick::from_str(nick, casemapping))).collect::<ChannelUsers>(),
-                    "#interesting",
+                    target::Target::parse("#interesting", chantypes, statusmsg, casemapping),
                     Some(Nick::from_str("Bob", casemapping)),
                     &Highlights {
-                        nickname: Nickname {exclude: vec![], include: vec![], case_insensitive: false},
+                        nickname: Nickname {exclude: None, include: None, case_insensitive: false},
                         matches: vec![],
                     },
                 ),
@@ -3083,10 +3091,10 @@ pub mod tests {
                         "f_",
                         "rx",
                     ].into_iter().map(|nick| User::from(Nick::from_str(nick, casemapping))).collect::<ChannelUsers>(),
-                    "#funderscore-sucks",
+                    target::Target::parse("#funderscore-helped", chantypes, statusmsg, casemapping),
                     Some(Nick::from_str("f_", casemapping)),
                     &Highlights {
-                        nickname: Nickname {exclude: vec![], include: vec!["*".into()], case_insensitive: true},
+                        nickname: Nickname {exclude: None, include: Some(Inclusivities::all()), case_insensitive: true},
                         matches: vec![],
                     },
                 ),
@@ -3104,7 +3112,7 @@ pub mod tests {
                 parse_fragments_with_highlights(
                     text,
                     Some(&channel_users),
-                    target,
+                    &target,
                     our_nick.as_ref(),
                     highlights,
                     casemapping,
@@ -3140,7 +3148,6 @@ pub mod tests {
 
         use crate::config::Config;
         use crate::message::Encoded;
-        use crate::{isupport, target};
 
         let isupport = HashMap::<isupport::Kind, isupport::Parameter>::new();
 
