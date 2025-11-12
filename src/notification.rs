@@ -142,11 +142,16 @@ impl Notifications {
                     None,
                 );
             }
-            Notification::FileTransferRequest { nick, filename } => {
-                if config
-                    .file_transfer_request
-                    .should_notify(&User::from(nick.clone()), None)
-                {
+            Notification::FileTransferRequest {
+                nick,
+                casemapping,
+                filename,
+            } => {
+                if config.file_transfer_request.should_notify(
+                    &User::from(nick.clone()),
+                    None,
+                    *casemapping,
+                ) {
                     let (title, body) = if config
                         .file_transfer_request
                         .show_content
@@ -171,8 +176,15 @@ impl Notifications {
                     );
                 }
             }
-            Notification::DirectMessage { user, message } => {
-                if config.direct_message.should_notify(user, None) {
+            Notification::DirectMessage {
+                user,
+                casemapping,
+                message,
+            } => {
+                if config
+                    .direct_message
+                    .should_notify(user, None, *casemapping)
+                {
                     let (title, body) = if config.direct_message.show_content {
                         (
                             &format!(
@@ -203,11 +215,16 @@ impl Notifications {
             Notification::Highlight {
                 user,
                 channel,
+                casemapping,
                 message,
                 description,
                 sound,
             } => {
-                if config.highlight.should_notify(user, Some(channel)) {
+                if config.highlight.should_notify(
+                    user,
+                    Some(channel),
+                    *casemapping,
+                ) {
                     // Description is expected to be expanded by the calling
                     // routine when show_content is true
                     if config.highlight.show_content {
@@ -238,11 +255,16 @@ impl Notifications {
             Notification::Channel {
                 user,
                 channel,
+                casemapping,
                 message,
             } => {
                 if let Some(notification_config) =
                     config.channels.get(channel.as_str())
-                    && notification_config.should_notify(user, None)
+                    && notification_config.should_notify(
+                        user,
+                        None,
+                        *casemapping,
+                    )
                 {
                     if notification_config.show_content {
                         self.execute(

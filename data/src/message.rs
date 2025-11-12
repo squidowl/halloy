@@ -1278,7 +1278,9 @@ pub fn parse_fragments_with_highlights(
         parse_fragments_with_users_inner(text, channel_users, casemapping)
             .map(|fragment| match fragment {
                 Fragment::User(user, raw)
-                    if highlights.nickname.is_target_included(target)
+                    if highlights
+                        .nickname
+                        .is_target_included(target, casemapping)
                         && ((our_nick
                             .is_some_and(|nick| user.nickname() == *nick)
                             && highlights.nickname.case_insensitive)
@@ -1297,7 +1299,8 @@ pub fn parse_fragments_with_highlights(
             .collect::<Vec<_>>();
 
     for (regex, sound) in highlights.matches.iter().filter_map(|m| {
-        m.is_target_included(target).then_some((&m.regex, &m.sound))
+        m.is_target_included(target, casemapping)
+            .then_some((&m.regex, &m.sound))
     }) {
         fragments = fragments
             .into_iter()

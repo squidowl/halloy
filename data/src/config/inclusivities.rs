@@ -1,6 +1,7 @@
 use irc::proto;
 use serde::{Deserialize, Deserializer};
 
+use crate::isupport;
 use crate::target::{Channel, Query, Target};
 use crate::user::User;
 
@@ -8,14 +9,17 @@ pub fn is_target_included(
     include: Option<&Inclusivities>,
     exclude: Option<&Inclusivities>,
     target: &Target,
+    casemapping: isupport::CaseMap,
 ) -> bool {
     let is_inclusive =
         |inclusivities: Option<&Inclusivities>, target: &Target| -> bool {
             inclusivities.is_some_and(|inclusivities| match target {
                 Target::Channel(channel) => {
-                    inclusivities.is_channel_inclusive(channel)
+                    inclusivities.is_channel_inclusive(channel, casemapping)
                 }
-                Target::Query(query) => inclusivities.is_query_inclusive(query),
+                Target::Query(query) => {
+                    inclusivities.is_query_inclusive(query, casemapping)
+                }
             })
         };
 
@@ -30,15 +34,16 @@ pub fn is_user_included(
     exclude: Option<&Inclusivities>,
     user: &User,
     channel: Option<&Channel>,
+    casemapping: isupport::CaseMap,
 ) -> bool {
     let is_inclusive = |inclusivities: Option<&Inclusivities>,
                         user: &User,
                         channel: Option<&Channel>|
      -> bool {
         inclusivities.is_some_and(|inclusivities| {
-            inclusivities.is_user_inclusive(user)
+            inclusivities.is_user_inclusive(user, casemapping)
                 && channel.is_none_or(|channel| {
-                    inclusivities.is_channel_inclusive(channel)
+                    inclusivities.is_channel_inclusive(channel, casemapping)
                 })
         })
     };
@@ -104,40 +109,57 @@ impl Inclusivities {
         }
     }
 
-    pub fn is_channel_inclusive(&self, channel: &Channel) -> bool {
+    pub fn is_channel_inclusive(
+        &self,
+        channel: &Channel,
+        casemapping: isupport::CaseMap,
+    ) -> bool {
         self.channels
             .as_ref()
             .is_some_and(|inclusivity| match inclusivity {
                 Inclusivity::All => true,
                 Inclusivity::Any(inclusivity_channels) => {
-                    inclusivity_channels.iter().any(|channel_inclusive| {
-                        channel.as_str() == channel_inclusive.as_str()
+                    inclusivity_channels.iter().any(|inclusivity_channel| {
+                        channel.as_normalized_str()
+                            == casemapping
+                                .normalize(inclusivity_channel)
+                                .as_str()
                     })
                 }
             })
     }
 
-    pub fn is_query_inclusive(&self, query: &Query) -> bool {
+    pub fn is_query_inclusive(
+        &self,
+        query: &Query,
+        casemapping: isupport::CaseMap,
+    ) -> bool {
         self.users
             .as_ref()
             .is_some_and(|inclusivity| match inclusivity {
                 Inclusivity::All => true,
                 Inclusivity::Any(inclusivity_users) => {
-                    inclusivity_users.iter().any(|user_inclusive| {
-                        query.as_str() == user_inclusive.as_str()
+                    inclusivity_users.iter().any(|inclusivity_user| {
+                        query.as_normalized_str()
+                            == casemapping.normalize(inclusivity_user).as_str()
                     })
                 }
             })
     }
 
-    pub fn is_user_inclusive(&self, user: &User) -> bool {
+    pub fn is_user_inclusive(
+        &self,
+        user: &User,
+        casemapping: isupport::CaseMap,
+    ) -> bool {
         self.users
             .as_ref()
             .is_some_and(|inclusivity| match inclusivity {
                 Inclusivity::All => true,
                 Inclusivity::Any(inclusivity_users) => {
-                    inclusivity_users.iter().any(|user_inclusive| {
-                        user.as_str() == user_inclusive.as_str()
+                    inclusivity_users.iter().any(|inclusivity_user| {
+                        user.as_normalized_str()
+                            == casemapping.normalize(inclusivity_user).as_str()
                     })
                 }
             })
