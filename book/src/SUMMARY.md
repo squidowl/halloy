@@ -88,6 +88,7 @@
 - [Sidebar](configuration/sidebar/README.md)
   - [Scrollbar](configuration/sidebar/scrollbar.md)
   - [Unread Indicator](configuration/sidebar/unread-indicator.md)
+  - [User Menu](configuration/sidebar/user-menu.md)
 - [Themes](configuration/themes/README.md)
   - [Base16](configuration/themes/base16.md)
   - [Community](configuration/themes/community.md)

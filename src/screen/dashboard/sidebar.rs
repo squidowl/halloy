@@ -164,21 +164,24 @@ impl Sidebar {
 
     fn user_menu_button<'a>(
         &self,
-        keyboard: &'a data::config::Keyboard,
+        config: &'a Config,
         history: &'a history::Manager,
         file_transfers: &'a file_transfer::Manager,
         version: &'a Version,
         theme: &'a Theme,
     ) -> Element<'a, Message> {
+        let keyboard = &config.keyboard;
         let base = button(icon::menu()).padding(5).width(Length::Shrink);
 
-        let menu = Menu::list(version.is_old());
+        let menu = Menu::list(config.sidebar.user_menu.show_new_version_indicator && version.is_old());
 
         let logs_has_unread = history.has_unread(&history::Kind::Logs);
 
-        // we show notification dot if theres a new version, or if theres transfers.
-        let show_notification_dot =
-            version.is_old() || !file_transfers.is_empty() || logs_has_unread;
+        // we show notification dot if theres a new version, if theres transfers, or if the logs have unread messages.
+        let show_notification_dot = (config.sidebar.user_menu.show_new_version_indicator
+            && version.is_old())
+            || !file_transfers.is_empty()
+            || logs_has_unread;
 
         if menu.is_empty() {
             base.into()
@@ -381,9 +384,9 @@ impl Sidebar {
         }
 
         let content = |width| {
-            let user_menu_button = config.sidebar.show_user_menu.then(|| {
+            let user_menu_button = config.sidebar.user_menu.enabled.then(|| {
                 self.user_menu_button(
-                    &config.keyboard,
+                    config,
                     history,
                     file_transfers,
                     version,

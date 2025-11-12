@@ -7,6 +7,7 @@ Added:
 - Context menu item added to server-wide buffers to close all queries
 - Messages that fail to send are dimmed and marked, and can be deleted or re-sent (for servers that support the `echo-message` capability)
 - Reload Halloy by sending `SIGUSR1` on Unix system
+- Ability to hide the indicator when a new version of Halloy is available 
 
 Fixed:
 
@@ -21,12 +22,13 @@ Changed:
 - By default the backlog separator is hidden when all messages in a pane have been marked as read (`buffer.backlog_separator.hide_when_all_read`)
 - Buffer context menu items in sidebar are sorted alphabetically
 - Unicode nicknames are now supported
+- User menu configuration moved to `[sidebar.user_menu]` section
 
 Thanks:
 
 - Contributions: @kasperkronborg, @mistivia
 - Bug reports: @Frikilinux, ThePendulum, @crabbedhaloablution, @findus
-- Feature requests: @cyrneko
+- Feature requests: @cyrneko, ilya
 
 # 2025.11 (2025-10-27)
 

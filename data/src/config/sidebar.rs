@@ -11,11 +11,23 @@ pub struct Sidebar {
     #[serde(deserialize_with = "deserialize_unread_indicator")]
     pub unread_indicator: UnreadIndicator,
     pub position: Position,
-    pub show_user_menu: bool,
     pub order_by: OrderBy,
     pub scrollbar: Scrollbar,
     #[serde(deserialize_with = "deserialize_positive_integer")]
     pub server_icon_size: u32,
+    pub user_menu: UserMenu,
+}
+#[derive(Debug, Copy, Clone, Deserialize)]
+#[serde(default)]
+pub struct UserMenu {
+    pub enabled: bool,
+    pub show_new_version_indicator: bool,
+}
+
+impl Default for UserMenu {
+    fn default() -> Self {
+        Self { enabled: true, show_new_version_indicator: true }
+    }
 }
 
 impl Default for Sidebar {
@@ -24,10 +36,10 @@ impl Default for Sidebar {
             max_width: None,
             unread_indicator: UnreadIndicator::default(),
             position: Position::default(),
-            show_user_menu: true,
             order_by: OrderBy::default(),
             scrollbar: Scrollbar::default(),
             server_icon_size: 12,
+            user_menu: UserMenu::default(),
         }
     }
 }
