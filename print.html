@@ -4066,6 +4066,40 @@ icon_size = 6
 [sidebar.unread_indicator]
 highlight_icon_size = 8
 </code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="user-menu"><a class="header" href="#user-menu">User Menu</a></h1>
+<p>User menu in sidebar settings.</p>
+<ul>
+<li><a href="configuration/sidebar/user-menu.html#user-menu">User Menu</a>
+<ul>
+<li><a href="configuration/sidebar/user-menu.html#configuration">Configuration</a>
+<ul>
+<li><a href="configuration/sidebar/user-menu.html#enabled">enabled</a></li>
+<li><a href="configuration/sidebar/user-menu.html#show_new_version_indicator">show_new_version_indicator</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<h2 id="configuration-53"><a class="header" href="#configuration-53">Configuration</a></h2>
+<h3 id="enabled-8"><a class="header" href="#enabled-8">enabled</a></h3>
+<p>Controls whether the user menu is shown in the sidebar or hidden</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: true
+
+[sidebar.user_menu]
+enabled = true
+</code></pre>
+<h3 id="show_new_version_indicator"><a class="header" href="#show_new_version_indicator">show_new_version_indicator</a></h3>
+<p>Controls whether to show a dot indicator on the user menu button when a new version of Halloy is available.
+This can be useful if you rather want to rely on a package manager.</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: true
+
+[sidebar.user_menu]
+show_new_version_indicator = true
+</code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="themes"><a class="header" href="#themes">Themes</a></h1>
 <ul>
 <li><a href="configuration/themes/index.html#themes">Themes</a>
@@ -4095,7 +4129,7 @@ theme = { light = "ferra-light", dark = "ferra" }
 # Dynamic multiple (random selection)
 theme = { light = ["ferra-light", "booberry-light"], dark = ["ferra", "booberry"] }
 </code></pre>
-<h2 id="configuration-53"><a class="header" href="#configuration-53">Configuration</a></h2>
+<h2 id="configuration-54"><a class="header" href="#configuration-54">Configuration</a></h2>
 <blockquote>
 <p>⚠️  <code>theme</code> is a root key, so it must be placed before every section.</p>
 </blockquote>
@@ -4226,7 +4260,7 @@ theme = "base16-gruvbox-dark-hard"
 </ul>
 </li>
 </ul>
-<h2 id="configuration-54"><a class="header" href="#configuration-54">Configuration</a></h2>
+<h2 id="configuration-55"><a class="header" href="#configuration-55">Configuration</a></h2>
 <h3 id="tooltip"><a class="header" href="#tooltip">tooltip</a></h3>
 <blockquote>
 <p>💡 <code>tooltips</code> is a root key, so it must be placed before any section.</p>
