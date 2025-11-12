@@ -10,7 +10,7 @@ use crate::buffer::{self, Upstream};
 use crate::isupport::{self, find_target_limit};
 use crate::message::{self, formatting};
 use crate::user::{ChannelUsers, NickRef};
-use crate::{Config, Message, Target, User, ctcp, target};
+use crate::{Config, Message, Server, Target, User, ctcp, target};
 
 #[derive(Debug, Clone)]
 pub enum Command {
@@ -59,6 +59,7 @@ impl Irc {
         &self,
         user: User,
         channel_users: Option<&ChannelUsers>,
+        server: &Server,
         chantypes: &[char],
         statusmsg: &[char],
         casemapping: isupport::CaseMap,
@@ -102,6 +103,7 @@ impl Irc {
                                 &target,
                                 None,
                                 &config.highlights,
+                                server,
                                 casemapping,
                             )
                             .0,
@@ -130,6 +132,7 @@ impl Irc {
                                 &target,
                                 None,
                                 &config.highlights,
+                                server,
                                 casemapping,
                             )
                             .0,
@@ -156,6 +159,7 @@ impl Irc {
                         &target,
                         None,
                         &config.highlights,
+                        server,
                         casemapping,
                     )
                     .0,

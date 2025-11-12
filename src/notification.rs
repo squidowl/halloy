@@ -150,6 +150,7 @@ impl Notifications {
                 if config.file_transfer_request.should_notify(
                     &User::from(nick.clone()),
                     None,
+                    server,
                     *casemapping,
                 ) {
                     let (title, body) = if config
@@ -181,10 +182,12 @@ impl Notifications {
                 casemapping,
                 message,
             } => {
-                if config
-                    .direct_message
-                    .should_notify(user, None, *casemapping)
-                {
+                if config.direct_message.should_notify(
+                    user,
+                    None,
+                    server,
+                    *casemapping,
+                ) {
                     let (title, body) = if config.direct_message.show_content {
                         (
                             &format!(
@@ -223,6 +226,7 @@ impl Notifications {
                 if config.highlight.should_notify(
                     user,
                     Some(channel),
+                    server,
                     *casemapping,
                 ) {
                     // Description is expected to be expanded by the calling
@@ -263,6 +267,7 @@ impl Notifications {
                     && notification_config.should_notify(
                         user,
                         None,
+                        server,
                         *casemapping,
                     )
                 {

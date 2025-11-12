@@ -296,6 +296,7 @@ impl Message {
         config: &'a Config,
         resolve_attributes: impl Fn(&User, &target::Channel) -> Option<User>,
         channel_users: impl Fn(&target::Channel) -> Option<&'a ChannelUsers>,
+        server: &Server,
         chantypes: &[char],
         statusmsg: &[char],
         casemapping: isupport::CaseMap,
@@ -312,6 +313,7 @@ impl Message {
             config,
             &resolve_attributes,
             &channel_users,
+            server,
             chantypes,
             statusmsg,
             casemapping,
@@ -367,6 +369,7 @@ impl Message {
             config,
             &resolve_attributes,
             &channel_users,
+            server,
             chantypes,
             statusmsg,
             casemapping,
@@ -1270,6 +1273,7 @@ pub fn parse_fragments_with_highlights(
     target: &target::Target,
     our_nick: Option<&Nick>,
     highlights: &Highlights,
+    server: &Server,
     casemapping: isupport::CaseMap,
 ) -> (Content, Option<HighlightKind>) {
     let mut highlight_kind = None;
@@ -1278,15 +1282,16 @@ pub fn parse_fragments_with_highlights(
         parse_fragments_with_users_inner(text, channel_users, casemapping)
             .map(|fragment| match fragment {
                 Fragment::User(user, raw)
-                    if highlights
-                        .nickname
-                        .is_target_included(target, casemapping)
-                        && ((our_nick
-                            .is_some_and(|nick| user.nickname() == *nick)
-                            && highlights.nickname.case_insensitive)
-                            || (our_nick.is_some_and(|nick| {
-                                raw.as_str() == nick.as_str()
-                            }))) =>
+                    if highlights.nickname.is_target_included(
+                        target,
+                        server,
+                        casemapping,
+                    ) && ((our_nick
+                        .is_some_and(|nick| user.nickname() == *nick)
+                        && highlights.nickname.case_insensitive)
+                        || (our_nick.is_some_and(|nick| {
+                            raw.as_str() == nick.as_str()
+                        }))) =>
                 {
                     if highlight_kind.is_none() {
                         highlight_kind = Some(HighlightKind::Nick);
@@ -1299,7 +1304,7 @@ pub fn parse_fragments_with_highlights(
             .collect::<Vec<_>>();
 
     for (regex, sound) in highlights.matches.iter().filter_map(|m| {
-        m.is_target_included(target, casemapping)
+        m.is_target_included(target, server, casemapping)
             .then_some((&m.regex, &m.sound))
     }) {
         fragments = fragments
@@ -1959,6 +1964,7 @@ fn content<'a>(
     config: &Config,
     resolve_attributes: &dyn Fn(&User, &target::Channel) -> Option<User>,
     channel_users: impl Fn(&target::Channel) -> Option<&'a ChannelUsers>,
+    server: &Server,
     chantypes: &[char],
     statusmsg: &[char],
     casemapping: isupport::CaseMap,
@@ -2199,6 +2205,7 @@ fn content<'a>(
                     &target,
                     Some(our_nick),
                     &config.highlights,
+                    server,
                     casemapping,
                 )
             {
@@ -2231,6 +2238,7 @@ fn content<'a>(
                 &target,
                 Some(our_nick),
                 &config.highlights,
+                server,
                 casemapping,
             ))
         }
@@ -2638,6 +2646,7 @@ fn parse_action(
     target: &target::Target,
     our_nick: Option<&Nick>,
     highlights: &Highlights,
+    server: &Server,
     casemapping: isupport::CaseMap,
 ) -> Option<(Content, Option<HighlightKind>)> {
     if !is_action(text) {
@@ -2653,6 +2662,7 @@ fn parse_action(
         target,
         our_nick,
         highlights,
+        server,
         casemapping,
     ))
 }
@@ -2664,6 +2674,7 @@ pub fn action_text(
     target: &target::Target,
     our_nick: Option<&Nick>,
     highlights: &Highlights,
+    server: &Server,
     casemapping: isupport::CaseMap,
 ) -> (Content, Option<HighlightKind>) {
     let text = if let Some(action) = action {
@@ -2678,6 +2689,7 @@ pub fn action_text(
         target,
         our_nick,
         highlights,
+        server,
         casemapping,
     )
 }
@@ -3025,6 +3037,11 @@ pub mod tests {
     fn fragments_with_highlights_parsing() {
         use std::collections::HashMap;
 
+        let server = Server {
+            name: "Test Server".into(),
+            network: None,
+        };
+
         let isupport = HashMap::<isupport::Kind, isupport::Parameter>::new();
 
         let chantypes = isupport::get_chantypes_or_default(&isupport);
@@ -3118,6 +3135,7 @@ pub mod tests {
                     &target,
                     our_nick.as_ref(),
                     highlights,
+                    &server,
                     casemapping,
                 )
             {
