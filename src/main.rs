@@ -786,6 +786,7 @@ impl Halloy {
                                                         &Notification::Highlight {
                                                             user: highlight_user,
                                                             channel: highlight_channel,
+                                                            casemapping,
                                                             message: highlight_message.text(),
                                                             description,
                                                             sound,
@@ -819,6 +820,7 @@ impl Halloy {
                                                     &Notification::Channel {
                                                         user,
                                                         channel,
+                                                        casemapping,
                                                         message: message.text(),
                                                     },
                                                     &server,
@@ -1004,6 +1006,7 @@ impl Halloy {
                                     Event::FileTransferRequest(request) => {
                                         if let Some(command) = dashboard.receive_file_transfer(
                                             &server,
+                                            casemapping,
                                             request,
                                             &self.config,
                                         ) {
@@ -1103,6 +1106,7 @@ impl Halloy {
                                                         &self.config.notifications,
                                                         &Notification::DirectMessage{
                                                             user,
+                                                            casemapping,
                                                             message: message.text(),
                                                         },
                                                         &server,

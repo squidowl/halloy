@@ -1,6 +1,6 @@
-use crate::User;
 use crate::target::Channel;
 use crate::user::Nick;
+use crate::{User, isupport};
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub enum Notification {
@@ -9,17 +9,20 @@ pub enum Notification {
     Reconnected,
     DirectMessage {
         user: User,
+        casemapping: isupport::CaseMap,
         message: String,
     },
     Highlight {
         user: User,
         channel: Channel,
+        casemapping: isupport::CaseMap,
         message: String,
         description: String,
         sound: Option<String>,
     },
     FileTransferRequest {
         nick: Nick,
+        casemapping: isupport::CaseMap,
         filename: String,
     },
     MonitoredOnline(Vec<User>),
@@ -27,6 +30,7 @@ pub enum Notification {
     Channel {
         user: User,
         channel: Channel,
+        casemapping: isupport::CaseMap,
         message: String,
     },
 }
