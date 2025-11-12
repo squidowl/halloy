@@ -296,7 +296,7 @@ impl Halloy {
         let default_config = Config::default();
         let config = config_load.as_ref().unwrap_or(&default_config);
         let show_new_version_indicator =
-            config.version.show_new_version_indicator;
+            config.sidebar.user_menu.show_new_version_indicator;
 
         let (main_window, open_main_window) = window::open(window::Settings {
             size,

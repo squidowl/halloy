@@ -1,12 +1,27 @@
-# Version
+# User Menu
 
-Version-related configuration options. 
+User menu in sidebar settings.
 
-- [Version](#version)
+- [User Menu](#user-menu)
   - [Configuration](#configuration)
-    - [show_new_version_indicator](#show_new_version_indicator)
+    - [enabled](#enabled)
+    - [show\_new\_version\_indicator](#show_new_version_indicator)
+
 
 ## Configuration
+
+### enabled
+
+Controls whether the user menu is shown in the sidebar or hidden
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: true
+
+[sidebar.user_menu]
+enabled = true
+```
 
 ### show_new_version_indicator
 
@@ -18,6 +33,7 @@ This can be useful if you rather want to rely on a package manager.
 # Values: true, false
 # Default: true
 
-[version]
+[sidebar.user_menu]
 show_new_version_indicator = true
 ```
+

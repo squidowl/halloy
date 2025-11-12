@@ -173,12 +173,12 @@ impl Sidebar {
         let keyboard = &config.keyboard;
         let base = button(icon::menu()).padding(5).width(Length::Shrink);
 
-        let menu = Menu::list(config.version.show_new_version_indicator && version.is_old());
+        let menu = Menu::list(config.sidebar.user_menu.show_new_version_indicator && version.is_old());
 
         let logs_has_unread = history.has_unread(&history::Kind::Logs);
 
         // we show notification dot if theres a new version, if theres transfers, or if the logs have unread messages.
-        let show_notification_dot = (config.version.show_new_version_indicator
+        let show_notification_dot = (config.sidebar.user_menu.show_new_version_indicator
             && version.is_old())
             || !file_transfers.is_empty()
             || logs_has_unread;
@@ -384,7 +384,7 @@ impl Sidebar {
         }
 
         let content = |width| {
-            let user_menu_button = config.sidebar.show_user_menu.then(|| {
+            let user_menu_button = config.sidebar.user_menu.enabled.then(|| {
                 self.user_menu_button(
                     config,
                     history,
