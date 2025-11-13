@@ -1,3 +1,4 @@
+use std::convert;
 use std::time::Duration;
 
 use data::buffer::{self, Autocomplete, Upstream};
@@ -12,12 +13,13 @@ use data::{Config, User, client, command, shortcut};
 use iced::widget::{
     self, button, column, container, operation, row, rule, text, text_input,
 };
-use iced::{Alignment, Length, Task, padding};
+use iced::{Alignment, Task, padding};
 use tokio::time;
 
 use self::completion::Completion;
 use crate::widget::{Element, Text, anchored_overlay, context_menu, key_press};
-use crate::{Theme, font, icon, theme};
+use crate::window::Window;
+use crate::{Theme, font, theme, window};
 
 mod completion;
 
@@ -39,8 +41,8 @@ pub enum Event {
 
 #[derive(Debug, Clone)]
 pub enum Message {
-    Copy,
-    Paste,
+    ContextMenuActions(Menu),
+    CloseContextMenu(window::Id, bool),
     SysInfoReceived(iced::system::Information),
     Input(String),
     Send,
@@ -55,14 +57,15 @@ pub enum Message {
 }
 
 #[derive(Debug, Clone, Copy)]
-enum Menu {
+pub enum Menu {
     Copy,
     Paste,
+    SelectAll,
 }
 
 impl Menu {
     fn list() -> Vec<Self> {
-        vec![Self::Copy, Self::Paste]
+        vec![Self::Copy, Self::Paste, Self::SelectAll]
     }
 }
 
@@ -93,9 +96,9 @@ pub fn view<'a>(
 
     let menu = Menu::list();
     let foo: Element<'a, Message> = context_menu(
-        context_menu::MouseButton::Right,
+        context_menu::MouseButton::default(),
         context_menu::Anchor::Cursor,
-        context_menu::ToggleBehavior::Close,
+        context_menu::ToggleBehavior::KeepOpen,
         text_input,
         menu,
         move |menu, length| {
@@ -128,12 +131,17 @@ pub fn view<'a>(
                 Menu::Copy => context_button(
                     text("Copy"),
                     shortcut::copy(),
-                    Message::Copy,
+                    Message::ContextMenuActions(Menu::Copy),
                 ),
                 Menu::Paste => context_button(
                     text("Paste"),
                     shortcut::paste(),
-                    Message::Paste,
+                    Message::ContextMenuActions(Menu::Paste),
+                ),
+                Menu::SelectAll => context_button(
+                    text("Select All"),
+                    shortcut::select_all(),
+                    Message::ContextMenuActions(Menu::SelectAll),
                 ),
             }
         },
@@ -285,6 +293,7 @@ impl State {
         buffer: &buffer::Upstream,
         clients: &mut client::Map,
         history: &mut history::Manager,
+        main_window: &Window,
         config: &Config,
     ) -> (Task<Message>, Option<Event>) {
         let current_target = buffer.target();
@@ -917,8 +926,33 @@ impl State {
 
                 (Task::none(), None)
             }
-            Message::Copy => todo!(),
-            Message::Paste => todo!(),
+            Message::ContextMenuActions(action) => {
+                let window = main_window.id;
+
+                let event: Option<Task<Message>> = match action {
+                    Menu::Copy => None,
+                    Menu::Paste => None,
+                    Menu::SelectAll => {
+                        Some(operation::select_all(self.input_id.clone()))
+                    }
+                };
+
+                let mut tasks =
+                    vec![context_menu::close(convert::identity).map(
+                        move |any_closed| {
+                            Message::CloseContextMenu(window, any_closed)
+                        },
+                    )];
+
+                if let Some(event) = event {
+                    tasks.push(event);
+                }
+
+                (Task::batch(tasks), None)
+            }
+            Message::CloseContextMenu(_, _) => {
+                (Task::none(), None)
+            }
         }
     }
 

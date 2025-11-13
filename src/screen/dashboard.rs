@@ -263,6 +263,7 @@ impl Dashboard {
                                 clients,
                                 &mut self.history,
                                 &mut self.file_transfers,
+                                main_window,
                                 config,
                             );
 

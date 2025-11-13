@@ -13,6 +13,7 @@ use super::message_view::{ChannelQueryLayout, TargetInfo};
 use super::{context_menu, input_view, scroll_view};
 use crate::Theme;
 use crate::widget::Element;
+use crate::window::Window;
 
 mod topic;
 
@@ -195,6 +196,7 @@ impl Channel {
         message: Message,
         clients: &mut data::client::Map,
         history: &mut history::Manager,
+        main_window: &Window,
         config: &Config,
     ) -> (Task<Message>, Option<Event>) {
         match message {
@@ -247,6 +249,7 @@ impl Channel {
                     &self.buffer,
                     clients,
                     history,
+                    main_window,
                     config,
                 );
                 let command = command.map(Message::InputView);

@@ -130,12 +130,19 @@ pub fn copy() -> KeyBind {
     }
 }
 
-pub fn paste() -> KeyBind {
+pub fn select_all() -> KeyBind {
     KeyBind {
-        key_code: KeyCode(iced_core::keyboard::Key::Character("v".into())),
+        key_code: KeyCode(iced_core::keyboard::Key::Character("a".into())),
         modifiers: COMMAND,
     }
 }
+
+    pub fn paste() -> KeyBind {
+        KeyBind {
+            key_code: KeyCode(iced_core::keyboard::Key::Character("v".into())),
+            modifiers: COMMAND,
+        }
+    }
 
 // For defaults check the platform specific defaults:
 // macOS: https://support.apple.com/en-us/102650
