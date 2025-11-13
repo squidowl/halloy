@@ -99,6 +99,7 @@ impl Irc {
                             message_target,
                             message::parse_fragments_with_highlights(
                                 text.clone(),
+                                Some(&user),
                                 channel_users,
                                 &target,
                                 None,
@@ -128,6 +129,7 @@ impl Irc {
                             message_target,
                             message::parse_fragments_with_highlights(
                                 text.clone(),
+                                Some(&user),
                                 channel_users,
                                 &target,
                                 None,
@@ -153,7 +155,7 @@ impl Irc {
                 Some(vec![Message::sent(
                     message_target,
                     message::action_text(
-                        user.nickname(),
+                        &user,
                         Some(action),
                         channel_users,
                         &target,
