@@ -146,6 +146,13 @@ impl Inclusivities {
     }
 
     pub fn parse(mut strings: Vec<String>) -> Self {
+        if strings
+            .iter()
+            .any(|string| string == "all" || string == "*")
+        {
+            return Inclusivities::all();
+        }
+
         let channels = strings
             .extract_if(.., |string| {
                 proto::is_channel(string, proto::DEFAULT_CHANNEL_PREFIXES)
