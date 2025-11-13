@@ -1269,6 +1269,7 @@ pub fn plain(text: String) -> Content {
 
 pub fn parse_fragments_with_highlights(
     text: String,
+    message_user: Option<&User>,
     channel_users: Option<&ChannelUsers>,
     target: &target::Target,
     our_nick: Option<&Nick>,
@@ -1283,6 +1284,7 @@ pub fn parse_fragments_with_highlights(
             .map(|fragment| match fragment {
                 Fragment::User(user, raw)
                     if highlights.nickname.is_target_included(
+                        message_user,
                         target,
                         server,
                         casemapping,
@@ -1304,7 +1306,7 @@ pub fn parse_fragments_with_highlights(
             .collect::<Vec<_>>();
 
     for (regex, sound) in highlights.matches.iter().filter_map(|m| {
-        m.is_target_included(target, server, casemapping)
+        m.is_target_included(message_user, target, server, casemapping)
             .then_some((&m.regex, &m.sound))
     }) {
         fragments = fragments
@@ -2196,10 +2198,9 @@ fn content<'a>(
 
             // Check if a synthetic action message
 
-            if let Some(nick) =
-                message.user(casemapping).as_ref().map(User::nickname)
+            if let Some(user) = message.user(casemapping).as_ref()
                 && let Some(action) = parse_action(
-                    nick,
+                    user,
                     text,
                     channel_users,
                     &target,
@@ -2234,6 +2235,7 @@ fn content<'a>(
 
             Some(parse_fragments_with_highlights(
                 text.clone(),
+                message.user(casemapping).as_ref(),
                 channel_users,
                 &target,
                 Some(our_nick),
@@ -2640,7 +2642,7 @@ pub fn is_action(text: &str) -> bool {
 }
 
 fn parse_action(
-    nick: NickRef,
+    user: &User,
     text: &str,
     channel_users: Option<&ChannelUsers>,
     target: &target::Target,
@@ -2656,7 +2658,7 @@ fn parse_action(
     let query = ctcp::parse_query(text)?;
 
     Some(action_text(
-        nick,
+        user,
         query.params,
         channel_users,
         target,
@@ -2668,7 +2670,7 @@ fn parse_action(
 }
 
 pub fn action_text(
-    nick: NickRef,
+    user: &User,
     action: Option<&str>,
     channel_users: Option<&ChannelUsers>,
     target: &target::Target,
@@ -2678,13 +2680,14 @@ pub fn action_text(
     casemapping: isupport::CaseMap,
 ) -> (Content, Option<HighlightKind>) {
     let text = if let Some(action) = action {
-        format!("{nick} {action}")
+        format!("{} {action}", user.nickname())
     } else {
-        format!("{nick}")
+        user.nickname().to_string()
     };
 
     parse_fragments_with_highlights(
         text,
+        Some(user),
         channel_users,
         target,
         our_nick,
@@ -3052,12 +3055,14 @@ pub mod tests {
             (
                 (
                     "Bob: I'm in #interesting with Greg, George_, &`bill`. I hope @Dave doesn't notice.".to_string(),
+                    User::from(Nick::from_str("Steve", casemapping)),
                     [
                         "Greg",
                         "Dave",
                         "Bob",
                         "George_",
                         "`Bill`",
+                        "Steve",
                     ].into_iter().map(|nick| User::from(Nick::from_str(nick, casemapping))).collect::<ChannelUsers>(),
                     target::Target::parse("#interesting", chantypes, statusmsg, casemapping),
                     Some(Nick::from_str("Bob", casemapping)),
@@ -3084,6 +3089,7 @@ pub mod tests {
             (
                 (
                     "the boat would bob up and down!".to_string(),
+                    User::from(Nick::from_str("Greg", casemapping)),
                     [
                         "Greg",
                         "Dave",
@@ -3107,6 +3113,7 @@ pub mod tests {
             (
                 (
                     "\u{3}14<\u{3}\u{3}04lurk_\u{3}\u{3}14/rx>\u{3} f_~oftc: > A��\u{1f}qj\u{14}��L�5�g���5�P��yn_?�i3g�1\u{7f}mE�\\X��� Xe�\u{5fa}{d�+�`@�^��NK��~~ޏ\u{7}\u{8}\u{15}\\�\u{4}A� \u{f}\u{1c}�N\u{11}6�r�\u{4}t��Q��\u{1c}�m\u{19}��".to_string(),
+                    User::from(Nick::from_str("rx", casemapping)),
                     [
                         "f_",
                         "rx",
@@ -3125,12 +3132,15 @@ pub mod tests {
                 ],
             ),
         ];
-        for ((text, channel_users, target, our_nick, highlights), expected) in
-            tests
+        for (
+            (text, user, channel_users, target, our_nick, highlights),
+            expected,
+        ) in tests
         {
             if let (Content::Fragments(actual), _) =
                 parse_fragments_with_highlights(
                     text,
+                    Some(&user),
                     Some(&channel_users),
                     &target,
                     our_nick.as_ref(),

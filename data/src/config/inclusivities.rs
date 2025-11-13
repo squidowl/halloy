@@ -9,6 +9,7 @@ use crate::user::User;
 pub fn is_target_included(
     include: Option<&Inclusivities>,
     exclude: Option<&Inclusivities>,
+    user: Option<&User>,
     target: &Target,
     server: &Server,
     casemapping: isupport::CaseMap,
@@ -17,14 +18,31 @@ pub fn is_target_included(
                         target: &Target,
                         server: &Server|
      -> bool {
-        inclusivities.is_some_and(|inclusivities| match target {
+        inclusivities.is_some_and(|inclusivities| {
+            (match target {
                 Target::Channel(channel) => {
                     inclusivities.is_channel_inclusive(channel, casemapping)
+                        || inclusivities.criteria.iter().any(|criterion| {
+                            criterion.is_user_channel_server_inclusive(
+                                user,
+                                Some(channel),
+                                Some(server),
+                                casemapping,
+                            )
+                        })
                 }
                 Target::Query(query) => {
                     inclusivities.is_query_inclusive(query, casemapping)
+                        || inclusivities.criteria.iter().any(|criterion| {
+                            criterion.is_query_server_inclusive(
+                                query,
+                                server,
+                                casemapping,
+                            )
+                        })
                 }
-            } || inclusivities.is_server_inclusive(server))
+            }) || inclusivities.is_server_inclusive(server)
+        })
     };
 
     let is_included = is_inclusive(include, target, server);
@@ -52,6 +70,14 @@ pub fn is_user_channel_server_included(
                     inclusivities.is_channel_inclusive(channel, casemapping)
                 })
                 || inclusivities.is_server_inclusive(server)
+                || inclusivities.criteria.iter().any(|criterion| {
+                    criterion.is_user_channel_server_inclusive(
+                        Some(user),
+                        channel,
+                        Some(server),
+                        casemapping,
+                    )
+                })
         })
     };
 
@@ -66,6 +92,7 @@ pub struct Inclusivities {
     pub users: Option<Inclusivity>,
     pub channels: Option<Inclusivity>,
     pub servers: Option<Inclusivity>,
+    pub criteria: Vec<Criterion>,
 }
 
 impl<'de> Deserialize<'de> for Inclusivities {
@@ -83,6 +110,8 @@ impl<'de> Deserialize<'de> for Inclusivities {
                 channels: Option<Inclusivity>,
                 #[serde(default)]
                 servers: Option<Inclusivity>,
+                #[serde(default)]
+                criteria: Vec<Criterion>,
             },
             Legacy(Vec<String>),
         }
@@ -92,10 +121,12 @@ impl<'de> Deserialize<'de> for Inclusivities {
                 users,
                 channels,
                 servers,
+                criteria,
             } => Ok(Inclusivities {
                 users,
                 channels,
                 servers,
+                criteria,
             }),
             Format::Legacy(strings) => Ok(Inclusivities::parse(strings)),
         }
@@ -108,6 +139,9 @@ impl Inclusivities {
             users: Some(Inclusivity::All),
             channels: Some(Inclusivity::All),
             servers: Some(Inclusivity::All),
+            // Does not need to be set, since any criterion will be covered by
+            // the Inclusivity fields
+            criteria: Vec::default(),
         }
     }
 
@@ -124,6 +158,7 @@ impl Inclusivities {
             channels: (!channels.is_empty())
                 .then_some(Inclusivity::Any(channels)),
             servers: Some(Inclusivity::All),
+            criteria: Vec::default(),
         }
     }
 
@@ -228,5 +263,52 @@ impl<'de> Deserialize<'de> for Inclusivity {
             }
             Format::Any(strings) => Ok(Inclusivity::Any(strings)),
         }
+    }
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct Criterion {
+    user: Option<String>,
+    channel: Option<String>,
+    server: Option<String>,
+}
+
+impl Criterion {
+    pub fn is_user_channel_server_inclusive(
+        &self,
+        user: Option<&User>,
+        channel: Option<&Channel>,
+        server: Option<&Server>,
+        casemapping: isupport::CaseMap,
+    ) -> bool {
+        self.user.as_ref().is_none_or(|user_criterion| {
+            user.is_some_and(|user| {
+                user.as_normalized_str()
+                    == casemapping.normalize(user_criterion).as_str()
+            })
+        }) && self.channel.as_ref().is_none_or(|channel_criterion| {
+            channel.is_some_and(|channel| {
+                channel.as_normalized_str()
+                    == casemapping.normalize(channel_criterion).as_str()
+            })
+        }) && self.server.as_ref().is_none_or(|server_criterion| {
+            server
+                .is_some_and(|server| server.name.as_ref() == server_criterion)
+        })
+    }
+
+    pub fn is_query_server_inclusive(
+        &self,
+        query: &Query,
+        server: &Server,
+        casemapping: isupport::CaseMap,
+    ) -> bool {
+        self.user.as_ref().is_none_or(|user_criterion| {
+            query.as_normalized_str()
+                == casemapping.normalize(user_criterion).as_str()
+        }) && self.channel.is_none()
+            && self.server.as_ref().is_none_or(|server_criterion| {
+                server.name.as_ref() == server_criterion
+            })
     }
 }
