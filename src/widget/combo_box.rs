@@ -1,4 +1,5 @@
 use std::cell::RefCell;
+use std::cmp::Reverse;
 use std::fmt::Display;
 use std::time::Instant;
 
@@ -11,6 +12,8 @@ use iced::overlay::menu;
 use iced::widget::text::LineHeight;
 use iced::widget::{TextInput, text_input};
 use iced::{Event, Length, Padding, Rectangle, Vector, keyboard, window};
+use nucleo_matcher::pattern::{AtomKind, CaseMatching, Normalization, Pattern};
+use nucleo_matcher::{Config, Matcher, Utf32Str};
 
 use super::Element;
 use crate::Theme;
@@ -777,32 +780,86 @@ where
     }
 }
 
-/// Search list of options for a given query.
+/// Search list of options for a given query using fuzzy matching.
 pub fn search<'a, T, A>(
     options: impl IntoIterator<Item = T> + 'a,
     option_matchers: impl IntoIterator<Item = &'a A> + 'a,
     query: &'a str,
 ) -> impl Iterator<Item = T> + 'a
 where
+    T: Clone + 'a,
     A: AsRef<str> + 'a,
 {
-    let query: Vec<String> = query
-        .to_lowercase()
-        .split(|c: char| !c.is_ascii_alphanumeric())
-        .map(String::from)
-        .collect();
+    let query = query.trim();
+    if query.is_empty() {
+        return options.into_iter().collect::<Vec<_>>().into_iter();
+    }
 
-    options
+    let opts = options.into_iter().collect::<Vec<_>>();
+    let matchers_vec = option_matchers
         .into_iter()
-        .zip(option_matchers)
-        // Make sure each part of the query is found in the option
-        .filter_map(move |(option, matcher)| {
-            if query.iter().all(|part| matcher.as_ref().contains(part)) {
-                Some(option)
-            } else {
-                None
-            }
-        })
+        .map(|a| a.as_ref().to_string())
+        .collect::<Vec<_>>();
+
+    let mut buffer = Vec::new();
+    let mut matcher = Matcher::new(Config::DEFAULT);
+
+    let exact_pattern = Pattern::new(
+        query,
+        CaseMatching::Ignore,
+        Normalization::Smart,
+        AtomKind::Exact,
+    );
+
+    let substring_pattern = Pattern::new(
+        query,
+        CaseMatching::Ignore,
+        Normalization::Smart,
+        AtomKind::Substring,
+    );
+
+    let fuzzy_pattern = Pattern::new(
+        query,
+        CaseMatching::Ignore,
+        Normalization::Smart,
+        AtomKind::Fuzzy,
+    );
+
+    let mut hits = Vec::with_capacity(opts.len());
+
+    for (idx, m_str) in matchers_vec.iter().enumerate() {
+        let hay = Utf32Str::new(m_str.as_str(), &mut buffer);
+
+        let exact_score = exact_pattern.score(hay, &mut matcher).unwrap_or(0);
+        let substring_score =
+            substring_pattern.score(hay, &mut matcher).unwrap_or(0);
+        let substring_count = substring_pattern
+            .match_list(m_str.split_whitespace(), &mut matcher)
+            .len();
+        let fuzzy_score = fuzzy_pattern.score(hay, &mut matcher).unwrap_or(0);
+
+        // add matches to the list
+        if fuzzy_score > 0 {
+            hits.push((
+                idx,
+                exact_score,
+                substring_score,
+                substring_count,
+                fuzzy_score,
+            ));
+        }
+    }
+
+    // exact match score first, then substring match score, then number of
+    // substring matches, then higher fuzzy match score
+    hits.sort_unstable_by_key(|h| {
+        (Reverse(h.1), Reverse(h.2), Reverse(h.3), Reverse(h.4))
+    });
+
+    hits.into_iter()
+        .map(|(idx, _, _, _, _)| opts[idx].clone())
+        .collect::<Vec<_>>()
+        .into_iter()
 }
 
 /// Build matchers from given list of options.
@@ -812,14 +869,7 @@ pub fn build_matchers<'a, T>(
 where
     T: Display + 'a,
 {
-    options
-        .into_iter()
-        .map(|opt| {
-            let mut matcher = opt.to_string();
-            matcher.retain(|c| c.is_ascii_alphanumeric());
-            matcher.to_lowercase()
-        })
-        .collect()
+    options.into_iter().map(|opt| opt.to_string()).collect()
 }
 
 pub fn combo_box<'a, T, Message>(
