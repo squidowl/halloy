@@ -764,12 +764,6 @@ impl Dashboard {
                                     (Task::none(), None)
                                 },
                             },
-                            command_bar::Command::UI(command) => match command {
-                                command_bar::Ui::ToggleSidebarVisibility => {
-                                    self.side_menu.toggle_visibility();
-                                    (Task::none(), None)
-                                }
-                            },
                             command_bar::Command::Theme(command) => match command {
                                 command_bar::Theme::Switch(new) => {
                                     *theme = Theme::from(new);
@@ -791,13 +785,13 @@ impl Dashboard {
                                     (Task::none(), None)
                                 }
                             },
-                            command_bar::Command::Window(command) => match command {
-                                command_bar::Window::ToggleFullscreen => {
-                                    (window::toggle_fullscreen(), None)
-                                }
-                            },
                             command_bar::Command::Application(application) => match application {
                                 command_bar::Application::Quit => (self.exit(clients, config), None),
+                                command_bar::Application::ToggleFullscreen => (window::toggle_fullscreen(), None),
+                                command_bar::Application::ToggleSidebarVisibility => {
+                                    self.side_menu.toggle_visibility();
+                                    (Task::none(), None)
+                                }
                             },
                         };
 
