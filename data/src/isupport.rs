@@ -760,7 +760,7 @@ impl Parameter {
 }
 
 #[allow(non_camel_case_types)]
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub enum CaseMap {
     ASCII,
     RFC1459,

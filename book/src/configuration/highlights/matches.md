@@ -10,6 +10,7 @@ Highlight based on matches
     - [regex](#regex)
     - [exclude](#exclude)
     - [include](#include)
+    - [sound](#sound)
 
 ## Example
 
@@ -18,6 +19,7 @@ Highlight based on matches
 [[highlights.match]]
 words = ["boat", "car"]
 case_insensitive = true
+sound = "bonk"
 
 # Highlight when regex matches in any channel except #noisy-channel.
 [[highlights.match]]
@@ -83,35 +85,57 @@ regex = '''(?i)\bcasper\b'''
 
 ### exclude
 
-Channels in which you won’t be highlighted.
-If you pass `["#halloy"]`, you won’t be highlighted in that channel. You can also exclude all channels by using a wildcard: `["*"]`.
+[Exclusion conditions](/configuration/conditions.md) in which you won't be
+highlighted. Inclusion conditions will take precedence over exclusion
+conditions. You can also exclude all conditions by setting to `"all"` or `"*"`.
 
-Example shows a regex match which will be excluded in from `#noisy-channel`
+Example shows a regex match which will be excluded in `#noisy-channel`.
 
 ```toml
-# Type: array of strings
-# Values: array of any strings
-# Default: []
+# Type: inclusion/exclusion conditions
+# Values: any inclusion/exclusion conditions
+# Default: not set
 
 [[highlights.match]]
 regex = '''(?i)\bcasper\b'''
-exclude = ["#noisy-channel"]
+exclude = { channels = ["#noisy-channel"] }
 ```
 
 ### include
 
-Channels in which you will be highlighted, only useful when combined with `exclude = ["*"]`.
-If you pass `["#halloy"]`, you will only be highlighted in that channel.
+[Inclusion conditions](/configuration/conditions.md) in which you will be
+highlighted. Highlights are enabled in all conditions unless explicitly
+excluded, so this setting is only relevant when combined with the `exclude`
+setting.
 
-Example shows a words match which will only try to match in `#halloy` channel.
+Example shows a words match which will only highlight in `#halloy`.
 
 ```toml
-# Type: array of strings
-# Values: array of any strings
-# Default: ["*"]
+# Type: inclusion/exclusion conditions
+# Values: any inclusion/exclusion conditions
+# Default: not set
 
 [[highlights.match]]
 words = ["word1", "word2", "word3"]
-exclude = ["*"]
-include = ["#halloy"]
+exclude = "*"
+include = { channels = ["#halloy"] }
+```
+
+### sound
+
+Sound to play when notifying for a highlight. If not specified then the sound
+specified for highlight notifications will be used. Supports both built-in
+sounds, and external sound files (`mp3`, `ogg`, `flac` or `wav` placed inside
+the `sounds` folder within the configuration directory). See
+[notifications](/configuration/notifications/#sound) for a list of all built-in
+sounds.
+
+```toml
+# Type: string
+# Values: see above for built-in sounds, eg: "sing" or external sound.
+# Default: not set
+
+[[highlights.match]]
+words = ["word1", "word2", "word3"]
+sound = "sing"
 ```

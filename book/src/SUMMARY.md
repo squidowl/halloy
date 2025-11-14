@@ -14,6 +14,7 @@
 - [Building for macOS](guides/macos-application.md)
 - [Connect with soju](guides/connect-with-soju.md)
 - [Connect with ZNC](guides/connect-with-znc.md)
+- [Inclusion/Exclusion Conditions](configuration/conditions.md)
 - [Monitor Users](guides/monitor-users.md)
 - [Multiple Servers](guides/multiple-servers.md)
 - [Optional Features](guides/optional-features.md)
