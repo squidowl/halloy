@@ -11,9 +11,10 @@ use data::target::Target;
 use data::user::Nick;
 use data::{Config, User, client, command, shortcut};
 use iced::widget::{
-    self, button, column, container, operation, row, rule, text, text_input,
+    self, button, column, container, operation, row, rule, text, text_editor,
+    text_input,
 };
-use iced::{Alignment, Task, clipboard, padding};
+use iced::{Alignment, Length, Task, clipboard, padding};
 use tokio::time;
 
 use self::completion::Completion;
@@ -41,6 +42,7 @@ pub enum Event {
 
 #[derive(Debug, Clone)]
 pub enum Message {
+    Action(text_editor::Action),
     ContextActions(Actions),
     CloseContextMenu(window::Id, bool),
     SysInfoReceived(iced::system::Information),
@@ -71,6 +73,7 @@ impl Actions {
 pub fn view<'a>(
     state: &'a State,
     cache: Cache<'a>,
+    content: &'a text_editor::Content,
     buffer_focused: bool,
     our_user: Option<&User>,
     disabled: bool,
@@ -83,18 +86,45 @@ pub fn view<'a>(
         theme::text_input::primary
     };
 
-    let mut text_input = text_input("Send message...", cache.text)
-        .on_submit(Message::Send)
-        .id(state.input_id.clone())
-        .padding([0, 4])
-        .style(style);
+    // let mut text_input = text_input("Send message...", cache.text)
+    //     .on_submit(Message::Send)
+    //     .id(state.input_id.clone())
+    //     .padding([0, 4])
+    //     .style(style);
 
-    if !disabled {
-        text_input = text_input.on_input(Message::Input);
-    }
+    // if !disabled {
+    //     text_input = text_input.on_input(Message::Input);
+    // }
+
+    let text_input = text_editor(content)
+        .placeholder("Send message...")
+        .padding([2, 4])
+        .height(Length::Fill)
+        .on_action(Message::Action)
+        .key_binding(|key_press| match key_press.key.as_ref() {
+            iced::keyboard::Key::Named(iced::keyboard::key::Named::Enter) => {
+                Some(text_editor::Binding::Custom(Message::Send))
+            }
+            iced::keyboard::Key::Named(iced::keyboard::key::Named::Tab) => {
+                Some(text_editor::Binding::Custom(Message::Tab(key_press.modifiers.shift())))
+            }
+            iced::keyboard::Key::Named(iced::keyboard::key::Named::ArrowUp) => {
+                Some(text_editor::Binding::Custom(Message::Up))
+            }
+            iced::keyboard::Key::Named(iced::keyboard::key::Named::ArrowDown) => {
+                Some(text_editor::Binding::Custom(Message::Down))
+            }
+            iced::keyboard::Key::Named(iced::keyboard::key::Named::Escape) => {
+                Some(text_editor::Binding::Custom(Message::Escape))
+            }
+            // casperstorm: implement https://github.com/squidowl/halloy/issues/1126 
+            _ => text_editor::Binding::from_key_press(key_press),
+        })
+        .style(theme::text_editor::primary);
 
     let menu = Actions::list();
-    let foo: Element<'a, Message> = context_menu(
+
+    let wrapped_input: Element<'a, Message> = context_menu(
         context_menu::MouseButton::default(),
         context_menu::Anchor::Cursor,
         context_menu::ToggleBehavior::KeepOpen,
@@ -144,18 +174,19 @@ pub fn view<'a>(
     )
     .into();
 
+    // Not needed when using text_editor
     // Add tab support
-    let input = key_press(
-        key_press(
-            foo,
-            key_press::Key::Named(key_press::Named::Tab),
-            key_press::Modifiers::SHIFT,
-            Message::Tab(true),
-        ),
-        key_press::Key::Named(key_press::Named::Tab),
-        key_press::Modifiers::default(),
-        Message::Tab(false),
-    );
+    // let input = key_press(
+    //     key_press(
+    //         foo,
+    //         key_press::Key::Named(key_press::Named::Tab),
+    //         key_press::Modifiers::SHIFT,
+    //         Message::Tab(true),
+    //     ),
+    //     key_press::Key::Named(key_press::Named::Tab),
+    //     key_press::Modifiers::default(),
+    //     Message::Tab(false),
+    // );
 
     let our_user_style = {
         let is_user_away = config
@@ -196,9 +227,9 @@ pub fn view<'a>(
     let maybe_vertical_rule =
         maybe_our_user.is_some().then(move || rule::vertical(1.0));
 
-    let mut content = column![
+    let content = column![
         container(
-            row![maybe_our_user, maybe_vertical_rule, input]
+            row![maybe_our_user, maybe_vertical_rule, wrapped_input]
                 .spacing(4)
                 .height(
                     (theme::line_height(&config.font).ceil() + 4.0).max(20.0)
@@ -206,31 +237,31 @@ pub fn view<'a>(
                 .align_y(Alignment::Center)
         )
         .padding(8)
-        .style(theme::container::buffer_text_input),
+        .style(theme::container::buffer_text_input)
     ]
     .spacing(4)
-    .padding(padding::top(4))
-    .into();
+    .padding(padding::top(4));
 
+    // Not needed when using text_editor
     // Add up / down support for history cycling
-    if buffer_focused {
-        content = key_press(
-            key_press(
-                key_press(
-                    content,
-                    key_press::Key::Named(key_press::Named::ArrowUp),
-                    key_press::Modifiers::default(),
-                    Message::Up,
-                ),
-                key_press::Key::Named(key_press::Named::ArrowDown),
-                key_press::Modifiers::default(),
-                Message::Down,
-            ),
-            key_press::Key::Named(key_press::Named::Escape),
-            key_press::Modifiers::default(),
-            Message::Escape,
-        );
-    }
+    // if buffer_focused {
+    //     content = key_press(
+    //         key_press(
+    //             key_press(
+    //                 content,
+    //                 key_press::Key::Named(key_press::Named::ArrowUp),
+    //                 key_press::Modifiers::default(),
+    //                 Message::Up,
+    //             ),
+    //             key_press::Key::Named(key_press::Named::ArrowDown),
+    //             key_press::Modifiers::default(),
+    //             Message::Down,
+    //         ),
+    //         key_press::Key::Named(key_press::Named::Escape),
+    //         key_press::Modifiers::default(),
+    //         Message::Escape,
+    //     );
+    // }
 
     let overlay = column![
         state.completion.view(cache.text, config, theme),
@@ -286,6 +317,7 @@ impl State {
     pub fn update(
         &mut self,
         message: Message,
+        input_content: &mut text_editor::Content,
         buffer: &buffer::Upstream,
         clients: &mut client::Map,
         history: &mut history::Manager,
@@ -457,7 +489,8 @@ impl State {
                 (Task::none(), None)
             }
             Message::Send => {
-                let raw_input = history.input(buffer).text;
+                // let raw_input = history.input(buffer).text;
+                let raw_input = input_content.text();
 
                 // Reset error
                 self.error = None;
@@ -466,8 +499,11 @@ impl State {
 
                 if let Some(entry) = self.completion.select(config) {
                     let chantypes = clients.get_chantypes(buffer.server());
-                    let new_input =
-                        entry.complete_input(raw_input, chantypes, config);
+                    let new_input = entry.complete_input(
+                        raw_input.as_str(),
+                        chantypes,
+                        config,
+                    );
 
                     self.on_completion(buffer, history, new_input, true)
                 } else if !raw_input.is_empty() {
@@ -477,7 +513,7 @@ impl State {
                     let input = match input::parse(
                         buffer.clone(),
                         config.buffer.text_input.auto_format,
-                        raw_input,
+                        raw_input.as_str(),
                         clients.nickname(buffer.server()),
                         &clients.get_isupport(buffer.server()),
                     ) {
@@ -798,6 +834,8 @@ impl State {
                 }
             }
             Message::Tab(reverse) => {
+                println!("Message::Tab(reverse): {:?}", reverse);
+
                 let input = history.input(buffer).text;
 
                 if let Some(entry) = self.completion.tab(reverse) {
@@ -949,6 +987,21 @@ impl State {
                 )
             }
             Message::CloseContextMenu(_, _) => (Task::none(), None),
+            Message::Action(action) => {
+                input_content.perform(action.clone());
+
+                match &action {
+                    text_editor::Action::Edit(edit) => {
+                        println!("edit: {:?}", edit);
+                        println!("input_content: {:?}", input_content.text());
+                        println!("action should perform input edit");
+                    }
+                    _ => (),
+                }
+
+                // println!("Action: {:?}", action);
+                (Task::none(), None)
+            }
         }
     }
 
