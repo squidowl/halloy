@@ -12,7 +12,6 @@ use iced::overlay::menu;
 use iced::widget::text::LineHeight;
 use iced::widget::{TextInput, text_input};
 use iced::{Event, Length, Padding, Rectangle, Vector, keyboard, window};
-
 use nucleo_matcher::pattern::{AtomKind, CaseMatching, Normalization, Pattern};
 use nucleo_matcher::{Config, Matcher, Utf32Str};
 
@@ -799,15 +798,28 @@ where
     let opts = options.into_iter().collect::<Vec<_>>();
     let matchers_vec = option_matchers
         .into_iter()
-        .map(|a| a.as_ref().to_string().to_lowercase())
+        .map(|a| a.as_ref().to_string())
         .collect::<Vec<_>>();
 
-    let q_lower = query.to_lowercase();
     let mut buffer = Vec::new();
     let mut matcher = Matcher::new(Config::DEFAULT);
 
-    let pattern = Pattern::new(
-        &q_lower,
+    let exact_pattern = Pattern::new(
+        query,
+        CaseMatching::Ignore,
+        Normalization::Smart,
+        AtomKind::Exact,
+    );
+
+    let substring_pattern = Pattern::new(
+        query,
+        CaseMatching::Ignore,
+        Normalization::Smart,
+        AtomKind::Substring,
+    );
+
+    let fuzzy_pattern = Pattern::new(
+        query,
         CaseMatching::Ignore,
         Normalization::Smart,
         AtomKind::Fuzzy,
@@ -816,21 +828,36 @@ where
     let mut hits = Vec::with_capacity(opts.len());
 
     for (idx, m_str) in matchers_vec.iter().enumerate() {
-        let pos = m_str.find(&q_lower).unwrap_or(usize::MAX);
         let hay = Utf32Str::new(m_str.as_str(), &mut buffer);
-        let score = pattern.score(hay, &mut matcher).unwrap_or(0);
+
+        let exact_score = exact_pattern.score(hay, &mut matcher).unwrap_or(0);
+        let substring_score =
+            substring_pattern.score(hay, &mut matcher).unwrap_or(0);
+        let substring_count = substring_pattern
+            .match_list(m_str.split_whitespace(), &mut matcher)
+            .len();
+        let fuzzy_score = fuzzy_pattern.score(hay, &mut matcher).unwrap_or(0);
 
         // add matches to the list
-        if score > 0 || pos != usize::MAX {
-            hits.push((idx, score, pos));
+        if fuzzy_score > 0 {
+            hits.push((
+                idx,
+                exact_score,
+                substring_score,
+                substring_count,
+                fuzzy_score,
+            ));
         }
     }
 
-    // literal matches first, then matches starting earlier in the text, then higher fuzzy score
-    hits.sort_unstable_by_key(|h| (h.2 == usize::MAX, h.2, Reverse(h.1)));
+    // exact match score first, then substring match score, then number of
+    // substring matches, then higher fuzzy match score
+    hits.sort_unstable_by_key(|h| {
+        (Reverse(h.1), Reverse(h.2), Reverse(h.3), Reverse(h.4))
+    });
 
     hits.into_iter()
-        .map(|(idx, _, _)| opts[idx].clone())
+        .map(|(idx, _, _, _, _)| opts[idx].clone())
         .collect::<Vec<_>>()
         .into_iter()
 }
@@ -842,10 +869,7 @@ pub fn build_matchers<'a, T>(
 where
     T: Display + 'a,
 {
-    options
-        .into_iter()
-        .map(|opt| opt.to_string().to_lowercase())
-        .collect()
+    options.into_iter().map(|opt| opt.to_string()).collect()
 }
 
 pub fn combo_box<'a, T, Message>(
