@@ -309,7 +309,7 @@ impl Manager {
     }
 
     // The message's blocked state should be determined prior to using this
-    // function.  In most cases, the best way to do that is by using the
+    // function. In most cases, the best way to do that is by using the
     // block_and_record_message function.
     pub fn record_message(
         &mut self,
