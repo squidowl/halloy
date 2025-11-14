@@ -329,7 +329,7 @@ impl std::fmt::Display for Buffer {
                 if *maximize {
                     "Maximize buffer"
                 } else {
-                    "Restore buffer"
+                    "Restore buffer size"
                 }
             ),
             Buffer::New => write!(f, "New buffer"),
