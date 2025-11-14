@@ -729,10 +729,10 @@ impl Halloy {
 
                                                 if !highlight_message.blocked && notification_enabled {
                                                     let (description, sound) = match highlight_kind {
-                                                        message::HighlightKind::Nick => {
+                                                        message::highlight::Kind::Nick => {
                                                             ("highlighted you".to_string(), None)
                                                         }
-                                                        message::HighlightKind::Match {
+                                                        message::highlight::Kind::Match {
                                                             matching,
                                                             sound,
                                                         } => (

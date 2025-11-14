@@ -16,6 +16,7 @@ use url::Url;
 
 pub use self::broadcast::Broadcast;
 pub use self::formatting::{Color, Formatting};
+pub use self::highlight::Highlight;
 pub use self::source::Source;
 pub use self::source::server::{Kind, StandardReply};
 use crate::config::buffer::{CondensationFormat, UsernameFormat};
@@ -80,6 +81,7 @@ static USER_REGEX: LazyLock<Regex> = LazyLock::new(|| {
 
 pub(crate) mod broadcast;
 pub mod formatting;
+pub mod highlight;
 pub mod source;
 
 #[derive(Debug, Clone)]
@@ -1276,7 +1278,7 @@ pub fn parse_fragments_with_highlights(
     highlights: &Highlights,
     server: &Server,
     casemapping: isupport::CaseMap,
-) -> (Content, Option<HighlightKind>) {
+) -> (Content, Option<highlight::Kind>) {
     let mut highlight_kind = None;
 
     let mut fragments =
@@ -1296,7 +1298,7 @@ pub fn parse_fragments_with_highlights(
                         }))) =>
                 {
                     if highlight_kind.is_none() {
-                        highlight_kind = Some(HighlightKind::Nick);
+                        highlight_kind = Some(highlight::Kind::Nick);
                     }
 
                     Fragment::HighlightNick(user, raw)
@@ -1319,7 +1321,7 @@ pub fn parse_fragments_with_highlights(
                             {
                                 true
                             } else if sound.is_some()
-                                && let Some(HighlightKind::Match {
+                                && let Some(highlight::Kind::Match {
                                     sound: highlight_kind_sound,
                                     ..
                                 }) = &highlight_kind
@@ -1331,7 +1333,7 @@ pub fn parse_fragments_with_highlights(
                             };
 
                             if set_highlight_kind {
-                                highlight_kind = Some(HighlightKind::Match {
+                                highlight_kind = Some(highlight::Kind::Match {
                                     matching: regex.to_string(),
                                     sound: sound.clone(),
                                 });
@@ -1971,7 +1973,7 @@ fn content<'a>(
     statusmsg: &[char],
     casemapping: isupport::CaseMap,
     prefix: &[isupport::PrefixMap],
-) -> Option<(Content, Option<HighlightKind>)> {
+) -> Option<(Content, Option<highlight::Kind>)> {
     use irc::proto::command::Numeric::*;
 
     match &message.command {
@@ -2609,23 +2611,6 @@ fn content<'a>(
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct Highlight {
-    pub kind: HighlightKind,
-    pub channel: target::Channel,
-    pub user: User,
-    pub message: Message,
-}
-
-#[derive(Debug, Clone)]
-pub enum HighlightKind {
-    Nick,
-    Match {
-        matching: String,
-        sound: Option<String>,
-    },
-}
-
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Limit {
     Top(usize),
@@ -2650,7 +2635,7 @@ fn parse_action(
     highlights: &Highlights,
     server: &Server,
     casemapping: isupport::CaseMap,
-) -> Option<(Content, Option<HighlightKind>)> {
+) -> Option<(Content, Option<highlight::Kind>)> {
     if !is_action(text) {
         return None;
     }
@@ -2678,7 +2663,7 @@ pub fn action_text(
     highlights: &Highlights,
     server: &Server,
     casemapping: isupport::CaseMap,
-) -> (Content, Option<HighlightKind>) {
+) -> (Content, Option<highlight::Kind>) {
     let text = if let Some(action) = action {
         format!("{} {action}", user.nickname())
     } else {
