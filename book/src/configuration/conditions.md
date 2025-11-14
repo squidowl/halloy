@@ -9,7 +9,8 @@ conditions by setting to `"all"` or `"*"`.
 
 ## Examples
 
-This example excludes all messages in `#halloy` except for messages from `GH-Bot`.
+This example excludes all messages in `#halloy` except for messages from
+`GH-Bot`.
 
 ```toml
 include = { users = ["#GH-Bot"] }
@@ -22,8 +23,8 @@ This example excludes messages from `GH-Bot` and `ChanServ` in `#halloy`.
 exclude = { criteria = [{ channel = "#halloy", user = "GH-Bot" }, { channel = "#halloy", user = "ChanServ" }] }
 ```
 
-Using regular TOML table can help with legibility, as in this example excluding
-notifications for highlights by `GH-Bot` and `ChanServ` in `#halloy`.
+Using a regular TOML table can help with legibility, as in this example
+excluding notifications for highlights by `GH-Bot` and `ChanServ` in `#halloy`.
 
 ```toml
 [notifications.highlight.exclude]
