@@ -47,7 +47,7 @@ channel.  For example, the following shows a toast notification for every
 message in `#halloy`:
 
 ```toml
-[[notifications.channel."#halloy"]]
+[notifications.channel."#halloy"]
 show_toast = true
 ```
 
