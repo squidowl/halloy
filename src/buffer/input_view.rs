@@ -13,7 +13,7 @@ use data::{Config, User, client, command, shortcut};
 use iced::widget::{
     self, button, column, container, operation, row, rule, text, text_input,
 };
-use iced::{Alignment, Task, padding};
+use iced::{Alignment, Task, clipboard, padding};
 use tokio::time;
 
 use self::completion::Completion;
@@ -41,7 +41,7 @@ pub enum Event {
 
 #[derive(Debug, Clone)]
 pub enum Message {
-    ContextMenuActions(Menu),
+    ContextActions(Actions),
     CloseContextMenu(window::Id, bool),
     SysInfoReceived(iced::system::Information),
     Input(String),
@@ -57,15 +57,14 @@ pub enum Message {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub enum Menu {
-    Copy,
-    Paste,
+pub enum Actions {
+    CopyAll,
     SelectAll,
 }
 
-impl Menu {
+impl Actions {
     fn list() -> Vec<Self> {
-        vec![Self::Copy, Self::Paste, Self::SelectAll]
+        vec![Self::CopyAll, Self::SelectAll]
     }
 }
 
@@ -94,7 +93,7 @@ pub fn view<'a>(
         text_input = text_input.on_input(Message::Input);
     }
 
-    let menu = Menu::list();
+    let menu = Actions::list();
     let foo: Element<'a, Message> = context_menu(
         context_menu::MouseButton::default(),
         context_menu::Anchor::Cursor,
@@ -104,19 +103,21 @@ pub fn view<'a>(
         move |menu, length| {
             let context_button =
                 |title: Text<'a>,
-                 keybind: data::shortcut::KeyBind,
+                 keybind: Option<data::shortcut::KeyBind>,
                  message: Message| {
                     button(
                         row![
                             title,
-                            text(format!("({keybind})"))
-                                .shaping(text::Shaping::Advanced)
-                                .size(theme::TEXT_SIZE - 2.0)
-                                .style(theme::text::secondary)
-                                .font_maybe(
-                                    theme::font_style::secondary(theme,)
-                                        .map(font::get),
-                                )
+                            keybind.map(|kb| {
+                                text(format!("({kb})"))
+                                    .shaping(text::Shaping::Advanced)
+                                    .size(theme::TEXT_SIZE - 2.0)
+                                    .style(theme::text::secondary)
+                                    .font_maybe(
+                                        theme::font_style::secondary(theme)
+                                            .map(font::get),
+                                    )
+                            }),
                         ]
                         .spacing(8)
                         .align_y(iced::Alignment::Center),
@@ -128,20 +129,15 @@ pub fn view<'a>(
                 };
 
             match menu {
-                Menu::Copy => context_button(
-                    text("Copy"),
-                    shortcut::copy(),
-                    Message::ContextMenuActions(Menu::Copy),
+                Actions::CopyAll => context_button(
+                    text("Copy All"),
+                    None,
+                    Message::ContextActions(Actions::CopyAll),
                 ),
-                Menu::Paste => context_button(
-                    text("Paste"),
-                    shortcut::paste(),
-                    Message::ContextMenuActions(Menu::Paste),
-                ),
-                Menu::SelectAll => context_button(
+                Actions::SelectAll => context_button(
                     text("Select All"),
-                    shortcut::select_all(),
-                    Message::ContextMenuActions(Menu::SelectAll),
+                    Some(shortcut::select_all()),
+                    Message::ContextActions(Actions::SelectAll),
                 ),
             }
         },
@@ -926,33 +922,33 @@ impl State {
 
                 (Task::none(), None)
             }
-            Message::ContextMenuActions(action) => {
+            Message::ContextActions(action) => {
                 let window = main_window.id;
 
-                let event: Option<Task<Message>> = match action {
-                    Menu::Copy => None,
-                    Menu::Paste => None,
-                    Menu::SelectAll => {
-                        Some(operation::select_all(self.input_id.clone()))
+                let task = match action {
+                    Actions::CopyAll => {
+                        let input = history.input(buffer).text;
+
+                        clipboard::write(input.to_string())
+                    }
+                    Actions::SelectAll => {
+                        operation::select_all(self.input_id.clone())
                     }
                 };
 
-                let mut tasks =
-                    vec![context_menu::close(convert::identity).map(
-                        move |any_closed| {
-                            Message::CloseContextMenu(window, any_closed)
-                        },
-                    )];
-
-                if let Some(event) = event {
-                    tasks.push(event);
-                }
-
-                (Task::batch(tasks), None)
+                (
+                    Task::batch(vec![
+                        context_menu::close(convert::identity).map(
+                            move |any_closed| {
+                                Message::CloseContextMenu(window, any_closed)
+                            },
+                        ),
+                        task,
+                    ]),
+                    None,
+                )
             }
-            Message::CloseContextMenu(_, _) => {
-                (Task::none(), None)
-            }
+            Message::CloseContextMenu(_, _) => (Task::none(), None),
         }
     }
 

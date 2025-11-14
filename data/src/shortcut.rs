@@ -123,12 +123,6 @@ impl Hash for KeyBind {
     }
 }
 
-pub fn copy() -> KeyBind {
-    KeyBind {
-        key_code: KeyCode(iced_core::keyboard::Key::Character("c".into())),
-        modifiers: COMMAND,
-    }
-}
 
 pub fn select_all() -> KeyBind {
     KeyBind {
@@ -137,12 +131,6 @@ pub fn select_all() -> KeyBind {
     }
 }
 
-    pub fn paste() -> KeyBind {
-        KeyBind {
-            key_code: KeyCode(iced_core::keyboard::Key::Character("v".into())),
-            modifiers: COMMAND,
-        }
-    }
 
 // For defaults check the platform specific defaults:
 // macOS: https://support.apple.com/en-us/102650
