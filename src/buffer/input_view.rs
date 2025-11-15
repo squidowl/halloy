@@ -106,18 +106,20 @@ pub fn view<'a>(
                 Some(text_editor::Binding::Custom(Message::Send))
             }
             iced::keyboard::Key::Named(iced::keyboard::key::Named::Tab) => {
-                Some(text_editor::Binding::Custom(Message::Tab(key_press.modifiers.shift())))
+                Some(text_editor::Binding::Custom(Message::Tab(
+                    key_press.modifiers.shift(),
+                )))
             }
             iced::keyboard::Key::Named(iced::keyboard::key::Named::ArrowUp) => {
                 Some(text_editor::Binding::Custom(Message::Up))
             }
-            iced::keyboard::Key::Named(iced::keyboard::key::Named::ArrowDown) => {
-                Some(text_editor::Binding::Custom(Message::Down))
-            }
+            iced::keyboard::Key::Named(
+                iced::keyboard::key::Named::ArrowDown,
+            ) => Some(text_editor::Binding::Custom(Message::Down)),
             iced::keyboard::Key::Named(iced::keyboard::key::Named::Escape) => {
                 Some(text_editor::Binding::Custom(Message::Escape))
             }
-            // casperstorm: implement https://github.com/squidowl/halloy/issues/1126 
+            // casperstorm: implement https://github.com/squidowl/halloy/issues/1126
             _ => text_editor::Binding::from_key_press(key_press),
         })
         .style(theme::text_editor::primary);
@@ -893,6 +895,13 @@ impl State {
                         config,
                     );
 
+                    println!("new_input: {:?}", new_input);
+
+                    *input_content =
+                        text_editor::Content::with_text(new_input.as_str());
+                    input_content
+                        .perform(text_editor::Action::Move(text_editor::Motion::End));
+
                     return self
                         .on_completion(buffer, history, new_input, false);
                 }
@@ -970,7 +979,8 @@ impl State {
                         clipboard::write(input.to_string())
                     }
                     Actions::SelectAll => {
-                        operation::select_all(self.input_id.clone())
+                        input_content.perform(text_editor::Action::SelectAll);
+                        Task::none()
                     }
                 };
 
@@ -989,6 +999,8 @@ impl State {
             Message::CloseContextMenu(_, _) => (Task::none(), None),
             Message::Action(action) => {
                 input_content.perform(action.clone());
+
+                println!("Action: {:?}", action);
 
                 match &action {
                     text_editor::Action::Edit(edit) => {
