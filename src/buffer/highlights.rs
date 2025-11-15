@@ -162,7 +162,11 @@ pub fn view<'a>(
                         Option::<fn(Color) -> Color>::None,
                         move |link| match link {
                             message::Link::User(_) => {
-                                context_menu::Entry::user_list(true, None)
+                                context_menu::Entry::user_list(
+                                    true,
+                                    None,
+                                    config.file_transfer.enabled,
+                                )
                             }
                             message::Link::Url(_) => {
                                 context_menu::Entry::url_list()

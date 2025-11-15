@@ -9,6 +9,7 @@ Added:
 - Reload Halloy by sending `SIGUSR1` on Unix system
 - Ability to hide the indicator when a new version of Halloy is available 
 - Fuzzy matching when searching in command bar
+- Setting to disable file transfers (DCC), removing it from the UI
 
 Fixed:
 
@@ -30,7 +31,7 @@ Thanks:
 
 - Contributions: @kasperkronborg, @mistivia
 - Bug reports: @Frikilinux, ThePendulum, @crabbedhaloablution, @findus, @Darksecond
-- Feature requests: @cyrneko, ilya
+- Feature requests: @cyrneko, ilya, abby
 
 # 2025.11 (2025-10-27)
 
