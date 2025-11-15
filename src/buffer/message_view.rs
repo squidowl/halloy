@@ -290,6 +290,7 @@ impl<'a> ChannelQueryLayout<'a> {
                 message::Link::User(_) => context_menu::Entry::user_list(
                     formatter.target.is_channel(),
                     formatter.target.our_user(),
+                    formatter.config.file_transfer.enabled,
                 ),
                 message::Link::Url(_) => context_menu::Entry::url_list(),
                 _ => vec![],
@@ -397,6 +398,7 @@ impl<'a> ChannelQueryLayout<'a> {
                 message::Link::User(_) => context_menu::Entry::user_list(
                     formatter.target.is_channel(),
                     formatter.target.our_user(),
+                    formatter.config.file_transfer.enabled,
                 ),
                 message::Link::Url(_) => context_menu::Entry::url_list(),
                 _ => vec![],
@@ -456,6 +458,7 @@ impl<'a> ChannelQueryLayout<'a> {
                 message::Link::User(_) => context_menu::Entry::user_list(
                     formatter.target.is_channel(),
                     formatter.target.our_user(),
+                    formatter.config.file_transfer.enabled,
                 ),
                 message::Link::Url(_) => context_menu::Entry::url_list(),
                 _ => vec![],

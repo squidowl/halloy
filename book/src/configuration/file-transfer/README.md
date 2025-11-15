@@ -4,6 +4,7 @@ File transfer configuration options.
 
 - [File Transfer](#file-transfer)
   - [Configuration](#configuration)
+    - [enabled](#enabled)
     - [save\_directory](#save_directory)
     - [passive](#passive)
     - [timeout](#timeout)
@@ -11,6 +12,20 @@ File transfer configuration options.
   - [Server](#server)
 
 ## Configuration
+
+### enabled
+
+Control if file transfers are shown in the UI (e.g. file transfer requests are
+shown, file transfer options are presented in menus, etc).
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: true
+
+[file_transfer]
+enabled = true
+```
 
 ### save_directory
 
