@@ -123,6 +123,15 @@ impl Hash for KeyBind {
     }
 }
 
+
+pub fn select_all() -> KeyBind {
+    KeyBind {
+        key_code: KeyCode(iced_core::keyboard::Key::Character("a".into())),
+        modifiers: COMMAND,
+    }
+}
+
+
 // For defaults check the platform specific defaults:
 // macOS: https://support.apple.com/en-us/102650
 // Windows: https://support.microsoft.com/en-us/windows/keyboard-shortcuts-in-windows-dcc61a57-8ff0-cffe-9796-cb9706c75eec

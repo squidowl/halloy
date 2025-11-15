@@ -16,6 +16,7 @@ pub use self::server::Server;
 use crate::Theme;
 use crate::screen::dashboard::sidebar;
 use crate::widget::Element;
+use crate::window::Window;
 
 pub mod channel;
 pub mod empty;
@@ -179,12 +180,13 @@ impl Buffer {
         clients: &mut data::client::Map,
         history: &mut history::Manager,
         file_transfers: &mut file_transfer::Manager,
+        main_window: &Window,
         config: &Config,
     ) -> (Task<Message>, Option<Event>) {
         match (self, message) {
             (Buffer::Channel(state), Message::Channel(message)) => {
                 let (command, event) =
-                    state.update(message, clients, history, config);
+                    state.update(message, clients, history, main_window, config);
 
                 let event = event.map(|event| match event {
                     channel::Event::ContextMenu(event) => {
@@ -215,7 +217,7 @@ impl Buffer {
             }
             (Buffer::Server(state), Message::Server(message)) => {
                 let (command, event) =
-                    state.update(message, clients, history, config);
+                    state.update(message, clients, history, main_window, config);
 
                 let event = event.map(|event| match event {
                     server::Event::ContextMenu(event) => {
@@ -239,7 +241,7 @@ impl Buffer {
             }
             (Buffer::Query(state), Message::Query(message)) => {
                 let (command, event) =
-                    state.update(message, clients, history, config);
+                    state.update(message, clients, history, main_window, config);
 
                 let event = event.map(|event| match event {
                     query::Event::ContextMenu(event) => {

@@ -6,13 +6,14 @@ use data::server::Server;
 use data::target::{self, Target};
 use data::user::{ChannelUsers, Nick};
 use data::{Config, User, buffer, client, history, message};
-use iced::widget::{column, container, row};
+use iced::widget::{column, container, row, text_editor};
 use iced::{Length, Size, Task, padding};
 
 use super::message_view::{ChannelQueryLayout, TargetInfo};
 use super::{context_menu, input_view, scroll_view};
 use crate::Theme;
 use crate::widget::Element;
+use crate::window::Window;
 
 mod topic;
 
@@ -131,6 +132,7 @@ pub fn view<'a>(
         input_view::view(
             &state.input_view,
             input,
+            &state.input_content,
             is_focused,
             our_user,
             !is_connected_to_channel,
@@ -172,6 +174,7 @@ pub struct Channel {
     pub target: target::Channel,
     pub scroll_view: scroll_view::State,
     pub input_view: input_view::State,
+    pub input_content: text_editor::Content,
 }
 
 impl Channel {
@@ -187,6 +190,7 @@ impl Channel {
             target,
             scroll_view: scroll_view::State::new(pane_size, config),
             input_view: input_view::State::new(),
+            input_content: text_editor::Content::new(),
         }
     }
 
@@ -195,6 +199,7 @@ impl Channel {
         message: Message,
         clients: &mut data::client::Map,
         history: &mut history::Manager,
+        main_window: &Window,
         config: &Config,
     ) -> (Task<Message>, Option<Event>) {
         match message {
@@ -244,9 +249,11 @@ impl Channel {
             Message::InputView(message) => {
                 let (command, event) = self.input_view.update(
                     message,
+                    &mut self.input_content,
                     &self.buffer,
                     clients,
                     history,
+                    main_window,
                     config,
                 );
                 let command = command.map(Message::InputView);
