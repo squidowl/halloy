@@ -187,6 +187,7 @@
 <ul>
 <li><a href="#configuration">Configuration</a>
 <ul>
+<li><a href="#enabled">enabled</a></li>
 <li><a href="#save_directory">save_directory</a></li>
 <li><a href="#passive">passive</a></li>
 <li><a href="#timeout">timeout</a></li>
@@ -198,6 +199,16 @@
 </li>
 </ul>
 <h2 id="configuration"><a class="header" href="#configuration">Configuration</a></h2>
+<h3 id="enabled"><a class="header" href="#enabled">enabled</a></h3>
+<p>Control if file transfers are shown in the UI (e.g. file transfer requests are
+shown, file transfer options are presented in menus, etc).</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: true
+
+[file_transfer]
+enabled = true
+</code></pre>
 <h3 id="save_directory"><a class="header" href="#save_directory">save_directory</a></h3>
 <p>Default directory to save files in. If not set, user will see a file dialog. <sup class="footnote-reference" id="fr-1-1"><a href="#footnote-1">1</a></sup></p>
 <pre><code class="language-toml"># Type: string

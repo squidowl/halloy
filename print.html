@@ -2199,6 +2199,7 @@ userinfo = "&lt;nickname&gt; (&lt;realname&gt;)"
 <ul>
 <li><a href="configuration/file-transfer/index.html#configuration">Configuration</a>
 <ul>
+<li><a href="configuration/file-transfer/index.html#enabled">enabled</a></li>
 <li><a href="configuration/file-transfer/index.html#save_directory">save_directory</a></li>
 <li><a href="configuration/file-transfer/index.html#passive">passive</a></li>
 <li><a href="configuration/file-transfer/index.html#timeout">timeout</a></li>
@@ -2210,6 +2211,16 @@ userinfo = "&lt;nickname&gt; (&lt;realname&gt;)"
 </li>
 </ul>
 <h2 id="configuration-27"><a class="header" href="#configuration-27">Configuration</a></h2>
+<h3 id="enabled-6"><a class="header" href="#enabled-6">enabled</a></h3>
+<p>Control if file transfers are shown in the UI (e.g. file transfer requests are
+shown, file transfer options are presented in menus, etc).</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: true
+
+[file_transfer]
+enabled = true
+</code></pre>
 <h3 id="save_directory"><a class="header" href="#save_directory">save_directory</a></h3>
 <p>Default directory to save files in. If not set, user will see a file dialog. <sup class="footnote-reference" id="fr-1-1"><a href="#footnote-1">1</a></sup></p>
 <pre><code class="language-toml"># Type: string
@@ -2261,7 +2272,7 @@ timeout = 300
 </li>
 </ul>
 <h2 id="configuration-28"><a class="header" href="#configuration-28">Configuration</a></h2>
-<h3 id="enabled-6"><a class="header" href="#enabled-6">enabled</a></h3>
+<h3 id="enabled-7"><a class="header" href="#enabled-7">enabled</a></h3>
 <p>If true, automatically accept incoming file transfers. Requires <code>save_directory</code> to be set.</p>
 <pre><code class="language-toml"># Type: boolean
 # Values: true, false
@@ -2983,7 +2994,7 @@ windows.decorations = false
 </li>
 </ul>
 <h2 id="configuration-39"><a class="header" href="#configuration-39">Configuration</a></h2>
-<h3 id="enabled-7"><a class="header" href="#enabled-7">enabled</a></h3>
+<h3 id="enabled-8"><a class="header" href="#enabled-8">enabled</a></h3>
 <p>Enable or disable previews globally</p>
 <pre><code class="language-toml"># Type: boolean
 # Values: true, false
@@ -4081,7 +4092,7 @@ highlight_icon_size = 8
 </li>
 </ul>
 <h2 id="configuration-53"><a class="header" href="#configuration-53">Configuration</a></h2>
-<h3 id="enabled-8"><a class="header" href="#enabled-8">enabled</a></h3>
+<h3 id="enabled-9"><a class="header" href="#enabled-9">enabled</a></h3>
 <p>Controls whether the user menu is shown in the sidebar or hidden</p>
 <pre><code class="language-toml"># Type: boolean
 # Values: true, false
