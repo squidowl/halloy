@@ -5,7 +5,7 @@ use std::{convert, slice};
 
 use chrono::format::SecondsFormat;
 use chrono::{DateTime, Local, Utc};
-use data::config::buffer::ScrollPosition;
+use data::config::buffer::{ScrollPosition, UsernameFormat};
 use data::dashboard::{self, BufferAction};
 use data::environment::{RELEASE_WEBSITE, WIKI_WEBSITE};
 use data::history::ReadMarker;
@@ -3027,6 +3027,15 @@ impl Dashboard {
         request: file_transfer::ReceiveRequest,
         config: &Config,
     ) -> Option<Task<Message>> {
+        if !config.file_transfer.enabled {
+            log::info!(
+                "file transfer request from {} ignored",
+                request.from.formatted(UsernameFormat::Full)
+            );
+
+            return None;
+        }
+
         let event = self.file_transfers.receive(request.clone(), config)?;
 
         self.notifications.notify(

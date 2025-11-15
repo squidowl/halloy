@@ -59,38 +59,64 @@ impl Entry {
         vec![Entry::CopyUrl]
     }
 
-    pub fn user_list(is_channel: bool, our_user: Option<&User>) -> Vec<Self> {
+    pub fn user_list(
+        is_channel: bool,
+        our_user: Option<&User>,
+        file_transfer_enabled: bool,
+    ) -> Vec<Self> {
         if is_channel {
             if our_user.is_some_and(|u| {
                 u.has_access_level(data::user::AccessLevel::Oper)
             }) {
-                vec![
+                let mut list = vec![
                     Entry::UserInfo,
                     Entry::HorizontalRule,
                     Entry::Whois,
                     Entry::Query,
-                    Entry::SendFile,
+                ];
+
+                if file_transfer_enabled {
+                    list.push(Entry::SendFile);
+                }
+
+                list.extend(vec![
                     Entry::HorizontalRule,
                     Entry::ToggleAccessLevelOp,
                     Entry::ToggleAccessLevelVoice,
                     Entry::HorizontalRule,
                     Entry::CtcpRequestVersion,
                     Entry::CtcpRequestTime,
-                ]
+                ]);
+
+                list
             } else {
-                vec![
+                let mut list = vec![
                     Entry::UserInfo,
                     Entry::HorizontalRule,
                     Entry::Whois,
                     Entry::Query,
-                    Entry::SendFile,
+                ];
+
+                if file_transfer_enabled {
+                    list.push(Entry::SendFile);
+                }
+
+                list.extend(vec![
                     Entry::HorizontalRule,
                     Entry::CtcpRequestVersion,
                     Entry::CtcpRequestTime,
-                ]
+                ]);
+
+                list
             }
         } else {
-            vec![Entry::Whois, Entry::SendFile]
+            let mut list = vec![Entry::Whois];
+
+            if file_transfer_enabled {
+                list.push(Entry::SendFile);
+            }
+
+            list
         }
     }
 
@@ -385,7 +411,11 @@ pub fn user<'a>(
     theme: &'a Theme,
     click: &'a config::buffer::NicknameClickAction,
 ) -> Element<'a, Message> {
-    let entries = Entry::user_list(channel.is_some(), our_user);
+    let entries = Entry::user_list(
+        channel.is_some(),
+        our_user,
+        config.file_transfer.enabled,
+    );
 
     let message = match click {
         data::config::buffer::NicknameClickAction::OpenQuery => Message::Query(

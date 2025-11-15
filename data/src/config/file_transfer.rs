@@ -10,6 +10,7 @@ use crate::serde::deserialize_path_buf_with_path_transformations_maybe;
 #[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
 pub struct FileTransfer {
+    pub enabled: bool,
     /// Default directory to save files in. If not set, user will see a file dialog.
     #[serde(
         deserialize_with = "deserialize_path_buf_with_path_transformations_maybe"
@@ -27,6 +28,7 @@ pub struct FileTransfer {
 impl Default for FileTransfer {
     fn default() -> Self {
         Self {
+            enabled: true,
             save_directory: None,
             passive: true,
             timeout: 60 * 5,
