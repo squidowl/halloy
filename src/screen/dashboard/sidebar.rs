@@ -173,15 +173,21 @@ impl Sidebar {
         let keyboard = &config.keyboard;
         let base = button(icon::menu()).padding(5).width(Length::Shrink);
 
-        let menu = Menu::list(config.sidebar.user_menu.show_new_version_indicator && version.is_old());
+        let menu = Menu::list(
+            config.sidebar.user_menu.show_new_version_indicator
+                && version.is_old(),
+            config.file_transfer.enabled,
+        );
 
         let logs_has_unread = history.has_unread(&history::Kind::Logs);
 
-        // we show notification dot if theres a new version, if theres transfers, or if the logs have unread messages.
-        let show_notification_dot = (config.sidebar.user_menu.show_new_version_indicator
-            && version.is_old())
-            || !file_transfers.is_empty()
-            || logs_has_unread;
+        // Show notification dot if theres a new version, if there're transfers,
+        // or if the logs have unread messages.
+        let show_notification_dot =
+            (config.sidebar.user_menu.show_new_version_indicator
+                && version.is_old())
+                || (!file_transfers.is_empty() && config.file_transfer.enabled)
+                || logs_has_unread;
 
         if menu.is_empty() {
             base.into()
@@ -384,15 +390,16 @@ impl Sidebar {
         }
 
         let content = |width| {
-            let user_menu_button = config.sidebar.user_menu.enabled.then(|| {
-                self.user_menu_button(
-                    config,
-                    history,
-                    file_transfers,
-                    version,
-                    theme,
-                )
-            });
+            let user_menu_button =
+                config.sidebar.user_menu.enabled.then(|| {
+                    self.user_menu_button(
+                        config,
+                        history,
+                        file_transfers,
+                        version,
+                        theme,
+                    )
+                });
 
             let mut buffers = vec![];
             let mut client_enumeration = 0;
@@ -644,7 +651,7 @@ enum Menu {
 }
 
 impl Menu {
-    fn list(has_new_version: bool) -> Vec<Self> {
+    fn list(has_new_version: bool, file_transfer_enabled: bool) -> Vec<Self> {
         let mut list = vec![Self::Version];
 
         if has_new_version {
@@ -655,7 +662,13 @@ impl Menu {
             Self::HorizontalRule,
             Self::CommandBar,
             Self::Documentation,
-            Self::FileTransfers,
+        ]);
+
+        if file_transfer_enabled {
+            list.push(Self::FileTransfers);
+        }
+
+        list.extend([
             Self::Highlights,
             Self::Logs,
             Self::OpenConfigFile,
