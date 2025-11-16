@@ -46,6 +46,7 @@ Halloy is also available from [Flathub](https://flathub.org/apps/org.squidowl.ha
     * [userhost-in-names](https://ircv3.net/specs/extensions/userhost-in-names)
     * [`UTF8ONLY`](https://ircv3.net/specs/extensions/utf8-only)
     * [`WHOX`](https://ircv3.net/specs/extensions/whox)
+    * [`soju.im/bouncer-networks`](https://codeberg.org/emersion/soju/src/branch/master/doc/ext/bouncer-networks.md)
 * SASL support
 * DCC Send
 * Keyboard shortcuts
