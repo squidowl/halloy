@@ -317,6 +317,10 @@ impl Alignment {
     pub fn is_right(&self) -> bool {
         matches!(self, Self::Right)
     }
+
+    pub fn is_top(&self) -> bool {
+        matches!(self, Self::Top)
+    }
 }
 
 #[derive(Debug, Clone, Copy)]

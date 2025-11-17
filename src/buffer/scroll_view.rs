@@ -110,6 +110,7 @@ pub trait LayoutMessage<'a> {
         right_aligned_width: Option<f32>,
         max_prefix_width: Option<f32>,
         range_timestamp_excess_width: Option<f32>,
+        hide_nickname: bool,
     ) -> Option<Element<'a, Message>>;
 }
 
@@ -120,6 +121,7 @@ where
         Option<f32>,
         Option<f32>,
         Option<f32>,
+        bool,
     ) -> Option<Element<'a, Message>>,
 {
     fn format(
@@ -128,12 +130,14 @@ where
         right_aligned_width: Option<f32>,
         max_prefix_width: Option<f32>,
         range_timestamp_excess_width: Option<f32>,
+        hide_nickname: bool,
     ) -> Option<Element<'a, Message>> {
         self(
             message,
             right_aligned_width,
             max_prefix_width,
             range_timestamp_excess_width,
+            hide_nickname,
         )
     }
 }
@@ -223,13 +227,28 @@ pub fn view<'a>(
                         messages: &[&'a data::Message]| {
         messages
             .iter()
-            .filter_map(|message| {
+            .enumerate()
+            .filter_map(|(idx, message)| {
+                let hide_nickname = config.buffer.nickname.hide_consecutive
+                    && !config.buffer.nickname.alignment.is_top()
+                    && matches!(message.target.source(), message::Source::User(_))
+                    && idx
+                        .checked_sub(1)
+                        .and_then(|prev_idx| messages.get(prev_idx))
+                        .is_some_and(|prev_message| {
+                            matches!(
+                                (message.target.source(), prev_message.target.source()),
+                                (message::Source::User(user), message::Source::User(prev_user)) if user == prev_user
+                            )
+                        });
+
                 formatter
                     .format(
                         message,
                         right_aligned_width,
                         max_prefix_width,
                         range_timestamp_excess_width,
+                        hide_nickname,
                     )
                     .map(|element| {
                         (message, keyed(keyed::Key::message(message), element))
