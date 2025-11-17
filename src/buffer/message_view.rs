@@ -6,7 +6,7 @@ use data::server::Server;
 use data::user::ChannelUsers;
 use data::{Config, User, message, target};
 use iced::widget::text::LineHeight;
-use iced::widget::{button, column, container, row, text};
+use iced::widget::{Space, button, column, container, row, text};
 use iced::{Color, Length, alignment};
 
 use super::context_menu::{self, Context};
@@ -182,6 +182,7 @@ impl<'a> ChannelQueryLayout<'a> {
         message: &'a data::Message,
         right_aligned_width: Option<f32>,
         user: &'a User,
+        hide_nickname: bool,
     ) -> (Element<'a, Message>, Element<'a, Message>) {
         let not_sent = (self.supports_echoes || message.command.is_some())
             && matches!(message.direction, message::Direction::Sent)
@@ -257,6 +258,20 @@ impl<'a> ChannelQueryLayout<'a> {
             tooltip::Position::Bottom,
             self.theme,
         );
+
+        let nick_element: Element<_> =
+            if hide_nickname && self.config.buffer.nickname.hide_consecutive {
+                let width = match self.config.buffer.nickname.alignment {
+                    data::buffer::Alignment::Left
+                    | data::buffer::Alignment::Top => 0.0,
+                    data::buffer::Alignment::Right => {
+                        right_aligned_width.unwrap_or_default()
+                    }
+                };
+                Space::new().width(width).into()
+            } else {
+                nick
+            };
 
         let formatter = *self;
 
@@ -347,7 +362,7 @@ impl<'a> ChannelQueryLayout<'a> {
             Element::from(message_content)
         };
 
-        (nick, content)
+        (nick_element, content)
     }
 
     fn format_server_message(
@@ -519,6 +534,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
         right_aligned_width: Option<f32>,
         max_prefix_width: Option<f32>,
         range_timestamp_excess_width: Option<f32>,
+        hide_nickname: bool,
     ) -> Option<Element<'a, Message>> {
         let timestamp = self.format_timestamp(message);
         let prefixes = self.format_prefixes(
@@ -535,6 +551,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
                     message,
                     right_aligned_width,
                     user,
+                    hide_nickname,
                 )),
                 message::Source::Server(server_message) => {
                     Some(self.format_server_message(
@@ -618,7 +635,19 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
                     )
                 }
             }?;
-        let row = row.push(middle).push(selectable_text(" "));
+
+        // When hiding consecutive nicknames (left-aligned only), insert a single space
+        // to maintain visual separation. Right-aligned nicknames always get a space since
+        // they don't create a gap when hidden (alignment pushes content to the same position).
+        let maybe_space = if !hide_nickname
+            || self.config.buffer.nickname.alignment.is_right()
+        {
+            Some(selectable_text(" "))
+        } else {
+            None
+        };
+        let row = row.push(middle).push(maybe_space);
+
         if self.content_on_new_line(message) {
             Some(container(column![row, content]).into())
         } else {
