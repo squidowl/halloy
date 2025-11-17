@@ -148,7 +148,7 @@ truncate = 10
 
 ### hide_consecutive
 
-Hide the nickname if consecutive message is from the same user.
+Hide nickname if consecutive messages are from the same user.
 
 > ⚠️ `hide_consecutive` does not work in conjunction with `alignment = "top"` .
 
