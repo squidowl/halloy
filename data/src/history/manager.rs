@@ -702,12 +702,21 @@ impl Manager {
                 .position(|stored| stored.hash == message.hash)
                 .map(|position| position + start_index)
             {
+                let insert_date =
+                    message.server_time.with_timezone(&Local).date_naive();
+
                 let start = messages
                     .iter()
                     .take(insert_position)
                     .rev()
                     .position(|message| {
-                        !message.blocked && !message.can_condense(config)
+                        !message.blocked
+                            && (!message.can_condense(config)
+                                || message
+                                    .server_time
+                                    .with_timezone(&Local)
+                                    .date_naive()
+                                    != insert_date)
                     })
                     .map_or(0, |position| insert_position - position);
 
@@ -715,7 +724,13 @@ impl Manager {
                     .iter()
                     .skip(insert_position)
                     .position(|message| {
-                        !message.blocked && !message.can_condense(config)
+                        !message.blocked
+                            && (!message.can_condense(config)
+                                || message
+                                    .server_time
+                                    .with_timezone(&Local)
+                                    .date_naive()
+                                    != insert_date)
                     })
                     .map_or(messages.len(), |position| {
                         insert_position + position
@@ -723,8 +738,8 @@ impl Manager {
 
                 let mut condensable_messages = messages[start..end]
                     .iter_mut()
-                    .collect::<Vec<&mut message::Message>>(
-                );
+                    .filter(|message| !message.blocked)
+                    .collect::<Vec<&mut message::Message>>();
 
                 let condensed_message = message::condense(
                     &condensable_messages
@@ -1049,7 +1064,14 @@ impl Data {
                 } else if message
                     .can_condense(&buffer_config.server_messages.condense)
                 {
-                    message.condensed.as_ref().map(std::convert::AsRef::as_ref)
+                    if message.expanded {
+                        Some(message)
+                    } else {
+                        message
+                            .condensed
+                            .as_ref()
+                            .map(std::convert::AsRef::as_ref)
+                    }
                 } else {
                     match message.target.source() {
                         message::Source::Internal(
