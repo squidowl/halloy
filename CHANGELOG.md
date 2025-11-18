@@ -10,6 +10,7 @@ Added:
 - Ability to hide the indicator when a new version of Halloy is available 
 - Fuzzy matching when searching in command bar
 - Setting to disable file transfers (DCC), removing it from the UI
+- Ability to hide nickname for consecutive messages from the same user
 
 Fixed:
 
