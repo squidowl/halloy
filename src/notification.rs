@@ -273,7 +273,7 @@ impl Notifications {
                 {
                     if notification_config.show_content {
                         self.execute(
-                            &config.highlight,
+                            notification_config,
                             notification,
                             &format!(
                                 "{} sent a message in {channel} on {server}",
@@ -284,7 +284,7 @@ impl Notifications {
                         );
                     } else {
                         self.execute(
-                            &config.highlight,
+                            notification_config,
                             notification,
                             &format!(
                                 "{} sent a message in {channel}",
@@ -324,11 +324,8 @@ impl Notifications {
         }
 
         if let Some(sound) = sound_name
+            .or(config.sound.as_deref())
             .and_then(|sound_name| self.sounds.get(sound_name))
-            .or(config
-                .sound
-                .as_ref()
-                .and_then(|sound_name| self.sounds.get(sound_name)))
         {
             audio::play(sound.clone());
         }
