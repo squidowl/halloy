@@ -4,63 +4,107 @@ use serde::{Deserialize, Deserializer};
 use crate::isupport;
 use crate::server::Server;
 use crate::target::{Channel, Query, Target};
-use crate::user::User;
+use crate::user::NickRef;
 
-pub fn is_target_included(
+pub fn is_target_channel_included(
     include: Option<&Inclusivities>,
     exclude: Option<&Inclusivities>,
-    user: Option<&User>,
-    target: &Target,
+    user: Option<NickRef>,
+    channel: &Channel,
     server: &Server,
     casemapping: isupport::CaseMap,
 ) -> bool {
     let is_inclusive = |inclusivities: Option<&Inclusivities>,
-                        target: &Target,
+                        channel: &Channel,
                         server: &Server|
      -> bool {
         inclusivities.is_some_and(|inclusivities| {
-            (match target {
-                Target::Channel(channel) => {
-                    inclusivities.is_channel_inclusive(channel, casemapping)
-                        || inclusivities.criteria.iter().any(|criterion| {
-                            criterion.is_user_channel_server_inclusive(
-                                user,
-                                Some(channel),
-                                Some(server),
-                                casemapping,
-                            )
-                        })
-                }
-                Target::Query(query) => {
-                    inclusivities.is_query_inclusive(query, casemapping)
-                        || inclusivities.criteria.iter().any(|criterion| {
-                            criterion.is_query_server_inclusive(
-                                query,
-                                server,
-                                casemapping,
-                            )
-                        })
-                }
-            }) || inclusivities.is_server_inclusive(server)
+            inclusivities.is_channel_inclusive(channel, casemapping)
+                || inclusivities.criteria.iter().any(|criterion| {
+                    criterion.is_user_channel_server_inclusive(
+                        user,
+                        Some(channel),
+                        Some(server),
+                        casemapping,
+                    )
+                })
+                || inclusivities.is_server_inclusive(server)
         })
     };
 
-    let is_included = is_inclusive(include, target, server);
-    let is_excluded = is_inclusive(exclude, target, server);
+    let is_included = is_inclusive(include, channel, server);
+    let is_excluded = is_inclusive(exclude, channel, server);
 
     is_included || !is_excluded
+}
+
+pub fn is_target_query_included(
+    include: Option<&Inclusivities>,
+    exclude: Option<&Inclusivities>,
+    query: &Query,
+    server: &Server,
+    casemapping: isupport::CaseMap,
+) -> bool {
+    let is_inclusive = |inclusivities: Option<&Inclusivities>,
+                        query: &Query,
+                        server: &Server|
+     -> bool {
+        inclusivities.is_some_and(|inclusivities| {
+            inclusivities.is_query_inclusive(query, casemapping)
+                || inclusivities.criteria.iter().any(|criterion| {
+                    criterion.is_query_server_inclusive(
+                        query,
+                        server,
+                        casemapping,
+                    )
+                })
+                || inclusivities.is_server_inclusive(server)
+        })
+    };
+
+    let is_included = is_inclusive(include, query, server);
+    let is_excluded = is_inclusive(exclude, query, server);
+
+    is_included || !is_excluded
+}
+
+pub fn is_target_included(
+    include: Option<&Inclusivities>,
+    exclude: Option<&Inclusivities>,
+    user: Option<NickRef>,
+    target: &Target,
+    server: &Server,
+    casemapping: isupport::CaseMap,
+) -> bool {
+    match target {
+        Target::Channel(channel) => is_target_channel_included(
+            include,
+            exclude,
+            user,
+            channel,
+            server,
+            casemapping,
+        ),
+        Target::Query(query) => is_target_query_included(
+            include,
+            exclude,
+            query,
+            server,
+            casemapping,
+        ),
+    }
 }
 
 pub fn is_user_channel_server_included(
     include: Option<&Inclusivities>,
     exclude: Option<&Inclusivities>,
-    user: &User,
+    user: NickRef,
     channel: Option<&Channel>,
     server: &Server,
     casemapping: isupport::CaseMap,
 ) -> bool {
     let is_inclusive = |inclusivities: Option<&Inclusivities>,
-                        user: &User,
+                        user: NickRef,
                         channel: Option<&Channel>,
                         server: &Server|
      -> bool {
@@ -233,7 +277,7 @@ impl Inclusivities {
 
     pub fn is_user_inclusive(
         &self,
-        user: &User,
+        user: NickRef,
         casemapping: isupport::CaseMap,
     ) -> bool {
         self.users
@@ -294,7 +338,7 @@ pub struct Criterion {
 impl Criterion {
     pub fn is_user_channel_server_inclusive(
         &self,
-        user: Option<&User>,
+        user: Option<NickRef>,
         channel: Option<&Channel>,
         server: Option<&Server>,
         casemapping: isupport::CaseMap,

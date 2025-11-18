@@ -45,7 +45,7 @@ impl Nickname {
         is_target_included(
             self.include.as_ref(),
             self.exclude.as_ref(),
-            user,
+            user.map(User::nickname),
             target,
             server,
             casemapping,
@@ -155,7 +155,7 @@ impl Match {
         is_target_included(
             self.include.as_ref(),
             self.exclude.as_ref(),
-            user,
+            user.map(User::nickname),
             target,
             server,
             casemapping,
