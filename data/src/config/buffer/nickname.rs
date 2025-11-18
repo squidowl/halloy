@@ -15,6 +15,7 @@ pub struct Nickname {
     pub click: NicknameClickAction,
     pub shown_status: ShownStatus,
     pub truncate: Option<u16>,
+    pub hide_consecutive: bool,
 }
 
 impl Default for Nickname {
@@ -29,6 +30,7 @@ impl Default for Nickname {
             click: NicknameClickAction::default(),
             shown_status: ShownStatus::default(),
             truncate: None,
+            hide_consecutive: false,
         }
     }
 }
