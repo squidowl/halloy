@@ -114,6 +114,7 @@ impl<'de> Deserialize<'de> for Inclusivities {
                 criteria: Vec<Criterion>,
             },
             Legacy(Vec<String>),
+            All(String),
         }
 
         match Format::deserialize(deserializer)? {
@@ -129,6 +130,16 @@ impl<'de> Deserialize<'de> for Inclusivities {
                 criteria,
             }),
             Format::Legacy(strings) => Ok(Inclusivities::parse(strings)),
+            Format::All(string) => {
+                if string == "all" || string == "*" {
+                    Ok(Inclusivities::all())
+                } else {
+                    Err(serde::de::Error::invalid_value(
+                        serde::de::Unexpected::Str(&string),
+                        &"'all' or '*'",
+                    ))
+                }
+            }
         }
     }
 }
