@@ -13,20 +13,19 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="theme-color" content="#ffffff">
 
-        <link rel="shortcut icon" href="favicon.png">
-        <link rel="stylesheet" href="css/variables.css">
-        <link rel="stylesheet" href="css/general.css">
-        <link rel="stylesheet" href="css/chrome.css">
-        <link rel="stylesheet" href="css/print.css" media="print">
+        <link rel="shortcut icon" href="favicon-65fb0af4.png">
+        <link rel="stylesheet" href="css/variables-8adf115d.css">
+        <link rel="stylesheet" href="css/general-2459343d.css">
+        <link rel="stylesheet" href="css/chrome-9dfbd86b.css">
+        <link rel="stylesheet" href="css/print-9e4910d8.css" media="print">
 
         <!-- Fonts -->
-        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
-        <link rel="stylesheet" href="fonts/fonts.css">
+        <link rel="stylesheet" href="fonts/fonts-9644e21d.css">
 
         <!-- Highlight.js Stylesheets -->
-        <link rel="stylesheet" id="highlight-css" href="highlight.css">
-        <link rel="stylesheet" id="tomorrow-night-css" href="tomorrow-night.css">
-        <link rel="stylesheet" id="ayu-highlight-css" href="ayu-highlight.css">
+        <link rel="stylesheet" id="mdbook-highlight-css" href="highlight-493f70e1.css">
+        <link rel="stylesheet" id="mdbook-tomorrow-night-css" href="tomorrow-night-4c0ae647.css">
+        <link rel="stylesheet" id="mdbook-ayu-highlight-css" href="ayu-highlight-3fdfc3ac.css">
 
         <!-- Custom theme stylesheets -->
 
@@ -36,10 +35,10 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex.js";
+            window.path_to_searchindex_js = "searchindex-68b64037.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc.js"></script>
+        <script src="toc-840d5291.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -53,7 +52,7 @@
             </div>
         </div>
     </div>
-    <div id="body-container">
+    <div id="mdbook-body-container">
         <!-- Work around some values being stored in localStorage wrapped in quotes -->
         <script>
             try {
@@ -82,12 +81,12 @@
             html.classList.add("js");
         </script>
 
-        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+        <input type="checkbox" id="mdbook-sidebar-toggle-anchor" class="hidden">
 
         <!-- Hide / unhide sidebar before it is displayed -->
         <script>
             let sidebar = null;
-            const sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            const sidebar_toggle = document.getElementById("mdbook-sidebar-toggle-anchor");
             if (document.body.clientWidth >= 1080) {
                 try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
                 sidebar = sidebar || 'visible';
@@ -102,39 +101,39 @@
             }
         </script>
 
-        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+        <nav id="mdbook-sidebar" class="sidebar" aria-label="Table of contents">
             <!-- populated by js -->
             <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
             <noscript>
                 <iframe class="sidebar-iframe-outer" src="toc.html"></iframe>
             </noscript>
-            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+            <div id="mdbook-sidebar-resize-handle" class="sidebar-resize-handle">
                 <div class="sidebar-resize-indicator"></div>
             </div>
         </nav>
 
-        <div id="page-wrapper" class="page-wrapper">
+        <div id="mdbook-page-wrapper" class="page-wrapper">
 
             <div class="page">
-                <div id="menu-bar-hover-placeholder"></div>
-                <div id="menu-bar" class="menu-bar sticky">
+                <div id="mdbook-menu-bar-hover-placeholder"></div>
+                <div id="mdbook-menu-bar" class="menu-bar sticky">
                     <div class="left-buttons">
-                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
-                            <i class="fa fa-bars"></i>
+                        <label id="mdbook-sidebar-toggle" class="icon-button" for="mdbook-sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="mdbook-sidebar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M0 96C0 78.3 14.3 64 32 64H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32C14.3 128 0 113.7 0 96zM0 256c0-17.7 14.3-32 32-32H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32c-17.7 0-32-14.3-32-32zM448 416c0 17.7-14.3 32-32 32H32c-17.7 0-32-14.3-32-32s14.3-32 32-32H416c17.7 0 32 14.3 32 32z"/></svg></span>
                         </label>
-                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
-                            <i class="fa fa-paint-brush"></i>
+                        <button id="mdbook-theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="mdbook-theme-list">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M371.3 367.1c27.3-3.9 51.9-19.4 67.2-42.9L600.2 74.1c12.6-19.5 9.4-45.3-7.6-61.2S549.7-4.4 531.1 9.6L294.4 187.2c-24 18-38.2 46.1-38.4 76.1L371.3 367.1zm-19.6 25.4l-116-104.4C175.9 290.3 128 339.6 128 400c0 3.9 .2 7.8 .6 11.6c1.8 17.5-10.2 36.4-27.8 36.4H96c-17.7 0-32 14.3-32 32s14.3 32 32 32H240c61.9 0 112-50.1 112-112c0-2.5-.1-5-.2-7.5z"/></svg></span>
                         </button>
-                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
-                            <li role="none"><button role="menuitem" class="theme" id="default_theme">Auto</button></li>
-                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
-                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
-                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
-                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
-                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        <ul id="mdbook-theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-ayu">Ayu</button></li>
                         </ul>
-                        <button id="search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="searchbar">
-                            <i class="fa fa-search"></i>
+                        <button id="mdbook-search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="mdbook-searchbar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM208 352c79.5 0 144-64.5 144-144s-64.5-144-144-144S64 128.5 64 208s64.5 144 144 144z"/></svg></span>
                         </button>
                     </div>
 
@@ -142,45 +141,45 @@
 
                     <div class="right-buttons">
                         <a href="print.html" title="Print this book" aria-label="Print this book">
-                            <i id="print-button" class="fa fa-print"></i>
+                            <span class=fa-svg id="print-button"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M128 0C92.7 0 64 28.7 64 64v96h64V64H354.7L384 93.3V160h64V93.3c0-17-6.7-33.3-18.7-45.3L400 18.7C388 6.7 371.7 0 354.7 0H128zM384 352v32 64H128V384 368 352H384zm64 32h32c17.7 0 32-14.3 32-32V256c0-35.3-28.7-64-64-64H64c-35.3 0-64 28.7-64 64v96c0 17.7 14.3 32 32 32H64v64c0 35.3 28.7 64 64 64H384c35.3 0 64-28.7 64-64V384zm-16-88c-13.3 0-24-10.7-24-24s10.7-24 24-24s24 10.7 24 24s-10.7 24-24 24z"/></svg></span>
                         </a>
                         <a href="https://github.com/squidowl/halloy" title="Git repository" aria-label="Git repository">
-                            <i id="git-repository-button" class="fa fa-github"></i>
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6zm-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3zm44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9zM244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8zM97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1zm-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7zm32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1zm-11.4-14.7c-1.6 1-1.6 3.6 0 5.9 1.6 2.3 4.3 3.3 5.6 2.3 1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2z"/></svg></span>
                         </a>
 
                     </div>
                 </div>
 
-                <div id="search-wrapper" class="hidden">
-                    <form id="searchbar-outer" class="searchbar-outer">
+                <div id="mdbook-search-wrapper" class="hidden">
+                    <form id="mdbook-searchbar-outer" class="searchbar-outer">
                         <div class="search-wrapper">
-                            <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                            <input type="search" id="mdbook-searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="mdbook-searchresults-outer" aria-describedby="searchresults-header">
                             <div class="spinner-wrapper">
-                                <i class="fa fa-spinner fa-spin"></i>
+                                <span class=fa-svg id="fa-spin"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M304 48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zm0 416c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM48 304c26.5 0 48-21.5 48-48s-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48zm464-48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM142.9 437c18.7-18.7 18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zm0-294.2c18.7-18.7 18.7-49.1 0-67.9S93.7 56.2 75 75s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zM369.1 437c18.7 18.7 49.1 18.7 67.9 0s18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9z"/></svg></span>
                             </div>
                         </div>
                     </form>
-                    <div id="searchresults-outer" class="searchresults-outer hidden">
-                        <div id="searchresults-header" class="searchresults-header"></div>
-                        <ul id="searchresults">
+                    <div id="mdbook-searchresults-outer" class="searchresults-outer hidden">
+                        <div id="mdbook-searchresults-header" class="searchresults-header"></div>
+                        <ul id="mdbook-searchresults">
                         </ul>
                     </div>
                 </div>
 
                 <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
                 <script>
-                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
-                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
-                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                    document.getElementById('mdbook-sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('mdbook-sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#mdbook-sidebar a')).forEach(function(link) {
                         link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
                     });
                 </script>
 
-                <div id="content" class="content">
+                <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="halloy"><a class="header" href="#halloy">Halloy</a></h1>
 <img src="images/banner.png" style="width: 100%">
-<p><img src="./images/animation.gif" alt="halloy" /></p>
+<p><img src="images/animation.gif" alt="halloy"></p>
 <p><strong>Halloy</strong> is an open-source IRC client written in Rust, with the <a href="https://github.com/iced-rs/iced/">iced</a> GUI library. It aims to provide a simple and fast client for Mac, Windows, and Linux platforms.</p>
 <ul>
 <li>IRCv3.2 capabilities
@@ -222,31 +221,32 @@
 </ul>
 <h2 id="contributing"><a class="header" href="#contributing">Contributing</a></h2>
 <p>Halloy is free and open source. You can find the source code as well as report issues and feature requests on <a href="https://github.com/squidowl/halloy">GitHub</a>.</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="installing-halloy"><a class="header" href="#installing-halloy">Installing Halloy</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="installing-halloy"><a class="header" href="#installing-halloy">Installing Halloy</a></h1>
 <ul>
-<li><a href="installation.html#pre-built-binaries">Pre-built binaries</a></li>
-<li><a href="installation.html#packaging-status">Packaging status</a></li>
-<li><a href="installation.html#macos">macOS</a>
+<li><a href="#pre-built-binaries">Pre-built binaries</a></li>
+<li><a href="#packaging-status">Packaging status</a></li>
+<li><a href="#macos">macOS</a>
 <ul>
-<li><a href="installation.html#homebrew">Homebrew</a></li>
-<li><a href="installation.html#macports">MacPorts</a></li>
+<li><a href="#homebrew">Homebrew</a></li>
+<li><a href="#macports">MacPorts</a></li>
 </ul>
 </li>
-<li><a href="installation.html#linux">Linux</a>
+<li><a href="#linux">Linux</a>
 <ul>
-<li><a href="installation.html#flatpak">Flatpak</a></li>
-<li><a href="installation.html#snapcraft">Snapcraft</a></li>
+<li><a href="#flatpak">Flatpak</a></li>
+<li><a href="#snapcraft">Snapcraft</a></li>
 </ul>
 </li>
-<li><a href="installation.html#windows">Windows</a>
+<li><a href="#windows">Windows</a>
 <ul>
-<li><a href="installation.html#winget">Winget</a></li>
+<li><a href="#winget">Winget</a></li>
 </ul>
 </li>
-<li><a href="installation.html#build-from-source">Build from source</a></li>
+<li><a href="#build-from-source">Build from source</a></li>
 </ul>
 <blockquote>
-<p>💡 To get the latest nightly version of Halloy, you can <a href="installation.html#build-from-source">build from source</a>.</p>
+<p>💡 To get the latest nightly version of Halloy, you can <a href="#build-from-source">build from source</a>.</p>
 </blockquote>
 <h2 id="pre-built-binaries"><a class="header" href="#pre-built-binaries">Pre-built binaries</a></h2>
 <p>Download pre-built binaries from <a href="https://github.com/squidowl/halloy/releases">GitHub</a> page.</p>
@@ -302,37 +302,47 @@ cd halloy
 
 ./scripts/install-linux.sh --prefix=&lt;base/directory&gt;
 </code></pre>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="getting-started"><a class="header" href="#getting-started">Getting Started</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="getting-started"><a class="header" href="#getting-started">Getting Started</a></h1>
 <p>To get started with Halloy, you need to connect to at least one IRC server. The template config file has been set up with the <a href="https://libera.chat/">Libera</a> server. However, there are many other servers available: <a href="https://www.oftc.net/">OFTC</a>, <a href="https://www.undernet.org/">Undernet</a>, <a href="https://www.quakenet.org/">QuakeNet</a> and <a href="https://netsplit.de/networks/">many more</a>. Halloy can connect to multiple servers at the same time.</p>
 <p>Once connected to a server, you can join channels. This can be done automatically from the config file or manually using the join command: <code>/join #channel</code><sup class="footnote-reference" id="fr-1-1"><a href="#footnote-1">1</a></sup>. To find channels, you can either use the list command: <code>/list</code>, or <a href="https://netsplit.de/channels/">browse for channels online</a>.</p>
 <blockquote>
-<p>💡 Configuration in Halloy happens through a <code>config.toml</code> file. See <a href="./configuration.html">Configuration</a>.</p>
+<p>💡 Configuration in Halloy happens through a <code>config.toml</code> file. See <a href="#configuration">Configuration</a>.</p>
 </blockquote>
 <p>Here are a few useful IRC commands for a new user<sup class="footnote-reference" id="fr-2-1"><a href="#footnote-2">2</a></sup></p>
-<div class="table-wrapper"><table><thead><tr><th>Command</th><th>Example</th><th>Description</th></tr></thead><tbody>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Command</th><th>Example</th><th>Description</th></tr>
+</thead>
+<tbody>
 <tr><td><code>/join</code></td><td><code>/join #halloy</code></td><td>Join a new channel</td></tr>
 <tr><td><code>/part</code></td><td><code>/part #halloy</code></td><td>Part a channel</td></tr>
 <tr><td><code>/nick</code></td><td><code>/nick halloyisgreat</code></td><td>Change your nickname</td></tr>
 <tr><td><code>/whois nickname</code></td><td><code>/whois halloyisgreat</code></td><td>Displays information of nickname requested</td></tr>
 <tr><td><code>/list *keyword*</code></td><td><code>/list *linux*</code></td><td>List channels. Keyword is optional</td></tr>
-</tbody></table>
-</div><hr>
-<ol class="footnote-definition"><li id="footnote-1">
+</tbody>
+</table>
+</div>
+<hr>
+<ol class="footnote-definition">
+<li id="footnote-1">
 <p>Channel names always start with a <code>#</code> symbol and do not contain spaces. <a href="#fr-1-1">↩</a></p>
 </li>
 <li id="footnote-2">
 <p>Find more commands <a href="https://en.wikipedia.org/wiki/List_of_Internet_Relay_Chat_commands">here</a>. <a href="#fr-2-1">↩</a></p>
 </li>
-</ol><div style="break-before: page; page-break-before: always;"></div><h1 id="configuration"><a class="header" href="#configuration">Configuration</a></h1>
-<p>Halloy uses a TOML file for configuration called <code>config.toml</code>.<br />
-A default file is created when you launch Halloy for the first time. The location depends on your system:</p>
+</ol>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="configuration"><a class="header" href="#configuration">Configuration</a></h1>
+<p>Halloy uses a TOML file for configuration called <code>config.toml</code>.<br>A default file is created when you launch Halloy for the first time. The location depends on your system:</p>
 <ul>
 <li>Windows: <code>%AppData%\halloy</code></li>
 <li>Mac: <code>~/Library/Application Support/halloy</code> or <code>$HOME/.config/halloy</code></li>
 <li>Linux: <code>$XDG_CONFIG_HOME/halloy</code>, <code>$HOME/.config/halloy</code> or <code>$HOME/.var/app/org.squidowl.halloy/config</code> (Flatpak)</li>
 </ul>
 <blockquote>
-<p>💡 Most configuration changes can be applied by reloading the configuration file from the sidebar menu, <a href="./configuration/keyboard.html">keyboard shortcut</a>, or the command bar</p>
+<p>💡 Most configuration changes can be applied by reloading the configuration file from the sidebar menu, <a href="#keyboard">keyboard shortcut</a>, or the command bar</p>
 </blockquote>
 <p>The specification for the configuration file format (<a href="https://toml.io/">TOML</a>) can be found at <a href="https://toml.io/">https://toml.io/</a>.</p>
 <p>Example configuration for connecting to <a href="https://libera.chat/">Libera</a>:</p>
@@ -346,7 +356,8 @@ channels = ["#halloy"]
 [buffer.channel.topic]
 enabled = true
 </code></pre>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="get-in-touch"><a class="header" href="#get-in-touch">Get in Touch</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="get-in-touch"><a class="header" href="#get-in-touch">Get in Touch</a></h1>
 <p>Join <code>#halloy</code> on <code>libera.chat</code> (<a href="ircs://irc.libera.chat/#halloy">link</a>) if you have questions, looking for help or just want to say hello.
 For feature requests or reporting issues, please open a ticket on <a href="https://github.com/squidowl/halloy">GitHub</a>.</p>
 <h2 id="maintainers"><a class="header" href="#maintainers">Maintainers</a></h2>
@@ -417,11 +428,12 @@ For feature requests or reporting issues, please open a ticket on <a href="https
 <li>yuna0x0 (<a href="https://github.com/yuna0x0">https://github.com/yuna0x0</a>)</li>
 <li>zsrv (<a href="https://github.com/zsrv">https://github.com/zsrv</a>)</li>
 </ul>
-<p>Did we forget you? We're sorry about that! Feel free to add yourself and create a pull request.</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="building-for-flatpak"><a class="header" href="#building-for-flatpak">Building for Flatpak</a></h1>
+<p>Did we forget you? We’re sorry about that! Feel free to add yourself and create a pull request.</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="building-for-flatpak"><a class="header" href="#building-for-flatpak">Building for Flatpak</a></h1>
 <p>This guide will help you to build and/or test pre-released commits of Halloy
 for flatpak.</p>
-<p>If you haven't done so already, clone the <a href="https://github.com/squidowl/halloy">Halloy repository</a> to
+<p>If you haven’t done so already, clone the <a href="https://github.com/squidowl/halloy">Halloy repository</a> to
 your local machine.</p>
 <h2 id="requirements"><a class="header" href="#requirements">Requirements</a></h2>
 <ul>
@@ -441,7 +453,7 @@ manifest, run the following command:</p>
 <p>Your flatpak should now be built, installed locally and ready for use.</p>
 <p>Happy testing!</p>
 <h2 id="releasing-to-flathub"><a class="header" href="#releasing-to-flathub">Releasing to Flathub</a></h2>
-<p>Halloy's flatpaks are released via <a href="https://github.com/flathub/org.squidowl.halloy/">Flathub</a>.</p>
+<p>Halloy’s flatpaks are released via <a href="https://github.com/flathub/org.squidowl.halloy/">Flathub</a>.</p>
 <p>Start by cloning the flathub repo for Halloy.
 Every release has two requirements:</p>
 <ol>
@@ -450,7 +462,7 @@ from the latest release tag via the commands above.</li>
 <li>The flatpak manifest file (<code>org.squidowl.halloy.json</code>) must be updated to
 point to the latest release tag of Halloy.</li>
 </ol>
-<p>The caveat for #2: the version you're wanting to release must be tagged first.
+<p>The caveat for #2: the version you’re wanting to release must be tagged first.
 We use the sha256sum of the tagged tarball in the build manifest.</p>
 <p>For example, for release <code>2025.6</code>, we would need to:</p>
 <pre><code class="language-bash"># Download the tagged tarball
@@ -465,8 +477,9 @@ that, you can create a pull request to the <a href="https://github.com/flathub/o
 with the updated files.</p>
 <p>See the pull request for the <a href="https://github.com/flathub/org.squidowl.halloy/pull/26">2025.6 release</a> for an
 example.</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="building-for-macos"><a class="header" href="#building-for-macos">Building for macOS</a></h1>
-<p>This guide explains how to build the Halloy <code>.app</code> for macOS. If you want to install a signed release version of Halloy on macOS, then you should consult the <a href="guides/../installation.html">Installation</a> documentation instead.</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="building-for-macos"><a class="header" href="#building-for-macos">Building for macOS</a></h1>
+<p>This guide explains how to build the Halloy <code>.app</code> for macOS. If you want to install a signed release version of Halloy on macOS, then you should consult the <a href="#installing-halloy">Installation</a> documentation instead.</p>
 <h2 id="prerequisites"><a class="header" href="#prerequisites">Prerequisites</a></h2>
 <ul>
 <li><strong>macOS 11.0 or later</strong></li>
@@ -502,7 +515,8 @@ cd halloy
 </code></pre>
 </li>
 </ol>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="connect-with-soju"><a class="header" href="#connect-with-soju">Connect with soju</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="connect-with-soju"><a class="header" href="#connect-with-soju">Connect with soju</a></h1>
 <p>Halloy supports two different ways to connect with a <a href="https://soju.im/"><strong>soju</strong></a> bouncer</p>
 <ol>
 <li>Automatic network detection using the <a href="https://codeberg.org/emersion/soju/src/branch/master/doc/ext/bouncer-networks.md"><code>bouncer-networks</code></a> extension</li>
@@ -518,7 +532,7 @@ server = "&lt;your-bouncer-url&gt;"
 username = "&lt;your-username&gt;"
 password = "&lt;your-password&gt;"
 </code></pre>
-<p>If you haven't configured any networks beforehand, you can do so after connecting. Note that you might need to restart Halloy to see newly created networks in the sidebar.</p>
+<p>If you haven’t configured any networks beforehand, you can do so after connecting. Note that you might need to restart Halloy to see newly created networks in the sidebar.</p>
 <pre><code class="language-sh">/msg BouncerServ net create -addr irc.libera.chat
 </code></pre>
 <h2 id="manual-per-network-configuration-legacy"><a class="header" href="#manual-per-network-configuration-legacy">Manual per-network configuration (legacy)</a></h2>
@@ -546,7 +560,8 @@ password = "my-password"
 <pre><code class="language-toml">[buffer.chathistory]
 infinite_scroll = true
 </code></pre>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="connect-with-znc"><a class="header" href="#connect-with-znc">Connect with ZNC</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="connect-with-znc"><a class="header" href="#connect-with-znc">Connect with ZNC</a></h1>
 <p>To connect with a <a href="https://wiki.znc.in/ZNC"><strong>ZNC</strong></a> bouncer, the configuration below can be used as a template. Simply change so it fits your credentials.</p>
 <pre><code class="language-toml">[servers.libera]
 nickname = "&lt;znc-user&gt;/&lt;znc-network&gt;"
@@ -562,14 +577,15 @@ password = "&lt;your-password&gt;"
 # https://halloy.chat/configuration/servers.html#port
 
 </code></pre>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="monitor-users"><a class="header" href="#monitor-users">Monitor Users</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="monitor-users"><a class="header" href="#monitor-users">Monitor Users</a></h1>
 <p>Halloy has <a href="https://ircv3.net/specs/extensions/monitor">monitor</a> support if the server has the IRCv3 Monitor extension.</p>
 <blockquote>
 <p>💡 A protocol for notification of when clients become online/offline</p>
 </blockquote>
 <p>To use the feature you need to add the user(s) you wish to monitor. This can be done in two ways:</p>
 <ul>
-<li>You can add a list of user directly to the configuration file. <a href="guides/../configuration/servers/#monitor">See configuration option.</a></li>
+<li>You can add a list of user directly to the configuration file. <a href="configuration/servers#monitor">See configuration option.</a></li>
 <li>You can add users through <code>/monitor</code> directly in Halloy.</li>
 </ul>
 <p>Examples with the <code>/monitor</code> command:</p>
@@ -579,9 +595,9 @@ password = "&lt;your-password&gt;"
 /monitor l # Get list of users being monitored
 /monitor s # For each user in the list being monitored, get their current status
 </code></pre>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="multiple-servers"><a class="header" href="#multiple-servers">Multiple Servers</a></h1>
-<p>Creating multiple <code>[servers]</code> sections lets you connect to multiple servers.<br />
-All configuration options can be found in the <a href="guides/../configuration/servers/">servers configuration section</a>.</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="multiple-servers"><a class="header" href="#multiple-servers">Multiple Servers</a></h1>
+<p>Creating multiple <code>[servers]</code> sections lets you connect to multiple servers.<br>All configuration options can be found in the <a href="configuration/servers">servers configuration section</a>.</p>
 <pre><code class="language-toml">[servers.liberachat]
 nickname = "halloy-user"
 server = "irc.libera.chat"
@@ -592,7 +608,8 @@ nickname = "halloy-user"
 server = "irc.oftc.net"
 channels = ["#asahi-dev"]
 </code></pre>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="optional-features"><a class="header" href="#optional-features">Optional Features</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="optional-features"><a class="header" href="#optional-features">Optional Features</a></h1>
 <p>Halloy supports optional features that can be enabled during compilation to add additional functionality. These features are not included by default to keep the binary size small and compilation fast.</p>
 <h2 id="building-with-features"><a class="header" href="#building-with-features">Building with features</a></h2>
 <p>To build Halloy with specific features, use the <code>--features</code> flag:</p>
@@ -606,64 +623,68 @@ cargo build --release --features tor
 <h3 id="tor"><a class="header" href="#tor"><code>tor</code></a></h3>
 <p>Enables Tor network support for anonymous IRC connections.
 Not enabled by default.</p>
-<p>See <a href="guides/../configuration/proxy/tor.html">Proxy Configuration</a> for usage details.</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="portable-mode"><a class="header" href="#portable-mode">Portable Mode</a></h1>
+<p>See <a href="#tor-2">Proxy Configuration</a> for usage details.</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="portable-mode"><a class="header" href="#portable-mode">Portable Mode</a></h1>
 <p>To enable portable mode for Halloy, simply place the <code>config.toml</code> file in the same directory as the running executable.</p>
 <pre><code>.
 ├── Halloy.app
 └── config.toml
 </code></pre>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="pronunciation"><a class="header" href="#pronunciation">Pronunciation</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="pronunciation"><a class="header" href="#pronunciation">Pronunciation</a></h1>
 <p>Halloy is an English transliteration of the Danish greeting halløj.  In other words, its pronunciation is close to the way most English speakers would guess based on its spelling. An approximate machine reading can be heard <a href="https://ipa-reader.com/?text=hal%C9%94j&amp;voice=Chantal">via IPA Reader</a>.</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="reduce-noise"><a class="header" href="#reduce-noise">Reduce Noise</a></h1>
-<p>It's not uncommon for channels to have many server messages for every regular message, resulting in a low signal to noise ratio.  Halloy has various settings that can help reduce the number of visible server messages in the chat log.  This guide will cover some of those settings.</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="reduce-noise"><a class="header" href="#reduce-noise">Reduce Noise</a></h1>
+<p>It’s not uncommon for channels to have many server messages for every regular message, resulting in a low signal to noise ratio.  Halloy has various settings that can help reduce the number of visible server messages in the chat log.  This guide will cover some of those settings.</p>
 <h2 id="disable-topic-messages"><a class="header" href="#disable-topic-messages">Disable Topic Messages</a></h2>
-<p>Most servers and bouncers will send a message with the topic every time Halloy joins a channel.  Since topics rarely change, it's often useful to hide these messages altogether with disabling the topic <a href="guides/../configuration/buffer/server-messages">server message setting</a>:</p>
+<p>Most servers and bouncers will send a message with the topic every time Halloy joins a channel.  Since topics rarely change, it’s often useful to hide these messages altogether with disabling the topic <a href="configuration/buffer/server-messages">server message setting</a>:</p>
 <pre><code class="language-toml">[buffer.server_messages.topic]
 enabled = false
 </code></pre>
 <p>Note, this will not hide the messages sent when a topic changes, only the topic messages sent on first connection to a channel.</p>
-<p>If topic messages are hidden but a reminder of the current topic is still desired, then a topic banner can be enabled to appear at the top of each pane.  Either with the label icon button in the pane's title bar, or with the <a href="guides/../configuration/buffer/channel/topic-banner.html">topic banner settings</a>:</p>
+<p>If topic messages are hidden but a reminder of the current topic is still desired, then a topic banner can be enabled to appear at the top of each pane.  Either with the label icon button in the pane’s title bar, or with the <a href="#topic-banner-1">topic banner settings</a>:</p>
 <pre><code class="language-toml">[buffer.channel.topic_banner]
 enabled = true
 max_lines = 2
 </code></pre>
 <h2 id="smart-filters"><a class="header" href="#smart-filters">Smart Filters</a></h2>
-<p><a href="guides/../configuration/buffer/server-messages/#smart">Smart filters</a> can be used for server messages to hide messages for users that have not sent a message recently.  For example, to hide part messages for any user that has not sent a message within the 15 minutes prior to their parting:</p>
+<p><a href="configuration/buffer/server-messages#smart">Smart filters</a> can be used for server messages to hide messages for users that have not sent a message recently.  For example, to hide part messages for any user that has not sent a message within the 15 minutes prior to their parting:</p>
 <pre><code class="language-toml">[buffer.server_messages.part]
 smart = 900
 </code></pre>
-<p>For many channels join, part, quit, and nickname changes make up a lot of noise and usually aren't relevant if the user hasn't been active.  To smart filter those messages these settings can be used:</p>
+<p>For many channels join, part, quit, and nickname changes make up a lot of noise and usually aren’t relevant if the user hasn’t been active.  To smart filter those messages these settings can be used:</p>
 <pre><code class="language-toml">[buffer.server_messages]
 join.smart = 900
 part.smart = 900
 quit.smart = 900
 change_nick.smart = 900
 </code></pre>
-<p>Smart filters can also be applied to <a href="guides/../configuration/buffer/internal-messages/">internal messages</a> as well.  For example, to hide any connect or disconnect message older than five minutes, use these settings:</p>
+<p>Smart filters can also be applied to <a href="configuration/buffer/internal-messages">internal messages</a> as well.  For example, to hide any connect or disconnect message older than five minutes, use these settings:</p>
 <pre><code class="language-toml">[buffer.internal_messages]
 success.smart = 300
 error.smart = 300
 </code></pre>
 <h2 id="condense-server-messages"><a class="header" href="#condense-server-messages">Condense Server Messages</a></h2>
-<p>It may be preferable to not hide any server messages, in which case an alternative to filtering is to <a href="guides/../configuration/buffer/server-messages/condense.html">condense server messages</a>.  This setting will combine multiple server messages into a one server message with a shortened style.  To enable condensed messages these settings can be used:</p>
+<p>It may be preferable to not hide any server messages, in which case an alternative to filtering is to <a href="#condense-1">condense server messages</a>.  This setting will combine multiple server messages into a one server message with a shortened style.  To enable condensed messages these settings can be used:</p>
 <pre><code class="language-toml">[buffer.server_messages.condense]
 messages = ["join", "part", "quit"]
 dimmed = true
 </code></pre>
-<p>When using condensed messages, it is recommended that you specify colors for the condensed messages in your <a href="guides/../configuration/themes/">theme</a>).  Those colors will be used for the abbreviations used in the condensed messages.  For example, these theme settings could be added:</p>
+<p>When using condensed messages, it is recommended that you specify colors for the condensed messages in your <a href="configuration/themes">theme</a>).  Those colors will be used for the abbreviations used in the condensed messages.  For example, these theme settings could be added:</p>
 <pre><code class="language-toml">[buffer.server_messages]
 join = "#efff95"
 part = "#ff6b77"
 quit = "#ff6b77"
 </code></pre>
 <h2 id="ignore"><a class="header" href="#ignore">Ignore</a></h2>
-<p>If dealing with a noisy user or bot, an <a href="guides/../configuration/servers/filters.html#ignore">ignore filter</a> can be used to hide their messages.  For example, to hide messages produced by <code>ChanServ</code> in the <code>#halloy</code> channel, the following setting can be used:</p>
+<p>If dealing with a noisy user or bot, an <a href="#ignore-1">ignore filter</a> can be used to hide their messages.  For example, to hide messages produced by <code>ChanServ</code> in the <code>#halloy</code> channel, the following setting can be used:</p>
 <pre><code class="language-toml">[servers.libera.filters]
 ignore = ["#halloy ChanServ"]
 </code></pre>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="single-pane"><a class="header" href="#single-pane">Single Pane</a></h1>
-<p>The settings below will configure Halloy to have a single pane (or fixed number of panes) in regular use.  After applying these settings, close all but one pane.  Then, when activating another channel or query in the sidebar, that buffer will replace the view in the sole remaining pane (rather than opening a new pane).  When needed, new panes can be opened via the context menu on sidebar items (e.g. right-click on a channel in the sidebar and select "Open in new pane").</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="single-pane"><a class="header" href="#single-pane">Single Pane</a></h1>
+<p>The settings below will configure Halloy to have a single pane (or fixed number of panes) in regular use.  After applying these settings, close all but one pane.  Then, when activating another channel or query in the sidebar, that buffer will replace the view in the sole remaining pane (rather than opening a new pane).  When needed, new panes can be opened via the context menu on sidebar items (e.g. right-click on a channel in the sidebar and select “Open in new pane”).</p>
 <pre><code class="language-toml">[actions.buffer]
 click_channel_name = "replace-pane"
 click_highlight = "replace-pane"
@@ -675,7 +696,8 @@ message_user = "replace-pane"
 [actions.sidebar]
 buffer = "replace-pane"
 </code></pre>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="storing-passwords-in-a-file"><a class="header" href="#storing-passwords-in-a-file">Storing Passwords in a File</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="storing-passwords-in-a-file"><a class="header" href="#storing-passwords-in-a-file">Storing Passwords in a File</a></h1>
 <p>If you need to commit your configuration file to a public repository, you can keep your passwords in a separate file for security. Below is an example of using a file for nickname password for NICKSERV.</p>
 <blockquote>
 <p>💡 Avoid adding extra lines in the password file, as they will be treated as part of the password.</p>
@@ -689,18 +711,25 @@ nick_password_file = "~/.config/halloy/password"
 server = "irc.libera.chat"
 channels = ["#halloy"]
 </code></pre>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="unix-signals"><a class="header" href="#unix-signals">Unix Signals</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="unix-signals"><a class="header" href="#unix-signals">Unix Signals</a></h1>
 <p>Halloy supports Unix signals to control the application without restarting it.</p>
 <h2 id="sigusr1"><a class="header" href="#sigusr1">SIGUSR1</a></h2>
 <p>When Halloy receives a <code>SIGUSR1</code> the application will reload the configuration file.</p>
 <h3 id="example"><a class="header" href="#example">Example</a></h3>
 <pre><code class="language-bash">pkill -u "$USER" --signal=SIGUSR1 ^halloy$
 </code></pre>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="text-formatting"><a class="header" href="#text-formatting">Text Formatting</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="text-formatting"><a class="header" href="#text-formatting">Text Formatting</a></h1>
 <p>Text can be formatted in Halloy by using the <code>/format</code> (or <code>/f</code>) command.</p>
 <h2 id="attributes"><a class="header" href="#attributes">Attributes</a></h2>
 <p>Below is a table with the supported text attributes.</p>
-<div class="table-wrapper"><table><thead><tr><th>Action</th><th>Markdown</th><th>Token</th></tr></thead><tbody>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Action</th><th>Markdown</th><th>Token</th></tr>
+</thead>
+<tbody>
 <tr><td><em>Italics</em></td><td><code>_italic text_</code></td><td><code>$iitalic text$i</code></td></tr>
 <tr><td><strong>Bold</strong></td><td><code>__bold text__</code></td><td><code>$bbold text$b</code></td></tr>
 <tr><td><strong><em>Italic and Bold</em></strong></td><td><code>___italic and bold___</code></td><td><code>$b$iitalic and bold$i$b</code></td></tr>
@@ -708,7 +737,8 @@ channels = ["#halloy"]
 <tr><td>Underline</td><td>-</td><td><code>$uunderline$u</code></td></tr>
 <tr><td>Code</td><td><code>`code`</code></td><td><code>$mcode$m</code></td></tr>
 <tr><td>Spoiler</td><td><code>||spoiler||</code></td><td>-</td></tr>
-</tbody></table>
+</tbody>
+</table>
 </div>
 <p>Example</p>
 <pre><code class="language-json">/format __this is bold__ $iand this is italic$i
@@ -718,30 +748,21 @@ channels = ["#halloy"]
 <p><strong>this is bold</strong> <em>and this is italic</em></p>
 </blockquote>
 <h2 id="color"><a class="header" href="#color">Color</a></h2>
-<div class="table-wrapper"><table><thead><tr><th>Action</th><th>Token</th></tr></thead><tbody>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Action</th><th>Token</th></tr>
+</thead>
+<tbody>
 <tr><td>Text color (fg)</td><td><code>$c0</code></td></tr>
 <tr><td>Text and background (fg &amp; bg)</td><td><code>$c0,1</code></td></tr>
 <tr><td>End color</td><td><code>$c</code></td></tr>
-</tbody></table>
+</tbody>
+</table>
 </div>
 <p>The number next to the <code>$c</code> token indicates the color. For a comprehensive list of all numbers, see the following <a href="https://modern.ircdocs.horse/formatting#colors-16-98">ircdocs.horse documentation</a>. Below, the first 00 to 15 colors are defined and have been assigned aliases for convenience.</p>
 <p>Colors</p>
-<p><span style="display:inline-block;width:12px;height:12px;background-color:#ffffff;"></span> - 00 - white<br />
-<span style="display:inline-block;width:12px;height:12px;background-color:#000000;"></span> - 01 - black<br />
-<span style="display:inline-block;width:12px;height:12px;background-color:#00007f;"></span> - 02 - blue<br />
-<span style="display:inline-block;width:12px;height:12px;background-color:#009300;"></span> - 03 - green<br />
-<span style="display:inline-block;width:12px;height:12px;background-color:#ff0000;"></span> - 04 - red<br />
-<span style="display:inline-block;width:12px;height:12px;background-color:#7f0000;"></span> - 05 - brown<br />
-<span style="display:inline-block;width:12px;height:12px;background-color:#9c009c;"></span> - 06 - magenta<br />
-<span style="display:inline-block;width:12px;height:12px;background-color:#fc7f00;"></span> - 07 - orange<br />
-<span style="display:inline-block;width:12px;height:12px;background-color:#ffff00;"></span> - 08 - yellow<br />
-<span style="display:inline-block;width:12px;height:12px;background-color:#00fc00;"></span> - 09 - lightgreen<br />
-<span style="display:inline-block;width:12px;height:12px;background-color:#009393;"></span> - 10 - cyan<br />
-<span style="display:inline-block;width:12px;height:12px;background-color:#00ffff;"></span> - 11 - lightcyan<br />
-<span style="display:inline-block;width:12px;height:12px;background-color:#0000fc;"></span> - 12 - lightblue<br />
-<span style="display:inline-block;width:12px;height:12px;background-color:#ff00ff;"></span> - 13 - pink<br />
-<span style="display:inline-block;width:12px;height:12px;background-color:#7f7f7f;"></span> - 14 - grey<br />
-<span style="display:inline-block;width:12px;height:12px;background-color:#d2d2d2;"></span> - 15 - lightgrey</p>
+<p><span style="display:inline-block;width:12px;height:12px;background-color:#ffffff;"></span> - 00 - white<br><span style="display:inline-block;width:12px;height:12px;background-color:#000000;"></span> - 01 - black<br><span style="display:inline-block;width:12px;height:12px;background-color:#00007f;"></span> - 02 - blue<br><span style="display:inline-block;width:12px;height:12px;background-color:#009300;"></span> - 03 - green<br><span style="display:inline-block;width:12px;height:12px;background-color:#ff0000;"></span> - 04 - red<br><span style="display:inline-block;width:12px;height:12px;background-color:#7f0000;"></span> - 05 - brown<br><span style="display:inline-block;width:12px;height:12px;background-color:#9c009c;"></span> - 06 - magenta<br><span style="display:inline-block;width:12px;height:12px;background-color:#fc7f00;"></span> - 07 - orange<br><span style="display:inline-block;width:12px;height:12px;background-color:#ffff00;"></span> - 08 - yellow<br><span style="display:inline-block;width:12px;height:12px;background-color:#00fc00;"></span> - 09 - lightgreen<br><span style="display:inline-block;width:12px;height:12px;background-color:#009393;"></span> - 10 - cyan<br><span style="display:inline-block;width:12px;height:12px;background-color:#00ffff;"></span> - 11 - lightcyan<br><span style="display:inline-block;width:12px;height:12px;background-color:#0000fc;"></span> - 12 - lightblue<br><span style="display:inline-block;width:12px;height:12px;background-color:#ff00ff;"></span> - 13 - pink<br><span style="display:inline-block;width:12px;height:12px;background-color:#7f7f7f;"></span> - 14 - grey<br><span style="display:inline-block;width:12px;height:12px;background-color:#d2d2d2;"></span> - 15 - lightgrey</p>
 <p>Example</p>
 <pre><code>/format $cred,lightgreenfoobar$c
 /format $c04,09foobar$c
@@ -755,69 +776,74 @@ channels = ["#halloy"]
 <pre><code class="language-toml">[buffer.text_input]
 auto_format = "disabled" | "markdown" | "all"
 </code></pre>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="url-schemes"><a class="header" href="#url-schemes">URL Schemes</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="url-schemes"><a class="header" href="#url-schemes">URL Schemes</a></h1>
 <p>Halloy is able to recognize different URL schemes.</p>
 <h2 id="irc-and-ircs"><a class="header" href="#irc-and-ircs">IRC and IRCS</a></h2>
-<p>The IRC URL scheme is used to create a new connection to a server.<br />
-The format is based on the <a href="https://en.wikipedia.org/wiki/Uniform_Resource_Identifier#Syntax">URI Syntax</a>.</p>
+<p>The IRC URL scheme is used to create a new connection to a server.<br>The format is based on the <a href="https://en.wikipedia.org/wiki/Uniform_Resource_Identifier#Syntax">URI Syntax</a>.</p>
 <h2 id="format"><a class="header" href="#format">Format</a></h2>
 <pre><code class="language-url">&lt;scheme&gt;://&lt;server&gt;:&lt;port&gt;/[#channel[,#channel]]
 </code></pre>
-<div class="table-wrapper"><table><thead><tr><th>Key</th><th>Description</th></tr></thead><tbody>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Key</th><th>Description</th></tr>
+</thead>
+<tbody>
 <tr><td><code>scheme</code></td><td>Can be <code>irc</code> or <code>ircs</code>. TLS is enabled if is <code>ircs</code>.</td></tr>
 <tr><td><code>server</code></td><td>Address for the server. Eg: <code>irc.libera.chat</code>.</td></tr>
 <tr><td><code>port</code></td><td>Optional. Defaults to <code>6667</code> (if <code>irc</code>) or <code>6697</code> (if <code>ircs</code>).</td></tr>
 <tr><td><code>channel</code></td><td>Optional. List of channels, separated by a comma.</td></tr>
-</tbody></table>
+</tbody>
+</table>
 </div>
 <h3 id="examples"><a class="header" href="#examples">Examples</a></h3>
 <p>Below is a few URL examples.</p>
 <ul>
 <li>
-<p><strong>Connect to Libera:</strong><br />
-<a href="ircs://irc.libera.chat">ircs://irc.libera.chat</a></p>
+<p><strong>Connect to Libera:</strong><br><a href="ircs://irc.libera.chat">ircs://irc.libera.chat</a></p>
 </li>
 <li>
-<p><strong>Connect to Libera and join #halloy:</strong><br />
-<a href="ircs://irc.libera.chat/#halloy">ircs://irc.libera.chat/#halloy</a></p>
+<p><strong>Connect to Libera and join #halloy:</strong><br><a href="ircs://irc.libera.chat/#halloy">ircs://irc.libera.chat/#halloy</a></p>
 </li>
 <li>
-<p><strong>Connect to OFTC on port 9999 and join #oftc and #asahi-dev:</strong><br />
-<a href="ircs://irc.oftc.net:9999/#oftc,#asahi-dev">ircs://irc.oftc.net:9999/#oftc,#asahi-dev</a></p>
+<p><strong>Connect to OFTC on port 9999 and join #oftc and #asahi-dev:</strong><br><a href="ircs://irc.oftc.net:9999/#oftc,#asahi-dev">ircs://irc.oftc.net:9999/#oftc,#asahi-dev</a></p>
 </li>
 </ul>
 <h2 id="halloy-1"><a class="header" href="#halloy-1">Halloy</a></h2>
 <p>The <code>halloy://</code> scheme is used to import themes.
 The syntax for that is <code>halloy:///theme?e=base64EncodedThemeData</code>.
-A list of community created themes can be found <a href="guides/../configuration/themes/community.html">here</a>.</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="actions"><a class="header" href="#actions">Actions</a></h1>
+A list of community created themes can be found <a href="#community-1">here</a>.</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="actions"><a class="header" href="#actions">Actions</a></h1>
 <p>Application-wide actions; how user actions should be enacted.</p>
 <ul>
-<li><a href="configuration/actions/index.html#actions">Actions</a>
+<li><a href="#actions">Actions</a>
 <ul>
-<li><a href="configuration/actions/index.html#buffer">Buffer</a></li>
-<li><a href="configuration/actions/index.html#sidebar">Sidebar</a></li>
+<li><a href="#buffer">Buffer</a></li>
+<li><a href="#sidebar">Sidebar</a></li>
 </ul>
 </li>
 </ul>
-<h2 id="buffer"><a class="header" href="#buffer"><a href="configuration/actions/buffer.html">Buffer</a></a></h2>
+<h2 id="buffer"><a class="header" href="#buffer"><a href="#buffer-1">Buffer</a></a></h2>
 <p>Buffer actions</p>
-<h2 id="sidebar"><a class="header" href="#sidebar"><a href="configuration/actions/sidebar.html">Sidebar</a></a></h2>
+<h2 id="sidebar"><a class="header" href="#sidebar"><a href="#sidebar-1">Sidebar</a></a></h2>
 <p>Sidebar actions</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="buffer-1"><a class="header" href="#buffer-1">Buffer</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="buffer-1"><a class="header" href="#buffer-1">Buffer</a></h1>
 <p>How buffer actions should be enacted</p>
 <ul>
-<li><a href="configuration/actions/buffer.html#buffer">Buffer</a>
+<li><a href="#buffer-1">Buffer</a>
 <ul>
-<li><a href="configuration/actions/buffer.html#example">Example</a></li>
-<li><a href="configuration/actions/buffer.html#configuration">Configuration</a>
+<li><a href="#example-1">Example</a></li>
+<li><a href="#configuration-2">Configuration</a>
 <ul>
-<li><a href="configuration/actions/buffer.html#click_channel_name">click_channel_name</a></li>
-<li><a href="configuration/actions/buffer.html#click_highlight">click_highlight</a></li>
-<li><a href="configuration/actions/buffer.html#click_username">click_username</a></li>
-<li><a href="configuration/actions/buffer.html#local">local</a></li>
-<li><a href="configuration/actions/buffer.html#message_channel">message_channel</a></li>
-<li><a href="configuration/actions/buffer.html#message_user">message_user</a></li>
+<li><a href="#click_channel_name">click_channel_name</a></li>
+<li><a href="#click_highlight">click_highlight</a></li>
+<li><a href="#click_username">click_username</a></li>
+<li><a href="#local">local</a></li>
+<li><a href="#message_channel">message_channel</a></li>
+<li><a href="#message_user">message_user</a></li>
 </ul>
 </li>
 </ul>
@@ -885,16 +911,17 @@ message_channel = "replace-pane"
 [actions.buffer]
 message_user = "replace-pane"
 </code></pre>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="sidebar-1"><a class="header" href="#sidebar-1">Sidebar</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="sidebar-1"><a class="header" href="#sidebar-1">Sidebar</a></h1>
 <p>How sidebar actions should be enacted.</p>
 <ul>
-<li><a href="configuration/actions/sidebar.html#sidebar">Sidebar</a>
+<li><a href="#sidebar-1">Sidebar</a>
 <ul>
-<li><a href="configuration/actions/sidebar.html#example">Example</a></li>
-<li><a href="configuration/actions/sidebar.html#configuration">Configuration</a>
+<li><a href="#example-2">Example</a></li>
+<li><a href="#configuration-3">Configuration</a>
 <ul>
-<li><a href="configuration/actions/sidebar.html#buffer">buffer</a></li>
-<li><a href="configuration/actions/sidebar.html#focused_buffer">focused_buffer</a></li>
+<li><a href="#buffer-2">buffer</a></li>
+<li><a href="#focused_buffer">focused_buffer</a></li>
 </ul>
 </li>
 </ul>
@@ -927,31 +954,32 @@ buffer = "replace-pane"
 [actions.sidebar]
 focused_buffer = "close-pane"
 </code></pre>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="buffer-3"><a class="header" href="#buffer-3">Buffer</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="buffer-3"><a class="header" href="#buffer-3">Buffer</a></h1>
 <p>Buffer settings for Halloy.</p>
 <ul>
-<li><a href="configuration/buffer/index.html#buffer">Buffer</a>
+<li><a href="#buffer-3">Buffer</a>
 <ul>
-<li><a href="configuration/buffer/index.html#configuration">Configuration</a>
+<li><a href="#configuration-4">Configuration</a>
 <ul>
-<li><a href="configuration/buffer/index.html#line_spacing">line_spacing</a></li>
-<li><a href="configuration/buffer/index.html#scroll_position_on_open">scroll_position_on_open</a></li>
+<li><a href="#line_spacing">line_spacing</a></li>
+<li><a href="#scroll_position_on_open">scroll_position_on_open</a></li>
 </ul>
 </li>
-<li><a href="configuration/buffer/index.html#channel">Channel</a></li>
-<li><a href="configuration/buffer/index.html#chat-history">Chat History</a></li>
-<li><a href="configuration/buffer/index.html#commands">Commands</a></li>
-<li><a href="configuration/buffer/index.html#backlog-separator">Backlog Separator</a></li>
-<li><a href="configuration/buffer/index.html#date-separators">Date Separators</a></li>
-<li><a href="configuration/buffer/index.html#emojis">Emojis</a></li>
-<li><a href="configuration/buffer/index.html#internal-messages">Internal Messages</a></li>
-<li><a href="configuration/buffer/index.html#mark-as-read">Mark as Read</a></li>
-<li><a href="configuration/buffer/index.html#nickname">Nickname</a></li>
-<li><a href="configuration/buffer/index.html#server-messages">Server Messages</a></li>
-<li><a href="configuration/buffer/index.html#status-message-prefix">Status message prefix</a></li>
-<li><a href="configuration/buffer/index.html#text-input">Text Input</a></li>
-<li><a href="configuration/buffer/index.html#timestamp">Timestamp</a></li>
-<li><a href="configuration/buffer/index.html#url">Url</a></li>
+<li><a href="#channel">Channel</a></li>
+<li><a href="#chat-history">Chat History</a></li>
+<li><a href="#commands">Commands</a></li>
+<li><a href="#backlog-separator">Backlog Separator</a></li>
+<li><a href="#date-separators">Date Separators</a></li>
+<li><a href="#emojis">Emojis</a></li>
+<li><a href="#internal-messages">Internal Messages</a></li>
+<li><a href="#mark-as-read">Mark as Read</a></li>
+<li><a href="#nickname">Nickname</a></li>
+<li><a href="#server-messages">Server Messages</a></li>
+<li><a href="#status-message-prefix">Status message prefix</a></li>
+<li><a href="#text-input">Text Input</a></li>
+<li><a href="#timestamp">Timestamp</a></li>
+<li><a href="#url">Url</a></li>
 </ul>
 </li>
 </ul>
@@ -974,42 +1002,43 @@ line_spacing = 4
 [buffer]
 scroll_position_on_open = "newest"
 </code></pre>
-<h2 id="channel"><a class="header" href="#channel"><a href="configuration/buffer/channel/">Channel</a></a></h2>
+<h2 id="channel"><a class="header" href="#channel"><a href="configuration/buffer/channel">Channel</a></a></h2>
 <p>Channel specific settings</p>
-<h2 id="chat-history"><a class="header" href="#chat-history"><a href="configuration/buffer/chat-history/">Chat History</a></a></h2>
+<h2 id="chat-history"><a class="header" href="#chat-history"><a href="configuration/buffer/chat-history">Chat History</a></a></h2>
 <p>IRCv3 Chat History extension settings</p>
-<h2 id="commands"><a class="header" href="#commands"><a href="configuration/buffer/commands/">Commands</a></a></h2>
+<h2 id="commands"><a class="header" href="#commands"><a href="configuration/buffer/commands">Commands</a></a></h2>
 <p>Commands settings.</p>
-<h2 id="backlog-separator"><a class="header" href="#backlog-separator"><a href="configuration/buffer/backlog-separator/">Backlog Separator</a></a></h2>
+<h2 id="backlog-separator"><a class="header" href="#backlog-separator"><a href="configuration/buffer/backlog-separator">Backlog Separator</a></a></h2>
 <p>Customize when the backlog separator is displayed within a buffer</p>
-<h2 id="date-separators"><a class="header" href="#date-separators"><a href="configuration/buffer/date-separators/">Date Separators</a></a></h2>
+<h2 id="date-separators"><a class="header" href="#date-separators"><a href="configuration/buffer/date-separators">Date Separators</a></a></h2>
 <p>Customize how date separators are displayed within a buffer</p>
-<h2 id="emojis"><a class="header" href="#emojis"><a href="configuration/buffer/emojis/">Emojis</a></a></h2>
+<h2 id="emojis"><a class="header" href="#emojis"><a href="configuration/buffer/emojis">Emojis</a></a></h2>
 <p>Emojis settings.</p>
-<h2 id="internal-messages"><a class="header" href="#internal-messages"><a href="configuration/buffer/internal-messages/">Internal Messages</a></a></h2>
+<h2 id="internal-messages"><a class="header" href="#internal-messages"><a href="configuration/buffer/internal-messages">Internal Messages</a></a></h2>
 <p>Internal messages are messages sent from Halloy itself.</p>
-<h2 id="mark-as-read"><a class="header" href="#mark-as-read"><a href="configuration/buffer/mark-as-read/">Mark as Read</a></a></h2>
+<h2 id="mark-as-read"><a class="header" href="#mark-as-read"><a href="configuration/buffer/mark-as-read">Mark as Read</a></a></h2>
 <p>When to mark a buffer as read</p>
-<h2 id="nickname"><a class="header" href="#nickname"><a href="configuration/buffer/nickname/">Nickname</a></a></h2>
+<h2 id="nickname"><a class="header" href="#nickname"><a href="configuration/buffer/nickname">Nickname</a></a></h2>
 <p>Customize how nicknames are displayed within a buffer.</p>
-<h2 id="server-messages"><a class="header" href="#server-messages"><a href="configuration/buffer/server-messages/">Server Messages</a></a></h2>
+<h2 id="server-messages"><a class="header" href="#server-messages"><a href="configuration/buffer/server-messages">Server Messages</a></a></h2>
 <p>Server messages are messages sent from an IRC server.</p>
-<h2 id="status-message-prefix"><a class="header" href="#status-message-prefix"><a href="configuration/buffer/status-message-prefix/">Status message prefix</a></a></h2>
+<h2 id="status-message-prefix"><a class="header" href="#status-message-prefix"><a href="configuration/buffer/status-message-prefix">Status message prefix</a></a></h2>
 <p>Status message prefix settings.</p>
-<h2 id="text-input"><a class="header" href="#text-input"><a href="configuration/buffer/text-input/">Text Input</a></a></h2>
+<h2 id="text-input"><a class="header" href="#text-input"><a href="configuration/buffer/text-input">Text Input</a></a></h2>
 <p>Customize the text input for in buffers.</p>
-<h2 id="timestamp"><a class="header" href="#timestamp"><a href="configuration/buffer/timestamp/">Timestamp</a></a></h2>
+<h2 id="timestamp"><a class="header" href="#timestamp"><a href="configuration/buffer/timestamp">Timestamp</a></a></h2>
 <p>Customize how timestamps are displayed within a buffer.</p>
-<h2 id="url"><a class="header" href="#url"><a href="configuration/buffer/url/">Url</a></a></h2>
+<h2 id="url"><a class="header" href="#url"><a href="configuration/buffer/url">Url</a></a></h2>
 <p>Customize how urls behave in buffers</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="backlog-separator-1"><a class="header" href="#backlog-separator-1">Backlog Separator</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="backlog-separator-1"><a class="header" href="#backlog-separator-1">Backlog Separator</a></h1>
 <p>Customize when the backlog separator is displayed within a buffer</p>
 <ul>
-<li><a href="configuration/buffer/backlog-separator/index.html#backlog-separator">Backlog Separator</a>
+<li><a href="#backlog-separator-1">Backlog Separator</a>
 <ul>
-<li><a href="configuration/buffer/backlog-separator/index.html#configuration">Configuration</a>
+<li><a href="#configuration-5">Configuration</a>
 <ul>
-<li><a href="configuration/buffer/backlog-separator/index.html#hide_when_all_read">hide_when_all_read</a></li>
+<li><a href="#hide_when_all_read">hide_when_all_read</a></li>
 </ul>
 </li>
 </ul>
@@ -1025,31 +1054,33 @@ scroll_position_on_open = "newest"
 [buffer.backlog_separator]
 hide_when_all_read = true
 </code></pre>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="channel-1"><a class="header" href="#channel-1">Channel</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="channel-1"><a class="header" href="#channel-1">Channel</a></h1>
 <p>Channel specific settings</p>
 <ul>
-<li><a href="configuration/buffer/channel/index.html#channel">Channel</a>
+<li><a href="#channel-1">Channel</a>
 <ul>
-<li><a href="configuration/buffer/channel/index.html#message">Message</a></li>
-<li><a href="configuration/buffer/channel/index.html#nicklist">Nicklist</a></li>
-<li><a href="configuration/buffer/channel/index.html#topic-banner">Topic Banner</a></li>
+<li><a href="#message">Message</a></li>
+<li><a href="#nicklist">Nicklist</a></li>
+<li><a href="#topic-banner">Topic Banner</a></li>
 </ul>
 </li>
 </ul>
-<h2 id="message"><a class="header" href="#message"><a href="configuration/buffer/channel/message.html">Message</a></a></h2>
+<h2 id="message"><a class="header" href="#message"><a href="#message-1">Message</a></a></h2>
 <p>Message settings within a channel buffer</p>
-<h2 id="nicklist"><a class="header" href="#nicklist"><a href="configuration/buffer/channel/nicklist.html">Nicklist</a></a></h2>
+<h2 id="nicklist"><a class="header" href="#nicklist"><a href="#nicklist-1">Nicklist</a></a></h2>
 <p>Nicklist settings within a channel buffer</p>
-<h2 id="topic-banner"><a class="header" href="#topic-banner"><a href="configuration/buffer/channel/topic-banner.html">Topic Banner</a></a></h2>
+<h2 id="topic-banner"><a class="header" href="#topic-banner"><a href="#topic-banner-1">Topic Banner</a></a></h2>
 <p>Topic banner settings within a channel buffer</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="message-1"><a class="header" href="#message-1">Message</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="message-1"><a class="header" href="#message-1">Message</a></h1>
 <p>Message settings within a channel buffer.</p>
 <ul>
-<li><a href="configuration/buffer/channel/message.html#message">Message</a>
+<li><a href="#message-1">Message</a>
 <ul>
-<li><a href="configuration/buffer/channel/message.html#configuration">Configuration</a>
+<li><a href="#configuration-6">Configuration</a>
 <ul>
-<li><a href="configuration/buffer/channel/message.html#nickname_color">nickname_color</a></li>
+<li><a href="#nickname_color">nickname_color</a></li>
 </ul>
 </li>
 </ul>
@@ -1057,7 +1088,7 @@ hide_when_all_read = true
 </ul>
 <h2 id="configuration-6"><a class="header" href="#configuration-6">Configuration</a></h2>
 <h3 id="nickname_color"><a class="header" href="#nickname_color">nickname_color</a></h3>
-<p>Nickname colors in the message. <code>"unique"</code> generates colors by randomizing the hue, while keeping the saturation and lightness from the theme's nickname color.</p>
+<p>Nickname colors in the message. <code>"unique"</code> generates colors by randomizing the hue, while keeping the saturation and lightness from the theme’s nickname color.</p>
 <pre><code class="language-toml"># Type: string
 # Values: "solid", "unique"
 # Default: "unique"
@@ -1065,21 +1096,22 @@ hide_when_all_read = true
 [buffer.channel.message]
 nickname_color = "unique"
 </code></pre>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="nicklist-1"><a class="header" href="#nicklist-1">Nicklist</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="nicklist-1"><a class="header" href="#nicklist-1">Nicklist</a></h1>
 <p>Nicklist settings within a channel buffer.</p>
 <ul>
-<li><a href="configuration/buffer/channel/nicklist.html#nicklist">Nicklist</a>
+<li><a href="#nicklist-1">Nicklist</a>
 <ul>
-<li><a href="configuration/buffer/channel/nicklist.html#configuration">Configuration</a>
+<li><a href="#configuration-7">Configuration</a>
 <ul>
-<li><a href="configuration/buffer/channel/nicklist.html#alignment">alignment</a></li>
-<li><a href="configuration/buffer/channel/nicklist.html#away">away</a></li>
-<li><a href="configuration/buffer/channel/nicklist.html#color">color</a></li>
-<li><a href="configuration/buffer/channel/nicklist.html#enabled">enabled</a></li>
-<li><a href="configuration/buffer/channel/nicklist.html#position">position</a></li>
-<li><a href="configuration/buffer/channel/nicklist.html#show_access_levels">show_access_levels</a></li>
-<li><a href="configuration/buffer/channel/nicklist.html#width">width</a></li>
-<li><a href="configuration/buffer/channel/nicklist.html#click">click</a></li>
+<li><a href="#alignment">alignment</a></li>
+<li><a href="#away">away</a></li>
+<li><a href="#color-1">color</a></li>
+<li><a href="#enabled">enabled</a></li>
+<li><a href="#position">position</a></li>
+<li><a href="#show_access_levels">show_access_levels</a></li>
+<li><a href="#width">width</a></li>
+<li><a href="#click">click</a></li>
 </ul>
 </li>
 </ul>
@@ -1112,7 +1144,7 @@ away = { dimmed = 0.5 }
 away = "none"
 </code></pre>
 <h3 id="color-1"><a class="header" href="#color-1">color</a></h3>
-<p>Nickname colors in the nicklist. <code>"unique"</code> generates colors by randomizing the hue, while keeping the saturation and lightness from the theme's nickname color.</p>
+<p>Nickname colors in the nicklist. <code>"unique"</code> generates colors by randomizing the hue, while keeping the saturation and lightness from the theme’s nickname color.</p>
 <pre><code class="language-toml"># Type: string
 # Values: "solid", "unique"
 # Default: "unique"
@@ -1169,15 +1201,16 @@ width = 150
 [buffer.channel.nicklist]
 click = "open-query"
 </code></pre>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="topic-banner-1"><a class="header" href="#topic-banner-1">Topic Banner</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="topic-banner-1"><a class="header" href="#topic-banner-1">Topic Banner</a></h1>
 <p>Topic banner settings within a channel buffer.</p>
 <ul>
-<li><a href="configuration/buffer/channel/topic-banner.html#topic-banner">Topic Banner</a>
+<li><a href="#topic-banner-1">Topic Banner</a>
 <ul>
-<li><a href="configuration/buffer/channel/topic-banner.html#configuration">Configuration</a>
+<li><a href="#configuration-8">Configuration</a>
 <ul>
-<li><a href="configuration/buffer/channel/topic-banner.html#enabled">enabled</a></li>
-<li><a href="configuration/buffer/channel/topic-banner.html#max_lines">max_lines</a></li>
+<li><a href="#enabled-1">enabled</a></li>
+<li><a href="#max_lines">max_lines</a></li>
 </ul>
 </li>
 </ul>
@@ -1202,14 +1235,15 @@ enabled = true
 [buffer.channel.topic_banner]
 max_lines = 2
 </code></pre>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="chat-history-1"><a class="header" href="#chat-history-1">Chat History</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="chat-history-1"><a class="header" href="#chat-history-1">Chat History</a></h1>
 <p>IRCv3 <a href="https://ircv3.net/specs/extensions/chathistory"><code>chathistory</code></a> extension settings</p>
 <ul>
-<li><a href="configuration/buffer/chat-history/index.html#chat-history">Chat History</a>
+<li><a href="#chat-history-1">Chat History</a>
 <ul>
-<li><a href="configuration/buffer/chat-history/index.html#configuration">Configuration</a>
+<li><a href="#configuration-9">Configuration</a>
 <ul>
-<li><a href="configuration/buffer/chat-history/index.html#infinite_scroll">infinite_scroll</a></li>
+<li><a href="#infinite_scroll">infinite_scroll</a></li>
 </ul>
 </li>
 </ul>
@@ -1225,17 +1259,18 @@ max_lines = 2
 [buffer.chathistory]
 infinite_scroll = true
 </code></pre>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="commands-1"><a class="header" href="#commands-1">Commands</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="commands-1"><a class="header" href="#commands-1">Commands</a></h1>
 <p>Commands settings.</p>
 <ul>
-<li><a href="configuration/buffer/commands/index.html#commands">Commands</a>
+<li><a href="#commands-1">Commands</a>
 <ul>
-<li><a href="configuration/buffer/commands/index.html#configuration">Configuration</a>
+<li><a href="#configuration-10">Configuration</a>
 <ul>
-<li><a href="configuration/buffer/commands/index.html#show_description">show_description</a></li>
+<li><a href="#show_description">show_description</a></li>
 </ul>
 </li>
-<li><a href="configuration/buffer/commands/index.html#sysinfo">Sysinfo</a></li>
+<li><a href="#sysinfo">Sysinfo</a></li>
 </ul>
 </li>
 </ul>
@@ -1249,20 +1284,21 @@ infinite_scroll = true
 [buffer.commands]
 show_description = true
 </code></pre>
-<h2 id="sysinfo"><a class="header" href="#sysinfo"><a href="configuration/buffer/commands/sysinfo.html">Sysinfo</a></a></h2>
+<h2 id="sysinfo"><a class="header" href="#sysinfo"><a href="#sysinfo-1">Sysinfo</a></a></h2>
 <p>Configure which system information components to display when using the <code>/sysinfo</code> command</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="sysinfo-1"><a class="header" href="#sysinfo-1">Sysinfo</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="sysinfo-1"><a class="header" href="#sysinfo-1">Sysinfo</a></h1>
 <p>Configure which system information components to display when using the <code>/sysinfo</code> command</p>
 <ul>
-<li><a href="configuration/buffer/commands/sysinfo.html#sysinfo">Sysinfo</a>
+<li><a href="#sysinfo-1">Sysinfo</a>
 <ul>
-<li><a href="configuration/buffer/commands/sysinfo.html#configuration">Configuration</a>
+<li><a href="#configuration-11">Configuration</a>
 <ul>
-<li><a href="configuration/buffer/commands/sysinfo.html#cpu">cpu</a></li>
-<li><a href="configuration/buffer/commands/sysinfo.html#memory">memory</a></li>
-<li><a href="configuration/buffer/commands/sysinfo.html#gpu">gpu</a></li>
-<li><a href="configuration/buffer/commands/sysinfo.html#os">os</a></li>
-<li><a href="configuration/buffer/commands/sysinfo.html#uptime">uptime</a></li>
+<li><a href="#cpu">cpu</a></li>
+<li><a href="#memory">memory</a></li>
+<li><a href="#gpu">gpu</a></li>
+<li><a href="#os">os</a></li>
+<li><a href="#uptime">uptime</a></li>
 </ul>
 </li>
 </ul>
@@ -1314,15 +1350,16 @@ os = true
 [buffer.commands.sysinfo]
 uptime = true
 </code></pre>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="date-separators-1"><a class="header" href="#date-separators-1">Date Separators</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="date-separators-1"><a class="header" href="#date-separators-1">Date Separators</a></h1>
 <p>Customize how date separators are displayed within a buffer</p>
 <ul>
-<li><a href="configuration/buffer/date-separators/index.html#date-separators">Date Separators</a>
+<li><a href="#date-separators-1">Date Separators</a>
 <ul>
-<li><a href="configuration/buffer/date-separators/index.html#configuration">Configuration</a>
+<li><a href="#configuration-12">Configuration</a>
 <ul>
-<li><a href="configuration/buffer/date-separators/index.html#format">format</a></li>
-<li><a href="configuration/buffer/date-separators/index.html#show">show</a></li>
+<li><a href="#format-1">format</a></li>
+<li><a href="#show">show</a></li>
 </ul>
 </li>
 </ul>
@@ -1347,18 +1384,19 @@ format = "%A, %B %-d"
 [buffer.date_separators]
 show = true
 </code></pre>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="emojis-1"><a class="header" href="#emojis-1">Emojis</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="emojis-1"><a class="header" href="#emojis-1">Emojis</a></h1>
 <p>Emojis settings.</p>
 <ul>
-<li><a href="configuration/buffer/emojis/index.html#emojis">Emojis</a>
+<li><a href="#emojis-1">Emojis</a>
 <ul>
-<li><a href="configuration/buffer/emojis/index.html#example">Example</a></li>
-<li><a href="configuration/buffer/emojis/index.html#configuration">Configuration</a>
+<li><a href="#example-3">Example</a></li>
+<li><a href="#configuration-13">Configuration</a>
 <ul>
-<li><a href="configuration/buffer/emojis/index.html#show_picker">show_picker</a></li>
-<li><a href="configuration/buffer/emojis/index.html#skin_tone">skin_tone</a></li>
-<li><a href="configuration/buffer/emojis/index.html#auto_replace">auto_replace</a></li>
-<li><a href="configuration/buffer/emojis/index.html#characters_to_trigger_picker">characters_to_trigger_picker</a></li>
+<li><a href="#show_picker">show_picker</a></li>
+<li><a href="#skin_tone">skin_tone</a></li>
+<li><a href="#auto_replace">auto_replace</a></li>
+<li><a href="#characters_to_trigger_picker">characters_to_trigger_picker</a></li>
 </ul>
 </li>
 </ul>
@@ -1408,29 +1446,31 @@ E.g. <code>:D</code> will not show the emoji picker unless <code>characters_to_t
 [buffer.emojis]
 characters_to_trigger_picker = 2
 </code></pre>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="internal-messages-1"><a class="header" href="#internal-messages-1">Internal Messages</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="internal-messages-1"><a class="header" href="#internal-messages-1">Internal Messages</a></h1>
 <p>Internal messages are messages sent from Halloy itself.</p>
 <ul>
-<li><a href="configuration/buffer/internal-messages/index.html#internal-messages">Internal Messages</a>
+<li><a href="#internal-messages-1">Internal Messages</a>
 <ul>
-<li><a href="configuration/buffer/internal-messages/index.html#success">Success</a></li>
-<li><a href="configuration/buffer/internal-messages/index.html#error">Error</a></li>
+<li><a href="#success">Success</a></li>
+<li><a href="#error">Error</a></li>
 </ul>
 </li>
 </ul>
-<h2 id="success"><a class="header" href="#success"><a href="configuration/buffer/internal-messages/success.html">Success</a></a></h2>
-<p>A internal messages which is considered a "success" such as when a connection was restored, or when connected successfully to a server.</p>
-<h2 id="error"><a class="header" href="#error"><a href="configuration/buffer/internal-messages/error.html">Error</a></a></h2>
-<p>A internal messages which is considered a "error" such as when a connection was lost, or when connection to server failed.</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="error-1"><a class="header" href="#error-1">Error</a></h1>
-<p>A internal messages which is considered a "error" such as when a connection was lost, or when connection to server failed.</p>
+<h2 id="success"><a class="header" href="#success"><a href="#success-1">Success</a></a></h2>
+<p>A internal messages which is considered a “success” such as when a connection was restored, or when connected successfully to a server.</p>
+<h2 id="error"><a class="header" href="#error"><a href="#error-1">Error</a></a></h2>
+<p>A internal messages which is considered a “error” such as when a connection was lost, or when connection to server failed.</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="error-1"><a class="header" href="#error-1">Error</a></h1>
+<p>A internal messages which is considered a “error” such as when a connection was lost, or when connection to server failed.</p>
 <ul>
-<li><a href="configuration/buffer/internal-messages/error.html#error">Error</a>
+<li><a href="#error-1">Error</a>
 <ul>
-<li><a href="configuration/buffer/internal-messages/error.html#configuration">Configuration</a>
+<li><a href="#configuration-14">Configuration</a>
 <ul>
-<li><a href="configuration/buffer/internal-messages/error.html#enabled">enabled</a></li>
-<li><a href="configuration/buffer/internal-messages/error.html#smart">smart</a></li>
+<li><a href="#enabled-2">enabled</a></li>
+<li><a href="#smart">smart</a></li>
 </ul>
 </li>
 </ul>
@@ -1455,15 +1495,16 @@ enabled = true
 [buffer.internal_messages.error]
 smart = 180
 </code></pre>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="success-1"><a class="header" href="#success-1">Success</a></h1>
-<p>A internal messages which is considered a "success" such as when a connection was restored, or when connected successfully to a server.</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="success-1"><a class="header" href="#success-1">Success</a></h1>
+<p>A internal messages which is considered a “success” such as when a connection was restored, or when connected successfully to a server.</p>
 <ul>
-<li><a href="configuration/buffer/internal-messages/success.html#success">Success</a>
+<li><a href="#success-1">Success</a>
 <ul>
-<li><a href="configuration/buffer/internal-messages/success.html#configuration">Configuration</a>
+<li><a href="#configuration-15">Configuration</a>
 <ul>
-<li><a href="configuration/buffer/internal-messages/success.html#enabled">enabled</a></li>
-<li><a href="configuration/buffer/internal-messages/success.html#smart">smart</a></li>
+<li><a href="#enabled-3">enabled</a></li>
+<li><a href="#smart-1">smart</a></li>
 </ul>
 </li>
 </ul>
@@ -1488,17 +1529,18 @@ enabled = true
 [buffer.internal_messages.success]
 smart = 180
 </code></pre>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="mark-as-read-1"><a class="header" href="#mark-as-read-1">Mark as Read</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="mark-as-read-1"><a class="header" href="#mark-as-read-1">Mark as Read</a></h1>
 <p>When to mark a buffer as read</p>
 <ul>
-<li><a href="configuration/buffer/mark-as-read/index.html#mark-as-read">Mark as Read</a>
+<li><a href="#mark-as-read-1">Mark as Read</a>
 <ul>
-<li><a href="configuration/buffer/mark-as-read/index.html#configuration">Configuration</a>
+<li><a href="#configuration-16">Configuration</a>
 <ul>
-<li><a href="configuration/buffer/mark-as-read/index.html#on_application_exit">on_application_exit</a></li>
-<li><a href="configuration/buffer/mark-as-read/index.html#on_buffer_close">on_buffer_close</a></li>
-<li><a href="configuration/buffer/mark-as-read/index.html#on_scroll_to_bottom">on_scroll_to_bottom</a></li>
-<li><a href="configuration/buffer/mark-as-read/index.html#on_message_sent">on_message_sent</a></li>
+<li><a href="#on_application_exit">on_application_exit</a></li>
+<li><a href="#on_buffer_close">on_buffer_close</a></li>
+<li><a href="#on_scroll_to_bottom">on_scroll_to_bottom</a></li>
+<li><a href="#on_message_sent">on_message_sent</a></li>
 </ul>
 </li>
 </ul>
@@ -1541,22 +1583,24 @@ on_scroll_to_bottom = true
 [buffer.mark_as_read]
 on_message_sent = true
 </code></pre>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="nickname-1"><a class="header" href="#nickname-1">Nickname</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="nickname-1"><a class="header" href="#nickname-1">Nickname</a></h1>
 <p>Customize how nicknames are displayed within a buffer.</p>
 <ul>
-<li><a href="configuration/buffer/nickname/index.html#nickname">Nickname</a>
+<li><a href="#nickname-1">Nickname</a>
 <ul>
-<li><a href="configuration/buffer/nickname/index.html#configuration">Configuration</a>
+<li><a href="#configuration-17">Configuration</a>
 <ul>
-<li><a href="configuration/buffer/nickname/index.html#alignment">alignment</a></li>
-<li><a href="configuration/buffer/nickname/index.html#away">away</a></li>
-<li><a href="configuration/buffer/nickname/index.html#brackets">brackets</a></li>
-<li><a href="configuration/buffer/nickname/index.html#color">color</a></li>
-<li><a href="configuration/buffer/nickname/index.html#offline">offline</a></li>
-<li><a href="configuration/buffer/nickname/index.html#show_access_levels">show_access_levels</a></li>
-<li><a href="configuration/buffer/nickname/index.html#shown_status">shown_status</a></li>
-<li><a href="configuration/buffer/nickname/index.html#click">click</a></li>
-<li><a href="configuration/buffer/nickname/index.html#truncate">truncate</a></li>
+<li><a href="#alignment-1">alignment</a></li>
+<li><a href="#away-1">away</a></li>
+<li><a href="#brackets">brackets</a></li>
+<li><a href="#color-2">color</a></li>
+<li><a href="#offline">offline</a></li>
+<li><a href="#show_access_levels-1">show_access_levels</a></li>
+<li><a href="#shown_status">shown_status</a></li>
+<li><a href="#click-1">click</a></li>
+<li><a href="#truncate">truncate</a></li>
+<li><a href="#hide_consecutive">hide_consecutive</a></li>
 </ul>
 </li>
 </ul>
@@ -1598,7 +1642,7 @@ away = "none"
 brackets = { left = "&lt;", right = "&gt;" }
 </code></pre>
 <h3 id="color-2"><a class="header" href="#color-2">color</a></h3>
-<p>Nickname colors in a channel buffer. <code>"unique"</code> generates colors by randomizing the hue, while keeping the saturation and lightness from the theme's nickname color.</p>
+<p>Nickname colors in a channel buffer. <code>"unique"</code> generates colors by randomizing the hue, while keeping the saturation and lightness from the theme’s nickname color.</p>
 <pre><code class="language-toml"># Type: string
 # Values: "solid", "unique"
 # Default: "unique"
@@ -1628,7 +1672,7 @@ offline = "none"
 show_access_levels = true
 </code></pre>
 <h3 id="shown_status"><a class="header" href="#shown_status">shown_status</a></h3>
-<p>What status should be indicated (by either <code>away</code> or <code>offline</code> settings), the user's current status (<code>"current"</code>) or their status at the time of sending the message (<code>"historical"</code>).</p>
+<p>What status should be indicated (by either <code>away</code> or <code>offline</code> settings), the user’s current status (<code>"current"</code>) or their status at the time of sending the message (<code>"historical"</code>).</p>
 <pre><code class="language-toml"># Type: string or object
 # Values: "current" or "historical"
 # Default: "current"
@@ -1657,24 +1701,37 @@ click = "open-query"
 [buffer.nickname]
 truncate = 10
 </code></pre>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="server-messages-1"><a class="header" href="#server-messages-1">Server Messages</a></h1>
+<h3 id="hide_consecutive"><a class="header" href="#hide_consecutive">hide_consecutive</a></h3>
+<p>Hide nickname if consecutive messages are from the same user.</p>
+<blockquote>
+<p>⚠️ <code>hide_consecutive</code> does not work in conjunction with <code>alignment = "top"</code> .</p>
+</blockquote>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: false
+
+[buffer.nickname]
+hide_consecutive = true
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="server-messages-1"><a class="header" href="#server-messages-1">Server Messages</a></h1>
 <p>Server messages are messages sent from an IRC server.</p>
 <ul>
-<li><a href="configuration/buffer/server-messages/index.html#server-messages">Server Messages</a>
+<li><a href="#server-messages-1">Server Messages</a>
 <ul>
-<li><a href="configuration/buffer/server-messages/index.html#example">Example</a></li>
-<li><a href="configuration/buffer/server-messages/index.html#types">Types</a></li>
-<li><a href="configuration/buffer/server-messages/index.html#configuration">Configuration</a>
+<li><a href="#example-4">Example</a></li>
+<li><a href="#types">Types</a></li>
+<li><a href="#configuration-18">Configuration</a>
 <ul>
-<li><a href="configuration/buffer/server-messages/index.html#enabled">enabled</a></li>
-<li><a href="configuration/buffer/server-messages/index.html#smart">smart</a></li>
-<li><a href="configuration/buffer/server-messages/index.html#exclude">exclude</a></li>
-<li><a href="configuration/buffer/server-messages/index.html#include">include</a></li>
-<li><a href="configuration/buffer/server-messages/index.html#dimmed">dimmed</a></li>
-<li><a href="configuration/buffer/server-messages/index.html#username_format">username_format</a></li>
+<li><a href="#enabled-4">enabled</a></li>
+<li><a href="#smart-2">smart</a></li>
+<li><a href="#exclude">exclude</a></li>
+<li><a href="#include">include</a></li>
+<li><a href="#dimmed">dimmed</a></li>
+<li><a href="#username_format">username_format</a></li>
 </ul>
 </li>
-<li><a href="configuration/buffer/server-messages/index.html#condense">Condense</a></li>
+<li><a href="#condense">Condense</a></li>
 </ul>
 </li>
 </ul>
@@ -1691,7 +1748,12 @@ include = ["#halloy"]
 enabled = false
 </code></pre>
 <h2 id="types"><a class="header" href="#types">Types</a></h2>
-<div class="table-wrapper"><table><thead><tr><th><strong>Event Type</strong></th><th><strong>Description</strong></th></tr></thead><tbody>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th><strong>Event Type</strong></th><th><strong>Description</strong></th></tr>
+</thead>
+<tbody>
 <tr><td><code>change_host</code></td><td>Message is sent when a user changes host</td></tr>
 <tr><td><code>change_mode</code></td><td>Message is sent when a mode is set</td></tr>
 <tr><td><code>change_nick</code></td><td>Message is sent when a user changes nick</td></tr>
@@ -1706,7 +1768,8 @@ enabled = false
 <tr><td><code>standard_reply_note</code></td><td>Message is sent when there is information about a command/function or session</td></tr>
 <tr><td><code>standard_reply_warn</code></td><td>Message is sent when there is feedback about a command/function or session</td></tr>
 <tr><td><code>topic</code></td><td>Message is sent when the client joins a channel to inform them of the topic (does not include message sent when topic changes)</td></tr>
-</tbody></table>
+</tbody>
+</table>
 </div>
 <h2 id="configuration-18"><a class="header" href="#configuration-18">Configuration</a></h2>
 <h3 id="enabled-4"><a class="header" href="#enabled-4">enabled</a></h3>
@@ -1768,18 +1831,19 @@ dimmed = true
 [buffer.server_messages.&lt;server_message&gt;]
 username_format = "full"
 </code></pre>
-<h2 id="condense"><a class="header" href="#condense"><a href="configuration/buffer/server-messages/condense.html">Condense</a></a></h2>
+<h2 id="condense"><a class="header" href="#condense"><a href="#condense-1">Condense</a></a></h2>
 <p>Condense multiple consecutive server messages into a single abbreviated message</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="condense-1"><a class="header" href="#condense-1">Condense</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="condense-1"><a class="header" href="#condense-1">Condense</a></h1>
 <p>Condense multiple consecutive server messages into a single abbreviated message.</p>
 <ul>
-<li><a href="configuration/buffer/server-messages/condense.html#condense">Condense</a>
+<li><a href="#condense-1">Condense</a>
 <ul>
-<li><a href="configuration/buffer/server-messages/condense.html#configuration">Configuration</a>
+<li><a href="#configuration-19">Configuration</a>
 <ul>
-<li><a href="configuration/buffer/server-messages/condense.html#messages">messages</a></li>
-<li><a href="configuration/buffer/server-messages/condense.html#dimmed">dimmed</a></li>
-<li><a href="configuration/buffer/server-messages/condense.html#format">format</a></li>
+<li><a href="#messages">messages</a></li>
+<li><a href="#dimmed-1">dimmed</a></li>
+<li><a href="#format-2">format</a></li>
 </ul>
 </li>
 </ul>
@@ -1788,12 +1852,18 @@ username_format = "full"
 <h2 id="configuration-19"><a class="header" href="#configuration-19">Configuration</a></h2>
 <h3 id="messages"><a class="header" href="#messages">messages</a></h3>
 <p>Message type(s) to condense. Supported types:</p>
-<div class="table-wrapper"><table><thead><tr><th><strong>Event Type</strong></th><th><strong>Symbol</strong></th></tr></thead><tbody>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th><strong>Event Type</strong></th><th><strong>Symbol</strong></th></tr>
+</thead>
+<tbody>
 <tr><td><code>change-nick</code></td><td><code>→</code></td></tr>
 <tr><td><code>join</code></td><td><code>+</code></td></tr>
 <tr><td><code>part</code></td><td><code>-</code></td></tr>
 <tr><td><code>quit</code></td><td><code>-</code></td></tr>
-</tbody></table>
+</tbody>
+</table>
 </div>
 <p>The color and font style of the symbols is taken from the theme setting for that event type.</p>
 <pre><code class="language-toml"># Type: array of strings
@@ -1817,7 +1887,7 @@ dimmed = true
 <ul>
 <li><code>"brief"</code>:  Only show changes to channel state.  If a user joins then leaves, then do not show any message.  If a user joins, leaves, then joins again, then show that they joined the channel (<code>+</code>).</li>
 <li><code>"detailed"</code>: Include messages that do not change channel state, but do not show repeated events.  If a user joins then leaves, show a condensed message with both events (<code>+-</code>).  But, if a user joins and leaves many times in a row, show only indicate that they left and re-joined (i.e. still (<code>+-</code>).</li>
-<li><code>"full</code>":  Include all messages in the condensed message.  If a user joins and leaves three times, then show a symbol for each event (<code>+-+-+-</code>).</li>
+<li><code>"full</code>“:  Include all messages in the condensed message.  If a user joins and leaves three times, then show a symbol for each event (<code>+-+-+-</code>).</li>
 </ul>
 <pre><code class="language-toml"># Type: string
 # Values: "brief", "detailed", "full"
@@ -1826,14 +1896,15 @@ dimmed = true
 [buffer.server_messages.condense]
 format = "full"
 </code></pre>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="status-message-prefix-1"><a class="header" href="#status-message-prefix-1">Status Message Prefix</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="status-message-prefix-1"><a class="header" href="#status-message-prefix-1">Status Message Prefix</a></h1>
 <p>Status message prefix settings.</p>
 <ul>
-<li><a href="configuration/buffer/status-message-prefix/index.html#status-message-prefix">Status Message Prefix</a>
+<li><a href="#status-message-prefix-1">Status Message Prefix</a>
 <ul>
-<li><a href="configuration/buffer/status-message-prefix/index.html#configuration">Configuration</a>
+<li><a href="#configuration-20">Configuration</a>
 <ul>
-<li><a href="configuration/buffer/status-message-prefix/index.html#brackets">brackets</a></li>
+<li><a href="#brackets-1">brackets</a></li>
 </ul>
 </li>
 </ul>
@@ -1849,19 +1920,20 @@ format = "full"
 [buffer.status_message_prefix]
 brackets = { left = "&lt;", right = "&gt;" }
 </code></pre>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="text-input-1"><a class="header" href="#text-input-1">Text Input</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="text-input-1"><a class="header" href="#text-input-1">Text Input</a></h1>
 <p>Customize the text input for in buffers.</p>
 <ul>
-<li><a href="configuration/buffer/text-input/index.html#text-input">Text Input</a>
+<li><a href="#text-input-1">Text Input</a>
 <ul>
-<li><a href="configuration/buffer/text-input/index.html#configuration">Configuration</a>
+<li><a href="#configuration-21">Configuration</a>
 <ul>
-<li><a href="configuration/buffer/text-input/index.html#visibility">visibility</a></li>
-<li><a href="configuration/buffer/text-input/index.html#auto_format">auto_format</a></li>
+<li><a href="#visibility">visibility</a></li>
+<li><a href="#auto_format">auto_format</a></li>
 </ul>
 </li>
-<li><a href="configuration/buffer/text-input/index.html#autocomplete">Autocomplete</a></li>
-<li><a href="configuration/buffer/text-input/index.html#nickname">Nickname</a></li>
+<li><a href="#autocomplete">Autocomplete</a></li>
+<li><a href="#nickname-2">Nickname</a></li>
 </ul>
 </li>
 </ul>
@@ -1885,22 +1957,23 @@ visibility = "always"
 auto_format = "markdown"
 </code></pre>
 <blockquote>
-<p>💡 Read more about <a href="configuration/buffer/text-input/../../../guides/text-formatting.html">text formatting</a>.</p>
+<p>💡 Read more about <a href="#text-formatting">text formatting</a>.</p>
 </blockquote>
-<h2 id="autocomplete"><a class="header" href="#autocomplete"><a href="configuration/buffer/text-input/autocomplete.html">Autocomplete</a></a></h2>
+<h2 id="autocomplete"><a class="header" href="#autocomplete"><a href="#autocomplete-1">Autocomplete</a></a></h2>
 <p>Customize autocomplete</p>
-<h2 id="nickname-2"><a class="header" href="#nickname-2"><a href="configuration/buffer/text-input/nickname.html">Nickname</a></a></h2>
+<h2 id="nickname-2"><a class="header" href="#nickname-2"><a href="#nickname-3">Nickname</a></a></h2>
 <p>Customize nickname left of text input</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="autocomplete-1"><a class="header" href="#autocomplete-1">Autocomplete</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="autocomplete-1"><a class="header" href="#autocomplete-1">Autocomplete</a></h1>
 <p>Customize autocomplete.</p>
 <ul>
-<li><a href="configuration/buffer/text-input/autocomplete.html#autocomplete">Autocomplete</a>
+<li><a href="#autocomplete-1">Autocomplete</a>
 <ul>
-<li><a href="configuration/buffer/text-input/autocomplete.html#configuration">Configuration</a>
+<li><a href="#configuration-22">Configuration</a>
 <ul>
-<li><a href="configuration/buffer/text-input/autocomplete.html#order_by">order_by</a></li>
-<li><a href="configuration/buffer/text-input/autocomplete.html#sort_direction">sort_direction</a></li>
-<li><a href="configuration/buffer/text-input/autocomplete.html#completion_suffixes">completion_suffixes</a></li>
+<li><a href="#order_by">order_by</a></li>
+<li><a href="#sort_direction">sort_direction</a></li>
+<li><a href="#completion_suffixes">completion_suffixes</a></li>
 </ul>
 </li>
 </ul>
@@ -1934,7 +2007,7 @@ order_by = "recent"
 sort_direction = "asc"
 </code></pre>
 <h3 id="completion_suffixes"><a class="header" href="#completion_suffixes">completion_suffixes</a></h3>
-<p>Sets what suffix is added after autocompleting. The first option is for when a nickname is autocompleted at the beginning of a sentence. The second is for when it's autocompleted in the middle of a sentence.</p>
+<p>Sets what suffix is added after autocompleting. The first option is for when a nickname is autocompleted at the beginning of a sentence. The second is for when it’s autocompleted in the middle of a sentence.</p>
 <pre><code class="language-toml"># Type: array of 2 strings
 # Values: array of 2 strings
 # Default: [": ", " "]
@@ -1942,15 +2015,16 @@ sort_direction = "asc"
 [buffer.text_input.autocomplete]
 completion_suffixes = [": ", " "]
 </code></pre>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="nickname-3"><a class="header" href="#nickname-3">Nickname</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="nickname-3"><a class="header" href="#nickname-3">Nickname</a></h1>
 <p>Customize nickname left of text input</p>
 <ul>
-<li><a href="configuration/buffer/text-input/nickname.html#nickname">Nickname</a>
+<li><a href="#nickname-3">Nickname</a>
 <ul>
-<li><a href="configuration/buffer/text-input/nickname.html#configuration">Configuration</a>
+<li><a href="#configuration-23">Configuration</a>
 <ul>
-<li><a href="configuration/buffer/text-input/nickname.html#enabled">enabled</a></li>
-<li><a href="configuration/buffer/text-input/nickname.html#show_access_level">show_access_level</a></li>
+<li><a href="#enabled-5">enabled</a></li>
+<li><a href="#show_access_level">show_access_level</a></li>
 </ul>
 </li>
 </ul>
@@ -1975,17 +2049,18 @@ enabled = true
 [buffer.text_input.nickname]
 show_access_level = true
 </code></pre>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="timestamp-1"><a class="header" href="#timestamp-1">Timestamp</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="timestamp-1"><a class="header" href="#timestamp-1">Timestamp</a></h1>
 <p>Customize how timestamps are displayed within a buffer.</p>
 <ul>
-<li><a href="configuration/buffer/timestamp/index.html#timestamp">Timestamp</a>
+<li><a href="#timestamp-1">Timestamp</a>
 <ul>
-<li><a href="configuration/buffer/timestamp/index.html#configuration">Configuration</a>
+<li><a href="#configuration-24">Configuration</a>
 <ul>
-<li><a href="configuration/buffer/timestamp/index.html#format">format</a></li>
-<li><a href="configuration/buffer/timestamp/index.html#context_menu_format">context_menu_format</a></li>
-<li><a href="configuration/buffer/timestamp/index.html#copy_format">copy_format</a></li>
-<li><a href="configuration/buffer/timestamp/index.html#brackets">brackets</a></li>
+<li><a href="#format-3">format</a></li>
+<li><a href="#context_menu_format">context_menu_format</a></li>
+<li><a href="#copy_format">copy_format</a></li>
+<li><a href="#brackets-2">brackets</a></li>
 </ul>
 </li>
 </ul>
@@ -2002,7 +2077,7 @@ show_access_level = true
 format = "%R"
 </code></pre>
 <h3 id="context_menu_format"><a class="header" href="#context_menu_format">context_menu_format</a></h3>
-<p>Controls the format of shown in a timestamp's context menu. The expected format is <a href="https://pubs.opengroup.org/onlinepubs/007908799/xsh/strftime.html">strftime</a>.</p>
+<p>Controls the format of shown in a timestamp’s context menu. The expected format is <a href="https://pubs.opengroup.org/onlinepubs/007908799/xsh/strftime.html">strftime</a>.</p>
 <pre><code class="language-toml"># Type: string
 # Values: any valid strftime string
 # Default: "%x"
@@ -2028,14 +2103,15 @@ copy_format = "%Y-%m-%d %H:%M:%S"
 [buffer.timestamp]
 brackets = { left = "[", right = "]" }
 </code></pre>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="url-1"><a class="header" href="#url-1">Url</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="url-1"><a class="header" href="#url-1">Url</a></h1>
 <p>Customize how urls behave in buffers</p>
 <ul>
-<li><a href="configuration/buffer/url/index.html#url">Url</a>
+<li><a href="#url-1">Url</a>
 <ul>
-<li><a href="configuration/buffer/url/index.html#configuration">Configuration</a>
+<li><a href="#configuration-25">Configuration</a>
 <ul>
-<li><a href="configuration/buffer/url/index.html#prompt_before_open">prompt_before_open</a></li>
+<li><a href="#prompt_before_open">prompt_before_open</a></li>
 </ul>
 </li>
 </ul>
@@ -2051,13 +2127,14 @@ brackets = { left = "[", right = "]" }
 [buffer.url]
 prompt_before_open = true
 </code></pre>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="commands-2"><a class="header" href="#commands-2">Commands</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="commands-2"><a class="header" href="#commands-2">Commands</a></h1>
 <p>Commands in Halloy are prefixed with <code>/</code>.</p>
 <ul>
-<li><a href="commands.html#commands">Commands</a>
+<li><a href="#commands-2">Commands</a>
 <ul>
-<li><a href="commands.html#example">Example</a></li>
-<li><a href="commands.html#types">Types</a></li>
+<li><a href="#example-5">Example</a></li>
+<li><a href="#types-1">Types</a></li>
 </ul>
 </li>
 </ul>
@@ -2066,24 +2143,29 @@ prompt_before_open = true
 </code></pre>
 <h2 id="types-1"><a class="header" href="#types-1">Types</a></h2>
 <p>Halloy will first try to run below commands, and lastly send it directly to the server.
-The argument(s) for a command are shown in <a href="configuration/tooltips.html">tooltips</a>, and those marked with a <code>*</code> will show an additional tooltip with argument-specific information on mouseover.</p>
-<div class="table-wrapper"><table><thead><tr><th>Command</th><th>Alias</th><th>Description</th></tr></thead><tbody>
+The argument(s) for a command are shown in <a href="#tooltips">tooltips</a>, and those marked with a <code>*</code> will show an additional tooltip with argument-specific information on mouseover.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Command</th><th>Alias</th><th>Description</th></tr>
+</thead>
+<tbody>
 <tr><td><code>away</code></td><td></td><td>Mark yourself as away. If already away, the status is removed</td></tr>
 <tr><td><code>chathistory</code></td><td></td><td>Retrieve message history<sup class="footnote-reference" id="fr-5-1"><a href="#footnote-5">1</a></sup></td></tr>
 <tr><td><code>clear</code></td><td></td><td>Clear the message history in the current buffer</td></tr>
-<tr><td><code>cleartopic</code></td><td><code>ct</code></td><td>Clear the topic of a channel<sup class="footnote-reference" id="fr-1-1"><a href="#footnote-1">2</a></sup></td></tr>
-<tr><td><code>ctcp</code></td><td></td><td>Client-To-Client requests<sup class="footnote-reference" id="fr-2-1"><a href="#footnote-2">3</a></sup></td></tr>
+<tr><td><code>cleartopic</code></td><td><code>ct</code></td><td>Clear the topic of a channel<sup class="footnote-reference" id="fr-1-1-1"><a href="#footnote-1-1">2</a></sup></td></tr>
+<tr><td><code>ctcp</code></td><td></td><td>Client-To-Client requests<sup class="footnote-reference" id="fr-2-1-1"><a href="#footnote-2-1">3</a></sup></td></tr>
 <tr><td><code>delay</code></td><td></td><td>Delay the specified number of seconds<sup class="footnote-reference" id="fr-7-1"><a href="#footnote-7">4</a></sup></td></tr>
-<tr><td><code>detach</code></td><td></td><td>Hide the channel, but leave the bouncer's connection to the channel active[^5]<sup class="footnote-reference" id="fr-6-1"><a href="#footnote-6">5</a></sup></td></tr>
+<tr><td><code>detach</code></td><td></td><td>Hide the channel, but leave the bouncer’s connection to the channel active<sup class="footnote-reference" id="fr-5-2"><a href="#footnote-5">1</a></sup> <sup class="footnote-reference" id="fr-6-1"><a href="#footnote-6">5</a></sup></td></tr>
 <tr><td><code>format</code></td><td><code>f</code></td><td>Format text with markdown and colors</td></tr>
 <tr><td><code>hop</code></td><td><code>rejoin</code></td><td>Part the current channel and join a new one</td></tr>
 <tr><td><code>join</code></td><td><code>j</code></td><td>Join channel(s) with optional key(s)</td></tr>
-<tr><td><code>kick</code></td><td></td><td>Kick a user from a channel<sup class="footnote-reference" id="fr-1-2"><a href="#footnote-1">2</a></sup></td></tr>
-<tr><td><code>knock</code></td><td></td><td>Request an invite from an invitation-only channel<sup class="footnote-reference" id="fr-5-2"><a href="#footnote-5">1</a></sup></td></tr>
-<tr><td><code>list</code></td><td></td><td>List channel(s) on the server<sup class="footnote-reference" id="fr-5-3"><a href="#footnote-5">1</a></sup></td></tr>
+<tr><td><code>kick</code></td><td></td><td>Kick a user from a channel<sup class="footnote-reference" id="fr-1-2"><a href="#footnote-1-1">2</a></sup></td></tr>
+<tr><td><code>knock</code></td><td></td><td>Request an invite from an invitation-only channel<sup class="footnote-reference" id="fr-5-3"><a href="#footnote-5">1</a></sup></td></tr>
+<tr><td><code>list</code></td><td></td><td>List channel(s) on the server<sup class="footnote-reference" id="fr-5-4"><a href="#footnote-5">1</a></sup></td></tr>
 <tr><td><code>me</code></td><td><code>describe</code></td><td>Send an action message to the channel</td></tr>
 <tr><td><code>mode</code></td><td><code>m</code></td><td>Set mode(s) on a channel or retrieve the current mode(s) set<sup class="footnote-reference" id="fr-3-1"><a href="#footnote-3">6</a></sup></td></tr>
-<tr><td><code>monitor</code></td><td></td><td>System to notify when users become online/offline<sup class="footnote-reference" id="fr-5-4"><a href="#footnote-5">1</a></sup></td></tr>
+<tr><td><code>monitor</code></td><td></td><td>System to notify when users become online/offline<sup class="footnote-reference" id="fr-5-5"><a href="#footnote-5">1</a></sup></td></tr>
 <tr><td><code>motd</code></td><td></td><td>Request the message of the day</td></tr>
 <tr><td><code>msg</code></td><td><code>query</code></td><td>Open a query with a nickname and send an optional message</td></tr>
 <tr><td><code>nick</code></td><td></td><td>Change your nickname on the current server</td></tr>
@@ -2091,26 +2173,29 @@ The argument(s) for a command are shown in <a href="configuration/tooltips.html"
 <tr><td><code>part</code></td><td><code>leave</code></td><td>Leave and close channel(s)/quer(ies) with an optional reason <sup class="footnote-reference" id="fr-4-1"><a href="#footnote-4">7</a></sup></td></tr>
 <tr><td><code>quit</code></td><td></td><td>Disconnect from the server with an optional reason</td></tr>
 <tr><td><code>raw</code></td><td></td><td>Send data to the server without modifying it</td></tr>
-<tr><td><code>setname</code></td><td></td><td>Change your realname<sup class="footnote-reference" id="fr-5-5"><a href="#footnote-5">1</a></sup></td></tr>
+<tr><td><code>setname</code></td><td></td><td>Change your realname<sup class="footnote-reference" id="fr-5-6"><a href="#footnote-5">1</a></sup></td></tr>
 <tr><td><code>sysinfo</code></td><td></td><td>Send system information (OS, CPU, memory, GPU, uptime)</td></tr>
-<tr><td><code>topic</code></td><td><code>t</code></td><td>Retrieve the topic of a channel or set a new topic<sup class="footnote-reference" id="fr-1-3"><a href="#footnote-1">2</a></sup></td></tr>
+<tr><td><code>topic</code></td><td><code>t</code></td><td>Retrieve the topic of a channel or set a new topic<sup class="footnote-reference" id="fr-1-3"><a href="#footnote-1-1">2</a></sup></td></tr>
 <tr><td><code>whois</code></td><td></td><td>Retrieve information about user(s)</td></tr>
-</tbody></table>
-</div><hr>
-<ol class="footnote-definition"><li id="footnote-5">
-<p>Command must be supported by the bouncer/server to be executed successfully; if not supported then the command will not appear in the command picker. <a href="#fr-5-1">↩</a> <a href="#fr-5-2">↩2</a> <a href="#fr-5-3">↩3</a> <a href="#fr-5-4">↩4</a> <a href="#fr-5-5">↩5</a></p>
+</tbody>
+</table>
+</div>
+<hr>
+<ol class="footnote-definition">
+<li id="footnote-5">
+<p>Command must be supported by the bouncer/server to be executed successfully; if not supported then the command will not appear in the command picker. <a href="#fr-5-1">↩</a> <a href="#fr-5-2">↩2</a> <a href="#fr-5-3">↩3</a> <a href="#fr-5-4">↩4</a> <a href="#fr-5-5">↩5</a> <a href="#fr-5-6">↩6</a></p>
 </li>
-<li id="footnote-1">
-<p>The <code>channel</code> argument can be skipped when used in a channel buffer to target the channel in the buffer. <a href="#fr-1-1">↩</a> <a href="#fr-1-2">↩2</a> <a href="#fr-1-3">↩3</a></p>
+<li id="footnote-1-1">
+<p>The <code>channel</code> argument can be skipped when used in a channel buffer to target the channel in the buffer. <a href="#fr-1-1-1">↩</a> <a href="#fr-1-2">↩2</a> <a href="#fr-1-3">↩3</a></p>
 </li>
-<li id="footnote-2">
-<p>The <code>nick</code> argument can be skipped when used in a query buffer to target the other user in the buffer. <a href="#fr-2-1">↩</a></p>
+<li id="footnote-2-1">
+<p>The <code>nick</code> argument can be skipped when used in a query buffer to target the other user in the buffer. <a href="#fr-2-1-1">↩</a></p>
 </li>
 <li id="footnote-7">
-<p>Can only be used in <a href="./configuration/servers/#on_connect">on_connect</a>. <a href="#fr-7-1">↩</a></p>
+<p>Can only be used in <a href="configuration/servers#on_connect">on_connect</a>. <a href="#fr-7-1">↩</a></p>
 </li>
 <li id="footnote-6">
-<p>See <a href="https://soju.im/">soju</a>'s <a href="https://man.sr.ht/chat.sr.ht/bouncer-usage.md#detaching-from-channels">documentation on detaching from channels</a> for more information. <a href="#fr-6-1">↩</a></p>
+<p>See <a href="https://soju.im/">soju</a>’s <a href="https://man.sr.ht/chat.sr.ht/bouncer-usage.md#detaching-from-channels">documentation on detaching from channels</a> for more information. <a href="#fr-6-1">↩</a></p>
 </li>
 <li id="footnote-3">
 <p>The <code>target</code> argument can be skipped; in a channel buffer it will target the channel in the buffer, in a query buffer it will target the other user in the buffer, and in a server buffer it will target your user. <a href="#fr-3-1">↩</a></p>
@@ -2118,19 +2203,21 @@ The argument(s) for a command are shown in <a href="configuration/tooltips.html"
 <li id="footnote-4">
 <p>The <code>targets</code> argument can be skipped; in a channel or query buffer it will target the current buffer. <a href="#fr-4-1">↩</a></p>
 </li>
-</ol><div style="break-before: page; page-break-before: always;"></div><h1 id="ctcp"><a class="header" href="#ctcp">CTCP</a></h1>
+</ol>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="ctcp"><a class="header" href="#ctcp">CTCP</a></h1>
 <p><a href="https://modern.ircdocs.horse/ctcp">Client-to-Client Protocol</a> response settings.</p>
 <ul>
-<li><a href="configuration/cctp/index.html#ctcp">CTCP</a>
+<li><a href="#ctcp">CTCP</a>
 <ul>
-<li><a href="configuration/cctp/index.html#example">Example</a></li>
-<li><a href="configuration/cctp/index.html#configuration">Configuration</a>
+<li><a href="#example-6">Example</a></li>
+<li><a href="#configuration-26">Configuration</a>
 <ul>
-<li><a href="configuration/cctp/index.html#ping">ping</a></li>
-<li><a href="configuration/cctp/index.html#source">source</a></li>
-<li><a href="configuration/cctp/index.html#time">time</a></li>
-<li><a href="configuration/cctp/index.html#version">version</a></li>
-<li><a href="configuration/cctp/index.html#userinfo">userinfo</a></li>
+<li><a href="#ping">ping</a></li>
+<li><a href="#source">source</a></li>
+<li><a href="#time">time</a></li>
+<li><a href="#version">version</a></li>
+<li><a href="#userinfo">userinfo</a></li>
 </ul>
 </li>
 </ul>
@@ -2192,21 +2279,22 @@ version = true
 [ctcp]
 userinfo = "&lt;nickname&gt; (&lt;realname&gt;)"
 </code></pre>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="file-transfer"><a class="header" href="#file-transfer">File Transfer</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="file-transfer"><a class="header" href="#file-transfer">File Transfer</a></h1>
 <p>File transfer configuration options.</p>
 <ul>
-<li><a href="configuration/file-transfer/index.html#file-transfer">File Transfer</a>
+<li><a href="#file-transfer">File Transfer</a>
 <ul>
-<li><a href="configuration/file-transfer/index.html#configuration">Configuration</a>
+<li><a href="#configuration-27">Configuration</a>
 <ul>
-<li><a href="configuration/file-transfer/index.html#enabled">enabled</a></li>
-<li><a href="configuration/file-transfer/index.html#save_directory">save_directory</a></li>
-<li><a href="configuration/file-transfer/index.html#passive">passive</a></li>
-<li><a href="configuration/file-transfer/index.html#timeout">timeout</a></li>
+<li><a href="#enabled-6">enabled</a></li>
+<li><a href="#save_directory">save_directory</a></li>
+<li><a href="#passive">passive</a></li>
+<li><a href="#timeout">timeout</a></li>
 </ul>
 </li>
-<li><a href="configuration/file-transfer/index.html#auto-accept">Auto Accept</a></li>
-<li><a href="configuration/file-transfer/index.html#server">Server</a></li>
+<li><a href="#auto-accept">Auto Accept</a></li>
+<li><a href="#server">Server</a></li>
 </ul>
 </li>
 </ul>
@@ -2222,7 +2310,7 @@ shown, file transfer options are presented in menus, etc).</p>
 enabled = true
 </code></pre>
 <h3 id="save_directory"><a class="header" href="#save_directory">save_directory</a></h3>
-<p>Default directory to save files in. If not set, user will see a file dialog. <sup class="footnote-reference" id="fr-1-1"><a href="#footnote-1">1</a></sup></p>
+<p>Default directory to save files in. If not set, user will see a file dialog. <sup class="footnote-reference" id="fr-1-1-2"><a href="#footnote-1-2">1</a></sup></p>
 <pre><code class="language-toml"># Type: string
 # Values: any string
 # Default: not set
@@ -2231,7 +2319,7 @@ enabled = true
 save_directory = "/Users/halloy/Downloads"
 </code></pre>
 <h3 id="passive"><a class="header" href="#passive">passive</a></h3>
-<p>If true, act as the "client" for the transfer. Requires the remote user act as the <a href="configuration/file-transfer/./server.html">server</a>.</p>
+<p>If true, act as the “client” for the transfer. Requires the remote user act as the <a href="#server-1">server</a>.</p>
 <pre><code class="language-toml"># Type: boolean
 # Values: true, false
 # Default: true
@@ -2248,24 +2336,27 @@ passive = true
 [file_transfer]
 timeout = 300
 </code></pre>
-<h2 id="auto-accept"><a class="header" href="#auto-accept"><a href="configuration/file-transfer/auto_accept.html">Auto Accept</a></a></h2>
+<h2 id="auto-accept"><a class="header" href="#auto-accept"><a href="#auto-accept-1">Auto Accept</a></a></h2>
 <p>Configure automatic acceptance of incoming file transfers</p>
-<h2 id="server"><a class="header" href="#server"><a href="configuration/file-transfer/server.html">Server</a></a></h2>
+<h2 id="server"><a class="header" href="#server"><a href="#server-1">Server</a></a></h2>
 <p>Server configuration for file transfers (required when <code>passive = true</code>)</p>
 <hr>
-<ol class="footnote-definition"><li id="footnote-1">
-<p>Relative paths are prefixed with the config directory (i.e. if you have your config.toml in <code>/home/me/.config/halloy/config.toml</code>, path <code>.passwd/libera</code> will be converted to <code>/home/me/.config/halloy/.passwd/libera</code>). <a href="#fr-1-1">↩</a></p>
+<ol class="footnote-definition">
+<li id="footnote-1-2">
+<p>Relative paths are prefixed with the config directory (i.e. if you have your config.toml in <code>/home/me/.config/halloy/config.toml</code>, path <code>.passwd/libera</code> will be converted to <code>/home/me/.config/halloy/.passwd/libera</code>). <a href="#fr-1-1-2">↩</a></p>
 </li>
-</ol><div style="break-before: page; page-break-before: always;"></div><h1 id="auto-accept-1"><a class="header" href="#auto-accept-1">Auto Accept</a></h1>
+</ol>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="auto-accept-1"><a class="header" href="#auto-accept-1">Auto Accept</a></h1>
 <p>Configuration for automatically accepting incoming file transfers.</p>
 <ul>
-<li><a href="configuration/file-transfer/auto_accept.html#auto-accept">Auto Accept</a>
+<li><a href="#auto-accept-1">Auto Accept</a>
 <ul>
-<li><a href="configuration/file-transfer/auto_accept.html#configuration">Configuration</a>
+<li><a href="#configuration-28">Configuration</a>
 <ul>
-<li><a href="configuration/file-transfer/auto_accept.html#enabled">enabled</a></li>
-<li><a href="configuration/file-transfer/auto_accept.html#nicks">nicks</a></li>
-<li><a href="configuration/file-transfer/auto_accept.html#masks">masks</a></li>
+<li><a href="#enabled-7">enabled</a></li>
+<li><a href="#nicks">nicks</a></li>
+<li><a href="#masks">masks</a></li>
 </ul>
 </li>
 </ul>
@@ -2295,8 +2386,8 @@ nicks = ["nick1", "nick2"]
 <p>If true, automatically accept incoming file transfers from these nicks. Matches are made against the full nickname (i.e. nickname, username, and hostname in the format <code>nickname!username@hostname</code>). Note <code>auto_accept</code> has to be enabled.</p>
 <blockquote>
 <p>💡 Use toml multi-line literal strings <code>'''\bfoo'd\b'''</code> when writing a regex. This &gt; allows you to write write the regex without
-escaping. You can also use a literal string <code>'\bfoo\b'</code>, but then you can't use <code>'</code> inside the string.</p>
-<p>Without literal strings, you'd have to write the above as <code>"\\bfoo'd\\b"</code></p>
+escaping. You can also use a literal string <code>'\bfoo\b'</code>, but then you can’t use <code>'</code> inside the string.</p>
+<p>Without literal strings, you’d have to write the above as <code>"\\bfoo'd\\b"</code></p>
 </blockquote>
 <pre><code class="language-toml"># Type: array of strings
 # Values: array of any strings
@@ -2308,18 +2399,19 @@ masks = [
     '''.*@foobar\.com'''
 ]
 </code></pre>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="server-1"><a class="header" href="#server-1">Server</a></h1>
-<p>This section is <strong>required</strong> if <a href="configuration/file-transfer/./#passive">passive is true</a>. One side of the file transfer must
-operate as the "server", who the other user connects with to establish a connection.</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="server-1"><a class="header" href="#server-1">Server</a></h1>
+<p>This section is <strong>required</strong> if <a href="configuration/file-transfer#passive">passive is true</a>. One side of the file transfer must
+operate as the “server”, who the other user connects with to establish a connection.</p>
 <ul>
-<li><a href="configuration/file-transfer/server.html#server">Server</a>
+<li><a href="#server-1">Server</a>
 <ul>
-<li><a href="configuration/file-transfer/server.html#configuration">Configuration</a>
+<li><a href="#configuration-29">Configuration</a>
 <ul>
-<li><a href="configuration/file-transfer/server.html#public_address">public_address</a></li>
-<li><a href="configuration/file-transfer/server.html#bind_address">bind_address</a></li>
-<li><a href="configuration/file-transfer/server.html#bind_port_first">bind_port_first</a></li>
-<li><a href="configuration/file-transfer/server.html#bind_port_last">bind_port_last</a></li>
+<li><a href="#public_address">public_address</a></li>
+<li><a href="#bind_address">bind_address</a></li>
+<li><a href="#bind_port_first">bind_port_first</a></li>
+<li><a href="#bind_port_last">bind_port_last</a></li>
 </ul>
 </li>
 </ul>
@@ -2362,17 +2454,18 @@ bind_port_first = 1024
 [file_transfer.server]
 bind_port_last = 5000
 </code></pre>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="font"><a class="header" href="#font">Font</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="font"><a class="header" href="#font">Font</a></h1>
 <p>Application wide font settings.</p>
 <ul>
-<li><a href="configuration/font/index.html#font">Font</a>
+<li><a href="#font">Font</a>
 <ul>
-<li><a href="configuration/font/index.html#configuration">Configuration</a>
+<li><a href="#configuration-30">Configuration</a>
 <ul>
-<li><a href="configuration/font/index.html#family">family</a></li>
-<li><a href="configuration/font/index.html#size">size</a></li>
-<li><a href="configuration/font/index.html#weight">weight</a></li>
-<li><a href="configuration/font/index.html#bold-weight">bold-weight</a></li>
+<li><a href="#family">family</a></li>
+<li><a href="#size">size</a></li>
+<li><a href="#weight">weight</a></li>
+<li><a href="#bold-weight">bold-weight</a></li>
 </ul>
 </li>
 </ul>
@@ -2423,33 +2516,35 @@ weight = "light"
 [font]
 bold-weight = "semibold"
 </code></pre>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="highlights"><a class="header" href="#highlights">Highlights</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="highlights"><a class="header" href="#highlights">Highlights</a></h1>
 <p>Application wide highlights.</p>
 <ul>
-<li><a href="configuration/highlights/index.html#highlights">Highlights</a>
+<li><a href="#highlights">Highlights</a>
 <ul>
-<li><a href="configuration/highlights/index.html#nickname">Nickname</a></li>
-<li><a href="configuration/highlights/index.html#matches">Matches</a></li>
+<li><a href="#nickname-4">Nickname</a></li>
+<li><a href="#matches">Matches</a></li>
 </ul>
 </li>
 </ul>
-<h2 id="nickname-4"><a class="header" href="#nickname-4"><a href="configuration/highlights/nickname.html">Nickname</a></a></h2>
+<h2 id="nickname-4"><a class="header" href="#nickname-4"><a href="#nickname-5">Nickname</a></a></h2>
 <p>Nickname highlights</p>
-<h2 id="matches"><a class="header" href="#matches"><a href="configuration/highlights/matches.html">Matches</a></a></h2>
+<h2 id="matches"><a class="header" href="#matches"><a href="#matches-1">Matches</a></a></h2>
 <p>Highlight based on matches</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="matches-1"><a class="header" href="#matches-1">Matches</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="matches-1"><a class="header" href="#matches-1">Matches</a></h1>
 <p>Highlight based on matches</p>
 <ul>
-<li><a href="configuration/highlights/matches.html#matches">Matches</a>
+<li><a href="#matches-1">Matches</a>
 <ul>
-<li><a href="configuration/highlights/matches.html#example">Example</a></li>
-<li><a href="configuration/highlights/matches.html#configuration">Configuration</a>
+<li><a href="#example-7">Example</a></li>
+<li><a href="#configuration-31">Configuration</a>
 <ul>
-<li><a href="configuration/highlights/matches.html#words">words</a></li>
-<li><a href="configuration/highlights/matches.html#case_insensitive">case_insensitive</a></li>
-<li><a href="configuration/highlights/matches.html#regex">regex</a></li>
-<li><a href="configuration/highlights/matches.html#exclude">exclude</a></li>
-<li><a href="configuration/highlights/matches.html#include">include</a></li>
+<li><a href="#words">words</a></li>
+<li><a href="#case_insensitive">case_insensitive</a></li>
+<li><a href="#regex">regex</a></li>
+<li><a href="#exclude-1">exclude</a></li>
+<li><a href="#include-1">include</a></li>
 </ul>
 </li>
 </ul>
@@ -2492,10 +2587,11 @@ case_insensitive = true
 <p>Match based on regex.</p>
 <div class="warning">
 <p>Use toml multi-line literal strings <code>'''\bfoo'd\b'''</code> when writing a regex. This allows you to write write the regex without
-escaping. You can also use a literal string <code>'\bfoo\b'</code>, but then you can't use <code>'</code> inside the string.</p>
-<p>Without literal strings, you'd have to write the above as <code>"\\bfoo'd\\b"</code></p>
+escaping. You can also use a literal string <code>'\bfoo\b'</code>, but then you can’t use <code>'</code> inside the string.</p>
+<p>Without literal strings, you’d have to write the above as <code>"\\bfoo'd\\b"</code></p>
 </div>
-<p>Example shows a regex that matches the word "casper", regardless of case and only when it appears as a whole word in any channel.</p>
+
+<p>Example shows a regex that matches the word “casper”, regardless of case and only when it appears as a whole word in any channel.</p>
 <pre><code class="language-toml"># Type: string
 # Values: any string
 # Default: not set
@@ -2528,17 +2624,18 @@ words = ["word1", "word2", "word3"]
 exclude = ["*"]
 include = ["#halloy"]
 </code></pre>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="nickname-5"><a class="header" href="#nickname-5">Nickname</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="nickname-5"><a class="header" href="#nickname-5">Nickname</a></h1>
 <p>Nickname highlights</p>
 <ul>
-<li><a href="configuration/highlights/nickname.html#nickname">Nickname</a>
+<li><a href="#nickname-5">Nickname</a>
 <ul>
-<li><a href="configuration/highlights/nickname.html#example">Example</a></li>
-<li><a href="configuration/highlights/nickname.html#configuration">Configuration</a>
+<li><a href="#example-8">Example</a></li>
+<li><a href="#configuration-32">Configuration</a>
 <ul>
-<li><a href="configuration/highlights/nickname.html#exclude">exclude</a></li>
-<li><a href="configuration/highlights/nickname.html#include">include</a></li>
-<li><a href="configuration/highlights/nickname.html#case_insensitive">case_insensitive</a></li>
+<li><a href="#exclude-2">exclude</a></li>
+<li><a href="#include-2">include</a></li>
+<li><a href="#case_insensitive-1">case_insensitive</a></li>
 </ul>
 </li>
 </ul>
@@ -2586,10 +2683,10 @@ case_insensitive = false
 <h1 id="keyboard"><a class="header" href="#keyboard">Keyboard</a></h1>
 <p>Customize keyboard shortcuts. Below is a list of all actions which can be mapped.</p>
 <ul>
-<li><a href="configuration/keyboard.html#keyboard">Keyboard</a>
+<li><a href="#keyboard">Keyboard</a>
 <ul>
-<li><a href="configuration/keyboard.html#example">Example</a></li>
-<li><a href="configuration/keyboard.html#types">Types</a></li>
+<li><a href="#example-9">Example</a></li>
+<li><a href="#types-2">Types</a></li>
 </ul>
 </li>
 </ul>
@@ -2601,7 +2698,12 @@ move_left = "alt+h"
 move_right = "alt+l"
 </code></pre>
 <h2 id="types-2"><a class="header" href="#types-2">Types</a></h2>
-<div class="table-wrapper"><table><thead><tr><th>Key</th><th>Description</th><th>Default MacOS</th><th>Default Other</th></tr></thead><tbody>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Key</th><th>Description</th><th>Default MacOS</th><th>Default Other</th></tr>
+</thead>
+<tbody>
 <tr><td><code>move_up</code></td><td>Moves focus up</td><td><kbd>⌘</kbd> + <kbd>⌥</kbd> + <kbd>↑</kbd></td><td><kbd>ctrl</kbd> + <kbd>alt</kbd> + <kbd>↑</kbd></td></tr>
 <tr><td><code>move_down</code></td><td>Moves focus down</td><td><kbd>⌘</kbd> + <kbd>⌥</kbd> + <kbd>↓</kbd></td><td><kbd>ctrl</kbd> + <kbd>alt</kbd> + <kbd>↓</kbd></td></tr>
 <tr><td><code>move_left</code></td><td>Moves focus left</td><td><kbd>⌘</kbd> + <kbd>⌥</kbd> + <kbd>←</kbd></td><td><kbd>ctrl</kbd> + <kbd>alt</kbd> + <kbd>←</kbd></td></tr>
@@ -2630,16 +2732,19 @@ move_right = "alt+l"
 <tr><td><code>theme_editor</code></td><td>Toggle Theme Editor Window</td><td><kbd>⌘</kbd> + <kbd>t</kbd></td><td><kbd>ctrl</kbd> + <kbd>t</kbd></td></tr>
 <tr><td><code>highlights</code></td><td>Toggle Highlights Window</td><td><kbd>⌘</kbd> + <kbd>i</kbd></td><td><kbd>ctrl</kbd> + <kbd>i</kbd></td></tr>
 <tr><td><code>quit_application</code></td><td>Quit Halloy</td><td>Not set</td><td>Not set</td></tr>
-</tbody></table>
-</div><div style="break-before: page; page-break-before: always;"></div><h1 id="logs"><a class="header" href="#logs">Logs</a></h1>
+</tbody>
+</table>
+</div>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="logs"><a class="header" href="#logs">Logs</a></h1>
 <p>Customize log buffer</p>
 <ul>
-<li><a href="configuration/logs/index.html#logs">Logs</a>
+<li><a href="#logs">Logs</a>
 <ul>
-<li><a href="configuration/logs/index.html#configuration">Configuration</a>
+<li><a href="#configuration-33">Configuration</a>
 <ul>
-<li><a href="configuration/logs/index.html#file_level">file_level</a></li>
-<li><a href="configuration/logs/index.html#pane_level">pane_level</a></li>
+<li><a href="#file_level">file_level</a></li>
+<li><a href="#pane_level">pane_level</a></li>
 </ul>
 </li>
 </ul>
@@ -2680,19 +2785,19 @@ pane_level = "info"
 <h1 id="notifications"><a class="header" href="#notifications">Notifications</a></h1>
 <p>Customize and enable notifications.</p>
 <ul>
-<li><a href="configuration/notifications/index.html#notifications">Notifications</a>
+<li><a href="#notifications">Notifications</a>
 <ul>
-<li><a href="configuration/notifications/index.html#example">Example</a></li>
-<li><a href="configuration/notifications/index.html#types">Types</a></li>
-<li><a href="configuration/notifications/index.html#built-in-sounds">Built-in Sounds</a></li>
-<li><a href="configuration/notifications/index.html#configuration">Configuration</a>
+<li><a href="#example-10">Example</a></li>
+<li><a href="#types-3">Types</a></li>
+<li><a href="#built-in-sounds">Built-in Sounds</a></li>
+<li><a href="#configuration-34">Configuration</a>
 <ul>
-<li><a href="configuration/notifications/index.html#sound">sound</a></li>
-<li><a href="configuration/notifications/index.html#show_toast">show_toast</a></li>
-<li><a href="configuration/notifications/index.html#show_content">show_content</a></li>
-<li><a href="configuration/notifications/index.html#delay">delay</a></li>
-<li><a href="configuration/notifications/index.html#exclude">exclude</a></li>
-<li><a href="configuration/notifications/index.html#include">include</a></li>
+<li><a href="#sound">sound</a></li>
+<li><a href="#show_toast">show_toast</a></li>
+<li><a href="#show_content">show_content</a></li>
+<li><a href="#delay">delay</a></li>
+<li><a href="#exclude-3">exclude</a></li>
+<li><a href="#include-3">include</a></li>
 </ul>
 </li>
 </ul>
@@ -2708,32 +2813,44 @@ exclude = ["NickServ", "#halloy"]
 </code></pre>
 <h2 id="types-3"><a class="header" href="#types-3">Types</a></h2>
 <p>Following notifications are available:</p>
-<div class="table-wrapper"><table><thead><tr><th>Name</th><th>Description</th><th>Content</th></tr></thead><tbody>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Name</th><th>Description</th><th>Content</th></tr>
+</thead>
+<tbody>
 <tr><td><code>connected</code></td><td>Triggered when a server is connected</td><td>N/A</td></tr>
 <tr><td><code>direct_message</code></td><td>Triggered when a direct message is received</td><td>Message text</td></tr>
 <tr><td><code>disconnected</code></td><td>Triggered when a server disconnects</td><td>N/A</td></tr>
 <tr><td><code>file_transfer_request</code></td><td>Triggered when a file transfer request is received</td><td>File name</td></tr>
 <tr><td><code>highlight</code></td><td>Triggered when you were highlighted in a buffer</td><td>Message text</td></tr>
-<tr><td><code>monitored_online</code></td><td>Triggered when a user you're monitoring is online</td><td>N/A</td></tr>
-<tr><td><code>monitored_offline</code></td><td>Triggered when a user you're monitoring is offline</td><td>N/A</td></tr>
+<tr><td><code>monitored_online</code></td><td>Triggered when a user you’re monitoring is online</td><td>N/A</td></tr>
+<tr><td><code>monitored_offline</code></td><td>Triggered when a user you’re monitoring is offline</td><td>N/A</td></tr>
 <tr><td><code>reconnected</code></td><td>Triggered when a server reconnects</td><td>N/A</td></tr>
-</tbody></table>
+</tbody>
+</table>
 </div>
 <h2 id="built-in-sounds"><a class="header" href="#built-in-sounds">Built-in Sounds</a></h2>
 <p>The following table shows all available built-in sounds</p>
-<div class="table-wrapper"><table><thead><tr><th>Sound Name</th><th>Preview</th></tr></thead><tbody>
-<tr><td><code>bloop</code></td><td><audio controls><source src="../../sounds/bloop.ogg" type="audio/ogg"></audio></td></tr>
-<tr><td><code>bonk</code></td><td><audio controls><source src="../../sounds/bonk.ogg" type="audio/ogg"></audio></td></tr>
-<tr><td><code>dong</code></td><td><audio controls><source src="../../sounds/dong.ogg" type="audio/ogg"></audio></td></tr>
-<tr><td><code>drop</code></td><td><audio controls><source src="../../sounds/drop.ogg" type="audio/ogg"></audio></td></tr>
-<tr><td><code>peck</code></td><td><audio controls><source src="../../sounds/peck.ogg" type="audio/ogg"></audio></td></tr>
-<tr><td><code>ring</code></td><td><audio controls><source src="../../sounds/ring.ogg" type="audio/ogg"></audio></td></tr>
-<tr><td><code>sing</code></td><td><audio controls><source src="../../sounds/sing.ogg" type="audio/ogg"></audio></td></tr>
-<tr><td><code>squeak</code></td><td><audio controls><source src="../../sounds/squeak.ogg" type="audio/ogg"></audio></td></tr>
-<tr><td><code>tweep</code></td><td><audio controls><source src="../../sounds/tweep.ogg" type="audio/ogg"></audio></td></tr>
-<tr><td><code>whistle</code></td><td><audio controls><source src="../../sounds/whistle.ogg" type="audio/ogg"></audio></td></tr>
-<tr><td><code>zone</code></td><td><audio controls><source src="../../sounds/zone.ogg" type="audio/ogg"></audio></td></tr>
-</tbody></table>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Sound Name</th><th>Preview</th></tr>
+</thead>
+<tbody>
+<tr><td><code>bloop</code></td><td><audio controls=""><source src="../../sounds/bloop.ogg" type="audio/ogg"></audio></td></tr>
+<tr><td><code>bonk</code></td><td><audio controls=""><source src="../../sounds/bonk.ogg" type="audio/ogg"></audio></td></tr>
+<tr><td><code>dong</code></td><td><audio controls=""><source src="../../sounds/dong.ogg" type="audio/ogg"></audio></td></tr>
+<tr><td><code>drop</code></td><td><audio controls=""><source src="../../sounds/drop.ogg" type="audio/ogg"></audio></td></tr>
+<tr><td><code>peck</code></td><td><audio controls=""><source src="../../sounds/peck.ogg" type="audio/ogg"></audio></td></tr>
+<tr><td><code>ring</code></td><td><audio controls=""><source src="../../sounds/ring.ogg" type="audio/ogg"></audio></td></tr>
+<tr><td><code>sing</code></td><td><audio controls=""><source src="../../sounds/sing.ogg" type="audio/ogg"></audio></td></tr>
+<tr><td><code>squeak</code></td><td><audio controls=""><source src="../../sounds/squeak.ogg" type="audio/ogg"></audio></td></tr>
+<tr><td><code>tweep</code></td><td><audio controls=""><source src="../../sounds/tweep.ogg" type="audio/ogg"></audio></td></tr>
+<tr><td><code>whistle</code></td><td><audio controls=""><source src="../../sounds/whistle.ogg" type="audio/ogg"></audio></td></tr>
+<tr><td><code>zone</code></td><td><audio controls=""><source src="../../sounds/zone.ogg" type="audio/ogg"></audio></td></tr>
+</tbody>
+</table>
 </div>
 <h2 id="configuration-34"><a class="header" href="#configuration-34">Configuration</a></h2>
 <h3 id="sound"><a class="header" href="#sound">sound</a></h3>
@@ -2756,7 +2873,7 @@ sound = "zone"
 show_toast = true
 </code></pre>
 <h3 id="show_content"><a class="header" href="#show_content">show_content</a></h3>
-<p>Notification should show the content of the trigger (as described in the <a href="configuration/notifications/index.html#types">table above</a>)).</p>
+<p>Notification should show the content of the trigger (as described in the <a href="#types-3">table above</a>)).</p>
 <pre><code class="language-toml"># Type: boolean
 # Values: true, false
 # Default: false
@@ -2774,7 +2891,7 @@ show_content = true
 delay = 250
 </code></pre>
 <h3 id="exclude-3"><a class="header" href="#exclude-3">exclude</a></h3>
-<p>Exclude notifications for nicks (and/or channels in <code>highlight</code>'s case).</p>
+<p>Exclude notifications for nicks (and/or channels in <code>highlight</code>’s case).</p>
 <p>Only available for <code>direct_message</code>, <code>highlight</code> and <code>file_transfer_request</code>
 notifications.</p>
 <p>You can also exclude all nicks/channels by using a wildcard: <code>["*"]</code> or <code>["all"]</code>.</p>
@@ -2789,7 +2906,7 @@ exclude = ["HalloyUser1"]
 exclude = ["HalloyUser1", "#halloy"]
 </code></pre>
 <h3 id="include-3"><a class="header" href="#include-3">include</a></h3>
-<p>Include notifications for nicks (and/or channels in <code>highlight</code>'s case).</p>
+<p>Include notifications for nicks (and/or channels in <code>highlight</code>’s case).</p>
 <p>Only available for <code>direct_message</code>, <code>highlight</code> and <code>file_transfer_request</code>
 notifications.</p>
 <p>The include rule takes priority over exclude, so you can use both together.
@@ -2806,18 +2923,19 @@ include = ["HalloyUser1"]
 [notifications.highlight]
 include = ["HalloyUser1", "#halloy"]
 </code></pre>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="pane"><a class="header" href="#pane">Pane</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="pane"><a class="header" href="#pane">Pane</a></h1>
 <p>Pane settings</p>
 <ul>
-<li><a href="configuration/pane/index.html#pane">Pane</a>
+<li><a href="#pane">Pane</a>
 <ul>
-<li><a href="configuration/pane/index.html#configuration">Configuration</a>
+<li><a href="#configuration-35">Configuration</a>
 <ul>
-<li><a href="configuration/pane/index.html#restore_on_launch">restore_on_launch</a></li>
-<li><a href="configuration/pane/index.html#scrollbar">scrollbar</a></li>
-<li><a href="configuration/pane/index.html#width">width</a></li>
-<li><a href="configuration/pane/index.html#scroller_width">scroller_width</a></li>
-<li><a href="configuration/pane/index.html#split_axis">split_axis</a></li>
+<li><a href="#restore_on_launch">restore_on_launch</a></li>
+<li><a href="#scrollbar">scrollbar</a></li>
+<li><a href="#width-1">width</a></li>
+<li><a href="#scroller_width">scroller_width</a></li>
+<li><a href="#split_axis">split_axis</a></li>
 </ul>
 </li>
 </ul>
@@ -2862,31 +2980,33 @@ scroller_width = 5
 [pane]
 split_axis = "vertical"
 </code></pre>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="platform-specific"><a class="header" href="#platform-specific">Platform Specific</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="platform-specific"><a class="header" href="#platform-specific">Platform Specific</a></h1>
 <p>Platform specific settings for Halloy.</p>
 <ul>
-<li><a href="configuration/platform-specific/index.html#platform-specific">Platform Specific</a>
+<li><a href="#platform-specific">Platform Specific</a>
 <ul>
-<li><a href="configuration/platform-specific/index.html#macos">macOS</a></li>
-<li><a href="configuration/platform-specific/index.html#linux">Linux</a></li>
-<li><a href="configuration/platform-specific/index.html#windows">Windows</a></li>
+<li><a href="#macos-1">macOS</a></li>
+<li><a href="#linux-1">Linux</a></li>
+<li><a href="#windows-1">Windows</a></li>
 </ul>
 </li>
 </ul>
-<h2 id="macos-1"><a class="header" href="#macos-1"><a href="configuration/platform-specific/macos.html">macOS</a></a></h2>
+<h2 id="macos-1"><a class="header" href="#macos-1"><a href="#macos-2">macOS</a></a></h2>
 <p>macOS specific settings</p>
-<h2 id="linux-1"><a class="header" href="#linux-1"><a href="configuration/platform-specific/linux.html">Linux</a></a></h2>
+<h2 id="linux-1"><a class="header" href="#linux-1"><a href="#linux-2">Linux</a></a></h2>
 <p>Linux specific settings</p>
-<h2 id="windows-1"><a class="header" href="#windows-1"><a href="configuration/platform-specific/windows.html">Windows</a></a></h2>
+<h2 id="windows-1"><a class="header" href="#windows-1"><a href="#windows-2">Windows</a></a></h2>
 <p>Windows specific settings</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="linux-2"><a class="header" href="#linux-2">Linux</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="linux-2"><a class="header" href="#linux-2">Linux</a></h1>
 <p>Linux specific settings</p>
 <ul>
-<li><a href="configuration/platform-specific/linux.html#linux">Linux</a>
+<li><a href="#linux-2">Linux</a>
 <ul>
-<li><a href="configuration/platform-specific/linux.html#configuration">Configuration</a>
+<li><a href="#configuration-36">Configuration</a>
 <ul>
-<li><a href="configuration/platform-specific/linux.html#decorations">decorations</a></li>
+<li><a href="#decorations">decorations</a></li>
 </ul>
 </li>
 </ul>
@@ -2905,16 +3025,17 @@ split_axis = "vertical"
 [platform_specific]
 linux.decorations = false
 </code></pre>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="macos-2"><a class="header" href="#macos-2">macOS</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="macos-2"><a class="header" href="#macos-2">macOS</a></h1>
 <p>macOS specific settings</p>
 <ul>
-<li><a href="configuration/platform-specific/macos.html#macos">macOS</a>
+<li><a href="#macos-2">macOS</a>
 <ul>
-<li><a href="configuration/platform-specific/macos.html#configuration">Configuration</a>
+<li><a href="#configuration-37">Configuration</a>
 <ul>
-<li><a href="configuration/platform-specific/macos.html#content_padding">content_padding</a></li>
-<li><a href="configuration/platform-specific/macos.html#sidebar_padding">sidebar_padding</a></li>
-<li><a href="configuration/platform-specific/macos.html#decorations">decorations</a></li>
+<li><a href="#content_padding">content_padding</a></li>
+<li><a href="#sidebar_padding">sidebar_padding</a></li>
+<li><a href="#decorations-1">decorations</a></li>
 </ul>
 </li>
 </ul>
@@ -2951,14 +3072,15 @@ macos.sidebar_padding = "embedded-content"
 [platform_specific]
 macos.decorations = false
 </code></pre>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="windows-2"><a class="header" href="#windows-2">Windows</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="windows-2"><a class="header" href="#windows-2">Windows</a></h1>
 <p>Windows specific settings</p>
 <ul>
-<li><a href="configuration/platform-specific/windows.html#windows">Windows</a>
+<li><a href="#windows-2">Windows</a>
 <ul>
-<li><a href="configuration/platform-specific/windows.html#configuration">Configuration</a>
+<li><a href="#configuration-38">Configuration</a>
 <ul>
-<li><a href="configuration/platform-specific/windows.html#decorations">decorations</a></li>
+<li><a href="#decorations-2">decorations</a></li>
 </ul>
 </li>
 </ul>
@@ -2977,19 +3099,20 @@ macos.decorations = false
 [platform_specific]
 windows.decorations = false
 </code></pre>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="preview"><a class="header" href="#preview">Preview</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="preview"><a class="header" href="#preview">Preview</a></h1>
 <p>URL preview settings for Halloy.</p>
 <ul>
-<li><a href="configuration/preview/index.html#preview">Preview</a>
+<li><a href="#preview">Preview</a>
 <ul>
-<li><a href="configuration/preview/index.html#configuration">Configuration</a>
+<li><a href="#configuration-39">Configuration</a>
 <ul>
-<li><a href="configuration/preview/index.html#enabled">enabled</a></li>
+<li><a href="#enabled-8">enabled</a></li>
 </ul>
 </li>
-<li><a href="configuration/preview/index.html#request">Request</a></li>
-<li><a href="configuration/preview/index.html#image">Image</a></li>
-<li><a href="configuration/preview/index.html#card">Card</a></li>
+<li><a href="#request">Request</a></li>
+<li><a href="#image">Image</a></li>
+<li><a href="#card">Card</a></li>
 </ul>
 </li>
 </ul>
@@ -3003,24 +3126,25 @@ windows.decorations = false
 [preview]
 enabled = true
 </code></pre>
-<h2 id="request"><a class="header" href="#request"><a href="configuration/preview/request.html">Request</a></a></h2>
+<h2 id="request"><a class="header" href="#request"><a href="#request-1">Request</a></a></h2>
 <p>Request settings for previews.</p>
-<h2 id="image"><a class="header" href="#image"><a href="configuration/preview/image.html">Image</a></a></h2>
+<h2 id="image"><a class="header" href="#image"><a href="#image-1">Image</a></a></h2>
 <p>Specific image preview settings.</p>
-<h2 id="card"><a class="header" href="#card"><a href="configuration/preview/card.html">Card</a></a></h2>
+<h2 id="card"><a class="header" href="#card"><a href="#card-1">Card</a></a></h2>
 <p>Specific card preview settings.</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="card-1"><a class="header" href="#card-1">Card</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="card-1"><a class="header" href="#card-1">Card</a></h1>
 <p>Specific card preview settings.</p>
 <ul>
-<li><a href="configuration/preview/card.html#card">Card</a>
+<li><a href="#card-1">Card</a>
 <ul>
-<li><a href="configuration/preview/card.html#example">Example</a></li>
-<li><a href="configuration/preview/card.html#configuration">Configuration</a>
+<li><a href="#example-11">Example</a></li>
+<li><a href="#configuration-40">Configuration</a>
 <ul>
-<li><a href="configuration/preview/card.html#show_image">show_image</a></li>
-<li><a href="configuration/preview/card.html#round_image_corners">round_image_corners</a></li>
-<li><a href="configuration/preview/card.html#include">include</a></li>
-<li><a href="configuration/preview/card.html#exclude">exclude</a></li>
+<li><a href="#show_image">show_image</a></li>
+<li><a href="#round_image_corners">round_image_corners</a></li>
+<li><a href="#include-4">include</a></li>
+<li><a href="#exclude-4">exclude</a></li>
 </ul>
 </li>
 </ul>
@@ -3070,18 +3194,19 @@ If you pass <code>["#halloy"]</code>, the channel <code>#halloy</code> will not 
 [preview.card]
 exclude = []
 </code></pre>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="image-1"><a class="header" href="#image-1">Image</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="image-1"><a class="header" href="#image-1">Image</a></h1>
 <p>Specific image preview settings.</p>
 <ul>
-<li><a href="configuration/preview/image.html#image">Image</a>
+<li><a href="#image-1">Image</a>
 <ul>
-<li><a href="configuration/preview/image.html#example">Example</a></li>
-<li><a href="configuration/preview/image.html#configuration">Configuration</a>
+<li><a href="#example-12">Example</a></li>
+<li><a href="#configuration-41">Configuration</a>
 <ul>
-<li><a href="configuration/preview/image.html#action">action</a></li>
-<li><a href="configuration/preview/image.html#round_corners">round_corners</a></li>
-<li><a href="configuration/preview/image.html#include">include</a></li>
-<li><a href="configuration/preview/image.html#exclude">exclude</a></li>
+<li><a href="#action">action</a></li>
+<li><a href="#round_corners">round_corners</a></li>
+<li><a href="#include-5">include</a></li>
+<li><a href="#exclude-5">exclude</a></li>
 </ul>
 </li>
 </ul>
@@ -3131,19 +3256,20 @@ If you pass <code>["#halloy"]</code>, the channel <code>#halloy</code> will not 
 [preview.image]
 exclude = []
 </code></pre>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="request-1"><a class="header" href="#request-1">Request</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="request-1"><a class="header" href="#request-1">Request</a></h1>
 <p>Request settings for previews.</p>
 <ul>
-<li><a href="configuration/preview/request.html#request">Request</a>
+<li><a href="#request-1">Request</a>
 <ul>
-<li><a href="configuration/preview/request.html#configuration">Configuration</a>
+<li><a href="#configuration-42">Configuration</a>
 <ul>
-<li><a href="configuration/preview/request.html#user_agent">user_agent</a></li>
-<li><a href="configuration/preview/request.html#timeout_ms">timeout_ms</a></li>
-<li><a href="configuration/preview/request.html#max_image_size">max_image_size</a></li>
-<li><a href="configuration/preview/request.html#max_scrape_size">max_scrape_size</a></li>
-<li><a href="configuration/preview/request.html#concurrency">concurrency</a></li>
-<li><a href="configuration/preview/request.html#delay_ms">delay_ms</a></li>
+<li><a href="#user_agent">user_agent</a></li>
+<li><a href="#timeout_ms">timeout_ms</a></li>
+<li><a href="#max_image_size">max_image_size</a></li>
+<li><a href="#max_scrape_size">max_scrape_size</a></li>
+<li><a href="#concurrency">concurrency</a></li>
+<li><a href="#delay_ms">delay_ms</a></li>
 </ul>
 </li>
 </ul>
@@ -3204,35 +3330,37 @@ concurrency = 4
 [preview.request]
 delay_ms = 500
 </code></pre>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="proxy"><a class="header" href="#proxy">Proxy</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="proxy"><a class="header" href="#proxy">Proxy</a></h1>
 <p>Proxy settings for Halloy.</p>
 <ul>
-<li><a href="configuration/proxy/index.html#proxy">Proxy</a>
+<li><a href="#proxy">Proxy</a>
 <ul>
-<li><a href="configuration/proxy/index.html#http">HTTP</a></li>
-<li><a href="configuration/proxy/index.html#socks5">SOCKS5</a></li>
-<li><a href="configuration/proxy/index.html#tor">Tor</a></li>
+<li><a href="#http">HTTP</a></li>
+<li><a href="#socks5">SOCKS5</a></li>
+<li><a href="#tor-1">Tor</a></li>
 </ul>
 </li>
 </ul>
-<h2 id="http"><a class="header" href="#http"><a href="configuration/proxy/http.html">HTTP</a></a></h2>
+<h2 id="http"><a class="header" href="#http"><a href="#http-1">HTTP</a></a></h2>
 <p>Http proxy settings</p>
-<h2 id="socks5"><a class="header" href="#socks5"><a href="configuration/proxy/socks5.html">SOCKS5</a></a></h2>
+<h2 id="socks5"><a class="header" href="#socks5"><a href="#socks5-1">SOCKS5</a></a></h2>
 <p>Socks5 proxy settings</p>
-<h2 id="tor-1"><a class="header" href="#tor-1"><a href="configuration/proxy/tor.html">Tor</a></a></h2>
+<h2 id="tor-1"><a class="header" href="#tor-1"><a href="#tor-2">Tor</a></a></h2>
 <p>Tor proxy settings</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="http-1"><a class="header" href="#http-1">HTTP</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="http-1"><a class="header" href="#http-1">HTTP</a></h1>
 <p>Http proxy settings.</p>
 <ul>
-<li><a href="configuration/proxy/http.html#http">HTTP</a>
+<li><a href="#http-1">HTTP</a>
 <ul>
-<li><a href="configuration/proxy/http.html#example">Example</a></li>
-<li><a href="configuration/proxy/http.html#configuration">Configuration</a>
+<li><a href="#example-13">Example</a></li>
+<li><a href="#configuration-43">Configuration</a>
 <ul>
-<li><a href="configuration/proxy/http.html#host">host</a></li>
-<li><a href="configuration/proxy/http.html#port">port</a></li>
-<li><a href="configuration/proxy/http.html#username">username</a></li>
-<li><a href="configuration/proxy/http.html#password">password</a></li>
+<li><a href="#host">host</a></li>
+<li><a href="#port">port</a></li>
+<li><a href="#username">username</a></li>
+<li><a href="#password">password</a></li>
 </ul>
 </li>
 </ul>
@@ -3290,18 +3418,19 @@ username = "username"
 [proxy.http]
 password = "password"
 </code></pre>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="socks5-1"><a class="header" href="#socks5-1">SOCKS5</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="socks5-1"><a class="header" href="#socks5-1">SOCKS5</a></h1>
 <p>Socks5 proxy settings.</p>
 <ul>
-<li><a href="configuration/proxy/socks5.html#socks5">SOCKS5</a>
+<li><a href="#socks5-1">SOCKS5</a>
 <ul>
-<li><a href="configuration/proxy/socks5.html#example">Example</a></li>
-<li><a href="configuration/proxy/socks5.html#configuration">Configuration</a>
+<li><a href="#example-14">Example</a></li>
+<li><a href="#configuration-44">Configuration</a>
 <ul>
-<li><a href="configuration/proxy/socks5.html#host">host</a></li>
-<li><a href="configuration/proxy/socks5.html#port">port</a></li>
-<li><a href="configuration/proxy/socks5.html#username">username</a></li>
-<li><a href="configuration/proxy/socks5.html#password">password</a></li>
+<li><a href="#host-1">host</a></li>
+<li><a href="#port-1">port</a></li>
+<li><a href="#username-1">username</a></li>
+<li><a href="#password-1">password</a></li>
 </ul>
 </li>
 </ul>
@@ -3359,30 +3488,32 @@ username = "username"
 [proxy.socks5]
 password = "password"
 </code></pre>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="tor-2"><a class="header" href="#tor-2">Tor</a></h1>
-<p>Tor proxy settings. Utilizes <a href="https://arti.torproject.org/">Arti</a> to integrate Tor support directly into Halloy. Does not integrate into a pre-existing Tor setup.  To utilize an existing Tor daemon, use <a href="configuration/proxy/socks5.html"><code>[proxy.socks5]</code></a> instead.</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="tor-2"><a class="header" href="#tor-2">Tor</a></h1>
+<p>Tor proxy settings. Utilizes <a href="https://arti.torproject.org/">Arti</a> to integrate Tor support directly into Halloy. Does not integrate into a pre-existing Tor setup.  To utilize an existing Tor daemon, use <a href="#socks5-1"><code>[proxy.socks5]</code></a> instead.</p>
 <p>It accepts no further configuration.</p>
 <blockquote>
-<p>⚠️ Tor support is <strong>not included by default</strong>. You must build Halloy with the <code>tor</code> feature to use this proxy type. See <a href="configuration/proxy/../../guides/optional-features.html">Optional Features</a> for build instructions.</p>
+<p>⚠️ Tor support is <strong>not included by default</strong>. You must build Halloy with the <code>tor</code> feature to use this proxy type. See <a href="#optional-features">Optional Features</a> for build instructions.</p>
 </blockquote>
 <ul>
-<li><a href="configuration/proxy/tor.html#tor">Tor</a>
+<li><a href="#tor-2">Tor</a>
 <ul>
-<li><a href="configuration/proxy/tor.html#example">Example</a></li>
+<li><a href="#example-15">Example</a></li>
 </ul>
 </li>
 </ul>
 <h2 id="example-15"><a class="header" href="#example-15">Example</a></h2>
 <pre><code class="language-toml">[proxy.tor]
 </code></pre>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="scale-factor"><a class="header" href="#scale-factor">Scale Factor</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="scale-factor"><a class="header" href="#scale-factor">Scale Factor</a></h1>
 <p>Application wide scale factor.</p>
 <ul>
-<li><a href="configuration/scale-factor.html#scale-factor">Scale Factor</a>
+<li><a href="#scale-factor">Scale Factor</a>
 <ul>
-<li><a href="configuration/scale-factor.html#configuration">Configuration</a>
+<li><a href="#configuration-45">Configuration</a>
 <ul>
-<li><a href="configuration/scale-factor.html#scale_factor">scale_factor</a></li>
+<li><a href="#scale_factor">scale_factor</a></li>
 </ul>
 </li>
 </ul>
@@ -3399,51 +3530,52 @@ password = "password"
 
 scale_factor = 1.0
 </code></pre>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="servers"><a class="header" href="#servers">Servers</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="servers"><a class="header" href="#servers">Servers</a></h1>
 <p>You can define multiple server sections in the configuration file. Each server section must have a unique name, which is used as the identifier in the <code>[servers.&lt;name&gt;]</code> format.</p>
 <ul>
-<li><a href="configuration/servers/index.html#servers">Servers</a>
+<li><a href="#servers">Servers</a>
 <ul>
-<li><a href="configuration/servers/index.html#example">Example</a></li>
-<li><a href="configuration/servers/index.html#configuration">Configuration</a>
+<li><a href="#example-16">Example</a></li>
+<li><a href="#configuration-46">Configuration</a>
 <ul>
-<li><a href="configuration/servers/index.html#nickname">nickname</a></li>
-<li><a href="configuration/servers/index.html#nick_password">nick_password</a></li>
-<li><a href="configuration/servers/index.html#nick_password_file">nick_password_file</a></li>
-<li><a href="configuration/servers/index.html#nick_password_file_first_line_only">nick_password_file_first_line_only</a></li>
-<li><a href="configuration/servers/index.html#nick_password_command">nick_password_command</a></li>
-<li><a href="configuration/servers/index.html#nick_identify_syntax">nick_identify_syntax</a></li>
-<li><a href="configuration/servers/index.html#alt_nicks">alt_nicks</a></li>
-<li><a href="configuration/servers/index.html#username">username</a></li>
-<li><a href="configuration/servers/index.html#realname">realname</a></li>
-<li><a href="configuration/servers/index.html#server">server</a></li>
-<li><a href="configuration/servers/index.html#port">port</a></li>
-<li><a href="configuration/servers/index.html#password">password</a></li>
-<li><a href="configuration/servers/index.html#password_file">password_file</a></li>
-<li><a href="configuration/servers/index.html#password_file_first_line_only">password_file_first_line_only</a></li>
-<li><a href="configuration/servers/index.html#password_command">password_command</a></li>
-<li><a href="configuration/servers/index.html#channels">channels</a></li>
-<li><a href="configuration/servers/index.html#channel_keys">channel_keys</a></li>
-<li><a href="configuration/servers/index.html#ping_time">ping_time</a></li>
-<li><a href="configuration/servers/index.html#ping_timeout">ping_timeout</a></li>
-<li><a href="configuration/servers/index.html#reconnect_delay">reconnect_delay</a></li>
-<li><a href="configuration/servers/index.html#should_ghost">should_ghost</a></li>
-<li><a href="configuration/servers/index.html#ghost_sequence">ghost_sequence</a></li>
-<li><a href="configuration/servers/index.html#umodes">umodes</a></li>
-<li><a href="configuration/servers/index.html#use_tls">use_tls</a></li>
-<li><a href="configuration/servers/index.html#dangerously_accept_invalid_certs">dangerously_accept_invalid_certs</a></li>
-<li><a href="configuration/servers/index.html#root_cert_path">root_cert_path</a></li>
-<li><a href="configuration/servers/index.html#on_connect">on_connect</a></li>
-<li><a href="configuration/servers/index.html#anti_flood">anti_flood</a></li>
-<li><a href="configuration/servers/index.html#who_poll_enabled">who_poll_enabled</a></li>
-<li><a href="configuration/servers/index.html#who_poll_interval">who_poll_interval</a></li>
-<li><a href="configuration/servers/index.html#monitor">monitor</a></li>
-<li><a href="configuration/servers/index.html#chathistory">chathistory</a></li>
+<li><a href="#nickname-6">nickname</a></li>
+<li><a href="#nick_password">nick_password</a></li>
+<li><a href="#nick_password_file">nick_password_file</a></li>
+<li><a href="#nick_password_file_first_line_only">nick_password_file_first_line_only</a></li>
+<li><a href="#nick_password_command">nick_password_command</a></li>
+<li><a href="#nick_identify_syntax">nick_identify_syntax</a></li>
+<li><a href="#alt_nicks">alt_nicks</a></li>
+<li><a href="#username-2">username</a></li>
+<li><a href="#realname">realname</a></li>
+<li><a href="#server-2">server</a></li>
+<li><a href="#port-2">port</a></li>
+<li><a href="#password-2">password</a></li>
+<li><a href="#password_file">password_file</a></li>
+<li><a href="#password_file_first_line_only">password_file_first_line_only</a></li>
+<li><a href="#password_command">password_command</a></li>
+<li><a href="#channels">channels</a></li>
+<li><a href="#channel_keys">channel_keys</a></li>
+<li><a href="#ping_time">ping_time</a></li>
+<li><a href="#ping_timeout">ping_timeout</a></li>
+<li><a href="#reconnect_delay">reconnect_delay</a></li>
+<li><a href="#should_ghost">should_ghost</a></li>
+<li><a href="#ghost_sequence">ghost_sequence</a></li>
+<li><a href="#umodes">umodes</a></li>
+<li><a href="#use_tls">use_tls</a></li>
+<li><a href="#dangerously_accept_invalid_certs">dangerously_accept_invalid_certs</a></li>
+<li><a href="#root_cert_path">root_cert_path</a></li>
+<li><a href="#on_connect">on_connect</a></li>
+<li><a href="#anti_flood">anti_flood</a></li>
+<li><a href="#who_poll_enabled">who_poll_enabled</a></li>
+<li><a href="#who_poll_interval">who_poll_interval</a></li>
+<li><a href="#monitor">monitor</a></li>
+<li><a href="#chathistory">chathistory</a></li>
 </ul>
 </li>
-<li><a href="configuration/servers/index.html#filters">Filters</a></li>
-<li><a href="configuration/servers/index.html#sasl-plain">SASL Plain</a></li>
-<li><a href="configuration/servers/index.html#sasl-external">SASL External</a></li>
+<li><a href="#filters">Filters</a></li>
+<li><a href="#sasl-plain">SASL Plain</a></li>
+<li><a href="#sasl-external">SASL External</a></li>
 </ul>
 </li>
 </ul>
@@ -3461,11 +3593,11 @@ nickname = "foo"
 use_tls = false
 </code></pre>
 <blockquote>
-<p>💡 Guide: <a href="configuration/servers/../../guides/multiple-servers.html">Multiple servers</a></p>
+<p>💡 Guide: <a href="#multiple-servers">Multiple servers</a></p>
 </blockquote>
 <h2 id="configuration-46"><a class="header" href="#configuration-46">Configuration</a></h2>
 <h3 id="nickname-6"><a class="header" href="#nickname-6">nickname</a></h3>
-<p>The client's nickname.</p>
+<p>The client’s nickname.</p>
 <pre><code class="language-toml"># Type: string
 # Values: any string
 # Default: not set
@@ -3474,7 +3606,7 @@ use_tls = false
 nickname = ""
 </code></pre>
 <h3 id="nick_password"><a class="header" href="#nick_password">nick_password</a></h3>
-<p>The client's NICKSERV password.</p>
+<p>The client’s NICKSERV password.</p>
 <pre><code class="language-toml"># Type: string
 # Values: any string
 # Default: not set
@@ -3483,7 +3615,7 @@ nickname = ""
 nick_password = ""
 </code></pre>
 <h3 id="nick_password_file"><a class="header" href="#nick_password_file">nick_password_file</a></h3>
-<p>Read <code>nick_password</code> from the file at the given path.<sup class="footnote-reference" id="fr-1-1"><a href="#footnote-1">1</a></sup> <sup class="footnote-reference" id="fr-2-1"><a href="#footnote-2">2</a></sup></p>
+<p>Read <code>nick_password</code> from the file at the given path.<sup class="footnote-reference" id="fr-1-1-3"><a href="#footnote-1-3">1</a></sup> <sup class="footnote-reference" id="fr-2-1-2"><a href="#footnote-2-2">2</a></sup></p>
 <pre><code class="language-toml"># Type: string
 # Values: any string
 # Default: not set
@@ -3510,7 +3642,7 @@ nick_password_file_first_line_only = true
 nick_password_command = ""
 </code></pre>
 <h3 id="nick_identify_syntax"><a class="header" href="#nick_identify_syntax">nick_identify_syntax</a></h3>
-<p>The server's NICKSERV IDENTIFY syntax.</p>
+<p>The server’s NICKSERV IDENTIFY syntax.</p>
 <pre><code class="language-toml"># Type: string
 # Values: "nick-password", "password-nick"
 # Default: not set
@@ -3528,7 +3660,7 @@ nick_identify_syntax = ""
 alt_nicks = ["Foo", "Bar"]
 </code></pre>
 <h3 id="username-2"><a class="header" href="#username-2">username</a></h3>
-<p>The client's username.</p>
+<p>The client’s username.</p>
 <pre><code class="language-toml"># Type: string
 # Values: any string
 # Default: not set
@@ -3537,7 +3669,7 @@ alt_nicks = ["Foo", "Bar"]
 username = ""
 </code></pre>
 <h3 id="realname"><a class="header" href="#realname">realname</a></h3>
-<p>The client's real name.</p>
+<p>The client’s real name.</p>
 <pre><code class="language-toml"># Type: string
 # Values: any string
 # Default: not set
@@ -3573,7 +3705,7 @@ port = 6697
 password = ""
 </code></pre>
 <h3 id="password_file"><a class="header" href="#password_file">password_file</a></h3>
-<p>Read password from the file at the given path.<sup class="footnote-reference" id="fr-1-2"><a href="#footnote-1">1</a></sup> <sup class="footnote-reference" id="fr-2-2"><a href="#footnote-2">2</a></sup></p>
+<p>Read password from the file at the given path.<sup class="footnote-reference" id="fr-1-2-1"><a href="#footnote-1-3">1</a></sup> <sup class="footnote-reference" id="fr-2-2"><a href="#footnote-2-2">2</a></sup></p>
 <pre><code class="language-toml"># Type: string
 # Values: any string
 # Default: not set
@@ -3690,7 +3822,7 @@ use_tls = true
 dangerously_accept_invalid_certs = false
 </code></pre>
 <h3 id="root_cert_path"><a class="header" href="#root_cert_path">root_cert_path</a></h3>
-<p>The path to the root TLS certificate for this server in PEM format.<sup class="footnote-reference" id="fr-1-3"><a href="#footnote-1">1</a></sup> <sup class="footnote-reference" id="fr-2-3"><a href="#footnote-2">2</a></sup></p>
+<p>The path to the root TLS certificate for this server in PEM format.<sup class="footnote-reference" id="fr-1-3-1"><a href="#footnote-1-3">1</a></sup> <sup class="footnote-reference" id="fr-2-3"><a href="#footnote-2-2">2</a></sup></p>
 <pre><code class="language-toml"># Type: string
 # Values: any string
 # Default: not set
@@ -3737,7 +3869,7 @@ who_poll_interval = 2
 <h3 id="monitor"><a class="header" href="#monitor">monitor</a></h3>
 <p>A list of nicknames to <a href="https://ircv3.net/specs/extensions/monitor">monitor</a> (if IRCv3 Monitor is supported by the server).</p>
 <blockquote>
-<p>💡 Read more about <a href="configuration/servers/../../guides/monitor-users.html">monitoring users</a>.</p>
+<p>💡 Read more about <a href="#monitor-users">monitoring users</a>.</p>
 </blockquote>
 <pre><code class="language-toml"># Type: array of string
 # Values: array of any strings
@@ -3755,27 +3887,30 @@ monitor = ["Foo", "Bar"]
 [servers.&lt;name&gt;]
 chathistory = true
 </code></pre>
-<h2 id="filters"><a class="header" href="#filters"><a href="configuration/servers/filters.html">Filters</a></a></h2>
+<h2 id="filters"><a class="header" href="#filters"><a href="#filters-1">Filters</a></a></h2>
 <p>Filter messages based on various criteria</p>
-<h2 id="sasl-plain"><a class="header" href="#sasl-plain"><a href="configuration/servers/sasl-plain.html">SASL Plain</a></a></h2>
+<h2 id="sasl-plain"><a class="header" href="#sasl-plain"><a href="#sasl-plain-1">SASL Plain</a></a></h2>
 <p>Plain SASL auth using a username and password</p>
-<h2 id="sasl-external"><a class="header" href="#sasl-external"><a href="configuration/servers/sasl-external.html">SASL External</a></a></h2>
+<h2 id="sasl-external"><a class="header" href="#sasl-external"><a href="#sasl-external-1">SASL External</a></a></h2>
 <p>External SASL auth uses a PEM encoded X509 certificate.</p>
 <hr>
-<ol class="footnote-definition"><li id="footnote-1">
-<p>Windows path strings should usually be specified as literal strings (e.g. <code>'C:\Users\Default\'</code>), otherwise directory separators will need to be escaped (e.g. <code>"C:\\Users\\Default\\"</code>). <a href="#fr-1-1">↩</a> <a href="#fr-1-2">↩2</a> <a href="#fr-1-3">↩3</a></p>
+<ol class="footnote-definition">
+<li id="footnote-1-3">
+<p>Windows path strings should usually be specified as literal strings (e.g. <code>'C:\Users\Default\'</code>), otherwise directory separators will need to be escaped (e.g. <code>"C:\\Users\\Default\\"</code>). <a href="#fr-1-1-3">↩</a> <a href="#fr-1-2-1">↩2</a> <a href="#fr-1-3-1">↩3</a></p>
 </li>
-<li id="footnote-2">
-<p>Relative paths are prefixed with the config directory (i.e. if you have your config.toml in <code>/home/me/.config/halloy/config.toml</code>, path <code>.passwd/libera</code> will be converted to <code>/home/me/.config/halloy/.passwd/libera</code>). <a href="#fr-2-1">↩</a> <a href="#fr-2-2">↩2</a> <a href="#fr-2-3">↩3</a></p>
+<li id="footnote-2-2">
+<p>Relative paths are prefixed with the config directory (i.e. if you have your config.toml in <code>/home/me/.config/halloy/config.toml</code>, path <code>.passwd/libera</code> will be converted to <code>/home/me/.config/halloy/.passwd/libera</code>). <a href="#fr-2-1-2">↩</a> <a href="#fr-2-2">↩2</a> <a href="#fr-2-3">↩3</a></p>
 </li>
-</ol><div style="break-before: page; page-break-before: always;"></div><h1 id="filters-1"><a class="header" href="#filters-1">Filters</a></h1>
+</ol>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="filters-1"><a class="header" href="#filters-1">Filters</a></h1>
 <p>Filter messages based on various criteria.</p>
 <ul>
-<li><a href="configuration/servers/filters.html#filters">Filters</a>
+<li><a href="#filters-1">Filters</a>
 <ul>
-<li><a href="configuration/servers/filters.html#configuration">Configuration</a>
+<li><a href="#configuration-47">Configuration</a>
 <ul>
-<li><a href="configuration/servers/filters.html#ignore">ignore</a></li>
+<li><a href="#ignore-1">ignore</a></li>
 </ul>
 </li>
 </ul>
@@ -3795,15 +3930,16 @@ ignore = [
 "#specific-channel user_only_for_channel"
 ]
 </code></pre>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="sasl-external-1"><a class="header" href="#sasl-external-1">SASL External</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="sasl-external-1"><a class="header" href="#sasl-external-1">SASL External</a></h1>
 <p>External SASL auth uses a PEM encoded X509 certificate. <a href="https://libera.chat/guides/certfp">Reference</a>.</p>
 <ul>
-<li><a href="configuration/servers/sasl-external.html#sasl-external">SASL External</a>
+<li><a href="#sasl-external-1">SASL External</a>
 <ul>
-<li><a href="configuration/servers/sasl-external.html#configuration">Configuration</a>
+<li><a href="#configuration-48">Configuration</a>
 <ul>
-<li><a href="configuration/servers/sasl-external.html#cert">cert</a></li>
-<li><a href="configuration/servers/sasl-external.html#key">key</a></li>
+<li><a href="#cert">cert</a></li>
+<li><a href="#key">key</a></li>
 </ul>
 </li>
 </ul>
@@ -3811,7 +3947,7 @@ ignore = [
 </ul>
 <h2 id="configuration-48"><a class="header" href="#configuration-48">Configuration</a></h2>
 <h3 id="cert"><a class="header" href="#cert">cert</a></h3>
-<p>The path to PEM encoded X509 user certificate for external auth.<sup class="footnote-reference" id="fr-1-1"><a href="#footnote-1">1</a></sup> <sup class="footnote-reference" id="fr-2-1"><a href="#footnote-2">2</a></sup></p>
+<p>The path to PEM encoded X509 user certificate for external auth.<sup class="footnote-reference" id="fr-1-1-4"><a href="#footnote-1-4">1</a></sup> <sup class="footnote-reference" id="fr-2-1-3"><a href="#footnote-2-3">2</a></sup></p>
 <pre><code class="language-toml"># Type: string
 # Values: any string
 # Default: not set
@@ -3820,7 +3956,7 @@ ignore = [
 cert = "/path/to/your/certificate.pem"
 </code></pre>
 <h3 id="key"><a class="header" href="#key">key</a></h3>
-<p>The path to PEM encoded PKCS#8 private key for external auth (optional).<sup class="footnote-reference" id="fr-1-2"><a href="#footnote-1">1</a></sup> <sup class="footnote-reference" id="fr-2-2"><a href="#footnote-2">2</a></sup></p>
+<p>The path to PEM encoded PKCS#8 private key for external auth (optional).<sup class="footnote-reference" id="fr-1-2-2"><a href="#footnote-1-4">1</a></sup> <sup class="footnote-reference" id="fr-2-2-1"><a href="#footnote-2-3">2</a></sup></p>
 <pre><code class="language-toml"># Type: string
 # Values: any string
 # Default: not set
@@ -3829,24 +3965,27 @@ cert = "/path/to/your/certificate.pem"
 key = "/path/to/your/private_key.pem"
 </code></pre>
 <hr>
-<ol class="footnote-definition"><li id="footnote-1">
-<p>Windows path strings should usually be specified as literal strings (e.g. <code>'C:\Users\Default\'</code>), otherwise directory separators will need to be escaped (e.g. <code>"C:\\Users\\Default\\"</code>). <a href="#fr-1-1">↩</a> <a href="#fr-1-2">↩2</a></p>
+<ol class="footnote-definition">
+<li id="footnote-1-4">
+<p>Windows path strings should usually be specified as literal strings (e.g. <code>'C:\Users\Default\'</code>), otherwise directory separators will need to be escaped (e.g. <code>"C:\\Users\\Default\\"</code>). <a href="#fr-1-1-4">↩</a> <a href="#fr-1-2-2">↩2</a></p>
 </li>
-<li id="footnote-2">
-<p>Relative paths are prefixed with the config directory (i.e. if you have your config.toml in <code>/home/me/.config/halloy/config.toml</code>, path <code>.passwd/libera</code> will be converted to <code>/home/me/.config/halloy/.passwd/libera</code>). <a href="#fr-2-1">↩</a> <a href="#fr-2-2">↩2</a></p>
+<li id="footnote-2-3">
+<p>Relative paths are prefixed with the config directory (i.e. if you have your config.toml in <code>/home/me/.config/halloy/config.toml</code>, path <code>.passwd/libera</code> will be converted to <code>/home/me/.config/halloy/.passwd/libera</code>). <a href="#fr-2-1-3">↩</a> <a href="#fr-2-2-1">↩2</a></p>
 </li>
-</ol><div style="break-before: page; page-break-before: always;"></div><h1 id="sasl-plain-1"><a class="header" href="#sasl-plain-1">SASL Plain</a></h1>
+</ol>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="sasl-plain-1"><a class="header" href="#sasl-plain-1">SASL Plain</a></h1>
 <p>Plain SASL auth using a username and password</p>
 <ul>
-<li><a href="configuration/servers/sasl-plain.html#sasl-plain">SASL Plain</a>
+<li><a href="#sasl-plain-1">SASL Plain</a>
 <ul>
-<li><a href="configuration/servers/sasl-plain.html#configuration">Configuration</a>
+<li><a href="#configuration-49">Configuration</a>
 <ul>
-<li><a href="configuration/servers/sasl-plain.html#username">username</a></li>
-<li><a href="configuration/servers/sasl-plain.html#password">password</a></li>
-<li><a href="configuration/servers/sasl-plain.html#password_file">password_file</a></li>
-<li><a href="configuration/servers/sasl-plain.html#password_file_first_line_only">password_file_first_line_only</a></li>
-<li><a href="configuration/servers/sasl-plain.html#password_command">password_command</a></li>
+<li><a href="#username-3">username</a></li>
+<li><a href="#password-3">password</a></li>
+<li><a href="#password_file-1">password_file</a></li>
+<li><a href="#password_file_first_line_only-1">password_file_first_line_only</a></li>
+<li><a href="#password_command-1">password_command</a></li>
 </ul>
 </li>
 </ul>
@@ -3872,7 +4011,7 @@ username = "username"
 password = "password"
 </code></pre>
 <h3 id="password_file-1"><a class="header" href="#password_file-1">password_file</a></h3>
-<p>Read <code>password</code> from the file at the given path.<sup class="footnote-reference" id="fr-1-1"><a href="#footnote-1">1</a></sup> <sup class="footnote-reference" id="fr-2-1"><a href="#footnote-2">2</a></sup></p>
+<p>Read <code>password</code> from the file at the given path.<sup class="footnote-reference" id="fr-1-1-5"><a href="#footnote-1-5">1</a></sup> <sup class="footnote-reference" id="fr-2-1-4"><a href="#footnote-2-4">2</a></sup></p>
 <pre><code class="language-toml"># Type: string
 # Values: any string
 # Default: not set
@@ -3899,35 +4038,38 @@ password_file_first_line_only = true
 password_command = ""
 </code></pre>
 <hr>
-<ol class="footnote-definition"><li id="footnote-1">
-<p>Windows path strings should usually be specified as literal strings (e.g. <code>'C:\Users\Default\'</code>), otherwise directory separators will need to be escaped (e.g. <code>"C:\\Users\\Default\\"</code>). <a href="#fr-1-1">↩</a></p>
+<ol class="footnote-definition">
+<li id="footnote-1-5">
+<p>Windows path strings should usually be specified as literal strings (e.g. <code>'C:\Users\Default\'</code>), otherwise directory separators will need to be escaped (e.g. <code>"C:\\Users\\Default\\"</code>). <a href="#fr-1-1-5">↩</a></p>
 </li>
-<li id="footnote-2">
-<p>Relative paths are prefixed with the config directory (i.e. if you have your config.toml in <code>/home/me/.config/halloy/config.toml</code>, path <code>.passwd/libera</code> will be converted to <code>/home/me/.config/halloy/.passwd/libera</code>). <a href="#fr-2-1">↩</a></p>
+<li id="footnote-2-4">
+<p>Relative paths are prefixed with the config directory (i.e. if you have your config.toml in <code>/home/me/.config/halloy/config.toml</code>, path <code>.passwd/libera</code> will be converted to <code>/home/me/.config/halloy/.passwd/libera</code>). <a href="#fr-2-1-4">↩</a></p>
 </li>
-</ol><div style="break-before: page; page-break-before: always;"></div><h1 id="sidebar-2"><a class="header" href="#sidebar-2">Sidebar</a></h1>
+</ol>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="sidebar-2"><a class="header" href="#sidebar-2">Sidebar</a></h1>
 <p>Sidebar settings for Halloy.</p>
 <ul>
-<li><a href="configuration/sidebar/index.html#sidebar">Sidebar</a>
+<li><a href="#sidebar-2">Sidebar</a>
 <ul>
-<li><a href="configuration/sidebar/index.html#configuration">Configuration</a>
+<li><a href="#configuration-50">Configuration</a>
 <ul>
-<li><a href="configuration/sidebar/index.html#server_icon_size">server_icon_size</a></li>
-<li><a href="configuration/sidebar/index.html#position">position</a></li>
-<li><a href="configuration/sidebar/index.html#max_width">max_width</a></li>
-<li><a href="configuration/sidebar/index.html#show_menu_button">show_menu_button</a></li>
-<li><a href="configuration/sidebar/index.html#order_by">order_by</a></li>
+<li><a href="#server_icon_size">server_icon_size</a></li>
+<li><a href="#position-1">position</a></li>
+<li><a href="#max_width">max_width</a></li>
+<li><a href="#show_menu_button">show_menu_button</a></li>
+<li><a href="#order_by-1">order_by</a></li>
 </ul>
 </li>
-<li><a href="configuration/sidebar/index.html#scrollbar">Scrollbar</a></li>
-<li><a href="configuration/sidebar/index.html#unread-indicator">Unread Indicator</a></li>
+<li><a href="#scrollbar-1">Scrollbar</a></li>
+<li><a href="#unread-indicator">Unread Indicator</a></li>
 </ul>
 </li>
 </ul>
 <h2 id="configuration-50"><a class="header" href="#configuration-50">Configuration</a></h2>
 <h3 id="server_icon_size"><a class="header" href="#server_icon_size">server_icon_size</a></h3>
 <p>Adjust server icon size.</p>
-<p>Note: If set larger than the line height of the specified <a href="configuration/sidebar/../font/">font</a> then the icon will not render.</p>
+<p>Note: If set larger than the line height of the specified <a href="configuration/font">font</a> then the icon will not render.</p>
 <pre><code class="language-toml"># Type: integer
 # Values: any positive integer"
 # Default: 12
@@ -3975,19 +4117,20 @@ show_menu_button = true
 [sidebar]
 order_by = "config"
 </code></pre>
-<h2 id="scrollbar-1"><a class="header" href="#scrollbar-1"><a href="configuration/sidebar/scrollbar.html">Scrollbar</a></a></h2>
+<h2 id="scrollbar-1"><a class="header" href="#scrollbar-1"><a href="#scrollbar-2">Scrollbar</a></a></h2>
 <p>Scrollbar in sidebar</p>
-<h2 id="unread-indicator"><a class="header" href="#unread-indicator"><a href="configuration/sidebar/unread-indicator.html">Unread Indicator</a></a></h2>
+<h2 id="unread-indicator"><a class="header" href="#unread-indicator"><a href="#unread-indicator-1">Unread Indicator</a></a></h2>
 <p>Unread buffer indicator style</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="scrollbar-2"><a class="header" href="#scrollbar-2">Scrollbar</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="scrollbar-2"><a class="header" href="#scrollbar-2">Scrollbar</a></h1>
 <p>Scrollbar in sidebar</p>
 <ul>
-<li><a href="configuration/sidebar/scrollbar.html#scrollbar">Scrollbar</a>
+<li><a href="#scrollbar-2">Scrollbar</a>
 <ul>
-<li><a href="configuration/sidebar/scrollbar.html#configuration">Configuration</a>
+<li><a href="#configuration-51">Configuration</a>
 <ul>
-<li><a href="configuration/sidebar/scrollbar.html#width">width</a></li>
-<li><a href="configuration/sidebar/scrollbar.html#scroller_width">scroller_width</a></li>
+<li><a href="#width-2">width</a></li>
+<li><a href="#scroller_width-1">scroller_width</a></li>
 </ul>
 </li>
 </ul>
@@ -4012,18 +4155,19 @@ width = 5
 [sidebar.scrollbar]
 scroller_width = 5
 </code></pre>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="unread-indicator-1"><a class="header" href="#unread-indicator-1">Unread Indicator</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="unread-indicator-1"><a class="header" href="#unread-indicator-1">Unread Indicator</a></h1>
 <p>Unread buffer indicator style.</p>
 <ul>
-<li><a href="configuration/sidebar/unread-indicator.html#unread-indicator">Unread Indicator</a>
+<li><a href="#unread-indicator-1">Unread Indicator</a>
 <ul>
-<li><a href="configuration/sidebar/unread-indicator.html#configuration">Configuration</a>
+<li><a href="#configuration-52">Configuration</a>
 <ul>
-<li><a href="configuration/sidebar/unread-indicator.html#title">title</a></li>
-<li><a href="configuration/sidebar/unread-indicator.html#icon">icon</a></li>
-<li><a href="configuration/sidebar/unread-indicator.html#highlight_icon">highlight_icon</a></li>
-<li><a href="configuration/sidebar/unread-indicator.html#icon_size">icon_size</a></li>
-<li><a href="configuration/sidebar/unread-indicator.html#highlight_icon_size">highlight_icon_size</a></li>
+<li><a href="#title">title</a></li>
+<li><a href="#icon">icon</a></li>
+<li><a href="#highlight_icon">highlight_icon</a></li>
+<li><a href="#icon_size">icon_size</a></li>
+<li><a href="#highlight_icon_size">highlight_icon_size</a></li>
 </ul>
 </li>
 </ul>
@@ -4059,7 +4203,7 @@ highlight_icon = "circle-empty"
 </code></pre>
 <h3 id="icon_size"><a class="header" href="#icon_size">icon_size</a></h3>
 <p>Changes the unread icon size.</p>
-<p>Note: If set larger than the line height of the specified <a href="configuration/sidebar/../font/">font</a> then the icon will not render.</p>
+<p>Note: If set larger than the line height of the specified <a href="configuration/font">font</a> then the icon will not render.</p>
 <pre><code class="language-toml"># Type: integer
 # Values: any positive integer"
 # Default: 6
@@ -4069,7 +4213,7 @@ icon_size = 6
 </code></pre>
 <h3 id="highlight_icon_size"><a class="header" href="#highlight_icon_size">highlight_icon_size</a></h3>
 <p>Changes the highlight unread icon size.</p>
-<p>Note: If set larger than the line height of the specified <a href="configuration/sidebar/../font/">font</a> then the icon will not render.</p>
+<p>Note: If set larger than the line height of the specified <a href="configuration/font">font</a> then the icon will not render.</p>
 <pre><code class="language-toml"># Type: integer
 # Values: any positive integer"
 # Default: 8
@@ -4077,15 +4221,16 @@ icon_size = 6
 [sidebar.unread_indicator]
 highlight_icon_size = 8
 </code></pre>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="user-menu"><a class="header" href="#user-menu">User Menu</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="user-menu"><a class="header" href="#user-menu">User Menu</a></h1>
 <p>User menu in sidebar settings.</p>
 <ul>
-<li><a href="configuration/sidebar/user-menu.html#user-menu">User Menu</a>
+<li><a href="#user-menu">User Menu</a>
 <ul>
-<li><a href="configuration/sidebar/user-menu.html#configuration">Configuration</a>
+<li><a href="#configuration-53">Configuration</a>
 <ul>
-<li><a href="configuration/sidebar/user-menu.html#enabled">enabled</a></li>
-<li><a href="configuration/sidebar/user-menu.html#show_new_version_indicator">show_new_version_indicator</a></li>
+<li><a href="#enabled-9">enabled</a></li>
+<li><a href="#show_new_version_indicator">show_new_version_indicator</a></li>
 </ul>
 </li>
 </ul>
@@ -4111,19 +4256,20 @@ This can be useful if you rather want to rely on a package manager.</p>
 [sidebar.user_menu]
 show_new_version_indicator = true
 </code></pre>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="themes"><a class="header" href="#themes">Themes</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="themes"><a class="header" href="#themes">Themes</a></h1>
 <ul>
-<li><a href="configuration/themes/index.html#themes">Themes</a>
+<li><a href="#themes">Themes</a>
 <ul>
-<li><a href="configuration/themes/index.html#example">Example</a></li>
-<li><a href="configuration/themes/index.html#configuration">Configuration</a>
+<li><a href="#example-17">Example</a></li>
+<li><a href="#configuration-54">Configuration</a>
 <ul>
-<li><a href="configuration/themes/index.html#theme">theme</a></li>
+<li><a href="#theme">theme</a></li>
 </ul>
 </li>
-<li><a href="configuration/themes/index.html#custom-themes">Custom themes</a></li>
-<li><a href="configuration/themes/index.html#community">Community</a></li>
-<li><a href="configuration/themes/index.html#base16">Base16</a></li>
+<li><a href="#custom-themes">Custom themes</a></li>
+<li><a href="#community">Community</a></li>
+<li><a href="#base16">Base16</a></li>
 </ul>
 </li>
 </ul>
@@ -4145,7 +4291,7 @@ theme = { light = ["ferra-light", "booberry-light"], dark = ["ferra", "booberry"
 <p>⚠️  <code>theme</code> is a root key, so it must be placed before every section.</p>
 </blockquote>
 <h3 id="theme"><a class="header" href="#theme">theme</a></h3>
-<p>Specify the theme name(s) to use. The theme must correspond to a file in the <code>themes</code> folder of your Halloy configuration directory. For more details, see the <a href="configuration/themes/../../configuration.html">configuration overview</a>. The default theme in Halloy is <a href="https://github.com/casperstorm/ferra/">Ferra</a>.</p>
+<p>Specify the theme name(s) to use. The theme must correspond to a file in the <code>themes</code> folder of your Halloy configuration directory. For more details, see the <a href="#configuration">configuration overview</a>. The default theme in Halloy is <a href="https://github.com/casperstorm/ferra/">Ferra</a>.</p>
 <p>When multiple themes are specified, Halloy will randomly select one each time the application starts. When a dynamic theme is used, Halloy will match the appearance of the OS.</p>
 <ul>
 <li><strong>type</strong>: string, array of strings, or object</li>
@@ -4153,7 +4299,7 @@ theme = { light = ["ferra-light", "booberry-light"], dark = ["ferra", "booberry"
 <li><strong>default</strong>: <code>"ferra"</code></li>
 </ul>
 <blockquote>
-<p>💡  See all <a href="configuration/themes/./community.html">community created themes</a> and <a href="configuration/themes/./base16.html">base16 themes</a>.</p>
+<p>💡  See all <a href="#community-1">community created themes</a> and <a href="#base16-1">base16 themes</a>.</p>
 </blockquote>
 <h2 id="custom-themes"><a class="header" href="#custom-themes">Custom themes</a></h2>
 <p>To create a custom theme for Halloy, simply place a theme file (with a <code>.toml</code> extension) inside the <code>themes</code> folder within the configuration directory.</p>
@@ -4237,11 +4383,12 @@ default = "&lt;string&gt;"
 <blockquote>
 <p>💡  The default Ferra theme toml file can be viewed <a href="https://github.com/squidowl/halloy/blob/main/assets/themes/ferra.toml">on GitHub</a>.</p>
 </blockquote>
-<h2 id="community"><a class="header" href="#community"><a href="configuration/themes/community.html">Community</a></a></h2>
+<h2 id="community"><a class="header" href="#community"><a href="#community-1">Community</a></a></h2>
 <p>Community created themes for Halloy</p>
-<h2 id="base16"><a class="header" href="#base16"><a href="configuration/themes/base16.html">Base16</a></a></h2>
+<h2 id="base16"><a class="header" href="#base16"><a href="#base16-1">Base16</a></a></h2>
 <p>Community collection of base16 themes</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="base16-1"><a class="header" href="#base16-1">Base16</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="base16-1"><a class="header" href="#base16-1">Base16</a></h1>
 <p>The <a href="https://github.com/chriskempson/base16">base16</a> color scheme framework
 includes hundreds of color schemes build using 16 colors. These color schemes have
 are compiled for Halloy in the
@@ -4255,17 +4402,19 @@ you can enable themes individually in <code>config.toml</code>.</p>
 <pre><code class="language-toml"># Static
 theme = "base16-gruvbox-dark-hard"
 </code></pre>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="community-1"><a class="header" href="#community-1">Community</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="community-1"><a class="header" href="#community-1">Community</a></h1>
 <p>Discover community created themes for Halloy at <a href="https://themes.halloy.chat">https://themes.halloy.chat</a>.</p>
-<p>To use these themes, download them and place the files in the <code>themes</code> directory within your configuration folder. For more details, see the <a href="configuration/themes/../../configuration.html">configuration overview</a>.</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="tooltips"><a class="header" href="#tooltips">Tooltips</a></h1>
+<p>To use these themes, download them and place the files in the <code>themes</code> directory within your configuration folder. For more details, see the <a href="#configuration">configuration overview</a>.</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="tooltips"><a class="header" href="#tooltips">Tooltips</a></h1>
 <p>Control if tooltips are displayed or not.</p>
 <ul>
-<li><a href="configuration/tooltips.html#tooltips">Tooltips</a>
+<li><a href="#tooltips">Tooltips</a>
 <ul>
-<li><a href="configuration/tooltips.html#configuration">Configuration</a>
+<li><a href="#configuration-55">Configuration</a>
 <ul>
-<li><a href="configuration/tooltips.html#tooltip">tooltip</a></li>
+<li><a href="#tooltip">tooltip</a></li>
 </ul>
 </li>
 </ul>
@@ -4300,6 +4449,11 @@ tooltips = true
 
         </div>
 
+        <template id=fa-eye><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M288 32c-80.8 0-145.5 36.8-192.6 80.6C48.6 156 17.3 208 2.5 243.7c-3.3 7.9-3.3 16.7 0 24.6C17.3 304 48.6 356 95.4 399.4C142.5 443.2 207.2 480 288 480s145.5-36.8 192.6-80.6c46.8-43.5 78.1-95.4 93-131.1c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C433.5 68.8 368.8 32 288 32zM432 256c0 79.5-64.5 144-144 144s-144-64.5-144-144s64.5-144 144-144s144 64.5 144 144zM288 192c0 35.3-28.7 64-64 64c-11.5 0-22.3-3-31.6-8.4c-.2 2.8-.4 5.5-.4 8.4c0 53 43 96 96 96s96-43 96-96s-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6z"/></svg></span></template>
+        <template id=fa-eye-slash><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M38.8 5.1C28.4-3.1 13.3-1.2 5.1 9.2S-1.2 34.7 9.2 42.9l592 464c10.4 8.2 25.5 6.3 33.7-4.1s6.3-25.5-4.1-33.7L525.6 386.7c39.6-40.6 66.4-86.1 79.9-118.4c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C465.5 68.8 400.8 32 320 32c-68.2 0-125 26.3-169.3 60.8L38.8 5.1zM223.1 149.5C248.6 126.2 282.7 112 320 112c79.5 0 144 64.5 144 144c0 24.9-6.3 48.3-17.4 68.7L408 294.5c5.2-11.8 8-24.8 8-38.5c0-53-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6c0 10.2-2.4 19.8-6.6 28.3l-90.3-70.8zm223.1 298L373 389.9c-16.4 6.5-34.3 10.1-53 10.1c-79.5 0-144-64.5-144-144c0-6.9 .5-13.6 1.4-20.2L83.1 161.5C60.3 191.2 44 220.8 34.5 243.7c-3.3 7.9-3.3 16.7 0 24.6c14.9 35.7 46.2 87.7 93 131.1C174.5 443.2 239.2 480 320 480c47.8 0 89.9-12.9 126.2-32.5z"/></svg></span></template>
+        <template id=fa-copy><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M502.6 70.63l-61.25-61.25C435.4 3.371 427.2 0 418.7 0H255.1c-35.35 0-64 28.66-64 64l.0195 256C192 355.4 220.7 384 256 384h192c35.2 0 64-28.8 64-64V93.25C512 84.77 508.6 76.63 502.6 70.63zM464 320c0 8.836-7.164 16-16 16H255.1c-8.838 0-16-7.164-16-16L239.1 64.13c0-8.836 7.164-16 16-16h128L384 96c0 17.67 14.33 32 32 32h47.1V320zM272 448c0 8.836-7.164 16-16 16H63.1c-8.838 0-16-7.164-16-16L47.98 192.1c0-8.836 7.164-16 16-16H160V128H63.99c-35.35 0-64 28.65-64 64l.0098 256C.002 483.3 28.66 512 64 512h192c35.2 0 64-28.8 64-64v-32h-47.1L272 448z"/></svg></span></template>
+        <template id=fa-play><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M73 39c-14.8-9.1-33.4-9.4-48.5-.9S0 62.6 0 80V432c0 17.4 9.4 33.4 24.5 41.9s33.7 8.1 48.5-.9L361 297c14.3-8.7 23-24.2 23-41s-8.7-32.2-23-41L73 39z"/></svg></span></template>
+        <template id=fa-clock-rotate-left><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M75 75L41 41C25.9 25.9 0 36.6 0 57.9V168c0 13.3 10.7 24 24 24H134.1c21.4 0 32.1-25.9 17-41l-30.8-30.8C155 85.5 203 64 256 64c106 0 192 86 192 192s-86 192-192 192c-40.8 0-78.6-12.7-109.7-34.4c-14.5-10.1-34.4-6.6-44.6 7.9s-6.6 34.4 7.9 44.6C151.2 495 201.7 512 256 512c141.4 0 256-114.6 256-256S397.4 0 256 0C185.3 0 121.3 28.7 75 75zm181 53c-13.3 0-24 10.7-24 24V256c0 6.4 2.5 12.5 7 17l72 72c9.4 9.4 24.6 9.4 33.9 0s9.4-24.6 0-33.9l-65-65V152c0-13.3-10.7-24-24-24z"/></svg></span></template>
 
 
 
@@ -4308,13 +4462,13 @@ tooltips = true
         </script>
 
 
-        <script src="elasticlunr.min.js"></script>
-        <script src="mark.min.js"></script>
-        <script src="searcher.js"></script>
+        <script src="elasticlunr-ef4e11c1.min.js"></script>
+        <script src="mark-09e88c2c.min.js"></script>
+        <script src="searcher-c2a407aa.js"></script>
 
-        <script src="clipboard.min.js"></script>
-        <script src="highlight.js"></script>
-        <script src="book.js"></script>
+        <script src="clipboard-1626706a.min.js"></script>
+        <script src="highlight-abc7f01d.js"></script>
+        <script src="book-a0b12cfe.js"></script>
 
         <!-- Custom JS scripts -->
 
