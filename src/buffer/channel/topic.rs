@@ -33,7 +33,9 @@ pub fn update(message: Message) -> Option<Event> {
         Message::Link(message::Link::User(user)) => Some(Event::ContextMenu(
             context_menu::Event::InsertNickname(user.nickname().to_owned()),
         )),
-        Message::Link(message::Link::GoToMessage(..)) => None,
+        Message::Link(message::Link::GoToMessage(..))
+        | Message::Link(message::Link::ExpandCondensedMessage(..))
+        | Message::Link(message::Link::ContractCondensedMessage(..)) => None,
     }
 }
 
@@ -114,6 +116,7 @@ pub fn view<'a>(
             casemapping,
             theme,
             Message::Link,
+            None,
             theme::selectable_text::topic,
             theme::font_style::topic,
             Option::<fn(Color) -> Color>::None,

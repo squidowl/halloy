@@ -206,6 +206,7 @@ pub struct Message {
     pub is_echo: bool, // Only relevant if direction == Direction::Received
     pub blocked: bool,
     pub condensed: Option<Arc<Message>>,
+    pub expanded: bool, // Only relevant if can_condense
     pub command: Option<command::Irc>, // Only relevant if direction == Direction::Sent
 }
 
@@ -344,6 +345,7 @@ impl Message {
             is_echo,
             blocked: false,
             condensed: None,
+            expanded: false,
             command: None,
         })
     }
@@ -400,6 +402,7 @@ impl Message {
             is_echo,
             blocked: false,
             condensed: None,
+            expanded: false,
             command: None,
         };
 
@@ -465,6 +468,7 @@ impl Message {
             is_echo: false,
             blocked: false,
             condensed: None,
+            expanded: false,
             command,
         }
     }
@@ -497,6 +501,7 @@ impl Message {
             is_echo: false,
             blocked: false,
             condensed: None,
+            expanded: false,
             command: None,
         }
     }
@@ -527,6 +532,7 @@ impl Message {
             is_echo: false,
             blocked: false,
             condensed: None,
+            expanded: false,
             command: None,
         }
     }
@@ -568,6 +574,7 @@ impl Message {
             is_echo: false,
             blocked: false,
             condensed: None,
+            expanded: false,
             command: None,
         }
     }
@@ -696,6 +703,7 @@ impl<'de> Deserialize<'de> for Message {
             is_echo,
             blocked: false,
             condensed: None,
+            expanded: false,
             command,
         })
     }
@@ -827,6 +835,7 @@ pub fn condense(
             is_echo: false,
             blocked: false,
             condensed: None,
+            expanded: false,
             command: None,
         }))
     } else {
@@ -2738,6 +2747,8 @@ pub enum Link {
     Url(String),
     User(User),
     GoToMessage(Server, target::Channel, Hash),
+    ExpandCondensedMessage(DateTime<Utc>, Hash),
+    ContractCondensedMessage(DateTime<Utc>, Hash),
 }
 
 impl Link {
