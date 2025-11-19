@@ -34,10 +34,10 @@
             const path_to_root = "../../";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../../searchindex-68b64037.js";
+            window.path_to_searchindex_js = "../../searchindex-9c0b4cac.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="../../toc-840d5291.js"></script>
+        <script src="../../toc-a56d2f2f.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -207,7 +207,7 @@ direct_message = { sound = "peck", show_toast = true }
 
 [notifications.highlight]
 sound = "dong"
-exclude = ["NickServ", "#halloy"]
+exclude = { users = ["NickServ"], channels = ["#halloy"] }
 </code></pre>
 <h2 id="types"><a class="header" href="#types">Types</a></h2>
 <p>Following notifications are available:</p>
@@ -217,6 +217,7 @@ exclude = ["NickServ", "#halloy"]
 <tr><th>Name</th><th>Description</th><th>Content</th></tr>
 </thead>
 <tbody>
+<tr><td><code>channel</code></td><td>Triggered when a message is received in a channel</td><td>Message text</td></tr>
 <tr><td><code>connected</code></td><td>Triggered when a server is connected</td><td>N/A</td></tr>
 <tr><td><code>direct_message</code></td><td>Triggered when a direct message is received</td><td>Message text</td></tr>
 <tr><td><code>disconnected</code></td><td>Triggered when a server disconnects</td><td>N/A</td></tr>
@@ -228,6 +229,12 @@ exclude = ["NickServ", "#halloy"]
 </tbody>
 </table>
 </div>
+<p><code>channel</code> is an array of tables, with each entry a notification for a single
+channel.  For example, the following shows a toast notification for every
+message in <code>#halloy</code>:</p>
+<pre><code class="language-toml">[notifications.channel."#halloy"]
+show_toast = true
+</code></pre>
 <h2 id="built-in-sounds"><a class="header" href="#built-in-sounds">Built-in Sounds</a></h2>
 <p>The following table shows all available built-in sounds</p>
 <div class="table-wrapper">
@@ -252,8 +259,9 @@ exclude = ["NickServ", "#halloy"]
 </div>
 <h2 id="configuration"><a class="header" href="#configuration">Configuration</a></h2>
 <h3 id="sound"><a class="header" href="#sound">sound</a></h3>
-<p>Notification sound.
-Supports both built-in sounds, and external sound files (<code>mp3</code>, <code>ogg</code>, <code>flac</code> or <code>wav</code> placed inside the <code>sounds</code> folder within the configuration directory).</p>
+<p>Notification sound. Supports both built-in sounds, and external sound files
+(<code>mp3</code>, <code>ogg</code>, <code>flac</code> or <code>wav</code> placed inside the <code>sounds</code> folder within the
+configuration directory).</p>
 <pre><code class="language-toml"># Type: string
 # Values: see above for built-in sounds, eg: "zone" or external sound.
 # Default: not set
@@ -289,37 +297,37 @@ show_content = true
 delay = 250
 </code></pre>
 <h3 id="exclude"><a class="header" href="#exclude">exclude</a></h3>
-<p>Exclude notifications for nicks (and/or channels in <code>highlight</code>’s case).</p>
-<p>Only available for <code>direct_message</code>, <code>highlight</code> and <code>file_transfer_request</code>
-notifications.</p>
-<p>You can also exclude all nicks/channels by using a wildcard: <code>["*"]</code> or <code>["all"]</code>.</p>
-<pre><code class="language-toml"># Type: array of strings
-# Values: array of strings
-# Default: []
+<p><a href="/configuration/conditions.html">Exclusion conditions</a> in which you won’t be
+notified. Inclusion conditions will take precedence over exclusion conditions.
+You can also exclude all conditions by setting to <code>"all"</code> or <code>"*"</code>.</p>
+<p>Only available for <code>channel</code>, <code>direct_message</code>, <code>file_transfer_request</code>, and
+<code>highlight</code> notifications.</p>
+<pre><code class="language-toml"># Type: inclusion/exclusion conditions
+# Values: any inclusion/exclusion conditions
+# Default: not set
 
 [notifications.&lt;direct_message|file_transfer_request&gt;]
-exclude = ["HalloyUser1"]
+exclude = { users = ["HalloyUser1"] }
 
 [notifications.highlight]
-exclude = ["HalloyUser1", "#halloy"]
+exclude = { users = ["HalloyUser1", "#halloy"] }
 </code></pre>
 <h3 id="include"><a class="header" href="#include">include</a></h3>
-<p>Include notifications for nicks (and/or channels in <code>highlight</code>’s case).</p>
-<p>Only available for <code>direct_message</code>, <code>highlight</code> and <code>file_transfer_request</code>
-notifications.</p>
-<p>The include rule takes priority over exclude, so you can use both together.
-For example, you can exclude all nicks with <code>["*"]</code> for <code>direct_message</code> and
-then only include a few specific nicks to receive <code>direct_message</code> notifications
-from.</p>
-<pre><code class="language-toml"># Type: array of strings
-# Values: array of strings
-# Default: []
+<p><a href="/configuration/conditions.html">Inclusion conditions</a> in which you will be
+notified. Notifications are enabled in all conditions unless explicitly
+excluded, so this setting is only relevant when combined with the <code>exclude</code>
+setting.</p>
+<p>Only available for <code>channel</code>, <code>direct_message</code>, <code>file_transfer_request</code>, and
+<code>highlight</code> notifications.</p>
+<pre><code class="language-toml"># Type: inclusion/exclusion conditions
+# Values: any inclusion/exclusion conditions
+# Default: not set
 
 [notifications.&lt;direct_message|file_transfer_request&gt;]
-include = ["HalloyUser1"]
+include = { users = ["HalloyUser1"] }
 
 [notifications.highlight]
-include = ["HalloyUser1", "#halloy"]
+include = { users = ["HalloyUser1", "#halloy"] }
 </code></pre>
 
                     </main>

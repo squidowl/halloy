@@ -34,10 +34,10 @@
             const path_to_root = "../../";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../../searchindex-68b64037.js";
+            window.path_to_searchindex_js = "../../searchindex-9c0b4cac.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="../../toc-840d5291.js"></script>
+        <script src="../../toc-a56d2f2f.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -192,6 +192,7 @@
 <li><a href="#regex">regex</a></li>
 <li><a href="#exclude">exclude</a></li>
 <li><a href="#include">include</a></li>
+<li><a href="#sound">sound</a></li>
 </ul>
 </li>
 </ul>
@@ -202,6 +203,7 @@
 [[highlights.match]]
 words = ["boat", "car"]
 case_insensitive = true
+sound = "bonk"
 
 # Highlight when regex matches in any channel except #noisy-channel.
 [[highlights.match]]
@@ -247,29 +249,47 @@ escaping. You can also use a literal string <code>'\bfoo\b'</code>, but then you
 regex = '''(?i)\bcasper\b'''
 </code></pre>
 <h3 id="exclude"><a class="header" href="#exclude">exclude</a></h3>
-<p>Channels in which you won’t be highlighted.
-If you pass <code>["#halloy"]</code>, you won’t be highlighted in that channel. You can also exclude all channels by using a wildcard: <code>["*"]</code>.</p>
-<p>Example shows a regex match which will be excluded in from <code>#noisy-channel</code></p>
-<pre><code class="language-toml"># Type: array of strings
-# Values: array of any strings
-# Default: []
+<p><a href="/configuration/conditions.html">Exclusion conditions</a> in which you won’t be
+highlighted. Inclusion conditions will take precedence over exclusion
+conditions. You can also exclude all conditions by setting to <code>"all"</code> or <code>"*"</code>.</p>
+<p>Example shows a regex match which will be excluded in <code>#noisy-channel</code>.</p>
+<pre><code class="language-toml"># Type: inclusion/exclusion conditions
+# Values: any inclusion/exclusion conditions
+# Default: not set
 
 [[highlights.match]]
 regex = '''(?i)\bcasper\b'''
-exclude = ["#noisy-channel"]
+exclude = { channels = ["#noisy-channel"] }
 </code></pre>
 <h3 id="include"><a class="header" href="#include">include</a></h3>
-<p>Channels in which you will be highlighted, only useful when combined with <code>exclude = ["*"]</code>.
-If you pass <code>["#halloy"]</code>, you will only be highlighted in that channel.</p>
-<p>Example shows a words match which will only try to match in <code>#halloy</code> channel.</p>
-<pre><code class="language-toml"># Type: array of strings
-# Values: array of any strings
-# Default: ["*"]
+<p><a href="/configuration/conditions.html">Inclusion conditions</a> in which you will be
+highlighted. Highlights are enabled in all conditions unless explicitly
+excluded, so this setting is only relevant when combined with the <code>exclude</code>
+setting.</p>
+<p>Example shows a words match which will only highlight in <code>#halloy</code>.</p>
+<pre><code class="language-toml"># Type: inclusion/exclusion conditions
+# Values: any inclusion/exclusion conditions
+# Default: not set
 
 [[highlights.match]]
 words = ["word1", "word2", "word3"]
-exclude = ["*"]
-include = ["#halloy"]
+exclude = "*"
+include = { channels = ["#halloy"] }
+</code></pre>
+<h3 id="sound"><a class="header" href="#sound">sound</a></h3>
+<p>Sound to play when notifying for a highlight. If not specified then the sound
+specified for highlight notifications will be used. Supports both built-in
+sounds, and external sound files (<code>mp3</code>, <code>ogg</code>, <code>flac</code> or <code>wav</code> placed inside
+the <code>sounds</code> folder within the configuration directory). See
+<a href="/configuration/notifications/#sound">notifications</a> for a list of all built-in
+sounds.</p>
+<pre><code class="language-toml"># Type: string
+# Values: see above for built-in sounds, eg: "sing" or external sound.
+# Default: not set
+
+[[highlights.match]]
+words = ["word1", "word2", "word3"]
+sound = "sing"
 </code></pre>
 
                     </main>

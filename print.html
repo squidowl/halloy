@@ -35,10 +35,10 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-68b64037.js";
+            window.path_to_searchindex_js = "searchindex-9c0b4cac.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-840d5291.js"></script>
+        <script src="toc-a56d2f2f.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -578,6 +578,36 @@ password = "&lt;your-password&gt;"
 
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div>
+<h1 id="inclusionexclusion-conditions"><a class="header" href="#inclusionexclusion-conditions">Inclusion/Exclusion Conditions</a></h1>
+<p>Inclusion/exclusion conditions can be specified by arrays of users, channels,
+servers, and/or combined criteria.  A combined criteria can include a user,
+channel, and/or server, but will only be matched if <strong>all</strong> are matched.  The
+conditions are met if <strong>any</strong> individual condition is matched.  Inclusion
+conditions will take precedence over exclusion conditions.  You can specify all
+conditions by setting to <code>"all"</code> or <code>"*"</code>.</p>
+<h2 id="examples"><a class="header" href="#examples">Examples</a></h2>
+<p>This example excludes all messages in <code>#halloy</code> except for messages from
+<code>GH-Bot</code>.</p>
+<pre><code class="language-toml">include = { users = ["#GH-Bot"] }
+exclude = { channels = ["#halloy"] }
+</code></pre>
+<p>This example excludes messages from <code>GH-Bot</code> and <code>ChanServ</code> in <code>#halloy</code>.</p>
+<pre><code class="language-toml">exclude = { criteria = [{ channel = "#halloy", user = "GH-Bot" }, { channel = "#halloy", user = "ChanServ" }] }
+</code></pre>
+<p>Using a regular TOML table can help with legibility, as in this example
+excluding notifications for highlights by <code>GH-Bot</code> and <code>ChanServ</code> in <code>#halloy</code>.</p>
+<pre><code class="language-toml">[notifications.highlight.exclude]
+criteria = [{ channel = "#halloy", user = "GH-Bot" }, 
+            { channel = "#halloy", user = "ChanServ" }]
+</code></pre>
+<p>This example excludes messages in <code>#halloy</code> on the <code>libera</code> server only.</p>
+<pre><code class="language-toml">exclude = { criteria = [{ channel = "#halloy", server = "libera" }] }
+</code></pre>
+<p>This example excludes messages in all servers except <code>libera</code>.</p>
+<pre><code class="language-toml">include = { servers = "libera" }
+exclude = "all"
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div>
 <h1 id="monitor-users"><a class="header" href="#monitor-users">Monitor Users</a></h1>
 <p>Halloy has <a href="https://ircv3.net/specs/extensions/monitor">monitor</a> support if the server has the IRCv3 Monitor extension.</p>
 <blockquote>
@@ -797,7 +827,7 @@ auto_format = "disabled" | "markdown" | "all"
 </tbody>
 </table>
 </div>
-<h3 id="examples"><a class="header" href="#examples">Examples</a></h3>
+<h3 id="examples-1"><a class="header" href="#examples-1">Examples</a></h3>
 <p>Below is a few URL examples.</p>
 <ul>
 <li>
@@ -2545,6 +2575,7 @@ bold-weight = "semibold"
 <li><a href="#regex">regex</a></li>
 <li><a href="#exclude-1">exclude</a></li>
 <li><a href="#include-1">include</a></li>
+<li><a href="#sound">sound</a></li>
 </ul>
 </li>
 </ul>
@@ -2555,6 +2586,7 @@ bold-weight = "semibold"
 [[highlights.match]]
 words = ["boat", "car"]
 case_insensitive = true
+sound = "bonk"
 
 # Highlight when regex matches in any channel except #noisy-channel.
 [[highlights.match]]
@@ -2600,29 +2632,47 @@ escaping. You can also use a literal string <code>'\bfoo\b'</code>, but then you
 regex = '''(?i)\bcasper\b'''
 </code></pre>
 <h3 id="exclude-1"><a class="header" href="#exclude-1">exclude</a></h3>
-<p>Channels in which you won’t be highlighted.
-If you pass <code>["#halloy"]</code>, you won’t be highlighted in that channel. You can also exclude all channels by using a wildcard: <code>["*"]</code>.</p>
-<p>Example shows a regex match which will be excluded in from <code>#noisy-channel</code></p>
-<pre><code class="language-toml"># Type: array of strings
-# Values: array of any strings
-# Default: []
+<p><a href="/configuration/conditions.html">Exclusion conditions</a> in which you won’t be
+highlighted. Inclusion conditions will take precedence over exclusion
+conditions. You can also exclude all conditions by setting to <code>"all"</code> or <code>"*"</code>.</p>
+<p>Example shows a regex match which will be excluded in <code>#noisy-channel</code>.</p>
+<pre><code class="language-toml"># Type: inclusion/exclusion conditions
+# Values: any inclusion/exclusion conditions
+# Default: not set
 
 [[highlights.match]]
 regex = '''(?i)\bcasper\b'''
-exclude = ["#noisy-channel"]
+exclude = { channels = ["#noisy-channel"] }
 </code></pre>
 <h3 id="include-1"><a class="header" href="#include-1">include</a></h3>
-<p>Channels in which you will be highlighted, only useful when combined with <code>exclude = ["*"]</code>.
-If you pass <code>["#halloy"]</code>, you will only be highlighted in that channel.</p>
-<p>Example shows a words match which will only try to match in <code>#halloy</code> channel.</p>
-<pre><code class="language-toml"># Type: array of strings
-# Values: array of any strings
-# Default: ["*"]
+<p><a href="/configuration/conditions.html">Inclusion conditions</a> in which you will be
+highlighted. Highlights are enabled in all conditions unless explicitly
+excluded, so this setting is only relevant when combined with the <code>exclude</code>
+setting.</p>
+<p>Example shows a words match which will only highlight in <code>#halloy</code>.</p>
+<pre><code class="language-toml"># Type: inclusion/exclusion conditions
+# Values: any inclusion/exclusion conditions
+# Default: not set
 
 [[highlights.match]]
 words = ["word1", "word2", "word3"]
-exclude = ["*"]
-include = ["#halloy"]
+exclude = "*"
+include = { channels = ["#halloy"] }
+</code></pre>
+<h3 id="sound"><a class="header" href="#sound">sound</a></h3>
+<p>Sound to play when notifying for a highlight. If not specified then the sound
+specified for highlight notifications will be used. Supports both built-in
+sounds, and external sound files (<code>mp3</code>, <code>ogg</code>, <code>flac</code> or <code>wav</code> placed inside
+the <code>sounds</code> folder within the configuration directory). See
+<a href="/configuration/notifications#sound">notifications</a> for a list of all built-in
+sounds.</p>
+<pre><code class="language-toml"># Type: string
+# Values: see above for built-in sounds, eg: "sing" or external sound.
+# Default: not set
+
+[[highlights.match]]
+words = ["word1", "word2", "word3"]
+sound = "sing"
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="nickname-5"><a class="header" href="#nickname-5">Nickname</a></h1>
@@ -2792,7 +2842,7 @@ pane_level = "info"
 <li><a href="#built-in-sounds">Built-in Sounds</a></li>
 <li><a href="#configuration-34">Configuration</a>
 <ul>
-<li><a href="#sound">sound</a></li>
+<li><a href="#sound-1">sound</a></li>
 <li><a href="#show_toast">show_toast</a></li>
 <li><a href="#show_content">show_content</a></li>
 <li><a href="#delay">delay</a></li>
@@ -2809,7 +2859,7 @@ direct_message = { sound = "peck", show_toast = true }
 
 [notifications.highlight]
 sound = "dong"
-exclude = ["NickServ", "#halloy"]
+exclude = { users = ["NickServ"], channels = ["#halloy"] }
 </code></pre>
 <h2 id="types-3"><a class="header" href="#types-3">Types</a></h2>
 <p>Following notifications are available:</p>
@@ -2819,6 +2869,7 @@ exclude = ["NickServ", "#halloy"]
 <tr><th>Name</th><th>Description</th><th>Content</th></tr>
 </thead>
 <tbody>
+<tr><td><code>channel</code></td><td>Triggered when a message is received in a channel</td><td>Message text</td></tr>
 <tr><td><code>connected</code></td><td>Triggered when a server is connected</td><td>N/A</td></tr>
 <tr><td><code>direct_message</code></td><td>Triggered when a direct message is received</td><td>Message text</td></tr>
 <tr><td><code>disconnected</code></td><td>Triggered when a server disconnects</td><td>N/A</td></tr>
@@ -2830,6 +2881,12 @@ exclude = ["NickServ", "#halloy"]
 </tbody>
 </table>
 </div>
+<p><code>channel</code> is an array of tables, with each entry a notification for a single
+channel.  For example, the following shows a toast notification for every
+message in <code>#halloy</code>:</p>
+<pre><code class="language-toml">[notifications.channel."#halloy"]
+show_toast = true
+</code></pre>
 <h2 id="built-in-sounds"><a class="header" href="#built-in-sounds">Built-in Sounds</a></h2>
 <p>The following table shows all available built-in sounds</p>
 <div class="table-wrapper">
@@ -2853,9 +2910,10 @@ exclude = ["NickServ", "#halloy"]
 </table>
 </div>
 <h2 id="configuration-34"><a class="header" href="#configuration-34">Configuration</a></h2>
-<h3 id="sound"><a class="header" href="#sound">sound</a></h3>
-<p>Notification sound.
-Supports both built-in sounds, and external sound files (<code>mp3</code>, <code>ogg</code>, <code>flac</code> or <code>wav</code> placed inside the <code>sounds</code> folder within the configuration directory).</p>
+<h3 id="sound-1"><a class="header" href="#sound-1">sound</a></h3>
+<p>Notification sound. Supports both built-in sounds, and external sound files
+(<code>mp3</code>, <code>ogg</code>, <code>flac</code> or <code>wav</code> placed inside the <code>sounds</code> folder within the
+configuration directory).</p>
 <pre><code class="language-toml"># Type: string
 # Values: see above for built-in sounds, eg: "zone" or external sound.
 # Default: not set
@@ -2891,37 +2949,37 @@ show_content = true
 delay = 250
 </code></pre>
 <h3 id="exclude-3"><a class="header" href="#exclude-3">exclude</a></h3>
-<p>Exclude notifications for nicks (and/or channels in <code>highlight</code>’s case).</p>
-<p>Only available for <code>direct_message</code>, <code>highlight</code> and <code>file_transfer_request</code>
-notifications.</p>
-<p>You can also exclude all nicks/channels by using a wildcard: <code>["*"]</code> or <code>["all"]</code>.</p>
-<pre><code class="language-toml"># Type: array of strings
-# Values: array of strings
-# Default: []
+<p><a href="/configuration/conditions.html">Exclusion conditions</a> in which you won’t be
+notified. Inclusion conditions will take precedence over exclusion conditions.
+You can also exclude all conditions by setting to <code>"all"</code> or <code>"*"</code>.</p>
+<p>Only available for <code>channel</code>, <code>direct_message</code>, <code>file_transfer_request</code>, and
+<code>highlight</code> notifications.</p>
+<pre><code class="language-toml"># Type: inclusion/exclusion conditions
+# Values: any inclusion/exclusion conditions
+# Default: not set
 
 [notifications.&lt;direct_message|file_transfer_request&gt;]
-exclude = ["HalloyUser1"]
+exclude = { users = ["HalloyUser1"] }
 
 [notifications.highlight]
-exclude = ["HalloyUser1", "#halloy"]
+exclude = { users = ["HalloyUser1", "#halloy"] }
 </code></pre>
 <h3 id="include-3"><a class="header" href="#include-3">include</a></h3>
-<p>Include notifications for nicks (and/or channels in <code>highlight</code>’s case).</p>
-<p>Only available for <code>direct_message</code>, <code>highlight</code> and <code>file_transfer_request</code>
-notifications.</p>
-<p>The include rule takes priority over exclude, so you can use both together.
-For example, you can exclude all nicks with <code>["*"]</code> for <code>direct_message</code> and
-then only include a few specific nicks to receive <code>direct_message</code> notifications
-from.</p>
-<pre><code class="language-toml"># Type: array of strings
-# Values: array of strings
-# Default: []
+<p><a href="/configuration/conditions.html">Inclusion conditions</a> in which you will be
+notified. Notifications are enabled in all conditions unless explicitly
+excluded, so this setting is only relevant when combined with the <code>exclude</code>
+setting.</p>
+<p>Only available for <code>channel</code>, <code>direct_message</code>, <code>file_transfer_request</code>, and
+<code>highlight</code> notifications.</p>
+<pre><code class="language-toml"># Type: inclusion/exclusion conditions
+# Values: any inclusion/exclusion conditions
+# Default: not set
 
 [notifications.&lt;direct_message|file_transfer_request&gt;]
-include = ["HalloyUser1"]
+include = { users = ["HalloyUser1"] }
 
 [notifications.highlight]
-include = ["HalloyUser1", "#halloy"]
+include = { users = ["HalloyUser1", "#halloy"] }
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="pane"><a class="header" href="#pane">Pane</a></h1>
