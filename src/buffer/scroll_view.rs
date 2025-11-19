@@ -66,6 +66,8 @@ pub enum Event {
     MarkAsRead,
     OpenUrl(String),
     ImagePreview(PathBuf, url::Url),
+    ExpandCondensedMessage(DateTime<Utc>, message::Hash),
+    ContractCondensedMessage(DateTime<Utc>, message::Hash),
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -759,6 +761,24 @@ impl State {
                         None,
                     );
                 }
+            }
+            Message::Link(message::Link::ExpandCondensedMessage(
+                server_time,
+                hash,
+            )) => {
+                return (
+                    Task::none(),
+                    Some(Event::ExpandCondensedMessage(server_time, hash)),
+                );
+            }
+            Message::Link(message::Link::ContractCondensedMessage(
+                server_time,
+                hash,
+            )) => {
+                return (
+                    Task::none(),
+                    Some(Event::ContractCondensedMessage(server_time, hash)),
+                );
             }
             Message::RequestOlderChatHistory => {
                 if let Some(server) = kind.server() {

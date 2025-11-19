@@ -389,6 +389,28 @@ impl Manager {
         self.data.remove_message(kind, server_time, hash, resend)
     }
 
+    pub fn expand_condensed_message(
+        &mut self,
+        kind: history::Kind,
+        server_time: DateTime<Utc>,
+        hash: message::Hash,
+        config: &config::buffer::Condensation,
+    ) {
+        self.data
+            .expand_condensed_message(kind, server_time, hash, config);
+    }
+
+    pub fn contract_condensed_message(
+        &mut self,
+        kind: history::Kind,
+        server_time: DateTime<Utc>,
+        hash: message::Hash,
+        config: &config::buffer::Condensation,
+    ) {
+        self.data
+            .contract_condensed_message(kind, server_time, hash, config);
+    }
+
     pub fn update_read_marker<T: Into<history::Kind>>(
         &mut self,
         kind: T,
@@ -1306,6 +1328,40 @@ impl Data {
                     )
                 })
         })
+    }
+
+    fn expand_condensed_message(
+        &mut self,
+        kind: history::Kind,
+        server_time: DateTime<Utc>,
+        hash: message::Hash,
+        config: &config::buffer::Condensation,
+    ) {
+        if let Some(history) = self.map.get_mut(&kind) {
+            history
+                .get_condensed_messages(server_time, hash, config)
+                .iter_mut()
+                .for_each(|message| {
+                    message.expanded = true;
+                });
+        }
+    }
+
+    fn contract_condensed_message(
+        &mut self,
+        kind: history::Kind,
+        server_time: DateTime<Utc>,
+        hash: message::Hash,
+        config: &config::buffer::Condensation,
+    ) {
+        if let Some(history) = self.map.get_mut(&kind) {
+            history
+                .get_condensed_messages(server_time, hash, config)
+                .iter_mut()
+                .for_each(|message| {
+                    message.expanded = false;
+                });
+        }
     }
 
     fn update_read_marker<T: Into<history::Kind>>(

@@ -297,6 +297,7 @@ impl<'a> ChannelQueryLayout<'a> {
             self.casemapping,
             self.theme,
             Message::Link,
+            None,
             message_style,
             theme::font_style::primary,
             color_transformation,
@@ -387,8 +388,19 @@ impl<'a> ChannelQueryLayout<'a> {
             theme::font_style::server(message_theme, server)
         };
 
-        let marker =
-            message_marker(right_aligned_width, self.config, message_style);
+        let link = message.expanded.then_some(
+            message::Link::ContractCondensedMessage(
+                message.server_time,
+                message.hash,
+            ),
+        );
+
+        let marker = message_marker(
+            right_aligned_width,
+            self.config,
+            message_style,
+            link.clone().map(Message::Link),
+        );
 
         let message_content = message_content::with_context(
             &message.content,
@@ -396,6 +408,7 @@ impl<'a> ChannelQueryLayout<'a> {
             formatter.casemapping,
             self.theme,
             Message::Link,
+            link,
             message_style,
             message_font_style,
             Some(|color: Color| -> Color {
@@ -447,13 +460,20 @@ impl<'a> ChannelQueryLayout<'a> {
             theme::font_style::server(message_theme, None)
         };
 
+        let link = message::Link::ExpandCondensedMessage(
+            message.server_time,
+            message.hash,
+        );
+        let moved_link = link.clone();
+
         let formatter = *self;
         let message_content = message_content::with_context(
             &message.content,
             formatter.chantypes,
             formatter.casemapping,
             self.theme,
-            Message::Link,
+            move |_| Message::Link(moved_link.clone()),
+            Some(link),
             message_style,
             message_font_style,
             Some(|color: Color| -> Color {
@@ -564,6 +584,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
                         right_aligned_width,
                         self.config,
                         theme::selectable_text::action,
+                        None,
                     );
 
                     let formatter = *self;
@@ -573,6 +594,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
                         formatter.casemapping,
                         formatter.theme,
                         Message::Link,
+                        None,
                         theme::selectable_text::action,
                         theme::font_style::action,
                         Option::<fn(Color) -> Color>::None,
@@ -620,6 +642,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
                         right_aligned_width,
                         self.config,
                         message_style,
+                        None,
                     );
 
                     let message = message_content(
@@ -628,6 +651,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
                         self.casemapping,
                         self.theme,
                         Message::Link,
+                        None,
                         message_style,
                         message_font_style,
                         Option::<fn(Color) -> Color>::None,
