@@ -74,7 +74,7 @@ static CHANNEL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
 });
 
 static USER_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-    RegexBuilder::new(r#"(?i)(?<!\w)([\w"\-\[\]\\`^{|}\/]+)(?!\w)"#)
+    RegexBuilder::new(r#"(?i)(?<![a-zA-Z0-9_'])([\w"\-\[\]\\`^{|}\/]+)(?!\w)"#)
         .build()
         .unwrap()
 });
@@ -2981,33 +2981,57 @@ pub mod tests {
     #[test]
     fn fragments_with_users_parsing() {
         let casemapping = isupport::CaseMap::default();
-        let tests = [(
+        let tests = [
             (
-                "Hey Dave!~Dave@user/Dave have you seen &`Bill`?".to_string(),
-                ["Greg", "Dave", "Bob", "George_", "`Bill`"]
-                    .into_iter()
-                    .map(|nick| User::from(Nick::from_str(nick, casemapping)))
-                    .collect::<ChannelUsers>(),
+                (
+                    "Hey Dave!~Dave@user/Dave have you seen &`Bill`?".to_string(),
+                    ["Greg", "Dave", "Bob", "George_", "`Bill`"]
+                        .into_iter()
+                        .map(|nick| User::from(Nick::from_str(nick, casemapping)))
+                        .collect::<ChannelUsers>(),
+                ),
+                vec![
+                    Fragment::Text("Hey ".into()),
+                    Fragment::User(
+                        User::from(Nick::from_str("Dave", casemapping)),
+                        "Dave".into(),
+                    ),
+                    Fragment::Text("!~".into()),
+                    Fragment::User(
+                        User::from(Nick::from_str("Dave", casemapping)),
+                        "Dave".into(),
+                    ),
+                    Fragment::Text("@user/Dave have you seen &".into()),
+                    Fragment::User(
+                        User::from(Nick::from_str("`Bill`", casemapping)),
+                        "`Bill`".into(),
+                    ),
+                    Fragment::Text("?".into()),
+                ],
             ),
-            vec![
-                Fragment::Text("Hey ".into()),
-                Fragment::User(
-                    User::from(Nick::from_str("Dave", casemapping)),
-                    "Dave".into(),
+            (
+                (
+                    "I don't think t can do that, but t can try!".to_string(),
+                    ["t"]
+                        .into_iter()
+                        .map(|nick| User::from(Nick::from_str(nick, casemapping)))
+                        .collect::<ChannelUsers>(),
                 ),
-                Fragment::Text("!~".into()),
-                Fragment::User(
-                    User::from(Nick::from_str("Dave", casemapping)),
-                    "Dave".into(),
-                ),
-                Fragment::Text("@user/Dave have you seen &".into()),
-                Fragment::User(
-                    User::from(Nick::from_str("`Bill`", casemapping)),
-                    "`Bill`".into(),
-                ),
-                Fragment::Text("?".into()),
-            ],
-        )];
+                vec![
+                    Fragment::Text("I don't think ".into()),
+                    Fragment::User(
+                        User::from(Nick::from_str("t", casemapping)),
+                        "t".into(),
+                    ),
+                    Fragment::Text(" can do that, but ".into()),
+                    Fragment::User(
+                        User::from(Nick::from_str("t", casemapping)),
+                        "t".into(),
+                    ),
+                    Fragment::Text(" can try!".into()),
+                ],
+            ),
+        ];
         for ((text, channel_users), expected) in tests {
             if let Content::Fragments(actual) = parse_fragments_with_users(
                 text,
