@@ -13,6 +13,7 @@ Customize how nicknames are displayed within a buffer.
     - [shown\_status](#shown_status)
     - [click](#click)
     - [truncate](#truncate)
+    - [hide\_consecutive](#hide_consecutive)
 
 ## Configuration
 
@@ -77,7 +78,7 @@ color = "unique"
 
 ### offline
 
-Controls the appearance of offline nicknames.  
+Controls the appearance of offline nicknames.
 
 ```toml
 # Type: string or object
@@ -143,4 +144,19 @@ Truncate nicknames in buffer to a maximum length
 
 [buffer.nickname]
 truncate = 10
+```
+
+### hide_consecutive
+
+Hide nickname if consecutive messages are from the same user.
+
+> ⚠️ `hide_consecutive` does not work in conjunction with `alignment = "top"` .
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: false
+
+[buffer.nickname]
+hide_consecutive = true
 ```
