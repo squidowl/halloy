@@ -219,7 +219,7 @@ impl Inclusivities {
             users: (!users.is_empty()).then_some(Inclusivity::Any(users)),
             channels: (!channels.is_empty())
                 .then_some(Inclusivity::Any(channels)),
-            servers: Some(Inclusivity::All),
+            servers: None,
             criteria: Vec::default(),
         }
     }
