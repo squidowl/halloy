@@ -699,6 +699,7 @@ impl State {
                         if let Some(messages) = input.messages(
                             user,
                             channel_users,
+                            buffer.server(),
                             chantypes,
                             statusmsg,
                             casemapping,

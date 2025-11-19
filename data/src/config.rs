@@ -36,6 +36,7 @@ pub mod buffer;
 pub mod ctcp;
 pub mod file_transfer;
 pub mod highlights;
+pub mod inclusivities;
 pub mod keys;
 pub mod logs;
 pub mod notification;

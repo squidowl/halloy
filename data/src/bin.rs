@@ -3,10 +3,26 @@ use data::message;
 use data::server::Server;
 
 pub fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let server = Server {
+        name: "Highlight Server".into(),
+        network: None,
+    };
+
     let mut messages = message::tests::SERDE_IRC_MESSAGES
         .iter()
-        .map(|irc_message| {
-            message::tests::message_from_irc_message(irc_message)
+        .flat_map(|irc_message| {
+            let (message, highlight) =
+                message::tests::message_with_highlight_from_irc_message(
+                    irc_message,
+                    &server,
+                );
+            if let Some(highlight) =
+                highlight.map(|highlight| highlight.message)
+            {
+                vec![message, highlight]
+            } else {
+                vec![message]
+            }
         })
         .collect::<Vec<message::Message>>();
 
@@ -15,19 +31,6 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
             .into_iter()
             .flat_map(message::tests::messages_from_broadcast),
     );
-
-    let server = Server {
-        name: "Highlight Server".into(),
-        network: None,
-    };
-
-    messages.extend(message::tests::SERDE_IRC_MESSAGES.iter().filter_map(
-        |irc_message| {
-            message::tests::message_from_irc_message(irc_message)
-                .into_highlight(server.clone())
-                .map(|(highlight, _, _, _)| highlight)
-        },
-    ));
 
     let bouncer_server = Server {
         name: "Bounced Highlight Server".into(),
@@ -42,9 +45,16 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     messages.extend(message::tests::SERDE_IRC_MESSAGES.iter().filter_map(
         |irc_message| {
-            message::tests::message_from_irc_message(irc_message)
-                .into_highlight(bouncer_server.clone())
-                .map(|(highlight, _, _, _)| highlight)
+            if let (_, Some(message::Highlight { message, .. })) =
+                message::tests::message_with_highlight_from_irc_message(
+                    irc_message,
+                    &bouncer_server,
+                )
+            {
+                Some(message)
+            } else {
+                None
+            }
         },
     ));
 
