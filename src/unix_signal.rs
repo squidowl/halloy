@@ -1,9 +1,9 @@
+use futures::StreamExt;
 use futures::channel::mpsc;
 use futures::stream::BoxStream;
-use futures::StreamExt;
+use iced::Subscription;
 use iced::advanced::graphics::futures::subscription;
 use iced::advanced::subscription::Hasher;
-use iced::Subscription;
 use signal_hook::consts::SIGUSR1;
 use signal_hook::iterator::Signals;
 
@@ -57,4 +57,3 @@ pub fn subscription() -> Subscription<i32> {
         signals: vec![SIGUSR1],
     })
 }
-

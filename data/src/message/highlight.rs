@@ -1,4 +1,4 @@
-use crate::{User, Message, target};
+use crate::{Message, User, target};
 
 #[derive(Debug, Clone)]
 pub struct Highlight {
