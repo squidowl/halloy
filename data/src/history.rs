@@ -16,7 +16,7 @@ use crate::message::{self, MessageReferences, Source};
 use crate::target::{self, Target};
 use crate::user::Nick;
 use crate::{
-    Buffer, Message, Server, buffer, compression, environment, isupport,
+    Buffer, Message, Server, buffer, compression, config, environment, isupport,
 };
 
 pub mod filter;
@@ -472,6 +472,73 @@ impl History {
                             .then_some(start_index + slice_index)
                     })
                     .map(|index| messages.remove(index))
+            }
+        }
+    }
+
+    // Find the first message in the condensation, then return all messages in
+    // the condensation
+    fn get_condensed_messages(
+        &mut self,
+        server_time: DateTime<Utc>,
+        hash: message::Hash,
+        config: &config::buffer::Condensation,
+    ) -> Vec<&mut Message> {
+        match self {
+            History::Partial { messages, .. }
+            | History::Full { messages, .. } => {
+                if messages.is_empty() {
+                    return vec![];
+                }
+
+                let fuzz_seconds = chrono::Duration::seconds(1);
+
+                let start = server_time - fuzz_seconds;
+                let end = server_time + fuzz_seconds;
+
+                let start_index = match messages
+                    .binary_search_by(|stored| stored.server_time.cmp(&start))
+                {
+                    Ok(match_index) => match_index,
+                    Err(sorted_insert_index) => sorted_insert_index,
+                };
+                let end_index = match messages
+                    .binary_search_by(|stored| stored.server_time.cmp(&end))
+                {
+                    Ok(match_index) => match_index,
+                    Err(sorted_insert_index) => sorted_insert_index,
+                };
+
+                if let Some(index) = messages[start_index..end_index]
+                    .iter()
+                    .enumerate()
+                    .find_map(|(slice_index, message)| {
+                        (message.hash == hash)
+                            .then_some(start_index + slice_index)
+                    })
+                    && let Some(first_index) = messages[..=index]
+                        .iter()
+                        .rev()
+                        .position(|message| message.condensed.is_some())
+                        .map(|position| index - position)
+                {
+                    messages[first_index..]
+                        .iter_mut()
+                        .filter(|message| !message.blocked)
+                        .scan(true, |is_first_message, message| {
+                            if *is_first_message {
+                                *is_first_message = false;
+                                Some(message)
+                            } else {
+                                (message.can_condense(config)
+                                    && message.condensed.is_none())
+                                .then_some(message)
+                            }
+                        })
+                        .collect()
+                } else {
+                    vec![]
+                }
             }
         }
     }
