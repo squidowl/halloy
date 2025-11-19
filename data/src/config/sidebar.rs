@@ -26,7 +26,10 @@ pub struct UserMenu {
 
 impl Default for UserMenu {
     fn default() -> Self {
-        Self { enabled: true, show_new_version_indicator: true }
+        Self {
+            enabled: true,
+            show_new_version_indicator: true,
+        }
     }
 }
 
