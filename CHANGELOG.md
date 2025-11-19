@@ -7,9 +7,10 @@ Added:
 - Context menu item added to server-wide buffers to close all queries
 - Messages that fail to send are dimmed and marked, and can be deleted or re-sent (for servers that support the `echo-message` capability)
 - Reload Halloy by sending `SIGUSR1` on Unix system
-- Ability to hide the indicator when a new version of Halloy is available 
+- Ability to hide the indicator when a new version of Halloy is available
 - Fuzzy matching when searching in command bar
 - Setting to disable file transfers (DCC), removing it from the UI
+- Implement custom proxy option per server (#592 / PR#1318)
 
 Fixed:
 
