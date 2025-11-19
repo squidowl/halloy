@@ -27,7 +27,7 @@ use appearance::{Theme, theme};
 use chrono::Utc;
 use data::config::{self, Config};
 use data::history::filter::FilterChain;
-use data::message::Broadcast;
+use data::message::{self, Broadcast};
 use data::target::{self, Target};
 use data::user::ChannelUsers;
 use data::version::Version;
@@ -670,6 +670,7 @@ impl Halloy {
                                             &self.config,
                                             resolve_user_attributes,
                                             channel_users,
+                                            &server,
                                             chantypes,
                                             statusmsg,
                                             casemapping,
@@ -677,7 +678,7 @@ impl Halloy {
                                         ) {
                                             commands.push(
                                                 dashboard
-                                                    .record_message(
+                                                    .block_and_record_message(
                                                         &server,
                                                         casemapping,
                                                         message,
@@ -690,53 +691,106 @@ impl Halloy {
                                     Event::PrivOrNotice(
                                         encoded,
                                         our_nick,
-                                        highlight_notification_enabled,
+                                        notification_enabled,
                                     ) => {
-                                        if let Some(message) = data::Message::received(
-                                            encoded,
-                                            our_nick,
-                                            &self.config,
-                                            resolve_user_attributes,
-                                            channel_users,
-                                            chantypes,
-                                            statusmsg,
-                                            casemapping,
-                                            prefix,
-                                        ) {
-                                            if let Some((mut message, channel, user, description)) =
-                                                message.into_highlight(server.clone())
+                                        if let Some((mut message, highlight)) =
+                                            data::Message::received_with_highlight(
+                                                encoded,
+                                                our_nick,
+                                                &self.config,
+                                                resolve_user_attributes,
+                                                channel_users,
+                                                &server,
+                                                chantypes,
+                                                statusmsg,
+                                                casemapping,
+                                                prefix,
+                                            )
+                                        {
+                                            if let Some(kind) =
+                                                history::Kind::from_server_message(server.clone(), &message)
                                             {
                                                 dashboard.block_message(
                                                     &mut message,
-                                                    &history::Kind::Channel(server.clone(), channel.clone()),
+                                                    &kind,
                                                     casemapping,
                                                     &self.config.buffer,
                                                 );
+                                            }
 
-                                                if !message.blocked && highlight_notification_enabled {
+                                            if let Some(message::Highlight {
+                                                kind: highlight_kind,
+                                                channel: highlight_channel,
+                                                user: highlight_user,
+                                                message: mut highlight_message,
+                                            }) = highlight
+                                            {
+                                                highlight_message.blocked = message.blocked;
+
+                                                if !highlight_message.blocked && notification_enabled {
+                                                    let (description, sound) = match highlight_kind {
+                                                        message::highlight::Kind::Nick => {
+                                                            ("highlighted you".to_string(), None)
+                                                        }
+                                                        message::highlight::Kind::Match {
+                                                            matching,
+                                                            sound,
+                                                        } => (
+                                                            format!("matched highlight {matching}"),
+                                                            sound,
+                                                        ),
+                                                    };
+
                                                     self.notifications.notify(
                                                         &self.config.notifications,
                                                         &Notification::Highlight {
-                                                            user,
-                                                            channel,
-                                                            message: message.text(),
+                                                            user: highlight_user,
+                                                            channel: highlight_channel,
+                                                            casemapping,
+                                                            message: highlight_message.text(),
                                                             description,
+                                                            sound,
                                                         },
                                                         &server,
                                                     );
                                                 }
 
                                                 let task = dashboard.record_highlight(
-                                                    message,
+                                                    highlight_message,
                                                 );
                                                 commands.push(task.map(Message::Dashboard));
+                                            } else if !message.blocked
+                                                && notification_enabled
+                                                && let message::Target::Channel {
+                                                    channel,
+                                                    source: message::Source::User(user),
+                                                    ..
+                                                }
+                                                | message::Target::Channel {
+                                                    channel,
+                                                    source: message::Source::Action(Some(user)),
+                                                    ..
+                                                } = &message.target
+                                            {
+                                                let channel = channel.clone();
+                                                let user = user.clone();
+
+                                                self.notifications.notify(
+                                                    &self.config.notifications,
+                                                    &Notification::Channel {
+                                                        user,
+                                                        channel,
+                                                        casemapping,
+                                                        message: message.text(),
+                                                    },
+                                                    &server,
+                                                );
                                             }
 
                                             commands.push(
                                                 dashboard
                                                     .record_message(
                                                         &server,
-                                                        casemapping,
                                                         message,
                                                         &self.config.buffer,
                                                     )
@@ -751,6 +805,7 @@ impl Halloy {
                                             &self.config,
                                             resolve_user_attributes,
                                             channel_users,
+                                            &server,
                                             chantypes,
                                             statusmsg,
                                             casemapping,
@@ -758,7 +813,7 @@ impl Halloy {
                                         ) {
                                             commands.push(
                                                 dashboard
-                                                    .record_message(
+                                                    .block_and_record_message(
                                                         &server,
                                                         casemapping,
                                                         message.with_target(target),
@@ -993,6 +1048,7 @@ impl Halloy {
                                             &self.config,
                                             resolve_user_attributes,
                                             channel_users,
+                                            &server,
                                             chantypes,
                                             statusmsg,
                                             casemapping,
@@ -1012,6 +1068,7 @@ impl Halloy {
                                                         &self.config.notifications,
                                                         &Notification::DirectMessage{
                                                             user,
+                                                            casemapping,
                                                             message: message.text(),
                                                         },
                                                         &server,

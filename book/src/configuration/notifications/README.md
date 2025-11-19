@@ -23,15 +23,16 @@ direct_message = { sound = "peck", show_toast = true }
 
 [notifications.highlight]
 sound = "dong"
-exclude = ["NickServ", "#halloy"]
+exclude = { users = ["NickServ"], channels = ["#halloy"] }
 ```
 
 ## Types
 
 Following notifications are available:
 
-| Name                    | Description                                        | Content |
+| Name                    | Description                                        | Content                           |
 | ----------------------- | -------------------------------------------------- | --------------------------------- |
+| `channel`               | Triggered when a message is received in a channel  | Message text                      |
 | `connected`             | Triggered when a server is connected               | N/A                               |
 | `direct_message`        | Triggered when a direct message is received        | Message text                      |
 | `disconnected`          | Triggered when a server disconnects                | N/A                               |
@@ -41,30 +42,40 @@ Following notifications are available:
 | `monitored_offline`     | Triggered when a user you're monitoring is offline | N/A                               |
 | `reconnected`           | Triggered when a server reconnects                 | N/A                               |
 
+`channel` is an array of tables, with each entry a notification for a single
+channel.  For example, the following shows a toast notification for every
+message in `#halloy`:
+
+```toml
+[notifications.channel."#halloy"]
+show_toast = true
+```
+
 ## Built-in Sounds
 
 The following table shows all available built-in sounds
 
-| Sound Name | Preview |
-|------------|---------|
-| `bloop` | <audio controls><source src="../../sounds/bloop.ogg" type="audio/ogg"></audio> |
-| `bonk` | <audio controls><source src="../../sounds/bonk.ogg" type="audio/ogg"></audio> |
-| `dong` | <audio controls><source src="../../sounds/dong.ogg" type="audio/ogg"></audio> |
-| `drop` | <audio controls><source src="../../sounds/drop.ogg" type="audio/ogg"></audio> |
-| `peck` | <audio controls><source src="../../sounds/peck.ogg" type="audio/ogg"></audio> |
-| `ring` | <audio controls><source src="../../sounds/ring.ogg" type="audio/ogg"></audio> |
-| `sing` | <audio controls><source src="../../sounds/sing.ogg" type="audio/ogg"></audio> |
-| `squeak` | <audio controls><source src="../../sounds/squeak.ogg" type="audio/ogg"></audio> |
-| `tweep` | <audio controls><source src="../../sounds/tweep.ogg" type="audio/ogg"></audio> |
-| `whistle` | <audio controls><source src="../../sounds/whistle.ogg" type="audio/ogg"></audio> |
-| `zone` | <audio controls><source src="../../sounds/zone.ogg" type="audio/ogg"></audio> |
+| Sound Name | Preview                                                                          |
+| ---------- | -------------------------------------------------------------------------------- |
+| `bloop`    | <audio controls><source src="../../sounds/bloop.ogg" type="audio/ogg"></audio>   |
+| `bonk`     | <audio controls><source src="../../sounds/bonk.ogg" type="audio/ogg"></audio>    |
+| `dong`     | <audio controls><source src="../../sounds/dong.ogg" type="audio/ogg"></audio>    |
+| `drop`     | <audio controls><source src="../../sounds/drop.ogg" type="audio/ogg"></audio>    |
+| `peck`     | <audio controls><source src="../../sounds/peck.ogg" type="audio/ogg"></audio>    |
+| `ring`     | <audio controls><source src="../../sounds/ring.ogg" type="audio/ogg"></audio>    |
+| `sing`     | <audio controls><source src="../../sounds/sing.ogg" type="audio/ogg"></audio>    |
+| `squeak`   | <audio controls><source src="../../sounds/squeak.ogg" type="audio/ogg"></audio>  |
+| `tweep`    | <audio controls><source src="../../sounds/tweep.ogg" type="audio/ogg"></audio>   |
+| `whistle`  | <audio controls><source src="../../sounds/whistle.ogg" type="audio/ogg"></audio> |
+| `zone`     | <audio controls><source src="../../sounds/zone.ogg" type="audio/ogg"></audio>    |
 
 ## Configuration
 
 ### sound
 
-Notification sound.
-Supports both built-in sounds, and external sound files (`mp3`, `ogg`, `flac` or `wav` placed inside the `sounds` folder within the configuration directory).
+Notification sound. Supports both built-in sounds, and external sound files
+(`mp3`, `ogg`, `flac` or `wav` placed inside the `sounds` folder within the
+configuration directory).
 
 ```toml
 # Type: string
@@ -116,45 +127,43 @@ delay = 250
 
 ### exclude
 
-Exclude notifications for nicks (and/or channels in `highlight`'s case).
+[Exclusion conditions](/configuration/conditions.md) in which you won't be
+notified. Inclusion conditions will take precedence over exclusion conditions.
+You can also exclude all conditions by setting to `"all"` or `"*"`.
 
-Only available for `direct_message`, `highlight` and `file_transfer_request`
-notifications.
-
-You can also exclude all nicks/channels by using a wildcard: `["*"]` or `["all"]`.
+Only available for `channel`, `direct_message`, `file_transfer_request`, and
+`highlight` notifications.
 
 ```toml
-# Type: array of strings
-# Values: array of strings
-# Default: []
+# Type: inclusion/exclusion conditions
+# Values: any inclusion/exclusion conditions
+# Default: not set
 
 [notifications.<direct_message|file_transfer_request>]
-exclude = ["HalloyUser1"]
+exclude = { users = ["HalloyUser1"] }
 
 [notifications.highlight]
-exclude = ["HalloyUser1", "#halloy"]
+exclude = { users = ["HalloyUser1", "#halloy"] }
 ```
 
 ### include
 
-Include notifications for nicks (and/or channels in `highlight`'s case).
+[Inclusion conditions](/configuration/conditions.md) in which you will be
+notified. Notifications are enabled in all conditions unless explicitly
+excluded, so this setting is only relevant when combined with the `exclude`
+setting.
 
-Only available for `direct_message`, `highlight` and `file_transfer_request`
-notifications.
-
-The include rule takes priority over exclude, so you can use both together.
-For example, you can exclude all nicks with `["*"]` for `direct_message` and
-then only include a few specific nicks to receive `direct_message` notifications
-from.
+Only available for `channel`, `direct_message`, `file_transfer_request`, and
+`highlight` notifications.
 
 ```toml
-# Type: array of strings
-# Values: array of strings
-# Default: []
+# Type: inclusion/exclusion conditions
+# Values: any inclusion/exclusion conditions
+# Default: not set
 
 [notifications.<direct_message|file_transfer_request>]
-include = ["HalloyUser1"]
+include = { users = ["HalloyUser1"] }
 
 [notifications.highlight]
-include = ["HalloyUser1", "#halloy"]
+include = { users = ["HalloyUser1", "#halloy"] }
 ```
