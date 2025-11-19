@@ -566,16 +566,40 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
                         theme::selectable_text::action,
                     );
 
-                    let message_content = message_content(
+                    let formatter = *self;
+                    let message_content = message_content::with_context(
                         &message.content,
-                        self.chantypes,
-                        self.casemapping,
-                        self.theme,
+                        formatter.chantypes,
+                        formatter.casemapping,
+                        formatter.theme,
                         Message::Link,
                         theme::selectable_text::action,
                         theme::font_style::action,
                         Option::<fn(Color) -> Color>::None,
-                        self.config,
+                        move |link| match link {
+                            message::Link::User(_) => {
+                                context_menu::Entry::user_list(
+                                    formatter.target.is_channel(),
+                                    formatter.target.our_user(),
+                                    formatter.config.file_transfer.enabled,
+                                )
+                            }
+                            message::Link::Url(_) => {
+                                context_menu::Entry::url_list()
+                            }
+                            _ => vec![],
+                        },
+                        move |link, entry, length| {
+                            entry
+                                .view(
+                                    formatter.link_context(link),
+                                    length,
+                                    formatter.config,
+                                    formatter.theme,
+                                )
+                                .map(Message::ContextMenu)
+                        },
+                        formatter.config,
                     );
 
                     let text_container = container(message_content);
