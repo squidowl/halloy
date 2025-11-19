@@ -11,6 +11,8 @@ Added:
 - Fuzzy matching when searching in command bar
 - Setting to disable file transfers (DCC), removing it from the UI
 - Ability to hide nickname for consecutive messages from the same user
+- Ability to specify a distinct sound for each match highlight set
+- Setting to notify for every message in a channel
 
 Fixed:
 
@@ -32,7 +34,7 @@ Thanks:
 
 - Contributions: @kasperkronborg, @mistivia
 - Bug reports: @Frikilinux, ThePendulum, @crabbedhaloablution, @findus, @Darksecond
-- Feature requests: @cyrneko, ilya, abby
+- Feature requests: @cyrneko, ilya, abby, @clorteau, @RobertCraigie
 
 # 2025.11 (2025-10-27)
 

@@ -16,6 +16,7 @@ use url::Url;
 
 pub use self::broadcast::Broadcast;
 pub use self::formatting::{Color, Formatting};
+pub use self::highlight::Highlight;
 pub use self::source::Source;
 pub use self::source::server::{Kind, StandardReply};
 use crate::config::buffer::{CondensationFormat, UsernameFormat};
@@ -23,7 +24,7 @@ use crate::config::{self, Highlights};
 use crate::log::Level;
 use crate::serde::fail_as_none;
 use crate::server::Server;
-use crate::target::{Channel, join_targets};
+use crate::target::join_targets;
 use crate::time::Posix;
 use crate::user::{ChannelUsers, Nick, NickRef};
 use crate::{Config, User, command, ctcp, isupport, target};
@@ -80,6 +81,7 @@ static USER_REGEX: LazyLock<Regex> = LazyLock::new(|| {
 
 pub(crate) mod broadcast;
 pub mod formatting;
+pub mod highlight;
 pub mod source;
 
 #[derive(Debug, Clone)]
@@ -235,9 +237,20 @@ impl Message {
     }
 
     pub fn triggers_highlight(&self) -> bool {
-        matches!(self.direction, Direction::Received)
+        if matches!(self.direction, Direction::Received)
             && !self.is_echo
-            && self.highlight_description().is_some()
+            && let Content::Fragments(fragments) = &self.content
+            && fragments.iter().any(|fragment| {
+                matches!(
+                    fragment,
+                    Fragment::HighlightNick(_, _) | Fragment::HighlightMatch(_)
+                )
+            })
+        {
+            true
+        } else {
+            false
+        }
     }
 
     pub fn can_reference(&self) -> bool {
@@ -285,6 +298,7 @@ impl Message {
         config: &'a Config,
         resolve_attributes: impl Fn(&User, &target::Channel) -> Option<User>,
         channel_users: impl Fn(&target::Channel) -> Option<&'a ChannelUsers>,
+        server: &Server,
         chantypes: &[char],
         statusmsg: &[char],
         casemapping: isupport::CaseMap,
@@ -295,12 +309,13 @@ impl Message {
         let is_echo = encoded
             .user(casemapping)
             .is_some_and(|user| user.nickname() == our_nick);
-        let content = content(
+        let (content, _) = content(
             &encoded,
             &our_nick,
             config,
             &resolve_attributes,
             &channel_users,
+            server,
             chantypes,
             statusmsg,
             casemapping,
@@ -331,6 +346,102 @@ impl Message {
             condensed: None,
             command: None,
         })
+    }
+
+    pub fn received_with_highlight<'a>(
+        encoded: Encoded,
+        our_nick: Nick,
+        config: &'a Config,
+        resolve_attributes: impl Fn(&User, &target::Channel) -> Option<User>,
+        channel_users: impl Fn(&target::Channel) -> Option<&'a ChannelUsers>,
+        server: &Server,
+        chantypes: &[char],
+        statusmsg: &[char],
+        casemapping: isupport::CaseMap,
+        prefix: &[isupport::PrefixMap],
+    ) -> Option<(Message, Option<Highlight>)> {
+        let server_time = server_time(&encoded);
+        let id = message_id(&encoded);
+        let is_echo = encoded
+            .user(casemapping)
+            .is_some_and(|user| user.nickname() == our_nick);
+        let (content, highlight) = content(
+            &encoded,
+            &our_nick,
+            config,
+            &resolve_attributes,
+            &channel_users,
+            server,
+            chantypes,
+            statusmsg,
+            casemapping,
+            prefix,
+        )?;
+        let target = target(
+            encoded,
+            &our_nick,
+            &resolve_attributes,
+            chantypes,
+            statusmsg,
+            casemapping,
+        )?;
+        let received_at = Posix::now();
+        let hash = Hash::new(&server_time, &content);
+
+        let message = Message {
+            received_at,
+            server_time,
+            direction: Direction::Received,
+            target,
+            content,
+            id,
+            hash,
+            hidden_urls: HashSet::default(),
+            is_echo,
+            blocked: false,
+            condensed: None,
+            command: None,
+        };
+
+        let highlight = highlight.and_then(|kind| {
+            if !message.is_echo
+                && let Some((channel, user, source)) = match &message.target {
+                    Target::Channel {
+                        channel,
+                        source: Source::User(user),
+                        ..
+                    } => Some((channel, user, Source::User(user.clone()))),
+                    Target::Channel {
+                        channel,
+                        source: Source::Action(Some(user)),
+                        ..
+                    } => Some((
+                        channel,
+                        user,
+                        Source::Action(Some(user.clone())),
+                    )),
+                    _ => None,
+                }
+            {
+                Some(Highlight {
+                    kind,
+                    channel: channel.clone(),
+                    user: user.clone(),
+                    message: Message {
+                        target: Target::Highlights {
+                            server: server.clone(),
+                            channel: channel.clone(),
+                            source: source.clone(),
+                        },
+                        ..message.clone()
+                    },
+                })
+            } else {
+                None
+            }
+        });
+
+        Some((message, highlight))
     }
 
     pub fn sent(
@@ -459,62 +570,6 @@ impl Message {
             condensed: None,
             command: None,
         }
-    }
-
-    fn highlight_description(&self) -> Option<String> {
-        if let Content::Fragments(fragments) = &self.content {
-            if fragments.iter().any(|fragment| {
-                matches!(fragment, Fragment::HighlightNick(_, _))
-            }) {
-                Some(String::from("highlighted you"))
-            } else {
-                fragments.iter().find_map(|fragment| {
-                    if let Fragment::HighlightMatch(text) = fragment {
-                        Some(format!("matched highlight {text}"))
-                    } else {
-                        None
-                    }
-                })
-            }
-        } else {
-            None
-        }
-    }
-
-    pub fn into_highlight(
-        &self,
-        server: Server,
-    ) -> Option<(Self, Channel, User, String)> {
-        if !self.is_echo
-            && let Some(highlight_description) = self.highlight_description()
-        {
-            let (channel, user, source) = match self.target.clone() {
-                Target::Channel {
-                    channel,
-                    source: Source::User(user),
-                    ..
-                } => (channel, user.clone(), Source::User(user)),
-                Target::Channel {
-                    channel,
-                    source: Source::Action(Some(user)),
-                    ..
-                } => (channel, user.clone(), Source::Action(Some(user))),
-                _ => return None,
-            };
-
-            let message = Message {
-                target: Target::Highlights {
-                    server,
-                    channel: channel.clone(),
-                    source,
-                },
-                ..self.clone()
-            };
-
-            return Some((message, channel, user, highlight_description));
-        }
-
-        None
     }
 
     pub fn renormalize(&mut self, casemapping: isupport::CaseMap) {
@@ -1216,41 +1271,74 @@ pub fn plain(text: String) -> Content {
 
 pub fn parse_fragments_with_highlights(
     text: String,
+    message_user: Option<&User>,
     channel_users: Option<&ChannelUsers>,
-    target: &str,
+    target: &target::Target,
     our_nick: Option<&Nick>,
     highlights: &Highlights,
+    server: &Server,
     casemapping: isupport::CaseMap,
-) -> Content {
+) -> (Content, Option<highlight::Kind>) {
+    let mut highlight_kind = None;
+
     let mut fragments =
         parse_fragments_with_users_inner(text, channel_users, casemapping)
             .map(|fragment| match fragment {
                 Fragment::User(user, raw)
-                    if highlights.nickname.is_target_included(target)
-                        && ((our_nick
-                            .is_some_and(|nick| user.nickname() == *nick)
-                            && highlights.nickname.case_insensitive)
-                            || (our_nick.is_some_and(|nick| {
-                                raw.as_str() == nick.as_str()
-                            }))) =>
+                    if highlights.nickname.is_target_included(
+                        message_user,
+                        target,
+                        server,
+                        casemapping,
+                    ) && ((our_nick
+                        .is_some_and(|nick| user.nickname() == *nick)
+                        && highlights.nickname.case_insensitive)
+                        || (our_nick.is_some_and(|nick| {
+                            raw.as_str() == nick.as_str()
+                        }))) =>
                 {
+                    if highlight_kind.is_none() {
+                        highlight_kind = Some(highlight::Kind::Nick);
+                    }
+
                     Fragment::HighlightNick(user, raw)
                 }
                 f => f,
             })
             .collect::<Vec<_>>();
 
-    for regex in highlights
-        .matches
-        .iter()
-        .filter_map(|m| m.is_target_included(target).then_some(&m.regex))
-    {
+    for (regex, sound) in highlights.matches.iter().filter_map(|m| {
+        m.is_target_included(message_user, target, server, casemapping)
+            .then_some((&m.regex, &m.sound))
+    }) {
         fragments = fragments
             .into_iter()
             .flat_map(|fragment| {
                 if let Fragment::Text(text) = &fragment {
                     return Either::Left(
                         parse_regex_fragments(regex, text, |text| {
+                            let set_highlight_kind = if highlight_kind.is_none()
+                            {
+                                true
+                            } else if sound.is_some()
+                                && let Some(highlight::Kind::Match {
+                                    sound: highlight_kind_sound,
+                                    ..
+                                }) = &highlight_kind
+                                && highlight_kind_sound.is_none()
+                            {
+                                true
+                            } else {
+                                false
+                            };
+
+                            if set_highlight_kind {
+                                highlight_kind = Some(highlight::Kind::Match {
+                                    matching: regex.to_string(),
+                                    sound: sound.clone(),
+                                });
+                            }
+
                             Some(Fragment::HighlightMatch(text.to_owned()))
                         })
                         .into_iter(),
@@ -1267,9 +1355,9 @@ pub fn parse_fragments_with_highlights(
             unreachable!();
         };
 
-        Content::Plain(text)
+        (Content::Plain(text), None)
     } else {
-        Content::Fragments(fragments)
+        (Content::Fragments(fragments), highlight_kind)
     }
 }
 
@@ -1422,7 +1510,7 @@ fn parse_fragments_inner<'a>(
 fn parse_regex_fragments<'a>(
     regex: &Regex,
     text: impl Into<Cow<'a, str>>,
-    f: impl Fn(&str) -> Option<Fragment>,
+    mut f: impl FnMut(&str) -> Option<Fragment>,
 ) -> Vec<Fragment> {
     let text: Cow<'a, str> = text.into();
 
@@ -1880,11 +1968,12 @@ fn content<'a>(
     config: &Config,
     resolve_attributes: &dyn Fn(&User, &target::Channel) -> Option<User>,
     channel_users: impl Fn(&target::Channel) -> Option<&'a ChannelUsers>,
+    server: &Server,
     chantypes: &[char],
     statusmsg: &[char],
     casemapping: isupport::CaseMap,
     prefix: &[isupport::PrefixMap],
-) -> Option<Content> {
+) -> Option<(Content, Option<highlight::Kind>)> {
     use irc::proto::command::Numeric::*;
 
     match &message.command {
@@ -1903,16 +1992,25 @@ fn content<'a>(
             let topic = topic.as_ref()?;
 
             if topic.is_empty() {
-                Some(parse_fragments_with_user(
-                    format!("{} cleared the topic", user.nickname()),
-                    &user,
-                    casemapping,
+                Some((
+                    parse_fragments_with_user(
+                        format!("{} cleared the topic", user.nickname()),
+                        &user,
+                        casemapping,
+                    ),
+                    None,
                 ))
             } else {
-                Some(parse_fragments_with_user(
-                    format!("{} changed the topic to {topic}", user.nickname()),
-                    &user,
-                    casemapping,
+                Some((
+                    parse_fragments_with_user(
+                        format!(
+                            "{} changed the topic to {topic}",
+                            user.nickname()
+                        ),
+                        &user,
+                        casemapping,
+                    ),
+                    None,
                 ))
             }
         }
@@ -1933,15 +2031,18 @@ fn content<'a>(
                 .map(|text| format!(" ({text})"))
                 .unwrap_or_default();
 
-            Some(parse_fragments_with_user(
-                format!(
-                    "⟵ {} has left the channel{text}",
-                    user.formatted(
-                        config.buffer.server_messages.part.username_format
-                    )
+            Some((
+                parse_fragments_with_user(
+                    format!(
+                        "⟵ {} has left the channel{text}",
+                        user.formatted(
+                            config.buffer.server_messages.part.username_format
+                        )
+                    ),
+                    &user,
+                    casemapping,
                 ),
-                &user,
-                casemapping,
+                None,
             ))
         }
         Command::JOIN(target, _) => {
@@ -1957,15 +2058,22 @@ fn content<'a>(
             .unwrap_or(raw_user);
 
             (user.nickname() != *our_nick).then(|| {
-                parse_fragments_with_user(
-                    format!(
-                        "⟶ {} has joined the channel",
-                        user.formatted(
-                            config.buffer.server_messages.join.username_format
-                        )
+                (
+                    parse_fragments_with_user(
+                        format!(
+                            "⟶ {} has joined the channel",
+                            user.formatted(
+                                config
+                                    .buffer
+                                    .server_messages
+                                    .join
+                                    .username_format
+                            )
+                        ),
+                        &user,
+                        casemapping,
                     ),
-                    &user,
-                    casemapping,
+                    None,
                 )
             })
         }
@@ -1995,7 +2103,10 @@ fn content<'a>(
             .and_then(|channel| resolve_attributes(&raw_user, &channel))
             .unwrap_or(raw_user);
 
-            Some(kick_text(user, victim, ourself, reason, None, casemapping))
+            Some((
+                kick_text(user, victim, ourself, reason, None, casemapping),
+                None,
+            ))
         }
         Command::MODE(target, modes, args) => {
             let raw_user = message.user(casemapping)?;
@@ -2035,21 +2146,28 @@ fn content<'a>(
                 .ok()
                 .and_then(|channel| channel_users(&channel));
 
-                Some(parse_fragments_with_users(
-                    format!("{} sets mode {modes}{args}", user.nickname()),
-                    channel_users,
-                    casemapping,
+                Some((
+                    parse_fragments_with_users(
+                        format!("{} sets mode {modes}{args}", user.nickname()),
+                        channel_users,
+                        casemapping,
+                    ),
+                    None,
                 ))
             } else if raw_user.nickname() == *our_nick {
                 if casemapping.normalize(target) == our_nick.as_normalized_str()
                 {
-                    Some(parse_fragments(format!(
-                        "User mode set {modes}{args}"
-                    )))
+                    Some((
+                        parse_fragments(format!("User mode set {modes}{args}")),
+                        None,
+                    ))
                 } else {
-                    Some(parse_fragments(format!(
-                        "Set {target} mode {modes}{args}"
-                    )))
+                    Some((
+                        parse_fragments(format!(
+                            "Set {target} mode {modes}{args}"
+                        )),
+                        None,
+                    ))
                 }
             } else {
                 let channel_users =
@@ -2057,37 +2175,40 @@ fn content<'a>(
                         .into_iter()
                         .collect::<ChannelUsers>();
 
-                Some(parse_fragments_with_users(
-                    format!(
-                        "{} sets {target} mode {modes}{args}",
-                        raw_user.nickname()
+                Some((
+                    parse_fragments_with_users(
+                        format!(
+                            "{} sets {target} mode {modes}{args}",
+                            raw_user.nickname()
+                        ),
+                        Some(&channel_users),
+                        casemapping,
                     ),
-                    Some(&channel_users),
-                    casemapping,
+                    None,
                 ))
             }
         }
         Command::PRIVMSG(target, text) | Command::NOTICE(target, text) => {
-            let channel_users = target::Channel::parse(
+            let target = target::Target::parse(
                 target,
                 chantypes,
                 statusmsg,
                 casemapping,
-            )
-            .ok()
-            .and_then(|channel| channel_users(&channel));
+            );
+
+            let channel_users = target.as_channel().and_then(channel_users);
 
             // Check if a synthetic action message
 
-            if let Some(nick) =
-                message.user(casemapping).as_ref().map(User::nickname)
+            if let Some(user) = message.user(casemapping).as_ref()
                 && let Some(action) = parse_action(
-                    nick,
+                    user,
                     text,
                     channel_users,
-                    target,
+                    &target,
                     Some(our_nick),
                     &config.highlights,
+                    server,
                     casemapping,
                 )
             {
@@ -2095,7 +2216,7 @@ fn content<'a>(
             }
 
             if let Some(query) = ctcp::parse_query(text) {
-                let arrow = if casemapping.normalize(target)
+                let arrow = if target.as_normalized_str()
                     == our_nick.as_normalized_str()
                 {
                     "⟵"
@@ -2111,22 +2232,24 @@ fn content<'a>(
                     [arrow, command].join(" ")
                 };
 
-                return Some(parse_fragments(text));
+                return Some((parse_fragments(text), None));
             }
 
             Some(parse_fragments_with_highlights(
                 text.clone(),
+                message.user(casemapping).as_ref(),
                 channel_users,
-                target,
+                &target,
                 Some(our_nick),
                 &config.highlights,
+                server,
                 casemapping,
             ))
         }
         Command::Numeric(RPL_TOPIC, params) => {
             let topic = params.get(2)?;
 
-            Some(parse_fragments(format!("topic is {topic}")))
+            Some((parse_fragments(format!("topic is {topic}")), None))
         }
         Command::Numeric(RPL_ENDOFWHOIS, _) => {
             // We skip the end message of a WHOIS.
@@ -2151,13 +2274,16 @@ fn content<'a>(
             let duration = std::time::Duration::from_secs(idle);
             let idle_readable = formatter.convert(duration);
 
-            Some(parse_fragments_with_user(
-                format!(
-                    "{} signed on at {sign_on_datetime} and has been idle for {idle_readable}",
-                    user.nickname()
+            Some((
+                parse_fragments_with_user(
+                    format!(
+                        "{} signed on at {sign_on_datetime} and has been idle for {idle_readable}",
+                        user.nickname()
+                    ),
+                    &user,
+                    casemapping,
                 ),
-                &user,
-                casemapping,
+                None,
             ))
         }
         Command::Numeric(RPL_WHOISSERVER, params) => {
@@ -2169,13 +2295,16 @@ fn content<'a>(
             let server = params.get(2)?;
             let region = params.get(3)?;
 
-            Some(parse_fragments_with_user(
-                format!(
-                    "{} is connected on {server} ({region})",
-                    user.nickname()
+            Some((
+                parse_fragments_with_user(
+                    format!(
+                        "{} is connected on {server} ({region})",
+                        user.nickname()
+                    ),
+                    &user,
+                    casemapping,
                 ),
-                &user,
-                casemapping,
+                None,
             ))
         }
         Command::Numeric(RPL_WHOISUSER, params) => {
@@ -2187,13 +2316,16 @@ fn content<'a>(
             let userhost = format!("{}@{}", params.get(2)?, params.get(3)?);
             let real_name = params.get(5)?;
 
-            Some(parse_fragments_with_user(
-                format!(
-                    "{} has userhost {userhost} and real name '{real_name}'",
-                    user.nickname()
+            Some((
+                parse_fragments_with_user(
+                    format!(
+                        "{} has userhost {userhost} and real name '{real_name}'",
+                        user.nickname()
+                    ),
+                    &user,
+                    casemapping,
                 ),
-                &user,
-                casemapping,
+                None,
             ))
         }
         Command::Numeric(RPL_WHOISCHANNELS, params) => {
@@ -2203,10 +2335,13 @@ fn content<'a>(
             ));
             let channels = params.get(2)?;
 
-            Some(parse_fragments_with_user(
-                format!("{} is in {channels}", user.nickname()),
-                &user,
-                casemapping,
+            Some((
+                parse_fragments_with_user(
+                    format!("{} is in {channels}", user.nickname()),
+                    &user,
+                    casemapping,
+                ),
+                None,
             ))
         }
         Command::Numeric(RPL_WHOISACTUALLY, params) => {
@@ -2217,10 +2352,13 @@ fn content<'a>(
             let ip = params.get(2)?;
             let status_text = params.get(3)?;
 
-            Some(parse_fragments_with_user(
-                format!("{} {status_text} {ip}", user.nickname()),
-                &user,
-                casemapping,
+            Some((
+                parse_fragments_with_user(
+                    format!("{} {status_text} {ip}", user.nickname()),
+                    &user,
+                    casemapping,
+                ),
+                None,
             ))
         }
         Command::Numeric(
@@ -2233,10 +2371,13 @@ fn content<'a>(
             ));
             let status_text = params.get(2)?;
 
-            Some(parse_fragments_with_user(
-                format!("{} {status_text}", user.nickname()),
-                &user,
-                casemapping,
+            Some((
+                parse_fragments_with_user(
+                    format!("{} {status_text}", user.nickname()),
+                    &user,
+                    casemapping,
+                ),
+                None,
             ))
         }
         Command::Numeric(RPL_WHOISACCOUNT, params) => {
@@ -2247,10 +2388,13 @@ fn content<'a>(
             let account = params.get(2)?;
             let status_text = params.get(3)?;
 
-            Some(parse_fragments_with_user(
-                format!("{} {status_text} {account}", user.nickname()),
-                &user,
-                casemapping,
+            Some((
+                parse_fragments_with_user(
+                    format!("{} {status_text} {account}", user.nickname()),
+                    &user,
+                    casemapping,
+                ),
+                None,
             ))
         }
         Command::Numeric(RPL_TOPICWHOTIME, params) => {
@@ -2268,10 +2412,13 @@ fn content<'a>(
                 .with_timezone(&Local)
                 .to_rfc2822();
 
-            Some(parse_fragments_with_user(
-                format!("topic set by {} at {datetime}", user.nickname()),
-                &user,
-                casemapping,
+            Some((
+                parse_fragments_with_user(
+                    format!("topic set by {} at {datetime}", user.nickname()),
+                    &user,
+                    casemapping,
+                ),
+                None,
             ))
         }
         Command::Numeric(RPL_CHANNELMODEIS, params) => {
@@ -2282,7 +2429,7 @@ fn content<'a>(
                 .collect::<Vec<_>>()
                 .join(" ");
 
-            Some(parse_fragments(format!("Channel mode is {mode}")))
+            Some((parse_fragments(format!("Channel mode is {mode}")), None))
         }
         Command::Numeric(RPL_UMODEIS, params) => {
             let mode = params
@@ -2292,7 +2439,7 @@ fn content<'a>(
                 .collect::<Vec<_>>()
                 .join(" ");
 
-            Some(parse_fragments(format!("User mode is {mode}")))
+            Some((parse_fragments(format!("User mode is {mode}")), None))
         }
         Command::Numeric(RPL_AWAY, params) => {
             let user = User::from(Nick::from_str(
@@ -2304,10 +2451,13 @@ fn content<'a>(
                 .map(|away| format!(" ({away})"))
                 .unwrap_or_default();
 
-            Some(parse_fragments_with_user(
-                format!("{} is away{away_message}", user.nickname()),
-                &user,
-                casemapping,
+            Some((
+                parse_fragments_with_user(
+                    format!("{} is away{away_message}", user.nickname()),
+                    &user,
+                    casemapping,
+                ),
+                None,
             ))
         }
         Command::Numeric(numeric, params)
@@ -2330,17 +2480,22 @@ fn content<'a>(
 
             let targets = monitored_targets_text(target_usernames)?;
 
-            Some(parse_fragments_with_users(
-                match numeric {
-                    RPL_MONONLINE => format!("Monitored {targets} online"),
-                    RPL_MONOFFLINE => format!("Monitored {targets} offline"),
-                    _ => {
-                        log::debug!("Unexpected numeric {numeric:?}");
-                        format!("Monitored {targets}")
-                    }
-                },
-                Some(&target_users),
-                casemapping,
+            Some((
+                parse_fragments_with_users(
+                    match numeric {
+                        RPL_MONONLINE => format!("Monitored {targets} online"),
+                        RPL_MONOFFLINE => {
+                            format!("Monitored {targets} offline")
+                        }
+                        _ => {
+                            log::debug!("Unexpected numeric {numeric:?}");
+                            format!("Monitored {targets}")
+                        }
+                    },
+                    Some(&target_users),
+                    casemapping,
+                ),
+                None,
             ))
         }
         Command::CHATHISTORY(sub, args) => {
@@ -2348,52 +2503,71 @@ fn content<'a>(
                 let target = args.first()?;
                 let timestamp = args.get(1)?;
 
-                Some(plain(format!("Chat history for {target} at {timestamp}")))
+                Some((
+                    plain(format!("Chat history for {target} at {timestamp}")),
+                    None,
+                ))
             } else {
                 None
             }
         }
         Command::FAIL(command, _, context, description) => {
             if let Some(context) = context {
-                Some(plain(format!(
-                    "{command} ({}) failed: {description}",
-                    context.join(", ")
-                )))
+                Some((
+                    plain(format!(
+                        "{command} ({}) failed: {description}",
+                        context.join(", ")
+                    )),
+                    None,
+                ))
             } else {
-                Some(plain(format!("{command} failed: {description}")))
+                Some((plain(format!("{command} failed: {description}")), None))
             }
         }
         Command::WARN(command, _, context, description) => {
             if let Some(context) = context {
-                Some(plain(format!(
-                    "{command} ({}) warning: {description}",
-                    context.join(", ")
-                )))
+                Some((
+                    plain(format!(
+                        "{command} ({}) warning: {description}",
+                        context.join(", ")
+                    )),
+                    None,
+                ))
             } else {
-                Some(plain(format!("{command} warning: {description}")))
+                Some((plain(format!("{command} warning: {description}")), None))
             }
         }
         Command::NOTE(command, _, context, description) => {
             if let Some(context) = context {
-                Some(plain(format!(
-                    "{command} ({}) notice: {description}",
-                    context.join(", ")
-                )))
+                Some((
+                    plain(format!(
+                        "{command} ({}) notice: {description}",
+                        context.join(", ")
+                    )),
+                    None,
+                ))
             } else {
-                Some(plain(format!("{command} notice: {description}")))
+                Some((plain(format!("{command} notice: {description}")), None))
             }
         }
         Command::WALLOPS(text) => {
             let user = message.user(casemapping)?;
 
-            Some(parse_fragments_with_user(
-                format!("WALLOPS from {}: {}", user.nickname(), text.clone()),
-                &user,
-                casemapping,
+            Some((
+                parse_fragments_with_user(
+                    format!(
+                        "WALLOPS from {}: {}",
+                        user.nickname(),
+                        text.clone()
+                    ),
+                    &user,
+                    casemapping,
+                ),
+                None,
             ))
         }
-        Command::Numeric(RPL_WELCOME, params) => {
-            Some(parse_fragments_with_user(
+        Command::Numeric(RPL_WELCOME, params) => Some((
+            parse_fragments_with_user(
                 params
                     .iter()
                     .map(String::as_str)
@@ -2402,8 +2576,9 @@ fn content<'a>(
                     .join(" "),
                 &User::from(our_nick.clone()),
                 casemapping,
-            ))
-        }
+            ),
+            None,
+        )),
         Command::Numeric(ERR_CANNOTSENDTOCHAN, params) => {
             match target::Target::parse(
                 params.get(1)?,
@@ -2412,21 +2587,24 @@ fn content<'a>(
                 casemapping,
             ) {
                 target::Target::Channel(_) => {
-                    Some(Content::Plain("Cannot send to channel".to_string()))
+                    Some((plain("Cannot send to channel".to_string()), None))
                 }
                 target::Target::Query(_) => {
-                    Some(Content::Plain("Cannot send to user".to_string()))
+                    Some((plain("Cannot send to user".to_string()), None))
                 }
             }
         }
         Command::Numeric(_, responses) | Command::Unknown(_, responses) => {
-            Some(parse_fragments(
-                responses
-                    .iter()
-                    .map(String::as_str)
-                    .skip(1)
-                    .collect::<Vec<_>>()
-                    .join(" "),
+            Some((
+                parse_fragments(
+                    responses
+                        .iter()
+                        .map(String::as_str)
+                        .skip(1)
+                        .collect::<Vec<_>>()
+                        .join(" "),
+                ),
+                None,
             ))
         }
         _ => None,
@@ -2449,14 +2627,15 @@ pub fn is_action(text: &str) -> bool {
 }
 
 fn parse_action(
-    nick: NickRef,
+    user: &User,
     text: &str,
     channel_users: Option<&ChannelUsers>,
-    target: &str,
+    target: &target::Target,
     our_nick: Option<&Nick>,
     highlights: &Highlights,
+    server: &Server,
     casemapping: isupport::CaseMap,
-) -> Option<Content> {
+) -> Option<(Content, Option<highlight::Kind>)> {
     if !is_action(text) {
         return None;
     }
@@ -2464,37 +2643,41 @@ fn parse_action(
     let query = ctcp::parse_query(text)?;
 
     Some(action_text(
-        nick,
+        user,
         query.params,
         channel_users,
         target,
         our_nick,
         highlights,
+        server,
         casemapping,
     ))
 }
 
 pub fn action_text(
-    nick: NickRef,
+    user: &User,
     action: Option<&str>,
     channel_users: Option<&ChannelUsers>,
-    target: &str,
+    target: &target::Target,
     our_nick: Option<&Nick>,
     highlights: &Highlights,
+    server: &Server,
     casemapping: isupport::CaseMap,
-) -> Content {
+) -> (Content, Option<highlight::Kind>) {
     let text = if let Some(action) = action {
-        format!("{nick} {action}")
+        format!("{} {action}", user.nickname())
     } else {
-        format!("{nick}")
+        user.nickname().to_string()
     };
 
     parse_fragments_with_highlights(
         text,
+        Some(user),
         channel_users,
         target,
         our_nick,
         highlights,
+        server,
         casemapping,
     )
 }
@@ -2639,10 +2822,12 @@ pub mod tests {
     #[allow(unused_imports)]
     use crate::config::highlights::Nickname;
     #[allow(unused_imports)]
+    use crate::config::inclusivities::Inclusivities;
+    #[allow(unused_imports)]
     use crate::message::formatting::Color;
     #[allow(unused_imports)]
     use crate::message::{
-        Broadcast, Content, Formatting, Fragment, Message, broadcast,
+        Broadcast, Content, Formatting, Fragment, Highlight, Message, broadcast,
     };
     #[allow(unused_imports)]
     use crate::server::Server;
@@ -2838,23 +3023,36 @@ pub mod tests {
 
     #[test]
     fn fragments_with_highlights_parsing() {
-        let casemapping = isupport::CaseMap::default();
+        use std::collections::HashMap;
+
+        let server = Server {
+            name: "Test Server".into(),
+            network: None,
+        };
+
+        let isupport = HashMap::<isupport::Kind, isupport::Parameter>::new();
+
+        let chantypes = isupport::get_chantypes_or_default(&isupport);
+        let statusmsg = isupport::get_statusmsg_or_default(&isupport);
+        let casemapping = isupport::get_casemapping_or_default(&isupport);
 
         let tests = [
             (
                 (
                     "Bob: I'm in #interesting with Greg, George_, &`bill`. I hope @Dave doesn't notice.".to_string(),
+                    User::from(Nick::from_str("Steve", casemapping)),
                     [
                         "Greg",
                         "Dave",
                         "Bob",
                         "George_",
                         "`Bill`",
+                        "Steve",
                     ].into_iter().map(|nick| User::from(Nick::from_str(nick, casemapping))).collect::<ChannelUsers>(),
-                    "#interesting",
+                    target::Target::parse("#interesting", chantypes, statusmsg, casemapping),
                     Some(Nick::from_str("Bob", casemapping)),
                     &Highlights {
-                        nickname: Nickname {exclude: vec![], include: vec!["#interesting".into()], case_insensitive: true},
+                        nickname: Nickname {exclude: None, include: Some(Inclusivities::parse(vec!["#interesting".into()])), case_insensitive: true},
                         matches: vec![],
                     },
                 ),
@@ -2876,6 +3074,7 @@ pub mod tests {
             (
                 (
                     "the boat would bob up and down!".to_string(),
+                    User::from(Nick::from_str("Greg", casemapping)),
                     [
                         "Greg",
                         "Dave",
@@ -2883,10 +3082,10 @@ pub mod tests {
                         "George_",
                         "`Bill`",
                     ].into_iter().map(|nick| User::from(Nick::from_str(nick, casemapping))).collect::<ChannelUsers>(),
-                    "#interesting",
+                    target::Target::parse("#interesting", chantypes, statusmsg, casemapping),
                     Some(Nick::from_str("Bob", casemapping)),
                     &Highlights {
-                        nickname: Nickname {exclude: vec![], include: vec![], case_insensitive: false},
+                        nickname: Nickname {exclude: None, include: None, case_insensitive: false},
                         matches: vec![],
                     },
                 ),
@@ -2899,14 +3098,15 @@ pub mod tests {
             (
                 (
                     "\u{3}14<\u{3}\u{3}04lurk_\u{3}\u{3}14/rx>\u{3} f_~oftc: > A��\u{1f}qj\u{14}��L�5�g���5�P��yn_?�i3g�1\u{7f}mE�\\X��� Xe�\u{5fa}{d�+�`@�^��NK��~~ޏ\u{7}\u{8}\u{15}\\�\u{4}A� \u{f}\u{1c}�N\u{11}6�r�\u{4}t��Q��\u{1c}�m\u{19}��".to_string(),
+                    User::from(Nick::from_str("rx", casemapping)),
                     [
                         "f_",
                         "rx",
                     ].into_iter().map(|nick| User::from(Nick::from_str(nick, casemapping))).collect::<ChannelUsers>(),
-                    "#funderscore-sucks",
+                    target::Target::parse("#funderscore-helped", chantypes, statusmsg, casemapping),
                     Some(Nick::from_str("f_", casemapping)),
                     &Highlights {
-                        nickname: Nickname {exclude: vec![], include: vec!["*".into()], case_insensitive: true},
+                        nickname: Nickname {exclude: None, include: Some(Inclusivities::all()), case_insensitive: true},
                         matches: vec![],
                     },
                 ),
@@ -2917,17 +3117,23 @@ pub mod tests {
                 ],
             ),
         ];
-        for ((text, channel_users, target, our_nick, highlights), expected) in
-            tests
+        for (
+            (text, user, channel_users, target, our_nick, highlights),
+            expected,
+        ) in tests
         {
-            if let Content::Fragments(actual) = parse_fragments_with_highlights(
-                text,
-                Some(&channel_users),
-                target,
-                our_nick.as_ref(),
-                highlights,
-                casemapping,
-            ) {
+            if let (Content::Fragments(actual), _) =
+                parse_fragments_with_highlights(
+                    text,
+                    Some(&user),
+                    Some(&channel_users),
+                    &target,
+                    our_nick.as_ref(),
+                    highlights,
+                    &server,
+                    casemapping,
+                )
+            {
                 assert_eq!(expected, actual);
             } else {
                 panic!("expected fragments with highlighting");
@@ -2948,14 +3154,16 @@ pub mod tests {
         ":dan!d@localhost PRIVMSG #chan :Need a highlight our_nick?\r\n",
     ];
 
-    pub fn message_from_irc_message(irc_message: &str) -> Message {
+    pub fn message_with_highlight_from_irc_message(
+        irc_message: &str,
+        server: &Server,
+    ) -> (Message, Option<Highlight>) {
         use std::collections::HashMap;
 
         use irc::proto;
 
         use crate::config::Config;
         use crate::message::Encoded;
-        use crate::{isupport, target};
 
         let isupport = HashMap::<isupport::Kind, isupport::Parameter>::new();
 
@@ -2980,7 +3188,7 @@ pub mod tests {
 
         let encoded = proto::parse::message(irc_message).unwrap();
 
-        Message::received(
+        Message::received_with_highlight(
             Encoded::from(encoded.clone()),
             our_nick.clone(),
             &Config::default(),
@@ -2991,6 +3199,7 @@ pub mod tests {
                     .cloned()
             },
             |_channel: &target::Channel| Some(&channel_users),
+            server,
             isupport::get_chantypes_or_default(&isupport),
             isupport::get_statusmsg_or_default(&isupport),
             isupport::get_casemapping_or_default(&isupport),
@@ -3163,9 +3372,27 @@ pub mod tests {
     // Test consistency between current Message serialization & deserialization
     #[test]
     fn messages_serde() {
+        let server = Server {
+            name: "Highlight Server".into(),
+            network: None,
+        };
+
         let mut messages = SERDE_IRC_MESSAGES
             .iter()
-            .map(|irc_message| message_from_irc_message(irc_message))
+            .flat_map(|irc_message| {
+                let (message, highlight) =
+                    message_with_highlight_from_irc_message(
+                        irc_message,
+                        &server,
+                    );
+                if let Some(highlight) =
+                    highlight.map(|highlight| highlight.message)
+                {
+                    vec![message, highlight]
+                } else {
+                    vec![message]
+                }
+            })
             .collect::<Vec<Message>>();
 
         messages.extend(
@@ -3173,17 +3400,6 @@ pub mod tests {
                 .into_iter()
                 .flat_map(messages_from_broadcast),
         );
-
-        let server = Server {
-            name: "Highlight Server".into(),
-            network: None,
-        };
-
-        messages.extend(SERDE_IRC_MESSAGES.iter().filter_map(|irc_message| {
-            message_from_irc_message(irc_message)
-                .into_highlight(server.clone())
-                .map(|(highlight, _, _, _)| highlight)
-        }));
 
         let bouncer_server = Server {
             name: "Bounced Highlight Server".into(),
@@ -3197,9 +3413,16 @@ pub mod tests {
         };
 
         messages.extend(SERDE_IRC_MESSAGES.iter().filter_map(|irc_message| {
-            message_from_irc_message(irc_message)
-                .into_highlight(bouncer_server.clone())
-                .map(|(highlight, _, _, _)| highlight)
+            if let (_, Some(Highlight { message, .. })) =
+                message_with_highlight_from_irc_message(
+                    irc_message,
+                    &bouncer_server,
+                )
+            {
+                Some(message)
+            } else {
+                None
+            }
         }));
 
         for expected in messages {

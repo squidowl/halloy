@@ -164,7 +164,7 @@ pub struct Client {
     chathistory_requests: HashMap<Target, ChatHistoryRequest>,
     chathistory_exhausted: HashMap<Target, bool>,
     chathistory_targets_request: Option<ChatHistoryRequest>,
-    highlight_notification_blackout: HighlightNotificationBlackout,
+    notification_blackout: NotificationBlackout,
     registration_required_channels: Vec<target::Channel>,
     isupport: HashMap<isupport::Kind, isupport::Parameter>,
     who_polls: VecDeque<WhoPoll>,
@@ -216,8 +216,9 @@ impl Client {
             chathistory_requests: HashMap::new(),
             chathistory_exhausted: HashMap::new(),
             chathistory_targets_request: None,
-            highlight_notification_blackout:
-                HighlightNotificationBlackout::Blackout(Instant::now()),
+            notification_blackout: NotificationBlackout::Blackout(
+                Instant::now(),
+            ),
             registration_required_channels: vec![],
             isupport: HashMap::new(),
             who_polls: VecDeque::new(),
@@ -838,7 +839,7 @@ impl Client {
                                     vec![Event::PrivOrNotice(
                                         message,
                                         self.nickname().to_owned(),
-                                        // Don't allow highlight notifications from history
+                                        // Don't allow notifications from history
                                         false,
                                     )]
                                 }
@@ -1339,8 +1340,7 @@ impl Client {
                                 let event = Event::PrivOrNotice(
                                     message,
                                     self.nickname().to_owned(),
-                                    self.highlight_notification_blackout
-                                        .allowed(),
+                                    self.notification_blackout.allowed(),
                                 );
 
                                 return Ok(vec![event]);
@@ -1471,7 +1471,7 @@ impl Client {
                     let event = Event::PrivOrNotice(
                         message.clone(),
                         self.nickname().to_owned(),
-                        self.highlight_notification_blackout.allowed(),
+                        self.notification_blackout.allowed(),
                     );
 
                     if direct_message {
@@ -3164,14 +3164,14 @@ impl Client {
     }
 
     pub fn tick(&mut self, now: Instant) -> Result<()> {
-        match self.highlight_notification_blackout {
-            HighlightNotificationBlackout::Blackout(instant) => {
+        match self.notification_blackout {
+            NotificationBlackout::Blackout(instant) => {
                 if now.duration_since(instant) >= HIGHLIGHT_BLACKOUT_INTERVAL {
-                    self.highlight_notification_blackout =
-                        HighlightNotificationBlackout::Receiving;
+                    self.notification_blackout =
+                        NotificationBlackout::Receiving;
                 }
             }
-            HighlightNotificationBlackout::Receiving => {}
+            NotificationBlackout::Receiving => {}
         }
 
         if let Some(who_poll) = self.who_polls.front_mut() {
@@ -3403,16 +3403,16 @@ pub async fn overwrite_chathistory_targets_timestamp(
 }
 
 #[derive(Debug)]
-enum HighlightNotificationBlackout {
+enum NotificationBlackout {
     Blackout(Instant),
     Receiving,
 }
 
-impl HighlightNotificationBlackout {
+impl NotificationBlackout {
     fn allowed(&self) -> bool {
         match self {
-            HighlightNotificationBlackout::Blackout(_) => false,
-            HighlightNotificationBlackout::Receiving => true,
+            NotificationBlackout::Blackout(_) => false,
+            NotificationBlackout::Receiving => true,
         }
     }
 }

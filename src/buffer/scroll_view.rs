@@ -804,7 +804,6 @@ impl State {
             }
             Message::PendingScrollTo => {
                 if let Some(key) = &self.pending_scroll_to {
-                    println!("pending_scroll_to → Task");
                     let scroll_to = keyed::find(self.scrollable.clone(), *key)
                         .map(Message::ScrollTo);
 
