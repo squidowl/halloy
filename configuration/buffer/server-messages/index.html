@@ -34,7 +34,7 @@
             const path_to_root = "../../../";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../../../searchindex-9c0b4cac.js";
+            window.path_to_searchindex_js = "../../../searchindex-35bdbb43.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="../../../toc-a56d2f2f.js"></script>
@@ -204,8 +204,8 @@
 <pre><code class="language-toml"># Hide all join messages except for #halloy channel:
 
 [buffer.server_messages.join]
-exclude = ["*"]
-include = ["#halloy"]
+exclude = "*"
+include = { channels = ["#halloy"] }
 
 # Hide all part messages
 
@@ -256,24 +256,27 @@ enabled = true
 smart = 180
 </code></pre>
 <h3 id="exclude"><a class="header" href="#exclude">exclude</a></h3>
-<p>Exclude channels from receiving the server message.
-If you pass <code>["#halloy"]</code>, the channel <code>#halloy</code> will not receive the server message. You can also exclude all channels by using a wildcard: <code>["*"]</code>.</p>
-<pre><code class="language-toml"># Type: array of strings
-# Values: array of any strings
+<p><a href="/configuration/conditions.html">Exclusion conditions</a> in which the server message
+will be hidden. Inclusion conditions will take precedence over exclusion
+conditions. You can also exclude all conditions by setting to <code>"all"</code> or <code>"*"</code>.</p>
+<pre><code class="language-toml"># Type: inclusion/exclusion conditions
+# Values: any inclusion/exclusion conditions
 # Default: []
 
 [buffer.server_messages.&lt;server_message&gt;]
-exclude = ["*"]
+exclude = "*"
 </code></pre>
 <h3 id="include"><a class="header" href="#include">include</a></h3>
-<p>Include channels to receive the server message.
-If you pass <code>["#halloy"]</code>, the channel <code>#halloy</code> will receive the server message. The include rule takes priority over exclude, so you can use both together. For example, you can exclude all channels with <code>["*"]</code> and then only include a few specific channels.</p>
-<pre><code class="language-toml"># Type: array of strings
-# Values: array of any strings
+<p><a href="/configuration/conditions.html">Inclusion conditions</a> in which the server message
+will be shown. Server messages will be shown in all conditions (when enabled)W
+unless explicitly excluded, so this setting is only relevant when combined with
+the <code>exclude</code> setting.</p>
+<pre><code class="language-toml"># Type: inclusion/exclusion conditions
+# Values: any inclusion/exclusion conditions
 # Default: []
 
 [buffer.server_messages.&lt;server_message&gt;]
-include = ["#halloy"]
+include = { channels = ["#halloy"] }
 </code></pre>
 <h3 id="dimmed"><a class="header" href="#dimmed">dimmed</a></h3>
 <p>Dim condensed server message.  Either automatically, based on text/background colors (by setting to <code>true</code>), or specify a dimming value in the range <code>0.0</code> (transparent) to <code>1.0</code> (no dimming).</p>
