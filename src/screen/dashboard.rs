@@ -2558,11 +2558,17 @@ impl Dashboard {
         &self,
         message: &mut data::Message,
         kind: &history::Kind,
+        server: &Server,
         casemapping: isupport::CaseMap,
         buffer_config: &config::Buffer,
     ) {
-        self.history
-            .block_message(message, kind, casemapping, buffer_config);
+        self.history.block_message(
+            message,
+            kind,
+            server,
+            casemapping,
+            buffer_config,
+        );
     }
 
     pub fn update_read_marker(

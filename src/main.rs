@@ -713,6 +713,7 @@ impl Halloy {
                                                 dashboard.block_message(
                                                     &mut message,
                                                     &kind,
+                                                    &server,
                                                     casemapping,
                                                     &self.config.buffer,
                                                 );

@@ -20,8 +20,8 @@ Server messages are messages sent from an IRC server.
 # Hide all join messages except for #halloy channel:
 
 [buffer.server_messages.join]
-exclude = ["*"]
-include = ["#halloy"]
+exclude = "*"
+include = { channels = ["#halloy"] }
 
 # Hide all part messages
 
@@ -78,30 +78,33 @@ smart = 180
 
 ### exclude
 
-Exclude channels from receiving the server message.
-If you pass `["#halloy"]`, the channel `#halloy` will not receive the server message. You can also exclude all channels by using a wildcard: `["*"]`.
+[Exclusion conditions](/configuration/conditions.md) in which the server message
+will be hidden. Inclusion conditions will take precedence over exclusion
+conditions. You can also exclude all conditions by setting to `"all"` or `"*"`.
 
 ```toml
-# Type: array of strings
-# Values: array of any strings
+# Type: inclusion/exclusion conditions
+# Values: any inclusion/exclusion conditions
 # Default: []
 
 [buffer.server_messages.<server_message>]
-exclude = ["*"]
+exclude = "*"
 ```
 
 ### include
 
-Include channels to receive the server message.
-If you pass `["#halloy"]`, the channel `#halloy` will receive the server message. The include rule takes priority over exclude, so you can use both together. For example, you can exclude all channels with `["*"]` and then only include a few specific channels.
+[Inclusion conditions](/configuration/conditions.md) in which the server message
+will be shown. Server messages will be shown in all conditions (when enabled)W
+unless explicitly excluded, so this setting is only relevant when combined with
+the `exclude` setting.
 
 ```toml
-# Type: array of strings
-# Values: array of any strings
+# Type: inclusion/exclusion conditions
+# Values: any inclusion/exclusion conditions
 # Default: []
 
 [buffer.server_messages.<server_message>]
-include = ["#halloy"]
+include = { channels = ["#halloy"] }
 ```
 
 ### dimmed

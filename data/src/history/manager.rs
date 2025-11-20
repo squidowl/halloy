@@ -349,7 +349,13 @@ impl Manager {
         if let Some(kind) =
             history::Kind::from_server_message(server.clone(), &message)
         {
-            self.block_message(&mut message, &kind, casemapping, buffer_config);
+            self.block_message(
+                &mut message,
+                &kind,
+                server,
+                casemapping,
+                buffer_config,
+            );
         }
 
         self.record_message(server, message, buffer_config)
@@ -582,6 +588,7 @@ impl Manager {
         &self,
         message: &mut crate::Message,
         kind: &history::Kind,
+        server: &Server,
         casemapping: isupport::CaseMap,
         buffer_config: &config::Buffer,
     ) {
@@ -593,7 +600,12 @@ impl Manager {
         {
             // Check if target is a channel, and if included/excluded.
             if let message::Target::Channel { channel, .. } = &message.target
-                && !server_message.should_send_message(channel.as_str())
+                && !server_message.should_send_message(
+                    source.nick().map(Nick::as_nickref),
+                    channel,
+                    server,
+                    casemapping,
+                )
             {
                 message.blocked = true;
                 return;
@@ -759,6 +771,21 @@ impl Manager {
 
                 match message.target.source() {
                     message::Source::Server(Some(source)) => {
+                        let server = if let Some(server) = kind.server() {
+                            Some(server)
+                        } else if let message::Target::Highlights {
+                            server,
+                            ..
+                        } = &message.target
+                        {
+                            Some(server)
+                        } else {
+                            None
+                        };
+
+                        let casemapping =
+                            clients.get_casemapping_or_default(server);
+
                         if let Some(server_message) =
                             buffer_config.server_messages.get(source)
                         {
@@ -767,27 +794,19 @@ impl Manager {
                             | message::Target::Highlights {
                                 channel, ..
                             } = &message.target
-                                && !server_message
-                                    .should_send_message(channel.as_str())
+                                && let Some(server) = server
+                                && !server_message.should_send_message(
+                                    source.nick().map(Nick::as_nickref),
+                                    channel,
+                                    server,
+                                    casemapping,
+                                )
                             {
                                 message.blocked = true;
                             } else if let Some(seconds) = server_message.smart {
                                 let nick = match source.nick() {
                                     Some(nick) => Some(nick.clone()),
                                     None => message.plain().and_then(|s| {
-                                        let server = if let Some(server) = kind.server() {
-                                            Some(server)
-                                        } else if let message::Target::Highlights { server, .. } =
-                                            &message.target
-                                        {
-                                            Some(server)
-                                        } else {
-                                            None
-                                        };
-
-                                        let casemapping = clients
-                                            .get_casemapping_or_default(server);
-
                                         s.split(' ').nth(1).map(|nick| {
                                             Nick::from_str(nick, casemapping)
                                         })
