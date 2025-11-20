@@ -101,6 +101,7 @@ pub struct Server {
     pub anti_flood: Duration,
     #[serde(skip)]
     pub order: u16,
+    pub proxy: Option<config::Proxy>,
 }
 
 impl Server {
@@ -213,6 +214,7 @@ impl Default for Server {
             chathistory: true,
             anti_flood: Duration::from_millis(2000),
             order: 0,
+            proxy: None,
         }
     }
 }
