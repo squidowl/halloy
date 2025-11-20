@@ -168,6 +168,10 @@ pub fn view<'a>(
         let key_bindings = config.buffer.text_input.key_bindings.clone();
         text_input = text_input.on_action(Message::Action).key_binding(
             move |key_press| {
+                if !matches!(key_press.status, iced::widget::text_editor::Status::Focused { .. }) {
+                    return None;
+                }
+
                 // Try emacs bindings first if enabled
                 if matches!(key_bindings, KeyBindings::Emacs)
                     && let Some(binding) = emacs_key_binding(key_press.clone())
@@ -183,8 +187,10 @@ pub fn view<'a>(
                     // ) if key_press.modifiers.shift() => {
                     //     Some(text_editor::Binding::Enter)
                     // }
-                    // 
-                    iced::keyboard::Key::Character("v") if key_press.modifiers.command() => {
+                    //
+                    iced::keyboard::Key::Character("v")
+                        if key_press.modifiers.command() =>
+                    {
                         Some(text_editor::Binding::Custom(Message::Paste))
                     }
                     // Send
@@ -971,11 +977,9 @@ impl State {
                 // Paste clipboard contents into the input
                 if let Some(clipboard) = clipboard {
                     let cleaned = clipboard.replace(['\n', '\r'], "");
-                    
+
                     self.input_content.perform(text_editor::Action::Edit(
-                        text_editor::Edit::Paste(std::sync::Arc::new(
-                            cleaned,
-                        )),
+                        text_editor::Edit::Paste(std::sync::Arc::new(cleaned)),
                     ));
                 }
 
