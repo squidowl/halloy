@@ -68,7 +68,7 @@ impl Default for Keyboard {
             cycle_previous_unread_buffer: KeyBind::cycle_previous_unread_buffer(
             ),
             mark_as_read: KeyBind::mark_as_read(),
-            quit_application: KeyBind::NotSet,
+            quit_application: KeyBind::Unbind,
         }
     }
 }

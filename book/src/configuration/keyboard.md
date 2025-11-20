@@ -15,11 +15,11 @@ move_up = "alt+k"
 move_down = "alt+j"
 move_left = "alt+h"
 move_right = "alt+l"
-command_bar = "noop" # <- use noop, none or unset to disable key bind.
+command_bar = "noop" # <- use noop or none to disable key bind.
 quit_application = "ctrl+q"
 ```
 
-Note you can disable a key bind by setting it to `"noop"`, `"none"` or `"unset"`.
+Note you can disable a key bind by setting it to `"noop"` or `"none"`.
 
 ## Types
 
@@ -52,4 +52,4 @@ Note you can disable a key bind by setting it to `"noop"`, `"none"` or `"unset"`
 | `logs`                         | Toggle Logs Buffer           | <kbd>⌘</kbd> + <kbd>l</kbd>                         | <kbd>ctrl</kbd> + <kbd>l</kbd>                      |
 | `theme_editor`                 | Toggle Theme Editor Window   | <kbd>⌘</kbd> + <kbd>t</kbd>                         | <kbd>ctrl</kbd> + <kbd>t</kbd>                      |
 | `highlights`                   | Toggle Highlights Window     | <kbd>⌘</kbd> + <kbd>i</kbd>                         | <kbd>ctrl</kbd> + <kbd>i</kbd>                      |
-| `quit_application`             | Quit Halloy                  | Not set                                             | Not set                                             |
+| `quit_application`             | Quit Halloy                  | None                                                | None                                                |

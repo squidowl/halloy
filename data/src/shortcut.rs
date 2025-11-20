@@ -56,7 +56,7 @@ pub enum Command {
 macro_rules! default {
     ($name:ident, $k:tt) => {
         pub fn $name() -> KeyBind {
-            KeyBind::Set {
+            KeyBind::Bind {
                 key_code: KeyCode(iced_core::keyboard::Key::Named(
                     iced_core::keyboard::key::Named::$k,
                 )),
@@ -66,7 +66,7 @@ macro_rules! default {
     };
     ($name:ident, $k:literal, $m:expr) => {
         pub fn $name() -> KeyBind {
-            KeyBind::Set {
+            KeyBind::Bind {
                 key_code: KeyCode(iced_core::keyboard::Key::Character(
                     $k.into(),
                 )),
@@ -76,7 +76,7 @@ macro_rules! default {
     };
     ($name:ident, $k:tt, $m:expr) => {
         pub fn $name() -> KeyBind {
-            KeyBind::Set {
+            KeyBind::Bind {
                 key_code: KeyCode(iced_core::keyboard::Key::Named(
                     iced_core::keyboard::key::Named::$k,
                 )),
@@ -88,21 +88,21 @@ macro_rules! default {
 
 #[derive(Debug, Clone, Eq, Ord, PartialOrd)]
 pub enum KeyBind {
-    Set {
+    Bind {
         key_code: KeyCode,
         modifiers: Modifiers,
     },
-    NotSet,
+    Unbind,
 }
 
 impl fmt::Display for KeyBind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            KeyBind::Set {
+            KeyBind::Bind {
                 key_code,
                 modifiers,
             } => write!(f, "{modifiers} {key_code}"),
-            KeyBind::NotSet => write!(f, ""),
+            KeyBind::Unbind => write!(f, ""),
         }
     }
 }
@@ -111,11 +111,11 @@ impl PartialEq for KeyBind {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (
-                KeyBind::Set {
+                KeyBind::Bind {
                     key_code: a,
                     modifiers: a_modifiers,
                 },
-                KeyBind::Set {
+                KeyBind::Bind {
                     key_code: b,
                     modifiers: b_modifiers,
                 },
@@ -135,7 +135,7 @@ impl PartialEq for KeyBind {
                     (a, b) => a == b,
                 }
             }
-            (KeyBind::NotSet, KeyBind::NotSet) => true,
+            (KeyBind::Unbind, KeyBind::Unbind) => true,
             _ => false,
         }
     }
@@ -144,14 +144,14 @@ impl PartialEq for KeyBind {
 impl Hash for KeyBind {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         match self {
-            KeyBind::Set {
+            KeyBind::Bind {
                 key_code,
                 modifiers,
             } => {
                 key_code.hash(state);
                 modifiers.hash(state);
             }
-            KeyBind::NotSet => {
+            KeyBind::Unbind => {
                 std::mem::discriminant(self).hash(state);
             }
         }
@@ -159,26 +159,25 @@ impl Hash for KeyBind {
 }
 
 pub fn select_all() -> KeyBind {
-    KeyBind::Set {
+    KeyBind::Bind {
         key_code: KeyCode(iced_core::keyboard::Key::Character("a".into())),
         modifiers: COMMAND,
     }
 }
 
 pub fn copy() -> KeyBind {
-    KeyBind::Set {
+    KeyBind::Bind {
         key_code: KeyCode(iced_core::keyboard::Key::Character("c".into())),
         modifiers: COMMAND,
     }
 }
 
 pub fn paste() -> KeyBind {
-    KeyBind::Set {
+    KeyBind::Bind {
         key_code: KeyCode(iced_core::keyboard::Key::Character("v".into())),
         modifiers: COMMAND,
     }
 }
-
 
 // For defaults check the platform specific defaults:
 // macOS: https://support.apple.com/en-us/102650
@@ -226,7 +225,7 @@ impl From<(keyboard::Key, keyboard::Modifiers)> for KeyBind {
     fn from(
         (key_code, modifiers): (keyboard::Key, keyboard::Modifiers),
     ) -> Self {
-        KeyBind::Set {
+        KeyBind::Bind {
             key_code: KeyCode(key_code),
             modifiers: Modifiers(modifiers),
         }
@@ -242,13 +241,12 @@ impl<'de> Deserialize<'de> for KeyBind {
 
         let string = String::deserialize(deserializer)?;
 
-        // Check if the string is "none", "unset", or "noop"
+        // Check if the string is "none" or "noop"
         let trimmed = string.trim();
         if trimmed.eq_ignore_ascii_case("none")
             || trimmed.eq_ignore_ascii_case("noop")
-            || trimmed.eq_ignore_ascii_case("unset")
         {
-            return Ok(KeyBind::NotSet);
+            return Ok(KeyBind::Unbind);
         }
 
         let parts = string.trim().split('+').collect::<Vec<_>>();
@@ -274,7 +272,7 @@ impl<'de> Deserialize<'de> for KeyBind {
             }
         };
 
-        Ok(KeyBind::Set {
+        Ok(KeyBind::Bind {
             key_code,
             modifiers,
         })
