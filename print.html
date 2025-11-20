@@ -16,7 +16,7 @@
         <link rel="shortcut icon" href="favicon-65fb0af4.png">
         <link rel="stylesheet" href="css/variables-8adf115d.css">
         <link rel="stylesheet" href="css/general-2459343d.css">
-        <link rel="stylesheet" href="css/chrome-9dfbd86b.css">
+        <link rel="stylesheet" href="css/chrome-ae938929.css">
         <link rel="stylesheet" href="css/print-9e4910d8.css" media="print">
 
         <!-- Fonts -->
@@ -35,10 +35,10 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-35bdbb43.js";
+            window.path_to_searchindex_js = "searchindex-d5433a2f.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-a56d2f2f.js"></script>
+        <script src="toc-fe913ceb.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -3632,6 +3632,7 @@ scale_factor = 1.0
 <li><a href="#who_poll_interval">who_poll_interval</a></li>
 <li><a href="#monitor">monitor</a></li>
 <li><a href="#chathistory">chathistory</a></li>
+<li><a href="#proxy-1">proxy</a></li>
 </ul>
 </li>
 <li><a href="#filters">Filters</a></li>
@@ -3947,6 +3948,28 @@ monitor = ["Foo", "Bar"]
 
 [servers.&lt;name&gt;]
 chathistory = true
+</code></pre>
+<h3 id="proxy-1"><a class="header" href="#proxy-1">proxy</a></h3>
+<p>Custom proxy for specified Server</p>
+<p>The logic is as follows:</p>
+<ul>
+<li>If a server proxy is provided, it will be used.</li>
+<li>If a server proxy is not provided, the global proxy will be used.</li>
+<li>If the global proxy is not provided, a plain connection will be used.</li>
+</ul>
+<p>The configuration syntax and supported proxy types are similar to the global <a href="configuration/proxy">Proxy</a> but associated with the current <code>servers.&lt;name&gt;</code>:</p>
+<pre><code class="language-toml">[servers.&lt;name&gt;.proxy.http]
+host = "192.168.1.100"
+port = 1080
+username = "username"
+password = "password"
+</code></pre>
+<p>or</p>
+<pre><code class="language-toml">[servers.&lt;name&gt;.proxy.socks5]
+host = "192.168.1.100"
+port = 1080
+username = "username"
+password = "password"
 </code></pre>
 <h2 id="filters"><a class="header" href="#filters"><a href="#filters-1">Filters</a></a></h2>
 <p>Filter messages based on various criteria</p>
