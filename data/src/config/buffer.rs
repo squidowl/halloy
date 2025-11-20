@@ -7,6 +7,9 @@ use serde::{Deserialize, Deserializer};
 pub use self::channel::Channel;
 use crate::appearance::theme::{alpha_color, alpha_color_calculate};
 use crate::config::buffer::nickname::Nickname;
+use crate::config::inclusivities::{Inclusivities, is_target_channel_included};
+use crate::user::NickRef;
+use crate::{Server, isupport, target};
 
 pub mod channel;
 pub mod nickname;
@@ -351,8 +354,8 @@ pub struct ServerMessage {
     pub enabled: bool,
     pub smart: Option<i64>,
     pub username_format: UsernameFormat,
-    pub exclude: Vec<String>,
-    pub include: Vec<String>,
+    pub exclude: Option<Inclusivities>,
+    pub include: Option<Inclusivities>,
     #[serde(deserialize_with = "deserialize_dimmed_maybe")]
     pub dimmed: Option<Dimmed>,
 }
@@ -363,33 +366,34 @@ impl Default for ServerMessage {
             enabled: true,
             smart: None,
             username_format: UsernameFormat::default(),
-            exclude: Vec::default(),
-            include: Vec::default(),
+            exclude: None,
+            include: None,
             dimmed: Some(Dimmed(None)),
         }
     }
 }
 
 impl ServerMessage {
-    pub fn should_send_message(&self, channel: &str) -> bool {
+    pub fn should_send_message(
+        &self,
+        nick: Option<NickRef>,
+        channel: &target::Channel,
+        server: &Server,
+        casemapping: isupport::CaseMap,
+    ) -> bool {
         // Server Message is not enabled.
         if !self.enabled {
             return false;
         }
 
-        let is_channel_filtered = |list: &Vec<String>, channel: &str| -> bool {
-            let wildcards = ["*", "all"];
-
-            list.iter().any(|item| {
-                wildcards.contains(&item.as_str()) || item == channel
-            })
-        };
-
-        let channel_included = is_channel_filtered(&self.include, channel);
-        let channel_excluded = is_channel_filtered(&self.exclude, channel);
-
-        // If the channel is included, it has precedence over excluded.
-        channel_included || !channel_excluded
+        is_target_channel_included(
+            self.include.as_ref(),
+            self.exclude.as_ref(),
+            nick,
+            channel,
+            server,
+            casemapping,
+        )
     }
 }
 
