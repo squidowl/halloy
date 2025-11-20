@@ -13,7 +13,7 @@ Added:
 - Ability to hide nickname for consecutive messages from the same user
 - Ability to specify a distinct sound for each match highlight set
 - Setting to notify for every message in a channel
-- Implement custom proxy option per server (#592 / PR#1318)
+- Per server custom proxy configuration option
 
 Fixed:
 
@@ -33,7 +33,7 @@ Changed:
 
 Thanks:
 
-- Contributions: @kasperkronborg, @mistivia
+- Contributions: @kasperkronborg, @mistivia, @oooo-ps
 - Bug reports: @Frikilinux, ThePendulum, @crabbedhaloablution, @findus, @Darksecond
 - Feature requests: @cyrneko, ilya, abby, @clorteau, @RobertCraigie
 

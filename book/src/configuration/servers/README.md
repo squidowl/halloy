@@ -490,7 +490,7 @@ The logic is as follows:
 * If a server proxy is not provided, the global proxy will be used.
 * If the global proxy is not provided, a plain connection will be used.
 
-The configuration syntax and supported proxy types are similar to the global [Proxy](configuration/proxy/README.md) but associated with the current `servers.<name>`:
+The configuration syntax and supported proxy types are similar to the global [Proxy](../proxy/) but associated with the current `servers.<name>`:
 
 ```toml
 [servers.<name>.proxy.http]
@@ -509,8 +509,6 @@ port = 1080
 username = "username"
 password = "password"
 ```
-
-etc.
 
 ## [Filters](filters.md)
 
