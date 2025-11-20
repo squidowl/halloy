@@ -221,14 +221,12 @@ pub fn view<'a>(
         );
     }
 
-    let menu = Actions::list();
-
     let wrapped_input: Element<'a, Message> = context_menu(
         context_menu::MouseButton::default(),
         context_menu::Anchor::Cursor,
         context_menu::ToggleBehavior::KeepOpen,
         text_input,
-        menu,
+        Actions::list(),
         move |menu, length| {
             let context_button =
                 |title: Text<'a>,
@@ -335,11 +333,12 @@ pub fn view<'a>(
         container(
             row![maybe_our_user, maybe_vertical_rule, wrapped_input]
                 .spacing(4)
-                .height(
-                    (theme::line_height(&config.font).ceil() + 4.0)
-                        * state.input_content.line_count() as f32
-                )
-                // .min_height((theme::line_height(&config.font).ceil() + 4.0).max(20.0))
+                // TODO: @casper.storm when enabling multi-line input.
+                // .height(
+                //     (theme::line_height(&config.font).ceil() + 4.0)
+                //         * state.input_content.line_count() as f32
+                // )
+                .height((theme::line_height(&config.font).ceil() + 4.0).max(20.0))
                 .align_y(Alignment::Center)
         )
         .padding(8)
@@ -976,7 +975,7 @@ impl State {
 
                 // Paste clipboard contents into the input
                 if let Some(clipboard) = clipboard {
-                    let cleaned = clipboard.replace(['\n', '\r'], "");
+                    let cleaned = clipboard.replace(['\n', '\r'], " ");
 
                     self.input_content.perform(text_editor::Action::Edit(
                         text_editor::Edit::Paste(std::sync::Arc::new(cleaned)),

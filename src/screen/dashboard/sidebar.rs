@@ -206,7 +206,7 @@ impl Sidebar {
                              icon: Text<'a>,
                              message: Message| {
                                 let keybind = keybind.and_then(|kb| match kb {
-                                    data::shortcut::KeyBind::Set { .. } => {
+                                    data::shortcut::KeyBind::Bind { .. } => {
                                         Some(
                                             text(format!("({kb})"))
                                                 .shaping(text::Shaping::Advanced)
@@ -218,7 +218,7 @@ impl Sidebar {
                                                 ),
                                         )
                                     }
-                                    data::shortcut::KeyBind::NotSet => None,
+                                    data::shortcut::KeyBind::Unbind => None,
                                 });
 
                                 button(
