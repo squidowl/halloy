@@ -18,7 +18,7 @@ pub use self::broadcast::Broadcast;
 pub use self::formatting::{Color, Formatting};
 pub use self::highlight::Highlight;
 pub use self::source::Source;
-pub use self::source::server::{Kind, StandardReply};
+pub use self::source::server::{Change, Kind, StandardReply};
 use crate::config::buffer::{CondensationFormat, UsernameFormat};
 use crate::config::{self, Highlights};
 use crate::log::Level;
@@ -584,6 +584,7 @@ impl Message {
             Source::User(user) | Source::Action(Some(user)) => {
                 user.renormalize(casemapping);
             }
+            Source::Server(Some(server)) => server.renormalize(casemapping),
             _ => (),
         }
 
@@ -763,10 +764,55 @@ pub fn condense(
                         text: String::from("-\u{FEFF}"),
                         source: source.clone(),
                     }),
-                    Kind::ChangeNick => Some(Fragment::Condensed {
-                        text: String::from("→\u{FEFF}"),
-                        source: source.clone(),
-                    }),
+                    Kind::ChangeNick => {
+                        if source.change().is_some() {
+                            Some(Fragment::Condensed {
+                                text: String::from("→\u{FEFF}"),
+                                source: source.clone(),
+                            })
+                        } else {
+                            // Find new nickname in message content
+                            let new_nick =
+                                if let Content::Fragments(fragments) =
+                                    &message.content
+                                {
+                                    fragments.iter().find_map(|fragment| {
+                                        if let Fragment::User(user, _) =
+                                            fragment
+                                        {
+                                            (user.nickname() != nick).then_some(
+                                                user.nickname().to_owned(),
+                                            )
+                                        } else {
+                                            None
+                                        }
+                                    })
+                                } else {
+                                    None
+                                };
+
+                            new_nick.map(|new_nick| Fragment::Condensed {
+                                text: String::from("→\u{FEFF}"),
+                                source: source::Server::new(
+                                    Kind::ChangeNick,
+                                    Some(nick.to_owned()),
+                                    Some(Change::Nick(new_nick)),
+                                ),
+                            })
+                        }
+                    }
+                    Kind::ChangeHost => {
+                        if source.change().is_some() {
+                            Some(Fragment::Condensed {
+                                text: String::from("→\u{FEFF}"),
+                                source: source.clone(),
+                            })
+                        } else {
+                            // Don't try to find hostnames in message content,
+                            // just hide the host change
+                            None
+                        }
+                    }
                     _ => None,
                 }
                 && let Some(associated_nick) = nick_associations
@@ -788,37 +834,16 @@ pub fn condense(
                     condensed_fragments
                         .insert(associated_nick, vec![nick_fragment]);
                 }
-
-                if matches!(source.kind(), Kind::ChangeNick)
-                    && let Some(new_nick_fragment) =
-                        if let Content::Fragments(fragments) = &message.content
-                        {
-                            fragments.iter().find_map(|fragment| {
-                                if let Fragment::User(user, _) = fragment {
-                                    (user.nickname() != nick)
-                                        .then_some(fragment.clone())
-                                } else {
-                                    None
-                                }
-                            })
-                        } else {
-                            None
-                        }
-                    && let Some(nick_fragments) =
-                        condensed_fragments.get_mut(&associated_nick)
-                {
-                    nick_fragments.push(new_nick_fragment);
-                }
             }
         });
 
         let mut condensed_fragments: Vec<Fragment> = condensed_fragments
             .into_iter()
             .filter_map(|(_, nick_fragments)| {
-                pre_filter_fragments(nick_fragments, condense)
+                filter_associated_fragments(nick_fragments, condense)
             })
             .flat_map(|nick_fragments| {
-                condense_fragments(nick_fragments, condense)
+                condense_associated_fragments(nick_fragments, condense)
             })
             .collect();
         condensed_fragments.pop(); // Remove trailing whitespace fragment
@@ -861,7 +886,7 @@ fn find_nickname_associations<'a>(
             && let Some(nick) = source.nick().map(NickRef::from)
         {
             match source.kind() {
-                Kind::Join | Kind::Part | Kind::Quit => {
+                Kind::Join | Kind::Part | Kind::Quit | Kind::ChangeHost => {
                     // If the nick does not have an entry then create an
                     // association for it
                     nick_associations.entry(nick).or_insert(
@@ -1032,7 +1057,7 @@ fn associate_nicknames<'a>(
     }
 }
 
-fn pre_filter_fragments(
+fn filter_associated_fragments(
     mut fragments: Vec<Fragment>,
     condense: &config::buffer::Condensation,
 ) -> Option<Vec<Fragment>> {
@@ -1042,26 +1067,26 @@ fn pre_filter_fragments(
         let mut nick_initial_state: HashMap<NickRef, bool> = HashMap::new();
 
         for fragment in fragments.iter() {
-            match fragment {
-                Fragment::Condensed { source, .. } => {
-                    if let Some(nick) = source.nick().map(NickRef::from) {
-                        match source.kind() {
-                            Kind::Join => {
-                                nick_initial_state.entry(nick).or_insert(false);
-                            }
-                            Kind::Part | Kind::Quit | Kind::ChangeNick => {
-                                nick_initial_state.entry(nick).or_insert(true);
-                            }
-                            _ => (),
+            if let Fragment::Condensed { source, .. } = fragment
+                && let Some(nick) = source.nick().map(NickRef::from)
+            {
+                match source.kind() {
+                    Kind::Join => {
+                        nick_initial_state.entry(nick).or_insert(false);
+                    }
+                    Kind::Part | Kind::Quit => {
+                        nick_initial_state.entry(nick).or_insert(true);
+                    }
+                    Kind::ChangeNick => {
+                        if let Some(Change::Nick(new_nick)) = source.change() {
+                            nick_initial_state.entry(nick).or_insert(true);
+                            nick_initial_state
+                                .entry(new_nick.into())
+                                .or_insert(false);
                         }
                     }
+                    _ => (),
                 }
-                Fragment::User(user, _) => {
-                    let nick = user.nickname();
-
-                    nick_initial_state.entry(nick).or_insert(false);
-                }
-                _ => (),
             }
         }
 
@@ -1070,44 +1095,31 @@ fn pre_filter_fragments(
         let mut nick_state: HashMap<NickRef, bool> = HashMap::new();
 
         for (index, fragment) in fragments.iter().enumerate() {
-            let check_state = match fragment {
-                Fragment::Condensed { source, .. } => {
-                    match source.kind() {
-                        Kind::Join => {
-                            if let Some(nick) = source.nick() {
-                                nick_state.insert(NickRef::from(nick), true);
-                            }
-
-                            true
-                        }
-                        Kind::Part | Kind::Quit | Kind::ChangeNick => {
-                            if let Some(nick) = source.nick() {
-                                nick_state.insert(NickRef::from(nick), false);
-                            }
-
-                            // Don't check state after the first part of a nick
-                            // change (the second part is a `Fragment::User`) to
-                            // avoid a partial nick change
-                            !matches!(source.kind(), Kind::ChangeNick)
-                        }
-                        _ => false,
-                    }
-                }
-                Fragment::User(user, _) => {
-                    nick_state.insert(user.nickname(), true);
-
-                    true
-                }
-                _ => false,
-            };
-
-            if check_state
-                && nick_state.iter().all(|(nick, state)| {
-                    nick_initial_state
-                        .get(nick)
-                        .is_some_and(|initial_state| state == initial_state)
-                })
+            if let Fragment::Condensed { source, .. } = fragment
+                && let Some(nick) = source.nick()
             {
+                match source.kind() {
+                    Kind::Join => {
+                        nick_state.insert(nick.into(), true);
+                    }
+                    Kind::Part | Kind::Quit => {
+                        nick_state.insert(nick.into(), false);
+                    }
+                    Kind::ChangeNick => {
+                        if let Some(Change::Nick(new_nick)) = source.change() {
+                            nick_state.insert(nick.into(), false);
+                            nick_state.insert(new_nick.into(), true);
+                        }
+                    }
+                    _ => (),
+                }
+            }
+
+            if nick_state.iter().all(|(nick, state)| {
+                nick_initial_state
+                    .get(nick)
+                    .is_some_and(|initial_state| state == initial_state)
+            }) {
                 changeless_chain_len = index + 1;
             }
         }
@@ -1119,7 +1131,7 @@ fn pre_filter_fragments(
     }
 }
 
-fn condense_fragments(
+fn condense_associated_fragments(
     fragments: Vec<Fragment>,
     condense: &config::buffer::Condensation,
 ) -> Vec<Fragment> {
@@ -1128,9 +1140,7 @@ fn condense_fragments(
         fragments
             .into_iter()
             .chunk_by(|fragment| {
-                if matches!(fragment, Fragment::User(_, _)) {
-                    true
-                } else if let Fragment::Condensed { source, .. } = &fragment
+                if let Fragment::Condensed { source, .. } = &fragment
                     && matches!(source.kind(), Kind::ChangeNick)
                 {
                     true
@@ -1139,25 +1149,46 @@ fn condense_fragments(
                 }
             })
             .into_iter()
-            .flat_map(|(is_change_nick_chain, fragments)| {
-                if is_change_nick_chain {
+            .flat_map(|(is_change_nick, fragments)| {
+                if is_change_nick {
                     let mut fragments = fragments.into_iter();
                     let first_fragment = fragments.next();
                     let last_fragment = fragments.last();
 
                     first_fragment.and_then(|first_fragment| {
-                        last_fragment.and_then(|last_fragment| {
-                            if let Fragment::Condensed { source, .. } =
-                                &first_fragment
-                                && let Some(nick) = source.nick()
-                                && let Fragment::User(user, _) = &last_fragment
-                                && nick.as_nickref() != user.nickname()
+                        if let Some(last_fragment) = last_fragment {
+                            if let Fragment::Condensed { text, source, .. } =
+                                first_fragment
+                                && let source::Server::Details(
+                                    source::server::Details {
+                                        nick: Some(old_nick),
+                                        ..
+                                    },
+                                ) = source
+                                && let Fragment::Condensed { source, .. } =
+                                    last_fragment
+                                && let source::Server::Details(
+                                    source::server::Details {
+                                        change: Some(Change::Nick(new_nick)),
+                                        ..
+                                    },
+                                ) = source
+                                && old_nick != new_nick
                             {
-                                Some(vec![first_fragment, last_fragment])
+                                Some(vec![Fragment::Condensed {
+                                    text,
+                                    source: source::Server::new(
+                                        Kind::ChangeNick,
+                                        Some(old_nick),
+                                        Some(Change::Nick(new_nick)),
+                                    ),
+                                }])
                             } else {
                                 None
                             }
-                        })
+                        } else {
+                            Some(vec![first_fragment])
+                        }
                     })
                 } else {
                     Some(fragments.collect())
@@ -1169,97 +1200,202 @@ fn condense_fragments(
         fragments
     };
 
+    let fragments = if matches!(condense.format, CondensationFormat::Brief) {
+        // Condense hostname change chains
+        fragments
+            .into_iter()
+            .chunk_by(|fragment| {
+                if let Fragment::Condensed { source, .. } = &fragment
+                    && matches!(source.kind(), Kind::ChangeHost)
+                {
+                    true
+                } else {
+                    false
+                }
+            })
+            .into_iter()
+            .flat_map(|(is_change_host, fragments)| {
+                if is_change_host {
+                    let mut fragments = fragments.into_iter();
+                    let first_fragment = fragments.next();
+                    let last_fragment = fragments.last();
+
+                    first_fragment.and_then(|first_fragment| {
+                        if let Some(last_fragment) = last_fragment {
+                            if let Fragment::Condensed { text, source, .. } =
+                                first_fragment
+                                && let source::Server::Details(
+                                    source::server::Details {
+                                        nick: Some(nick),
+                                        change:
+                                            Some(Change::Host(old_hostname, _)),
+                                        ..
+                                    },
+                                ) = source
+                                && let Fragment::Condensed { source, .. } =
+                                    last_fragment
+                                && let source::Server::Details(
+                                    source::server::Details {
+                                        change:
+                                            Some(Change::Host(_, new_hostname)),
+                                        ..
+                                    },
+                                ) = source
+                                && old_hostname != new_hostname
+                            {
+                                Some(vec![Fragment::Condensed {
+                                    text,
+                                    source: source::Server::new(
+                                        Kind::ChangeHost,
+                                        Some(nick),
+                                        Some(Change::Host(
+                                            old_hostname,
+                                            new_hostname,
+                                        )),
+                                    ),
+                                }])
+                            } else {
+                                None
+                            }
+                        } else {
+                            Some(vec![first_fragment])
+                        }
+                    })
+                } else {
+                    Some(fragments.collect())
+                }
+            })
+            .flatten()
+            .collect()
+    } else {
+        fragments
+    };
+
+    let fragments = if matches!(
+        condense.format,
+        CondensationFormat::Brief | CondensationFormat::Detailed
+    ) {
+        // Condense join/part/quit chains
+        fragments
+            .into_iter()
+            .chunk_by(|fragment| {
+                if let Fragment::Condensed { source, .. } = &fragment
+                    && matches!(
+                        source.kind(),
+                        Kind::Join | Kind::Part | Kind::Quit
+                    )
+                {
+                    true
+                } else {
+                    false
+                }
+            })
+            .into_iter()
+            .flat_map(|(is_join_part_quit, mut nick_fragments)| {
+                if is_join_part_quit {
+                    let first_nick_fragment = nick_fragments.next();
+                    let last_nick_fragment = nick_fragments.last();
+
+                    first_nick_fragment.and_then(|first_nick_fragment| {
+                        if let Some(last_nick_fragment) = last_nick_fragment
+                            && last_nick_fragment.as_str()
+                                != first_nick_fragment.as_str()
+                        {
+                            matches!(
+                                condense.format,
+                                CondensationFormat::Detailed
+                            )
+                            .then_some(vec![
+                                first_nick_fragment,
+                                last_nick_fragment,
+                            ])
+                        } else {
+                            Some(vec![first_nick_fragment])
+                        }
+                    })
+                } else {
+                    Some(nick_fragments.collect())
+                }
+            })
+            .flatten()
+            .collect()
+    } else {
+        fragments
+    };
+
     fragments
         .into_iter()
         .chunk_by(|fragment| {
-            if let Fragment::Condensed { source, .. } = &fragment {
-                (
-                    source.nick().cloned(),
-                    matches!(source.kind(), Kind::ChangeNick),
-                )
+            if let Fragment::Condensed { source, .. } = &fragment
+                && let Some(nick) = source.nick()
+            {
+                Some((nick.clone(), source.change().cloned()))
             } else {
-                (None, true)
+                None
             }
         })
         .into_iter()
-        .flat_map(|((nick, is_change_nick_fragment), nick_fragments)| {
-            let mut nick_fragments: Vec<Fragment> = nick_fragments.collect();
+        .flat_map(|(chunk_key, nick_fragments)| {
+            if let Some((nick, change)) = chunk_key {
+                let mut nick_fragments: Vec<Fragment> =
+                    nick_fragments.collect();
 
-            if is_change_nick_fragment {
-                if let Some(nick) = nick {
-                    // nick_fragments = 1x Fragment::Condensed with kind
-                    // Kind::ChangeNick
-                    let nick_string = nick.to_string() + "\u{FEFF}";
+                let user = User::from(nick);
 
-                    nick_fragments.insert(
-                        0,
-                        Fragment::User(User::from(nick), nick_string),
-                    );
+                match change {
+                    Some(Change::Nick(new_nick)) => {
+                        let nick = user.nickname().to_string() + "\u{FEFF}";
 
-                    Some(nick_fragments)
-                } else {
-                    // nick_fragments = 1x Fragment::User
-                    nick_fragments.push(Fragment::Text(String::from("  ")));
+                        nick_fragments.insert(0, Fragment::User(user, nick));
 
-                    Some(nick_fragments)
-                }
-            } else {
-                nick.and_then(|nick| {
-                    let nick_string = nick.to_string();
+                        let new_user = User::from(new_nick.clone());
 
-                    match condense.format {
-                        CondensationFormat::Brief
-                        | CondensationFormat::Detailed => {
-                            let mut nick_fragments = nick_fragments.into_iter();
-                            let first_fragment = nick_fragments.next();
-                            let last_fragment = nick_fragments.last();
+                        let new_nick = new_user.nickname().to_string();
 
-                            first_fragment.and_then(|first_fragment| {
-                                if let Some(last_fragment) = last_fragment
-                                    && last_fragment.as_str()
-                                        != first_fragment.as_str()
-                                {
-                                    matches!(
-                                        condense.format,
-                                        CondensationFormat::Detailed
-                                    )
-                                    .then_some(vec![
-                                        first_fragment,
-                                        last_fragment,
-                                        Fragment::User(
-                                            User::from(nick),
-                                            nick_string,
-                                        ),
-                                        Fragment::Text(String::from("  ")),
-                                    ])
-                                } else {
-                                    Some(vec![
-                                        first_fragment,
-                                        Fragment::User(
-                                            User::from(nick),
-                                            nick_string,
-                                        ),
-                                        Fragment::Text(String::from("  ")),
-                                    ])
-                                }
-                            })
-                        }
-                        CondensationFormat::Full => {
-                            nick_fragments.push(Fragment::User(
-                                User::from(nick),
-                                nick_string,
-                            ));
-                            nick_fragments
-                                .push(Fragment::Text(String::from("  ")));
-
-                            Some(nick_fragments)
-                        }
+                        nick_fragments.push(Fragment::User(new_user, new_nick));
                     }
-                })
+                    Some(Change::Host(old_hostname, new_hostname)) => {
+                        let nick = user.nickname().to_string();
+
+                        nick_fragments
+                            .insert(0, Fragment::User(user.clone(), nick));
+
+                        nick_fragments.insert(
+                            1,
+                            Fragment::Condensed {
+                                text: String::from("@"),
+                                source: source::Server::new(
+                                    Kind::ChangeHost,
+                                    Some(user.nickname().to_owned()),
+                                    None,
+                                ),
+                            },
+                        );
+
+                        nick_fragments.insert(
+                            2,
+                            Fragment::User(user.clone(), old_hostname.clone()),
+                        );
+
+                        nick_fragments
+                            .push(Fragment::User(user, new_hostname.clone()));
+                    }
+                    None => {
+                        let nick = user.nickname().to_string();
+
+                        nick_fragments.push(Fragment::User(user, nick));
+                    }
+                }
+
+                nick_fragments.push(Fragment::Text(String::from("  ")));
+
+                Some(nick_fragments)
+            } else {
+                None
             }
         })
         .flatten()
-        .collect::<Vec<Fragment>>()
+        .collect()
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -1661,6 +1797,7 @@ fn target(
                     source: Source::Server(Some(source::Server::new(
                         Kind::ChangeMode,
                         Some(user?.nickname().to_owned()),
+                        None,
                     ))),
                 })
             } else {
@@ -1683,6 +1820,7 @@ fn target(
                 source: Source::Server(Some(source::Server::new(
                     Kind::ChangeTopic,
                     Some(user?.nickname().to_owned()),
+                    None,
                 ))),
             })
         }
@@ -1700,6 +1838,7 @@ fn target(
                 source: Source::Server(Some(source::Server::new(
                     Kind::Kick,
                     Some(user?.nickname().to_owned()),
+                    None,
                 ))),
             })
         }
@@ -1717,6 +1856,7 @@ fn target(
                 source: Source::Server(Some(source::Server::new(
                     Kind::Part,
                     Some(user?.nickname().to_owned()),
+                    None,
                 ))),
             })
         }
@@ -1734,6 +1874,7 @@ fn target(
                 source: Source::Server(Some(source::Server::new(
                     Kind::Join,
                     Some(user?.nickname().to_owned()),
+                    None,
                 ))),
             })
         }
@@ -1749,6 +1890,7 @@ fn target(
                 channel,
                 source: Source::Server(Some(source::Server::new(
                     Kind::ReplyTopic,
+                    None,
                     None,
                 ))),
             })
@@ -1847,15 +1989,10 @@ fn target(
                 }
             }
         }
-        Command::CHGHOST(_, _) => Some(Target::Server {
-            source: Source::Server(Some(source::Server::new(
-                Kind::ChangeHost,
-                user.map(|user| user.nickname().to_owned()),
-            ))),
-        }),
         Command::Numeric(RPL_MONONLINE, _) => Some(Target::Server {
             source: Source::Server(Some(source::Server::new(
                 Kind::MonitoredOnline,
+                None,
                 None,
             ))),
         }),
@@ -1863,11 +2000,13 @@ fn target(
             source: Source::Server(Some(source::Server::new(
                 Kind::MonitoredOffline,
                 None,
+                None,
             ))),
         }),
         Command::FAIL(_, _, _, _) => Some(Target::Server {
             source: Source::Server(Some(source::Server::new(
                 Kind::StandardReply(StandardReply::Fail),
+                None,
                 None,
             ))),
         }),
@@ -1875,17 +2014,20 @@ fn target(
             source: Source::Server(Some(source::Server::new(
                 Kind::StandardReply(StandardReply::Warn),
                 None,
+                None,
             ))),
         }),
         Command::NOTE(_, _, _, _) => Some(Target::Server {
             source: Source::Server(Some(source::Server::new(
                 Kind::StandardReply(StandardReply::Note),
                 None,
+                None,
             ))),
         }),
         Command::WALLOPS(_) => Some(Target::Server {
             source: Source::Server(Some(source::Server::new(
                 Kind::WAllOps,
+                None,
                 None,
             ))),
         }),
@@ -1909,6 +2051,7 @@ fn target(
         // Server
         Command::PASS(_)
         | Command::NICK(_)
+        | Command::CHGHOST(_, _)
         | Command::USER(_, _)
         | Command::OPER(_, _)
         | Command::QUIT(_)

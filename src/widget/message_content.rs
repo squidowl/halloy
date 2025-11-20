@@ -275,6 +275,7 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a>(
                             data::message::Fragment::Condensed {
                                 text,
                                 source,
+                                ..
                             } => span(text.as_str())
                                 .font_maybe(
                                     theme::font_style::server(
