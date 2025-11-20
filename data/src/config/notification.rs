@@ -46,7 +46,7 @@ impl Notification {
         is_user_channel_server_included(
             self.include.as_ref(),
             self.exclude.as_ref(),
-            user,
+            user.nickname(),
             channel,
             server,
             casemapping,
