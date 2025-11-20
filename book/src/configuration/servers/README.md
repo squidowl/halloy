@@ -37,6 +37,7 @@ You can define multiple server sections in the configuration file. Each server s
     - [who\_poll\_interval](#who_poll_interval)
     - [monitor](#monitor)
     - [chathistory](#chathistory)
+    - [proxy](#proxy)
   - [Filters](#filters)
   - [SASL Plain](#sasl-plain)
   - [SASL External](#sasl-external)
@@ -141,7 +142,7 @@ nick_identify_syntax = ""
 
 ### alt_nicks
 
-Alternative nicknames for the client, if the default is taken.  
+Alternative nicknames for the client, if the default is taken.
 
 ```toml
 # Type: array of strings
@@ -349,7 +350,7 @@ ghost_sequence = ["REGAIN"]
 
 ### umodes
 
-User modestring to set on connect.  
+User modestring to set on connect.
 
 ```toml
 # Type: string
@@ -424,7 +425,7 @@ The time (in milliseconds) between sending messages to servers without SAFERATE.
 [servers.<name>]
 anti_flood = 2000
 ```
-  
+
 ### who_poll_enabled
 
 Whether or not to WHO polling is enabled.
@@ -477,6 +478,36 @@ Whether or not to enable [IRCv3 Chat History](https://ircv3.net/specs/extensions
 
 [servers.<name>]
 chathistory = true
+```
+
+### proxy
+
+Custom proxy for specified Server
+
+The logic is as follows:
+
+* If a server proxy is provided, it will be used.
+* If a server proxy is not provided, the global proxy will be used.
+* If the global proxy is not provided, a plain connection will be used.
+
+The configuration syntax and supported proxy types are similar to the global [Proxy](../proxy/) but associated with the current `servers.<name>`:
+
+```toml
+[servers.<name>.proxy.http]
+host = "192.168.1.100"
+port = 1080
+username = "username"
+password = "password"
+```
+
+or
+
+```toml
+[servers.<name>.proxy.socks5]
+host = "192.168.1.100"
+port = 1080
+username = "username"
+password = "password"
 ```
 
 ## [Filters](filters.md)

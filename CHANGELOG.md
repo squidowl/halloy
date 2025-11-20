@@ -7,12 +7,13 @@ Added:
 - Context menu item added to server-wide buffers to close all queries
 - Messages that fail to send are dimmed and marked, and can be deleted or re-sent (for servers that support the `echo-message` capability)
 - Reload Halloy by sending `SIGUSR1` on Unix system
-- Ability to hide the indicator when a new version of Halloy is available 
+- Ability to hide the indicator when a new version of Halloy is available
 - Fuzzy matching when searching in command bar
 - Setting to disable file transfers (DCC), removing it from the UI
 - Ability to hide nickname for consecutive messages from the same user
 - Ability to specify a distinct sound for each match highlight set
 - Setting to notify for every message in a channel
+- Per server custom proxy configuration option
 
 Fixed:
 
@@ -32,7 +33,7 @@ Changed:
 
 Thanks:
 
-- Contributions: @kasperkronborg, @mistivia
+- Contributions: @kasperkronborg, @mistivia, @oooo-ps
 - Bug reports: @Frikilinux, ThePendulum, @crabbedhaloablution, @findus, @Darksecond
 - Feature requests: @cyrneko, ilya, abby, @clorteau, @RobertCraigie
 

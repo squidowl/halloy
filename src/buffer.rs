@@ -18,6 +18,7 @@ use crate::screen::dashboard::sidebar;
 use crate::widget::Element;
 
 pub mod channel;
+pub mod context_menu;
 pub mod empty;
 pub mod file_transfers;
 pub mod highlights;
@@ -27,7 +28,6 @@ mod message_view;
 pub mod query;
 mod scroll_view;
 pub mod server;
-pub mod context_menu;
 
 #[derive(Clone, Debug)]
 pub enum Buffer {

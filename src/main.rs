@@ -13,10 +13,10 @@ mod notification;
 mod platform_specific;
 mod screen;
 mod stream;
+mod unix_signal;
 mod url;
 mod widget;
 mod window;
-mod unix_signal;
 
 use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
@@ -1432,17 +1432,12 @@ impl Halloy {
                     Task::batch(commands).map(Message::Dashboard)
                 }
             },
-            Message::UnixSignal(signal) => {
-                match signal {
-                    signal_hook::consts::SIGUSR1 => {
-                        Task::perform(
-                            Config::load(),
-                            Message::ConfigReloaded,
-                        )
-                    }
-                    _ => Task::none(),
+            Message::UnixSignal(signal) => match signal {
+                signal_hook::consts::SIGUSR1 => {
+                    Task::perform(Config::load(), Message::ConfigReloaded)
                 }
-            }
+                _ => Task::none(),
+            },
         }
     }
 
@@ -1527,12 +1522,15 @@ impl Halloy {
     fn subscription(&self) -> Subscription<Message> {
         let tick = iced::time::every(Duration::from_secs(1)).map(Message::Tick);
 
-        let streams = Subscription::batch(
-            self.servers
-                .entries()
-                .map(|entry| stream::run(entry, self.config.proxy.clone())),
-        )
-        .map(Message::Stream);
+        let streams =
+            Subscription::batch(self.servers.entries().map(|entry| {
+                let proxy = match entry.config.proxy {
+                    Some(ref proxy) => Some(proxy.clone()),
+                    None => self.config.proxy.clone(),
+                };
+                stream::run(entry, proxy)
+            }))
+            .map(Message::Stream);
 
         let mut subscriptions = vec![
             url::listen().map(Message::RouteReceived),
@@ -1544,7 +1542,8 @@ impl Halloy {
         ];
 
         if cfg!(target_family = "unix") {
-            subscriptions.push(unix_signal::subscription().map(Message::UnixSignal));
+            subscriptions
+                .push(unix_signal::subscription().map(Message::UnixSignal));
         }
 
         // We only want to listen for appearance changes if user has dynamic themes.
@@ -1569,18 +1568,14 @@ impl Halloy {
 
                 for (server, config) in updated.servers.iter() {
                     let server = server.clone().into();
-                    if let Some(server) =
-                        self.servers.get_mut(&server)
-                    {
+                    if let Some(server) = self.servers.get_mut(&server) {
                         *server = config.clone();
                     } else {
-                        self.servers
-                            .insert(server, config.clone());
+                        self.servers.insert(server, config.clone());
                     }
                 }
 
-                self.servers
-                    .set_order(updated.sidebar.order_by);
+                self.servers.set_order(updated.sidebar.order_by);
 
                 self.theme = self
                     .current_mode
@@ -1588,17 +1583,14 @@ impl Halloy {
                     .into();
 
                 // Load new notification sounds.
-                self.notifications =
-                    Notifications::new(&updated);
+                self.notifications = Notifications::new(&updated);
 
                 self.config = updated;
 
                 for (server, _) in removed_servers {
                     self.clients.quit(&server, None);
                 }
-                if let Screen::Dashboard(dashboard) =
-                    &mut self.screen
-                {
+                if let Screen::Dashboard(dashboard) = &mut self.screen {
                     dashboard.update_filters(
                         &self.servers,
                         &self.clients,
@@ -1607,9 +1599,7 @@ impl Halloy {
                 }
             }
             Err(error) => {
-                self.modal = Some(
-                    Modal::ReloadConfigurationError(error),
-                );
+                self.modal = Some(Modal::ReloadConfigurationError(error));
             }
         };
     }
