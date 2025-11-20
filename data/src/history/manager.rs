@@ -304,9 +304,6 @@ impl Manager {
         self.data.input.store_draft(raw_input);
     }
 
-    pub fn record_text(&mut self, raw_input: input::RawInput) {
-        self.data.input.store_text(raw_input);
-    }
 
     // The message's blocked state should be determined prior to using this
     // function. In most cases, the best way to do that is by using the

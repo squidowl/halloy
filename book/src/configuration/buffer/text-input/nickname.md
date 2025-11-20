@@ -34,3 +34,4 @@ Show access levels in front of nickname (`@`, `+`, `~`, etc.).
 [buffer.text_input.nickname]
 show_access_level = true
 ```
+

@@ -2,6 +2,7 @@
 
 Added:
 
+- Context menu added to text input when right clicking 
 - Exit application from user menu
 - Border radius on both image previews and cards displaying images through meta tags (configurable)
 - Context menu item added to server-wide buffers to close all queries
@@ -14,6 +15,8 @@ Added:
 - Ability to specify a distinct sound for each match highlight set
 - Setting to notify for every message in a channel
 - Per server custom proxy configuration option
+- Ability to set Emacs-like keybindings for text input
+- Keyboard shortcuts can now be unset
 
 Fixed:
 
