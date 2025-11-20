@@ -212,13 +212,21 @@ pub fn view<'a>(
         .map_or_else(Utc::now, |message| message.server_time);
     let status = state.status;
 
-    let right_aligned_width = max_nick_chars.map(|len| {
-        let max_chars =
-            len.max(range_timestamp_extra_chars.unwrap_or_default());
-        let max_char_width = font::width_from_chars(max_chars, &config.font);
+    let right_aligned_width = max_nick_chars.map(|max_nick_chars| {
+        let max_nick_width =
+            font::width_from_chars(max_nick_chars, &config.font);
         let message_marker_width = font::width_of_message_marker(&config.font);
+        let range_timestamp_extra_width = range_timestamp_extra_chars.map_or(
+            0.0,
+            |range_timestamp_extra_chars| {
+                font::width_from_chars(
+                    range_timestamp_extra_chars,
+                    &config.font,
+                )
+            },
+        );
 
-        max_char_width.max(message_marker_width)
+        max_nick_width.max(range_timestamp_extra_width + message_marker_width)
     });
 
     let max_prefix_width =

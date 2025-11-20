@@ -55,7 +55,15 @@ pub type Container<'a, Message> =
     iced::widget::Container<'a, Message, Theme, Renderer>;
 pub type Button<'a, Message> = iced::widget::Button<'a, Message, Theme>;
 
+pub enum Marker {
+    Dot,
+    Expand,
+    Contract,
+    None,
+}
+
 pub fn message_marker<'a, M>(
+    marker: Marker,
     width: Option<f32>,
     config: &'a Config,
     style: impl Fn(&Theme) -> selectable_text::Style + 'a,
@@ -64,11 +72,25 @@ pub fn message_marker<'a, M>(
 where
     M: Clone + 'a,
 {
-    let font_size = config.font.size.map_or(TEXT_SIZE, f32::from)
-        * font::MESSAGE_MARKER_FONT_SCALE;
+    let font_size = config.font.size.map_or(TEXT_SIZE, f32::from);
 
-    let mut marker: Element<'a, M> = selectable_text("\u{E81A}")
-        .line_height(LineHeight::Relative(1.0))
+    let (text, font_size, line_height) = match marker {
+        Marker::Dot => (
+            "\u{E81A}",
+            font_size * font::MESSAGE_MARKER_FONT_SCALE,
+            LineHeight::Relative(1.0),
+        ),
+        Marker::Expand => {
+            ("\u{E81B}", font_size * 0.66, LineHeight::Relative(2.0))
+        }
+        Marker::Contract => {
+            ("\u{E81C}", font_size * 0.66, LineHeight::Relative(2.0))
+        }
+        Marker::None => ("", font_size, LineHeight::Relative(1.0)),
+    };
+
+    let mut marker: Element<'a, M> = selectable_text(text)
+        .line_height(line_height)
         .font(font::ICON)
         .style(style)
         .size(font_size)
