@@ -804,6 +804,7 @@ impl Client {
                                                             user.nickname(),
                                                         )
                                                     }),
+                                                None,
                                             ),
                                         )),
                                     };
