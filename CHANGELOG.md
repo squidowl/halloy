@@ -17,6 +17,7 @@ Added:
 - Ability to exclude previews from specific server messages (e.g. topic, part, quit)
 - Ability to expand & contract condensed messages via left-click
 - Change-host and kick server messages messages can be condensed
+- `/plain` command to send text with automatic formatting disabled
 
 Fixed:
 
@@ -38,7 +39,7 @@ Thanks:
 
 - Contributions: @kasperkronborg, @mistivia, @oooo-ps
 - Bug reports: @Frikilinux, ThePendulum, @crabbedhaloablution, @findus, @Darksecond
-- Feature requests: @cyrneko, ilya, abby, @clorteau, @RobertCraigie, @dei-layborer, @classabbyamp
+- Feature requests: @cyrneko, ilya, abby, @clorteau, @RobertCraigie, @dei-layborer, @classabbyamp, @4e554c4c
 
 # 2025.11 (2025-10-27)
 
