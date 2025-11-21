@@ -24,7 +24,7 @@ env:
 
 jobs:
   build-check-clippy-test:
-    name: Build, Check, Clippy, & Test
+    name: Build, Check, Clippy, Test, & Format
     runs-on: ubuntu-latest
     env:
       RUSTFLAGS: "-C linker=clang -C link-arg=-fuse-ld=mold"
@@ -66,3 +66,6 @@ jobs:
         tool: cargo-nextest
     - name: Test
       run: cargo nextest run --locked --profile ci --workspace --all-targets
+
+    - name: Format
+      run: cargo +nightly fmt --all -- --check
