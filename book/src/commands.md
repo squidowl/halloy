@@ -40,6 +40,7 @@ The argument(s) for a command are shown in [tooltips](configuration/tooltips.md)
 | `nick`        |            | Change your nickname on the current server                                         |
 | `notice`      |            | Send a notice message to a target                                                  |
 | `part`        | `leave`    | Leave and close channel(s)/quer(ies) with an optional reason [^4]                  |
+| `plain`       | `p`        | Send text with markdown and colors disabled                                        |
 | `quit`        |            | Disconnect from the server with an optional reason                                 |
 | `raw`         |            | Send data to the server without modifying it                                       |
 | `setname`     |            | Change your realname[^5]                                                           |
