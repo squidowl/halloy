@@ -395,6 +395,14 @@ impl<'a> ChannelQueryLayout<'a> {
             ),
         );
 
+        let marker_style = move |message_theme: &Theme| {
+            if message.expanded || message.condensed.is_some() {
+                theme::selectable_text::condensed_marker(message_theme)
+            } else {
+                message_style(message_theme)
+            }
+        };
+
         let marker = message_marker(
             if message.expanded {
                 if message.condensed.is_some() {
@@ -407,7 +415,7 @@ impl<'a> ChannelQueryLayout<'a> {
             },
             right_aligned_width,
             self.config,
-            message_style,
+            marker_style,
             link.clone().map(Message::Link),
         );
 
@@ -487,7 +495,7 @@ impl<'a> ChannelQueryLayout<'a> {
             Marker::Expand,
             right_aligned_width,
             self.config,
-            message_style,
+            theme::selectable_text::condensed_marker,
             Some(Message::Link(link.clone())),
         );
 
