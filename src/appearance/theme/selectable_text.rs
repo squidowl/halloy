@@ -52,6 +52,15 @@ pub fn tertiary(theme: &Theme) -> Style {
     }
 }
 
+pub fn condensed_marker(theme: &Theme) -> Style {
+    let color = text::timestamp(theme).color;
+
+    Style {
+        color,
+        selection_color: theme.styles().buffer.selection,
+    }
+}
+
 pub fn timestamp(theme: &Theme) -> Style {
     let color = text::timestamp(theme).color;
 
@@ -222,7 +231,9 @@ impl selectable_rich_text::Link for message::Link {
             data::message::Link::Url(_) => true,
             data::message::Link::User(_)
             | data::message::Link::Channel(_)
-            | data::message::Link::GoToMessage(..) => false,
+            | data::message::Link::GoToMessage(..)
+            | data::message::Link::ExpandCondensedMessage(..)
+            | data::message::Link::ContractCondensedMessage(..) => false,
         }
     }
 }

@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use chrono::{DateTime, Utc};
 use data::dashboard::BufferAction;
 use data::target::Target;
 use data::{Config, client, history, isupport, message};
@@ -22,6 +23,8 @@ pub enum Event {
     MarkAsRead,
     OpenUrl(String),
     ImagePreview(PathBuf, url::Url),
+    ExpandCondensedMessage(DateTime<Utc>, message::Hash),
+    ContractCondensedMessage(DateTime<Utc>, message::Hash),
 }
 
 pub fn view<'a>(
@@ -88,6 +91,7 @@ pub fn view<'a>(
                         isupport::CaseMap::default(),
                         theme,
                         scroll_view::Message::Link,
+                        None,
                         theme::selectable_text::logs,
                         theme::font_style::primary,
                         Option::<fn(Color) -> Color>::None,
@@ -166,6 +170,16 @@ impl Logs {
                     }
                     scroll_view::Event::ImagePreview(path, url) => {
                         Some(Event::ImagePreview(path, url))
+                    }
+                    scroll_view::Event::ExpandCondensedMessage(
+                        server_time,
+                        hash,
+                    ) => Some(Event::ExpandCondensedMessage(server_time, hash)),
+                    scroll_view::Event::ContractCondensedMessage(
+                        server_time,
+                        hash,
+                    ) => {
+                        Some(Event::ContractCondensedMessage(server_time, hash))
                     }
                 });
 

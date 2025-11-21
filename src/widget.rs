@@ -55,26 +55,59 @@ pub type Container<'a, Message> =
     iced::widget::Container<'a, Message, Theme, Renderer>;
 pub type Button<'a, Message> = iced::widget::Button<'a, Message, Theme>;
 
-pub fn message_marker<'a, M: 'a>(
+pub enum Marker {
+    Dot,
+    Expand,
+    Contract,
+    None,
+}
+
+pub fn message_marker<'a, M>(
+    marker: Marker,
     width: Option<f32>,
     config: &'a Config,
     style: impl Fn(&Theme) -> selectable_text::Style + 'a,
-) -> Element<'a, M> {
-    let font_size = config.font.size.map_or(TEXT_SIZE, f32::from)
-        * font::MESSAGE_MARKER_FONT_SCALE;
+    on_press: Option<M>,
+) -> Element<'a, M>
+where
+    M: Clone + 'a,
+{
+    let font_size = config.font.size.map_or(TEXT_SIZE, f32::from);
 
-    let marker = selectable_text("\u{E81A}")
-        .line_height(LineHeight::Relative(1.0))
+    let (text, font_size, line_height) = match marker {
+        Marker::Dot => (
+            "\u{E81A}",
+            font_size * font::MESSAGE_MARKER_FONT_SCALE,
+            LineHeight::Relative(1.0),
+        ),
+        Marker::Expand => {
+            ("\u{E81B}", font_size * 0.75, LineHeight::Relative(1.75))
+        }
+        Marker::Contract => {
+            ("\u{E81C}", font_size * 0.75, LineHeight::Relative(1.75))
+        }
+        Marker::None => ("", font_size, LineHeight::Relative(1.0)),
+    };
+
+    let mut marker: Element<'a, M> = selectable_text(text)
+        .line_height(line_height)
         .font(font::ICON)
         .style(style)
-        .size(font_size);
+        .size(font_size)
+        .into();
+
+    if let Some(on_press) = on_press {
+        marker = button::transparent_button(marker, on_press);
+    }
 
     if let Some(width) = width {
-        marker.width(width).align_x(text::Alignment::Right)
+        iced::widget::container(marker)
+            .width(width)
+            .align_x(text::Alignment::Right)
+            .into()
     } else {
         marker
     }
-    .into()
 }
 
 pub mod button {

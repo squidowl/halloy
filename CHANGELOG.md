@@ -14,6 +14,8 @@ Added:
 - Ability to specify a distinct sound for each match highlight set
 - Setting to notify for every message in a channel
 - Per server custom proxy configuration option
+- Ability to expand & contract condensed messages via left-click
+- Change-host and kick server messages messages can be condensed
 
 Fixed:
 
@@ -35,7 +37,7 @@ Thanks:
 
 - Contributions: @kasperkronborg, @mistivia, @oooo-ps
 - Bug reports: @Frikilinux, ThePendulum, @crabbedhaloablution, @findus, @Darksecond
-- Feature requests: @cyrneko, ilya, abby, @clorteau, @RobertCraigie
+- Feature requests: @cyrneko, ilya, abby, @clorteau, @RobertCraigie, @classabbyamp
 
 # 2025.11 (2025-10-27)
 

@@ -40,6 +40,7 @@ fn expand(
             is_echo: false,
             blocked: false,
             condensed: None,
+            expanded: false,
             command: None,
         }
     };
@@ -185,6 +186,7 @@ pub fn quit(
         Cause::Server(Some(source::Server::new(
             source::server::Kind::Quit,
             Some(user.nickname().to_owned()),
+            None,
         ))),
         content,
         sent_time,
@@ -203,6 +205,12 @@ pub fn nickname(
     let old_user = User::from(old_nick.clone());
     let new_user = User::from(new_nick.clone());
 
+    let cause = Cause::Server(Some(source::Server::new(
+        source::server::Kind::ChangeNick,
+        Some(old_user.nickname().to_owned()),
+        Some(source::server::Change::Nick(new_user.nickname().to_owned())),
+    )));
+
     let content = if ourself {
         parse_fragments_with_user(
             format!("You're now known as {new_nick}"),
@@ -217,17 +225,7 @@ pub fn nickname(
         )
     };
 
-    expand(
-        channels,
-        queries,
-        false,
-        Cause::Server(Some(source::Server::new(
-            source::server::Kind::ChangeNick,
-            Some(old_user.nickname().to_owned()),
-        ))),
-        content,
-        sent_time,
-    )
+    expand(channels, queries, false, cause, content, sent_time)
 }
 
 pub fn invite(
@@ -258,6 +256,17 @@ pub fn change_host(
     casemapping: isupport::CaseMap,
     sent_time: DateTime<Utc>,
 ) -> Vec<Message> {
+    let cause = Cause::Server(Some(source::Server::new(
+        source::server::Kind::ChangeHost,
+        Some(old_user.nickname().to_owned()),
+        old_user.hostname().map(|old_hostname| {
+            source::server::Change::Host(
+                old_hostname.to_string(),
+                new_hostname.to_string(),
+            )
+        }),
+    )));
+
     let content = if ourself {
         plain(format!(
             "You've changed host to {new_username}@{new_hostname}",
@@ -274,29 +283,9 @@ pub fn change_host(
     };
 
     if ourself && !logged_in {
-        expand(
-            [],
-            [],
-            true,
-            Cause::Server(Some(source::Server::new(
-                source::server::Kind::ChangeHost,
-                Some(old_user.nickname().to_owned()),
-            ))),
-            content,
-            sent_time,
-        )
+        expand([], [], true, cause, content, sent_time)
     } else {
-        expand(
-            channels,
-            queries,
-            false,
-            Cause::Server(Some(source::Server::new(
-                source::server::Kind::ChangeHost,
-                Some(old_user.nickname().to_owned()),
-            ))),
-            content,
-            sent_time,
-        )
+        expand(channels, queries, false, cause, content, sent_time)
     }
 }
 
@@ -311,6 +300,7 @@ pub fn kick(
     let cause = Cause::Server(Some(source::Server::new(
         source::server::Kind::Kick,
         Some(kicker.nickname().to_owned()),
+        None,
     )));
 
     let content = kick_text(
