@@ -19,7 +19,8 @@ use url::Url;
 pub use self::card::Card;
 pub use self::image::Image;
 use crate::message::Source;
-use crate::target::Target;
+use crate::server::Server;
+use crate::target::{self, Target};
 use crate::{config, isupport};
 
 mod cache;
@@ -48,15 +49,16 @@ impl<'a> Previews<'a> {
     pub fn new(
         collection: &'a Collection,
         target: &Target,
+        server: &Server,
         config: &config::Preview,
         casemapping: isupport::CaseMap,
     ) -> Previews<'a> {
         Self {
             collection,
             cards_are_visible: config.enabled
-                && config.card.visible(target, casemapping),
+                && config.card.visible(target, server, casemapping),
             images_are_visible: config.enabled
-                && config.image.visible(target, casemapping),
+                && config.image.visible(target, server, casemapping),
         }
     }
 
@@ -89,10 +91,27 @@ impl Preview {
         }
     }
 
-    pub fn visible_for_source(&self, source: &Source, config: &config::Preview) -> bool {
+    pub fn visible_for_source(
+        &self,
+        source: &Source,
+        channel: Option<&target::Channel>,
+        server: Option<&Server>,
+        casemapping: isupport::CaseMap,
+        config: &config::Preview,
+    ) -> bool {
         match self {
-            Self::Card(_) => config.card.visible_for_source(source),
-            Self::Image(_) => config.image.visible_for_source(source),
+            Self::Card(_) => config.card.visible_for_source(
+                source,
+                channel,
+                server,
+                casemapping,
+            ),
+            Self::Image(_) => config.image.visible_for_source(
+                source,
+                channel,
+                server,
+                casemapping,
+            ),
         }
     }
 }

@@ -14,8 +14,8 @@ Specific image preview settings.
 
 ```toml
 [preview.image]
-exclude = ["*"] # hide image previews in all channels
-include = ["#halloy"] # show image previews in #halloy
+exclude = "*" # hide image previews in all channels
+include = { channels = ["#halloy"] } # show image previews in #halloy
 ```
 
 ## Configuration
@@ -46,36 +46,33 @@ Round the corners of the image.
 round_corners = true
 ```
 
-### include
-
-Include image previews from channels & queries.
-If you pass `["#halloy"]`, the channel `#halloy` will show image previews. The include rule takes priority over exclude, so you can use both together. For example, you can exclude all channels & queries with `["*"]` and then only include a few specific channels.
-
-```toml
-# Type: array of strings
-# Values: array of any strings
-# Default: []
-
-[preview.image]
-include = []
-```
-
 ### exclude
 
-Exclude image previews from channels, queries and specific server messages.
-If you pass `["#halloy"]`, the channel `#halloy` will not show image previews. You can also exclude all channels & queries by using a wildcard: `["*"]`.
-
-If you want to exclude certain server messages, the following is available to exclude:
-
-- `["topic"]`
-- `["part"]`
-- `["quit"]`
+[Exclusion conditions](/configuration/conditions.md) for when image previews
+will be hidden. Inclusion conditions will take precedence over exclusion
+conditions. You can also exclude all conditions by setting to `"all"` or `"*"`.
 
 ```toml
-# Type: array of strings
-# Values: array of any strings
-# Default: []
+# Type: inclusion/exclusion conditions
+# Values: any inclusion/exclusion conditions
+# Default: not set
 
 [preview.image]
-exclude = ["topic", "#linux"] # exclude previews from topic changes in any channel, and all previews from all messages in #linux.
+exclude = { criteria = [{ server_message = "topic", channel = "#linux" }] } # exclude previews from topic messages in #linux
+```
+
+### include
+
+[Inclusion conditions](/configuration/conditions.md) for when image previews
+will be shown. Image previews will be shown for all conditions (when enabled)
+unless explicitly excluded, so this setting is only relevant when combined with
+the `exclude` setting.
+
+```toml
+# Type: inclusion/exclusion conditions
+# Values: any inclusion/exclusion conditions
+# Default: not set
+
+[preview.image]
+include = { users = ["BridgeBot"] }
 ```
