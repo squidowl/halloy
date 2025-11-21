@@ -52,6 +52,15 @@ pub fn tertiary(theme: &Theme) -> Style {
     }
 }
 
+pub fn condensed_marker(theme: &Theme) -> Style {
+    let color = text::timestamp(theme).color;
+
+    Style {
+        color,
+        selection_color: theme.styles().buffer.selection,
+    }
+}
+
 pub fn timestamp(theme: &Theme) -> Style {
     let color = text::timestamp(theme).color;
 
