@@ -81,10 +81,10 @@ where
             LineHeight::Relative(1.0),
         ),
         Marker::Expand => {
-            ("\u{E81B}", font_size * 0.66, LineHeight::Relative(2.0))
+            ("\u{E81B}", font_size * 0.75, LineHeight::Relative(1.75))
         }
         Marker::Contract => {
-            ("\u{E81C}", font_size * 0.66, LineHeight::Relative(2.0))
+            ("\u{E81C}", font_size * 0.75, LineHeight::Relative(1.75))
         }
         Marker::None => ("", font_size, LineHeight::Relative(1.0)),
     };
