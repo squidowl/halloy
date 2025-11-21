@@ -316,13 +316,15 @@ impl Condensation {
             source::server::Kind::ChangeHost => {
                 self.messages.contains(&CondensationMessage::ChangeHost)
             }
+            source::server::Kind::Kick => {
+                self.messages.contains(&CondensationMessage::Kick)
+            }
             source::server::Kind::ReplyTopic
             | source::server::Kind::ChangeMode
             | source::server::Kind::MonitoredOnline
             | source::server::Kind::MonitoredOffline
             | source::server::Kind::StandardReply(_)
             | source::server::Kind::WAllOps
-            | source::server::Kind::Kick
             | source::server::Kind::ChangeTopic => false,
         }
     }
@@ -340,6 +342,7 @@ pub enum CondensationMessage {
     Quit,
     ChangeNick,
     ChangeHost,
+    Kick,
 }
 
 #[derive(Debug, Default, Clone, Deserialize)]
