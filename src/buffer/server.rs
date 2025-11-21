@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use data::dashboard::BufferAction;
 use data::target::Target;
 use data::user::Nick;
-use data::{Config, User, buffer, history, message};
+use data::{Config, Preview, User, buffer, history, message};
 use iced::widget::{column, container, row, space};
 use iced::{Color, Length, Size, Task};
 
@@ -50,6 +50,7 @@ pub fn view<'a>(
             scroll_view::Kind::Server(&state.server),
             history,
             None,
+            Option::<fn(&Preview, &message::Source) -> bool>::None,
             None,
             config,
             theme,

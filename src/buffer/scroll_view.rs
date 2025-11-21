@@ -147,6 +147,7 @@ pub fn view<'a>(
     kind: Kind,
     history: &'a history::Manager,
     previews: Option<Previews<'a>>,
+    visible_for_source: Option<impl Fn(&Preview, &message::Source) -> bool>,
     chathistory_state: Option<ChatHistoryState>,
     config: &'a Config,
     theme: &'a Theme,
@@ -297,13 +298,14 @@ pub fn view<'a>(
                                         |(a, b)| a == message.hash && b == idx,
                                     );
 
-                                let visible_for_source = preview
-                                    .visible_for_source(
-                                        message.target.source(),
-                                        &config.preview,
-                                    );
+                                let is_visible_for_source =
+                                    if let Some(visible_for_source) = &visible_for_source {
+                                        visible_for_source(preview, message.target.source())
+                                    } else {
+                                        true
+                                    };
 
-                                if visible_for_source {
+                                if is_visible_for_source {
                                     column = column.push(preview_row(
                                         message,
                                         preview,

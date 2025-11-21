@@ -84,8 +84,8 @@ conditions. You can also exclude all conditions by setting to `"all"` or `"*"`.
 
 ```toml
 # Type: inclusion/exclusion conditions
-# Values: any inclusion/exclusion conditions
-# Default: []
+# Values: user, channel, & server inclusion/exclusion conditions
+# Default: not set
 
 [buffer.server_messages.<server_message>]
 exclude = "*"
@@ -100,8 +100,8 @@ the `exclude` setting.
 
 ```toml
 # Type: inclusion/exclusion conditions
-# Values: any inclusion/exclusion conditions
-# Default: []
+# Values: user, channel, & server inclusion/exclusion conditions
+# Default: not set
 
 [buffer.server_messages.<server_message>]
 include = { channels = ["#halloy"] }

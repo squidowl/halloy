@@ -4,7 +4,7 @@ use data::dashboard::BufferAction;
 use data::preview::{self, Previews};
 use data::target::{self, Target};
 use data::user::Nick;
-use data::{Config, Server, User, buffer, client, history, message};
+use data::{Config, Preview, Server, User, buffer, client, history, message};
 use iced::widget::{column, container, space};
 use iced::{Length, Size, Task};
 
@@ -51,7 +51,7 @@ pub fn view<'a>(
     let status = clients.status(server);
     let buffer = &state.buffer;
     let input = history.input(buffer);
-    let our_nick = clients.nickname(&state.server);
+    let our_nick = clients.nickname(server);
     let our_user = our_nick.map(|our_nick| User::from(Nick::from(our_nick)));
 
     let chathistory_state =
@@ -60,6 +60,7 @@ pub fn view<'a>(
     let previews = Some(Previews::new(
         previews,
         &query.to_target(),
+        server,
         &config.preview,
         casemapping,
     ));
@@ -82,6 +83,7 @@ pub fn view<'a>(
             scroll_view::Kind::Query(server, query),
             history,
             previews,
+            Option::<fn(&Preview, &message::Source) -> bool>::None,
             chathistory_state,
             config,
             theme,

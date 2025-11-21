@@ -1,9 +1,10 @@
 use serde::Deserialize;
 
-use crate::{
-    Target, isupport,
-    message::{Kind, Source},
+use crate::config::inclusivities::{
+    Inclusivities, is_source_included, is_target_included,
 };
+use crate::message::Source;
+use crate::{Server, Target, isupport, target};
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
@@ -70,8 +71,8 @@ impl Default for Request {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
 pub struct Card {
-    pub exclude: Vec<String>,
-    pub include: Vec<String>,
+    pub exclude: Option<Inclusivities>,
+    pub include: Option<Inclusivities>,
     pub show_image: bool,
     pub round_image_corners: bool,
 }
@@ -79,8 +80,8 @@ pub struct Card {
 impl Default for Card {
     fn default() -> Self {
         Self {
-            exclude: Vec::default(),
-            include: Vec::default(),
+            exclude: None,
+            include: None,
             show_image: true,
             round_image_corners: true,
         }
@@ -91,13 +92,34 @@ impl Card {
     pub fn visible(
         &self,
         target: &Target,
+        server: &Server,
         casemapping: isupport::CaseMap,
     ) -> bool {
-        is_visible(&self.include, &self.exclude, target, casemapping)
+        is_target_included(
+            self.include.as_ref(),
+            self.exclude.as_ref(),
+            None,
+            target,
+            server,
+            casemapping,
+        )
     }
 
-    pub fn visible_for_source(&self, source: &Source) -> bool {
-        is_visible_for_source(&self.exclude, source)
+    pub fn visible_for_source(
+        &self,
+        source: &Source,
+        channel: Option<&target::Channel>,
+        server: Option<&Server>,
+        casemapping: isupport::CaseMap,
+    ) -> bool {
+        is_source_included(
+            self.include.as_ref(),
+            self.exclude.as_ref(),
+            source,
+            channel,
+            server,
+            casemapping,
+        )
     }
 }
 
@@ -105,8 +127,8 @@ impl Card {
 #[serde(default)]
 pub struct Image {
     pub action: ImageAction,
-    pub exclude: Vec<String>,
-    pub include: Vec<String>,
+    pub exclude: Option<Inclusivities>,
+    pub include: Option<Inclusivities>,
     pub round_corners: bool,
 }
 
@@ -114,8 +136,8 @@ impl Default for Image {
     fn default() -> Self {
         Self {
             action: ImageAction::default(),
-            exclude: Vec::default(),
-            include: Vec::default(),
+            exclude: None,
+            include: None,
             round_corners: true,
         }
     }
@@ -133,50 +155,33 @@ impl Image {
     pub fn visible(
         &self,
         target: &Target,
+        server: &Server,
         casemapping: isupport::CaseMap,
     ) -> bool {
-        is_visible(&self.include, &self.exclude, target, casemapping)
+        is_target_included(
+            self.include.as_ref(),
+            self.exclude.as_ref(),
+            None,
+            target,
+            server,
+            casemapping,
+        )
     }
 
-    pub fn visible_for_source(&self, source: &Source) -> bool {
-        is_visible_for_source(&self.exclude, source)
+    pub fn visible_for_source(
+        &self,
+        source: &Source,
+        channel: Option<&target::Channel>,
+        server: Option<&Server>,
+        casemapping: isupport::CaseMap,
+    ) -> bool {
+        is_source_included(
+            self.include.as_ref(),
+            self.exclude.as_ref(),
+            source,
+            channel,
+            server,
+            casemapping,
+        )
     }
-}
-
-pub fn is_visible_for_source(exclude: &[String], source: &Source) -> bool {
-    if let Source::Server(Some(server)) = source {
-        let kind = server.kind();
-        return !exclude.iter().any(|item| match item.to_lowercase().as_str() {
-            "topic" => matches!(kind, Kind::ReplyTopic | Kind::ChangeTopic),
-            "part" => matches!(kind, Kind::Part),
-            "quit" => matches!(kind, Kind::Quit),
-            _ => false,
-        });
-    }
-    true
-}
-
-fn is_visible(
-    include: &[String],
-    exclude: &[String],
-    target: &Target,
-    casemapping: isupport::CaseMap,
-) -> bool {
-    let target = match target {
-        Target::Query(user) => user.as_normalized_str(),
-        Target::Channel(channel) => channel.as_normalized_str(),
-    };
-
-    let is_target_filtered = |list: &[String], target: &str| -> bool {
-        let wildcards = ["*", "all"];
-        list.iter().any(|item| {
-            wildcards.contains(&item.as_str())
-                || casemapping.normalize(item) == target
-        })
-    };
-
-    let target_included = is_target_filtered(include, target);
-    let target_excluded = is_target_filtered(exclude, target);
-
-    target_included || !target_excluded
 }

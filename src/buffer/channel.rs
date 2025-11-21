@@ -5,7 +5,7 @@ use data::preview::{self, Previews};
 use data::server::Server;
 use data::target::{self, Target};
 use data::user::{ChannelUsers, Nick};
-use data::{Config, User, buffer, client, history, message};
+use data::{Config, Preview, User, buffer, client, history, message};
 use iced::widget::{column, container, row};
 use iced::{Length, Size, Task, padding};
 
@@ -73,6 +73,7 @@ pub fn view<'a>(
     let previews = Some(Previews::new(
         previews,
         &channel.to_target(),
+        server,
         &config.preview,
         casemapping,
     ));
@@ -99,6 +100,15 @@ pub fn view<'a>(
             scroll_view::Kind::Channel(&state.server, channel),
             history,
             previews,
+            Some(|preview: &Preview, source: &message::Source| {
+                preview.visible_for_source(
+                    source,
+                    Some(channel),
+                    Some(server),
+                    casemapping,
+                    &config.preview,
+                )
+            }),
             chathistory_state,
             config,
             theme,
