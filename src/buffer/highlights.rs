@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use data::config::buffer::nickname::ShownStatus;
 use data::dashboard::BufferAction;
 use data::target::{self, Target};
-use data::{Config, Server, history, message};
+use data::{Config, Preview, Server, history, message};
 use iced::widget::{container, row, span};
 use iced::{Color, Length, Size, Task};
 
@@ -41,6 +41,7 @@ pub fn view<'a>(
             scroll_view::Kind::Highlights,
             history,
             None,
+            Option::<fn(&Preview, &message::Source) -> bool>::None,
             None,
             config,
             theme,

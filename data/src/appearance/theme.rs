@@ -212,6 +212,7 @@ pub struct ServerMessages {
     pub join: OptionalTextStyle,
     pub part: OptionalTextStyle,
     pub quit: OptionalTextStyle,
+    #[serde(alias = "topic")]
     pub reply_topic: OptionalTextStyle,
     pub change_host: OptionalTextStyle,
     pub change_mode: OptionalTextStyle,

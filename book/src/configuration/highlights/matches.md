@@ -93,7 +93,7 @@ Example shows a regex match which will be excluded in `#noisy-channel`.
 
 ```toml
 # Type: inclusion/exclusion conditions
-# Values: any inclusion/exclusion conditions
+# Values: user, channel, & server inclusion/exclusion conditions
 # Default: not set
 
 [[highlights.match]]
@@ -112,7 +112,7 @@ Example shows a words match which will only highlight in `#halloy`.
 
 ```toml
 # Type: inclusion/exclusion conditions
-# Values: any inclusion/exclusion conditions
+# Values: user, channel, & server inclusion/exclusion conditions
 # Default: not set
 
 [[highlights.match]]

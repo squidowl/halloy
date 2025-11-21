@@ -60,28 +60,49 @@ pub mod server {
     }
 
     #[derive(
-        Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize,
+        Debug,
+        Clone,
+        Copy,
+        PartialEq,
+        Eq,
+        Hash,
+        Serialize,
+        Deserialize,
+        strum::Display,
     )]
     #[serde(rename_all = "lowercase")]
+    #[strum(serialize_all = "kebab-case")]
     pub enum Kind {
         Join,
         Part,
         Quit,
+        #[strum(serialize = "topic")]
         ReplyTopic,
         ChangeHost,
         ChangeMode,
         ChangeNick,
         MonitoredOnline,
         MonitoredOffline,
+        #[strum(to_string = "standard-reply-{0}")]
         StandardReply(StandardReply),
+        #[strum(serialize = "wallops")]
         WAllOps,
         Kick,
         ChangeTopic,
     }
 
     #[derive(
-        Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize,
+        Debug,
+        Clone,
+        Copy,
+        PartialEq,
+        Eq,
+        Hash,
+        Serialize,
+        Deserialize,
+        strum::Display,
     )]
+    #[strum(serialize_all = "kebab-case")]
     pub enum StandardReply {
         Fail,
         Warn,

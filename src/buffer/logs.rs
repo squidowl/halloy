@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use data::dashboard::BufferAction;
 use data::target::Target;
-use data::{Config, client, history, isupport, message};
+use data::{Config, Preview, client, history, isupport, message};
 use iced::widget::{container, row};
 use iced::{Color, Length, Size, Task};
 
@@ -36,6 +36,7 @@ pub fn view<'a>(
             scroll_view::Kind::Logs,
             history,
             None,
+            Option::<fn(&Preview, &message::Source) -> bool>::None,
             None,
             config,
             theme,
