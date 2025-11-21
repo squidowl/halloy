@@ -541,6 +541,18 @@ impl Commands {
                     subcommands: None,
                 }
             },
+            // PLAIN
+            {
+                Command {
+                    title: "PLAIN",
+                    args: vec![Argument {
+                        text: "text",
+                        kind: ArgumentKind::Required,
+                        tooltip: None,
+                    }],
+                    subcommands: None,
+                }
+            },
             // HOP
             {
                 Command {
@@ -987,6 +999,7 @@ impl Command {
             "topic" => "Retrieve the topic of a channel or set a new topic",
             "whois" => "Retrieve information about user(s)",
             "format" => "Format text using markdown or $ sequences",
+            "plain" => "Send text with automatic formatting disabled",
             "ctcp" => "Send Client-To-Client requests",
             "ctcp action" => "Display <text> as a third-person action or emote",
             "ctcp clientinfo" => {
@@ -1029,6 +1042,7 @@ impl Command {
             "topic" => vec!["t"],
             "whois" => vec![],
             "format" => vec!["f"],
+            "plain" => vec!["p"],
             "hop" => vec!["rejoin"],
             "clear" => vec![],
             "sysinfo" => vec![],
