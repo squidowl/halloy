@@ -751,62 +751,96 @@ pub fn condense(
         messages.iter().for_each(|message| {
             if let Source::Server(Some(source)) = message.target.source()
                 && let Some(nick) = source.nick().map(NickRef::from)
-                && let Some(nick_fragment) = match source.kind() {
-                    Kind::Join => Some(Fragment::Condensed {
-                        text: String::from("+\u{FEFF}"),
-                        source: source.clone(),
-                    }),
-                    Kind::Part => Some(Fragment::Condensed {
-                        text: String::from("-\u{FEFF}"),
-                        source: source.clone(),
-                    }),
-                    Kind::Quit => Some(Fragment::Condensed {
-                        text: String::from("-\u{FEFF}"),
-                        source: source.clone(),
-                    }),
+                && let Some((nick, nick_fragment)) = match source.kind() {
+                    Kind::Join => Some((
+                        nick,
+                        Fragment::Condensed {
+                            text: String::from("+\u{FEFF}"),
+                            source: source.clone(),
+                        },
+                    )),
+                    Kind::Part => Some((
+                        nick,
+                        Fragment::Condensed {
+                            text: String::from("-\u{FEFF}"),
+                            source: source.clone(),
+                        },
+                    )),
+                    Kind::Quit => Some((
+                        nick,
+                        Fragment::Condensed {
+                            text: String::from("-\u{FEFF}"),
+                            source: source.clone(),
+                        },
+                    )),
+                    Kind::Kick => {
+                        let kicked = if let Some(Change::Nick(kicked)) =
+                            source.change()
+                        {
+                            Some(kicked.as_nickref())
+                        } else {
+                            find_other_nickname_in_message_content(
+                                &message.content,
+                                nick,
+                            )
+                        };
+
+                        kicked.map(|kicked| {
+                            // Kicks are usually associated with the kicker (for
+                            // ignore purposes), but for condensation purposes
+                            // we want to associate them with the kicked
+                            (
+                                kicked,
+                                Fragment::Condensed {
+                                    text: String::from("!\u{FEFF}"),
+                                    source: source::Server::new(
+                                        Kind::Kick,
+                                        Some(kicked.to_owned()),
+                                        None,
+                                    ),
+                                },
+                            )
+                        })
+                    }
                     Kind::ChangeNick => {
                         if source.change().is_some() {
-                            Some(Fragment::Condensed {
-                                text: String::from("→\u{FEFF}"),
-                                source: source.clone(),
-                            })
+                            Some((
+                                nick,
+                                Fragment::Condensed {
+                                    text: String::from("→\u{FEFF}"),
+                                    source: source.clone(),
+                                },
+                            ))
                         } else {
-                            // Find new nickname in message content
-                            let new_nick =
-                                if let Content::Fragments(fragments) =
-                                    &message.content
-                                {
-                                    fragments.iter().find_map(|fragment| {
-                                        if let Fragment::User(user, _) =
-                                            fragment
-                                        {
-                                            (user.nickname() != nick).then_some(
-                                                user.nickname().to_owned(),
-                                            )
-                                        } else {
-                                            None
-                                        }
-                                    })
-                                } else {
-                                    None
-                                };
-
-                            new_nick.map(|new_nick| Fragment::Condensed {
-                                text: String::from("→\u{FEFF}"),
-                                source: source::Server::new(
-                                    Kind::ChangeNick,
-                                    Some(nick.to_owned()),
-                                    Some(Change::Nick(new_nick)),
-                                ),
+                            find_other_nickname_in_message_content(
+                                &message.content,
+                                nick,
+                            )
+                            .map(NickRef::to_owned)
+                            .map(|new_nick| {
+                                (
+                                    nick,
+                                    Fragment::Condensed {
+                                        text: String::from("→\u{FEFF}"),
+                                        source: source::Server::new(
+                                            Kind::ChangeNick,
+                                            Some(nick.to_owned()),
+                                            Some(Change::Nick(new_nick)),
+                                        ),
+                                    },
+                                )
                             })
                         }
                     }
                     Kind::ChangeHost => {
                         if source.change().is_some() {
-                            Some(Fragment::Condensed {
-                                text: String::from("→\u{FEFF}"),
-                                source: source.clone(),
-                            })
+                            Some((
+                                nick,
+                                Fragment::Condensed {
+                                    text: String::from("→\u{FEFF}"),
+                                    source: source.clone(),
+                                },
+                            ))
                         } else {
                             // Don't try to find hostnames in message content,
                             // just hide the host change
@@ -868,6 +902,23 @@ pub fn condense(
     }
 }
 
+fn find_other_nickname_in_message_content<'a, 'b>(
+    content: &'a Content,
+    except: NickRef<'b>,
+) -> Option<NickRef<'a>> {
+    if let Content::Fragments(fragments) = content {
+        fragments.iter().find_map(|fragment| {
+            if let Fragment::User(user, _) = fragment {
+                (user.nickname() != except).then_some(user.nickname())
+            } else {
+                None
+            }
+        })
+    } else {
+        None
+    }
+}
+
 #[derive(Clone, Debug)]
 enum NickAssociation<'a> {
     Association(HashSet<NickRef<'a>>),
@@ -893,22 +944,37 @@ fn find_nickname_associations<'a>(
                         NickAssociation::Association(HashSet::new()),
                     );
                 }
-                Kind::ChangeNick => {
-                    if let Some(new_nick) =
-                        if let Content::Fragments(fragments) = &message.content
-                        {
-                            fragments.iter().find_map(|fragment| {
-                                if let Fragment::User(user, _) = fragment {
-                                    (user.nickname() != nick)
-                                        .then_some(user.nickname())
-                                } else {
-                                    None
-                                }
-                            })
+                Kind::Kick => {
+                    let kicked =
+                        if let Some(Change::Nick(kicked)) = source.change() {
+                            Some(kicked.as_nickref())
                         } else {
-                            None
-                        }
-                    {
+                            find_other_nickname_in_message_content(
+                                &message.content,
+                                nick,
+                            )
+                        };
+
+                    if let Some(kicked) = kicked {
+                        // If the nick does not have an entry then create an
+                        // association for it
+                        nick_associations.entry(kicked).or_insert(
+                            NickAssociation::Association(HashSet::new()),
+                        );
+                    }
+                }
+                Kind::ChangeNick => {
+                    let new_nick =
+                        if let Some(Change::Nick(new_nick)) = source.change() {
+                            Some(new_nick.as_nickref())
+                        } else {
+                            find_other_nickname_in_message_content(
+                                &message.content,
+                                nick,
+                            )
+                        };
+
+                    if let Some(new_nick) = new_nick {
                         associate_nicknames(
                             nick,
                             new_nick,
@@ -1074,7 +1140,7 @@ fn filter_associated_fragments(
                     Kind::Join => {
                         nick_initial_state.entry(nick).or_insert(false);
                     }
-                    Kind::Part | Kind::Quit => {
+                    Kind::Part | Kind::Quit | Kind::Kick => {
                         nick_initial_state.entry(nick).or_insert(true);
                     }
                     Kind::ChangeNick => {
@@ -1102,7 +1168,7 @@ fn filter_associated_fragments(
                     Kind::Join => {
                         nick_state.insert(nick.into(), true);
                     }
-                    Kind::Part | Kind::Quit => {
+                    Kind::Part | Kind::Quit | Kind::Kick => {
                         nick_state.insert(nick.into(), false);
                     }
                     Kind::ChangeNick => {
@@ -1275,14 +1341,14 @@ fn condense_associated_fragments(
         condense.format,
         CondensationFormat::Brief | CondensationFormat::Detailed
     ) {
-        // Condense join/part/quit chains
+        // Condense join/part/quit/kick chains
         fragments
             .into_iter()
             .chunk_by(|fragment| {
                 if let Fragment::Condensed { source, .. } = &fragment
                     && matches!(
                         source.kind(),
-                        Kind::Join | Kind::Part | Kind::Quit
+                        Kind::Join | Kind::Part | Kind::Quit | Kind::Kick
                     )
                 {
                     true
@@ -1824,7 +1890,7 @@ fn target(
                 ))),
             })
         }
-        Command::KICK(channel, _, _) => {
+        Command::KICK(channel, victim, _) => {
             let channel = target::Channel::parse(
                 &channel,
                 chantypes,
@@ -1838,7 +1904,10 @@ fn target(
                 source: Source::Server(Some(source::Server::new(
                     Kind::Kick,
                     Some(user?.nickname().to_owned()),
-                    None,
+                    Some(Change::Nick(Nick::from_str(
+                        victim.as_str(),
+                        casemapping,
+                    ))),
                 ))),
             })
         }
