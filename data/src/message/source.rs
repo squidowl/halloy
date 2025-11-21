@@ -85,6 +85,7 @@ pub mod server {
         MonitoredOffline,
         #[strum(to_string = "standard-reply-{0}")]
         StandardReply(StandardReply),
+        #[strum(serialize = "wallops")]
         WAllOps,
         Kick,
         ChangeTopic,
