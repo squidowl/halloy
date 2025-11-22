@@ -819,6 +819,7 @@ pub enum ServerMessages {
     Join,
     Part,
     Quit,
+    #[strum(serialize = "topic")]
     ReplyTopic,
     ChangeHost,
     ChangeMode,
@@ -829,6 +830,7 @@ pub enum ServerMessages {
     StandardReplyFail,
     StandardReplyWarn,
     StandardReplyNote,
+    #[strum(serialize = "wallops")]
     WAllOps,
     Kick,
 }

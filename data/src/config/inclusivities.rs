@@ -2,9 +2,47 @@ use irc::proto;
 use serde::{Deserialize, Deserializer};
 
 use crate::isupport;
+use crate::message::Source;
 use crate::server::Server;
 use crate::target::{Channel, Query, Target};
 use crate::user::NickRef;
+
+// Skips inclusivity checks without a source, as those are expected to be
+// performed elsewhere
+pub fn is_source_included(
+    include: Option<&Inclusivities>,
+    exclude: Option<&Inclusivities>,
+    source: &Source,
+    channel: Option<&Channel>,
+    server: Option<&Server>,
+    casemapping: isupport::CaseMap,
+) -> bool {
+    let is_inclusive = |inclusivities: Option<&Inclusivities>,
+                        source: &Source,
+                        channel: Option<&Channel>,
+                        server: Option<&Server>,
+                        casemapping: isupport::CaseMap|
+     -> bool {
+        inclusivities.is_some_and(|inclusivities| {
+            inclusivities.is_source_inclusive(source)
+                || inclusivities.criteria.iter().any(|criterion| {
+                    criterion.is_source_channel_server_inclusive(
+                        Some(source),
+                        channel,
+                        server,
+                        casemapping,
+                    )
+                })
+        })
+    };
+
+    let is_included =
+        is_inclusive(include, source, channel, server, casemapping);
+    let is_excluded =
+        is_inclusive(exclude, source, channel, server, casemapping);
+
+    is_included || !is_excluded
+}
 
 pub fn is_target_channel_included(
     include: Option<&Inclusivities>,
@@ -136,6 +174,7 @@ pub struct Inclusivities {
     pub users: Option<Inclusivity>,
     pub channels: Option<Inclusivity>,
     pub servers: Option<Inclusivity>,
+    pub server_messages: Option<Inclusivity>,
     pub criteria: Vec<Criterion>,
 }
 
@@ -155,6 +194,8 @@ impl<'de> Deserialize<'de> for Inclusivities {
                 #[serde(default)]
                 servers: Option<Inclusivity>,
                 #[serde(default)]
+                server_messages: Option<Inclusivity>,
+                #[serde(default)]
                 criteria: Vec<Criterion>,
             },
             Legacy(Vec<String>),
@@ -166,11 +207,13 @@ impl<'de> Deserialize<'de> for Inclusivities {
                 users,
                 channels,
                 servers,
+                server_messages,
                 criteria,
             } => Ok(Inclusivities {
                 users,
                 channels,
                 servers,
+                server_messages,
                 criteria,
             }),
             Format::Legacy(strings) => Ok(Inclusivities::parse(strings)),
@@ -194,6 +237,7 @@ impl Inclusivities {
             users: Some(Inclusivity::All),
             channels: Some(Inclusivity::All),
             servers: Some(Inclusivity::All),
+            server_messages: Some(Inclusivity::All),
             // Does not need to be set, since any criterion will be covered by
             // the Inclusivity fields
             criteria: Vec::default(),
@@ -220,6 +264,7 @@ impl Inclusivities {
             channels: (!channels.is_empty())
                 .then_some(Inclusivity::Any(channels)),
             servers: None,
+            server_messages: None,
             criteria: Vec::default(),
         }
     }
@@ -275,6 +320,29 @@ impl Inclusivities {
             })
     }
 
+    pub fn is_source_inclusive(&self, source: &Source) -> bool {
+        if let Source::Server(server) = &source {
+            self.server_messages.as_ref().is_some_and(|inclusivity| {
+                match inclusivity {
+                    Inclusivity::All => true,
+                    Inclusivity::Any(inclusivity_server_messages) => {
+                        server.as_ref().is_some_and(|server| {
+                            let kind = server.kind().to_string();
+
+                            inclusivity_server_messages.iter().any(
+                                |inclusivity_server_message| {
+                                    kind == *inclusivity_server_message
+                                },
+                            )
+                        })
+                    }
+                }
+            })
+        } else {
+            false
+        }
+    }
+
     pub fn is_user_inclusive(
         &self,
         user: NickRef,
@@ -328,14 +396,46 @@ impl<'de> Deserialize<'de> for Inclusivity {
     }
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(default)]
 pub struct Criterion {
     user: Option<String>,
     channel: Option<String>,
     server: Option<String>,
+    server_message: Option<String>,
 }
 
 impl Criterion {
+    pub fn is_source_channel_server_inclusive(
+        &self,
+        source: Option<&Source>,
+        channel: Option<&Channel>,
+        server: Option<&Server>,
+        casemapping: isupport::CaseMap,
+    ) -> bool {
+        self.server_message
+            .as_ref()
+            .is_none_or(|server_message_criterion| {
+                if let Some(Source::Server(Some(server))) = source {
+                    server.kind().to_string() == *server_message_criterion
+                } else {
+                    false
+                }
+            })
+            && self.channel.as_ref().is_none_or(|channel_criterion| {
+                channel.is_some_and(|channel| {
+                    channel.as_normalized_str()
+                        == casemapping.normalize(channel_criterion).as_str()
+                })
+            })
+            && self.server.as_ref().is_none_or(|server_criterion| {
+                server.is_some_and(|server| {
+                    server.name.as_ref() == server_criterion
+                })
+            })
+            && self.user.is_none()
+    }
+
     pub fn is_user_channel_server_inclusive(
         &self,
         user: Option<NickRef>,
@@ -356,7 +456,7 @@ impl Criterion {
         }) && self.server.as_ref().is_none_or(|server_criterion| {
             server
                 .is_some_and(|server| server.name.as_ref() == server_criterion)
-        })
+        }) && self.server_message.is_none()
     }
 
     pub fn is_query_server_inclusive(
@@ -372,5 +472,6 @@ impl Criterion {
             && self.server.as_ref().is_none_or(|server_criterion| {
                 server.name.as_ref() == server_criterion
             })
+            && self.server_message.is_none()
     }
 }

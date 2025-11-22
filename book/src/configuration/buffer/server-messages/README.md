@@ -47,6 +47,7 @@ enabled = false
 | `standard_reply_note` | Message is sent when there is information about a command/function or session                                                  |
 | `standard_reply_warn` | Message is sent when there is feedback about a command/function or session                                                     |
 | `topic`               | Message is sent when the client joins a channel to inform them of the topic (does not include message sent when topic changes) |
+| `wallops`             | Message is sent by operators to all users with mode +w on the network                                                          |
 
 ## Configuration
 
@@ -84,8 +85,8 @@ conditions. You can also exclude all conditions by setting to `"all"` or `"*"`.
 
 ```toml
 # Type: inclusion/exclusion conditions
-# Values: any inclusion/exclusion conditions
-# Default: []
+# Values: user, channel, & server inclusion/exclusion conditions
+# Default: not set
 
 [buffer.server_messages.<server_message>]
 exclude = "*"
@@ -100,8 +101,8 @@ the `exclude` setting.
 
 ```toml
 # Type: inclusion/exclusion conditions
-# Values: any inclusion/exclusion conditions
-# Default: []
+# Values: user, channel, & server inclusion/exclusion conditions
+# Default: not set
 
 [buffer.server_messages.<server_message>]
 include = { channels = ["#halloy"] }

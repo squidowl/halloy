@@ -147,6 +147,7 @@ pub fn view<'a>(
     kind: Kind,
     history: &'a history::Manager,
     previews: Option<Previews<'a>>,
+    visible_for_source: Option<impl Fn(&Preview, &message::Source) -> bool>,
     chathistory_state: Option<ChatHistoryState>,
     config: &'a Config,
     theme: &'a Theme,
@@ -297,17 +298,26 @@ pub fn view<'a>(
                                         |(a, b)| a == message.hash && b == idx,
                                     );
 
-                                column = column.push(preview_row(
-                                    message,
-                                    preview,
-                                    url,
-                                    idx,
-                                    right_aligned_width,
-                                    max_prefix_width,
-                                    is_hovered,
-                                    config,
-                                    theme,
-                                ));
+                                let is_visible_for_source =
+                                    if let Some(visible_for_source) = &visible_for_source {
+                                        visible_for_source(preview, message.target.source())
+                                    } else {
+                                        true
+                                    };
+
+                                if is_visible_for_source {
+                                    column = column.push(preview_row(
+                                        message,
+                                        preview,
+                                        url,
+                                        idx,
+                                        right_aligned_width,
+                                        max_prefix_width,
+                                        is_hovered,
+                                        config,
+                                        theme,
+                                    ));
+                                }
                             }
                         }
 
