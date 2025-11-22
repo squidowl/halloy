@@ -104,6 +104,7 @@ selection = "<string>"
 timestamp = "<string>"
 topic = "<string>"
 url = "<string>"
+backlog_rule = "<string>"
 
 [buffer.server_messages]
 # Set below if you want to have a unique color for each.
