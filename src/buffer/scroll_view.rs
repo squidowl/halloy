@@ -4,6 +4,7 @@ use std::time::Duration;
 
 use chrono::{DateTime, Local, NaiveDate, NaiveTime, Utc};
 use data::buffer::DateSeparators;
+use data::config::buffer::nickname::HideConsecutive;
 use data::dashboard::BufferAction;
 use data::isupport::ChatHistoryState;
 use data::message::{self, Limit};
@@ -227,22 +228,25 @@ pub fn view<'a>(
                         messages: &[&'a data::Message]| {
         messages
             .iter()
-            .enumerate()
-            .filter_map(|(idx, message)| {
-                let hide_nickname = config.buffer.nickname.hide_consecutive
-                    && !config.buffer.nickname.alignment.is_top()
-                    && matches!(message.target.source(), message::Source::User(_))
-                    && idx
-                        .checked_sub(1)
-                        .and_then(|prev_idx| messages.get(prev_idx))
-                        .is_some_and(|prev_message| {
-                            matches!(
-                                (message.target.source(), prev_message.target.source()),
-                                (message::Source::User(user), message::Source::User(prev_user)) if user == prev_user
-                            )
-                        });
+            .scan(Option::<&data::Message>::None, |prev_message, message| {
+                let hide_nickname = if let HideConsecutive::Enabled(duration) =
+                    config.buffer.nickname.hide_consecutive
+                {
+                    !config.buffer.nickname.alignment.is_top()
+                            && matches!(message.target.source(), message::Source::User(_))
+                            && prev_message.is_some_and(|prev_message| {
+                                    matches!(
+                                        (message.target.source(), prev_message.target.source()),
+                                        (message::Source::User(user), message::Source::User(prev_user)) if user == prev_user
+                                    ) && duration.is_none_or(|duration| message.server_time - prev_message.server_time < duration)
+                                })
+                } else {
+                    false
+                };
 
-                formatter
+                *prev_message = Some(message);
+
+                Some(formatter
                     .format(
                         message,
                         right_aligned_width,
@@ -252,8 +256,9 @@ pub fn view<'a>(
                     )
                     .map(|element| {
                         (message, keyed(keyed::Key::message(message), element))
-                    })
+                    }))
             })
+            .flatten()
             .scan(last_date, |last_date, (message, element)| {
                 let date =
                     message.server_time.with_timezone(&Local).date_naive();
