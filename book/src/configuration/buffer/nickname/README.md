@@ -148,15 +148,21 @@ truncate = 10
 
 ### hide_consecutive
 
-Hide nickname if consecutive messages are from the same user.
+Hide nickname if consecutive messages are from the same user.  If specified as
+`{ smart = integer }` then the nickname will be hidden for consecutive messages
+are from the same user and each is within `smart` seconds of each other.
 
 > ⚠️ `hide_consecutive` does not work in conjunction with `alignment = "top"` .
 
 ```toml
 # Type: boolean
-# Values: true, false
+# Values: true, false, or { smart = integer }
 # Default: false
 
 [buffer.nickname]
 hide_consecutive = true
+
+# hide if the previous message was from the same user and sent within 2m of the current message
+[buffer.nickname]
+hide_consecutive = { smart = 120 }
 ```
