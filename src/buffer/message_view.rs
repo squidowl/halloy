@@ -259,19 +259,18 @@ impl<'a> ChannelQueryLayout<'a> {
             self.theme,
         );
 
-        let nick_element: Element<_> =
-            if hide_nickname && self.config.buffer.nickname.hide_consecutive {
-                let width = match self.config.buffer.nickname.alignment {
-                    data::buffer::Alignment::Left
-                    | data::buffer::Alignment::Top => 0.0,
-                    data::buffer::Alignment::Right => {
-                        right_aligned_width.unwrap_or_default()
-                    }
-                };
-                Space::new().width(width).into()
-            } else {
-                nick
+        let nick_element: Element<_> = if hide_nickname {
+            let width = match self.config.buffer.nickname.alignment {
+                data::buffer::Alignment::Left
+                | data::buffer::Alignment::Top => 0.0,
+                data::buffer::Alignment::Right => {
+                    right_aligned_width.unwrap_or_default()
+                }
             };
+            Space::new().width(width).into()
+        } else {
+            nick
+        };
 
         let formatter = *self;
 
