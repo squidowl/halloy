@@ -34,7 +34,7 @@
             const path_to_root = "../../";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../../searchindex-d5433a2f.js";
+            window.path_to_searchindex_js = "../../searchindex-b32fba96.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="../../toc-fe913ceb.js"></script>
@@ -254,7 +254,7 @@ highlighted. Inclusion conditions will take precedence over exclusion
 conditions. You can also exclude all conditions by setting to <code>"all"</code> or <code>"*"</code>.</p>
 <p>Example shows a regex match which will be excluded in <code>#noisy-channel</code>.</p>
 <pre><code class="language-toml"># Type: inclusion/exclusion conditions
-# Values: any inclusion/exclusion conditions
+# Values: user, channel, &amp; server inclusion/exclusion conditions
 # Default: not set
 
 [[highlights.match]]
@@ -268,7 +268,7 @@ excluded, so this setting is only relevant when combined with the <code>exclude<
 setting.</p>
 <p>Example shows a words match which will only highlight in <code>#halloy</code>.</p>
 <pre><code class="language-toml"># Type: inclusion/exclusion conditions
-# Values: any inclusion/exclusion conditions
+# Values: user, channel, &amp; server inclusion/exclusion conditions
 # Default: not set
 
 [[highlights.match]]

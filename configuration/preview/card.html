@@ -34,7 +34,7 @@
             const path_to_root = "../../";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../../searchindex-d5433a2f.js";
+            window.path_to_searchindex_js = "../../searchindex-b32fba96.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="../../toc-fe913ceb.js"></script>
@@ -198,8 +198,8 @@
 </ul>
 <h2 id="example"><a class="header" href="#example">Example</a></h2>
 <pre><code class="language-toml">[preview.card]
-exclude = ["*"] # hide card previews in all channels
-include = ["#halloy"] # show card previews in #halloy
+exclude = "*" # hide card previews in all channels
+include = { channels = ["#halloy"] } # show card previews in #halloy
 </code></pre>
 <h2 id="configuration"><a class="header" href="#configuration">Configuration</a></h2>
 <h3 id="show_image"><a class="header" href="#show_image">show_image</a></h3>
@@ -220,25 +220,28 @@ show_image = true
 [preview.card]
 round_image_corners = true
 </code></pre>
-<h3 id="include"><a class="header" href="#include">include</a></h3>
-<p>Include card previews from channels &amp; queries.
-If you pass <code>["#halloy"]</code>, the channel <code>#halloy</code> will show image previews. The include rule takes priority over exclude, so you can use both together. For example, you can exclude all channels &amp; queries with <code>["*"]</code> and then only include a few specific channels.</p>
-<pre><code class="language-toml"># Type: array of strings
-# Values: array of any strings
-# Default: []
-
-[preview.card]
-include = []
-</code></pre>
 <h3 id="exclude"><a class="header" href="#exclude">exclude</a></h3>
-<p>Exclude card previews from channels &amp; queries.
-If you pass <code>["#halloy"]</code>, the channel <code>#halloy</code> will not show image previews. You can also exclude all channels &amp; queries by using a wildcard: <code>["*"]</code>.</p>
-<pre><code class="language-toml"># Type: array of strings
-# Values: array of any strings
-# Default: []
+<p><a href="/configuration/conditions.html">Exclusion conditions</a> for when card previews will
+be hidden. Inclusion conditions will take precedence over exclusion conditions.
+You can also exclude all conditions by setting to <code>"all"</code> or <code>"*"</code>.</p>
+<pre><code class="language-toml"># Type: inclusion/exclusion conditions
+# Values: any inclusion/exclusion conditions
+# Default: not set
 
 [preview.card]
-exclude = []
+exclude = { criteria = [{ server_message = "topic", channel = "#linux" }] } # exclude previews from topic messages in #linux
+</code></pre>
+<h3 id="include"><a class="header" href="#include">include</a></h3>
+<p><a href="/configuration/conditions.html">Inclusion conditions</a> for when card previews will
+be shown. Card previews will be shown for all conditions (when enabled) unless
+explicitly excluded, so this setting is only relevant when combined with the
+<code>exclude</code> setting.</p>
+<pre><code class="language-toml"># Type: inclusion/exclusion conditions
+# Values: any inclusion/exclusion conditions
+# Default: not set
+
+[preview.card]
+include = { users = ["BridgeBot"] }
 </code></pre>
 
                     </main>

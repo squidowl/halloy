@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-d5433a2f.js";
+            window.path_to_searchindex_js = "searchindex-b32fba96.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-fe913ceb.js"></script>
@@ -580,11 +580,29 @@ password = "&lt;your-password&gt;"
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="inclusionexclusion-conditions"><a class="header" href="#inclusionexclusion-conditions">Inclusion/Exclusion Conditions</a></h1>
 <p>Inclusion/exclusion conditions can be specified by arrays of users, channels,
-servers, and/or combined criteria.  A combined criteria can include a user,
-channel, and/or server, but will only be matched if <strong>all</strong> are matched.  The
-conditions are met if <strong>any</strong> individual condition is matched.  Inclusion
-conditions will take precedence over exclusion conditions.  You can specify all
-conditions by setting to <code>"all"</code> or <code>"*"</code>.</p>
+servers, <a href="/configuration/buffer/server-messages#types">server message types</a>,
+and/or combined criteria. A combined criterion can each include a user, channel,
+server, and/or <a href="/configuration/buffer/server-messages#types">server message
+type</a>, but will only be matched if
+<strong>all</strong> are matched. The conditions are met if <strong>any</strong> individual condition is
+matched.</p>
+<p>Inclusion conditions will take precedence over exclusion conditions.</p>
+<p>You can specify all conditions by setting to <code>"all"</code> or <code>"*"</code>.</p>
+<h2 id="types"><a class="header" href="#types">Types</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th><strong>Condition Type</strong></th><th><strong>Description</strong></th></tr>
+</thead>
+<tbody>
+<tr><td><code>users</code></td><td>An array of nicknames.  Conditions will apply to messages sent by or queries with a user with one of the specified nicknames.</td></tr>
+<tr><td><code>channels</code></td><td>An array of channel names.  Conditions will apply to messages in any of the specified channels.</td></tr>
+<tr><td><code>servers</code></td><td>An array of server names.  Conditions will apply to all messages on any of the specified servers.</td></tr>
+<tr><td><code>server_messages</code></td><td>An array of <a href="/configuration/buffer/server-messages#types">server message types</a>. Conditions will apply to server messages of any of the specified types.</td></tr>
+<tr><td><code>criteria</code></td><td>Each criterion in the array can have a specified <code>user</code>, <code>channel</code>, <code>server</code>, and/or <code>server_message</code>. All specified fields must match for the criterion to match.</td></tr>
+</tbody>
+</table>
+</div>
 <h2 id="examples"><a class="header" href="#examples">Examples</a></h2>
 <p>This example excludes all messages in <code>#halloy</code> except for messages from
 <code>GH-Bot</code>.</p>
@@ -1750,7 +1768,7 @@ hide_consecutive = true
 <li><a href="#server-messages-1">Server Messages</a>
 <ul>
 <li><a href="#example-4">Example</a></li>
-<li><a href="#types">Types</a></li>
+<li><a href="#types-1">Types</a></li>
 <li><a href="#configuration-18">Configuration</a>
 <ul>
 <li><a href="#enabled-4">enabled</a></li>
@@ -1777,7 +1795,7 @@ include = { channels = ["#halloy"] }
 [buffer.server_messages.part]
 enabled = false
 </code></pre>
-<h2 id="types"><a class="header" href="#types">Types</a></h2>
+<h2 id="types-1"><a class="header" href="#types-1">Types</a></h2>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -1798,6 +1816,7 @@ enabled = false
 <tr><td><code>standard_reply_note</code></td><td>Message is sent when there is information about a command/function or session</td></tr>
 <tr><td><code>standard_reply_warn</code></td><td>Message is sent when there is feedback about a command/function or session</td></tr>
 <tr><td><code>topic</code></td><td>Message is sent when the client joins a channel to inform them of the topic (does not include message sent when topic changes)</td></tr>
+<tr><td><code>wallops</code></td><td>Message is sent by operators to all users with mode +w on the network</td></tr>
 </tbody>
 </table>
 </div>
@@ -1825,8 +1844,8 @@ smart = 180
 will be hidden. Inclusion conditions will take precedence over exclusion
 conditions. You can also exclude all conditions by setting to <code>"all"</code> or <code>"*"</code>.</p>
 <pre><code class="language-toml"># Type: inclusion/exclusion conditions
-# Values: any inclusion/exclusion conditions
-# Default: []
+# Values: user, channel, &amp; server inclusion/exclusion conditions
+# Default: not set
 
 [buffer.server_messages.&lt;server_message&gt;]
 exclude = "*"
@@ -1837,8 +1856,8 @@ will be shown. Server messages will be shown in all conditions (when enabled)W
 unless explicitly excluded, so this setting is only relevant when combined with
 the <code>exclude</code> setting.</p>
 <pre><code class="language-toml"># Type: inclusion/exclusion conditions
-# Values: any inclusion/exclusion conditions
-# Default: []
+# Values: user, channel, &amp; server inclusion/exclusion conditions
+# Default: not set
 
 [buffer.server_messages.&lt;server_message&gt;]
 include = { channels = ["#halloy"] }
@@ -2167,14 +2186,14 @@ prompt_before_open = true
 <li><a href="#commands-2">Commands</a>
 <ul>
 <li><a href="#example-5">Example</a></li>
-<li><a href="#types-1">Types</a></li>
+<li><a href="#types-2">Types</a></li>
 </ul>
 </li>
 </ul>
 <h2 id="example-5"><a class="header" href="#example-5">Example</a></h2>
 <pre><code class="language-sh">/me says halloy!
 </code></pre>
-<h2 id="types-1"><a class="header" href="#types-1">Types</a></h2>
+<h2 id="types-2"><a class="header" href="#types-2">Types</a></h2>
 <p>Halloy will first try to run below commands, and lastly send it directly to the server.
 The argument(s) for a command are shown in <a href="#tooltips">tooltips</a>, and those marked with a <code>*</code> will show an additional tooltip with argument-specific information on mouseover.</p>
 <div class="table-wrapper">
@@ -2640,7 +2659,7 @@ highlighted. Inclusion conditions will take precedence over exclusion
 conditions. You can also exclude all conditions by setting to <code>"all"</code> or <code>"*"</code>.</p>
 <p>Example shows a regex match which will be excluded in <code>#noisy-channel</code>.</p>
 <pre><code class="language-toml"># Type: inclusion/exclusion conditions
-# Values: any inclusion/exclusion conditions
+# Values: user, channel, &amp; server inclusion/exclusion conditions
 # Default: not set
 
 [[highlights.match]]
@@ -2654,7 +2673,7 @@ excluded, so this setting is only relevant when combined with the <code>exclude<
 setting.</p>
 <p>Example shows a words match which will only highlight in <code>#halloy</code>.</p>
 <pre><code class="language-toml"># Type: inclusion/exclusion conditions
-# Values: any inclusion/exclusion conditions
+# Values: user, channel, &amp; server inclusion/exclusion conditions
 # Default: not set
 
 [[highlights.match]]
@@ -2739,7 +2758,7 @@ case_insensitive = false
 <li><a href="#keyboard">Keyboard</a>
 <ul>
 <li><a href="#example-9">Example</a></li>
-<li><a href="#types-2">Types</a></li>
+<li><a href="#types-3">Types</a></li>
 </ul>
 </li>
 </ul>
@@ -2750,7 +2769,7 @@ move_down = "alt+j"
 move_left = "alt+h"
 move_right = "alt+l"
 </code></pre>
-<h2 id="types-2"><a class="header" href="#types-2">Types</a></h2>
+<h2 id="types-3"><a class="header" href="#types-3">Types</a></h2>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -2841,7 +2860,7 @@ pane_level = "info"
 <li><a href="#notifications">Notifications</a>
 <ul>
 <li><a href="#example-10">Example</a></li>
-<li><a href="#types-3">Types</a></li>
+<li><a href="#types-4">Types</a></li>
 <li><a href="#built-in-sounds">Built-in Sounds</a></li>
 <li><a href="#configuration-34">Configuration</a>
 <ul>
@@ -2864,7 +2883,7 @@ direct_message = { sound = "peck", show_toast = true }
 sound = "dong"
 exclude = { users = ["NickServ"], channels = ["#halloy"] }
 </code></pre>
-<h2 id="types-3"><a class="header" href="#types-3">Types</a></h2>
+<h2 id="types-4"><a class="header" href="#types-4">Types</a></h2>
 <p>Following notifications are available:</p>
 <div class="table-wrapper">
 <table>
@@ -2934,7 +2953,7 @@ sound = "zone"
 show_toast = true
 </code></pre>
 <h3 id="show_content"><a class="header" href="#show_content">show_content</a></h3>
-<p>Notification should show the content of the trigger (as described in the <a href="#types-3">table above</a>)).</p>
+<p>Notification should show the content of the trigger (as described in the <a href="#types-4">table above</a>)).</p>
 <pre><code class="language-toml"># Type: boolean
 # Values: true, false
 # Default: false
@@ -3213,8 +3232,8 @@ enabled = true
 </ul>
 <h2 id="example-11"><a class="header" href="#example-11">Example</a></h2>
 <pre><code class="language-toml">[preview.card]
-exclude = ["*"] # hide card previews in all channels
-include = ["#halloy"] # show card previews in #halloy
+exclude = "*" # hide card previews in all channels
+include = { channels = ["#halloy"] } # show card previews in #halloy
 </code></pre>
 <h2 id="configuration-40"><a class="header" href="#configuration-40">Configuration</a></h2>
 <h3 id="show_image"><a class="header" href="#show_image">show_image</a></h3>
@@ -3235,25 +3254,28 @@ show_image = true
 [preview.card]
 round_image_corners = true
 </code></pre>
-<h3 id="include-4"><a class="header" href="#include-4">include</a></h3>
-<p>Include card previews from channels &amp; queries.
-If you pass <code>["#halloy"]</code>, the channel <code>#halloy</code> will show image previews. The include rule takes priority over exclude, so you can use both together. For example, you can exclude all channels &amp; queries with <code>["*"]</code> and then only include a few specific channels.</p>
-<pre><code class="language-toml"># Type: array of strings
-# Values: array of any strings
-# Default: []
-
-[preview.card]
-include = []
-</code></pre>
 <h3 id="exclude-4"><a class="header" href="#exclude-4">exclude</a></h3>
-<p>Exclude card previews from channels &amp; queries.
-If you pass <code>["#halloy"]</code>, the channel <code>#halloy</code> will not show image previews. You can also exclude all channels &amp; queries by using a wildcard: <code>["*"]</code>.</p>
-<pre><code class="language-toml"># Type: array of strings
-# Values: array of any strings
-# Default: []
+<p><a href="/configuration/conditions.html">Exclusion conditions</a> for when card previews will
+be hidden. Inclusion conditions will take precedence over exclusion conditions.
+You can also exclude all conditions by setting to <code>"all"</code> or <code>"*"</code>.</p>
+<pre><code class="language-toml"># Type: inclusion/exclusion conditions
+# Values: any inclusion/exclusion conditions
+# Default: not set
 
 [preview.card]
-exclude = []
+exclude = { criteria = [{ server_message = "topic", channel = "#linux" }] } # exclude previews from topic messages in #linux
+</code></pre>
+<h3 id="include-4"><a class="header" href="#include-4">include</a></h3>
+<p><a href="/configuration/conditions.html">Inclusion conditions</a> for when card previews will
+be shown. Card previews will be shown for all conditions (when enabled) unless
+explicitly excluded, so this setting is only relevant when combined with the
+<code>exclude</code> setting.</p>
+<pre><code class="language-toml"># Type: inclusion/exclusion conditions
+# Values: any inclusion/exclusion conditions
+# Default: not set
+
+[preview.card]
+include = { users = ["BridgeBot"] }
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="image-1"><a class="header" href="#image-1">Image</a></h1>
@@ -3275,8 +3297,8 @@ exclude = []
 </ul>
 <h2 id="example-12"><a class="header" href="#example-12">Example</a></h2>
 <pre><code class="language-toml">[preview.image]
-exclude = ["*"] # hide image previews in all channels
-include = ["#halloy"] # show image previews in #halloy
+exclude = "*" # hide image previews in all channels
+include = { channels = ["#halloy"] } # show image previews in #halloy
 </code></pre>
 <h2 id="configuration-41"><a class="header" href="#configuration-41">Configuration</a></h2>
 <h3 id="action"><a class="header" href="#action">action</a></h3>
@@ -3297,25 +3319,28 @@ action = "preview"
 [preview.image]
 round_corners = true
 </code></pre>
-<h3 id="include-5"><a class="header" href="#include-5">include</a></h3>
-<p>Include image previews from channels &amp; queries.
-If you pass <code>["#halloy"]</code>, the channel <code>#halloy</code> will show image previews. The include rule takes priority over exclude, so you can use both together. For example, you can exclude all channels &amp; queries with <code>["*"]</code> and then only include a few specific channels.</p>
-<pre><code class="language-toml"># Type: array of strings
-# Values: array of any strings
-# Default: []
-
-[preview.image]
-include = []
-</code></pre>
 <h3 id="exclude-5"><a class="header" href="#exclude-5">exclude</a></h3>
-<p>Exclude image previews from channels &amp; queries.
-If you pass <code>["#halloy"]</code>, the channel <code>#halloy</code> will not show image previews. You can also exclude all channels &amp; queries by using a wildcard: <code>["*"]</code>.</p>
-<pre><code class="language-toml"># Type: array of strings
-# Values: array of any strings
-# Default: []
+<p><a href="/configuration/conditions.html">Exclusion conditions</a> for when image previews
+will be hidden. Inclusion conditions will take precedence over exclusion
+conditions. You can also exclude all conditions by setting to <code>"all"</code> or <code>"*"</code>.</p>
+<pre><code class="language-toml"># Type: inclusion/exclusion conditions
+# Values: any inclusion/exclusion conditions
+# Default: not set
 
 [preview.image]
-exclude = []
+exclude = { criteria = [{ server_message = "topic", channel = "#linux" }] } # exclude previews from topic messages in #linux
+</code></pre>
+<h3 id="include-5"><a class="header" href="#include-5">include</a></h3>
+<p><a href="/configuration/conditions.html">Inclusion conditions</a> for when image previews
+will be shown. Image previews will be shown for all conditions (when enabled)
+unless explicitly excluded, so this setting is only relevant when combined with
+the <code>exclude</code> setting.</p>
+<pre><code class="language-toml"># Type: inclusion/exclusion conditions
+# Values: any inclusion/exclusion conditions
+# Default: not set
+
+[preview.image]
+include = { users = ["BridgeBot"] }
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="request-1"><a class="header" href="#request-1">Request</a></h1>
@@ -4451,11 +4476,12 @@ url = "&lt;string&gt;"
 # change_host = "&lt;string&gt;"
 # change_mode = "&lt;string&gt;"
 # change_nick = "&lt;string&gt;"
+# change_topic = "&lt;string&gt;"
 # join = "&lt;string&gt;"
 # kick = "&lt;string&gt;"
 # part = "&lt;string&gt;"
 # quit = "&lt;string&gt;"
-# reply_topic = "&lt;string&gt;"
+# topic = "&lt;string&gt;"
 # monitored_online = "&lt;string&gt;"
 # monitored_offline = "&lt;string&gt;"
 # standard_reply_fail = "&lt;string&gt;"
