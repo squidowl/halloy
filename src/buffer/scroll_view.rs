@@ -410,19 +410,18 @@ pub fn view<'a>(
 
     let divider =
         if show_backlog_divier {
-            if config.buffer.backlog_separator.text.is_empty() {
-                row![
+            match &config.buffer.backlog_separator.text {
+                data::buffer::BacklogText::Hidden => row![
                     container(rule::horizontal(1).style(theme::rule::backlog))
                         .width(Length::Fill)
                 ]
                 .padding(2)
-                .align_y(iced::Alignment::Center)
-            } else {
-                row![
+                .align_y(iced::Alignment::Center),
+                data::buffer::BacklogText::Text(separator_text) => row![
                     container(rule::horizontal(1).style(theme::rule::backlog))
                         .width(Length::Fill)
                         .padding(padding::right(6)),
-                    text(config.buffer.backlog_separator.text.as_str())
+                    text(separator_text)
                         .size(divider_font_size)
                         .style(theme::text::secondary)
                         .color(
@@ -438,7 +437,7 @@ pub fn view<'a>(
                         .padding(padding::left(6))
                 ]
                 .padding(2)
-                .align_y(iced::Alignment::Center)
+                .align_y(iced::Alignment::Center),
             }
         } else {
             row![]
