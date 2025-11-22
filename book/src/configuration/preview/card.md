@@ -14,8 +14,8 @@ Specific card preview settings.
 
 ```toml
 [preview.card]
-exclude = ["*"] # hide card previews in all channels
-include = ["#halloy"] # show card previews in #halloy
+exclude = "*" # hide card previews in all channels
+include = { channels = ["#halloy"] } # show card previews in #halloy
 ```
 
 ## Configuration
@@ -46,30 +46,33 @@ Round the corners of the image in the card preview (if shown).
 round_image_corners = true
 ```
 
-### include
-
-Include card previews from channels & queries.
-If you pass `["#halloy"]`, the channel `#halloy` will show image previews. The include rule takes priority over exclude, so you can use both together. For example, you can exclude all channels & queries with `["*"]` and then only include a few specific channels.
-
-```toml
-# Type: array of strings
-# Values: array of any strings
-# Default: []
-
-[preview.card]
-include = []
-```
-
 ### exclude
 
-Exclude card previews from channels & queries.
-If you pass `["#halloy"]`, the channel `#halloy` will not show image previews. You can also exclude all channels & queries by using a wildcard: `["*"]`.
+[Exclusion conditions](/configuration/conditions.md) for when card previews will
+be hidden. Inclusion conditions will take precedence over exclusion conditions.
+You can also exclude all conditions by setting to `"all"` or `"*"`.
 
 ```toml
-# Type: array of strings
-# Values: array of any strings
-# Default: []
+# Type: inclusion/exclusion conditions
+# Values: any inclusion/exclusion conditions
+# Default: not set
 
 [preview.card]
-exclude = []
+exclude = { criteria = [{ server_message = "topic", channel = "#linux" }] } # exclude previews from topic messages in #linux
+```
+
+### include
+
+[Inclusion conditions](/configuration/conditions.md) for when card previews will
+be shown. Card previews will be shown for all conditions (when enabled) unless
+explicitly excluded, so this setting is only relevant when combined with the
+`exclude` setting.
+
+```toml
+# Type: inclusion/exclusion conditions
+# Values: any inclusion/exclusion conditions
+# Default: not set
+
+[preview.card]
+include = { users = ["BridgeBot"] }
 ```
