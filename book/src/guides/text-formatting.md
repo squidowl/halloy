@@ -76,3 +76,5 @@ By default, Halloy will only format text when using the `/format` command. This,
 [buffer.text_input]
 auto_format = "disabled" | "markdown" | "all"
 ```
+
+When `auto_format` is enabled, it can be disabled for an individual message by using the `/plain` command.
