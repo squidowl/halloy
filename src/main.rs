@@ -1433,6 +1433,7 @@ impl Halloy {
                 }
             },
             Message::UnixSignal(signal) => match signal {
+                #[cfg(target_family = "unix")]
                 signal_hook::consts::SIGUSR1 => {
                     Task::perform(Config::load(), Message::ConfigReloaded)
                 }
