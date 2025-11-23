@@ -143,7 +143,9 @@ impl Query {
         let buffer = buffer::Upstream::Query(server.clone(), target.clone());
 
         Self {
-            input_view: input_view::State::new(Some(history.input(&buffer).draft)),
+            input_view: input_view::State::new(Some(
+                history.input(&buffer).draft,
+            )),
             buffer,
             server,
             target,

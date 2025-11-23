@@ -168,7 +168,10 @@ pub fn view<'a>(
         let key_bindings = config.buffer.text_input.key_bindings.clone();
         text_input = text_input.on_action(Message::Action).key_binding(
             move |key_press| {
-                if !matches!(key_press.status, iced::widget::text_editor::Status::Focused { .. }) {
+                if !matches!(
+                    key_press.status,
+                    iced::widget::text_editor::Status::Focused { .. }
+                ) {
                     return None;
                 }
 
@@ -338,7 +341,9 @@ pub fn view<'a>(
                 //     (theme::line_height(&config.font).ceil() + 4.0)
                 //         * state.input_content.line_count() as f32
                 // )
-                .height((theme::line_height(&config.font).ceil() + 4.0).max(20.0))
+                .height(
+                    (theme::line_height(&config.font).ceil() + 4.0).max(20.0)
+                )
                 .align_y(Alignment::Center)
         )
         .padding(8)

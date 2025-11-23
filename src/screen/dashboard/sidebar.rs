@@ -206,18 +206,20 @@ impl Sidebar {
                              icon: Text<'a>,
                              message: Message| {
                                 let keybind = keybind.and_then(|kb| match kb {
-                                    data::shortcut::KeyBind::Bind { .. } => {
-                                        Some(
-                                            text(format!("({kb})"))
-                                                .shaping(text::Shaping::Advanced)
-                                                .size(theme::TEXT_SIZE - 2.0)
-                                                .style(theme::text::secondary)
-                                                .font_maybe(
-                                                    theme::font_style::secondary(theme)
-                                                        .map(font::get),
-                                                ),
-                                        )
-                                    }
+                                    data::shortcut::KeyBind::Bind {
+                                        ..
+                                    } => Some(
+                                        text(format!("({kb})"))
+                                            .shaping(text::Shaping::Advanced)
+                                            .size(theme::TEXT_SIZE - 2.0)
+                                            .style(theme::text::secondary)
+                                            .font_maybe(
+                                                theme::font_style::secondary(
+                                                    theme,
+                                                )
+                                                .map(font::get),
+                                            ),
+                                    ),
                                     data::shortcut::KeyBind::Unbind => None,
                                 });
 
