@@ -61,10 +61,12 @@ pub enum Message {
     SelectAll,
     CopyAll,
     Copy,
+    Cut,
 }
 
 #[derive(Debug, Clone, Copy)]
 pub enum Actions {
+    Cut,
     Copy,
     CopyAll,
     Paste,
@@ -73,7 +75,13 @@ pub enum Actions {
 
 impl Actions {
     fn list() -> Vec<Self> {
-        vec![Self::Copy, Self::CopyAll, Self::Paste, Self::SelectAll]
+        vec![
+            Self::Cut,
+            Self::Copy,
+            Self::CopyAll,
+            Self::Paste,
+            Self::SelectAll,
+        ]
     }
 }
 
@@ -287,6 +295,11 @@ pub fn view<'a>(
                 };
 
             match menu {
+                Actions::Cut => context_button(
+                    text("Cut"),
+                    Some(shortcut::cut()),
+                    state.input_content.selection().map(|_| Message::Cut),
+                ),
                 Actions::Copy => context_button(
                     text("Copy"),
                     Some(shortcut::copy()),
@@ -1016,6 +1029,20 @@ impl State {
                 }
 
                 Self::close_context_menu(window, vec![])
+            }
+            Message::Cut => {
+                let task =
+                    if let Some(selection) = self.input_content.selection() {
+                        self.input_content.perform(text_editor::Action::Edit(
+                            text_editor::Edit::Delete,
+                        ));
+
+                        clipboard::write(selection.to_string())
+                    } else {
+                        Task::none()
+                    };
+
+                Self::close_context_menu(main_window.id, vec![task])
             }
             Message::Copy => {
                 let task = if let Some(input) = self.input_content.selection() {
