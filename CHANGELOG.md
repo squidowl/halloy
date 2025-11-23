@@ -14,7 +14,9 @@ Added:
 - Ability to specify a distinct sound for each match highlight set
 - Setting to notify for every message in a channel
 - Per server custom proxy configuration option
-- Ability to exclude previews from specific server messages (topic, part, quit)
+- Ability to exclude previews from specific server messages (e.g. topic, part, quit)
+- Ability to expand & contract condensed messages via left-click
+- Change-host and kick server messages messages can be condensed
 
 Fixed:
 
@@ -36,7 +38,7 @@ Thanks:
 
 - Contributions: @kasperkronborg, @mistivia, @oooo-ps
 - Bug reports: @Frikilinux, ThePendulum, @crabbedhaloablution, @findus, @Darksecond
-- Feature requests: @cyrneko, ilya, abby, @clorteau, @RobertCraigie, @dei-layborer
+- Feature requests: @cyrneko, ilya, abby, @clorteau, @RobertCraigie, @dei-layborer, @classabbyamp
 
 # 2025.11 (2025-10-27)
 

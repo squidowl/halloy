@@ -29,7 +29,7 @@ jobs:
     env:
       RUSTFLAGS: "-C linker=clang -C link-arg=-fuse-ld=mold"
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     - name: Install dependencies
       run: |
         sudo apt update
@@ -67,5 +67,8 @@ jobs:
     - name: Test
       run: cargo nextest run --locked --profile ci --workspace --all-targets
 
+    - uses: dtolnay/rust-toolchain@nightly
+      with:
+        components: rustfmt
     - name: Format
       run: cargo +nightly fmt --all -- --check

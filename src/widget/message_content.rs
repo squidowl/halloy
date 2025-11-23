@@ -13,6 +13,7 @@ pub fn message_content<'a, M: 'a>(
     casemapping: isupport::CaseMap,
     theme: &'a Theme,
     on_link: impl Fn(message::Link) -> M + 'a,
+    default_link: Option<message::Link>,
     style: impl Fn(&Theme) -> selectable_text::Style + 'a,
     font_style: impl Fn(&Theme) -> Option<FontStyle>,
     color_transformation: Option<impl Fn(Color) -> Color>,
@@ -24,6 +25,7 @@ pub fn message_content<'a, M: 'a>(
         casemapping,
         theme,
         on_link,
+        default_link,
         style,
         font_style,
         color_transformation,
@@ -38,6 +40,7 @@ pub fn with_context<'a, T: Copy + 'a, M: 'a>(
     casemapping: isupport::CaseMap,
     theme: &'a Theme,
     on_link: impl Fn(message::Link) -> M + 'a,
+    default_link: Option<message::Link>,
     style: impl Fn(&Theme) -> selectable_text::Style + 'a,
     font_style: impl Fn(&Theme) -> Option<FontStyle>,
     color_transformation: Option<impl Fn(Color) -> Color>,
@@ -51,6 +54,7 @@ pub fn with_context<'a, T: Copy + 'a, M: 'a>(
         casemapping,
         theme,
         on_link,
+        default_link,
         style,
         font_style,
         color_transformation,
@@ -66,6 +70,7 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a>(
     casemapping: isupport::CaseMap,
     theme: &'a Theme,
     on_link: impl Fn(message::Link) -> M + 'a,
+    default_link: Option<message::Link>,
     style: impl Fn(&Theme) -> selectable_text::Style + 'a,
     font_style: impl Fn(&Theme) -> Option<FontStyle>,
     color_transformation: Option<impl Fn(Color) -> Color>,
@@ -101,7 +106,7 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a>(
                             }
                         };
 
-                        match fragment {
+                        let span = match fragment {
                             data::message::Fragment::Text(s) => span(s),
                             data::message::Fragment::Channel(s) => {
                                 span(s.as_str())
@@ -270,6 +275,7 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a>(
                             data::message::Fragment::Condensed {
                                 text,
                                 source,
+                                ..
                             } => span(text.as_str())
                                 .font_maybe(
                                     theme::font_style::server(
@@ -286,6 +292,14 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a>(
                                     .color
                                     .map(transform_color),
                                 ),
+                        };
+
+                        if span.link.is_none()
+                            && let Some(default_link) = &default_link
+                        {
+                            span.link(default_link.clone())
+                        } else {
+                            span
                         }
                     })
                     .collect::<Vec<_>>(),

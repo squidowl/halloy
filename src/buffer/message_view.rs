@@ -13,7 +13,7 @@ use super::context_menu::{self, Context};
 use super::scroll_view::LayoutMessage;
 use crate::buffer::scroll_view::Message;
 use crate::widget::{
-    Element, message_content, message_marker, selectable_text, tooltip,
+    Element, Marker, message_content, message_marker, selectable_text, tooltip,
 };
 use crate::{Theme, font, icon, theme};
 
@@ -297,6 +297,7 @@ impl<'a> ChannelQueryLayout<'a> {
             self.casemapping,
             self.theme,
             Message::Link,
+            None,
             message_style,
             theme::font_style::primary,
             color_transformation,
@@ -387,8 +388,36 @@ impl<'a> ChannelQueryLayout<'a> {
             theme::font_style::server(message_theme, server)
         };
 
-        let marker =
-            message_marker(right_aligned_width, self.config, message_style);
+        let link = message.expanded.then_some(
+            message::Link::ContractCondensedMessage(
+                message.server_time,
+                message.hash,
+            ),
+        );
+
+        let marker_style = move |message_theme: &Theme| {
+            if message.expanded || message.condensed.is_some() {
+                theme::selectable_text::condensed_marker(message_theme)
+            } else {
+                message_style(message_theme)
+            }
+        };
+
+        let marker = message_marker(
+            if message.expanded {
+                if message.condensed.is_some() {
+                    Marker::Contract
+                } else {
+                    Marker::None
+                }
+            } else {
+                Marker::Dot
+            },
+            right_aligned_width,
+            self.config,
+            marker_style,
+            link.clone().map(Message::Link),
+        );
 
         let message_content = message_content::with_context(
             &message.content,
@@ -396,6 +425,7 @@ impl<'a> ChannelQueryLayout<'a> {
             formatter.casemapping,
             self.theme,
             Message::Link,
+            link,
             message_style,
             message_font_style,
             Some(|color: Color| -> Color {
@@ -436,30 +466,50 @@ impl<'a> ChannelQueryLayout<'a> {
     fn format_condensed_message(
         &self,
         message: &'a data::Message,
-        spacer_width: Option<f32>,
+        right_aligned_width: Option<f32>,
     ) -> (Element<'a, Message>, Element<'a, Message>) {
-        let spacer = spacer_width.map(|width| selectable_text("").width(width));
+        let formatter = *self;
+
+        let dimmed = formatter.config.buffer.server_messages.condense.dimmed;
 
         let message_style = move |message_theme: &Theme| {
-            theme::selectable_text::server(message_theme, None)
+            theme::selectable_text::dimmed(
+                theme::selectable_text::server(message_theme, None),
+                message_theme,
+                dimmed.map(|dimmed| {
+                    (dimmed, formatter.theme.styles().buffer.background)
+                }),
+            )
         };
         let message_font_style = move |message_theme: &Theme| {
             theme::font_style::server(message_theme, None)
         };
 
-        let formatter = *self;
+        let link = message::Link::ExpandCondensedMessage(
+            message.server_time,
+            message.hash,
+        );
+        let moved_link = link.clone();
+
+        let marker = message_marker(
+            Marker::Expand,
+            right_aligned_width,
+            self.config,
+            theme::selectable_text::condensed_marker,
+            Some(Message::Link(link.clone())),
+        );
+
         let message_content = message_content::with_context(
             &message.content,
             formatter.chantypes,
             formatter.casemapping,
             self.theme,
-            Message::Link,
+            move |_| Message::Link(moved_link.clone()),
+            Some(link),
             message_style,
             message_font_style,
             Some(|color: Color| -> Color {
-                if let Some(dimmed) =
-                    formatter.config.buffer.server_messages.condense.dimmed
-                {
+                if let Some(dimmed) = dimmed {
                     dimmed.transform_color(
                         color,
                         formatter.theme.styles().buffer.background,
@@ -490,7 +540,7 @@ impl<'a> ChannelQueryLayout<'a> {
             self.config,
         );
 
-        (spacer.into(), container(message_content).into())
+        (marker, container(message_content).into())
     }
 
     fn content_on_new_line(&self, message: &data::Message) -> bool {
@@ -561,26 +611,51 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
                 }
                 message::Source::Action(_) => {
                     let marker = message_marker(
+                        Marker::Dot,
                         right_aligned_width,
                         self.config,
                         theme::selectable_text::action,
+                        None,
                     );
 
-                    let message_content = message_content(
+                    let formatter = *self;
+                    let message_content = message_content::with_context(
                         &message.content,
-                        self.chantypes,
-                        self.casemapping,
-                        self.theme,
+                        formatter.chantypes,
+                        formatter.casemapping,
+                        formatter.theme,
                         Message::Link,
+                        None,
                         theme::selectable_text::action,
                         theme::font_style::action,
                         Option::<fn(Color) -> Color>::None,
-                        self.config,
+                        move |link| match link {
+                            message::Link::User(_) => {
+                                context_menu::Entry::user_list(
+                                    formatter.target.is_channel(),
+                                    formatter.target.our_user(),
+                                    formatter.config.file_transfer.enabled,
+                                )
+                            }
+                            message::Link::Url(_) => {
+                                context_menu::Entry::url_list()
+                            }
+                            _ => vec![],
+                        },
+                        move |link, entry, length| {
+                            entry
+                                .view(
+                                    formatter.link_context(link),
+                                    length,
+                                    formatter.config,
+                                    formatter.theme,
+                                )
+                                .map(Message::ContextMenu)
+                        },
+                        formatter.config,
                     );
 
-                    let text_container = container(message_content);
-
-                    Some((marker, text_container.into()))
+                    Some((marker, container(message_content).into()))
                 }
                 message::Source::Internal(
                     message::source::Internal::Status(status),
@@ -593,9 +668,11 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
                     };
 
                     let marker = message_marker(
+                        Marker::Dot,
                         right_aligned_width,
                         self.config,
                         message_style,
+                        None,
                     );
 
                     let message = message_content(
@@ -604,6 +681,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
                         self.casemapping,
                         self.theme,
                         Message::Link,
+                        None,
                         message_style,
                         message_font_style,
                         Option::<fn(Color) -> Color>::None,
@@ -618,7 +696,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
                 message::Source::Internal(
                     message::source::Internal::Condensed(end_server_time),
                 ) => {
-                    let spacer_width =
+                    let right_aligned_width =
                         if message.server_time != *end_server_time {
                             right_aligned_width.map(|right_aligned_width| {
                                 right_aligned_width
@@ -630,7 +708,10 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
                         };
 
                     (!message.text().is_empty()).then_some(
-                        self.format_condensed_message(message, spacer_width),
+                        self.format_condensed_message(
+                            message,
+                            right_aligned_width,
+                        ),
                     )
                 }
             }?;
