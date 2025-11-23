@@ -5,20 +5,19 @@ use iced::Color;
 use serde::{Deserialize, Deserializer};
 
 pub use self::channel::Channel;
-pub
-use crate::appearance::theme::{alpha_color, alpha_color_calculate};
+pub use crate::appearance::theme::{alpha_color, alpha_color_calculate};
+use crate::config::buffer::nickname::Nickname;
+use crate::config::buffer::text_input::TextInput;
 use crate::config::inclusivities::{Inclusivities, is_target_channel_included};
 use crate::user::NickRef;
 use crate::{Server, isupport, target};
-use crate::config::buffer::{nickname::Nickname, text_input::TextInput};
 
 pub mod channel;
 pub mod nickname;
 pub mod text_input;
 
 use crate::buffer::{
-    BacklogSeparator, DateSeparators, SkinTone, StatusMessagePrefix,
-    Timestamp,
+    BacklogSeparator, DateSeparators, SkinTone, StatusMessagePrefix, Timestamp,
 };
 use crate::message::source;
 

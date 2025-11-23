@@ -111,7 +111,9 @@ impl Status {
     }
 }
 
-impl<'a, T, Message, Theme, Renderer> ContextMenu<'a, T, Message, Theme, Renderer> {
+impl<'a, T, Message, Theme, Renderer>
+    ContextMenu<'a, T, Message, Theme, Renderer>
+{
     pub fn mouse_interaction_on_hover(
         mut self,
         interaction: mouse::Interaction,

@@ -20,8 +20,8 @@ pub mod scrollable;
 pub mod selectable_text;
 pub mod svg;
 pub mod text;
-pub mod text_input;
 pub mod text_editor;
+pub mod text_input;
 
 // TODO: If we use non-standard font sizes, we should consider
 // Config.font.size since it's user configurable

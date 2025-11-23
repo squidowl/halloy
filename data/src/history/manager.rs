@@ -304,7 +304,6 @@ impl Manager {
         self.data.input.store_draft(raw_input);
     }
 
-
     // The message's blocked state should be determined prior to using this
     // function. In most cases, the best way to do that is by using the
     // block_and_record_message function.
