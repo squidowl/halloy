@@ -165,6 +165,13 @@ pub fn select_all() -> KeyBind {
     }
 }
 
+pub fn cut() -> KeyBind {
+    KeyBind::Bind {
+        key_code: KeyCode(iced_core::keyboard::Key::Character("x".into())),
+        modifiers: COMMAND,
+    }
+}
+
 pub fn copy() -> KeyBind {
     KeyBind::Bind {
         key_code: KeyCode(iced_core::keyboard::Key::Character("c".into())),
