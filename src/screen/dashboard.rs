@@ -1992,6 +1992,30 @@ impl Dashboard {
             buffer::Event::ImagePreview(path, url) => {
                 return (Task::none(), Some(Event::ImagePreview(path, url)));
             }
+            buffer::Event::ExpandCondensedMessage(server_time, hash) => {
+                if let Some(kind) =
+                    pane.buffer.data().and_then(history::Kind::from_buffer)
+                {
+                    self.history.expand_condensed_message(
+                        kind,
+                        server_time,
+                        hash,
+                        &config.buffer.server_messages.condense,
+                    );
+                }
+            }
+            buffer::Event::ContractCondensedMessage(server_time, hash) => {
+                if let Some(kind) =
+                    pane.buffer.data().and_then(history::Kind::from_buffer)
+                {
+                    self.history.contract_condensed_message(
+                        kind,
+                        server_time,
+                        hash,
+                        &config.buffer.server_messages.condense,
+                    );
+                }
+            }
         }
 
         (Task::none(), None)

@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use chrono::{DateTime, Utc};
 pub use data::buffer::{Autocomplete, Internal, Settings, Upstream};
 use data::dashboard::BufferAction;
 use data::target::{self, Target};
@@ -62,6 +63,8 @@ pub enum Event {
     MarkAsRead(history::Kind),
     OpenUrl(String),
     ImagePreview(PathBuf, url::Url),
+    ExpandCondensedMessage(DateTime<Utc>, message::Hash),
+    ContractCondensedMessage(DateTime<Utc>, message::Hash),
 }
 
 impl Buffer {
@@ -209,6 +212,14 @@ impl Buffer {
                     channel::Event::ImagePreview(path, url) => {
                         Event::ImagePreview(path, url)
                     }
+                    channel::Event::ExpandCondensedMessage(
+                        server_time,
+                        hash,
+                    ) => Event::ExpandCondensedMessage(server_time, hash),
+                    channel::Event::ContractCondensedMessage(
+                        server_time,
+                        hash,
+                    ) => Event::ContractCondensedMessage(server_time, hash),
                 });
 
                 (command.map(Message::Channel), event)
@@ -233,6 +244,14 @@ impl Buffer {
                     server::Event::ImagePreview(path, url) => {
                         Event::ImagePreview(path, url)
                     }
+                    server::Event::ExpandCondensedMessage(
+                        server_time,
+                        hash,
+                    ) => Event::ExpandCondensedMessage(server_time, hash),
+                    server::Event::ContractCondensedMessage(
+                        server_time,
+                        hash,
+                    ) => Event::ContractCondensedMessage(server_time, hash),
                 });
 
                 (command.map(Message::Server), event)
@@ -264,6 +283,13 @@ impl Buffer {
                     query::Event::ImagePreview(path, url) => {
                         Event::ImagePreview(path, url)
                     }
+                    query::Event::ExpandCondensedMessage(server_time, hash) => {
+                        Event::ExpandCondensedMessage(server_time, hash)
+                    }
+                    query::Event::ContractCondensedMessage(
+                        server_time,
+                        hash,
+                    ) => Event::ContractCondensedMessage(server_time, hash),
                 });
 
                 (command.map(Message::Query), event)
@@ -292,6 +318,13 @@ impl Buffer {
                     logs::Event::ImagePreview(path, url) => {
                         Event::ImagePreview(path, url)
                     }
+                    logs::Event::ExpandCondensedMessage(server_time, hash) => {
+                        Event::ExpandCondensedMessage(server_time, hash)
+                    }
+                    logs::Event::ContractCondensedMessage(
+                        server_time,
+                        hash,
+                    ) => Event::ContractCondensedMessage(server_time, hash),
                 });
 
                 (command.map(Message::Logs), event)
@@ -317,6 +350,14 @@ impl Buffer {
                     highlights::Event::ImagePreview(path, url) => {
                         Event::ImagePreview(path, url)
                     }
+                    highlights::Event::ExpandCondensedMessage(
+                        server_time,
+                        hash,
+                    ) => Event::ExpandCondensedMessage(server_time, hash),
+                    highlights::Event::ContractCondensedMessage(
+                        server_time,
+                        hash,
+                    ) => Event::ContractCondensedMessage(server_time, hash),
                 });
 
                 (command.map(Message::Highlights), event)

@@ -29,6 +29,7 @@ pub mod server {
     #![allow(deprecated)]
     use serde::{Deserialize, Serialize};
 
+    use crate::isupport;
     use crate::user::Nick;
 
     #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -40,8 +41,12 @@ pub mod server {
     }
 
     impl Server {
-        pub fn new(kind: Kind, nick: Option<Nick>) -> Self {
-            Self::Details(Details { kind, nick })
+        pub fn new(
+            kind: Kind,
+            nick: Option<Nick>,
+            change: Option<Change>,
+        ) -> Self {
+            Self::Details(Details { kind, nick, change })
         }
 
         pub fn kind(&self) -> Kind {
@@ -55,6 +60,25 @@ pub mod server {
             match self {
                 Server::Kind(_) => None,
                 Server::Details(details) => details.nick.as_ref(),
+            }
+        }
+
+        pub fn change(&self) -> Option<&Change> {
+            match self {
+                Server::Kind(_) => None,
+                Server::Details(details) => details.change.as_ref(),
+            }
+        }
+
+        pub fn renormalize(&mut self, casemapping: isupport::CaseMap) {
+            if let Server::Details(Details { nick, change, .. }) = self {
+                if let Some(nick) = nick {
+                    nick.renormalize(casemapping);
+                }
+
+                if let Some(Change::Nick(nick)) = change {
+                    nick.renormalize(casemapping);
+                }
             }
         }
     }
@@ -110,8 +134,15 @@ pub mod server {
     }
 
     #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+    pub enum Change {
+        Nick(Nick),
+        Host(String, String),
+    }
+
+    #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
     pub struct Details {
         pub kind: Kind,
         pub nick: Option<Nick>,
+        pub change: Option<Change>,
     }
 }

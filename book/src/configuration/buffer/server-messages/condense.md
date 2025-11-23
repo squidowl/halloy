@@ -16,16 +16,18 @@ Condense multiple consecutive server messages into a single abbreviated message.
 
 | **Event Type** | **Symbol** |
 | -------------- | ---------- |
+| `change-host`  | `→`        |
 | `change-nick`  | `→`        |
 | `join`         | `+`        |
 | `part`         | `-`        |
 | `quit`         | `-`        |
+| `kick`         | `!`        |
 
 The color and font style of the symbols is taken from the theme setting for that event type.
 
 ```toml
 # Type: array of strings
-# Values: ["change-nick", "join", "part", "quit"]
+# Values: ["change-host", "change-nick", "join", "kick", "part", "quit"]
 # Default: []
 
 [buffer.server_messages.condense]
