@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use chrono::{DateTime, Utc};
-pub use data::buffer::{Autocomplete, Internal, Settings, Upstream};
+pub use data::buffer::{Internal, Settings, Upstream};
 use data::config::buffer::text_input::Autocomplete;
 use data::dashboard::BufferAction;
 use data::target::{self, Target};
