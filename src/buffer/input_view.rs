@@ -46,6 +46,7 @@ pub enum Message {
     CloseContextMenu(window::Id, bool),
     SysInfoReceived(iced::system::Information),
     Send,
+    KillWord,
     KillLine,
     Tab(bool),
     Up,
@@ -84,8 +85,8 @@ fn emacs_key_binding(
             if key_press.modifiers.control() =>
         {
             Some(text_editor::Binding::Custom(Message::Action(
-                if key_press.modifiers.alt() {
-                    text_editor::Action::Select(text_editor::Motion::Home)
+                if key_press.modifiers.shift() {
+                    text_editor::Action::Select(text_editor::Motion::End)
                 } else {
                     text_editor::Action::Move(text_editor::Motion::End)
                 },
@@ -94,7 +95,7 @@ fn emacs_key_binding(
         iced::keyboard::Key::Character("a")
             if key_press.modifiers.control() =>
         {
-            if key_press.modifiers.alt() {
+            if key_press.modifiers.shift() {
                 Some(text_editor::Binding::Custom(Message::Action(
                     text_editor::Action::Select(text_editor::Motion::Home),
                 )))
@@ -105,28 +106,52 @@ fn emacs_key_binding(
             }
         }
         iced::keyboard::Key::Character("b") if key_press.modifiers.alt() => {
-            Some(text_editor::Binding::Custom(Message::Action(
-                text_editor::Action::Move(text_editor::Motion::WordLeft),
-            )))
+            if key_press.modifiers.shift() {
+                Some(text_editor::Binding::Custom(Message::Action(
+                    text_editor::Action::Select(text_editor::Motion::WordLeft),
+                )))
+            } else {
+                Some(text_editor::Binding::Custom(Message::Action(
+                    text_editor::Action::Move(text_editor::Motion::WordLeft),
+                )))
+            }
         }
         iced::keyboard::Key::Character("b")
             if key_press.modifiers.control() =>
         {
-            Some(text_editor::Binding::Custom(Message::Action(
-                text_editor::Action::Move(text_editor::Motion::Left),
-            )))
+            if key_press.modifiers.shift() {
+                Some(text_editor::Binding::Custom(Message::Action(
+                    text_editor::Action::Select(text_editor::Motion::Left),
+                )))
+            } else {
+                Some(text_editor::Binding::Custom(Message::Action(
+                    text_editor::Action::Move(text_editor::Motion::Left),
+                )))
+            }
         }
         iced::keyboard::Key::Character("f") if key_press.modifiers.alt() => {
-            Some(text_editor::Binding::Custom(Message::Action(
-                text_editor::Action::Move(text_editor::Motion::WordRight),
-            )))
+            if key_press.modifiers.shift() {
+                Some(text_editor::Binding::Custom(Message::Action(
+                    text_editor::Action::Select(text_editor::Motion::WordRight),
+                )))
+            } else {
+                Some(text_editor::Binding::Custom(Message::Action(
+                    text_editor::Action::Move(text_editor::Motion::WordRight),
+                )))
+            }
         }
         iced::keyboard::Key::Character("f")
             if key_press.modifiers.control() =>
         {
-            Some(text_editor::Binding::Custom(Message::Action(
-                text_editor::Action::Move(text_editor::Motion::Right),
-            )))
+            if key_press.modifiers.shift() {
+                Some(text_editor::Binding::Custom(Message::Action(
+                    text_editor::Action::Select(text_editor::Motion::Right),
+                )))
+            } else {
+                Some(text_editor::Binding::Custom(Message::Action(
+                    text_editor::Action::Move(text_editor::Motion::Right),
+                )))
+            }
         }
         iced::keyboard::Key::Character("d")
             if key_press.modifiers.control() =>
@@ -134,6 +159,9 @@ fn emacs_key_binding(
             Some(text_editor::Binding::Custom(Message::Action(
                 text_editor::Action::Edit(text_editor::Edit::Delete),
             )))
+        }
+        iced::keyboard::Key::Character("d") if key_press.modifiers.alt() => {
+            Some(text_editor::Binding::Custom(Message::KillWord))
         }
         iced::keyboard::Key::Character("k")
             if key_press.modifiers.control() =>
@@ -1010,23 +1038,41 @@ impl State {
                 Self::close_context_menu(main_window.id, vec![])
             }
             Message::CloseContextMenu(_, _) => (Task::none(), None),
+            Message::KillWord => {
+                self.input_content.perform(text_editor::Action::Select(
+                    text_editor::Motion::WordRight,
+                ));
+
+                let task =
+                    if let Some(selection) = self.input_content.selection() {
+                        self.input_content.perform(text_editor::Action::Edit(
+                            text_editor::Edit::Delete,
+                        ));
+
+                        clipboard::write(selection.to_string())
+                    } else {
+                        Task::none()
+                    };
+
+                (task, None)
+            }
             Message::KillLine => {
                 self.input_content.perform(text_editor::Action::Select(
                     text_editor::Motion::End,
                 ));
-                let selection = self.input_content.selection();
 
-                if let Some(selection) = selection {
-                    let new_input =
-                        self.input_content.text().replace(&selection, "");
-                    self.input_content =
-                        text_editor::Content::with_text(&new_input);
-                    self.input_content.perform(text_editor::Action::Move(
-                        text_editor::Motion::End,
-                    ));
-                }
+                let task =
+                    if let Some(selection) = self.input_content.selection() {
+                        self.input_content.perform(text_editor::Action::Edit(
+                            text_editor::Edit::Delete,
+                        ));
 
-                (Task::none(), None)
+                        clipboard::write(selection.to_string())
+                    } else {
+                        Task::none()
+                    };
+
+                (task, None)
             }
             Message::Action(action) => {
                 self.input_content.perform(action.clone());
