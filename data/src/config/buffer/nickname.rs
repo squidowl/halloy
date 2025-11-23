@@ -1,4 +1,5 @@
-use serde::Deserialize;
+use chrono::TimeDelta;
+use serde::{Deserialize, Deserializer};
 
 use crate::buffer::{Alignment, Brackets, Color};
 use crate::config::buffer::{Away, NicknameClickAction};
@@ -15,7 +16,7 @@ pub struct Nickname {
     pub click: NicknameClickAction,
     pub shown_status: ShownStatus,
     pub truncate: Option<u16>,
-    pub hide_consecutive: bool,
+    pub hide_consecutive: HideConsecutive,
 }
 
 impl Default for Nickname {
@@ -30,7 +31,7 @@ impl Default for Nickname {
             click: NicknameClickAction::default(),
             shown_status: ShownStatus::default(),
             truncate: None,
-            hide_consecutive: false,
+            hide_consecutive: HideConsecutive::default(),
         }
     }
 }
@@ -55,4 +56,38 @@ pub enum ShownStatus {
     #[default]
     Current,
     Historical,
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+pub enum HideConsecutive {
+    #[default]
+    Disabled,
+    Enabled(Option<TimeDelta>),
+}
+
+impl<'de> Deserialize<'de> for HideConsecutive {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Debug, Clone, Deserialize)]
+        #[serde(untagged)]
+        pub enum Inner {
+            Boolean(bool),
+            Smart { smart: i64 },
+        }
+
+        match Inner::deserialize(deserializer)? {
+            Inner::Boolean(enabled) => {
+                if enabled {
+                    Ok(HideConsecutive::Enabled(None))
+                } else {
+                    Ok(HideConsecutive::Disabled)
+                }
+            }
+            Inner::Smart { smart } => {
+                Ok(HideConsecutive::Enabled(TimeDelta::try_seconds(smart)))
+            }
+        }
+    }
 }
