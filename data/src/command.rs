@@ -187,6 +187,7 @@ enum Kind {
     Kick,
     Mode,
     Format,
+    Plain,
     Away,
     SetName,
     Ctcp,
@@ -217,6 +218,7 @@ impl FromStr for Kind {
             "kick" => Ok(Kind::Kick),
             "mode" | "m" => Ok(Kind::Mode),
             "format" | "f" => Ok(Kind::Format),
+            "plain" | "p" => Ok(Kind::Plain),
             "away" => Ok(Kind::Away),
             "setname" => Ok(Kind::SetName),
             "notice" => Ok(Kind::Notice),
@@ -866,6 +868,16 @@ pub fn parse(
                     Ok(Command::Irc(Irc::Msg(
                         target.to_string(),
                         formatting::encode(raw, false),
+                    )))
+                } else {
+                    Ok(unknown())
+                }
+            }
+            Kind::Plain => {
+                if let Some(target) = buffer.and_then(Upstream::target) {
+                    Ok(Command::Irc(Irc::Msg(
+                        target.to_string(),
+                        raw.to_string(),
                     )))
                 } else {
                     Ok(unknown())
