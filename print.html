@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-b32fba96.js";
+            window.path_to_searchindex_js = "searchindex-559471ea.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-fe913ceb.js"></script>
@@ -1750,16 +1750,22 @@ click = "open-query"
 truncate = 10
 </code></pre>
 <h3 id="hide_consecutive"><a class="header" href="#hide_consecutive">hide_consecutive</a></h3>
-<p>Hide nickname if consecutive messages are from the same user.</p>
+<p>Hide nickname if consecutive messages are from the same user.  If specified as
+<code>{ smart = integer }</code> then the nickname will be hidden for consecutive messages
+are from the same user and each is within <code>smart</code> seconds of each other.</p>
 <blockquote>
 <p>⚠️ <code>hide_consecutive</code> does not work in conjunction with <code>alignment = "top"</code> .</p>
 </blockquote>
 <pre><code class="language-toml"># Type: boolean
-# Values: true, false
+# Values: true, false, or { smart = integer }
 # Default: false
 
 [buffer.nickname]
 hide_consecutive = true
+
+# hide if the previous message was from the same user and sent within 2m of the current message
+[buffer.nickname]
+hide_consecutive = { smart = 120 }
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="server-messages-1"><a class="header" href="#server-messages-1">Server Messages</a></h1>
