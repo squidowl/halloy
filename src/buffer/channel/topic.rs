@@ -4,7 +4,7 @@ use data::{Config, Server, User, isupport, message, target};
 use iced::widget::{Scrollable, column, container, row, rule, scrollable};
 use iced::{Color, Length, padding};
 
-use super::context_menu;
+use super::context_menu::{self, Context};
 use crate::widget::{Element, double_pass, message_content, selectable_text};
 use crate::{Theme, font, theme};
 
@@ -110,7 +110,7 @@ pub fn view<'a>(
     });
 
     let content = column![
-        message_content(
+        message_content::with_context(
             content,
             chantypes,
             casemapping,
@@ -120,6 +120,35 @@ pub fn view<'a>(
             theme::selectable_text::topic,
             theme::font_style::topic,
             Option::<fn(Color) -> Color>::None,
+            move |link| match link {
+                message::Link::User(_) => context_menu::Entry::user_list(
+                    true,
+                    our_user,
+                    config.file_transfer.enabled,
+                ),
+                message::Link::Url(_) => context_menu::Entry::url_list(),
+                _ => vec![],
+            },
+            move |link, entry, length| {
+                let link_context = if let Some(user) = link.user() {
+                    let current_user =
+                        users.and_then(|users| users.resolve(user));
+
+                    Some(Context::User {
+                        server,
+                        prefix,
+                        channel: Some(channel),
+                        user,
+                        current_user,
+                    })
+                } else {
+                    link.url().map(Context::Url)
+                };
+
+                entry
+                    .view(link_context, length, config, theme)
+                    .map(Message::ContextMenu)
+            },
             config,
         ),
         set_by
