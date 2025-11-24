@@ -1,7 +1,7 @@
 # Halloy config.
 #
 # For a complete list of available options,
-# please visit https://halloy.chat/configuration/
+# please visit https://halloy.chat/configuration.html
 
 [servers.liberachat]
 nickname = "__NICKNAME__"
