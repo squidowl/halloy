@@ -73,7 +73,12 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         .enable_all()
         .build()?;
 
-    let _ = rt.block_on(history::delete(&history::Kind::Logs));
+    let _ = rt.block_on(async {
+        tokio::join!(
+            history::delete(&history::Kind::Logs),
+            history::metadata::delete(&history::Kind::Logs)
+        )
+    });
 
     let log_stream =
         logger::setup(is_debug, logs_config).expect("setup logging");

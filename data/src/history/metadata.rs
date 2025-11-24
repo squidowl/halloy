@@ -160,6 +160,14 @@ pub async fn update(
     Ok(())
 }
 
+pub async fn delete(kind: &Kind) -> Result<(), Error> {
+    let path = path(kind).await?;
+
+    fs::remove_file(path).await?;
+
+    Ok(())
+}
+
 async fn path(kind: &Kind) -> Result<PathBuf, Error> {
     let dir = dir_path().await?;
 
