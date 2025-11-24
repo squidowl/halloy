@@ -96,6 +96,12 @@ impl iced::theme::Base for Theme {
     fn mode(&self) -> iced::theme::Mode {
         iced::theme::Mode::Dark
     }
+    fn name(&self) -> &str {
+        match self {
+            Theme::Selected(selected) => selected.name.as_str(),
+            Theme::Preview { preview, .. } => preview.name.as_str(),
+        }
+    }
 }
 
 impl combo_box::Catalog for Theme {}

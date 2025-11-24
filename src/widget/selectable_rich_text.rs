@@ -601,8 +601,8 @@ where
                                 ),
                             bounds.size()
                                 + Size::new(
-                                    span.padding.horizontal(),
-                                    span.padding.vertical(),
+                                    span.padding.left + span.padding.right,
+                                    span.padding.top + span.padding.bottom,
                                 ),
                         );
 
