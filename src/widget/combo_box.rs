@@ -763,6 +763,7 @@ where
                 layout.position(),
                 layout.bounds(),
                 bounds.height + spacing,
+                Length::Shrink,
             ))
         } else {
             None
