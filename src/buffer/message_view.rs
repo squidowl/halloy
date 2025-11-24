@@ -304,6 +304,7 @@ impl<'a> ChannelQueryLayout<'a> {
             move |link| match link {
                 message::Link::User(_) => context_menu::Entry::user_list(
                     formatter.target.is_channel(),
+                    user_in_channel,
                     formatter.target.our_user(),
                     formatter.config.file_transfer.enabled,
                 ),
@@ -439,11 +440,21 @@ impl<'a> ChannelQueryLayout<'a> {
                 }
             }),
             move |link| match link {
-                message::Link::User(_) => context_menu::Entry::user_list(
-                    formatter.target.is_channel(),
-                    formatter.target.our_user(),
-                    formatter.config.file_transfer.enabled,
-                ),
+                message::Link::User(user) => {
+                    let user_in_channel = formatter
+                        .target
+                        .users()
+                        .into_iter()
+                        .flatten()
+                        .find(|u| *u == user);
+
+                    context_menu::Entry::user_list(
+                        formatter.target.is_channel(),
+                        user_in_channel,
+                        formatter.target.our_user(),
+                        formatter.config.file_transfer.enabled,
+                    )
+                }
                 message::Link::Url(_) => context_menu::Entry::url_list(),
                 _ => vec![],
             },
@@ -519,11 +530,21 @@ impl<'a> ChannelQueryLayout<'a> {
                 }
             }),
             move |link| match link {
-                message::Link::User(_) => context_menu::Entry::user_list(
-                    formatter.target.is_channel(),
-                    formatter.target.our_user(),
-                    formatter.config.file_transfer.enabled,
-                ),
+                message::Link::User(user) => {
+                    let user_in_channel = formatter
+                        .target
+                        .users()
+                        .into_iter()
+                        .flatten()
+                        .find(|u| *u == user);
+
+                    context_menu::Entry::user_list(
+                        formatter.target.is_channel(),
+                        user_in_channel,
+                        formatter.target.our_user(),
+                        formatter.config.file_transfer.enabled,
+                    )
+                }
                 message::Link::Url(_) => context_menu::Entry::url_list(),
                 _ => vec![],
             },
@@ -630,9 +651,17 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
                         theme::font_style::action,
                         Option::<fn(Color) -> Color>::None,
                         move |link| match link {
-                            message::Link::User(_) => {
+                            message::Link::User(user) => {
+                                let user_in_channel = formatter
+                                    .target
+                                    .users()
+                                    .into_iter()
+                                    .flatten()
+                                    .find(|u| *u == user);
+
                                 context_menu::Entry::user_list(
                                     formatter.target.is_channel(),
+                                    user_in_channel,
                                     formatter.target.our_user(),
                                     formatter.config.file_transfer.enabled,
                                 )

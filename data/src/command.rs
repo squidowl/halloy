@@ -42,6 +42,7 @@ pub enum Irc {
     Msg(String, String),
     Me(String, String),
     Whois(Option<String>, String),
+    Whowas(String, Option<String>),
     Part(String, Option<String>),
     Topic(String, Option<String>),
     Kick(String, String, Option<String>),
@@ -1140,6 +1141,7 @@ impl TryFrom<Irc> for proto::Command {
                 ctcp::query_command(&ctcp::Command::Action, target, Some(text))
             }
             Irc::Whois(channel, user) => proto::Command::WHOIS(channel, user),
+            Irc::Whowas(user, count) => proto::Command::WHOWAS(user, count),
             Irc::Part(chanlist, reason) => {
                 proto::Command::PART(chanlist, reason)
             }
