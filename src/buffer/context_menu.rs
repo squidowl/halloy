@@ -25,6 +25,7 @@ pub enum Context<'a> {
 pub enum Entry {
     // user context
     Whois,
+    Whowas,
     Query,
     ToggleAccessLevelOp,
     ToggleAccessLevelVoice,
@@ -61,11 +62,20 @@ impl Entry {
 
     pub fn user_list(
         is_channel: bool,
+        user_in_channel: Option<&User>,
         our_user: Option<&User>,
         file_transfer_enabled: bool,
     ) -> Vec<Self> {
+        let user_is_online = user_in_channel.is_some();
+
         if is_channel {
-            if our_user.is_some_and(|u| {
+            if !user_is_online {
+                vec![
+                    Entry::UserInfo,
+                    Entry::HorizontalRule,
+                    Entry::Whowas,
+                ]
+            } else if our_user.is_some_and(|u| {
                 u.has_access_level(data::user::AccessLevel::Oper)
             }) {
                 let mut list = vec![
@@ -110,7 +120,11 @@ impl Entry {
                 list
             }
         } else {
-            let mut list = vec![Entry::Whois];
+            let mut list = vec![if user_is_online {
+                Entry::Whois
+            } else {
+                Entry::Whowas
+            }];
 
             if file_transfer_enabled {
                 list.push(Entry::SendFile);
@@ -133,6 +147,12 @@ impl Entry {
                     Message::Whois(server.clone(), user.nickname().to_owned());
 
                 menu_button("Whois".to_string(), Some(message), length, theme)
+            }
+            (Entry::Whowas, Context::User { server, user, .. }) => {
+                let message =
+                    Message::Whowas(server.clone(), user.nickname().to_owned());
+
+                menu_button("Whowas".to_string(), Some(message), length, theme)
             }
             (Entry::Query, Context::User { server, user, .. }) => {
                 let message = Message::Query(
@@ -345,6 +365,7 @@ impl Entry {
 #[derive(Clone, Debug)]
 pub enum Message {
     Whois(Server, Nick),
+    Whowas(Server, Nick),
     Query(Server, target::Query, BufferAction),
     ToggleAccessLevel(Server, target::Channel, Nick, String),
     SendFile(Server, User),
@@ -361,6 +382,7 @@ pub enum Message {
 #[derive(Debug, Clone)]
 pub enum Event {
     SendWhois(Server, Nick),
+    SendWhowas(Server, Nick),
     OpenQuery(Server, target::Query, BufferAction),
     ToggleAccessLevel(Server, target::Channel, Nick, String),
     SendFile(Server, User),
@@ -375,6 +397,7 @@ pub enum Event {
 pub fn update(message: Message) -> Event {
     match message {
         Message::Whois(server, nick) => Event::SendWhois(server, nick),
+        Message::Whowas(server, nick) => Event::SendWhowas(server, nick),
         Message::Query(server, nick, buffer_action) => {
             Event::OpenQuery(server, nick, buffer_action)
         }
@@ -413,6 +436,7 @@ pub fn user<'a>(
 ) -> Element<'a, Message> {
     let entries = Entry::user_list(
         channel.is_some(),
+        current_user,
         our_user,
         config.file_transfer.enabled,
     );
