@@ -14,7 +14,7 @@ use data::{Config, User, client, command, shortcut};
 use iced::widget::{
     self, button, column, container, operation, row, rule, text, text_editor,
 };
-use iced::{Alignment, Length, Task, clipboard, padding};
+use iced::{Alignment, Task, clipboard, padding};
 use tokio::time;
 
 use self::completion::Completion;
@@ -46,8 +46,10 @@ pub enum Message {
     CloseContextMenu(window::Id, bool),
     SysInfoReceived(iced::system::Information),
     Send,
-    KillWord,
-    KillLine,
+    DeleteWordForward(bool),
+    DeleteWordBackward(bool),
+    DeleteToEnd(bool),
+    DeleteToStart(bool),
     Tab(bool),
     Up,
     Down,
@@ -169,13 +171,60 @@ fn emacs_key_binding(
             )))
         }
         iced::keyboard::Key::Character("d") if key_press.modifiers.alt() => {
-            Some(text_editor::Binding::Custom(Message::KillWord))
+            Some(text_editor::Binding::Custom(Message::DeleteWordForward(
+                true,
+            )))
         }
         iced::keyboard::Key::Character("k")
             if key_press.modifiers.control() =>
         {
-            Some(text_editor::Binding::Custom(Message::KillLine))
+            Some(text_editor::Binding::Custom(Message::DeleteToEnd(true)))
         }
+        _ => None,
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn platform_specific_key_bindings(
+    key_press: text_editor::KeyPress,
+) -> Option<text_editor::Binding<Message>> {
+    match key_press.key.as_ref() {
+        iced::keyboard::Key::Named(iced::keyboard::key::Named::Backspace)
+            if key_press.modifiers.alt() =>
+        {
+            Some(text_editor::Binding::Custom(Message::DeleteWordBackward(
+                false,
+            )))
+        }
+        iced::keyboard::Key::Named(iced::keyboard::key::Named::Backspace)
+            if key_press.modifiers.logo =>
+        {
+            Some(text_editor::Binding::Custom(Message::DeleteToStart(false)))
+        }
+
+        _ => None,
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+fn platform_specific_key_bindings(
+    key_press: text_editor::KeyPress,
+) -> Option<text_editor::Binding<Message>> {
+    match key_press.key.as_ref() {
+        iced::keyboard::Key::Named(iced::keyboard::key::Named::Backspace)
+            if key_press.modifiers.control() =>
+        {
+            if key_press.modifiers.shift() {
+                Some(text_editor::Binding::Custom(Message::DeleteToStart(
+                    false,
+                )))
+            } else {
+                Some(text_editor::Binding::Custom(Message::DeleteWordBackward(
+                    false,
+                )))
+            }
+        }
+
         _ => None,
     }
 }
@@ -197,7 +246,6 @@ pub fn view<'a>(
         .id(state.input_id.clone())
         .placeholder("Send message...")
         .padding([2, 4])
-        .height(Length::Shrink)
         .style(style);
 
     if !disabled {
@@ -214,6 +262,13 @@ pub fn view<'a>(
                 // Try emacs bindings first if enabled
                 if matches!(key_bindings, KeyBindings::Emacs)
                     && let Some(binding) = emacs_key_binding(key_press.clone())
+                {
+                    return Some(binding);
+                }
+
+                // Platform specific key bindings
+                if let Some(binding) =
+                    platform_specific_key_bindings(key_press.clone())
                 {
                     return Some(binding);
                 }
@@ -383,12 +438,11 @@ pub fn view<'a>(
                 //         * state.input_content.line_count() as f32
                 // )
                 .height(
-                    (theme::line_height(&config.font).ceil() * 1.4 + 4.0)
-                        .max(20.0)
+                    (theme::line_height(&config.font).ceil() + 4.0).max(20.0)
                 )
                 .align_y(Alignment::Center)
         )
-        .padding(padding::top(6).bottom(8).horizontal(8))
+        .padding(8)
         .style(theme::container::buffer_text_input)
     ]
     .spacing(4)
@@ -1066,39 +1120,105 @@ impl State {
                 Self::close_context_menu(main_window.id, vec![])
             }
             Message::CloseContextMenu(_, _) => (Task::none(), None),
-            Message::KillWord => {
+            Message::DeleteWordBackward(save_to_clipboard) => {
+                self.input_content.perform(text_editor::Action::Select(
+                    text_editor::Motion::WordLeft,
+                ));
+
+                let task = if save_to_clipboard {
+                    self.input_content
+                        .selection()
+                        .map_or_else(
+                            Task::none,
+                            |selection| {
+                                let text = selection.to_string();
+
+                                clipboard::write(text)
+                            },
+                        )
+                } else {
+                    Task::none()
+                };
+
+                self.input_content.perform(text_editor::Action::Edit(
+                    text_editor::Edit::Delete,
+                ));
+
+                (task, None)
+            }
+            Message::DeleteWordForward(save_to_clipboard) => {
                 self.input_content.perform(text_editor::Action::Select(
                     text_editor::Motion::WordRight,
                 ));
 
-                let task =
-                    if let Some(selection) = self.input_content.selection() {
-                        self.input_content.perform(text_editor::Action::Edit(
-                            text_editor::Edit::Delete,
-                        ));
+                let task = if save_to_clipboard {
+                    self.input_content
+                        .selection()
+                        .map_or_else(
+                            Task::none,
+                            |selection| {
+                                let text = selection.to_string();
 
-                        clipboard::write(selection.to_string())
-                    } else {
-                        Task::none()
-                    };
+                                clipboard::write(text)
+                            },
+                        )
+                } else {
+                    Task::none()
+                };
+
+                self.input_content.perform(text_editor::Action::Edit(
+                    text_editor::Edit::Delete,
+                ));
 
                 (task, None)
             }
-            Message::KillLine => {
+            Message::DeleteToEnd(save_to_clipboard) => {
                 self.input_content.perform(text_editor::Action::Select(
                     text_editor::Motion::End,
                 ));
 
-                let task =
-                    if let Some(selection) = self.input_content.selection() {
-                        self.input_content.perform(text_editor::Action::Edit(
-                            text_editor::Edit::Delete,
-                        ));
+                let task = if save_to_clipboard {
+                    self.input_content
+                        .selection()
+                        .map_or_else(
+                            Task::none,
+                            |selection| {
+                                let text = selection.to_string();
+                                clipboard::write(text)
+                            },
+                        )
+                } else {
+                    Task::none()
+                };
 
-                        clipboard::write(selection.to_string())
-                    } else {
-                        Task::none()
-                    };
+                self.input_content.perform(text_editor::Action::Edit(
+                    text_editor::Edit::Delete,
+                ));
+
+                (task, None)
+            }
+            Message::DeleteToStart(save_to_clipboard) => {
+                self.input_content.perform(text_editor::Action::Select(
+                    text_editor::Motion::Home,
+                ));
+
+                let task = if save_to_clipboard {
+                    self.input_content
+                        .selection()
+                        .map_or_else(
+                            Task::none,
+                            |selection| {
+                                let text = selection.to_string();
+                                clipboard::write(text)
+                            },
+                        )
+                } else {
+                    Task::none()
+                };
+
+                self.input_content.perform(text_editor::Action::Edit(
+                    text_editor::Edit::Delete,
+                ));
 
                 (task, None)
             }
