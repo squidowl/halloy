@@ -11,14 +11,18 @@ use data::rate_limit::TokenPriority;
 use data::target::Target;
 use data::user::Nick;
 use data::{Config, User, client, command, shortcut};
+use iced::advanced::widget::Tree;
+use iced::advanced::{Clipboard, Layout, Shell, mouse};
 use iced::widget::{
     self, button, column, container, operation, row, rule, text, text_editor,
 };
-use iced::{Alignment, Length, Task, clipboard, padding};
+use iced::{Alignment, Length, Task, clipboard, event, padding};
 use tokio::time;
 
 use self::completion::Completion;
-use crate::widget::{Element, Text, anchored_overlay, context_menu};
+use crate::widget::{
+    Element, Renderer, Text, anchored_overlay, context_menu, decorate,
+};
 use crate::window::Window;
 use crate::{Theme, font, theme, window};
 
@@ -252,6 +256,7 @@ pub fn view<'a>(
 
     if !disabled {
         let key_bindings = config.buffer.text_input.key_bindings.clone();
+
         text_input = text_input.on_action(Message::Action).key_binding(
             move |key_press| {
                 if !matches!(
@@ -316,6 +321,30 @@ pub fn view<'a>(
             },
         );
     }
+
+    let text_input = decorate(text_input).update(
+        move |_state: &mut State,
+              inner: &mut Element<'a, Message>,
+              tree: &mut Tree,
+              event: &iced::Event,
+              layout: Layout<'_>,
+              cursor: mouse::Cursor,
+              renderer: &Renderer,
+              clipboard: &mut dyn Clipboard,
+              shell: &mut Shell<'_, Message>,
+              viewport: &iced::Rectangle| {
+            if let event::Event::Mouse(mouse::Event::WheelScrolled { .. }) =
+                event
+            {
+                return;
+            };
+
+            inner.as_widget_mut().update(
+                tree, event, layout, cursor, renderer, clipboard, shell,
+                viewport,
+            );
+        },
+    );
 
     let wrapped_input: Element<'a, Message> = context_menu(
         context_menu::MouseButton::default(),
