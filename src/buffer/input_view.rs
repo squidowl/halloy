@@ -205,6 +205,18 @@ fn platform_specific_key_bindings(
         {
             Some(text_editor::Binding::Custom(Message::DeleteToStart(false)))
         }
+        iced::keyboard::Key::Named(iced::keyboard::key::Named::Delete)
+            if key_press.modifiers.alt() =>
+        {
+            Some(text_editor::Binding::Custom(Message::DeleteWordForward(
+                false,
+            )))
+        }
+        iced::keyboard::Key::Named(iced::keyboard::key::Named::Delete)
+            if key_press.modifiers.logo() =>
+        {
+            Some(text_editor::Binding::Custom(Message::DeleteToEnd(false)))
+        }
 
         _ => None,
     }
@@ -224,6 +236,17 @@ fn platform_specific_key_bindings(
                 )))
             } else {
                 Some(text_editor::Binding::Custom(Message::DeleteWordBackward(
+                    false,
+                )))
+            }
+        }
+        iced::keyboard::Key::Named(iced::keyboard::key::Named::Delete)
+            if key_press.modifiers.control() =>
+        {
+            if key_press.modifiers.shift() {
+                Some(text_editor::Binding::Custom(Message::DeleteToEnd(false)))
+            } else {
+                Some(text_editor::Binding::Custom(Message::DeleteWordForward(
                     false,
                 )))
             }
