@@ -62,7 +62,6 @@ pub enum Message {
         buffer: Upstream,
         command: command::Irc,
     },
-    ClipboardRead(Option<String>),
     Paste,
     SelectAll,
     CopyAll,
@@ -1116,21 +1115,15 @@ impl State {
                 (Task::none(), None)
             }
             Message::Paste => {
-                (clipboard::read().map(Message::ClipboardRead), None)
-            }
-            Message::ClipboardRead(clipboard) => {
-                let window = main_window.id;
+                let task = clipboard::read().and_then(|clipboard| {
+                    Task::done(Message::Action(text_editor::Action::Edit(
+                        text_editor::Edit::Paste(std::sync::Arc::new(
+                            clipboard,
+                        )),
+                    )))
+                });
 
-                // Paste clipboard contents into the input
-                if let Some(clipboard) = clipboard {
-                    let cleaned = clipboard.replace(['\n', '\r'], " ");
-
-                    self.input_content.perform(text_editor::Action::Edit(
-                        text_editor::Edit::Paste(std::sync::Arc::new(cleaned)),
-                    ));
-                }
-
-                Self::close_context_menu(window, vec![])
+                Self::close_context_menu(main_window.id, vec![task])
             }
             Message::Cut => {
                 let task =
@@ -1262,7 +1255,20 @@ impl State {
                 (task, None)
             }
             Message::Action(action) => {
-                self.input_content.perform(action.clone());
+                if let text_editor::Action::Edit(text_editor::Edit::Paste(
+                    clipboard,
+                )) = &action
+                {
+                    // TODO: Remove newline cleaning when adding multiline
+                    // support
+                    let cleaned = clipboard.replace(['\n', '\r'], " ");
+                    let action = text_editor::Action::Edit(
+                        text_editor::Edit::Paste(std::sync::Arc::new(cleaned)),
+                    );
+                    self.input_content.perform(action);
+                } else {
+                    self.input_content.perform(action.clone());
+                }
 
                 match &action {
                     text_editor::Action::Edit(_) => {
