@@ -654,9 +654,10 @@ where
                 let mut tree = state.text_input_tree();
                 self.text_input.update(
                     &mut tree,
-                    &Event::Mouse(mouse::Event::ButtonPressed(
-                        mouse::Button::Left,
-                    )),
+                    &Event::Mouse(mouse::Event::ButtonPressed {
+                        button: mouse::Button::Left,
+                        modifiers: keyboard::Modifiers::default(),
+                    }),
                     layout,
                     mouse::Cursor::Unavailable,
                     renderer,

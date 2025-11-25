@@ -218,7 +218,10 @@ where
                 shell.capture_event();
                 return;
             }
-            Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)) => {
+            Event::Mouse(mouse::Event::ButtonPressed {
+                button: mouse::Button::Left,
+                ..
+            }) => {
                 let bounds = layout.children().next().unwrap().bounds();
 
                 if !cursor.is_over(bounds) {
