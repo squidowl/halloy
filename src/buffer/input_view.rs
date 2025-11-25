@@ -197,7 +197,7 @@ fn platform_specific_key_bindings(
             )))
         }
         iced::keyboard::Key::Named(iced::keyboard::key::Named::Backspace)
-            if key_press.modifiers.logo =>
+            if key_press.modifiers.logo() =>
         {
             Some(text_editor::Binding::Custom(Message::DeleteToStart(false)))
         }
@@ -246,6 +246,7 @@ pub fn view<'a>(
         .id(state.input_id.clone())
         .placeholder("Send message...")
         .padding([2, 4])
+        .wrapping(text::Wrapping::Word)
         .style(style);
 
     if !disabled {
@@ -1126,16 +1127,14 @@ impl State {
                 ));
 
                 let task = if save_to_clipboard {
-                    self.input_content
-                        .selection()
-                        .map_or_else(
-                            Task::none,
-                            |selection| {
-                                let text = selection.to_string();
+                    self.input_content.selection().map_or_else(
+                        Task::none,
+                        |selection| {
+                            let text = selection.to_string();
 
-                                clipboard::write(text)
-                            },
-                        )
+                            clipboard::write(text)
+                        },
+                    )
                 } else {
                     Task::none()
                 };
@@ -1152,16 +1151,14 @@ impl State {
                 ));
 
                 let task = if save_to_clipboard {
-                    self.input_content
-                        .selection()
-                        .map_or_else(
-                            Task::none,
-                            |selection| {
-                                let text = selection.to_string();
+                    self.input_content.selection().map_or_else(
+                        Task::none,
+                        |selection| {
+                            let text = selection.to_string();
 
-                                clipboard::write(text)
-                            },
-                        )
+                            clipboard::write(text)
+                        },
+                    )
                 } else {
                     Task::none()
                 };
@@ -1178,15 +1175,13 @@ impl State {
                 ));
 
                 let task = if save_to_clipboard {
-                    self.input_content
-                        .selection()
-                        .map_or_else(
-                            Task::none,
-                            |selection| {
-                                let text = selection.to_string();
-                                clipboard::write(text)
-                            },
-                        )
+                    self.input_content.selection().map_or_else(
+                        Task::none,
+                        |selection| {
+                            let text = selection.to_string();
+                            clipboard::write(text)
+                        },
+                    )
                 } else {
                     Task::none()
                 };
@@ -1203,15 +1198,13 @@ impl State {
                 ));
 
                 let task = if save_to_clipboard {
-                    self.input_content
-                        .selection()
-                        .map_or_else(
-                            Task::none,
-                            |selection| {
-                                let text = selection.to_string();
-                                clipboard::write(text)
-                            },
-                        )
+                    self.input_content.selection().map_or_else(
+                        Task::none,
+                        |selection| {
+                            let text = selection.to_string();
+                            clipboard::write(text)
+                        },
+                    )
                 } else {
                     Task::none()
                 };
