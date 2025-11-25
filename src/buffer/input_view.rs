@@ -14,7 +14,7 @@ use data::{Config, User, client, command, shortcut};
 use iced::widget::{
     self, button, column, container, operation, row, rule, text, text_editor,
 };
-use iced::{Alignment, Task, clipboard, padding};
+use iced::{Alignment, Length, Task, clipboard, padding};
 use tokio::time;
 
 use self::completion::Completion;
@@ -246,7 +246,8 @@ pub fn view<'a>(
         .id(state.input_id.clone())
         .placeholder("Send message...")
         .padding([2, 4])
-        .wrapping(text::Wrapping::Word)
+        .wrapping(text::Wrapping::WordOrGlyph)
+        .height(Length::Shrink)
         .style(style);
 
     if !disabled {
@@ -433,14 +434,7 @@ pub fn view<'a>(
         container(
             row![maybe_our_user, maybe_vertical_rule, wrapped_input]
                 .spacing(4)
-                // TODO: @casper.storm when enabling multi-line input.
-                // .height(
-                //     (theme::line_height(&config.font).ceil() + 4.0)
-                //         * state.input_content.line_count() as f32
-                // )
-                .height(
-                    (theme::line_height(&config.font).ceil() + 4.0).max(20.0)
-                )
+                .height(Length::Shrink)
                 .align_y(Alignment::Center)
         )
         .padding(8)
