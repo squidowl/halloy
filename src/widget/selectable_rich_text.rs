@@ -385,9 +385,10 @@ where
         }
 
         match event {
-            iced::Event::Mouse(mouse::Event::ButtonPressed(
-                mouse::Button::Left,
-            ))
+            iced::Event::Mouse(mouse::Event::ButtonPressed {
+                button: mouse::Button::Left,
+                ..
+            })
             | iced::Event::Touch(touch::Event::FingerPressed { .. }) => {
                 if let Some(position) = cursor.position_in(bounds)
                     && let Some(span) = state.paragraph.hit_span(position)
@@ -511,9 +512,10 @@ where
                     );
                 }
             }
-            iced::Event::Mouse(mouse::Event::ButtonPressed(
-                mouse::Button::Right,
-            )) => {
+            iced::Event::Mouse(mouse::Event::ButtonPressed {
+                button: mouse::Button::Right,
+                ..
+            }) => {
                 if let Some(position) = cursor.position_in(bounds)
                     && let Some((link_entries, _)) = &self.context_menu
                     && let Some((link, entries)) =

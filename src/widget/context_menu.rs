@@ -226,17 +226,23 @@ where
     ) {
         // is this a mouse event we are waiting for?
         let is_mouse_event =
-            matches!(event, Event::Mouse(mouse::Event::ButtonPressed(_)));
+            matches!(event, Event::Mouse(mouse::Event::ButtonPressed { .. }));
 
         if is_mouse_event {
             let state = tree.state.downcast_mut::<State>();
             let prev_status = state.status;
 
             // is this a mouse event for that we should do something?
-            let is_activation_mouse_event = *event
-                == Event::Mouse(mouse::Event::ButtonPressed(
-                    self.activation_button,
-                ));
+            let is_activation_mouse_event =
+                if let Event::Mouse(mouse::Event::ButtonPressed {
+                    button, ..
+                }) = event
+                    && *button == self.activation_button
+                {
+                    true
+                } else {
+                    false
+                };
 
             let position = if is_activation_mouse_event {
                 match self.anchor {
@@ -600,7 +606,7 @@ where
         clipboard: &mut dyn Clipboard,
         shell: &mut Shell<'_, Message>,
     ) {
-        if let Event::Mouse(mouse::Event::ButtonPressed(_)) = &event
+        if let Event::Mouse(mouse::Event::ButtonPressed { .. }) = &event
             && cursor.position_over(layout.bounds()).is_none()
             && self.state.status.keep_open_bounds().is_none_or(
                 |(keep_open_vector, keep_open_size)| {
