@@ -383,11 +383,12 @@ pub fn view<'a>(
                 //         * state.input_content.line_count() as f32
                 // )
                 .height(
-                    (theme::line_height(&config.font).ceil() + 4.0).max(20.0)
+                    (theme::line_height(&config.font).ceil() * 1.4 + 4.0)
+                        .max(20.0)
                 )
                 .align_y(Alignment::Center)
         )
-        .padding(8)
+        .padding(padding::top(6).bottom(8).horizontal(8))
         .style(theme::container::buffer_text_input)
     ]
     .spacing(4)
