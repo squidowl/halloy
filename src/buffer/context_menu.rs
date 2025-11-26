@@ -70,11 +70,7 @@ impl Entry {
 
         if is_channel {
             if !user_is_online {
-                vec![
-                    Entry::UserInfo,
-                    Entry::HorizontalRule,
-                    Entry::Whowas,
-                ]
+                vec![Entry::UserInfo, Entry::HorizontalRule, Entry::Whowas]
             } else if our_user.is_some_and(|u| {
                 u.has_access_level(data::user::AccessLevel::Oper)
             }) {
