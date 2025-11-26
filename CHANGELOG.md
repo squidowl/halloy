@@ -31,6 +31,7 @@ Fixed:
 - Hide jitter in backlog divider caused by read marker updates when marking read on send
 - Flickering logo on Welcome screen
 - Channels with the same name as servers now appear before servers when searching in command bar
+- NumLock status respected in input box & shortcuts
 
 Changed:
 
@@ -43,7 +44,7 @@ Thanks:
 
 - Contributions: @kasperkronborg, @mistivia, @oooo-ps
 - Bug reports: @Frikilinux, ThePendulum, @crabbedhaloablution, @findus, @Darksecond
-- Feature requests: @cyrneko, ilya, abby, @clorteau, @RobertCraigie, @dei-layborer, @classabbyamp, @4e554c4c
+- Feature requests: @cyrneko, ilya, abby, @clorteau, @RobertCraigie, @dei-layborer, @classabbyamp, @4e554c4c, @dmd, @ghost, @Erroneuz, @kasper93, @inphobia
 
 # 2025.11 (2025-10-27)
 
