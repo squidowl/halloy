@@ -123,9 +123,9 @@ pub fn view<'a>(
             theme::font_style::topic,
             Option::<fn(Color) -> Color>::None,
             move |link| match link {
-                message::Link::User(u) => {
+                message::Link::User(user) => {
                     let user_in_channel =
-                        users.and_then(|users| users.resolve(&u));
+                        users.and_then(|users| users.resolve(user));
 
                     context_menu::Entry::user_list(
                         true,
