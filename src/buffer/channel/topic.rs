@@ -75,7 +75,7 @@ pub fn view<'a>(
                 prefix,
                 Some(channel),
                 user,
-                user_in_channel,
+                Some(user),
                 our_user,
                 config,
                 theme,
