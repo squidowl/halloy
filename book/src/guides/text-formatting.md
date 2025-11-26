@@ -55,6 +55,8 @@ Colors
 <span style="display:inline-block;width:12px;height:12px;background-color:#7f7f7f;"></span> - 14 - grey  
 <span style="display:inline-block;width:12px;height:12px;background-color:#d2d2d2;"></span> - 15 - lightgrey
 
+The colors shown here are the defaults.  They can be customized by [theme](/configuration/themes/).
+
 Example
 
 ```

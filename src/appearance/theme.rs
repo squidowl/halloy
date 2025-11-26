@@ -1,5 +1,5 @@
 pub use data::appearance::theme::{
-    Buffer, Button, Buttons, General, ServerMessages, Styles, Text,
+    Buffer, Button, Buttons, Formatting, General, ServerMessages, Styles, Text,
     color_to_hex, hex_to_color,
 };
 use data::config;

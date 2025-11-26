@@ -55,6 +55,8 @@ pub struct Styles {
     pub buffer: Buffer,
     #[serde(default)]
     pub buttons: Buttons,
+    #[serde(default)]
+    pub formatting: Formatting,
 }
 
 impl Default for Styles {
@@ -240,6 +242,43 @@ pub struct Text {
     pub info: OptionalTextStyle,
     pub debug: OptionalTextStyle,
     pub trace: OptionalTextStyle,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
+#[serde(default)]
+pub struct Formatting {
+    #[serde(with = "color_serde_maybe")]
+    pub white: Option<Color>,
+    #[serde(with = "color_serde_maybe")]
+    pub black: Option<Color>,
+    #[serde(with = "color_serde_maybe")]
+    pub blue: Option<Color>,
+    #[serde(with = "color_serde_maybe")]
+    pub green: Option<Color>,
+    #[serde(with = "color_serde_maybe")]
+    pub red: Option<Color>,
+    #[serde(with = "color_serde_maybe")]
+    pub brown: Option<Color>,
+    #[serde(with = "color_serde_maybe")]
+    pub magenta: Option<Color>,
+    #[serde(with = "color_serde_maybe")]
+    pub orange: Option<Color>,
+    #[serde(with = "color_serde_maybe")]
+    pub yellow: Option<Color>,
+    #[serde(with = "color_serde_maybe")]
+    pub lightgreen: Option<Color>,
+    #[serde(with = "color_serde_maybe")]
+    pub cyan: Option<Color>,
+    #[serde(with = "color_serde_maybe")]
+    pub lightcyan: Option<Color>,
+    #[serde(with = "color_serde_maybe")]
+    pub lightblue: Option<Color>,
+    #[serde(with = "color_serde_maybe")]
+    pub pink: Option<Color>,
+    #[serde(with = "color_serde_maybe")]
+    pub grey: Option<Color>,
+    #[serde(with = "color_serde_maybe")]
+    pub lightgrey: Option<Color>,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -604,7 +643,7 @@ mod binary {
     use iced_core::Color;
     use strum::{IntoEnumIterator, VariantArray};
 
-    use super::{Buffer, Buttons, General, Styles, Text};
+    use super::{Buffer, Buttons, Formatting, General, Styles, Text};
 
     pub fn encode(styles: &Styles) -> Vec<u8> {
         let mut bytes = Vec::with_capacity(Tag::VARIANTS.len() * (1 + 4));
@@ -625,6 +664,7 @@ mod binary {
             text: Text::default(),
             buffer: Buffer::default(),
             buttons: Buttons::default(),
+            formatting: Formatting::default(),
         };
 
         for chunk in bytes.chunks(5) {

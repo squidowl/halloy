@@ -435,6 +435,7 @@ fn components() -> impl Iterator<Item = Component> {
                 .map(Buttons::Secondary)
                 .map(Component::Buttons),
         )
+        .chain(Formatting::iter().map(Component::Formatting))
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, strum::Display)]
@@ -447,6 +448,8 @@ pub enum Component {
     Buffer(Buffer),
     #[strum(to_string = "button-{0}")]
     Buttons(Buttons),
+    #[strum(to_string = "formatting-{0}")]
+    Formatting(Formatting),
 }
 
 impl Component {
@@ -456,6 +459,9 @@ impl Component {
             Component::Text(text) => text.color(&styles.text),
             Component::Buffer(buffer) => buffer.color(&styles.buffer),
             Component::Buttons(buttons) => Some(buttons.color(&styles.buttons)),
+            Component::Formatting(formatting) => {
+                formatting.color(&styles.formatting)
+            }
         }
     }
 
@@ -465,6 +471,7 @@ impl Component {
             Component::Text(text) => Some(text.font_style(&styles.text)),
             Component::Buffer(buffer) => buffer.font_style(&styles.buffer),
             Component::Buttons(_) => None,
+            Component::Formatting(_) => None,
         }
     }
 
@@ -488,6 +495,9 @@ impl Component {
             }
             Component::Buttons(buttons) => {
                 buttons.update(&mut styles.buttons, color);
+            }
+            Component::Formatting(formatting) => {
+                formatting.update(&mut styles.formatting, color);
             }
         }
     }
@@ -1045,6 +1055,73 @@ impl Button {
                     styles.background_selected_hover = color;
                 }
             }
+        }
+    }
+}
+
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, strum::Display, strum::EnumIter,
+)]
+#[strum(serialize_all = "lowercase")]
+pub enum Formatting {
+    White,
+    Black,
+    Blue,
+    Green,
+    Red,
+    Brown,
+    Magenta,
+    Orange,
+    Yellow,
+    LightGreen,
+    Cyan,
+    LightCyan,
+    LightBlue,
+    Pink,
+    Grey,
+    LightGrey,
+}
+
+impl Formatting {
+    fn color(&self, styles: &theme::Formatting) -> Option<Color> {
+        match self {
+            Formatting::White => styles.white,
+            Formatting::Black => styles.black,
+            Formatting::Blue => styles.blue,
+            Formatting::Green => styles.green,
+            Formatting::Red => styles.red,
+            Formatting::Brown => styles.brown,
+            Formatting::Magenta => styles.magenta,
+            Formatting::Orange => styles.orange,
+            Formatting::Yellow => styles.yellow,
+            Formatting::LightGreen => styles.lightgreen,
+            Formatting::Cyan => styles.cyan,
+            Formatting::LightCyan => styles.lightcyan,
+            Formatting::LightBlue => styles.lightblue,
+            Formatting::Pink => styles.pink,
+            Formatting::Grey => styles.grey,
+            Formatting::LightGrey => styles.lightgrey,
+        }
+    }
+
+    fn update(&self, styles: &mut theme::Formatting, color: Option<Color>) {
+        match self {
+            Formatting::White => styles.white = color,
+            Formatting::Black => styles.black = color,
+            Formatting::Blue => styles.blue = color,
+            Formatting::Green => styles.green = color,
+            Formatting::Red => styles.red = color,
+            Formatting::Brown => styles.brown = color,
+            Formatting::Magenta => styles.magenta = color,
+            Formatting::Orange => styles.orange = color,
+            Formatting::Yellow => styles.yellow = color,
+            Formatting::LightGreen => styles.lightgreen = color,
+            Formatting::Cyan => styles.cyan = color,
+            Formatting::LightCyan => styles.lightcyan = color,
+            Formatting::LightBlue => styles.lightblue = color,
+            Formatting::Pink => styles.pink = color,
+            Formatting::Grey => styles.grey = color,
+            Formatting::LightGrey => styles.lightgrey = color,
         }
     }
 }
