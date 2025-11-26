@@ -251,6 +251,11 @@ fn platform_specific_key_bindings(
                 )))
             }
         }
+        iced::keyboard::Key::Named(iced::keyboard::key::Named::Insert)
+            if key_press.modifiers.shift() && key_press.text.is_none() =>
+        {
+            Some(text_editor::Binding::Custom(Message::Paste))
+        }
 
         _ => None,
     }
