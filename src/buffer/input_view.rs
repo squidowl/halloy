@@ -310,7 +310,8 @@ pub fn view<'a>(
 
                 // Treat numpad keys as character keys when numlock is on (i.e.
                 // text.is_some())
-                let key = if matches!(key_press.key, keyboard::Key::Named(_))
+                let key = if let keyboard::Key::Named(named) = &key_press.key
+                    && !matches!(named, keyboard::key::Named::Enter)
                     && let Some(text) = &key_press.text
                 {
                     Cow::Owned(keyboard::Key::Character(text.clone()))
