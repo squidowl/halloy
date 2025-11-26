@@ -35,7 +35,8 @@ where
                     }) => {
                         // Treat numpad keys as character keys when numlock is
                         // on (i.e. text.is_some())
-                        let key_bind = if matches!(key, keyboard::Key::Named(_))
+                        let key_bind = if let keyboard::Key::Named(named) = key
+                            && !matches!(named, keyboard::key::Named::Enter)
                             && let Some(text) = text
                         {
                             shortcut::KeyBind::from((
