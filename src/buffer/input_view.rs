@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::convert;
 use std::time::Duration;
 
@@ -16,7 +17,7 @@ use iced::advanced::{Clipboard, Layout, Shell, mouse};
 use iced::widget::{
     self, button, column, container, operation, row, rule, text, text_editor,
 };
-use iced::{Alignment, Length, Task, clipboard, event, padding};
+use iced::{Alignment, Length, Task, clipboard, event, keyboard, padding};
 use tokio::time;
 
 use self::completion::Completion;
@@ -302,7 +303,17 @@ pub fn view<'a>(
                     return Some(binding);
                 }
 
-                match key_press.key.as_ref() {
+                // Treat numpad keys as character keys when numlock is on (i.e.
+                // text.is_some())
+                let key = if matches!(key_press.key, keyboard::Key::Named(_))
+                    && let Some(text) = &key_press.text
+                {
+                    Cow::Owned(keyboard::Key::Character(text.clone()))
+                } else {
+                    Cow::Borrowed(&key_press.key)
+                };
+
+                match *key {
                     // New line
                     // TODO: Add shift+enter binding
                     // iced::keyboard::Key::Named(
@@ -311,11 +322,6 @@ pub fn view<'a>(
                     //     Some(text_editor::Binding::Enter)
                     // }
                     //
-                    iced::keyboard::Key::Character("v")
-                        if key_press.modifiers.command() =>
-                    {
-                        Some(text_editor::Binding::Custom(Message::Paste))
-                    }
                     // Send
                     iced::keyboard::Key::Named(
                         iced::keyboard::key::Named::Enter,
