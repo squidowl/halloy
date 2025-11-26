@@ -55,11 +55,11 @@ pub fn view<'a>(
     theme: &'a Theme,
 ) -> Element<'a, Message> {
     let set_by = who.map(NickRef::to_owned).map(User::from).and_then(|user| {
-        let channel_user = users.and_then(|users| users.resolve(&user));
+        let user_in_channel = users.and_then(|users| users.resolve(&user));
 
         // If user is in channel, we return user_context component.
         // Otherwise selectable_text component.
-        let content = if let Some(user) = channel_user {
+        let content = if let Some(user) = user_in_channel {
             context_menu::user(
                 selectable_text(user.nickname().to_string())
                     .font_maybe(
@@ -68,14 +68,14 @@ pub fn view<'a>(
                     )
                     .style(|theme| {
                         theme::selectable_text::topic_nickname(
-                            theme, config, user,
+                            theme, config, user, false,
                         )
                     }),
                 server,
                 prefix,
                 Some(channel),
                 user,
-                Some(user),
+                user_in_channel,
                 our_user,
                 config,
                 theme,
@@ -87,7 +87,9 @@ pub fn view<'a>(
                     theme::font_style::nickname(theme, false).map(font::get),
                 )
                 .style(move |theme| {
-                    theme::selectable_text::topic_nickname(theme, config, &user)
+                    theme::selectable_text::topic_nickname(
+                        theme, config, &user, true,
+                    )
                 })
                 .into()
         };
@@ -121,11 +123,17 @@ pub fn view<'a>(
             theme::font_style::topic,
             Option::<fn(Color) -> Color>::None,
             move |link| match link {
-                message::Link::User(_) => context_menu::Entry::user_list(
-                    true,
-                    our_user,
-                    config.file_transfer.enabled,
-                ),
+                message::Link::User(u) => {
+                    let user_in_channel =
+                        users.and_then(|users| users.resolve(&u));
+
+                    context_menu::Entry::user_list(
+                        true,
+                        user_in_channel,
+                        our_user,
+                        config.file_transfer.enabled,
+                    )
+                }
                 message::Link::Url(_) => context_menu::Entry::url_list(),
                 _ => vec![],
             },
