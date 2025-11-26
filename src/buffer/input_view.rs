@@ -499,7 +499,7 @@ pub fn view<'a>(
                 .height(Length::Shrink)
                 .align_y(Alignment::Center)
         )
-        .max_height(350)
+        .max_height((7.55 * theme::line_height(&config.font).ceil()).ceil())
         .padding(8)
         .style(theme::container::buffer_text_input)
     ]
