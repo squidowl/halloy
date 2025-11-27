@@ -170,6 +170,7 @@ pub fn view<'a>(
                             message::Link::User(_) => {
                                 context_menu::Entry::user_list(
                                     true,
+                                    current_user,
                                     None,
                                     config.file_transfer.enabled,
                                 )
