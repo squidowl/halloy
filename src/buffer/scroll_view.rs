@@ -424,11 +424,6 @@ pub fn view<'a>(
                     text(separator_text)
                         .size(divider_font_size)
                         .style(theme::text::secondary)
-                        .color(
-                            theme.styles().buffer.backlog_rule.unwrap_or(
-                                theme.styles().general.horizontal_rule
-                            )
-                        )
                         .font_maybe(
                             theme::font_style::secondary(theme).map(font::get)
                         ),
