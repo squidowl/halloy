@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-ef4b4cf9.js";
+            window.path_to_searchindex_js = "searchindex-4394c710.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-fe913ceb.js"></script>
@@ -1989,6 +1989,11 @@ brackets = { left = "&lt;", right = "&gt;" }
 <ul>
 <li><a href="#visibility">visibility</a></li>
 <li><a href="#auto_format">auto_format</a></li>
+<li><a href="#key_bindings">key_bindings</a>
+<ul>
+<li><a href="#emacs">emacs</a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li><a href="#autocomplete">Autocomplete</a></li>
@@ -2017,6 +2022,23 @@ auto_format = "markdown"
 </code></pre>
 <blockquote>
 <p>💡 Read more about <a href="#text-formatting">text formatting</a>.</p>
+</blockquote>
+<h3 id="key_bindings"><a class="header" href="#key_bindings">key_bindings</a></h3>
+<p>Different key bindings for the text input</p>
+<pre><code class="language-toml"># Type: string
+# Values: "default", "emacs"
+# Default: "default
+
+[buffer.text_input]
+key_bindings = "emacs"
+</code></pre>
+<h4 id="emacs"><a class="header" href="#emacs">emacs</a></h4>
+<p>Emacs variant has the following binds:</p>
+<blockquote>
+<p><code>ctrl+a</code>: Move to the beginning of the line<br><code>ctrl+e</code>: Move to the end of the line<br><code>ctrl+b</code>: Move backward one character<br><code>ctrl+f</code>: Move forward one character<br><code>ctrl+d</code>: Delete the character under the cursor<br><code>ctrl+k</code>: Kill rest of line from cursor<br><code>alt+b</code>: Move the cursor backward one word<br><code>alt+f</code>: Move the cursor forward one word</p>
+</blockquote>
+<blockquote>
+<p>💡 Global <a href="#keyboard">keyboard shortcuts</a> take precedence. Unset any that collide (e.g., set <code>command_bar = "unset"</code>).</p>
 </blockquote>
 <h2 id="autocomplete"><a class="header" href="#autocomplete"><a href="#autocomplete-1">Autocomplete</a></a></h2>
 <p>Customize autocomplete</p>
@@ -2776,7 +2798,10 @@ move_up = "alt+k"
 move_down = "alt+j"
 move_left = "alt+h"
 move_right = "alt+l"
+command_bar = "noop" # &lt;- use noop or none to disable key bind.
+quit_application = "ctrl+q"
 </code></pre>
+<p>Note you can disable a key bind by setting it to <code>"noop"</code> or <code>"none"</code>.</p>
 <h2 id="types-3"><a class="header" href="#types-3">Types</a></h2>
 <div class="table-wrapper">
 <table>
@@ -2811,7 +2836,7 @@ move_right = "alt+l"
 <tr><td><code>logs</code></td><td>Toggle Logs Buffer</td><td><kbd>⌘</kbd> + <kbd>l</kbd></td><td><kbd>ctrl</kbd> + <kbd>l</kbd></td></tr>
 <tr><td><code>theme_editor</code></td><td>Toggle Theme Editor Window</td><td><kbd>⌘</kbd> + <kbd>t</kbd></td><td><kbd>ctrl</kbd> + <kbd>t</kbd></td></tr>
 <tr><td><code>highlights</code></td><td>Toggle Highlights Window</td><td><kbd>⌘</kbd> + <kbd>i</kbd></td><td><kbd>ctrl</kbd> + <kbd>i</kbd></td></tr>
-<tr><td><code>quit_application</code></td><td>Quit Halloy</td><td>Not set</td><td>Not set</td></tr>
+<tr><td><code>quit_application</code></td><td>Quit Halloy</td><td>None</td><td>None</td></tr>
 </tbody>
 </table>
 </div>

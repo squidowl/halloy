@@ -34,7 +34,7 @@
             const path_to_root = "../../../";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../../../searchindex-ef4b4cf9.js";
+            window.path_to_searchindex_js = "../../../searchindex-4394c710.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="../../../toc-fe913ceb.js"></script>
@@ -188,6 +188,11 @@
 <ul>
 <li><a href="#visibility">visibility</a></li>
 <li><a href="#auto_format">auto_format</a></li>
+<li><a href="#key_bindings">key_bindings</a>
+<ul>
+<li><a href="#emacs">emacs</a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li><a href="#autocomplete">Autocomplete</a></li>
@@ -216,6 +221,23 @@ auto_format = "markdown"
 </code></pre>
 <blockquote>
 <p>💡 Read more about <a href="../../../guides/text-formatting.html">text formatting</a>.</p>
+</blockquote>
+<h3 id="key_bindings"><a class="header" href="#key_bindings">key_bindings</a></h3>
+<p>Different key bindings for the text input</p>
+<pre><code class="language-toml"># Type: string
+# Values: "default", "emacs"
+# Default: "default
+
+[buffer.text_input]
+key_bindings = "emacs"
+</code></pre>
+<h4 id="emacs"><a class="header" href="#emacs">emacs</a></h4>
+<p>Emacs variant has the following binds:</p>
+<blockquote>
+<p><code>ctrl+a</code>: Move to the beginning of the line<br><code>ctrl+e</code>: Move to the end of the line<br><code>ctrl+b</code>: Move backward one character<br><code>ctrl+f</code>: Move forward one character<br><code>ctrl+d</code>: Delete the character under the cursor<br><code>ctrl+k</code>: Kill rest of line from cursor<br><code>alt+b</code>: Move the cursor backward one word<br><code>alt+f</code>: Move the cursor forward one word</p>
+</blockquote>
+<blockquote>
+<p>💡 Global <a href="../../keyboard.html">keyboard shortcuts</a> take precedence. Unset any that collide (e.g., set <code>command_bar = "unset"</code>).</p>
 </blockquote>
 <h2 id="autocomplete"><a class="header" href="#autocomplete"><a href="autocomplete.html">Autocomplete</a></a></h2>
 <p>Customize autocomplete</p>

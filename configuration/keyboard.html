@@ -34,7 +34,7 @@
             const path_to_root = "../";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../searchindex-ef4b4cf9.js";
+            window.path_to_searchindex_js = "../searchindex-4394c710.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="../toc-fe913ceb.js"></script>
@@ -196,7 +196,10 @@ move_up = "alt+k"
 move_down = "alt+j"
 move_left = "alt+h"
 move_right = "alt+l"
+command_bar = "noop" # &lt;- use noop or none to disable key bind.
+quit_application = "ctrl+q"
 </code></pre>
+<p>Note you can disable a key bind by setting it to <code>"noop"</code> or <code>"none"</code>.</p>
 <h2 id="types"><a class="header" href="#types">Types</a></h2>
 <div class="table-wrapper">
 <table>
@@ -231,7 +234,7 @@ move_right = "alt+l"
 <tr><td><code>logs</code></td><td>Toggle Logs Buffer</td><td><kbd>⌘</kbd> + <kbd>l</kbd></td><td><kbd>ctrl</kbd> + <kbd>l</kbd></td></tr>
 <tr><td><code>theme_editor</code></td><td>Toggle Theme Editor Window</td><td><kbd>⌘</kbd> + <kbd>t</kbd></td><td><kbd>ctrl</kbd> + <kbd>t</kbd></td></tr>
 <tr><td><code>highlights</code></td><td>Toggle Highlights Window</td><td><kbd>⌘</kbd> + <kbd>i</kbd></td><td><kbd>ctrl</kbd> + <kbd>i</kbd></td></tr>
-<tr><td><code>quit_application</code></td><td>Quit Halloy</td><td>Not set</td><td>Not set</td></tr>
+<tr><td><code>quit_application</code></td><td>Quit Halloy</td><td>None</td><td>None</td></tr>
 </tbody>
 </table>
 </div>
