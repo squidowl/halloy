@@ -148,13 +148,18 @@ pub fn nickname(
     )
 }
 
-pub fn topic_nickname(theme: &Theme, config: &Config, user: &User) -> Style {
+pub fn topic_nickname(
+    theme: &Theme,
+    config: &Config,
+    user: &User,
+    is_offline: bool,
+) -> Style {
     nickname_style(
         theme,
         config.buffer.channel.message.nickname_color,
         user,
         None,
-        false,
+        is_offline,
     )
 }
 

@@ -1709,6 +1709,81 @@ impl Dashboard {
                             }
                         }
                     }
+                    buffer::context_menu::Event::SendWhowas(server, nick) => {
+                        let buffer =
+                            pane.buffer.upstream().cloned().unwrap_or_else(
+                                || buffer::Upstream::Server(server.clone()),
+                            );
+
+                        let command =
+                            command::Irc::Whowas(nick.to_string(), None);
+
+                        let input =
+                            data::Input::command(buffer.clone(), command);
+
+                        if let Some(encoded) = input.encoded() {
+                            clients.send(
+                                &input.buffer,
+                                encoded,
+                                TokenPriority::User,
+                            );
+                        }
+
+                        if let Some(nick) = clients.nickname(buffer.server()) {
+                            let mut user = nick.to_owned().into();
+                            let mut channel_users = None;
+                            let chantypes =
+                                clients.get_chantypes(buffer.server());
+                            let statusmsg =
+                                clients.get_statusmsg(buffer.server());
+                            let casemapping =
+                                clients.get_casemapping(buffer.server());
+                            let supports_echoes = clients
+                                .get_server_supports_echoes(buffer.server());
+
+                            // Resolve our attributes if sending this message in a channel
+                            if let buffer::Upstream::Channel(server, channel) =
+                                &buffer
+                            {
+                                channel_users =
+                                    clients.get_channel_users(server, channel);
+
+                                if let Some(user_with_attributes) = clients
+                                    .resolve_user_attributes(
+                                        server, channel, &user,
+                                    )
+                                {
+                                    user = user_with_attributes.clone();
+                                }
+                            }
+
+                            if let Some(messages) = input.messages(
+                                user,
+                                channel_users,
+                                &server,
+                                chantypes,
+                                statusmsg,
+                                casemapping,
+                                supports_echoes,
+                                config,
+                            ) {
+                                for message in messages {
+                                    if let Some(task) =
+                                        self.history.record_message(
+                                            input.server(),
+                                            message,
+                                            &config.buffer,
+                                        )
+                                    {
+                                        tasks.push(Task::perform(
+                                            task,
+                                            Message::History,
+                                        ));
+                                    }
+                                }
+                            }
+                        }
+                    }
                     buffer::context_menu::Event::OpenQuery(
                         server,
                         query,

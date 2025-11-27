@@ -18,6 +18,7 @@ Added:
 - Ability to expand & contract condensed messages via left-click
 - Change-host and kick server messages messages can be condensed
 - `/plain` command to send text with automatic formatting disabled
+- `Whowas` instead of `Whois` action in context menu for offline nicknames
 
 Fixed:
 
