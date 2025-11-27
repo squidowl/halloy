@@ -159,6 +159,7 @@ fn settings(config_load: &Result<Config, config::Error>) -> iced::Settings {
         id: None,
         antialiasing: false,
         fonts: font::load(),
+        vsync: true,
     }
 }
 

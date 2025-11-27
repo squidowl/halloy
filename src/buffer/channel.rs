@@ -14,6 +14,7 @@ use super::message_view::{ChannelQueryLayout, TargetInfo};
 use super::{context_menu, input_view, scroll_view};
 use crate::Theme;
 use crate::widget::Element;
+use crate::window::Window;
 
 mod topic;
 
@@ -57,8 +58,6 @@ pub fn view<'a>(
     let prefix = clients.get_prefix(server);
     let supports_echoes = clients.get_server_supports_echoes(server);
     let channel = &state.target;
-    let buffer = &state.buffer;
-    let input = history.input(buffer);
     let our_nick: Option<data::user::NickRef<'_>> =
         clients.nickname(&state.server);
 
@@ -133,8 +132,8 @@ pub fn view<'a>(
         .unwrap_or_else(|| column![].into());
 
     let show_text_input = match config.buffer.text_input.visibility {
-        data::buffer::TextInputVisibility::Focused => is_focused,
-        data::buffer::TextInputVisibility::Always => true,
+        data::config::buffer::text_input::Visibility::Focused => is_focused,
+        data::config::buffer::text_input::Visibility::Always => true,
     };
 
     let mut channels = clients.get_channels(&state.server);
@@ -143,8 +142,6 @@ pub fn view<'a>(
     let text_input = show_text_input.then(move || {
         input_view::view(
             &state.input_view,
-            input,
-            is_focused,
             our_user,
             !is_connected_to_channel,
             config,
@@ -191,15 +188,20 @@ impl Channel {
     pub fn new(
         server: Server,
         target: target::Channel,
+        history: &history::Manager,
         pane_size: Size,
         config: &Config,
     ) -> Self {
+        let buffer = buffer::Upstream::Channel(server.clone(), target.clone());
+
         Self {
-            buffer: buffer::Upstream::Channel(server.clone(), target.clone()),
+            input_view: input_view::State::new(Some(
+                history.input(&buffer).draft,
+            )),
+            buffer,
             server,
             target,
             scroll_view: scroll_view::State::new(pane_size, config),
-            input_view: input_view::State::new(),
         }
     }
 
@@ -208,6 +210,7 @@ impl Channel {
         message: Message,
         clients: &mut data::client::Map,
         history: &mut history::Manager,
+        main_window: &Window,
         config: &Config,
     ) -> (Task<Message>, Option<Event>) {
         match message {
@@ -270,6 +273,7 @@ impl Channel {
                     &self.buffer,
                     clients,
                     history,
+                    main_window,
                     config,
                 );
                 let command = command.map(Message::InputView);

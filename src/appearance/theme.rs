@@ -20,6 +20,7 @@ pub mod scrollable;
 pub mod selectable_text;
 pub mod svg;
 pub mod text;
+pub mod text_editor;
 pub mod text_input;
 
 // TODO: If we use non-standard font sizes, we should consider
@@ -94,6 +95,12 @@ impl iced::theme::Base for Theme {
 
     fn mode(&self) -> iced::theme::Mode {
         iced::theme::Mode::Dark
+    }
+    fn name(&self) -> &str {
+        match self {
+            Theme::Selected(selected) => selected.name.as_str(),
+            Theme::Preview { preview, .. } => preview.name.as_str(),
+        }
     }
 }
 

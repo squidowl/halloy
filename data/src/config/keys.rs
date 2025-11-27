@@ -34,7 +34,7 @@ pub struct Keyboard {
     pub cycle_next_unread_buffer: KeyBind,
     pub cycle_previous_unread_buffer: KeyBind,
     pub mark_as_read: KeyBind,
-    pub quit_application: Option<KeyBind>,
+    pub quit_application: KeyBind,
 }
 
 impl Default for Keyboard {
@@ -68,7 +68,7 @@ impl Default for Keyboard {
             cycle_previous_unread_buffer: KeyBind::cycle_previous_unread_buffer(
             ),
             mark_as_read: KeyBind::mark_as_read(),
-            quit_application: None,
+            quit_application: KeyBind::Unbind,
         }
     }
 }
@@ -77,7 +77,7 @@ impl Keyboard {
     pub fn shortcuts(&self) -> Vec<Shortcut> {
         use crate::shortcut::Command::*;
 
-        let mut shortcuts = vec![
+        vec![
             shortcut(self.move_up.clone(), MoveUp),
             shortcut(self.move_down.clone(), MoveDown),
             shortcut(self.move_left.clone(), MoveLeft),
@@ -111,12 +111,7 @@ impl Keyboard {
                 CyclePreviousUnreadBuffer,
             ),
             shortcut(self.mark_as_read.clone(), MarkAsRead),
-        ];
-
-        if let Some(quit_application) = self.quit_application.clone() {
-            shortcuts.push(shortcut(quit_application, QuitApplication));
-        }
-
-        shortcuts
+            shortcut(self.quit_application.clone(), QuitApplication),
+        ]
     }
 }

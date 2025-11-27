@@ -41,9 +41,10 @@ where
                     return;
                 }
 
-                let event::Event::Mouse(mouse::Event::ButtonPressed(
-                    mouse::Button::Left,
-                )) = event
+                let event::Event::Mouse(mouse::Event::ButtonPressed {
+                    button: mouse::Button::Left,
+                    ..
+                }) = event
                 else {
                     return;
                 };

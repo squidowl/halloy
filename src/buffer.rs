@@ -1,7 +1,8 @@
 use std::path::PathBuf;
 
 use chrono::{DateTime, Utc};
-pub use data::buffer::{Autocomplete, Internal, Settings, Upstream};
+pub use data::buffer::{Internal, Settings, Upstream};
+use data::config::buffer::text_input::Autocomplete;
 use data::dashboard::BufferAction;
 use data::target::{self, Target};
 use data::user::Nick;
@@ -17,6 +18,7 @@ pub use self::server::Server;
 use crate::Theme;
 use crate::screen::dashboard::sidebar;
 use crate::widget::Element;
+use crate::window::Window;
 
 pub mod channel;
 pub mod context_menu;
@@ -70,6 +72,7 @@ pub enum Event {
 impl Buffer {
     pub fn from_data(
         buffer: data::Buffer,
+        history: &history::Manager,
         pane_size: Size,
         config: &Config,
     ) -> Self {
@@ -79,11 +82,11 @@ impl Buffer {
                     Self::Server(Server::new(server, pane_size, config))
                 }
                 buffer::Upstream::Channel(server, channel) => Self::Channel(
-                    Channel::new(server, channel, pane_size, config),
+                    Channel::new(server, channel, history, pane_size, config),
                 ),
-                buffer::Upstream::Query(server, query) => {
-                    Self::Query(Query::new(server, query, pane_size, config))
-                }
+                buffer::Upstream::Query(server, query) => Self::Query(
+                    Query::new(server, query, history, pane_size, config),
+                ),
             },
             data::Buffer::Internal(internal) => match internal {
                 buffer::Internal::FileTransfers => {
@@ -182,12 +185,18 @@ impl Buffer {
         clients: &mut data::client::Map,
         history: &mut history::Manager,
         file_transfers: &mut file_transfer::Manager,
+        main_window: &Window,
         config: &Config,
     ) -> (Task<Message>, Option<Event>) {
         match (self, message) {
             (Buffer::Channel(state), Message::Channel(message)) => {
-                let (command, event) =
-                    state.update(message, clients, history, config);
+                let (command, event) = state.update(
+                    message,
+                    clients,
+                    history,
+                    main_window,
+                    config,
+                );
 
                 let event = event.map(|event| match event {
                     channel::Event::ContextMenu(event) => {
@@ -225,8 +234,13 @@ impl Buffer {
                 (command.map(Message::Channel), event)
             }
             (Buffer::Server(state), Message::Server(message)) => {
-                let (command, event) =
-                    state.update(message, clients, history, config);
+                let (command, event) = state.update(
+                    message,
+                    clients,
+                    history,
+                    main_window,
+                    config,
+                );
 
                 let event = event.map(|event| match event {
                     server::Event::ContextMenu(event) => {
@@ -257,8 +271,13 @@ impl Buffer {
                 (command.map(Message::Server), event)
             }
             (Buffer::Query(state), Message::Query(message)) => {
-                let (command, event) =
-                    state.update(message, clients, history, config);
+                let (command, event) = state.update(
+                    message,
+                    clients,
+                    history,
+                    main_window,
+                    config,
+                );
 
                 let event = event.map(|event| match event {
                     query::Event::ContextMenu(event) => {

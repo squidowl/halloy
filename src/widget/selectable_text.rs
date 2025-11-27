@@ -189,9 +189,10 @@ where
         state.hovered = cursor.is_over(bounds);
 
         match event {
-            iced::Event::Mouse(mouse::Event::ButtonPressed(
-                mouse::Button::Left,
-            ))
+            iced::Event::Mouse(mouse::Event::ButtonPressed {
+                button: mouse::Button::Left,
+                ..
+            })
             | iced::Event::Touch(touch::Event::FingerPressed { .. }) => {
                 if let Some(cursor) = cursor.position() {
                     state.interaction =

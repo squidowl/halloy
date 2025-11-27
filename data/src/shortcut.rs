@@ -56,7 +56,7 @@ pub enum Command {
 macro_rules! default {
     ($name:ident, $k:tt) => {
         pub fn $name() -> KeyBind {
-            KeyBind {
+            KeyBind::Bind {
                 key_code: KeyCode(iced_core::keyboard::Key::Named(
                     iced_core::keyboard::key::Named::$k,
                 )),
@@ -66,7 +66,7 @@ macro_rules! default {
     };
     ($name:ident, $k:literal, $m:expr) => {
         pub fn $name() -> KeyBind {
-            KeyBind {
+            KeyBind::Bind {
                 key_code: KeyCode(iced_core::keyboard::Key::Character(
                     $k.into(),
                 )),
@@ -76,7 +76,7 @@ macro_rules! default {
     };
     ($name:ident, $k:tt, $m:expr) => {
         pub fn $name() -> KeyBind {
-            KeyBind {
+            KeyBind::Bind {
                 key_code: KeyCode(iced_core::keyboard::Key::Named(
                     iced_core::keyboard::key::Named::$k,
                 )),
@@ -87,39 +87,102 @@ macro_rules! default {
 }
 
 #[derive(Debug, Clone, Eq, Ord, PartialOrd)]
-pub struct KeyBind {
-    key_code: KeyCode,
-    modifiers: Modifiers,
+pub enum KeyBind {
+    Bind {
+        key_code: KeyCode,
+        modifiers: Modifiers,
+    },
+    Unbind,
 }
 
 impl fmt::Display for KeyBind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{} {}", self.modifiers, self.key_code)
+        match self {
+            KeyBind::Bind {
+                key_code,
+                modifiers,
+            } => write!(f, "{modifiers} {key_code}"),
+            KeyBind::Unbind => write!(f, ""),
+        }
     }
 }
 
 impl PartialEq for KeyBind {
     fn eq(&self, other: &Self) -> bool {
-        if self.modifiers != other.modifiers {
-            return false;
-        }
+        match (self, other) {
+            (
+                KeyBind::Bind {
+                    key_code: a,
+                    modifiers: a_modifiers,
+                },
+                KeyBind::Bind {
+                    key_code: b,
+                    modifiers: b_modifiers,
+                },
+            ) => {
+                if a_modifiers != b_modifiers {
+                    return false;
+                }
 
-        match (&self.key_code.0, &other.key_code.0) {
-            // SHIFT modifier effects if this comes across as `a` or `A`, but
-            // we explicitly define / check modifiers so it doesn't matter if
-            // user defined it as `a` or `A` in their keymap
-            (keyboard::Key::Character(a), keyboard::Key::Character(b)) => {
-                a.to_lowercase() == b.to_lowercase()
+                match (&a.0, &b.0) {
+                    // SHIFT modifier effects if this comes across as `a` or `A`, but
+                    // we explicitly define / check modifiers so it doesn't matter if
+                    // user defined it as `a` or `A` in their keymap
+                    (
+                        keyboard::Key::Character(a),
+                        keyboard::Key::Character(b),
+                    ) => a.to_lowercase() == b.to_lowercase(),
+                    (a, b) => a == b,
+                }
             }
-            (a, b) => a == b,
+            (KeyBind::Unbind, KeyBind::Unbind) => true,
+            _ => false,
         }
     }
 }
 
 impl Hash for KeyBind {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.key_code.hash(state);
-        self.modifiers.hash(state);
+        match self {
+            KeyBind::Bind {
+                key_code,
+                modifiers,
+            } => {
+                key_code.hash(state);
+                modifiers.hash(state);
+            }
+            KeyBind::Unbind => {
+                std::mem::discriminant(self).hash(state);
+            }
+        }
+    }
+}
+
+pub fn select_all() -> KeyBind {
+    KeyBind::Bind {
+        key_code: KeyCode(iced_core::keyboard::Key::Character("a".into())),
+        modifiers: COMMAND,
+    }
+}
+
+pub fn cut() -> KeyBind {
+    KeyBind::Bind {
+        key_code: KeyCode(iced_core::keyboard::Key::Character("x".into())),
+        modifiers: COMMAND,
+    }
+}
+
+pub fn copy() -> KeyBind {
+    KeyBind::Bind {
+        key_code: KeyCode(iced_core::keyboard::Key::Character("c".into())),
+        modifiers: COMMAND,
+    }
+}
+
+pub fn paste() -> KeyBind {
+    KeyBind::Bind {
+        key_code: KeyCode(iced_core::keyboard::Key::Character("v".into())),
+        modifiers: COMMAND,
     }
 }
 
@@ -163,21 +226,13 @@ impl KeyBind {
     default!(cycle_previous_unread_buffer, "`", CTRL | SHIFT);
     // Command + m is minimize in macOS
     default!(mark_as_read, "m", COMMAND | SHIFT);
-
-    pub fn is_pressed(
-        &self,
-        key_code: impl Into<KeyCode>,
-        modifiers: impl Into<Modifiers>,
-    ) -> bool {
-        self.key_code == key_code.into() && self.modifiers == modifiers.into()
-    }
 }
 
 impl From<(keyboard::Key, keyboard::Modifiers)> for KeyBind {
     fn from(
         (key_code, modifiers): (keyboard::Key, keyboard::Modifiers),
     ) -> Self {
-        Self {
+        KeyBind::Bind {
             key_code: KeyCode(key_code),
             modifiers: Modifiers(modifiers),
         }
@@ -192,6 +247,14 @@ impl<'de> Deserialize<'de> for KeyBind {
         use serde::de;
 
         let string = String::deserialize(deserializer)?;
+
+        // Check if the string is "none" or "noop"
+        let trimmed = string.trim();
+        if trimmed.eq_ignore_ascii_case("none")
+            || trimmed.eq_ignore_ascii_case("noop")
+        {
+            return Ok(KeyBind::Unbind);
+        }
 
         let parts = string.trim().split('+').collect::<Vec<_>>();
 
@@ -216,7 +279,7 @@ impl<'de> Deserialize<'de> for KeyBind {
             }
         };
 
-        Ok(KeyBind {
+        Ok(KeyBind::Bind {
             key_code,
             modifiers,
         })
