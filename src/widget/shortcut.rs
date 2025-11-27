@@ -4,6 +4,7 @@ use iced::advanced::widget::Tree;
 use iced::advanced::{Clipboard, Layout, Shell};
 use iced::{Event, keyboard, mouse};
 
+use super::key_press::is_numpad;
 use super::{Element, Renderer, decorate};
 
 pub fn shortcut<'a, Message>(
@@ -29,14 +30,14 @@ where
                 match &event {
                     Event::Keyboard(keyboard::Event::KeyPressed {
                         key,
+                        physical_key,
                         modifiers,
                         text,
                         ..
                     }) => {
                         // Treat numpad keys as character keys when numlock is
                         // on (i.e. text.is_some())
-                        let key_bind = if let keyboard::Key::Named(named) = key
-                            && !matches!(named, keyboard::key::Named::Enter)
+                        let key_bind = if is_numpad(physical_key)
                             && let Some(text) = text
                         {
                             shortcut::KeyBind::from((
