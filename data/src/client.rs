@@ -2155,9 +2155,7 @@ impl Client {
                     {
                         channel.topic.content =
                             Some(message::parse_fragments(text.clone()));
-                        channel.topic.who = message
-                            .user(casemapping)
-                            .map(|user| user.nickname().to_owned());
+                        channel.topic.who = message.user(casemapping);
                         channel.topic.time = Some(server_time(&message));
                     } else {
                         channel.topic.content = None;
@@ -2196,17 +2194,11 @@ impl Client {
                         self.casemapping(),
                     )))
                 {
-                    channel.topic.who = Some(
-                        context!(User::parse(
-                            ok!(args.get(2)),
-                            isupport::get_casemapping_or_default(
-                                &self.isupport
-                            ),
-                            isupport::get_prefix(&self.isupport),
-                        ))
-                        .nickname()
-                        .to_owned(),
-                    );
+                    channel.topic.who = Some(context!(User::parse(
+                        ok!(args.get(2)),
+                        isupport::get_casemapping_or_default(&self.isupport),
+                        isupport::get_prefix(&self.isupport),
+                    )));
                     let timestamp =
                         Posix::from_seconds(ok!(args.get(3)).parse::<u64>()?);
                     channel.topic.time =
@@ -3961,7 +3953,7 @@ impl Channel {
 #[derive(Default, Debug, Clone)]
 pub struct Topic {
     pub content: Option<message::Content>,
-    pub who: Option<Nick>,
+    pub who: Option<User>,
     pub time: Option<DateTime<Utc>>,
 }
 

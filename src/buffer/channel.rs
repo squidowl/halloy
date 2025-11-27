@@ -361,7 +361,7 @@ fn topic<'a>(
             prefix,
             &state.target,
             topic.content.as_ref()?,
-            topic.who.as_ref().map(Nick::as_nickref),
+            topic.who.as_ref(),
             topic.time.as_ref(),
             config.buffer.channel.topic_banner.max_lines,
             users,
