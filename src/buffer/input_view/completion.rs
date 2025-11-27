@@ -460,6 +460,27 @@ impl Commands {
                 let target_limit = find_target_limit(isupport, "WHOIS");
                 whois_command(target_limit)
             },
+            // WHOWAS
+            {
+                Command {
+                    title: "WHOWAS",
+                    args: vec![
+                        Argument {
+                            text: "nick",
+                            kind: ArgumentKind::Required,
+                            tooltip: None,
+                        },
+                        Argument {
+                            text: "count",
+                            kind: ArgumentKind::Optional { skipped: false },
+                            tooltip: Some(String::from(
+                                "maximum number of nickname history entries returned, or all if omitted",
+                            )),
+                        },
+                    ],
+                    subcommands: None,
+                }
+            },
             // ME
             {
                 Command {
@@ -998,6 +1019,7 @@ impl Command {
             "raw" => "Send data to the server without modifying it",
             "topic" => "Retrieve the topic of a channel or set a new topic",
             "whois" => "Retrieve information about user(s)",
+            "whowas" => "Retrieve information about no longer present user(s)",
             "format" => "Format text using markdown or $ sequences",
             "plain" => "Send text with automatic formatting disabled",
             "ctcp" => "Send Client-To-Client requests",
@@ -2509,12 +2531,17 @@ fn who_command() -> Command {
 fn whois_command(target_limit: Option<u16>) -> Command {
     let mut nicks_tooltip = String::from("comma-separated");
 
-    if let Some(target_limit) = target_limit {
+    let nicks_text = if let Some(target_limit) = target_limit {
         nicks_tooltip.push_str(format!("\nup to {target_limit} nick").as_str());
         if target_limit != 1 {
             nicks_tooltip.push('s');
+            "nicks"
+        } else {
+            "nick"
         }
-    }
+    } else {
+        "nick"
+    };
 
     Command {
         title: "WHOIS",
@@ -2527,7 +2554,7 @@ fn whois_command(target_limit: Option<u16>) -> Command {
                 )),
             },
             Argument {
-                text: "nicks",
+                text: nicks_text,
                 kind: ArgumentKind::Required,
                 tooltip: Some(nicks_tooltip),
             },
