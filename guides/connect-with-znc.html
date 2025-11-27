@@ -34,7 +34,7 @@
             const path_to_root = "../";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../searchindex-805d4fce.js";
+            window.path_to_searchindex_js = "../searchindex-ef4b4cf9.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="../toc-fe913ceb.js"></script>
@@ -180,21 +180,18 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="connect-with-znc"><a class="header" href="#connect-with-znc">Connect with ZNC</a></h1>
-<p>To connect with a <a href="https://wiki.znc.in/ZNC"><strong>ZNC</strong></a> bouncer, the configuration below can be used as a template. Simply change so it fits your credentials.</p>
+<p>To connect with a <a href="https://wiki.znc.in/ZNC"><strong>ZNC</strong></a> bouncer, the configuration
+below can be used as a template. Simply change so it fits your credentials.</p>
 <pre><code class="language-toml">[servers.libera]
 nickname = "&lt;znc-user&gt;/&lt;znc-network&gt;"
 server = "znc.example.com"
 password = "&lt;your-password&gt;"
-
-# Depending on your ZNC setup you may need to apply these extra settings:
-
-# Does your znc use a self-signed or expired certificate? See: 
-# https://halloy.chat/configuration/servers.html#dangerously_accept_invalid_certs
-
-# Does your znc listen on a different port? See: 
-# https://halloy.chat/configuration/servers.html#port
-
 </code></pre>
+<p>Depending on your ZNC setup you may need to apply these extra settings:</p>
+<p>Does your znc use a self-signed or expired certificate? See:
+<a href="/configuration/servers.html#dangerously_accept_invalid_certs"><code>servers.&lt;name&gt;.dangerously_accept_invalid_certs</code></a></p>
+<p>Does your znc listen on a different port? See:
+<a href="/configuration/servers.html#port"><code>servers.&lt;name&gt;.port</code></a></p>
 
                     </main>
 
