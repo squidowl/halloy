@@ -21,6 +21,7 @@ use iced::{Alignment, Length, Task, clipboard, event, keyboard, padding};
 use tokio::time;
 
 use self::completion::Completion;
+use crate::widget::key_press::is_numpad;
 use crate::widget::{
     Element, Renderer, Text, anchored_overlay, context_menu, decorate,
 };
@@ -310,8 +311,7 @@ pub fn view<'a>(
 
                 // Treat numpad keys as character keys when numlock is on (i.e.
                 // text.is_some())
-                let key = if let keyboard::Key::Named(named) = &key_press.key
-                    && !matches!(named, keyboard::key::Named::Enter)
+                let key = if is_numpad(&key_press.physical_key)
                     && let Some(text) = &key_press.text
                 {
                     Cow::Owned(keyboard::Key::Character(text.clone()))
