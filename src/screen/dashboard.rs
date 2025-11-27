@@ -263,6 +263,7 @@ impl Dashboard {
                                 clients,
                                 &mut self.history,
                                 &mut self.file_transfers,
+                                main_window,
                                 config,
                             );
 
@@ -891,6 +892,7 @@ impl Dashboard {
 
                             state.buffer = Buffer::from_data(
                                 data::Buffer::Upstream(buffer),
+                                history,
                                 state.size,
                                 config,
                             );
@@ -919,6 +921,7 @@ impl Dashboard {
 
                             state.buffer = Buffer::from_data(
                                 data::Buffer::Upstream(buffer),
+                                history,
                                 state.size,
                                 config,
                             );
@@ -1157,6 +1160,7 @@ impl Dashboard {
 
                             state.buffer = Buffer::from_data(
                                 data::Buffer::Upstream(buffer),
+                                history,
                                 state.size,
                                 config,
                             );
@@ -1186,6 +1190,7 @@ impl Dashboard {
 
                             state.buffer = Buffer::from_data(
                                 data::Buffer::Upstream(buffer),
+                                history,
                                 state.size,
                                 config,
                             );
@@ -2226,8 +2231,12 @@ impl Dashboard {
                         config,
                     );
 
-                    state.buffer =
-                        Buffer::from_data(buffer, state.size, config);
+                    state.buffer = Buffer::from_data(
+                        buffer,
+                        &self.history,
+                        state.size,
+                        config,
+                    );
                     self.last_changed = Some(Instant::now());
 
                     Task::batch(vec![
@@ -2255,7 +2264,10 @@ impl Dashboard {
                         if matches!(pane.buffer, Buffer::Empty) {
                             self.panes.main.panes.entry(*id).and_modify(|p| {
                                 *p = Pane::new(Buffer::from_data(
-                                    buffer, p.size, config,
+                                    buffer,
+                                    &self.history,
+                                    p.size,
+                                    config,
                                 ));
                             });
                             self.last_changed = Some(Instant::now());
@@ -2325,6 +2337,7 @@ impl Dashboard {
                     pane_to_split,
                     Pane::new(Buffer::from_data(
                         buffer,
+                        &self.history,
                         pane_to_split_state.size,
                         config,
                     )),
@@ -2340,6 +2353,7 @@ impl Dashboard {
                 iced::window::position(self.main_window()).then({
                     let pane = Pane::new(Buffer::from_data(
                         buffer.clone(),
+                        &self.history,
                         Size::default(),
                         config,
                     ));
@@ -3253,6 +3267,7 @@ impl Dashboard {
                 data::Pane::Buffer { buffer } => {
                     Configuration::Pane(Pane::new(Buffer::from_data(
                         buffer,
+                        &history::Manager::default(),
                         Size::default(),
                         config,
                     )))

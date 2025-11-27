@@ -52,6 +52,7 @@ pub fn context_menu<'a, T, Message, Theme, Renderer>(
         anchor,
         toggle_behavior,
         menu: None,
+        mouse_interaction_on_hover: mouse::Interaction::Pointer,
     }
 }
 
@@ -64,6 +65,7 @@ pub struct ContextMenu<'a, T, Message, Theme, Renderer> {
     toggle_behavior: ToggleBehavior,
     // Cached, recreated during overlay if menu is open
     menu: Option<Element<'a, Message, Theme, Renderer>>,
+    mouse_interaction_on_hover: mouse::Interaction,
 }
 
 #[derive(Debug)]
@@ -106,6 +108,18 @@ impl Status {
                 keep_open_bounds, ..
             } => keep_open_bounds.as_ref(),
         }
+    }
+}
+
+impl<'a, T, Message, Theme, Renderer>
+    ContextMenu<'a, T, Message, Theme, Renderer>
+{
+    pub fn mouse_interaction_on_hover(
+        mut self,
+        interaction: mouse::Interaction,
+    ) -> Self {
+        self.mouse_interaction_on_hover = interaction;
+        self
     }
 }
 
@@ -212,17 +226,23 @@ where
     ) {
         // is this a mouse event we are waiting for?
         let is_mouse_event =
-            matches!(event, Event::Mouse(mouse::Event::ButtonPressed(_)));
+            matches!(event, Event::Mouse(mouse::Event::ButtonPressed { .. }));
 
         if is_mouse_event {
             let state = tree.state.downcast_mut::<State>();
             let prev_status = state.status;
 
             // is this a mouse event for that we should do something?
-            let is_activation_mouse_event = *event
-                == Event::Mouse(mouse::Event::ButtonPressed(
-                    self.activation_button,
-                ));
+            let is_activation_mouse_event =
+                if let Event::Mouse(mouse::Event::ButtonPressed {
+                    button, ..
+                }) = event
+                    && *button == self.activation_button
+                {
+                    true
+                } else {
+                    false
+                };
 
             let position = if is_activation_mouse_event {
                 match self.anchor {
@@ -315,7 +335,7 @@ where
         _renderer: &Renderer,
     ) -> mouse::Interaction {
         if cursor.is_over(layout.bounds()) {
-            mouse::Interaction::Pointer
+            self.mouse_interaction_on_hover
         } else {
             mouse::Interaction::default()
         }
@@ -586,7 +606,7 @@ where
         clipboard: &mut dyn Clipboard,
         shell: &mut Shell<'_, Message>,
     ) {
-        if let Event::Mouse(mouse::Event::ButtonPressed(_)) = &event
+        if let Event::Mouse(mouse::Event::ButtonPressed { .. }) = &event
             && cursor.position_over(layout.bounds()).is_none()
             && self.state.status.keep_open_bounds().is_none_or(
                 |(keep_open_vector, keep_open_size)| {

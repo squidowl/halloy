@@ -6,6 +6,8 @@ Customize the text input for in buffers.
   - [Configuration](#configuration)
     - [visibility](#visibility)
     - [auto\_format](#auto_format)
+    - [key\_bindings](#key_bindings)
+      - [emacs](#emacs)
   - [Autocomplete](#autocomplete)
   - [Nickname](#nickname)
 
@@ -38,6 +40,34 @@ auto_format = "markdown"
 ```
 
 > 💡 Read more about [text formatting](../../../guides/text-formatting.md).
+
+### key_bindings
+
+Different key bindings for the text input
+
+```toml
+# Type: string
+# Values: "default", "emacs"
+# Default: "default
+
+[buffer.text_input]
+key_bindings = "emacs"
+```
+
+#### emacs
+
+Emacs variant has the following binds:
+
+> `ctrl+a`: Move to the beginning of the line  
+  `ctrl+e`: Move to the end of the line  
+  `ctrl+b`: Move backward one character  
+  `ctrl+f`: Move forward one character  
+  `ctrl+d`: Delete the character under the cursor  
+  `ctrl+k`: Kill rest of line from cursor  
+  `alt+b`: Move the cursor backward one word  
+  `alt+f`: Move the cursor forward one word  
+
+> 💡 Global [keyboard shortcuts](../../keyboard.md) take precedence. Unset any that collide (e.g., set `command_bar = "unset"`).
 
 ## [Autocomplete](autocomplete.md)
 

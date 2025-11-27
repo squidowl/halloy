@@ -1,23 +1,31 @@
+use std::borrow::Cow;
+use std::convert;
 use std::time::Duration;
 
-use data::buffer::{self, Autocomplete, Upstream};
+use data::buffer::{self, Upstream};
+use data::config::buffer::text_input::{Autocomplete, KeyBindings};
 use data::dashboard::BufferAction;
 use data::history::{self, ReadMarker};
-use data::input::{self, Cache, RawInput};
+use data::input::{self, RawInput};
 use data::message::server_time;
 use data::rate_limit::TokenPriority;
 use data::target::Target;
 use data::user::Nick;
-use data::{Config, User, client, command};
+use data::{Config, User, client, command, shortcut};
+use iced::advanced::widget::Tree;
+use iced::advanced::{Clipboard, Layout, Shell, mouse};
 use iced::widget::{
-    self, column, container, operation, row, rule, text, text_input,
+    self, button, column, container, operation, row, rule, text, text_editor,
 };
-use iced::{Alignment, Task, padding};
+use iced::{Alignment, Length, Task, clipboard, event, keyboard, padding};
 use tokio::time;
 
 use self::completion::Completion;
-use crate::widget::{Element, anchored_overlay, key_press};
-use crate::{Theme, font, theme};
+use crate::widget::{
+    Element, Renderer, Text, anchored_overlay, context_menu, decorate,
+};
+use crate::window::Window;
+use crate::{Theme, font, theme, window};
 
 mod completion;
 
@@ -39,9 +47,14 @@ pub enum Event {
 
 #[derive(Debug, Clone)]
 pub enum Message {
+    Action(text_editor::Action),
+    CloseContextMenu(window::Id, bool),
     SysInfoReceived(iced::system::Information),
-    Input(String),
     Send,
+    DeleteWordForward(bool),
+    DeleteWordBackward(bool),
+    DeleteToEnd(bool),
+    DeleteToStart(bool),
     Tab(bool),
     Up,
     Down,
@@ -50,45 +63,396 @@ pub enum Message {
         buffer: Upstream,
         command: command::Irc,
     },
+    Paste,
+    SelectAll,
+    CopyAll,
+    Copy,
+    Cut,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum Actions {
+    Cut,
+    Copy,
+    CopyAll,
+    Paste,
+    SelectAll,
+}
+
+impl Actions {
+    fn list() -> Vec<Self> {
+        vec![
+            Self::Cut,
+            Self::Copy,
+            Self::CopyAll,
+            Self::Paste,
+            Self::SelectAll,
+        ]
+    }
+}
+
+fn emacs_key_binding(
+    key_press: text_editor::KeyPress,
+) -> Option<text_editor::Binding<Message>> {
+    match key_press.key.as_ref() {
+        iced::keyboard::Key::Character("e")
+            if key_press.modifiers.control() =>
+        {
+            Some(text_editor::Binding::Custom(Message::Action(
+                if key_press.modifiers.shift() {
+                    text_editor::Action::Select(text_editor::Motion::End)
+                } else {
+                    text_editor::Action::Move(text_editor::Motion::End)
+                },
+            )))
+        }
+        iced::keyboard::Key::Character("a")
+            if key_press.modifiers.control() =>
+        {
+            if key_press.modifiers.shift() {
+                Some(text_editor::Binding::Custom(Message::Action(
+                    text_editor::Action::Select(text_editor::Motion::Home),
+                )))
+            } else {
+                Some(text_editor::Binding::Custom(Message::Action(
+                    text_editor::Action::Move(text_editor::Motion::Home),
+                )))
+            }
+        }
+        iced::keyboard::Key::Character("b") if key_press.modifiers.alt() => {
+            if key_press.modifiers.shift() {
+                Some(text_editor::Binding::Custom(Message::Action(
+                    text_editor::Action::Select(text_editor::Motion::WordLeft),
+                )))
+            } else {
+                Some(text_editor::Binding::Custom(Message::Action(
+                    text_editor::Action::Move(text_editor::Motion::WordLeft),
+                )))
+            }
+        }
+        iced::keyboard::Key::Character("b")
+            if key_press.modifiers.control() =>
+        {
+            if key_press.modifiers.shift() {
+                Some(text_editor::Binding::Custom(Message::Action(
+                    text_editor::Action::Select(text_editor::Motion::Left),
+                )))
+            } else {
+                Some(text_editor::Binding::Custom(Message::Action(
+                    text_editor::Action::Move(text_editor::Motion::Left),
+                )))
+            }
+        }
+        iced::keyboard::Key::Character("f") if key_press.modifiers.alt() => {
+            if key_press.modifiers.shift() {
+                Some(text_editor::Binding::Custom(Message::Action(
+                    text_editor::Action::Select(text_editor::Motion::WordRight),
+                )))
+            } else {
+                Some(text_editor::Binding::Custom(Message::Action(
+                    text_editor::Action::Move(text_editor::Motion::WordRight),
+                )))
+            }
+        }
+        iced::keyboard::Key::Character("f")
+            if key_press.modifiers.control() =>
+        {
+            if key_press.modifiers.shift() {
+                Some(text_editor::Binding::Custom(Message::Action(
+                    text_editor::Action::Select(text_editor::Motion::Right),
+                )))
+            } else {
+                Some(text_editor::Binding::Custom(Message::Action(
+                    text_editor::Action::Move(text_editor::Motion::Right),
+                )))
+            }
+        }
+        iced::keyboard::Key::Character("d")
+            if key_press.modifiers.control() =>
+        {
+            Some(text_editor::Binding::Custom(Message::Action(
+                text_editor::Action::Edit(text_editor::Edit::Delete),
+            )))
+        }
+        iced::keyboard::Key::Character("d") if key_press.modifiers.alt() => {
+            Some(text_editor::Binding::Custom(Message::DeleteWordForward(
+                true,
+            )))
+        }
+        iced::keyboard::Key::Character("k")
+            if key_press.modifiers.control() =>
+        {
+            Some(text_editor::Binding::Custom(Message::DeleteToEnd(true)))
+        }
+        _ => None,
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn platform_specific_key_bindings(
+    key_press: text_editor::KeyPress,
+) -> Option<text_editor::Binding<Message>> {
+    match key_press.key.as_ref() {
+        iced::keyboard::Key::Named(iced::keyboard::key::Named::Backspace)
+            if key_press.modifiers.alt() =>
+        {
+            Some(text_editor::Binding::Custom(Message::DeleteWordBackward(
+                false,
+            )))
+        }
+        iced::keyboard::Key::Named(iced::keyboard::key::Named::Backspace)
+            if key_press.modifiers.logo() =>
+        {
+            Some(text_editor::Binding::Custom(Message::DeleteToStart(false)))
+        }
+        iced::keyboard::Key::Named(iced::keyboard::key::Named::Delete)
+            if key_press.modifiers.alt() =>
+        {
+            Some(text_editor::Binding::Custom(Message::DeleteWordForward(
+                false,
+            )))
+        }
+        iced::keyboard::Key::Named(iced::keyboard::key::Named::Delete)
+            if key_press.modifiers.logo() =>
+        {
+            Some(text_editor::Binding::Custom(Message::DeleteToEnd(false)))
+        }
+
+        _ => None,
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+fn platform_specific_key_bindings(
+    key_press: text_editor::KeyPress,
+) -> Option<text_editor::Binding<Message>> {
+    match key_press.key.as_ref() {
+        iced::keyboard::Key::Named(iced::keyboard::key::Named::Backspace)
+            if key_press.modifiers.control() =>
+        {
+            if key_press.modifiers.shift() {
+                Some(text_editor::Binding::Custom(Message::DeleteToStart(
+                    false,
+                )))
+            } else {
+                Some(text_editor::Binding::Custom(Message::DeleteWordBackward(
+                    false,
+                )))
+            }
+        }
+        iced::keyboard::Key::Named(iced::keyboard::key::Named::Delete)
+            if key_press.modifiers.control() =>
+        {
+            if key_press.modifiers.shift() {
+                Some(text_editor::Binding::Custom(Message::DeleteToEnd(false)))
+            } else {
+                Some(text_editor::Binding::Custom(Message::DeleteWordForward(
+                    false,
+                )))
+            }
+        }
+        iced::keyboard::Key::Named(iced::keyboard::key::Named::Insert)
+            if key_press.modifiers.shift() && key_press.text.is_none() =>
+        {
+            Some(text_editor::Binding::Custom(Message::Paste))
+        }
+
+        _ => None,
+    }
 }
 
 pub fn view<'a>(
     state: &'a State,
-    cache: Cache<'a>,
-    buffer_focused: bool,
     our_user: Option<&User>,
     disabled: bool,
-    config: &Config,
+    config: &'a Config,
     theme: &'a Theme,
 ) -> Element<'a, Message> {
     let style = if state.error.is_some() {
-        theme::text_input::error
+        theme::text_editor::error
     } else {
-        theme::text_input::primary
+        theme::text_editor::primary
     };
 
-    let mut text_input = text_input("Send message...", cache.text)
-        .on_submit(Message::Send)
+    let mut text_input = text_editor(&state.input_content)
         .id(state.input_id.clone())
-        .padding([0, 4])
+        .placeholder("Send message...")
+        .padding([2, 4])
+        .wrapping(text::Wrapping::WordOrGlyph)
+        .height(Length::Shrink)
         .style(style);
 
     if !disabled {
-        text_input = text_input.on_input(Message::Input);
+        let key_bindings = config.buffer.text_input.key_bindings.clone();
+
+        text_input = text_input.on_action(Message::Action).key_binding(
+            move |key_press| {
+                if !matches!(
+                    key_press.status,
+                    iced::widget::text_editor::Status::Focused { .. }
+                ) {
+                    return None;
+                }
+
+                // Try emacs bindings first if enabled
+                if matches!(key_bindings, KeyBindings::Emacs)
+                    && let Some(binding) = emacs_key_binding(key_press.clone())
+                {
+                    return Some(binding);
+                }
+
+                // Platform specific key bindings
+                if let Some(binding) =
+                    platform_specific_key_bindings(key_press.clone())
+                {
+                    return Some(binding);
+                }
+
+                // Treat numpad keys as character keys when numlock is on (i.e.
+                // text.is_some())
+                let key = if let keyboard::Key::Named(named) = &key_press.key
+                    && !matches!(named, keyboard::key::Named::Enter)
+                    && let Some(text) = &key_press.text
+                {
+                    Cow::Owned(keyboard::Key::Character(text.clone()))
+                } else {
+                    Cow::Borrowed(&key_press.key)
+                };
+
+                match *key {
+                    // New line
+                    // TODO: Add shift+enter binding
+                    // iced::keyboard::Key::Named(
+                    //     iced::keyboard::key::Named::Enter,
+                    // ) if key_press.modifiers.shift() => {
+                    //     Some(text_editor::Binding::Enter)
+                    // }
+                    //
+                    // Send
+                    iced::keyboard::Key::Named(
+                        iced::keyboard::key::Named::Enter,
+                    ) => Some(text_editor::Binding::Custom(Message::Send)),
+                    // Tab
+                    iced::keyboard::Key::Named(
+                        iced::keyboard::key::Named::Tab,
+                    ) => Some(text_editor::Binding::Custom(Message::Tab(
+                        key_press.modifiers.shift(),
+                    ))),
+                    // Up
+                    iced::keyboard::Key::Named(
+                        iced::keyboard::key::Named::ArrowUp,
+                    ) => Some(text_editor::Binding::Custom(Message::Up)),
+                    // Down
+                    iced::keyboard::Key::Named(
+                        iced::keyboard::key::Named::ArrowDown,
+                    ) => Some(text_editor::Binding::Custom(Message::Down)),
+                    // Escape
+                    iced::keyboard::Key::Named(
+                        iced::keyboard::key::Named::Escape,
+                    ) => Some(text_editor::Binding::Custom(Message::Escape)),
+                    _ => text_editor::Binding::from_key_press(key_press),
+                }
+            },
+        );
     }
 
-    // Add tab support
-    let input = key_press(
-        key_press(
-            text_input,
-            key_press::Key::Named(key_press::Named::Tab),
-            key_press::Modifiers::SHIFT,
-            Message::Tab(true),
-        ),
-        key_press::Key::Named(key_press::Named::Tab),
-        key_press::Modifiers::default(),
-        Message::Tab(false),
+    let text_input = decorate(text_input).update(
+        move |_state: &mut State,
+              inner: &mut Element<'a, Message>,
+              tree: &mut Tree,
+              event: &iced::Event,
+              layout: Layout<'_>,
+              cursor: mouse::Cursor,
+              renderer: &Renderer,
+              clipboard: &mut dyn Clipboard,
+              shell: &mut Shell<'_, Message>,
+              viewport: &iced::Rectangle| {
+            if let event::Event::Mouse(mouse::Event::WheelScrolled { .. }) =
+                event
+            {
+                return;
+            };
+
+            inner.as_widget_mut().update(
+                tree, event, layout, cursor, renderer, clipboard, shell,
+                viewport,
+            );
+        },
     );
+
+    let wrapped_input: Element<'a, Message> = context_menu(
+        context_menu::MouseButton::default(),
+        context_menu::Anchor::Cursor,
+        context_menu::ToggleBehavior::KeepOpen,
+        text_input,
+        Actions::list(),
+        move |menu, length| {
+            let context_button =
+                |title: Text<'a>,
+                 keybind: Option<data::shortcut::KeyBind>,
+                 message: Option<Message>| {
+                    button(
+                        row![
+                            title,
+                            keybind.map(|kb| {
+                                text(format!("({kb})"))
+                                    .shaping(text::Shaping::Advanced)
+                                    .size(theme::TEXT_SIZE - 2.0)
+                                    .style(theme::text::secondary)
+                                    .font_maybe(
+                                        theme::font_style::secondary(theme)
+                                            .map(font::get),
+                                    )
+                            }),
+                        ]
+                        .spacing(8)
+                        .align_y(iced::Alignment::Center),
+                    )
+                    .width(length)
+                    .padding(5)
+                    .on_press_maybe(message)
+                    .into()
+                };
+
+            match menu {
+                Actions::Cut => context_button(
+                    text("Cut"),
+                    Some(shortcut::cut()),
+                    state.input_content.selection().map(|_| Message::Cut),
+                ),
+                Actions::Copy => context_button(
+                    text("Copy"),
+                    Some(shortcut::copy()),
+                    state.input_content.selection().map(|_| Message::Copy),
+                ),
+                Actions::CopyAll => context_button(
+                    text("Copy All"),
+                    None,
+                    if !state.input_content.text().is_empty() {
+                        Some(Message::CopyAll)
+                    } else {
+                        None
+                    },
+                ),
+                Actions::SelectAll => context_button(
+                    text("Select All"),
+                    Some(shortcut::select_all()),
+                    if !state.input_content.text().is_empty() {
+                        Some(Message::SelectAll)
+                    } else {
+                        None
+                    },
+                ),
+                Actions::Paste => context_button(
+                    text("Paste"),
+                    Some(shortcut::paste()),
+                    Some(Message::Paste),
+                ),
+            }
+        },
+    )
+    .mouse_interaction_on_hover(iced::advanced::mouse::Interaction::Text)
+    .into();
 
     let our_user_style = {
         let is_user_away = config
@@ -129,44 +493,26 @@ pub fn view<'a>(
     let maybe_vertical_rule =
         maybe_our_user.is_some().then(move || rule::vertical(1.0));
 
-    let mut content = column![
+    let content = column![
         container(
-            row![maybe_our_user, maybe_vertical_rule, input]
+            row![maybe_our_user, maybe_vertical_rule, wrapped_input]
                 .spacing(4)
-                .height(
-                    (theme::line_height(&config.font).ceil() + 4.0).max(20.0)
-                )
+                .height(Length::Shrink)
                 .align_y(Alignment::Center)
         )
+        .max_height((7.55 * theme::line_height(&config.font).ceil()).ceil())
         .padding(8)
-        .style(theme::container::buffer_text_input),
+        .style(theme::container::buffer_text_input)
     ]
     .spacing(4)
-    .padding(padding::top(4))
-    .into();
-
-    // Add up / down support for history cycling
-    if buffer_focused {
-        content = key_press(
-            key_press(
-                key_press(
-                    content,
-                    key_press::Key::Named(key_press::Named::ArrowUp),
-                    key_press::Modifiers::default(),
-                    Message::Up,
-                ),
-                key_press::Key::Named(key_press::Named::ArrowDown),
-                key_press::Modifiers::default(),
-                Message::Down,
-            ),
-            key_press::Key::Named(key_press::Named::Escape),
-            key_press::Modifiers::default(),
-            Message::Escape,
-        );
-    }
+    .padding(padding::top(4));
 
     let overlay = column![
-        state.completion.view(cache.text, config, theme),
+        state.completion.view(
+            state.input_content.text().as_str(),
+            config,
+            theme
+        ),
         state
             .error
             .as_deref()
@@ -195,6 +541,7 @@ fn error<'a, 'b, Message: 'a>(
 #[derive(Debug, Clone)]
 pub struct State {
     input_id: widget::Id,
+    input_content: text_editor::Content,
     error: Option<String>,
     completion: Completion,
     selected_history: Option<usize>,
@@ -202,14 +549,18 @@ pub struct State {
 
 impl Default for State {
     fn default() -> Self {
-        Self::new()
+        Self::new(None)
     }
 }
 
 impl State {
-    pub fn new() -> Self {
+    pub fn new(input_draft: Option<&str>) -> Self {
         Self {
             input_id: widget::Id::unique(),
+            input_content: input_draft.map_or(
+                text_editor::Content::new(),
+                text_editor::Content::with_text,
+            ),
             error: None,
             completion: Completion::default(),
             selected_history: None,
@@ -222,6 +573,7 @@ impl State {
         buffer: &buffer::Upstream,
         clients: &mut client::Map,
         history: &mut history::Manager,
+        main_window: &Window,
         config: &Config,
     ) -> (Task<Message>, Option<Event>) {
         let current_target = buffer.target();
@@ -302,94 +654,8 @@ impl State {
 
                 (Task::none(), None)
             }
-            Message::Input(input) => {
-                // Reset error state
-                self.error = None;
-                // Reset selected history
-                self.selected_history = None;
-
-                let users = buffer.channel().and_then(|channel| {
-                    clients.get_channel_users(buffer.server(), channel)
-                });
-                // TODO(pounce) eliminate clones
-                let channels = clients
-                    .get_channels(buffer.server())
-                    .cloned()
-                    .collect::<Vec<_>>();
-                let supports_detach =
-                    clients.get_server_supports_detach(buffer.server());
-                let isupport = clients.get_isupport(buffer.server());
-
-                self.completion.process(
-                    &input,
-                    clients.nickname(buffer.server()),
-                    users,
-                    &history.get_last_seen(buffer),
-                    &channels,
-                    current_target.as_ref(),
-                    supports_detach,
-                    &isupport,
-                    config,
-                );
-
-                let input =
-                    self.completion.complete_emoji(&input).unwrap_or(input);
-
-                if let Err(error) = input::parse(
-                    buffer.clone(),
-                    config.buffer.text_input.auto_format,
-                    &input,
-                    clients.nickname(buffer.server()),
-                    &clients.get_isupport(buffer.server()),
-                ) && match error {
-                    input::Error::ExceedsByteLimit { .. } => true,
-                    input::Error::Command(
-                        command::Error::IncorrectArgCount {
-                            actual, max, ..
-                        },
-                    ) => actual > max,
-                    input::Error::Command(command::Error::MissingSlash) => {
-                        false
-                    }
-                    input::Error::Command(command::Error::MissingCommand) => {
-                        false
-                    }
-                    input::Error::Command(command::Error::NoModeString) => {
-                        false
-                    }
-                    input::Error::Command(
-                        command::Error::InvalidModeString,
-                    ) => true,
-                    input::Error::Command(command::Error::ArgTooLong {
-                        ..
-                    }) => true,
-                    input::Error::Command(command::Error::TooManyTargets {
-                        ..
-                    }) => true,
-                    input::Error::Command(
-                        command::Error::NotPositiveInteger,
-                    ) => true,
-                    input::Error::Command(
-                        command::Error::InvalidChannelName { .. },
-                    ) => true,
-                } {
-                    self.error = Some(error.to_string());
-                }
-
-                history.record_text(RawInput {
-                    buffer: buffer.clone(),
-                    text: input.clone(),
-                });
-
-                history.record_draft(RawInput {
-                    buffer: buffer.clone(),
-                    text: input,
-                });
-
-                (Task::none(), None)
-            }
             Message::Send => {
-                let raw_input = history.input(buffer).text;
+                let raw_input = self.input_content.text().clone();
 
                 // Reset error
                 self.error = None;
@@ -398,10 +664,13 @@ impl State {
 
                 if let Some(entry) = self.completion.select(config) {
                     let chantypes = clients.get_chantypes(buffer.server());
-                    let new_input =
-                        entry.complete_input(raw_input, chantypes, config);
+                    let new_input = entry.complete_input(
+                        raw_input.as_str(),
+                        chantypes,
+                        config,
+                    );
 
-                    self.on_completion(buffer, history, new_input, true)
+                    self.on_completion(buffer, history, &new_input, true)
                 } else if !raw_input.is_empty() {
                     self.completion.reset();
 
@@ -409,7 +678,7 @@ impl State {
                     let input = match input::parse(
                         buffer.clone(),
                         config.buffer.text_input.auto_format,
-                        raw_input,
+                        raw_input.as_str(),
                         clients.nickname(buffer.server()),
                         &clients.get_isupport(buffer.server()),
                     ) {
@@ -631,6 +900,7 @@ impl State {
                     };
 
                     history.record_input_history(buffer, raw_input.to_owned());
+                    self.input_content = text_editor::Content::new();
 
                     if let Some(encoded) = input.encoded() {
                         let sent_time = server_time(&encoded);
@@ -731,14 +1001,14 @@ impl State {
                 }
             }
             Message::Tab(reverse) => {
-                let input = history.input(buffer).text;
+                let input = self.input_content.text();
 
                 if let Some(entry) = self.completion.tab(reverse) {
                     let chantypes = clients.get_chantypes(buffer.server());
                     let new_input =
-                        entry.complete_input(input, chantypes, config);
+                        entry.complete_input(input.as_str(), chantypes, config);
 
-                    self.on_completion(buffer, history, new_input, true)
+                    self.on_completion(buffer, history, &new_input, true)
                 } else {
                     (Task::none(), None)
                 }
@@ -789,7 +1059,7 @@ impl State {
                     );
 
                     return self
-                        .on_completion(buffer, history, new_input, false);
+                        .on_completion(buffer, history, &new_input, false);
                 }
 
                 (Task::none(), None)
@@ -838,7 +1108,7 @@ impl State {
                     };
 
                     return self
-                        .on_completion(buffer, history, new_input, false);
+                        .on_completion(buffer, history, &new_input, false);
                 }
 
                 (Task::none(), None)
@@ -857,29 +1127,296 @@ impl State {
 
                 (Task::none(), None)
             }
+            Message::Paste => {
+                let task = clipboard::read().and_then(|clipboard| {
+                    Task::done(Message::Action(text_editor::Action::Edit(
+                        text_editor::Edit::Paste(std::sync::Arc::new(
+                            clipboard,
+                        )),
+                    )))
+                });
+
+                Self::close_context_menu(main_window.id, vec![task])
+            }
+            Message::Cut => {
+                let task =
+                    if let Some(selection) = self.input_content.selection() {
+                        self.input_content.perform(text_editor::Action::Edit(
+                            text_editor::Edit::Delete,
+                        ));
+
+                        clipboard::write(selection.to_string())
+                    } else {
+                        Task::none()
+                    };
+
+                Self::close_context_menu(main_window.id, vec![task])
+            }
+            Message::Copy => {
+                let task = if let Some(input) = self.input_content.selection() {
+                    clipboard::write(input.to_string())
+                } else {
+                    Task::none()
+                };
+
+                Self::close_context_menu(main_window.id, vec![task])
+            }
+            Message::CopyAll => {
+                let input = self.input_content.text();
+                let task = clipboard::write(input.to_string());
+
+                Self::close_context_menu(main_window.id, vec![task])
+            }
+            Message::SelectAll => {
+                self.input_content.perform(text_editor::Action::SelectAll);
+
+                Self::close_context_menu(main_window.id, vec![])
+            }
+            Message::CloseContextMenu(_, _) => (Task::none(), None),
+            Message::DeleteWordBackward(save_to_clipboard) => {
+                self.input_content.perform(text_editor::Action::Select(
+                    text_editor::Motion::WordLeft,
+                ));
+
+                let task = if save_to_clipboard {
+                    self.input_content.selection().map_or_else(
+                        Task::none,
+                        |selection| {
+                            let text = selection.to_string();
+
+                            clipboard::write(text)
+                        },
+                    )
+                } else {
+                    Task::none()
+                };
+
+                self.input_content.perform(text_editor::Action::Edit(
+                    text_editor::Edit::Delete,
+                ));
+
+                (task, None)
+            }
+            Message::DeleteWordForward(save_to_clipboard) => {
+                self.input_content.perform(text_editor::Action::Select(
+                    text_editor::Motion::WordRight,
+                ));
+
+                let task = if save_to_clipboard {
+                    self.input_content.selection().map_or_else(
+                        Task::none,
+                        |selection| {
+                            let text = selection.to_string();
+
+                            clipboard::write(text)
+                        },
+                    )
+                } else {
+                    Task::none()
+                };
+
+                self.input_content.perform(text_editor::Action::Edit(
+                    text_editor::Edit::Delete,
+                ));
+
+                (task, None)
+            }
+            Message::DeleteToEnd(save_to_clipboard) => {
+                self.input_content.perform(text_editor::Action::Select(
+                    text_editor::Motion::End,
+                ));
+
+                let task = if save_to_clipboard {
+                    self.input_content.selection().map_or_else(
+                        Task::none,
+                        |selection| {
+                            let text = selection.to_string();
+                            clipboard::write(text)
+                        },
+                    )
+                } else {
+                    Task::none()
+                };
+
+                self.input_content.perform(text_editor::Action::Edit(
+                    text_editor::Edit::Delete,
+                ));
+
+                (task, None)
+            }
+            Message::DeleteToStart(save_to_clipboard) => {
+                self.input_content.perform(text_editor::Action::Select(
+                    text_editor::Motion::Home,
+                ));
+
+                let task = if save_to_clipboard {
+                    self.input_content.selection().map_or_else(
+                        Task::none,
+                        |selection| {
+                            let text = selection.to_string();
+                            clipboard::write(text)
+                        },
+                    )
+                } else {
+                    Task::none()
+                };
+
+                self.input_content.perform(text_editor::Action::Edit(
+                    text_editor::Edit::Delete,
+                ));
+
+                (task, None)
+            }
+            Message::Action(action) => {
+                if let text_editor::Action::Edit(text_editor::Edit::Paste(
+                    clipboard,
+                )) = &action
+                {
+                    // TODO: Remove newline cleaning when adding multiline
+                    // support
+                    let cleaned = clipboard.replace(['\n', '\r'], " ");
+                    let action = text_editor::Action::Edit(
+                        text_editor::Edit::Paste(std::sync::Arc::new(cleaned)),
+                    );
+                    self.input_content.perform(action);
+                } else {
+                    self.input_content.perform(action.clone());
+                }
+
+                match &action {
+                    text_editor::Action::Edit(_) => {
+                        let input = self.input_content.text();
+
+                        // Reset error state
+                        self.error = None;
+                        // Reset selected history
+                        self.selected_history = None;
+
+                        let users = buffer.channel().and_then(|channel| {
+                            clients.get_channel_users(buffer.server(), channel)
+                        });
+                        // TODO(pounce) eliminate clones
+                        let channels = clients
+                            .get_channels(buffer.server())
+                            .cloned()
+                            .collect::<Vec<_>>();
+                        let supports_detach =
+                            clients.get_server_supports_detach(buffer.server());
+                        let isupport = clients.get_isupport(buffer.server());
+
+                        self.completion.process(
+                            &input,
+                            clients.nickname(buffer.server()),
+                            users,
+                            &history.get_last_seen(buffer),
+                            &channels,
+                            current_target.as_ref(),
+                            supports_detach,
+                            &isupport,
+                            config,
+                        );
+
+                        let input = self
+                            .completion
+                            .complete_emoji(&input)
+                            .unwrap_or(input);
+
+                        if let Err(error) = input::parse(
+                            buffer.clone(),
+                            config.buffer.text_input.auto_format,
+                            &input,
+                            clients.nickname(buffer.server()),
+                            &clients.get_isupport(buffer.server()),
+                        ) && match error {
+                            input::Error::ExceedsByteLimit { .. } => true,
+                            input::Error::Command(
+                                command::Error::IncorrectArgCount {
+                                    actual,
+                                    max,
+                                    ..
+                                },
+                            ) => actual > max,
+                            input::Error::Command(
+                                command::Error::MissingSlash,
+                            ) => false,
+                            input::Error::Command(
+                                command::Error::MissingCommand,
+                            ) => false,
+                            input::Error::Command(
+                                command::Error::NoModeString,
+                            ) => false,
+                            input::Error::Command(
+                                command::Error::InvalidModeString,
+                            ) => true,
+                            input::Error::Command(
+                                command::Error::ArgTooLong { .. },
+                            ) => true,
+                            input::Error::Command(
+                                command::Error::TooManyTargets { .. },
+                            ) => true,
+                            input::Error::Command(
+                                command::Error::NotPositiveInteger,
+                            ) => true,
+                            input::Error::Command(
+                                command::Error::InvalidChannelName { .. },
+                            ) => true,
+                        } {
+                            self.error = Some(error.to_string());
+                        }
+
+                        history.record_draft(RawInput {
+                            buffer: buffer.clone(),
+                            text: input,
+                        });
+
+                        (Task::none(), None)
+                    }
+                    _ => (Task::none(), None),
+                }
+            }
         }
     }
 
+    fn close_context_menu(
+        window: window::Id,
+        tasks: Vec<Task<Message>>,
+    ) -> (Task<Message>, Option<Event>) {
+        (
+            Task::batch(
+                vec![context_menu::close(convert::identity).map(
+                    move |any_closed| {
+                        Message::CloseContextMenu(window, any_closed)
+                    },
+                )]
+                .into_iter()
+                .chain(tasks)
+                .collect::<Vec<_>>(),
+            ),
+            None,
+        )
+    }
+
     fn on_completion(
-        &self,
+        &mut self,
         buffer: &buffer::Upstream,
         history: &mut history::Manager,
-        text: String,
+        text: &str,
         record_draft: bool,
     ) -> (Task<Message>, Option<Event>) {
-        history.record_text(RawInput {
-            buffer: buffer.clone(),
-            text: text.clone(),
-        });
-
         if record_draft {
             history.record_draft(RawInput {
                 buffer: buffer.clone(),
-                text,
+                text: text.to_string(),
             });
         }
 
-        (operation::move_cursor_to_end(self.input_id.clone()), None)
+        // update the input content
+        self.input_content = text_editor::Content::with_text(text);
+        // move the cursor to the end of the input
+        self.input_content
+            .perform(text_editor::Action::Move(text_editor::Motion::End));
+
+        (Task::none(), None)
     }
 
     pub fn focus(&self) -> Task<Message> {
@@ -907,7 +1444,7 @@ impl State {
         history: &mut history::Manager,
         autocomplete: &Autocomplete,
     ) -> Task<Message> {
-        let mut text = history.input(&buffer).text.to_string();
+        let mut text = self.input_content.text();
 
         let suffix = if text.is_empty() {
             text = format!("{nick}");
@@ -924,10 +1461,9 @@ impl State {
         };
         text.push_str(suffix);
 
-        history.record_text(RawInput {
-            buffer: buffer.clone(),
-            text: text.clone(),
-        });
+        self.input_content = text_editor::Content::with_text(&text);
+        self.input_content
+            .perform(text_editor::Action::Move(text_editor::Motion::End));
 
         history.record_draft(RawInput { buffer, text });
 

@@ -10,6 +10,7 @@ use iced::{Color, Length, Size, Task};
 
 use super::{context_menu, input_view, scroll_view};
 use crate::widget::{Element, message_content, selectable_text};
+use crate::window::Window;
 use crate::{Theme, font, theme};
 
 #[derive(Debug, Clone)]
@@ -41,8 +42,6 @@ pub fn view<'a>(
     let status = clients.status(&state.server);
     let chantypes = clients.get_chantypes(&state.server);
     let casemapping = clients.get_casemapping(&state.server);
-    let buffer = &state.buffer;
-    let input = history.input(buffer);
     let our_nick: Option<data::user::NickRef<'_>> =
         clients.nickname(&state.server);
     let our_user = our_nick.map(|our_nick| User::from(Nick::from(our_nick)));
@@ -148,8 +147,8 @@ pub fn view<'a>(
     .height(Length::Fill);
 
     let show_text_input = match config.buffer.text_input.visibility {
-        data::buffer::TextInputVisibility::Focused => is_focused,
-        data::buffer::TextInputVisibility::Always => true,
+        data::config::buffer::text_input::Visibility::Focused => is_focused,
+        data::config::buffer::text_input::Visibility::Always => true,
     };
 
     let text_input = show_text_input.then(|| {
@@ -157,8 +156,6 @@ pub fn view<'a>(
             space::vertical().height(4),
             input_view::view(
                 &state.input_view,
-                input,
-                is_focused,
                 our_user.as_ref(),
                 !status.connected(),
                 config,
@@ -195,7 +192,7 @@ impl Server {
             buffer: buffer::Upstream::Server(server.clone()),
             server,
             scroll_view: scroll_view::State::new(pane_size, config),
-            input_view: input_view::State::new(),
+            input_view: input_view::State::new(None),
         }
     }
 
@@ -204,6 +201,7 @@ impl Server {
         message: Message,
         clients: &mut data::client::Map,
         history: &mut history::Manager,
+        main_window: &Window,
         config: &Config,
     ) -> (Task<Message>, Option<Event>) {
         match message {
@@ -260,6 +258,7 @@ impl Server {
                     &self.buffer,
                     clients,
                     history,
+                    main_window,
                     config,
                 );
                 let command = command.map(Message::InputView);

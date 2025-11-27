@@ -205,12 +205,11 @@ impl Sidebar {
                              keybind: Option<&data::shortcut::KeyBind>,
                              icon: Text<'a>,
                              message: Message| {
-                                button(
-                                    row![
-                                        icon.width(Length::Fixed(12.0)),
-                                        title,
-                                        keybind.map(|kb| {
-                                            text(format!("({kb})"))
+                                let keybind = keybind.and_then(|kb| match kb {
+                                    data::shortcut::KeyBind::Bind {
+                                        ..
+                                    } => Some(
+                                        text(format!("({kb})"))
                                             .shaping(text::Shaping::Advanced)
                                             .size(theme::TEXT_SIZE - 2.0)
                                             .style(theme::text::secondary)
@@ -219,8 +218,16 @@ impl Sidebar {
                                                     theme,
                                                 )
                                                 .map(font::get),
-                                            )
-                                        }),
+                                            ),
+                                    ),
+                                    data::shortcut::KeyBind::Unbind => None,
+                                });
+
+                                button(
+                                    row![
+                                        icon.width(Length::Fixed(12.0)),
+                                        title,
+                                        keybind
                                     ]
                                     .spacing(8)
                                     .align_y(iced::Alignment::Center),
@@ -234,7 +241,7 @@ impl Sidebar {
                         match menu {
                             Menu::QuitApplication => context_button(
                                 text("Quit Halloy"),
-                                keyboard.quit_application.as_ref(),
+                                Some(&keyboard.quit_application),
                                 icon::quit(),
                                 Message::QuitApplication,
                             ),

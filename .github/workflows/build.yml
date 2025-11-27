@@ -71,4 +71,4 @@ jobs:
       with:
         components: rustfmt
     - name: Format
-      run: cargo +nightly fmt --all -- --check
+      run: cargo +nightly fmt --all -- --check --color=always

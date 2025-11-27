@@ -30,10 +30,22 @@ where
                     Event::Keyboard(keyboard::Event::KeyPressed {
                         key,
                         modifiers,
+                        text,
                         ..
                     }) => {
-                        let key_bind =
-                            shortcut::KeyBind::from((key.clone(), *modifiers));
+                        // Treat numpad keys as character keys when numlock is
+                        // on (i.e. text.is_some())
+                        let key_bind = if let keyboard::Key::Named(named) = key
+                            && !matches!(named, keyboard::key::Named::Enter)
+                            && let Some(text) = text
+                        {
+                            shortcut::KeyBind::from((
+                                keyboard::Key::Character(text.clone()),
+                                *modifiers,
+                            ))
+                        } else {
+                            shortcut::KeyBind::from((key.clone(), *modifiers))
+                        };
 
                         if let Some(command) = shortcuts
                             .iter()
