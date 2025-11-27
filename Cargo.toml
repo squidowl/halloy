@@ -18,7 +18,7 @@ members = ["data", "ipc", "irc", "irc/proto"]
 
 [workspace.package]
 version = "0.1.0"
-authors = ["Casper Rogild Storm", "Cory Forsstrom"]
+authors = ["Casper Rogild Storm", "Cory Forsstrom", "Andrew Baldwin"]
 license = "GPL-3.0-or-later"
 edition = "2024"
 
