@@ -1,42 +1,44 @@
 # Unreleased
 
+# 2025.12 (2025-11-28)
+
 Added:
 
-- Context menu added to text input when right clicking 
-- Exit application from user menu
-- Border radius on both image previews and cards displaying images through meta tags (configurable)
-- Context menu item added to server-wide buffers to close all queries
-- Messages that fail to send are dimmed and marked, and can be deleted or re-sent (for servers that support the `echo-message` capability)
-- Reload Halloy by sending `SIGUSR1` on Unix system
-- Ability to hide the indicator when a new version of Halloy is available
-- Fuzzy matching when searching in command bar
-- Setting to disable file transfers (DCC), removing it from the UI
-- Ability to hide nickname for consecutive messages from the same user
-- Ability to specify a distinct sound for each match highlight set
-- Setting to notify for every message in a channel
-- Per server custom proxy configuration option
 - Ability to exclude previews from specific server messages (e.g. topic, part, quit)
 - Ability to expand & contract condensed messages via left-click
+- Ability to hide nickname for consecutive messages from the same user
+- Ability to hide the indicator when a new version of Halloy is available
+- Ability to set Emacs-like keybindings for text input
+- Ability to specify a distinct sound for each match highlight set
+- Border radius on both image previews and cards displaying images through meta tags (configurable)
 - Change-host and kick server messages messages can be condensed
+- Context menu added to text input when right clicking 
+- Context menu item added to server-wide buffers to close all queries
+- Exit application from user menu
+- Fuzzy matching when searching in command bar
+- Keyboard shortcuts can now be unset
+- Messages that fail to send are dimmed and marked, and can be deleted or re-sent (for servers that support the `echo-message` capability)
+- Per server custom proxy configuration option
+- Reload Halloy by sending `SIGUSR1` on Unix system
+- Setting to disable file transfers (DCC), removing it from the UI
+- Setting to notify for every message in a channel
 - `/plain` command to send text with automatic formatting disabled
 - `Whowas` instead of `Whois` action in context menu for offline nicknames
-- Ability to set Emacs-like keybindings for text input
-- Keyboard shortcuts can now be unset
 
 Fixed:
 
-- Larger fonts (and font sizes) can be used without blanking out the input box
-- Standard Exif rotation data is used when displaying images
-- Server messages reporting an inability to send to a nick/channel are routed to the relevant buffer
-- Hide jitter in backlog divider caused by read marker updates when marking read on send
-- Flickering logo on Welcome screen
 - Channels with the same name as servers now appear before servers when searching in command bar
+- Flickering logo on Welcome screen
+- Hide jitter in backlog divider caused by read marker updates when marking read on send
+- Larger fonts (and font sizes) can be used without blanking out the input box
 - NumLock status respected in input box & shortcuts
+- Server messages reporting an inability to send to a nick/channel are routed to the relevant buffer
+- Standard Exif rotation data is used when displaying images
 
 Changed:
 
-- By default the backlog separator is hidden when all messages in a pane have been marked as read (`buffer.backlog_separator.hide_when_all_read`)
 - Buffer context menu items in sidebar are sorted alphabetically
+- By default the backlog separator is hidden when all messages in a pane have been marked as read (`buffer.backlog_separator.hide_when_all_read`)
 - Unicode nicknames are now supported
 - User menu configuration moved to `[sidebar.user_menu]` section
 
