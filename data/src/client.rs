@@ -12,7 +12,6 @@ use futures::{Future, FutureExt};
 use indexmap::IndexMap;
 use irc::proto::{self, Command, command, tags};
 use itertools::{Either, Itertools};
-use log::error;
 use tokio::fs;
 
 pub use self::on_connect::on_connect;
