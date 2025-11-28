@@ -192,17 +192,18 @@ fn emacs_key_binding(
 #[cfg(target_os = "macos")]
 fn platform_specific_key_bindings(
     key_press: text_editor::KeyPress,
+    selection: Option<&str>,
 ) -> Option<text_editor::Binding<Message>> {
     match key_press.key.as_ref() {
         iced::keyboard::Key::Named(iced::keyboard::key::Named::Backspace)
-            if key_press.modifiers.alt() =>
+            if key_press.modifiers.alt() && selection.is_none() =>
         {
             Some(text_editor::Binding::Custom(Message::DeleteWordBackward(
                 false,
             )))
         }
         iced::keyboard::Key::Named(iced::keyboard::key::Named::Backspace)
-            if key_press.modifiers.logo() =>
+            if key_press.modifiers.logo() && selection.is_none() =>
         {
             Some(text_editor::Binding::Custom(Message::DeleteToStart(false)))
         }
@@ -226,10 +227,11 @@ fn platform_specific_key_bindings(
 #[cfg(not(target_os = "macos"))]
 fn platform_specific_key_bindings(
     key_press: text_editor::KeyPress,
+    selection: Option<&str>,
 ) -> Option<text_editor::Binding<Message>> {
     match key_press.key.as_ref() {
         iced::keyboard::Key::Named(iced::keyboard::key::Named::Backspace)
-            if key_press.modifiers.control() =>
+            if key_press.modifiers.control() && selection.is_none() =>
         {
             if key_press.modifiers.shift() {
                 Some(text_editor::Binding::Custom(Message::DeleteToStart(
@@ -303,9 +305,10 @@ pub fn view<'a>(
                 }
 
                 // Platform specific key bindings
-                if let Some(binding) =
-                    platform_specific_key_bindings(key_press.clone())
-                {
+                if let Some(binding) = platform_specific_key_bindings(
+                    key_press.clone(),
+                    state.input_content.selection().as_deref(),
+                ) {
                     return Some(binding);
                 }
 
