@@ -1,5 +1,5 @@
 use data::config;
-use iced::widget::{button, checkbox, column, container, text};
+use iced::widget::{button, checkbox, column, container, row, text};
 use iced::{Length, alignment};
 
 use super::Message;
@@ -19,15 +19,19 @@ pub fn view<'a>(
                 .font_maybe(theme::font_style::tertiary(theme).map(font::get)),
         ]
         .push(
-            checkbox(
-                "Accept invalid certificates",
-                config.dangerously_accept_invalid_certs,
-            )
-            .on_toggle(|toggle| {
-                Message::ServerConnect(
-                    super::ServerConnect::DangerouslyAcceptInvalidCerts(toggle),
-                )
-            }),
+            row![
+                checkbox(config.dangerously_accept_invalid_certs,).on_toggle(
+                    |toggle| {
+                        Message::ServerConnect(
+                            super::ServerConnect::DangerouslyAcceptInvalidCerts(
+                                toggle,
+                            ),
+                        )
+                    }
+                ),
+                text("Accept invalid certificates")
+            ]
+            .spacing(4),
         )
         .push(
             column![

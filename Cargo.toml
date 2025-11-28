@@ -76,6 +76,10 @@ iced = { version = "0.14.0-dev", default-features = false, features = [
     "advanced",
     "image",
     "svg",
+    "wayland",
+    "x11",
+    "crisp",
+    "web-colors",
 ] }
 unicode-segmentation = "1.6"
 open = "5.0.1"
@@ -99,7 +103,7 @@ mundy = { version = "0.1.9", default-features = false, features = [
 image = "0.24.6"
 iced = { version = "0.14.0-dev", default-features = false, features = [
     "web-colors",
-    "sysinfo"
+    "sysinfo",
 ] }
 
 [target.'cfg(windows)'.build-dependencies]
@@ -107,9 +111,9 @@ embed-resource = "3.0.2"
 windows_exe_info = "0.4"
 
 [patch.crates-io]
-iced = { git = "https://github.com/squidowl/iced", rev = "18e6a9ab237552f7b870b87a08d0b551b5481bbc" }
-iced_core = { git = "https://github.com/squidowl/iced", rev = "18e6a9ab237552f7b870b87a08d0b551b5481bbc" }
-iced_wgpu = { git = "https://github.com/squidowl/iced", rev = "18e6a9ab237552f7b870b87a08d0b551b5481bbc" }
+iced = { git = "https://github.com/squidowl/iced", rev = "78ed897db06129746b5029c47db586f16d63511b" }
+iced_core = { git = "https://github.com/squidowl/iced", rev = "78ed897db06129746b5029c47db586f16d63511b" }
+iced_wgpu = { git = "https://github.com/squidowl/iced", rev = "78ed897db06129746b5029c47db586f16d63511b" }
 
 [profile.ci]
 inherits = "dev"
@@ -160,6 +164,4 @@ extend-ignore-identifiers-re = [
 ]
 
 [workspace.metadata.typos.files]
-extend-exclude = [
-  "data/tests/message/*.json",
-]
+extend-exclude = ["data/tests/message/*.json"]
