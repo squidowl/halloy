@@ -87,8 +87,9 @@ pub fn on_connect(
                                 time::sleep(Duration::from_secs(seconds)).await;
                                 None
                             }
-                            // We don't handle hop, clear-buffer, sysinfo when called from connected.
+                            // We don't handle hop, clear-buffer, sysinfo, channel_discovery when called from connected.
                             command::Internal::ClearBuffer
+                            | command::Internal::ChannelDiscovery
                             | command::Internal::Hop(_, _)
                             | command::Internal::SysInfo => None,
                         },

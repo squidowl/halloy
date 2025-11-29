@@ -28,8 +28,8 @@ use crate::target::{self, Target};
 use crate::time::Posix;
 use crate::user::{ChannelUsers, Nick, NickRef};
 use crate::{
-    Server, User, buffer, compression, config, ctcp, dcc, environment,
-    file_transfer, history, isupport, message, mode, server,
+    Server, User, buffer, channel_discovery, compression, config, ctcp,
+    dcc, environment, file_transfer, history, isupport, message, mode, server,
 };
 
 pub mod on_connect;
@@ -171,6 +171,7 @@ pub struct Client {
     resolved_netid: Option<String>,
     anti_flood: Option<TokenBucket<message::Encoded>>,
     mode_requests: Vec<ModeRequest>,
+    channel_discovery_manager: channel_discovery::Manager,
 }
 
 impl fmt::Debug for Client {
@@ -230,6 +231,8 @@ impl Client {
             anti_flood: Some(TokenBucket::new(config.anti_flood, 10)),
             mode_requests: Vec::new(),
             config,
+            channel_discovery_manager: channel_discovery::Manager::new(
+            ),
         }
     }
 
@@ -1245,6 +1248,23 @@ impl Client {
                             .try_send(command!("BOUNCER", "BIND", id))?;
                     }
                 }
+            }
+            Command::Numeric(RPL_LISTSTART, _) => {
+                return Ok(vec![]);
+            }
+            Command::Numeric(RPL_LIST, args) => {
+                let channel = ok!(args.get(1)).clone();
+                let user_count = ok!(args.get(2)).clone();
+                let topic = ok!(args.get(3)).clone();
+
+                self.channel_discovery_manager
+                    .push(channel, topic, user_count);
+
+                return Ok(vec![]);
+            }
+            Command::Numeric(RPL_LISTEND, _) => {
+                self.channel_discovery_manager.last_updated = Some(Utc::now());
+                return Ok(vec![]);
             }
             Command::Numeric(RPL_LOGGEDIN, args) => {
                 log::info!("[{}] logged in", self.server);
@@ -3526,6 +3546,22 @@ impl Map {
     ) -> Option<&'a User> {
         self.client(server)
             .and_then(|client| client.resolve_user_attributes(channel, user))
+    }
+
+    pub fn get_channel_discovery_manager(
+        &self,
+        server: &Server,
+    ) -> Option<&channel_discovery::Manager> {
+        self.client(server)
+            .map(|client| &client.channel_discovery_manager)
+    }
+
+    pub fn get_channel_discovery_manager_mut(
+        &mut self,
+        server: &Server,
+    ) -> Option<&mut channel_discovery::Manager> {
+        self.client_mut(server)
+            .map(|client| &mut client.channel_discovery_manager)
     }
 
     pub fn get_channel_users(
