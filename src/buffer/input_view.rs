@@ -39,6 +39,7 @@ pub enum Event {
     OpenBuffers {
         targets: Vec<(Target, BufferAction)>,
     },
+    OpenInternalBuffer(buffer::Internal),
     LeaveBuffers {
         targets: Vec<Target>,
         reason: Option<String>,
@@ -879,6 +880,10 @@ impl State {
                                         });
 
                                     return (delayed_join_task, event);
+                                }
+                                command::Internal::ChannelDiscovery => {
+                                    self.input_content = text_editor::Content::new();
+                                    return (Task::none(), Some(Event::OpenInternalBuffer(buffer::Internal::ChannelDiscovery)));
                                 }
                                 command::Internal::Delay(_) => {
                                     return (Task::none(), None);

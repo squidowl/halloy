@@ -86,6 +86,23 @@ impl Pane {
                 format!("{nick} @ {server}")
             }
             Buffer::FileTransfers(_) => "File Transfers".to_string(),
+            Buffer::ChannelDiscovery(state) => {
+                let base = "Channel Discovery";
+                if let Some(server) = state.server.as_ref() {
+                    let base = format!("{base} @ {server}");
+                    let channel_count = clients
+                        .get_channel_discovery_manager(server)
+                        .map(data::channel_discovery::Manager::amount_of_channels)
+                        .unwrap_or_default();
+                    if channel_count > 0 {
+                        format!("{base} - {channel_count} channels")
+                    } else {
+                        base.to_string()
+                    }
+                } else {
+                    base.to_string()
+                }
+            },
             Buffer::Logs(_) => "Logs".to_string(),
             Buffer::Highlights(_) => "Highlights".to_string(),
         };
@@ -146,9 +163,9 @@ impl Pane {
                     state.target.clone(),
                 ),
             }),
-            Buffer::FileTransfers(_) => None,
             Buffer::Logs(_) => Some(history::Resource::logs()),
             Buffer::Highlights(_) => Some(history::Resource::highlights()),
+            Buffer::ChannelDiscovery(_) | Buffer::FileTransfers(_) => None,
         }
     }
 
@@ -162,7 +179,8 @@ impl Pane {
             | Buffer::Server(_)
             | Buffer::FileTransfers(_)
             | Buffer::Logs(_)
-            | Buffer::Highlights(_) => vec![],
+            | Buffer::Highlights(_)
+            | Buffer::ChannelDiscovery(_) => vec![],
         }
     }
 }
@@ -442,6 +460,9 @@ impl From<Pane> for data::Pane {
             Buffer::Logs(_) => data::Buffer::Internal(buffer::Internal::Logs),
             Buffer::Highlights(_) => {
                 data::Buffer::Internal(buffer::Internal::Highlights)
+            }
+            Buffer::ChannelDiscovery(_) => {
+                data::Buffer::Internal(buffer::Internal::ChannelDiscovery)
             }
         };
 

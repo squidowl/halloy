@@ -342,6 +342,9 @@ impl std::fmt::Display for Buffer {
                 }
                 buffer::Internal::Logs => write!(f, "Open logs"),
                 buffer::Internal::Highlights => write!(f, "Open highlights"),
+                buffer::Internal::ChannelDiscovery => {
+                    write!(f, "Open Channel discovery")
+                }
             },
             Buffer::Replace(buffer) => match buffer {
                 buffer::Upstream::Server(server) => {
