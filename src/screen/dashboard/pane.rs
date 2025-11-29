@@ -86,6 +86,7 @@ impl Pane {
                 format!("{nick} @ {server}")
             }
             Buffer::FileTransfers(_) => "File Transfers".to_string(),
+            Buffer::ChannelList(_) => "List Channels".to_string(),
             Buffer::Logs(_) => "Logs".to_string(),
             Buffer::Highlights(_) => "Highlights".to_string(),
         };
@@ -146,9 +147,9 @@ impl Pane {
                     state.target.clone(),
                 ),
             }),
-            Buffer::FileTransfers(_) => None,
             Buffer::Logs(_) => Some(history::Resource::logs()),
             Buffer::Highlights(_) => Some(history::Resource::highlights()),
+            Buffer::ChannelList(_) | Buffer::FileTransfers(_) => None,
         }
     }
 
@@ -162,7 +163,8 @@ impl Pane {
             | Buffer::Server(_)
             | Buffer::FileTransfers(_)
             | Buffer::Logs(_)
-            | Buffer::Highlights(_) => vec![],
+            | Buffer::Highlights(_)
+            | Buffer::ChannelList(_) => vec![],
         }
     }
 }
@@ -442,6 +444,9 @@ impl From<Pane> for data::Pane {
             Buffer::Logs(_) => data::Buffer::Internal(buffer::Internal::Logs),
             Buffer::Highlights(_) => {
                 data::Buffer::Internal(buffer::Internal::Highlights)
+            }
+            Buffer::ChannelList(_) => {
+                data::Buffer::Internal(buffer::Internal::ChannelList)
             }
         };
 
