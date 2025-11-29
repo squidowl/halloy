@@ -291,6 +291,14 @@ impl Sidebar {
                                     buffer::Internal::Highlights,
                                 ),
                             ),
+                            Menu::ChannelList => context_button(
+                                text("Channel List"),
+                                None, // TODO: Add keybind for list channels (?).
+                                icon::highlights(),
+                                Message::ToggleInternalBuffer(
+                                    buffer::Internal::ChannelList,
+                                ),
+                            ),
                             Menu::Logs => context_button(
                                 text("Logs")
                                     .style(if logs_has_unread {
@@ -647,6 +655,7 @@ enum Menu {
     CommandBar,
     ThemeEditor,
     Highlights,
+    ChannelList,
     Logs,
     FileTransfers,
     Version,

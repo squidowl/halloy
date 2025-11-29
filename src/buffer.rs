@@ -10,6 +10,7 @@ use data::{Config, buffer, file_transfer, history, message, preview};
 use iced::{Size, Task};
 
 pub use self::channel::Channel;
+pub use self::channel_list::ChannelList;
 pub use self::file_transfers::FileTransfers;
 pub use self::highlights::Highlights;
 pub use self::logs::Logs;
@@ -21,6 +22,7 @@ use crate::widget::Element;
 use crate::window::Window;
 
 pub mod channel;
+pub mod channel_list;
 pub mod context_menu;
 pub mod empty;
 pub mod file_transfers;
@@ -41,6 +43,7 @@ pub enum Buffer {
     FileTransfers(FileTransfers),
     Logs(Logs),
     Highlights(Highlights),
+    ChannelList(ChannelList),
 }
 
 #[derive(Debug, Clone)]
@@ -51,6 +54,7 @@ pub enum Message {
     FileTransfers(file_transfers::Message),
     Logs(logs::Message),
     Highlights(highlights::Message),
+    ChannelList(channel_list::Message),
 }
 
 pub enum Event {
@@ -98,6 +102,9 @@ impl Buffer {
                 buffer::Internal::Highlights => {
                     Self::Highlights(Highlights::new(pane_size, config))
                 }
+                buffer::Internal::ChannelList => {
+                    Self::ChannelList(ChannelList::new())
+                }
             },
         }
     }
@@ -113,7 +120,8 @@ impl Buffer {
             Buffer::Empty
             | Buffer::FileTransfers(_)
             | Buffer::Logs(_)
-            | Buffer::Highlights(_) => None,
+            | Buffer::Highlights(_)
+            | Buffer::ChannelList(_) => None,
         }
     }
 
@@ -126,6 +134,7 @@ impl Buffer {
             Buffer::FileTransfers(_) => Some(buffer::Internal::FileTransfers),
             Buffer::Logs(_) => Some(buffer::Internal::Logs),
             Buffer::Highlights(_) => Some(buffer::Internal::Highlights),
+            Buffer::ChannelList(_) => Some(buffer::Internal::ChannelList),
         }
     }
 
@@ -150,6 +159,9 @@ impl Buffer {
             Buffer::Highlights(_) => {
                 Some(data::Buffer::Internal(buffer::Internal::Highlights))
             }
+            Buffer::ChannelList(_) => {
+                Some(data::Buffer::Internal(buffer::Internal::ChannelList))
+            }
         }
     }
 
@@ -161,7 +173,8 @@ impl Buffer {
             Buffer::Empty
             | Buffer::FileTransfers(_)
             | Buffer::Logs(_)
-            | Buffer::Highlights(_) => None,
+            | Buffer::Highlights(_)
+            | Buffer::ChannelList(_) => None,
         }
     }
 
@@ -175,7 +188,8 @@ impl Buffer {
             | Buffer::Server(_)
             | Buffer::FileTransfers(_)
             | Buffer::Logs(_)
-            | Buffer::Highlights(_) => None,
+            | Buffer::Highlights(_)
+            | Buffer::ChannelList(_) => None,
         }
     }
 
@@ -423,6 +437,10 @@ impl Buffer {
                 highlights::view(state, clients, history, config, theme)
                     .map(Message::Highlights)
             }
+            Buffer::ChannelList(state) => {
+                channel_list::view(state, config, theme)
+                    .map(Message::ChannelList)
+            }
         }
     }
 
@@ -456,7 +474,8 @@ impl Buffer {
             Buffer::Empty
             | Buffer::FileTransfers(_)
             | Buffer::Logs(_)
-            | Buffer::Highlights(_) => Task::none(),
+            | Buffer::Highlights(_)
+            | Buffer::ChannelList(_) => Task::none(),
             Buffer::Channel(channel) => channel.focus().map(Message::Channel),
             Buffer::Server(server) => server.focus().map(Message::Server),
             Buffer::Query(query) => query.focus().map(Message::Query),
@@ -468,7 +487,8 @@ impl Buffer {
             Buffer::Empty
             | Buffer::FileTransfers(_)
             | Buffer::Logs(_)
-            | Buffer::Highlights(_) => {}
+            | Buffer::Highlights(_)
+            | Buffer::ChannelList(_) => {}
             Buffer::Channel(channel) => channel.reset(),
             Buffer::Server(server) => server.reset(),
             Buffer::Query(query) => query.reset(),
@@ -485,7 +505,8 @@ impl Buffer {
             Buffer::Empty
             | Buffer::FileTransfers(_)
             | Buffer::Logs(_)
-            | Buffer::Highlights(_) => Task::none(),
+            | Buffer::Highlights(_)
+            | Buffer::ChannelList(_) => Task::none(),
             Buffer::Server(state) => state
                 .input_view
                 .insert_user(nick, state.buffer.clone(), history, autocomplete)
@@ -509,7 +530,9 @@ impl Buffer {
 
     pub fn scroll_up_page(&mut self) -> Task<Message> {
         match self {
-            Buffer::Empty | Buffer::FileTransfers(_) => Task::none(),
+            Buffer::Empty
+            | Buffer::FileTransfers(_)
+            | Buffer::ChannelList(_) => Task::none(),
             Buffer::Channel(channel) => {
                 channel.scroll_view.scroll_up_page().map(|message| {
                     Message::Channel(channel::Message::ScrollView(message))
@@ -542,7 +565,9 @@ impl Buffer {
 
     pub fn scroll_down_page(&mut self) -> Task<Message> {
         match self {
-            Buffer::Empty | Buffer::FileTransfers(_) => Task::none(),
+            Buffer::Empty
+            | Buffer::FileTransfers(_)
+            | Buffer::ChannelList(_) => Task::none(),
             Buffer::Channel(channel) => {
                 channel.scroll_view.scroll_down_page().map(|message| {
                     Message::Channel(channel::Message::ScrollView(message))
@@ -575,7 +600,9 @@ impl Buffer {
 
     pub fn scroll_to_start(&mut self, config: &Config) -> Task<Message> {
         match self {
-            Buffer::Empty | Buffer::FileTransfers(_) => Task::none(),
+            Buffer::Empty
+            | Buffer::FileTransfers(_)
+            | Buffer::ChannelList(_) => Task::none(),
             Buffer::Channel(channel) => {
                 channel.scroll_view.scroll_to_start(config).map(|message| {
                     Message::Channel(channel::Message::ScrollView(message))
@@ -609,7 +636,9 @@ impl Buffer {
 
     pub fn scroll_to_end(&mut self, config: &Config) -> Task<Message> {
         match self {
-            Buffer::Empty | Buffer::FileTransfers(_) => Task::none(),
+            Buffer::Empty
+            | Buffer::FileTransfers(_)
+            | Buffer::ChannelList(_) => Task::none(),
             Buffer::Channel(channel) => {
                 channel.scroll_view.scroll_to_end(config).map(|message| {
                     Message::Channel(channel::Message::ScrollView(message))
@@ -647,7 +676,9 @@ impl Buffer {
         config: &Config,
     ) -> Task<Message> {
         match self {
-            Buffer::Empty | Buffer::FileTransfers(_) => Task::none(),
+            Buffer::Empty
+            | Buffer::FileTransfers(_)
+            | Buffer::ChannelList(_) => Task::none(),
             Buffer::Channel(state) => state
                 .scroll_view
                 .scroll_to_message(
@@ -714,7 +745,9 @@ impl Buffer {
         config: &Config,
     ) -> Task<Message> {
         match self {
-            Buffer::Empty | Buffer::FileTransfers(_) => Task::none(),
+            Buffer::Empty
+            | Buffer::FileTransfers(_)
+            | Buffer::ChannelList(_) => Task::none(),
             Buffer::Channel(state) => state
                 .scroll_view
                 .scroll_to_backlog(
@@ -768,7 +801,9 @@ impl Buffer {
 
     pub fn is_scrolled_to_bottom(&self) -> Option<bool> {
         match self {
-            Buffer::Empty | Buffer::FileTransfers(_) => None,
+            Buffer::Empty
+            | Buffer::FileTransfers(_)
+            | Buffer::ChannelList(_) => None,
             Buffer::Channel(channel) => {
                 Some(channel.scroll_view.is_scrolled_to_bottom())
             }
@@ -790,7 +825,8 @@ impl Buffer {
             Buffer::Empty
             | Buffer::FileTransfers(_)
             | Buffer::Logs(_)
-            | Buffer::Highlights(_) => false,
+            | Buffer::Highlights(_)
+            | Buffer::ChannelList(_) => false,
             Buffer::Server(state) => state.input_view.close_picker(),
             Buffer::Channel(state) => state.input_view.close_picker(),
             Buffer::Query(state) => state.input_view.close_picker(),
@@ -799,7 +835,9 @@ impl Buffer {
 
     pub fn update_pane_size(&mut self, pane_size: Size, config: &Config) {
         match self {
-            Buffer::Empty | Buffer::FileTransfers(_) => (),
+            Buffer::Empty
+            | Buffer::FileTransfers(_)
+            | Buffer::ChannelList(_) => (),
             Buffer::Channel(channel) => {
                 channel.scroll_view.update_pane_size(pane_size, config);
             }
