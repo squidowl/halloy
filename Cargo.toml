@@ -40,6 +40,7 @@ rand_chacha = "0.9.0"
 palette = "0.7.4"
 log = { version = "0.4.26", features = ['std'] }
 uptime_lib = "0.3.1"
+nucleo-matcher = "0.3.1"
 
 [dependencies]
 tokio = { workspace = true, features = ["rt", "fs", "process"] }
@@ -58,13 +59,13 @@ rand_chacha = { workspace = true }
 palette = { workspace = true }
 log = { workspace = true }
 uptime_lib = { workspace = true }
+nucleo-matcher = { workspace = true }
 
 data = { version = "0.1.0", path = "data" }
 ipc = { version = "0.1.0", path = "ipc" }
 irc = { version = "0.1.0", path = "irc" }
 
 signal-hook = "0.3.18"
-nucleo-matcher = "0.3.1"
 notify-rust = "4.11"
 fern = "0.7.1"
 iced = { version = "0.14.0-dev", default-features = false, features = [

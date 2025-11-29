@@ -251,6 +251,12 @@
       "css": "ellipsis-vert",
       "code": 61762,
       "src": "fontawesome"
+    },
+    {
+      "uid": "31972e4e9d080eaa796290349ae6c1fd",
+      "css": "users-1",
+      "code": 59421,
+      "src": "fontawesome"
     }
   ]
 }
