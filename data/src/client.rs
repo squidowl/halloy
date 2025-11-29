@@ -28,8 +28,8 @@ use crate::target::{self, Target};
 use crate::time::Posix;
 use crate::user::{ChannelUsers, Nick, NickRef};
 use crate::{
-    Server, User, buffer, compression, config, ctcp, dcc, environment,
-    file_transfer, history, isupport, message, mode, server,
+    Server, User, buffer, channel_list, compression, config, ctcp, dcc,
+    environment, file_transfer, history, isupport, message, mode, server,
 };
 
 pub mod on_connect;
@@ -117,6 +117,7 @@ pub enum Event {
     WithTarget(message::Encoded, Nick, message::Target),
     Broadcast(Broadcast),
     FileTransferRequest(file_transfer::ReceiveRequest),
+    ChannelInformation((Server, channel_list::ChannelInformation)),
     UpdateReadMarker(Target, ReadMarker),
     JoinedChannel(target::Channel, DateTime<Utc>),
     LoggedIn(DateTime<Utc>),
@@ -1245,6 +1246,25 @@ impl Client {
                             .try_send(command!("BOUNCER", "BIND", id))?;
                     }
                 }
+            }
+            Command::Numeric(RPL_LIST | RPL_LISTEND | RPL_LISTSTART, args) => {
+                // TODO: Handle RPL_LISTSTART and RPL_LISTEND
+
+                let server = self.server.clone();
+                let channel = ok!(args.get(1)).clone();
+                let topic = ok!(args.get(2)).clone();
+                let user_count = ok!(args.get(3)).clone();
+
+                let information = channel_list::ChannelInformation {
+                    channel,
+                    topic,
+                    user_count,
+                };
+
+                return Ok(vec![Event::ChannelInformation((
+                    server,
+                    information,
+                ))]);
             }
             Command::Numeric(RPL_LOGGEDIN, args) => {
                 log::info!("[{}] logged in", self.server);

@@ -685,6 +685,7 @@ impl Menu {
         }
 
         list.extend([
+            Self::ChannelList,
             Self::Highlights,
             Self::Logs,
             Self::OpenConfigFile,

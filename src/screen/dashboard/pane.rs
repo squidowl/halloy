@@ -1,5 +1,5 @@
 use data::user::ChannelUsers;
-use data::{Config, file_transfer, history, preview};
+use data::{Config, channel_list, file_transfer, history, preview};
 use iced::Size;
 use iced::widget::{button, center, container, pane_grid, row, text};
 
@@ -53,6 +53,7 @@ impl Pane {
         maximized: bool,
         clients: &'a data::client::Map,
         file_transfers: &'a file_transfer::Manager,
+        channel_list_manager: &'a channel_list::Manager,
         history: &'a history::Manager,
         previews: &'a preview::Collection,
         sidebar: &'a sidebar::Sidebar,
@@ -112,6 +113,7 @@ impl Pane {
             .view(
                 clients,
                 file_transfers,
+                channel_list_manager,
                 history,
                 previews,
                 settings,

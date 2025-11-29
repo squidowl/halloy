@@ -1,4 +1,4 @@
-use data::Config;
+use data::{Config, channel_list};
 use iced::widget::{container, text};
 use iced::{Size, Task};
 
@@ -29,6 +29,7 @@ impl ChannelList {
 
 pub fn view<'a>(
     _state: &'a ChannelList,
+    manager: &'a channel_list::Manager,
     _config: &'a Config,
     _theme: &'a Theme,
 ) -> Element<'a, Message> {

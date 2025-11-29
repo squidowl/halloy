@@ -357,6 +357,11 @@ impl Buffer {
 
                 (command.map(Message::FileTransfers), None)
             }
+            (Buffer::ChannelList(state), Message::ChannelList(message)) => {
+                let (command, _) = state.update(message, config);
+
+                (command.map(Message::ChannelList), None)
+            }
             (Buffer::Logs(state), Message::Logs(message)) => {
                 let (command, event) =
                     state.update(message, history, clients, config);
@@ -428,6 +433,7 @@ impl Buffer {
         &'a self,
         clients: &'a data::client::Map,
         file_transfers: &'a file_transfer::Manager,
+        channel_list_manager: &'a data::channel_list::Manager,
         history: &'a history::Manager,
         previews: &'a preview::Collection,
         settings: Option<&'a buffer::Settings>,
@@ -463,7 +469,7 @@ impl Buffer {
                     .map(Message::Highlights)
             }
             Buffer::ChannelList(state) => {
-                channel_list::view(state, config, theme)
+                channel_list::view(state, channel_list_manager, config, theme)
                     .map(Message::ChannelList)
             }
         }

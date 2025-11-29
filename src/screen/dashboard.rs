@@ -15,8 +15,7 @@ use data::message::{self, Broadcast};
 use data::rate_limit::TokenPriority;
 use data::target::{self, Target};
 use data::{
-    Config, Notification, Server, User, Version, client, command, config,
-    environment, file_transfer, history, preview, server,
+    Config, Notification, Server, User, Version, channel_list, client, command, config, environment, file_transfer, history, preview, server
 };
 use iced::widget::pane_grid::{self, PaneGrid};
 use iced::widget::{Space, column, container, row};
@@ -52,6 +51,7 @@ pub struct Dashboard {
     last_changed: Option<Instant>,
     command_bar: Option<CommandBar>,
     file_transfers: file_transfer::Manager,
+    channel_list_manager: channel_list::Manager,
     theme_editor: Option<ThemeEditor>,
     notifications: notification::Notifications,
     previews: preview::Collection,
@@ -112,6 +112,7 @@ impl Dashboard {
             last_changed: None,
             command_bar: None,
             file_transfers: file_transfer::Manager::default(),
+            channel_list_manager: channel_list::Manager::default(),
             theme_editor: None,
             notifications: notification::Notifications::new(config),
             previews: preview::Collection::default(),
@@ -1427,6 +1428,7 @@ impl Dashboard {
                         false,
                         clients,
                         &self.file_transfers,
+                        &self.channel_list_manager,
                         &self.history,
                         &self.previews,
                         &self.side_menu,
@@ -1481,6 +1483,7 @@ impl Dashboard {
                     maximized,
                     clients,
                     &self.file_transfers,
+                    &self.channel_list_manager,
                     &self.history,
                     &self.previews,
                     &self.side_menu,
@@ -3333,6 +3336,7 @@ impl Dashboard {
             last_changed: None,
             command_bar: None,
             file_transfers: file_transfer::Manager::default(),
+            channel_list_manager: channel_list::Manager::default(),
             theme_editor: None,
             notifications: notification::Notifications::new(config),
             previews: preview::Collection::default(),
