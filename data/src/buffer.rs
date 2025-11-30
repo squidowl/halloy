@@ -175,12 +175,14 @@ impl Default for Timestamp {
 #[serde(default)]
 pub struct BacklogSeparator {
     pub hide_when_all_read: bool,
+    pub text: String,
 }
 
 impl Default for BacklogSeparator {
     fn default() -> Self {
         Self {
             hide_when_all_read: true,
+            text: "backlog".to_string(),
         }
     }
 }
