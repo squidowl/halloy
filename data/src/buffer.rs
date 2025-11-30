@@ -191,10 +191,10 @@ impl<'de> Deserialize<'de> for BacklogText {
         }
 
         match T::deserialize(deserializer)? {
-            T::String(conf) => Ok(BacklogText::Text(conf)),
+            T::String(conf) => Ok(Self::Text(conf)),
             T::Bool(val) => {
                 if val == false {
-                    Ok(BacklogText::Hidden)
+                    Ok(Self::Hidden)
                 } else {
                     Err(de::Error::custom(
                         "true is not a valid value for buffer.backlog_separator.text",
@@ -202,6 +202,12 @@ impl<'de> Deserialize<'de> for BacklogText {
                 }
             }
         }
+    }
+}
+
+impl Default for BacklogText {
+    fn default() -> Self {
+        Self::Text("backlog".to_string())
     }
 }
 
@@ -216,7 +222,7 @@ impl Default for BacklogSeparator {
     fn default() -> Self {
         Self {
             hide_when_all_read: true,
-            text: BacklogText::Text("backlog".to_string()),
+            text: BacklogText::default(),
         }
     }
 }
