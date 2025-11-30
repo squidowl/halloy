@@ -24,13 +24,13 @@ hide_when_all_read = true
 
 ### text
 
-Set the text for backlog divider (empty makes it a continuous line)
+Set the text for backlog divider or disable it
 
 ```toml
-# Type: string
-# Values: any string
+# Type: boolean or string
+# Values: false or any string
 # Default: 'backlog'
 
 [buffer.backlog_separator]
-text = ''
+text = false
 ```
