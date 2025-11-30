@@ -177,12 +177,17 @@ pub enum BacklogText {
     Hidden,
 }
 
+impl Default for BacklogText {
+    fn default() -> Self {
+        Self::Text("backlog".to_string())
+    }
+}
+
 impl<'de> Deserialize<'de> for BacklogText {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
-        use serde::de;
         #[derive(Deserialize)]
         #[serde(untagged)]
         enum T {
@@ -196,18 +201,10 @@ impl<'de> Deserialize<'de> for BacklogText {
                 if val == false {
                     Ok(Self::Hidden)
                 } else {
-                    Err(de::Error::custom(
-                        "true is not a valid value for buffer.backlog_separator.text",
-                    ))
+                    Ok(Self::default())
                 }
             }
         }
-    }
-}
-
-impl Default for BacklogText {
-    fn default() -> Self {
-        Self::Text("backlog".to_string())
     }
 }
 
