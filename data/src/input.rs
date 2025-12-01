@@ -175,6 +175,7 @@ pub struct RawInput {
 pub struct Storage {
     sent: HashMap<buffer::Upstream, Vec<String>>,
     draft: HashMap<buffer::Upstream, String>,
+    cursor_position: HashMap<buffer::Upstream, (usize, usize)>,
 }
 
 impl Storage {
@@ -190,6 +191,7 @@ impl Storage {
                 .get(buffer)
                 .map(AsRef::as_ref)
                 .unwrap_or_default(),
+            cursor_position: self.cursor_position.get(buffer),
         }
     }
 
@@ -210,6 +212,7 @@ impl Storage {
 pub struct Cache<'a> {
     pub history: &'a [String],
     pub draft: &'a str,
+    pub cursor_position: Option<&'a (usize, usize)>,
 }
 
 #[derive(Debug, thiserror::Error)]

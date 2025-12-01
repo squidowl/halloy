@@ -1807,19 +1807,10 @@ impl Dashboard {
                         if let Some((_, _, pane, history)) =
                             self.get_focused_with_history_mut()
                         {
-                            tasks.push(
-                                pane.buffer
-                                    .insert_user_to_input(
-                                        nick,
-                                        history,
-                                        &config.buffer.text_input.autocomplete,
-                                    )
-                                    .map(move |message| {
-                                        Message::Pane(
-                                            window,
-                                            pane::Message::Buffer(id, message),
-                                        )
-                                    }),
+                            pane.buffer.insert_user_to_input(
+                                nick,
+                                history,
+                                &config.buffer.text_input.autocomplete,
                             );
                         }
                     }
