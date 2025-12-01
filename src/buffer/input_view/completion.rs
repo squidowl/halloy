@@ -71,24 +71,18 @@ impl Completion {
                 isupport,
             );
 
-            // Disallow user completions when selecting a command
+            // Disallow other completions when selecting a command
             if matches!(self.commands, Commands::Selecting { .. }) {
                 self.text = Text::default();
-            } else {
-                self.text.process(
-                    input,
-                    cursor_position,
-                    casemapping,
-                    users,
-                    last_seen,
-                    channels,
-                    current_target,
-                    config,
-                );
-            }
+                self.emojis = Emojis::default();
 
-            self.emojis = Emojis::default();
-        } else if let Some(shortcode) = (config.buffer.emojis.show_picker
+                return;
+            }
+        } else {
+            self.commands = Commands::default();
+        }
+
+        if let Some(shortcode) = (config.buffer.emojis.show_picker
             || config.buffer.emojis.auto_replace)
             .then(|| {
                 get_word(input, cursor_position)
@@ -98,7 +92,6 @@ impl Completion {
         {
             self.emojis.process(shortcode, config);
 
-            self.commands = Commands::default();
             self.text = Text::default();
         } else {
             self.text.process(
@@ -111,8 +104,6 @@ impl Completion {
                 current_target,
                 config,
             );
-
-            self.commands = Commands::default();
 
             self.emojis = Emojis::default();
         }
@@ -189,9 +180,14 @@ impl Completion {
         config: &Config,
         theme: &'a Theme,
     ) -> Option<Element<'a, Message>> {
-        self.commands
-            .view(input, config, theme)
-            .or(self.emojis.view(config))
+        let command_view = self.commands.view(input, config, theme);
+        let emojis_view = self.emojis.view(config);
+
+        if command_view.is_some() || emojis_view.is_some() {
+            Some(column![emojis_view, command_view].into())
+        } else {
+            None
+        }
     }
 
     pub fn close_picker(&mut self) -> bool {
