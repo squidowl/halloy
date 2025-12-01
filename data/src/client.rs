@@ -117,7 +117,7 @@ pub enum Event {
     WithTarget(message::Encoded, Nick, message::Target),
     Broadcast(Broadcast),
     FileTransferRequest(file_transfer::ReceiveRequest),
-    ChannelInformation((Server, channel_list::ChannelInformation)),
+    ChannelInformation((Server, Vec<channel_list::ChannelInformation>)),
     UpdateReadMarker(Target, ReadMarker),
     JoinedChannel(target::Channel, DateTime<Utc>),
     LoggedIn(DateTime<Utc>),
@@ -164,6 +164,8 @@ pub struct Client {
     chathistory_requests: HashMap<Target, ChatHistoryRequest>,
     chathistory_exhausted: HashMap<Target, bool>,
     chathistory_targets_request: Option<ChatHistoryRequest>,
+    channel_list_for_server:
+        HashMap<Server, Vec<channel_list::ChannelInformation>>,
     notification_blackout: NotificationBlackout,
     registration_required_channels: Vec<target::Channel>,
     isupport: HashMap<isupport::Kind, isupport::Parameter>,
@@ -216,6 +218,7 @@ impl Client {
             chathistory_requests: HashMap::new(),
             chathistory_exhausted: HashMap::new(),
             chathistory_targets_request: None,
+            channel_list_for_server: HashMap::new(),
             notification_blackout: NotificationBlackout::Blackout(
                 Instant::now(),
             ),
@@ -1247,24 +1250,30 @@ impl Client {
                     }
                 }
             }
-            Command::Numeric(RPL_LIST | RPL_LISTEND | RPL_LISTSTART, args) => {
-                // TODO: Handle RPL_LISTSTART and RPL_LISTEND
-
-                let server = self.server.clone();
+            Command::Numeric(RPL_LISTSTART, _) => {
+                self.channel_list_for_server
+                    .insert(self.server.clone(), Vec::new());
+            }
+            Command::Numeric(RPL_LIST, args) => {
                 let channel = ok!(args.get(1)).clone();
                 let topic = ok!(args.get(2)).clone();
                 let user_count = ok!(args.get(3)).clone();
 
-                let information = channel_list::ChannelInformation {
-                    channel,
-                    topic,
-                    user_count,
-                };
-
-                return Ok(vec![Event::ChannelInformation((
-                    server,
-                    information,
-                ))]);
+                self.channel_list_for_server
+                    .entry(self.server.clone())
+                    .or_insert_with(Vec::new)
+                    .push(channel_list::ChannelInformation {
+                        channel,
+                        topic,
+                        user_count,
+                    });
+            }
+            Command::Numeric(RPL_LISTEND, _) => {
+                if let Some((server, channel_list)) =
+                    self.channel_list_for_server.remove_entry(&self.server)
+                {
+                    return Ok(vec![Event::ChannelInformation((server, channel_list))]);
+                }
             }
             Command::Numeric(RPL_LOGGEDIN, args) => {
                 log::info!("[{}] logged in", self.server);
