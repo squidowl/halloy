@@ -184,7 +184,7 @@ impl Completion {
         let emojis_view = self.emojis.view(config);
 
         if command_view.is_some() || emojis_view.is_some() {
-            Some(column![emojis_view, command_view].into())
+            Some(column![emojis_view, command_view].spacing(4).into())
         } else {
             None
         }
