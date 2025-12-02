@@ -10,10 +10,12 @@ Added:
 Fixed:
 
 - No longer any delay in showing a tooltip after hovering
+- Ignored users will not be suggested by user auto-completion
+- Channel auto-completion works with all channel prefixes specified by the server
 
 Thanks:
 
-- Bug reports: halloy3002
+- Bug reports: halloy3002, g00s
 - Feature requests: @tribly
 
 # 2025.12 (2025-11-28)
