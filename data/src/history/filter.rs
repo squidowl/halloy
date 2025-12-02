@@ -79,6 +79,22 @@ impl Filter {
         Self { class, target }
     }
 
+    pub fn match_user(&self, user: &User, channel: Option<&Channel>) -> bool {
+        match &self.target {
+            FilterTarget::User(filter_user) => {
+                user.as_normalized_str() == filter_user.as_normalized_str()
+                    && (match &self.class {
+                        FilterClass::Channel(_, filter_channel) => channel
+                            .is_some_and(|channel| {
+                                channel.as_normalized_str()
+                                    == filter_channel.as_normalized_str()
+                            }),
+                        FilterClass::Server(_) => true,
+                    })
+            }
+        }
+    }
+
     /// Tests a [`Message`] against the filter's predicate.
     ///
     /// This function returns `true` when the message matches predicate, false
@@ -116,7 +132,7 @@ impl Filter {
         match &self.target {
             FilterTarget::User(user) => match &self.class {
                 FilterClass::Channel(_, _) => false,
-                _ => {
+                FilterClass::Server(_) => {
                     user.nickname().as_normalized_str()
                         == query.as_normalized_str()
                 }
@@ -209,6 +225,10 @@ pub struct FilterChain<'f> {
 impl<'f> FilterChain<'f> {
     pub fn borrow(filters: &'f Vec<Filter>) -> Self {
         Self { filters }
+    }
+
+    pub fn filter_user(&self, user: &User, channel: Option<&Channel>) -> bool {
+        self.filters.iter().any(|f| f.match_user(user, channel))
     }
 
     pub fn filter_query(&self, kind: &Query) -> bool {

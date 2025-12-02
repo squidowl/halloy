@@ -8,6 +8,7 @@ use chrono::{DateTime, Utc};
 use const_format::concatcp;
 use data::buffer::SkinTone;
 use data::config::buffer::text_input::{OrderBy, SortDirection};
+use data::history::filter::FilterChain;
 use data::isupport::{self, find_target_limit};
 use data::target::{self, Target};
 use data::user::{ChannelUsers, Nick, NickRef};
@@ -44,6 +45,7 @@ impl Completion {
         cursor_position: usize,
         our_nickname: Option<NickRef>,
         users: Option<&ChannelUsers>,
+        filters: FilterChain,
         last_seen: &HashMap<Nick, DateTime<Utc>>,
         channels: &[target::Channel],
         current_target: Option<&Target>,
@@ -99,6 +101,7 @@ impl Completion {
                 cursor_position,
                 casemapping,
                 users,
+                filters,
                 last_seen,
                 channels,
                 current_target,
@@ -1292,6 +1295,7 @@ impl Text {
         cursor_position: usize,
         casemapping: isupport::CaseMap,
         users: Option<&ChannelUsers>,
+        filters: FilterChain,
         last_seen: &HashMap<Nick, DateTime<Utc>>,
         channels: &[target::Channel],
         current_target: Option<&Target>,
@@ -1310,6 +1314,8 @@ impl Text {
                 cursor_position,
                 casemapping,
                 users,
+                filters,
+                current_target.and_then(Target::as_channel),
                 last_seen,
                 config,
             );
@@ -1322,6 +1328,8 @@ impl Text {
         cursor_position: usize,
         casemapping: isupport::CaseMap,
         users: Option<&ChannelUsers>,
+        filters: FilterChain,
+        current_channel: Option<&target::Channel>,
         last_seen: &HashMap<Nick, DateTime<Utc>>,
         config: &Config,
     ) {
@@ -1339,6 +1347,7 @@ impl Text {
         self.filtered = users
             .into_iter()
             .flatten()
+            .filter(|user| !filters.filter_user(user, current_channel))
             .sorted_by(|a, b| {
                 if matches!(autocomplete.order_by, OrderBy::Recent) {
                     if let Some(a_last_seen) =

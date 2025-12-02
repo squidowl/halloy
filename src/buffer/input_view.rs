@@ -5,6 +5,7 @@ use std::time::Duration;
 use data::buffer::{self, Upstream};
 use data::config::buffer::text_input::{Autocomplete, KeyBindings};
 use data::dashboard::BufferAction;
+use data::history::filter::FilterChain;
 use data::history::{self, ReadMarker};
 use data::input::{self, RawInput};
 use data::message::server_time;
@@ -1086,6 +1087,8 @@ impl State {
                     let users = buffer.channel().and_then(|channel| {
                         clients.get_channel_users(buffer.server(), channel)
                     });
+                    let last_seen = history.get_last_seen(buffer);
+                    let filters = FilterChain::borrow(history.get_filters());
                     let channels = clients
                         .get_channels(buffer.server())
                         .cloned()
@@ -1099,7 +1102,8 @@ impl State {
                         new_input.len(),
                         clients.nickname(buffer.server()),
                         users,
-                        &history.get_last_seen(buffer),
+                        filters,
+                        &last_seen,
                         &channels,
                         current_target.as_ref(),
                         supports_detach,
@@ -1135,6 +1139,9 @@ impl State {
                         let users = buffer.channel().and_then(|channel| {
                             clients.get_channel_users(buffer.server(), channel)
                         });
+                        let last_seen = history.get_last_seen(buffer);
+                        let filters =
+                            FilterChain::borrow(history.get_filters());
                         let channels = clients
                             .get_channels(buffer.server())
                             .cloned()
@@ -1148,7 +1155,8 @@ impl State {
                             new_input.len(),
                             clients.nickname(buffer.server()),
                             users,
-                            &history.get_last_seen(buffer),
+                            filters,
+                            &last_seen,
                             &channels,
                             current_target.as_ref(),
                             supports_detach,
@@ -1349,6 +1357,9 @@ impl State {
                         let users = buffer.channel().and_then(|channel| {
                             clients.get_channel_users(buffer.server(), channel)
                         });
+                        let last_seen = history.get_last_seen(buffer);
+                        let filters =
+                            FilterChain::borrow(history.get_filters());
                         // TODO(pounce) eliminate clones
                         let channels = clients
                             .get_channels(buffer.server())
@@ -1363,7 +1374,8 @@ impl State {
                             cursor_position,
                             clients.nickname(buffer.server()),
                             users,
-                            &history.get_last_seen(buffer),
+                            filters,
+                            &last_seen,
                             &channels,
                             current_target.as_ref(),
                             supports_detach,
@@ -1440,6 +1452,9 @@ impl State {
                         let users = buffer.channel().and_then(|channel| {
                             clients.get_channel_users(buffer.server(), channel)
                         });
+                        let last_seen = history.get_last_seen(buffer);
+                        let filters =
+                            FilterChain::borrow(history.get_filters());
                         // TODO(pounce) eliminate clones
                         let channels = clients
                             .get_channels(buffer.server())
@@ -1454,7 +1469,8 @@ impl State {
                             cursor_position,
                             clients.nickname(buffer.server()),
                             users,
-                            &history.get_last_seen(buffer),
+                            filters,
+                            &last_seen,
                             &channels,
                             current_target.as_ref(),
                             supports_detach,
