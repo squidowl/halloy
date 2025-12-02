@@ -87,14 +87,9 @@ impl Completion {
 
             self.text = Text::default();
         } else {
-            let casemapping =
-                if let Some(isupport::Parameter::CASEMAPPING(casemapping)) =
-                    isupport.get(&isupport::Kind::CASEMAPPING)
-                {
-                    *casemapping
-                } else {
-                    isupport::CaseMap::default()
-                };
+            let casemapping = isupport::get_casemapping_or_default(isupport);
+
+            let chantypes = isupport::get_chantypes_or_default(isupport);
 
             self.text.process(
                 input,
@@ -105,6 +100,7 @@ impl Completion {
                 last_seen,
                 channels,
                 current_target,
+                chantypes,
                 config,
             );
 
@@ -1299,14 +1295,15 @@ impl Text {
         last_seen: &HashMap<Nick, DateTime<Utc>>,
         channels: &[target::Channel],
         current_target: Option<&Target>,
+        chantypes: &[char],
         config: &Config,
     ) {
         if !self.process_channels(
             input,
             cursor_position,
-            casemapping,
             channels,
             current_target.and_then(Target::as_channel),
+            chantypes,
             config,
         ) {
             self.process_users(
@@ -1389,57 +1386,62 @@ impl Text {
         &mut self,
         input: &str,
         cursor_position: usize,
-        casemapping: isupport::CaseMap,
         channels: &[target::Channel],
         current_channel: Option<&target::Channel>,
+        chantypes: &[char],
         config: &Config,
     ) -> bool {
         let autocomplete = &config.buffer.text_input.autocomplete;
 
-        let Some((_, rest)) = get_word(input, cursor_position)
-            .and_then(|word| word.split_once('#'))
-        else {
-            *self = Self::default();
-            return false;
-        };
+        if let Some(input_channel) = get_word(input, cursor_position)
+            && input_channel.starts_with(chantypes)
+        {
+            self.selected = None;
+            self.prompt = input_channel.to_string();
+            self.filtered = channels
+                .iter()
+                .sorted_by(|a, b: &&target::Channel| {
+                    if let Some(current_channel) = current_channel {
+                        let a_is_current_channel = a.as_normalized_str()
+                            == current_channel.as_normalized_str();
+                        let b_is_current_channel = b.as_normalized_str()
+                            == current_channel.as_normalized_str();
 
-        let input_channel = format!("#{}", casemapping.normalize(rest));
-
-        self.selected = None;
-        self.prompt = format!("#{rest}");
-        self.filtered = channels
-            .iter()
-            .sorted_by(|a, b: &&target::Channel| {
-                if let Some(current_channel) = current_channel {
-                    let a_is_current_channel = a.as_normalized_str()
-                        == current_channel.as_normalized_str();
-                    let b_is_current_channel = b.as_normalized_str()
-                        == current_channel.as_normalized_str();
-
-                    match (a_is_current_channel, b_is_current_channel) {
-                        (false, false) => (),
-                        (true, false) => return std::cmp::Ordering::Less,
-                        (false, true) => return std::cmp::Ordering::Greater,
-                        (true, true) => return std::cmp::Ordering::Equal,
+                        match (a_is_current_channel, b_is_current_channel) {
+                            (false, false) => (),
+                            (true, false) => return std::cmp::Ordering::Less,
+                            (false, true) => {
+                                return std::cmp::Ordering::Greater;
+                            }
+                            (true, true) => return std::cmp::Ordering::Equal,
+                        }
                     }
-                }
 
-                match autocomplete.sort_direction {
-                    SortDirection::Asc => {
-                        a.as_normalized_str().cmp(b.as_normalized_str())
+                    match autocomplete.sort_direction {
+                        SortDirection::Asc => a
+                            .as_normalized_str()
+                            .trim_start_matches(chantypes)
+                            .cmp(
+                                b.as_normalized_str()
+                                    .trim_start_matches(chantypes),
+                            ),
+                        SortDirection::Desc => b
+                            .as_normalized_str()
+                            .trim_start_matches(chantypes)
+                            .cmp(
+                                a.as_normalized_str()
+                                    .trim_start_matches(chantypes),
+                            ),
                     }
-                    SortDirection::Desc => {
-                        b.as_normalized_str().cmp(a.as_normalized_str())
-                    }
-                }
-            })
-            .filter(|&channel| {
-                channel.as_str().starts_with(input_channel.as_str())
-            })
-            .map(ToString::to_string)
-            .collect();
+                })
+                .filter(|&channel| channel.as_str().starts_with(input_channel))
+                .map(ToString::to_string)
+                .collect();
 
-        true
+            true
+        } else {
+            false
+        }
     }
 
     fn tab(&mut self, reverse: bool) -> Option<String> {
