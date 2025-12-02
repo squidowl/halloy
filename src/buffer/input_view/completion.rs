@@ -53,15 +53,6 @@ impl Completion {
     ) {
         let is_command = input.starts_with('/');
 
-        let casemapping =
-            if let Some(isupport::Parameter::CASEMAPPING(casemapping)) =
-                isupport.get(&isupport::Kind::CASEMAPPING)
-            {
-                *casemapping
-            } else {
-                isupport::CaseMap::default()
-            };
-
         if is_command {
             self.commands.process(
                 input,
@@ -94,6 +85,15 @@ impl Completion {
 
             self.text = Text::default();
         } else {
+            let casemapping =
+                if let Some(isupport::Parameter::CASEMAPPING(casemapping)) =
+                    isupport.get(&isupport::Kind::CASEMAPPING)
+                {
+                    *casemapping
+                } else {
+                    isupport::CaseMap::default()
+                };
+
             self.text.process(
                 input,
                 cursor_position,
@@ -237,7 +237,7 @@ impl Entry {
                 // If next is not the original prompt, then append the
                 // configured suffix
                 let suffix = if *append_suffix {
-                    if input.find(' ').is_none_or(|space_position| {
+                    if input.trim_end().find(' ').is_none_or(|space_position| {
                         cursor_position <= space_position
                     }) && !is_channel
                     {
@@ -2772,64 +2772,86 @@ fn replace_word_with_text(
 ) -> Vec<text_editor::Action> {
     let mut actions: Vec<text_editor::Action> = vec![];
 
-    let mut previous_word_bounds = Option::<RangeInclusive<usize>>::None;
-
-    for word in input.split(' ') {
-        let word_bounds =
-            if let Some(previous_word_bounds) = previous_word_bounds {
-                RangeInclusive::new(
-                    previous_word_bounds.end() + 1,
-                    previous_word_bounds.end() + 1 + word.len(),
-                )
-            } else {
-                RangeInclusive::new(0, word.len())
-            };
-
-        if word_bounds.contains(&cursor_position) {
-            if (cursor_position - word_bounds.start())
-                <= (word_bounds.end() - cursor_position)
-            {
-                actions.extend(iter::repeat_n(
-                    text_editor::Action::Move(text_editor::Motion::Left),
-                    cursor_position - word_bounds.start(),
-                ));
-
-                actions.extend(iter::repeat_n(
-                    text_editor::Action::Select(text_editor::Motion::Right),
-                    word_bounds.end() - word_bounds.start(),
-                ));
-            } else {
-                actions.extend(iter::repeat_n(
-                    text_editor::Action::Move(text_editor::Motion::Right),
-                    word_bounds.end() - cursor_position,
-                ));
-
-                actions.extend(iter::repeat_n(
-                    text_editor::Action::Select(text_editor::Motion::Left),
-                    word_bounds.end() - word_bounds.start(),
-                ));
-            }
-
-            actions.push(text_editor::Action::Edit(text_editor::Edit::Paste(
-                std::sync::Arc::new(text.to_string()),
-            )));
-
-            if let Some(suffix) = suffix
-                && input
-                    .get(*word_bounds.end()..)
-                    .is_none_or(|after_word| !after_word.starts_with(suffix))
-            {
-                actions.push(text_editor::Action::Edit(
-                    text_editor::Edit::Paste(std::sync::Arc::new(
-                        suffix.to_string(),
-                    )),
-                ));
-            }
-
-            break;
+    let append_suffix = if cursor_position == input.len() {
+        if let Some((last_word_position, last_word)) = input
+            .split(' ')
+            .rev()
+            .enumerate()
+            .find(|(_, word)| !word.is_empty())
+        {
+            actions.extend(iter::repeat_n(
+                text_editor::Action::Select(text_editor::Motion::Left),
+                last_word_position + last_word.len(),
+            ));
         }
 
-        previous_word_bounds = Some(word_bounds);
+        true
+    } else {
+        let mut previous_word_bounds = Option::<RangeInclusive<usize>>::None;
+
+        let mut append_suffix = false;
+
+        for word in input.split(' ') {
+            let word_bounds =
+                if let Some(previous_word_bounds) = previous_word_bounds {
+                    RangeInclusive::new(
+                        previous_word_bounds.end() + 1,
+                        previous_word_bounds.end() + 1 + word.len(),
+                    )
+                } else {
+                    RangeInclusive::new(0, word.len())
+                };
+
+            if word_bounds.contains(&cursor_position) {
+                if (cursor_position - word_bounds.start())
+                    <= (word_bounds.end() - cursor_position)
+                {
+                    actions.extend(iter::repeat_n(
+                        text_editor::Action::Move(text_editor::Motion::Left),
+                        cursor_position - word_bounds.start(),
+                    ));
+
+                    actions.extend(iter::repeat_n(
+                        text_editor::Action::Select(text_editor::Motion::Right),
+                        word_bounds.end() - word_bounds.start(),
+                    ));
+                } else {
+                    actions.extend(iter::repeat_n(
+                        text_editor::Action::Move(text_editor::Motion::Right),
+                        word_bounds.end() - cursor_position,
+                    ));
+
+                    actions.extend(iter::repeat_n(
+                        text_editor::Action::Select(text_editor::Motion::Left),
+                        word_bounds.end() - word_bounds.start(),
+                    ));
+                }
+
+                if let Some(suffix) = suffix {
+                    append_suffix = input.get(*word_bounds.end()..).is_none_or(
+                        |after_word| !after_word.starts_with(suffix),
+                    );
+                }
+
+                break;
+            }
+
+            previous_word_bounds = Some(word_bounds);
+        }
+
+        append_suffix
+    };
+
+    actions.push(text_editor::Action::Edit(text_editor::Edit::Paste(
+        std::sync::Arc::new(text.to_string()),
+    )));
+
+    if let Some(suffix) = suffix
+        && append_suffix
+    {
+        actions.push(text_editor::Action::Edit(text_editor::Edit::Paste(
+            std::sync::Arc::new(suffix.to_string()),
+        )));
     }
 
     actions
@@ -2865,6 +2887,10 @@ pub enum Arrow {
 fn get_word(input: &str, cursor_position: usize) -> Option<&str> {
     let mut previous_word_bounds = Option::<RangeInclusive<usize>>::None;
 
+    if cursor_position == input.len() {
+        return input.split(' ').rfind(|word| !word.is_empty());
+    }
+
     for word in input.split(' ') {
         let word_bounds =
             if let Some(previous_word_bounds) = previous_word_bounds {
@@ -2877,7 +2903,7 @@ fn get_word(input: &str, cursor_position: usize) -> Option<&str> {
             };
 
         if word_bounds.contains(&cursor_position) {
-            return Some(word);
+            return (!word.is_empty()).then_some(word);
         }
 
         previous_word_bounds = Some(word_bounds);
