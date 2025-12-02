@@ -1169,6 +1169,7 @@ impl Command {
                         .padding(8),
                         tooltip::Position::Top,
                     )
+                    .delay(iced::time::Duration::ZERO)
                 ])
             } else {
                 Element::from(row![text(" "), content])

@@ -1,5 +1,13 @@
 # Unreleased
 
+Fixed:
+
+- No longer any delay in showing a tooltip after hovering
+
+Thanks:
+
+- Bug reports: halloy3002
+
 # 2025.12 (2025-11-28)
 
 Added:

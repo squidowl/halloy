@@ -20,6 +20,7 @@ pub fn tooltip<'a, Message: 'a>(
             .padding(8),
             position,
         )
+        .delay(iced::time::Duration::ZERO)
         .into(),
         None => content.into(),
     }
