@@ -1,5 +1,9 @@
 # Unreleased
 
+Added:
+
+- Setting to open a new pane, replace current pane, or open a new window after `/join`
+
 Fixed:
 
 - No longer any delay in showing a tooltip after hovering
