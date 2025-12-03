@@ -15,7 +15,8 @@ use data::message::{self, Broadcast};
 use data::rate_limit::TokenPriority;
 use data::target::{self, Target};
 use data::{
-    Config, Notification, Server, User, Version, channel_list, client, command, config, environment, file_transfer, history, preview, server
+    Config, Notification, Server, User, Version, channel_list, client, command,
+    config, environment, file_transfer, history, preview, server,
 };
 use iced::widget::pane_grid::{self, PaneGrid};
 use iced::widget::{Space, column, container, row};
@@ -2120,6 +2121,21 @@ impl Dashboard {
                     None,
                 );
             }
+            buffer::Event::ListForServer(server) => {
+                let buffer =
+                    pane.buffer.upstream().cloned().unwrap_or_else(|| {
+                        buffer::Upstream::Server(server.clone())
+                    });
+
+                let command = command::Irc::List(None, None);
+                let input = data::Input::from_command(buffer, command);
+
+                if let Some(encoded) = input.encoded() {
+                    clients.send(&input.buffer, encoded, TokenPriority::User);
+                }
+
+                return (Task::none(), None);
+            }
         }
 
         (Task::none(), None)
@@ -3173,6 +3189,15 @@ impl Dashboard {
             can_resize_buffer,
             self.is_pane_maximized(),
         )
+    }
+
+    pub fn receive_channel_information(
+        &mut self,
+        server: &Server,
+        channel_information: &channel_list::ChannelInformation,
+    ) {
+        self.channel_list_manager
+            .push_for_server(server.clone(), channel_information.clone());
     }
 
     pub fn receive_file_transfer(

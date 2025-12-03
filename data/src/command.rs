@@ -35,6 +35,7 @@ pub enum Internal {
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub enum Irc {
+    List(Option<String>, Option<String>),
     Join(String, Option<String>),
     Motd(Option<String>),
     Nick(String),
@@ -1160,6 +1161,7 @@ impl TryFrom<Irc> for proto::Command {
             Irc::Ctcp(command, target, params) => {
                 ctcp::query_command(&command, target, params)
             }
+            Irc::List(channels, elistcond) => proto::Command::LIST(channels, elistcond),
         })
     }
 }

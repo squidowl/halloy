@@ -61,6 +61,7 @@ pub enum Event {
     ContextMenu(context_menu::Event),
     OpenBuffers(Vec<(Target, BufferAction)>),
     LeaveBuffers(Vec<Target>, Option<String>),
+    ListForServer(data::Server),
     GoToMessage(data::Server, target::Channel, message::Hash),
     History(Task<history::manager::Message>),
     RequestOlderChatHistory,
@@ -358,9 +359,15 @@ impl Buffer {
                 (command.map(Message::FileTransfers), None)
             }
             (Buffer::ChannelList(state), Message::ChannelList(message)) => {
-                let (command, _) = state.update(message, config);
+                let (command, event) = state.update(message, config);
 
-                (command.map(Message::ChannelList), None)
+                let event = event.map(|event| match event {
+                    channel_list::Event::ListForServer(server) => {
+                        Event::ListForServer(server)
+                    }
+                });
+
+                (command.map(Message::ChannelList), event)
             }
             (Buffer::Logs(state), Message::Logs(message)) => {
                 let (command, event) =
@@ -469,7 +476,7 @@ impl Buffer {
                     .map(Message::Highlights)
             }
             Buffer::ChannelList(state) => {
-                channel_list::view(state, channel_list_manager, config, theme)
+                channel_list::view(state, clients, channel_list_manager, config, theme)
                     .map(Message::ChannelList)
             }
         }
