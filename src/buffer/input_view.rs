@@ -33,6 +33,7 @@ mod completion;
 pub enum Event {
     InputSent {
         history_task: Task<history::manager::Message>,
+        open_buffers: Vec<(Target, BufferAction)>,
     },
     OpenBuffers {
         targets: Vec<(Target, BufferAction)>,
@@ -790,7 +791,7 @@ impl State {
                                     // Part channel. Might not exist if we execute on a query/server.
                                     let part_command =
                                         buffer.channel().and_then(|channel| {
-                                            data::Input::command(
+                                            data::Input::from_command(
                                                 buffer.clone(),
                                                 command::Irc::Part(
                                                     channel
@@ -998,7 +999,44 @@ impl State {
                         );
                     }
 
-                    (Task::none(), Some(Event::InputSent { history_task }))
+                    let open_buffers =
+                        if let Some(command::Irc::Join(targets, _)) =
+                            input.command()
+                            && let Some(buffer_action) =
+                                config.actions.buffer.join_channel
+                        {
+                            let chantypes =
+                                clients.get_chantypes(buffer.server());
+                            let statusmsg =
+                                clients.get_statusmsg(buffer.server());
+                            let casemapping =
+                                clients.get_casemapping(buffer.server());
+
+                            targets
+                                .split(',')
+                                .filter_map(|target| {
+                                    let target = Target::parse(
+                                        target,
+                                        chantypes,
+                                        statusmsg,
+                                        casemapping,
+                                    );
+
+                                    matches!(target, Target::Channel(_))
+                                        .then_some((target, buffer_action))
+                                })
+                                .collect()
+                        } else {
+                            vec![]
+                        };
+
+                    (
+                        Task::none(),
+                        Some(Event::InputSent {
+                            history_task,
+                            open_buffers,
+                        }),
+                    )
                 } else {
                     (Task::none(), None)
                 }
@@ -1120,8 +1158,8 @@ impl State {
             // does not defocus input
             Message::Escape => (Task::none(), None),
             Message::SendCommand { buffer, command } => {
-                let input =
-                    data::Input::command(buffer.clone(), command).encoded();
+                let input = data::Input::from_command(buffer.clone(), command)
+                    .encoded();
 
                 // Send command.
                 if let Some(input) = input {

@@ -11,6 +11,7 @@ How buffer actions should be enacted
     - [local](#local)
     - [message\_channel](#message_channel)
     - [message\_user](#message_user)
+    - [join\_channel](#join_channel)
 
 ## Example
 
@@ -101,4 +102,17 @@ Action when sending an empty message to a user (via `Message` in the user contex
 
 [actions.buffer]
 message_user = "replace-pane"
+```
+
+### join_channel
+
+Action when sending joining a channel via `/join` command. `"new-pane"` opens a new pane each time. `"replace-pane"` replaces the focused pane with the channel. `"new-window"` opens a new window each time.
+
+```toml
+# Type: string
+# Values: "new-pane", "replace-pane", "new-window"
+# Default: "new-pane"
+
+[actions.buffer]
+join_channel = "replace-pane"
 ```

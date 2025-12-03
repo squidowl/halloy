@@ -62,10 +62,20 @@ pub struct Input {
 }
 
 impl Input {
-    pub fn command(buffer: buffer::Upstream, command: command::Irc) -> Self {
+    pub fn from_command(
+        buffer: buffer::Upstream,
+        command: command::Irc,
+    ) -> Self {
         Self {
             buffer,
             content: Content::Command(command),
+        }
+    }
+
+    pub fn command(&self) -> Option<&command::Irc> {
+        match &self.content {
+            Content::Text(_) => None,
+            Content::Command(command) => Some(command),
         }
     }
 

@@ -15,6 +15,7 @@ pub struct Buffer {
     pub click_channel_name: BufferAction,
     pub click_highlight: BufferAction,
     pub click_username: BufferAction,
+    pub join_channel: Option<BufferAction>,
     pub local: BufferAction,
     pub message_channel: BufferAction,
     pub message_user: BufferAction,
