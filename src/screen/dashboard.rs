@@ -15,7 +15,7 @@ use data::message::{self, Broadcast};
 use data::rate_limit::TokenPriority;
 use data::target::{self, Target};
 use data::{
-    Config, Notification, Server, User, Version, channel_list, client, command,
+    Config, Notification, Server, User, Version, channel_discovery_manager, client, command,
     config, environment, file_transfer, history, preview, server,
 };
 use iced::widget::pane_grid::{self, PaneGrid};

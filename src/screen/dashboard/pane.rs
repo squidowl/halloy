@@ -1,5 +1,5 @@
 use data::user::ChannelUsers;
-use data::{Config, channel_list, file_transfer, history, preview};
+use data::{Config, channel_discovery_manager, file_transfer, history, preview};
 use iced::Size;
 use iced::widget::{button, center, container, pane_grid, row, text};
 
@@ -86,7 +86,7 @@ impl Pane {
                 format!("{nick} @ {server}")
             }
             Buffer::FileTransfers(_) => "File Transfers".to_string(),
-            Buffer::ChannelList(_) => "List Channels".to_string(),
+            Buffer::ChannelDiscovery(_) => "Channel Discovery".to_string(),
             Buffer::Logs(_) => "Logs".to_string(),
             Buffer::Highlights(_) => "Highlights".to_string(),
         };
@@ -149,7 +149,7 @@ impl Pane {
             }),
             Buffer::Logs(_) => Some(history::Resource::logs()),
             Buffer::Highlights(_) => Some(history::Resource::highlights()),
-            Buffer::ChannelList(_) | Buffer::FileTransfers(_) => None,
+            Buffer::ChannelDiscovery(_) | Buffer::FileTransfers(_) => None,
         }
     }
 
@@ -164,7 +164,7 @@ impl Pane {
             | Buffer::FileTransfers(_)
             | Buffer::Logs(_)
             | Buffer::Highlights(_)
-            | Buffer::ChannelList(_) => vec![],
+            | Buffer::ChannelDiscovery(_) => vec![],
         }
     }
 }
@@ -445,8 +445,8 @@ impl From<Pane> for data::Pane {
             Buffer::Highlights(_) => {
                 data::Buffer::Internal(buffer::Internal::Highlights)
             }
-            Buffer::ChannelList(_) => {
-                data::Buffer::Internal(buffer::Internal::ChannelList)
+            Buffer::ChannelDiscovery(_) => {
+                data::Buffer::Internal(buffer::Internal::ChannelDiscovery)
             }
         };
 

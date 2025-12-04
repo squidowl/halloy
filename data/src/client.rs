@@ -28,7 +28,7 @@ use crate::target::{self, Target};
 use crate::time::Posix;
 use crate::user::{ChannelUsers, Nick, NickRef};
 use crate::{
-    Server, User, buffer, channel_list, compression, config, ctcp, dcc,
+    Server, User, buffer, channel_discovery_manager, compression, config, ctcp, dcc,
     environment, file_transfer, history, isupport, message, mode, server,
 };
 
@@ -171,7 +171,7 @@ pub struct Client {
     resolved_netid: Option<String>,
     anti_flood: Option<TokenBucket<message::Encoded>>,
     mode_requests: Vec<ModeRequest>,
-    channel_list: channel_list::Manager,
+    channel_discovery_manager: channel_discovery_manager::Manager,
 }
 
 impl fmt::Debug for Client {
@@ -231,7 +231,7 @@ impl Client {
             anti_flood: Some(TokenBucket::new(config.anti_flood, 10)),
             mode_requests: Vec::new(),
             config,
-            channel_list: channel_list::Manager::new(),
+            channel_discovery_manager: channel_discovery_manager::Manager::new(),
         }
     }
 
@@ -1257,10 +1257,10 @@ impl Client {
                 let topic = ok!(args.get(3)).clone();
                 let user_count = user_count_str.parse().unwrap_or(0);
 
-                self.channel_list.channels.insert(channel, (topic, user_count));
+                self.channel_discovery_manager.channels.insert(channel, (topic, user_count));
             }
             Command::Numeric(RPL_LISTEND, _) => {
-                self.channel_list.last_updated = Some(Utc::now());
+                self.channel_discovery_manager.last_updated = Some(Utc::now());
             }
             Command::Numeric(RPL_LOGGEDIN, args) => {
                 log::info!("[{}] logged in", self.server);
@@ -3544,11 +3544,11 @@ impl Map {
             .and_then(|client| client.resolve_user_attributes(channel, user))
     }
 
-    pub fn get_channel_list(
+    pub fn get_channel_discovery_manager(
         &self,
         server: &Server,
-    ) -> Option<&channel_list::Manager> {
-        self.client(server).map(|client| &client.channel_list)
+    ) -> Option<&channel_discovery_manager::Manager> {
+        self.client(server).map(|client| &client.channel_discovery_manager)
     }
 
     pub fn get_channel_users(

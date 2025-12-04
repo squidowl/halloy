@@ -38,8 +38,8 @@ pub enum Internal {
     FileTransfers,
     Logs,
     Highlights,
-    #[strum(serialize = "Channel List")]
-    ChannelList,
+    #[strum(serialize = "Channel Discovery")]
+    ChannelDiscovery,
 }
 
 impl Buffer {
@@ -128,7 +128,7 @@ impl Internal {
         Self::FileTransfers,
         Self::Logs,
         Self::Highlights,
-        Self::ChannelList,
+        Self::ChannelDiscovery,
     ];
 
     pub fn key(&self) -> String {
@@ -136,7 +136,7 @@ impl Internal {
             Internal::FileTransfers => "file-transfers",
             Internal::Logs => "logs",
             Internal::Highlights => "highlights",
-            Internal::ChannelList => "list-channels",
+            Internal::ChannelDiscovery => "list-channels",
         }
         .to_string()
     }

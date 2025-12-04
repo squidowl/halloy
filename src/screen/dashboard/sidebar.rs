@@ -291,12 +291,12 @@ impl Sidebar {
                                     buffer::Internal::Highlights,
                                 ),
                             ),
-                            Menu::ChannelList => context_button(
-                                text("Channel List"),
-                                None, // TODO: Add keybind for list channels (?).
-                                icon::highlights(),
+                            Menu::ChannelDiscovery => context_button(
+                                text("Channel Discovery"),
+                                None, // TODO: Add keybind for channel discovery (?).
+                                icon::highlights(), // TODO: Add icon for channel discovery.
                                 Message::ToggleInternalBuffer(
-                                    buffer::Internal::ChannelList,
+                                    buffer::Internal::ChannelDiscovery,
                                 ),
                             ),
                             Menu::Logs => context_button(
@@ -655,7 +655,7 @@ enum Menu {
     CommandBar,
     ThemeEditor,
     Highlights,
-    ChannelList,
+    ChannelDiscovery,
     Logs,
     FileTransfers,
     Version,
@@ -685,7 +685,7 @@ impl Menu {
         }
 
         list.extend([
-            Self::ChannelList,
+            Self::ChannelDiscovery,
             Self::Highlights,
             Self::Logs,
             Self::OpenConfigFile,
