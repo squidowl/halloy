@@ -34,7 +34,7 @@
             const path_to_root = "../../";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../../searchindex-4394c710.js";
+            window.path_to_searchindex_js = "../../searchindex-0bb42b93.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="../../toc-fe913ceb.js"></script>
@@ -193,6 +193,7 @@
 <li><a href="#local">local</a></li>
 <li><a href="#message_channel">message_channel</a></li>
 <li><a href="#message_user">message_user</a></li>
+<li><a href="#join_channel">join_channel</a></li>
 </ul>
 </li>
 </ul>
@@ -259,6 +260,15 @@ message_channel = "replace-pane"
 
 [actions.buffer]
 message_user = "replace-pane"
+</code></pre>
+<h3 id="join_channel"><a class="header" href="#join_channel">join_channel</a></h3>
+<p>Action when sending joining a channel via <code>/join</code> command. <code>"new-pane"</code> opens a new pane each time. <code>"replace-pane"</code> replaces the focused pane with the channel. <code>"new-window"</code> opens a new window each time.</p>
+<pre><code class="language-toml"># Type: string
+# Values: "new-pane", "replace-pane", "new-window"
+# Default: "new-pane"
+
+[actions.buffer]
+join_channel = "replace-pane"
 </code></pre>
 
                     </main>
