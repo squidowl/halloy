@@ -1629,7 +1629,7 @@ impl Dashboard {
                             Some(mode),
                             Some(vec![nick.to_string()]),
                         );
-                        let input = data::Input::command(buffer, command);
+                        let input = data::Input::from_command(buffer, command);
 
                         if let Some(encoded) = input.encoded() {
                             clients.send(
@@ -1649,7 +1649,7 @@ impl Dashboard {
                             command::Irc::Whois(None, nick.to_string());
 
                         let input =
-                            data::Input::command(buffer.clone(), command);
+                            data::Input::from_command(buffer.clone(), command);
 
                         if let Some(encoded) = input.encoded() {
                             clients.send(
@@ -1724,7 +1724,7 @@ impl Dashboard {
                             command::Irc::Whowas(nick.to_string(), None);
 
                         let input =
-                            data::Input::command(buffer.clone(), command);
+                            data::Input::from_command(buffer.clone(), command);
 
                         if let Some(encoded) = input.encoded() {
                             clients.send(
@@ -1858,7 +1858,7 @@ impl Dashboard {
                         );
 
                         let input =
-                            data::Input::command(buffer.clone(), command);
+                            data::Input::from_command(buffer.clone(), command);
 
                         if let Some(encoded) = input.encoded() {
                             clients.send(
@@ -2095,6 +2095,36 @@ impl Dashboard {
                         &config.buffer.server_messages.condense,
                     );
                 }
+            }
+            buffer::Event::InputSent {
+                history_task,
+                open_buffers,
+            } => {
+                let mut tasks = vec![];
+
+                if let Some(server) = pane
+                    .buffer
+                    .upstream()
+                    .map(buffer::Upstream::server)
+                    .cloned()
+                {
+                    for (target, buffer_action) in open_buffers {
+                        tasks.push(self.open_target(
+                            server.clone(),
+                            target,
+                            clients,
+                            buffer_action,
+                            config,
+                        ));
+                    }
+                }
+
+                return (
+                    history_task
+                        .map(Message::History)
+                        .chain(Task::batch(tasks)),
+                    None,
+                );
             }
         }
 
@@ -2427,7 +2457,7 @@ impl Dashboard {
             buffer::Upstream::Channel(server, channel) => {
                 // Send part & close history file
                 let command = command::Irc::Part(channel.to_string(), None);
-                let input = data::Input::command(buffer.clone(), command);
+                let input = data::Input::from_command(buffer.clone(), command);
 
                 if let Some(encoded) = input.encoded() {
                     clients.send(&buffer, encoded, TokenPriority::High);
@@ -2488,7 +2518,7 @@ impl Dashboard {
 
                 // Send part & close history file
                 let command = command::Irc::Part(channel.to_string(), reason);
-                let input = data::Input::command(buffer.clone(), command);
+                let input = data::Input::from_command(buffer.clone(), command);
 
                 if let Some(encoded) = input.encoded() {
                     clients.send(&buffer, encoded, TokenPriority::User);

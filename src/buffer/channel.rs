@@ -39,6 +39,10 @@ pub enum Event {
     ImagePreview(PathBuf, url::Url),
     ExpandCondensedMessage(DateTime<Utc>, message::Hash),
     ContractCondensedMessage(DateTime<Utc>, message::Hash),
+    InputSent {
+        history_task: Task<history::manager::Message>,
+        open_buffers: Vec<(Target, BufferAction)>,
+    },
 }
 
 pub fn view<'a>(
@@ -279,7 +283,10 @@ impl Channel {
                 let command = command.map(Message::InputView);
 
                 match event {
-                    Some(input_view::Event::InputSent { history_task }) => {
+                    Some(input_view::Event::InputSent {
+                        history_task,
+                        open_buffers,
+                    }) => {
                         let command = Task::batch(vec![
                             command,
                             self.scroll_view
@@ -287,7 +294,13 @@ impl Channel {
                                 .map(Message::ScrollView),
                         ]);
 
-                        (command, Some(Event::History(history_task)))
+                        (
+                            command,
+                            Some(Event::InputSent {
+                                history_task,
+                                open_buffers,
+                            }),
+                        )
                     }
                     Some(input_view::Event::OpenBuffers { targets }) => {
                         (command, Some(Event::OpenBuffers(targets)))
