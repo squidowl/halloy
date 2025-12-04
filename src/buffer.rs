@@ -67,6 +67,10 @@ pub enum Event {
     ImagePreview(PathBuf, url::Url),
     ExpandCondensedMessage(DateTime<Utc>, message::Hash),
     ContractCondensedMessage(DateTime<Utc>, message::Hash),
+    InputSent {
+        history_task: Task<history::manager::Message>,
+        open_buffers: Vec<(Target, BufferAction)>,
+    },
 }
 
 impl Buffer {
@@ -229,6 +233,13 @@ impl Buffer {
                         server_time,
                         hash,
                     ) => Event::ContractCondensedMessage(server_time, hash),
+                    channel::Event::InputSent {
+                        history_task,
+                        open_buffers,
+                    } => Event::InputSent {
+                        history_task,
+                        open_buffers,
+                    },
                 });
 
                 (command.map(Message::Channel), event)
@@ -266,6 +277,13 @@ impl Buffer {
                         server_time,
                         hash,
                     ) => Event::ContractCondensedMessage(server_time, hash),
+                    server::Event::InputSent {
+                        history_task,
+                        open_buffers,
+                    } => Event::InputSent {
+                        history_task,
+                        open_buffers,
+                    },
                 });
 
                 (command.map(Message::Server), event)
@@ -309,6 +327,13 @@ impl Buffer {
                         server_time,
                         hash,
                     ) => Event::ContractCondensedMessage(server_time, hash),
+                    query::Event::InputSent {
+                        history_task,
+                        open_buffers,
+                    } => Event::InputSent {
+                        history_task,
+                        open_buffers,
+                    },
                 });
 
                 (command.map(Message::Query), event)
