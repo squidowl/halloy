@@ -981,9 +981,6 @@ impl Halloy {
                                             commands.push(command.map(Message::Dashboard));
                                         }
                                     }
-                                    Event::ChannelInformation((server, channel_information)) => {
-                                        dashboard.receive_channel_information(&server, &channel_information);
-                                    }
                                     Event::UpdateReadMarker(target, read_marker) => {
                                         commands.push(
                                             dashboard

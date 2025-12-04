@@ -53,7 +53,6 @@ impl Pane {
         maximized: bool,
         clients: &'a data::client::Map,
         file_transfers: &'a file_transfer::Manager,
-        channel_list_manager: &'a channel_list::Manager,
         history: &'a history::Manager,
         previews: &'a preview::Collection,
         sidebar: &'a sidebar::Sidebar,
@@ -113,7 +112,6 @@ impl Pane {
             .view(
                 clients,
                 file_transfers,
-                channel_list_manager,
                 history,
                 previews,
                 settings,

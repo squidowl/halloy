@@ -1,42 +1,21 @@
 use std::collections::HashMap;
-
-use crate::Server;
+use chrono::{DateTime, Utc};
 
 #[derive(Default, Clone, Debug)]
 pub struct Manager {
-    items: HashMap<Server, Vec<ChannelInformation>>,
+    pub channels: HashMap<String, (String, usize)>,
+    pub last_updated: Option<DateTime<Utc>>,
 }
 
 impl Manager {
     pub fn new() -> Self {
         Self {
-            items: HashMap::new(),
+            channels: HashMap::new(),
+            last_updated: None,
         }
     }
 
-    pub fn push_for_server(
-        &mut self,
-        server: Server,
-        channel_information: ChannelInformation,
-    ) {
-        self.items
-            .entry(server)
-            .or_default()
-            .push(channel_information);
+    pub fn items(&self) -> impl Iterator<Item = (&'_ String, &'_ String, &'_ usize)> {
+        self.channels.iter().map(|(channel, (topic, user_count))| (channel, topic, user_count))
     }
-
-    pub fn get_for_server(&self, server: &Server) -> &[ChannelInformation] {
-        self.items.get(server).map_or(&[], |items| items.as_slice())
-    }
-
-    pub fn clear(&mut self, server: &Server) {
-        self.items.remove(server);
-    }
-}
-
-#[derive(Default, Clone, Debug)]
-pub struct ChannelInformation {
-    pub channel: String, // TODO: Convert to Channel maybe?
-    pub topic: String,
-    pub user_count: String,
 }

@@ -52,7 +52,6 @@ pub struct Dashboard {
     last_changed: Option<Instant>,
     command_bar: Option<CommandBar>,
     file_transfers: file_transfer::Manager,
-    channel_list_manager: channel_list::Manager,
     theme_editor: Option<ThemeEditor>,
     notifications: notification::Notifications,
     previews: preview::Collection,
@@ -113,7 +112,6 @@ impl Dashboard {
             last_changed: None,
             command_bar: None,
             file_transfers: file_transfer::Manager::default(),
-            channel_list_manager: channel_list::Manager::default(),
             theme_editor: None,
             notifications: notification::Notifications::new(config),
             previews: preview::Collection::default(),
@@ -1429,7 +1427,6 @@ impl Dashboard {
                         false,
                         clients,
                         &self.file_transfers,
-                        &self.channel_list_manager,
                         &self.history,
                         &self.previews,
                         &self.side_menu,
@@ -1484,7 +1481,6 @@ impl Dashboard {
                     maximized,
                     clients,
                     &self.file_transfers,
-                    &self.channel_list_manager,
                     &self.history,
                     &self.previews,
                     &self.side_menu,
@@ -3191,15 +3187,6 @@ impl Dashboard {
         )
     }
 
-    pub fn receive_channel_information(
-        &mut self,
-        server: &Server,
-        channel_information: &channel_list::ChannelInformation,
-    ) {
-        self.channel_list_manager
-            .push_for_server(server.clone(), channel_information.clone());
-    }
-
     pub fn receive_file_transfer(
         &mut self,
         server: &Server,
@@ -3361,7 +3348,6 @@ impl Dashboard {
             last_changed: None,
             command_bar: None,
             file_transfers: file_transfer::Manager::default(),
-            channel_list_manager: channel_list::Manager::default(),
             theme_editor: None,
             notifications: notification::Notifications::new(config),
             previews: preview::Collection::default(),

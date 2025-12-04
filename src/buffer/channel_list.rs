@@ -45,10 +45,11 @@ impl ChannelList {
 pub fn view<'a>(
     state: &'a ChannelList,
     clients: &'a data::client::Map,
-    manager: &'a channel_list::Manager,
     _config: &'a Config,
     theme: &'a Theme,
 ) -> Element<'a, Message> {
+    let manager = state.selected_server.as_ref().and_then(|server| clients.get_channel_list(server));
+
     let header = container(
         column![
             row![
@@ -67,17 +68,16 @@ pub fn view<'a>(
     )
     .width(Length::Fill);
 
-    let data = match &state.selected_server {
-        Some(server) => {
-            let list = manager.get_for_server(&server).to_vec();
-            container(column(list.into_iter().map(|channel| {
+    let data = match manager {
+        Some(manager) => {
+            container(column(manager.items().map(|(channel, topic, user_count)| {
                 column![
                     row![
-                        text(channel.user_count).style(theme::text::timestamp).width(Length::Fixed(20.0)),
-                        text(channel.channel)
+                        text(user_count.to_string()).style(theme::text::timestamp).width(Length::Fixed(20.0)),
+                        text(channel)
                     ]
                     .spacing(8),
-                    container(text(channel.topic).style(theme::text::topic)).padding(padding::left(20))
+                    container(text(topic).style(theme::text::topic)).padding(padding::left(20))
                 ]
                 .into()
             })))

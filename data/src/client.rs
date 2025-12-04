@@ -117,7 +117,6 @@ pub enum Event {
     WithTarget(message::Encoded, Nick, message::Target),
     Broadcast(Broadcast),
     FileTransferRequest(file_transfer::ReceiveRequest),
-    ChannelInformation((Server, channel_list::ChannelInformation)),
     UpdateReadMarker(Target, ReadMarker),
     JoinedChannel(target::Channel, DateTime<Utc>),
     LoggedIn(DateTime<Utc>),
@@ -172,6 +171,7 @@ pub struct Client {
     resolved_netid: Option<String>,
     anti_flood: Option<TokenBucket<message::Encoded>>,
     mode_requests: Vec<ModeRequest>,
+    channel_list: channel_list::Manager,
 }
 
 impl fmt::Debug for Client {
@@ -231,6 +231,7 @@ impl Client {
             anti_flood: Some(TokenBucket::new(config.anti_flood, 10)),
             mode_requests: Vec::new(),
             config,
+            channel_list: channel_list::Manager::new(),
         }
     }
 
@@ -1252,19 +1253,14 @@ impl Client {
             }
             Command::Numeric(RPL_LIST, args) => {
                 let channel = ok!(args.get(1)).clone();
-                let user_count = ok!(args.get(2)).clone();
+                let user_count_str = ok!(args.get(2)).clone();
                 let topic = ok!(args.get(3)).clone();
+                let user_count = user_count_str.parse().unwrap_or(0);
 
-                let channel_information = channel_list::ChannelInformation {
-                    channel,
-                    topic,
-                    user_count,
-                };
-
-                return Ok(vec![Event::ChannelInformation((self.server.clone(), channel_information))]);
+                self.channel_list.channels.insert(channel, (topic, user_count));
             }
             Command::Numeric(RPL_LISTEND, _) => {
-                println!("RPL_LISTEND");
+                self.channel_list.last_updated = Some(Utc::now());
             }
             Command::Numeric(RPL_LOGGEDIN, args) => {
                 log::info!("[{}] logged in", self.server);
@@ -3546,6 +3542,13 @@ impl Map {
     ) -> Option<&'a User> {
         self.client(server)
             .and_then(|client| client.resolve_user_attributes(channel, user))
+    }
+
+    pub fn get_channel_list(
+        &self,
+        server: &Server,
+    ) -> Option<&channel_list::Manager> {
+        self.client(server).map(|client| &client.channel_list)
     }
 
     pub fn get_channel_users(

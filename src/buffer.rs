@@ -440,7 +440,6 @@ impl Buffer {
         &'a self,
         clients: &'a data::client::Map,
         file_transfers: &'a file_transfer::Manager,
-        channel_list_manager: &'a data::channel_list::Manager,
         history: &'a history::Manager,
         previews: &'a preview::Collection,
         settings: Option<&'a buffer::Settings>,
@@ -476,7 +475,7 @@ impl Buffer {
                     .map(Message::Highlights)
             }
             Buffer::ChannelList(state) => {
-                channel_list::view(state, clients, channel_list_manager, config, theme)
+                channel_list::view(state, clients, config, theme)
                     .map(Message::ChannelList)
             }
         }
