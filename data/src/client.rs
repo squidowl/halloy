@@ -1253,11 +1253,10 @@ impl Client {
             }
             Command::Numeric(RPL_LIST, args) => {
                 let channel = ok!(args.get(1)).clone();
-                let user_count_str = ok!(args.get(2)).clone();
+                let user_count = ok!(args.get(2)).clone();
                 let topic = ok!(args.get(3)).clone();
-                let user_count = user_count_str.parse().unwrap_or(0);
 
-                self.channel_discovery_manager.channels.insert(channel, (topic, user_count));
+                self.channel_discovery_manager.push(channel, topic, user_count);
             }
             Command::Numeric(RPL_LISTEND, _) => {
                 self.channel_discovery_manager.last_updated = Some(Utc::now());
