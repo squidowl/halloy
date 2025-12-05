@@ -5,6 +5,7 @@ use std::time::Duration;
 use data::buffer::{self, Upstream};
 use data::config::buffer::text_input::{Autocomplete, KeyBindings};
 use data::dashboard::BufferAction;
+use data::history::filter::FilterChain;
 use data::history::{self, ReadMarker};
 use data::input::{self, RawInput};
 use data::message::server_time;
@@ -660,6 +661,7 @@ impl State {
             }
             Message::Send => {
                 let raw_input = self.input_content.text().clone();
+                let cursor_position = self.input_content.cursor_position().1;
 
                 // Reset error
                 self.error = None;
@@ -668,13 +670,14 @@ impl State {
 
                 if let Some(entry) = self.completion.select(config) {
                     let chantypes = clients.get_chantypes(buffer.server());
-                    let new_input = entry.complete_input(
+                    let actions = entry.complete_input(
                         raw_input.as_str(),
+                        cursor_position,
                         chantypes,
                         config,
                     );
 
-                    self.on_completion(buffer, history, &new_input, true)
+                    self.on_completion(buffer, history, actions, true)
                 } else if !raw_input.is_empty() {
                     self.completion.reset();
 
@@ -1043,13 +1046,18 @@ impl State {
             }
             Message::Tab(reverse) => {
                 let input = self.input_content.text();
+                let cursor_position = self.input_content.cursor_position().1;
 
                 if let Some(entry) = self.completion.tab(reverse) {
                     let chantypes = clients.get_chantypes(buffer.server());
-                    let new_input =
-                        entry.complete_input(input.as_str(), chantypes, config);
+                    let actions = entry.complete_input(
+                        input.as_str(),
+                        cursor_position,
+                        chantypes,
+                        config,
+                    );
 
-                    self.on_completion(buffer, history, &new_input, true)
+                    self.on_completion(buffer, history, actions, true)
                 } else {
                     (Task::none(), None)
                 }
@@ -1079,6 +1087,8 @@ impl State {
                     let users = buffer.channel().and_then(|channel| {
                         clients.get_channel_users(buffer.server(), channel)
                     });
+                    let last_seen = history.get_last_seen(buffer);
+                    let filters = FilterChain::borrow(history.get_filters());
                     let channels = clients
                         .get_channels(buffer.server())
                         .cloned()
@@ -1089,9 +1099,11 @@ impl State {
 
                     self.completion.process(
                         &new_input,
+                        new_input.len(),
                         clients.nickname(buffer.server()),
                         users,
-                        &history.get_last_seen(buffer),
+                        filters,
+                        &last_seen,
                         &channels,
                         current_target.as_ref(),
                         supports_detach,
@@ -1099,8 +1111,9 @@ impl State {
                         config,
                     );
 
-                    return self
-                        .on_completion(buffer, history, &new_input, false);
+                    return self.on_history_navigation(
+                        buffer, history, &new_input, false,
+                    );
                 }
 
                 (Task::none(), None)
@@ -1126,6 +1139,9 @@ impl State {
                         let users = buffer.channel().and_then(|channel| {
                             clients.get_channel_users(buffer.server(), channel)
                         });
+                        let last_seen = history.get_last_seen(buffer);
+                        let filters =
+                            FilterChain::borrow(history.get_filters());
                         let channels = clients
                             .get_channels(buffer.server())
                             .cloned()
@@ -1136,9 +1152,11 @@ impl State {
 
                         self.completion.process(
                             &new_input,
+                            new_input.len(),
                             clients.nickname(buffer.server()),
                             users,
-                            &history.get_last_seen(buffer),
+                            filters,
+                            &last_seen,
                             &channels,
                             current_target.as_ref(),
                             supports_detach,
@@ -1148,8 +1166,9 @@ impl State {
                         new_input
                     };
 
-                    return self
-                        .on_completion(buffer, history, &new_input, false);
+                    return self.on_history_navigation(
+                        buffer, history, &new_input, false,
+                    );
                 }
 
                 (Task::none(), None)
@@ -1327,6 +1346,8 @@ impl State {
                 match &action {
                     text_editor::Action::Edit(_) => {
                         let input = self.input_content.text();
+                        let cursor_position =
+                            self.input_content.cursor_position().1;
 
                         // Reset error state
                         self.error = None;
@@ -1336,6 +1357,9 @@ impl State {
                         let users = buffer.channel().and_then(|channel| {
                             clients.get_channel_users(buffer.server(), channel)
                         });
+                        let last_seen = history.get_last_seen(buffer);
+                        let filters =
+                            FilterChain::borrow(history.get_filters());
                         // TODO(pounce) eliminate clones
                         let channels = clients
                             .get_channels(buffer.server())
@@ -1347,9 +1371,11 @@ impl State {
 
                         self.completion.process(
                             &input,
+                            cursor_position,
                             clients.nickname(buffer.server()),
                             users,
-                            &history.get_last_seen(buffer),
+                            filters,
+                            &last_seen,
                             &channels,
                             current_target.as_ref(),
                             supports_detach,
@@ -1357,10 +1383,15 @@ impl State {
                             config,
                         );
 
-                        let input = self
+                        let actions = self
                             .completion
-                            .complete_emoji(&input)
-                            .unwrap_or(input);
+                            .complete_emoji(&input, cursor_position);
+
+                        if let Some(actions) = actions {
+                            for action in actions.into_iter() {
+                                self.input_content.perform(action);
+                            }
+                        }
 
                         if let Err(error) = input::parse(
                             buffer.clone(),
@@ -1412,6 +1443,43 @@ impl State {
 
                         (Task::none(), None)
                     }
+                    text_editor::Action::Move(_)
+                    | text_editor::Action::Click(_) => {
+                        let input = self.input_content.text();
+                        let cursor_position =
+                            self.input_content.cursor_position().1;
+
+                        let users = buffer.channel().and_then(|channel| {
+                            clients.get_channel_users(buffer.server(), channel)
+                        });
+                        let last_seen = history.get_last_seen(buffer);
+                        let filters =
+                            FilterChain::borrow(history.get_filters());
+                        // TODO(pounce) eliminate clones
+                        let channels = clients
+                            .get_channels(buffer.server())
+                            .cloned()
+                            .collect::<Vec<_>>();
+                        let supports_detach =
+                            clients.get_server_supports_detach(buffer.server());
+                        let isupport = clients.get_isupport(buffer.server());
+
+                        self.completion.process(
+                            &input,
+                            cursor_position,
+                            clients.nickname(buffer.server()),
+                            users,
+                            filters,
+                            &last_seen,
+                            &channels,
+                            current_target.as_ref(),
+                            supports_detach,
+                            &isupport,
+                            config,
+                        );
+
+                        (Task::none(), None)
+                    }
                     _ => (Task::none(), None),
                 }
             }
@@ -1438,6 +1506,27 @@ impl State {
     }
 
     fn on_completion(
+        &mut self,
+        buffer: &buffer::Upstream,
+        history: &mut history::Manager,
+        actions: Vec<text_editor::Action>,
+        record_draft: bool,
+    ) -> (Task<Message>, Option<Event>) {
+        for action in actions.into_iter() {
+            self.input_content.perform(action);
+        }
+
+        if record_draft {
+            history.record_draft(RawInput {
+                buffer: buffer.clone(),
+                text: self.input_content.text(),
+            });
+        }
+
+        (Task::none(), None)
+    }
+
+    fn on_history_navigation(
         &mut self,
         buffer: &buffer::Upstream,
         history: &mut history::Manager,
@@ -1484,31 +1573,56 @@ impl State {
         buffer: buffer::Upstream,
         history: &mut history::Manager,
         autocomplete: &Autocomplete,
-    ) -> Task<Message> {
-        let mut text = self.input_content.text();
+    ) {
+        let text = self.input_content.text();
+        let cursor_position = self.input_content.cursor_position().1;
 
-        let suffix = if text.is_empty() {
-            text = format!("{nick}");
+        let insert_text = if cursor_position == 0 {
+            let suffix_range = cursor_position
+                ..cursor_position + autocomplete.completion_suffixes[0].len();
 
-            &autocomplete.completion_suffixes[0]
-        } else {
-            if text.ends_with(' ') {
-                text = format!("{text}{nick}");
+            if text
+                .get(suffix_range)
+                .is_some_and(|text| text == autocomplete.completion_suffixes[0])
+            {
+                format!("{nick}")
             } else {
-                text = format!("{text} {nick}");
+                format!("{nick}{}", autocomplete.completion_suffixes[0])
             }
+        } else {
+            let suffix_range = cursor_position
+                ..cursor_position + autocomplete.completion_suffixes[1].len();
 
-            &autocomplete.completion_suffixes[1]
+            if text
+                .chars()
+                .nth(cursor_position - 1)
+                .is_some_and(|c| c == ' ')
+            {
+                if text.get(suffix_range).is_some_and(|text| {
+                    text == autocomplete.completion_suffixes[1]
+                }) {
+                    format!("{nick}")
+                } else {
+                    format!("{nick}{}", autocomplete.completion_suffixes[1])
+                }
+            } else if text
+                .get(suffix_range)
+                .is_some_and(|text| text == autocomplete.completion_suffixes[1])
+            {
+                format!(" {nick}")
+            } else {
+                format!(" {nick}{}", autocomplete.completion_suffixes[1])
+            }
         };
-        text.push_str(suffix);
 
-        self.input_content = text_editor::Content::with_text(&text);
-        self.input_content
-            .perform(text_editor::Action::Move(text_editor::Motion::End));
+        self.input_content.perform(text_editor::Action::Edit(
+            text_editor::Edit::Paste(std::sync::Arc::new(insert_text)),
+        ));
 
-        history.record_draft(RawInput { buffer, text });
-
-        operation::move_cursor_to_end(self.input_id.clone())
+        history.record_draft(RawInput {
+            buffer,
+            text: self.input_content.text(),
+        });
     }
 
     pub fn close_picker(&mut self) -> bool {

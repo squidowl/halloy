@@ -1,5 +1,6 @@
 use std::cmp::Ordering;
 use std::collections::HashMap;
+use std::ops::RangeInclusive;
 use std::sync::LazyLock;
 use std::{fmt, iter};
 
@@ -7,12 +8,13 @@ use chrono::{DateTime, Utc};
 use const_format::concatcp;
 use data::buffer::SkinTone;
 use data::config::buffer::text_input::{OrderBy, SortDirection};
+use data::history::filter::FilterChain;
 use data::isupport::{self, find_target_limit};
 use data::target::{self, Target};
 use data::user::{ChannelUsers, Nick, NickRef};
 use data::{Config, mode};
 use iced::Length;
-use iced::widget::{column, container, row, text, tooltip};
+use iced::widget::{column, container, row, text, text_editor, tooltip};
 use irc::proto;
 use itertools::{Either, Itertools};
 use strsim::jaro_winkler;
@@ -40,8 +42,10 @@ impl Completion {
     pub fn process(
         &mut self,
         input: &str,
+        cursor_position: usize,
         our_nickname: Option<NickRef>,
         users: Option<&ChannelUsers>,
+        filters: FilterChain,
         last_seen: &HashMap<Nick, DateTime<Utc>>,
         channels: &[target::Channel],
         current_target: Option<&Target>,
@@ -50,15 +54,6 @@ impl Completion {
         config: &Config,
     ) {
         let is_command = input.starts_with('/');
-
-        let casemapping =
-            if let Some(isupport::Parameter::CASEMAPPING(casemapping)) =
-                isupport.get(&isupport::Kind::CASEMAPPING)
-            {
-                *casemapping
-            } else {
-                isupport::CaseMap::default()
-            };
 
         if is_command {
             self.commands.process(
@@ -69,48 +64,45 @@ impl Completion {
                 isupport,
             );
 
-            // Disallow user completions when selecting a command
+            // Disallow other completions when selecting a command
             if matches!(self.commands, Commands::Selecting { .. }) {
                 self.text = Text::default();
-            } else {
-                self.text.process(
-                    input,
-                    casemapping,
-                    users,
-                    last_seen,
-                    channels,
-                    current_target,
-                    config,
-                );
-            }
+                self.emojis = Emojis::default();
 
-            self.emojis = Emojis::default();
-        } else if let Some(shortcode) = (config.buffer.emojis.show_picker
+                return;
+            }
+        } else {
+            self.commands = Commands::default();
+        }
+
+        if let Some(shortcode) = (config.buffer.emojis.show_picker
             || config.buffer.emojis.auto_replace)
             .then(|| {
-                input
-                    .split(' ')
-                    .next_back()
-                    .filter(|last_word| last_word.starts_with(':'))
+                get_word(input, cursor_position)
+                    .filter(|word| word.starts_with(':'))
             })
             .flatten()
         {
             self.emojis.process(shortcode, config);
 
-            self.commands = Commands::default();
             self.text = Text::default();
         } else {
+            let casemapping = isupport::get_casemapping_or_default(isupport);
+
+            let chantypes = isupport::get_chantypes_or_default(isupport);
+
             self.text.process(
                 input,
+                cursor_position,
                 casemapping,
                 users,
+                filters,
                 last_seen,
                 channels,
                 current_target,
+                chantypes,
                 config,
             );
-
-            self.commands = Commands::default();
 
             self.emojis = Emojis::default();
         }
@@ -123,9 +115,13 @@ impl Completion {
             .or(self.emojis.select(config).map(Entry::Emoji))
     }
 
-    pub fn complete_emoji(&self, input: &str) -> Option<String> {
+    pub fn complete_emoji(
+        &self,
+        input: &str,
+        cursor_position: usize,
+    ) -> Option<Vec<text_editor::Action>> {
         if let Emojis::Selected { emoji } = self.emojis {
-            Some(replace_last_word_with_emoji(input, emoji))
+            Some(replace_word_with_text(input, cursor_position, emoji, None))
         } else {
             None
         }
@@ -183,9 +179,14 @@ impl Completion {
         config: &Config,
         theme: &'a Theme,
     ) -> Option<Element<'a, Message>> {
-        self.commands
-            .view(input, config, theme)
-            .or(self.emojis.view(config))
+        let command_view = self.commands.view(input, config, theme);
+        let emojis_view = self.emojis.view(config);
+
+        if command_view.is_some() || emojis_view.is_some() {
+            Some(column![emojis_view, command_view].spacing(4).into())
+        } else {
+            None
+        }
     }
 
     pub fn close_picker(&mut self) -> bool {
@@ -214,56 +215,47 @@ impl Entry {
     pub fn complete_input(
         &self,
         input: &str,
+        cursor_position: usize,
         chantypes: &[char],
         config: &Config,
-    ) -> String {
+    ) -> Vec<text_editor::Action> {
         match self {
-            Entry::Command(command) => {
-                format!("/{}", command.title.to_lowercase())
-            }
+            Entry::Command(command) => replace_word_with_text(
+                input,
+                cursor_position,
+                &format!("/{}", command.title.to_lowercase()),
+                None,
+            ),
             Entry::Text {
                 next,
                 append_suffix,
             } => {
                 let autocomplete = &config.buffer.text_input.autocomplete;
                 let is_channel = next.starts_with(chantypes);
-                let mut words: Vec<_> = input.split(' ').collect();
-
-                if let Some(last_word_position) =
-                    words.iter().rposition(|word| !word.is_empty())
-                {
-                    words.truncate(last_word_position + 1);
-                } else {
-                    words.clear();
-                }
-
-                // Replace the last word with the next word
-                if let Some(last_word) = words.last_mut() {
-                    *last_word = next;
-                } else {
-                    words.push(next);
-                }
-
-                let mut new_input = words.join(" ");
 
                 // If next is not the original prompt, then append the
                 // configured suffix
-                if *append_suffix {
-                    if words.len() == 1 && !is_channel {
+                let suffix = if *append_suffix {
+                    if input.trim_end().find(' ').is_none_or(|space_position| {
+                        cursor_position <= space_position
+                    }) && !is_channel
+                    {
                         // If completed at the beginning of the input line and
                         // not a channel.
-                        let suffix = &autocomplete.completion_suffixes[0];
-                        new_input.push_str(suffix);
+                        Some(autocomplete.completion_suffixes[0].as_str())
                     } else {
                         // Otherwise, use second suffix.
-                        let suffix = &autocomplete.completion_suffixes[1];
-                        new_input.push_str(suffix);
+                        Some(autocomplete.completion_suffixes[1].as_str())
                     }
-                }
+                } else {
+                    None
+                };
 
-                new_input
+                replace_word_with_text(input, cursor_position, next, suffix)
             }
-            Entry::Emoji(emoji) => replace_last_word_with_emoji(input, emoji),
+            Entry::Emoji(emoji) => {
+                replace_word_with_text(input, cursor_position, emoji, None)
+            }
         }
     }
 }
@@ -1296,47 +1288,63 @@ impl Text {
     fn process(
         &mut self,
         input: &str,
+        cursor_position: usize,
         casemapping: isupport::CaseMap,
         users: Option<&ChannelUsers>,
+        filters: FilterChain,
         last_seen: &HashMap<Nick, DateTime<Utc>>,
         channels: &[target::Channel],
         current_target: Option<&Target>,
+        chantypes: &[char],
         config: &Config,
     ) {
         if !self.process_channels(
             input,
-            casemapping,
+            cursor_position,
             channels,
             current_target.and_then(Target::as_channel),
+            chantypes,
             config,
         ) {
-            self.process_users(input, casemapping, users, last_seen, config);
+            self.process_users(
+                input,
+                cursor_position,
+                casemapping,
+                users,
+                filters,
+                current_target.and_then(Target::as_channel),
+                last_seen,
+                config,
+            );
         }
     }
 
     fn process_users(
         &mut self,
         input: &str,
+        cursor_position: usize,
         casemapping: isupport::CaseMap,
         users: Option<&ChannelUsers>,
+        filters: FilterChain,
+        current_channel: Option<&target::Channel>,
         last_seen: &HashMap<Nick, DateTime<Utc>>,
         config: &Config,
     ) {
         let autocomplete = &config.buffer.text_input.autocomplete;
-        let (_, rest) = input.rsplit_once(' ').unwrap_or(("", input));
 
-        if rest.is_empty() {
+        let Some(word) = get_word(input, cursor_position) else {
             *self = Self::default();
             return;
-        }
+        };
 
-        let nick = casemapping.normalize(rest);
+        let nick = casemapping.normalize(word);
 
         self.selected = None;
-        self.prompt = rest.to_string();
+        self.prompt = word.to_string();
         self.filtered = users
             .into_iter()
             .flatten()
+            .filter(|user| !filters.filter_user(user, current_channel))
             .sorted_by(|a, b| {
                 if matches!(autocomplete.order_by, OrderBy::Recent) {
                     if let Some(a_last_seen) =
@@ -1377,55 +1385,63 @@ impl Text {
     fn process_channels(
         &mut self,
         input: &str,
-        casemapping: isupport::CaseMap,
+        cursor_position: usize,
         channels: &[target::Channel],
         current_channel: Option<&target::Channel>,
+        chantypes: &[char],
         config: &Config,
     ) -> bool {
         let autocomplete = &config.buffer.text_input.autocomplete;
-        let (_, last) = input.rsplit_once(' ').unwrap_or(("", input));
-        let Some((_, rest)) = last.split_once('#') else {
-            *self = Self::default();
-            return false;
-        };
 
-        let input_channel = format!("#{}", casemapping.normalize(rest));
+        if let Some(input_channel) = get_word(input, cursor_position)
+            && input_channel.starts_with(chantypes)
+        {
+            self.selected = None;
+            self.prompt = input_channel.to_string();
+            self.filtered = channels
+                .iter()
+                .sorted_by(|a, b: &&target::Channel| {
+                    if let Some(current_channel) = current_channel {
+                        let a_is_current_channel = a.as_normalized_str()
+                            == current_channel.as_normalized_str();
+                        let b_is_current_channel = b.as_normalized_str()
+                            == current_channel.as_normalized_str();
 
-        self.selected = None;
-        self.prompt = format!("#{rest}");
-        self.filtered = channels
-            .iter()
-            .sorted_by(|a, b: &&target::Channel| {
-                if let Some(current_channel) = current_channel {
-                    let a_is_current_channel = a.as_normalized_str()
-                        == current_channel.as_normalized_str();
-                    let b_is_current_channel = b.as_normalized_str()
-                        == current_channel.as_normalized_str();
-
-                    match (a_is_current_channel, b_is_current_channel) {
-                        (false, false) => (),
-                        (true, false) => return std::cmp::Ordering::Less,
-                        (false, true) => return std::cmp::Ordering::Greater,
-                        (true, true) => return std::cmp::Ordering::Equal,
+                        match (a_is_current_channel, b_is_current_channel) {
+                            (false, false) => (),
+                            (true, false) => return std::cmp::Ordering::Less,
+                            (false, true) => {
+                                return std::cmp::Ordering::Greater;
+                            }
+                            (true, true) => return std::cmp::Ordering::Equal,
+                        }
                     }
-                }
 
-                match autocomplete.sort_direction {
-                    SortDirection::Asc => {
-                        a.as_normalized_str().cmp(b.as_normalized_str())
+                    match autocomplete.sort_direction {
+                        SortDirection::Asc => a
+                            .as_normalized_str()
+                            .trim_start_matches(chantypes)
+                            .cmp(
+                                b.as_normalized_str()
+                                    .trim_start_matches(chantypes),
+                            ),
+                        SortDirection::Desc => b
+                            .as_normalized_str()
+                            .trim_start_matches(chantypes)
+                            .cmp(
+                                a.as_normalized_str()
+                                    .trim_start_matches(chantypes),
+                            ),
                     }
-                    SortDirection::Desc => {
-                        b.as_normalized_str().cmp(a.as_normalized_str())
-                    }
-                }
-            })
-            .filter(|&channel| {
-                channel.as_str().starts_with(input_channel.as_str())
-            })
-            .map(ToString::to_string)
-            .collect();
+                })
+                .filter(|&channel| channel.as_str().starts_with(input_channel))
+                .map(ToString::to_string)
+                .collect();
 
-        true
+            true
+        } else {
+            false
+        }
     }
 
     fn tab(&mut self, reverse: bool) -> Option<String> {
@@ -2579,10 +2595,12 @@ enum Emojis {
 }
 
 impl Emojis {
-    fn process(&mut self, last_word: &str, config: &Config) {
-        let last_word = last_word.strip_prefix(":").unwrap_or("");
+    fn process(&mut self, input_shortcode: &str, config: &Config) {
+        let input_shortcode = input_shortcode.strip_prefix(":").unwrap_or("");
 
-        if last_word.len() < config.buffer.emojis.characters_to_trigger_picker {
+        if input_shortcode.len()
+            < config.buffer.emojis.characters_to_trigger_picker
+        {
             *self = Self::default();
             return;
         }
@@ -2591,7 +2609,7 @@ impl Emojis {
             .buffer
             .emojis
             .auto_replace
-            .then(|| last_word.strip_suffix(":"))
+            .then(|| input_shortcode.strip_suffix(":"))
             .flatten()
             .map(str::to_lowercase)
         {
@@ -2607,17 +2625,20 @@ impl Emojis {
             return;
         }
 
-        let last_word = last_word
+        let input_shortcode = input_shortcode
             .strip_suffix(":")
-            .unwrap_or(last_word)
+            .unwrap_or(input_shortcode)
             .to_lowercase();
 
         let mut filtered = emojis::iter()
             .flat_map(|emoji| {
                 emoji.shortcodes().filter_map(|shortcode| {
-                    if shortcode.contains(&last_word) {
+                    if shortcode.contains(&input_shortcode) {
                         Some(FilteredShortcode {
-                            similarity: jaro_winkler(&last_word, shortcode),
+                            similarity: jaro_winkler(
+                                &input_shortcode,
+                                shortcode,
+                            ),
                             shortcode,
                         })
                     } else {
@@ -2754,14 +2775,97 @@ fn pick_emoji(shortcode: &str, skin_tone: SkinTone) -> Option<&'static str> {
     })
 }
 
-fn replace_last_word_with_emoji(input: &str, emoji: &str) -> String {
-    let mut words: Vec<_> = input.split(' ').collect();
+fn replace_word_with_text(
+    input: &str,
+    cursor_position: usize,
+    text: &str,
+    suffix: Option<&str>,
+) -> Vec<text_editor::Action> {
+    let mut actions: Vec<text_editor::Action> = vec![];
 
-    if let Some(last_word) = words.last_mut() {
-        *last_word = emoji;
+    let append_suffix = if cursor_position == input.len() {
+        if let Some((last_word_position, last_word)) = input
+            .split(' ')
+            .rev()
+            .enumerate()
+            .find(|(_, word)| !word.is_empty())
+        {
+            actions.extend(iter::repeat_n(
+                text_editor::Action::Select(text_editor::Motion::Left),
+                last_word_position + last_word.len(),
+            ));
+        }
+
+        true
+    } else {
+        let mut previous_word_bounds = Option::<RangeInclusive<usize>>::None;
+
+        let mut append_suffix = false;
+
+        for word in input.split(' ') {
+            let word_bounds =
+                if let Some(previous_word_bounds) = previous_word_bounds {
+                    RangeInclusive::new(
+                        previous_word_bounds.end() + 1,
+                        previous_word_bounds.end() + 1 + word.len(),
+                    )
+                } else {
+                    RangeInclusive::new(0, word.len())
+                };
+
+            if word_bounds.contains(&cursor_position) {
+                if (cursor_position - word_bounds.start())
+                    <= (word_bounds.end() - cursor_position)
+                {
+                    actions.extend(iter::repeat_n(
+                        text_editor::Action::Move(text_editor::Motion::Left),
+                        cursor_position - word_bounds.start(),
+                    ));
+
+                    actions.extend(iter::repeat_n(
+                        text_editor::Action::Select(text_editor::Motion::Right),
+                        word_bounds.end() - word_bounds.start(),
+                    ));
+                } else {
+                    actions.extend(iter::repeat_n(
+                        text_editor::Action::Move(text_editor::Motion::Right),
+                        word_bounds.end() - cursor_position,
+                    ));
+
+                    actions.extend(iter::repeat_n(
+                        text_editor::Action::Select(text_editor::Motion::Left),
+                        word_bounds.end() - word_bounds.start(),
+                    ));
+                }
+
+                if let Some(suffix) = suffix {
+                    append_suffix = input.get(*word_bounds.end()..).is_none_or(
+                        |after_word| !after_word.starts_with(suffix),
+                    );
+                }
+
+                break;
+            }
+
+            previous_word_bounds = Some(word_bounds);
+        }
+
+        append_suffix
+    };
+
+    actions.push(text_editor::Action::Edit(text_editor::Edit::Paste(
+        std::sync::Arc::new(text.to_string()),
+    )));
+
+    if let Some(suffix) = suffix
+        && append_suffix
+    {
+        actions.push(text_editor::Action::Edit(text_editor::Edit::Paste(
+            std::sync::Arc::new(suffix.to_string()),
+        )));
     }
 
-    words.join(" ")
+    actions
 }
 
 fn selecting_tab<T>(
@@ -2789,4 +2893,32 @@ fn selecting_tab<T>(
 pub enum Arrow {
     Up,
     Down,
+}
+
+fn get_word(input: &str, cursor_position: usize) -> Option<&str> {
+    let mut previous_word_bounds = Option::<RangeInclusive<usize>>::None;
+
+    if cursor_position == input.len() {
+        return input.split(' ').rfind(|word| !word.is_empty());
+    }
+
+    for word in input.split(' ') {
+        let word_bounds =
+            if let Some(previous_word_bounds) = previous_word_bounds {
+                RangeInclusive::new(
+                    previous_word_bounds.end() + 1,
+                    previous_word_bounds.end() + 1 + word.len(),
+                )
+            } else {
+                RangeInclusive::new(0, word.len())
+            };
+
+        if word_bounds.contains(&cursor_position) {
+            return (!word.is_empty()).then_some(word);
+        }
+
+        previous_word_bounds = Some(word_bounds);
+    }
+
+    None
 }

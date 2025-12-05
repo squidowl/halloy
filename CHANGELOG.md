@@ -3,14 +3,20 @@
 Added:
 
 - Setting to open a new pane, replace current pane, or open a new window after `/join`
+- Emoji, channel, and user completion can be used with commands
+- Auto-completion (emoji/channel/user) will auto-complete at the text cursor (instead of the end of the current input)
+- Insert-nickname will place the nickname at the text cursor (instead of end of the current input)
 
 Fixed:
 
 - No longer any delay in showing a tooltip after hovering
+- Ignored users will not be suggested by user auto-completion
+- Channel auto-completion works with all channel prefixes specified by the server
 
 Thanks:
 
-- Bug reports: halloy3002
+- Bug reports: halloy3002, g00s
+- Feature requests: @tribly
 
 # 2025.12 (2025-11-28)
 
