@@ -29,6 +29,16 @@ impl Manager {
         self.channels.insert(channel, (topic_content, user_count));
     }
 
+    fn sort_by_user_count<'a>(
+        &self,
+        mut results: Vec<(&'a String, &'a message::Content, &'a usize)>,
+    ) -> Vec<(&'a String, &'a message::Content, &'a usize)> {
+        results.sort_unstable_by(|(_, _, user_count_a), (_, _, user_count_b)| {
+            user_count_b.cmp(user_count_a)
+        });
+        results
+    }
+
     pub fn items(
         &self,
         search_query: &str,
@@ -37,19 +47,20 @@ impl Manager {
 
         // all channels when no query
         if query.is_empty() {
-            return self
+            let results: Vec<_> = self
                 .channels
                 .iter()
                 .map(|(channel, (topic_content, user_count))| {
                     (channel, topic_content, user_count)
                 })
                 .collect();
+            return self.sort_by_user_count(results);
         }
 
         // simple substring search
         if query.len() <= 2 {
             let query_lower = query.to_lowercase();
-            return self
+            let results: Vec<_> = self
                 .channels
                 .iter()
                 .filter_map(|(channel, (topic_content, user_count))| {
@@ -65,6 +76,7 @@ impl Manager {
                 })
                 .take(MAX_RESULTS)
                 .collect();
+            return self.sort_by_user_count(results);
         }
 
         // fuzzy search
@@ -97,11 +109,12 @@ impl Manager {
         }
 
         fn cmp_entries(
-            (score_a, channel_a, _, _): &(u32, &String, &message::Content, &usize),
-            (score_b, channel_b, _, _): &(u32, &String, &message::Content, &usize),
+            (score_a, channel_a, _, user_count_a): &(u32, &String, &message::Content, &usize),
+            (score_b, channel_b, _, user_count_b): &(u32, &String, &message::Content, &usize),
         ) -> Ordering {
-            score_b
-                .cmp(score_a)
+            user_count_b
+                .cmp(user_count_a)
+                .then_with(|| score_b.cmp(score_a))
                 .then_with(|| channel_a.cmp(channel_b))
         }
 

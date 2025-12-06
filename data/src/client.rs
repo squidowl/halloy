@@ -3550,6 +3550,13 @@ impl Map {
         self.client(server).map(|client| &client.channel_discovery_manager)
     }
 
+    pub fn get_channel_discovery_manager_mut(
+        &mut self,
+        server: &Server,
+    ) -> Option<&mut channel_discovery_manager::Manager> {
+        self.client_mut(server).map(|client| &mut client.channel_discovery_manager)
+    }
+
     pub fn get_channel_users(
         &self,
         server: &Server,

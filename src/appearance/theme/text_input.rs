@@ -41,7 +41,10 @@ pub fn primary(theme: &Theme, status: Status) -> Style {
             ..active
         },
         Status::Disabled => Style {
-            background: Background::Color(Color::TRANSPARENT),
+            background: Background::Color(Color {
+                a: 0.2,
+                ..theme.styles().buttons.secondary.background
+            }),
             placeholder: Color {
                 a: 0.2,
                 ..theme.styles().text.secondary.color
