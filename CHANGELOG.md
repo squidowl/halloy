@@ -7,6 +7,7 @@ Added:
 - Auto-completion (emoji/channel/user) will auto-complete at the text cursor (instead of the end of the current input)
 - Insert-nickname will place the nickname at the text cursor (instead of end of the current input)
 - Setting to disable unread indicators for specified channels/servers
+- Users and messages can be filtered using regular expressions
 
 Fixed:
 
