@@ -22,7 +22,7 @@ pub enum Message {
 
 pub enum Event {
     ContextMenu(context_menu::Event),
-    OpenBuffer(Target, BufferAction),
+    OpenBuffer(Server, Target, BufferAction),
     GoToMessage(Server, target::Channel, message::Hash),
     History(Task<history::manager::Message>),
     OpenUrl(String),
@@ -158,6 +158,7 @@ pub fn view<'a>(
 
                     let text = message_content::with_context(
                         &message.content,
+                        server,
                         chantypes,
                         casemapping,
                         theme,
@@ -167,7 +168,7 @@ pub fn view<'a>(
                         theme::font_style::primary,
                         Option::<fn(Color) -> Color>::None,
                         move |link| match link {
-                            message::Link::User(_) => {
+                            message::Link::User(_, _) => {
                                 context_menu::Entry::user_list(
                                     true,
                                     current_user,
@@ -247,6 +248,7 @@ pub fn view<'a>(
 
                     let text = message_content(
                         &message.content,
+                        server,
                         chantypes,
                         casemapping,
                         theme,
@@ -316,9 +318,11 @@ impl Highlights {
                     scroll_view::Event::ContextMenu(event) => {
                         Some(Event::ContextMenu(event))
                     }
-                    scroll_view::Event::OpenBuffer(target, buffer_action) => {
-                        Some(Event::OpenBuffer(target, buffer_action))
-                    }
+                    scroll_view::Event::OpenBuffer(
+                        server,
+                        target,
+                        buffer_action,
+                    ) => Some(Event::OpenBuffer(server, target, buffer_action)),
                     scroll_view::Event::GoToMessage(
                         server,
                         channel,

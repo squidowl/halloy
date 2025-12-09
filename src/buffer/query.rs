@@ -23,7 +23,7 @@ pub enum Message {
 
 pub enum Event {
     ContextMenu(context_menu::Event),
-    OpenBuffers(Vec<(Target, BufferAction)>),
+    OpenBuffers(Server, Vec<(Target, BufferAction)>),
     OpenInternalBuffer(buffer::Internal),
     LeaveBuffers(Vec<Target>, Option<String>),
     History(Task<history::manager::Message>),
@@ -181,9 +181,14 @@ impl Query {
                     scroll_view::Event::ContextMenu(event) => {
                         Some(Event::ContextMenu(event))
                     }
-                    scroll_view::Event::OpenBuffer(target, buffer_action) => {
-                        Some(Event::OpenBuffers(vec![(target, buffer_action)]))
-                    }
+                    scroll_view::Event::OpenBuffer(
+                        server,
+                        target,
+                        buffer_action,
+                    ) => Some(Event::OpenBuffers(
+                        server,
+                        vec![(target, buffer_action)],
+                    )),
                     scroll_view::Event::GoToMessage(_, _, _) => None,
                     scroll_view::Event::RequestOlderChatHistory => {
                         Some(Event::RequestOlderChatHistory)
@@ -251,9 +256,10 @@ impl Query {
                             }),
                         )
                     }
-                    Some(input_view::Event::OpenBuffers { targets }) => {
-                        (command, Some(Event::OpenBuffers(targets)))
-                    }
+                    Some(input_view::Event::OpenBuffers {
+                        server,
+                        targets,
+                    }) => (command, Some(Event::OpenBuffers(server, targets))),
                     Some(input_view::Event::LeaveBuffers {
                         targets,
                         reason,
