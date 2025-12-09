@@ -2,9 +2,12 @@ use serde::{Deserialize, Deserializer};
 use serde_untagged::UntaggedEnumVisitor;
 
 use crate::config::Scrollbar;
+use crate::config::inclusivities::{Inclusivities, is_target_channel_included};
 use crate::serde::deserialize_positive_integer;
+use crate::server::Server;
+use crate::{isupport, target};
 
-#[derive(Debug, Copy, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
 pub struct Sidebar {
     pub max_width: Option<u16>,
@@ -47,7 +50,7 @@ impl Default for Sidebar {
     }
 }
 
-#[derive(Debug, Copy, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
 pub struct UnreadIndicator {
     pub title: bool,
@@ -57,6 +60,8 @@ pub struct UnreadIndicator {
     pub highlight_icon: Icon,
     #[serde(deserialize_with = "deserialize_positive_integer")]
     pub highlight_icon_size: u32,
+    pub exclude: Option<Inclusivities>,
+    pub include: Option<Inclusivities>,
 }
 
 impl Default for UnreadIndicator {
@@ -67,6 +72,8 @@ impl Default for UnreadIndicator {
             icon_size: 6,
             highlight_icon: Icon::CircleEmpty,
             highlight_icon_size: 8,
+            exclude: None,
+            include: None,
         }
     }
 }
@@ -78,6 +85,22 @@ impl UnreadIndicator {
 
     pub fn has_unread_highlight_icon(&self) -> bool {
         !matches!(self.highlight_icon, Icon::None)
+    }
+
+    pub fn should_indicate_unread(
+        &self,
+        channel: &target::Channel,
+        server: &Server,
+        casemapping: isupport::CaseMap,
+    ) -> bool {
+        is_target_channel_included(
+            self.include.as_ref(),
+            self.exclude.as_ref(),
+            None,
+            channel,
+            server,
+            casemapping,
+        )
     }
 }
 

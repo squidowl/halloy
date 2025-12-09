@@ -6,6 +6,7 @@ Added:
 - Emoji, channel, and user completion can be used with commands
 - Auto-completion (emoji/channel/user) will auto-complete at the text cursor (instead of the end of the current input)
 - Insert-nickname will place the nickname at the text cursor (instead of end of the current input)
+- Setting to disable unread indicators for specified channels/servers
 
 Fixed:
 
@@ -16,7 +17,7 @@ Fixed:
 Thanks:
 
 - Bug reports: halloy3002, g00s
-- Feature requests: @tribly
+- Feature requests: @tribly, @deepspaceaxolotl
 
 # 2025.12 (2025-11-28)
 
