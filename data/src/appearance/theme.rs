@@ -184,6 +184,8 @@ pub struct Buffer {
     pub topic: TextStyle,
     pub url: TextStyle,
     pub nickname_offline: OptionalTextStyle,
+    #[serde(with = "color_serde_maybe")]
+    pub backlog_rule: Option<Color>,
 }
 
 impl Default for Buffer {
@@ -204,6 +206,7 @@ impl Default for Buffer {
             topic: TextStyle::default(),
             url: TextStyle::default(),
             nickname_offline: OptionalTextStyle::default(),
+            backlog_rule: None,
         }
     }
 }
