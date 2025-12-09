@@ -136,7 +136,7 @@ impl Internal {
             Internal::FileTransfers => "file-transfers",
             Internal::Logs => "logs",
             Internal::Highlights => "highlights",
-            Internal::ChannelDiscovery => "list-channels",
+            Internal::ChannelDiscovery => "channel-discovery",
         }
         .to_string()
     }
