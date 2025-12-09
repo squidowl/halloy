@@ -58,7 +58,7 @@ pub enum Message {
 #[derive(Debug, Clone)]
 pub enum Event {
     ContextMenu(context_menu::Event),
-    OpenBuffer(Target, BufferAction),
+    OpenBuffer(Server, Target, BufferAction),
     GoToMessage(Server, target::Channel, message::Hash),
     RequestOlderChatHistory,
     PreviewChanged,
@@ -742,10 +742,11 @@ impl State {
                     Some(Event::ContextMenu(context_menu::update(message))),
                 );
             }
-            Message::Link(message::Link::Channel(channel)) => {
+            Message::Link(message::Link::Channel(server, channel)) => {
                 return (
                     Task::none(),
                     Some(Event::OpenBuffer(
+                        server,
                         Target::Channel(channel),
                         config.actions.buffer.click_channel_name,
                     )),
@@ -754,12 +755,13 @@ impl State {
             Message::Link(message::Link::Url(url)) => {
                 return (Task::none(), Some(Event::OpenUrl(url)));
             }
-            Message::Link(message::Link::User(user)) => {
+            Message::Link(message::Link::User(server, user)) => {
                 let event = match config.buffer.nickname.click {
                     data::config::buffer::NicknameClickAction::OpenQuery => {
                         let query = target::Query::from(user);
 
                         Event::OpenBuffer(
+                            server,
                             Target::Query(query),
                             config.actions.buffer.click_username,
                         )
