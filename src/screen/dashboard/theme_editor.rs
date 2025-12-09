@@ -455,12 +455,12 @@ pub enum Component {
 impl Component {
     fn color(&self, styles: &Styles) -> Option<Color> {
         match self {
-            Component::General(general) => Some(general.color(&styles.general)),
-            Component::Text(text) => text.color(&styles.text),
-            Component::Buffer(buffer) => buffer.color(&styles.buffer),
-            Component::Buttons(buttons) => Some(buttons.color(&styles.buttons)),
+            Component::General(general) => Some(general.color(styles)),
+            Component::Text(text) => text.color(styles),
+            Component::Buffer(buffer) => buffer.color(styles),
+            Component::Buttons(buttons) => Some(buttons.color(styles)),
             Component::Formatting(formatting) => {
-                formatting.color(&styles.formatting)
+                formatting.color(styles)
             }
         }
     }
@@ -468,8 +468,8 @@ impl Component {
     fn font_style(&self, styles: &Styles) -> Option<Option<FontStyle>> {
         match self {
             Component::General(_) => None,
-            Component::Text(text) => Some(text.font_style(&styles.text)),
-            Component::Buffer(buffer) => buffer.font_style(&styles.buffer),
+            Component::Text(text) => Some(text.font_style(styles)),
+            Component::Buffer(buffer) => buffer.font_style(styles),
             Component::Buttons(_) => None,
             Component::Formatting(_) => None,
         }
@@ -517,18 +517,20 @@ pub enum General {
 }
 
 impl General {
-    fn color(&self, styles: &theme::General) -> Color {
+    fn color(&self, styles: &Styles) -> Color {
         match self {
-            General::Background => styles.background,
-            General::Border => styles.border,
+            General::Background => styles.general.background,
+            General::Border => styles.general.border,
             General::HighlightIndicator => styles
+                .general
                 .highlight_indicator
-                .unwrap_or(styles.unread_indicator),
-            General::HorizontalRule => styles.horizontal_rule,
-            General::Scrollbar => {
-                styles.scrollbar.unwrap_or(styles.horizontal_rule)
-            }
-            General::UnreadIndicator => styles.unread_indicator,
+                .unwrap_or(styles.general.unread_indicator),
+            General::HorizontalRule => styles.general.horizontal_rule,
+            General::Scrollbar => styles
+                .general
+                .scrollbar
+                .unwrap_or(styles.general.horizontal_rule),
+            General::UnreadIndicator => styles.general.unread_indicator,
         }
     }
 
@@ -573,31 +575,31 @@ pub enum Text {
 }
 
 impl Text {
-    fn color(&self, styles: &theme::Text) -> Option<Color> {
+    fn color(&self, styles: &Styles) -> Option<Color> {
         match self {
-            Text::Primary => Some(styles.primary.color),
-            Text::Secondary => Some(styles.secondary.color),
-            Text::Tertiary => Some(styles.tertiary.color),
-            Text::Success => Some(styles.success.color),
-            Text::Error => Some(styles.error.color),
-            Text::Warning => styles.warning.color,
-            Text::Info => styles.info.color,
-            Text::Debug => styles.debug.color,
-            Text::Trace => styles.trace.color,
+            Text::Primary => Some(styles.text.primary.color),
+            Text::Secondary => Some(styles.text.secondary.color),
+            Text::Tertiary => Some(styles.text.tertiary.color),
+            Text::Success => Some(styles.text.success.color),
+            Text::Error => Some(styles.text.error.color),
+            Text::Warning => styles.text.warning.color,
+            Text::Info => styles.text.info.color,
+            Text::Debug => styles.text.debug.color,
+            Text::Trace => styles.text.trace.color,
         }
     }
 
-    fn font_style(&self, styles: &theme::Text) -> Option<FontStyle> {
+    fn font_style(&self, styles: &Styles) -> Option<FontStyle> {
         match self {
-            Text::Primary => styles.primary.font_style,
-            Text::Secondary => styles.secondary.font_style,
-            Text::Tertiary => styles.tertiary.font_style,
-            Text::Success => styles.success.font_style,
-            Text::Error => styles.error.font_style,
-            Text::Warning => styles.warning.font_style,
-            Text::Info => styles.info.font_style,
-            Text::Debug => styles.debug.font_style,
-            Text::Trace => styles.trace.font_style,
+            Text::Primary => styles.text.primary.font_style,
+            Text::Secondary => styles.text.secondary.font_style,
+            Text::Tertiary => styles.text.tertiary.font_style,
+            Text::Success => styles.text.success.font_style,
+            Text::Error => styles.text.error.font_style,
+            Text::Warning => styles.text.warning.font_style,
+            Text::Info => styles.text.info.font_style,
+            Text::Debug => styles.text.debug.font_style,
+            Text::Trace => styles.text.trace.font_style,
         }
     }
 
@@ -679,50 +681,64 @@ pub enum Buffer {
     Timestamp,
     Topic,
     Url,
+    BacklogRule,
 }
 
 impl Buffer {
-    fn color(&self, styles: &theme::Buffer) -> Option<Color> {
+    fn color(&self, styles: &Styles) -> Option<Color> {
         match self {
-            Buffer::Action => Some(styles.action.color),
-            Buffer::Background => Some(styles.background),
-            Buffer::BackgroundTextInput => Some(styles.background_text_input),
-            Buffer::BackgroundTitleBar => Some(styles.background_title_bar),
-            Buffer::Border => Some(styles.border),
-            Buffer::BorderSelected => Some(styles.border_selected),
-            Buffer::Code => Some(styles.code.color),
-            Buffer::Highlight => Some(styles.highlight),
-            Buffer::Nickname => Some(styles.nickname.color),
-            Buffer::NicknameOffline => styles.nickname_offline.color,
-            Buffer::Selection => Some(styles.selection),
-            Buffer::ServerMessages(server_messages) => {
-                server_messages.color(&styles.server_messages)
+            Buffer::Action => Some(styles.buffer.action.color),
+            Buffer::Background => Some(styles.buffer.background),
+            Buffer::BackgroundTextInput => {
+                Some(styles.buffer.background_text_input)
             }
-            Buffer::Timestamp => Some(styles.timestamp.color),
-            Buffer::Topic => Some(styles.topic.color),
-            Buffer::Url => Some(styles.url.color),
+            Buffer::BackgroundTitleBar => {
+                Some(styles.buffer.background_title_bar)
+            }
+            Buffer::Border => Some(styles.buffer.border),
+            Buffer::BorderSelected => Some(styles.buffer.border_selected),
+            Buffer::Code => Some(styles.buffer.code.color),
+            Buffer::Highlight => Some(styles.buffer.highlight),
+            Buffer::Nickname => Some(styles.buffer.nickname.color),
+            Buffer::NicknameOffline => styles.buffer.nickname_offline.color,
+            Buffer::Selection => Some(styles.buffer.selection),
+            Buffer::ServerMessages(server_messages) => {
+                server_messages.color(&styles.buffer.server_messages)
+            }
+            Buffer::Timestamp => Some(styles.buffer.timestamp.color),
+            Buffer::Topic => Some(styles.buffer.topic.color),
+            Buffer::Url => Some(styles.buffer.url.color),
+            Buffer::BacklogRule => Some(
+                styles
+                    .buffer
+                    .backlog_rule
+                    .unwrap_or(styles.general.horizontal_rule),
+            ),
         }
     }
 
-    fn font_style(&self, styles: &theme::Buffer) -> Option<Option<FontStyle>> {
+    fn font_style(&self, styles: &Styles) -> Option<Option<FontStyle>> {
         match self {
-            Buffer::Action => Some(styles.action.font_style),
+            Buffer::Action => Some(styles.buffer.action.font_style),
             Buffer::Background => None,
             Buffer::BackgroundTextInput => None,
             Buffer::BackgroundTitleBar => None,
             Buffer::Border => None,
             Buffer::BorderSelected => None,
-            Buffer::Code => Some(styles.code.font_style),
+            Buffer::Code => Some(styles.buffer.code.font_style),
             Buffer::Highlight => None,
-            Buffer::Nickname => Some(styles.nickname.font_style),
-            Buffer::NicknameOffline => Some(styles.nickname_offline.font_style),
+            Buffer::Nickname => Some(styles.buffer.nickname.font_style),
+            Buffer::NicknameOffline => {
+                Some(styles.buffer.nickname_offline.font_style)
+            }
             Buffer::Selection => None,
             Buffer::ServerMessages(server_messages) => {
-                Some(server_messages.font_style(&styles.server_messages))
+                Some(server_messages.font_style(&styles.buffer.server_messages))
             }
-            Buffer::Timestamp => Some(styles.timestamp.font_style),
-            Buffer::Topic => Some(styles.topic.font_style),
-            Buffer::Url => Some(styles.url.font_style),
+            Buffer::Timestamp => Some(styles.buffer.timestamp.font_style),
+            Buffer::Topic => Some(styles.buffer.topic.font_style),
+            Buffer::Url => Some(styles.buffer.url.font_style),
+            Buffer::BacklogRule => None,
         }
     }
 
@@ -814,6 +830,11 @@ impl Buffer {
                     styles.url.color = color;
                 }
                 styles.url.font_style = font_style;
+            }
+            Buffer::BacklogRule => {
+                if let Some(color) = color {
+                    styles.backlog_rule = Some(color);
+                }
             }
         }
     }
@@ -992,10 +1013,12 @@ pub enum Buttons {
 }
 
 impl Buttons {
-    fn color(&self, styles: &theme::Buttons) -> Color {
+    fn color(&self, styles: &Styles) -> Color {
         match self {
-            Buttons::Primary(button) => button.color(&styles.primary),
-            Buttons::Secondary(button) => button.color(&styles.secondary),
+            Buttons::Primary(button) => button.color(&styles.buttons.primary),
+            Buttons::Secondary(button) => {
+                button.color(&styles.buttons.secondary)
+            }
         }
     }
 
@@ -1083,24 +1106,24 @@ pub enum Formatting {
 }
 
 impl Formatting {
-    fn color(&self, styles: &theme::Formatting) -> Option<Color> {
+    fn color(&self, styles: &theme::Styles) -> Option<Color> {
         match self {
-            Formatting::White => styles.white,
-            Formatting::Black => styles.black,
-            Formatting::Blue => styles.blue,
-            Formatting::Green => styles.green,
-            Formatting::Red => styles.red,
-            Formatting::Brown => styles.brown,
-            Formatting::Magenta => styles.magenta,
-            Formatting::Orange => styles.orange,
-            Formatting::Yellow => styles.yellow,
-            Formatting::LightGreen => styles.lightgreen,
-            Formatting::Cyan => styles.cyan,
-            Formatting::LightCyan => styles.lightcyan,
-            Formatting::LightBlue => styles.lightblue,
-            Formatting::Pink => styles.pink,
-            Formatting::Grey => styles.grey,
-            Formatting::LightGrey => styles.lightgrey,
+            Formatting::White => styles.formatting.white,
+            Formatting::Black => styles.formatting.black,
+            Formatting::Blue => styles.formatting.blue,
+            Formatting::Green => styles.formatting.green,
+            Formatting::Red => styles.formatting.red,
+            Formatting::Brown => styles.formatting.brown,
+            Formatting::Magenta => styles.formatting.magenta,
+            Formatting::Orange => styles.formatting.orange,
+            Formatting::Yellow => styles.formatting.yellow,
+            Formatting::LightGreen => styles.formatting.lightgreen,
+            Formatting::Cyan => styles.formatting.cyan,
+            Formatting::LightCyan => styles.formatting.lightcyan,
+            Formatting::LightBlue => styles.formatting.lightblue,
+            Formatting::Pink => styles.formatting.pink,
+            Formatting::Grey => styles.formatting.grey,
+            Formatting::LightGrey => styles.formatting.lightgrey,
         }
     }
 
