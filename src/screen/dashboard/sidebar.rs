@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use data::config::{self, Config, sidebar};
 use data::dashboard::{BufferAction, BufferFocusedAction};
-use data::{Version, buffer, file_transfer, history, server, target};
+use data::{Version, buffer, file_transfer, history, isupport, server, target};
 use iced::widget::{
     Column, Row, Scrollable, Space, button, column, container, pane_grid, row,
     rule, scrollable, space, stack, text,
@@ -412,6 +412,8 @@ impl Sidebar {
             let mut client_enumeration = 0;
 
             for server in servers.keys() {
+                let casemapping = clients.get_casemapping(server);
+
                 let button =
                     |buffer: buffer::Upstream,
                      connected: bool,
@@ -428,9 +430,10 @@ impl Sidebar {
                             config.actions.sidebar.focused_buffer,
                             config.sidebar.position,
                             config.sidebar.server_icon_size,
-                            config.sidebar.unread_indicator,
+                            &config.sidebar.unread_indicator,
                             server_has_unread,
                             supports_detach,
+                            casemapping,
                             has_unread,
                             has_highlight,
                             history,
@@ -754,9 +757,10 @@ fn upstream_buffer_button<'a>(
     focused_buffer_action: Option<BufferFocusedAction>,
     position: sidebar::Position,
     server_icon_size: u32,
-    unread_indicator: sidebar::UnreadIndicator,
+    unread_indicator: &'a sidebar::UnreadIndicator,
     server_has_unread: bool,
     supports_detach: bool,
+    casemapping: isupport::CaseMap,
     has_unread: bool,
     has_highlight: bool,
     history: &'a history::Manager,
@@ -775,11 +779,23 @@ fn upstream_buffer_button<'a>(
         .then_some((window_id, pane))
     });
 
-    let show_highlight_icon =
-        has_highlight && unread_indicator.has_unread_highlight_icon();
-    let show_unread_icon = has_unread && unread_indicator.has_unread_icon();
-    let show_unread_title = has_unread && unread_indicator.title;
-    let show_highlight_unread_title = has_highlight && unread_indicator.title;
+    let should_indicate_unread = buffer.channel().is_none_or(|channel| {
+        unread_indicator.should_indicate_unread(
+            channel,
+            buffer.server(),
+            casemapping,
+        )
+    });
+    let show_highlight_icon = has_highlight
+        && unread_indicator.has_unread_highlight_icon()
+        && should_indicate_unread;
+    let show_unread_icon = has_unread
+        && unread_indicator.has_unread_icon()
+        && should_indicate_unread;
+    let show_unread_title =
+        has_unread && unread_indicator.title && should_indicate_unread;
+    let show_highlight_unread_title =
+        has_highlight && unread_indicator.title && should_indicate_unread;
 
     let buffer_title_style = if show_highlight_unread_title {
         theme::text::highlight_indicator
