@@ -10,6 +10,7 @@ use data::history::{self, ReadMarker};
 use data::input::{self, RawInput};
 use data::message::server_time;
 use data::rate_limit::TokenPriority;
+use data::server::Server;
 use data::target::Target;
 use data::user::Nick;
 use data::{Config, User, client, command, shortcut};
@@ -37,6 +38,7 @@ pub enum Event {
         open_buffers: Vec<(Target, BufferAction)>,
     },
     OpenBuffers {
+        server: Server,
         targets: Vec<(Target, BufferAction)>,
     },
     LeaveBuffers {
@@ -700,6 +702,7 @@ impl State {
                                     return (
                                         Task::none(),
                                         Some(Event::OpenBuffers {
+                                            server: buffer.server().clone(),
                                             targets: targets
                                                 .into_iter()
                                                 .map(|target| match target {
@@ -863,6 +866,7 @@ impl State {
                                             };
 
                                             Event::OpenBuffers {
+                                                server: buffer.server().clone(),
                                                 targets: vec![(
                                                     target,
                                                     buffer_action,
