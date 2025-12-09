@@ -13,19 +13,6 @@ use crate::widget::{
 };
 use crate::{Theme, font, icon};
 
-fn topic_link_entry_view<'a>(
-    link: &message::Link,
-    entry: context_menu::Entry,
-    length: Length,
-    config: &'a Config,
-    theme: &'a Theme,
-) -> Element<'a, Message> {
-    let link_context = link.url().map(Context::Url);
-    entry
-        .view(link_context, length, config, theme)
-        .map(Message::ContextMenu)
-}
-
 #[derive(Debug, Clone)]
 pub enum Message {
     SelectServer(Server),
@@ -87,17 +74,13 @@ impl ChannelDiscovery {
 
                 let should_fetch = clients
                     .get_channel_discovery_manager(&server)
-                    .map(|manager| {
+                    .is_none_or(|manager| {
                         manager.last_updated.is_none()
-                            || manager.last_updated.is_some_and(
-                                |last_updated| {
-                                    Utc::now()
-                                        .signed_duration_since(last_updated)
-                                        > Duration::minutes(5)
-                                },
-                            )
-                    })
-                    .unwrap_or(true);
+                            || manager.last_updated.is_some_and(|last_updated| {
+                                Utc::now().signed_duration_since(last_updated)
+                                    > Duration::minutes(5)
+                            })
+                    });
 
                 let event = if should_fetch {
                     Some(Event::ListForServer(server))
@@ -217,9 +200,7 @@ pub fn view<'a>(
                                                 _ => vec![],
                                             },
                                             move |link, entry, length| {
-                                                topic_link_entry_view(
-                                                    link, entry, length, config, theme,
-                                                )
+                                                entry.view(link.url().map(Context::Url), length, config, theme).map(Message::ContextMenu)
                                             },
                                             config,
                                         ))

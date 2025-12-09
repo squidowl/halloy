@@ -384,13 +384,14 @@ impl Buffer {
                     channel_discovery::Event::OpenUrl(url) => {
                         Event::OpenUrl(url)
                     }
-                    channel_discovery::Event::OpenChannelForServer(server, channel) => {
-                        Event::OpenChannelForServer(
-                            server,
-                            Target::Channel(channel),
-                            config.actions.buffer.click_channel_name,
-                        )
-                    }
+                    channel_discovery::Event::OpenChannelForServer(
+                        server,
+                        channel,
+                    ) => Event::OpenChannelForServer(
+                        server,
+                        Target::Channel(channel),
+                        config.actions.buffer.click_channel_name,
+                    ),
                 });
 
                 (command.map(Message::ChannelList), event)

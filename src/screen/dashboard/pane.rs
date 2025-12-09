@@ -102,7 +102,7 @@ impl Pane {
                 } else {
                     base.to_string()
                 }
-            },
+            }
             Buffer::Logs(_) => "Logs".to_string(),
             Buffer::Highlights(_) => "Highlights".to_string(),
         };
