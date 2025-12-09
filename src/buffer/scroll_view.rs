@@ -434,20 +434,31 @@ pub fn view<'a>(
     };
 
     let divider = if show_backlog_divier {
-        row![
-            container(rule::horizontal(1))
-                .width(Length::Fill)
-                .padding(padding::right(6)),
-            text("backlog")
-                .size(divider_font_size)
-                .style(theme::text::secondary)
-                .font_maybe(theme::font_style::secondary(theme).map(font::get)),
-            container(rule::horizontal(1))
-                .width(Length::Fill)
-                .padding(padding::left(6))
-        ]
-        .padding(2)
-        .align_y(iced::Alignment::Center)
+        match &config.buffer.backlog_separator.text {
+            data::buffer::BacklogText::Hidden => row![
+                container(rule::horizontal(1).style(theme::rule::backlog))
+                    .padding([2, 0])
+                    .width(Length::Fill)
+            ]
+            .padding(2)
+            .align_y(iced::Alignment::Center),
+            data::buffer::BacklogText::Text(separator_text) => row![
+                container(rule::horizontal(1).style(theme::rule::backlog))
+                    .width(Length::Fill)
+                    .padding(padding::right(6)),
+                text(separator_text)
+                    .size(divider_font_size)
+                    .style(theme::text::secondary)
+                    .font_maybe(
+                        theme::font_style::secondary(theme).map(font::get)
+                    ),
+                container(rule::horizontal(1).style(theme::rule::backlog))
+                    .width(Length::Fill)
+                    .padding(padding::left(6))
+            ]
+            .padding(2)
+            .align_y(iced::Alignment::Center),
+        }
     } else {
         row![]
     };
