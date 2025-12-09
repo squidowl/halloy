@@ -44,6 +44,6 @@ A list of regex used to filter messages; if a match is found in the message text
 [servers.<name>.filters]
 regex = [
 '''(?i)\bunwanted_pattern\b''',
-'''(?i)^[A-Z ]+$''',
+'''^[A-Z ]+$''',
 ]
 ```
