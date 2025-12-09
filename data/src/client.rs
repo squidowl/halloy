@@ -28,8 +28,8 @@ use crate::target::{self, Target};
 use crate::time::Posix;
 use crate::user::{ChannelUsers, Nick, NickRef};
 use crate::{
-    Server, User, buffer, channel_discovery, compression, config, ctcp,
-    dcc, environment, file_transfer, history, isupport, message, mode, server,
+    Server, User, buffer, channel_discovery, compression, config, ctcp, dcc,
+    environment, file_transfer, history, isupport, message, mode, server,
 };
 
 pub mod on_connect;
@@ -231,8 +231,7 @@ impl Client {
             anti_flood: Some(TokenBucket::new(config.anti_flood, 10)),
             mode_requests: Vec::new(),
             config,
-            channel_discovery_manager: channel_discovery::Manager::new(
-            ),
+            channel_discovery_manager: channel_discovery::Manager::new(),
         }
     }
 
