@@ -34,7 +34,7 @@
             const path_to_root = "../../";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../../searchindex-fd26ce67.js";
+            window.path_to_searchindex_js = "../../searchindex-d1eb7b05.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="../../toc-fe913ceb.js"></script>
@@ -187,6 +187,7 @@
 <li><a href="#configuration">Configuration</a>
 <ul>
 <li><a href="#ignore">ignore</a></li>
+<li><a href="#regex">regex</a></li>
 </ul>
 </li>
 </ul>
@@ -194,16 +195,35 @@
 </ul>
 <h2 id="configuration"><a class="header" href="#configuration">Configuration</a></h2>
 <h3 id="ignore"><a class="header" href="#ignore">ignore</a></h3>
-<p>A list of nicknames to ignore. Optionally, the nickname may be preceded by a channel name like so: <code>"#channel nickname"</code> - this will ignore the nickname for a specific channel only.</p>
-<pre><code class="language-toml"># Type: array of strings
-# Values: array of any strings
+<p>A list of users to ignore. Users may be identified in any of these four ways:</p>
+<ul>
+<li>A string of the exact nickname to ignore in all contexts (equivalent nicknames, as defined by the server’s <a href="https://modern.ircdocs.horse/#casemapping-parameter">casemapping</a>, will be ignored).</li>
+<li>A user &amp; channel pair, written as <code>{ user = "nickname", channel = "#channel" }</code>, to ignore the user only in the specified channel.</li>
+<li>A regular expression, written as <code>{ regex = "pattern" }</code>, where any user whose nickname matches the regular expression will be ignored.</li>
+<li>A regular expression &amp; channel pair, written as <code>{ regex = "pattern", channel = "#channel" }</code>, where any user whose nicknames matches the regular expression will be ignored in the specified channel.</li>
+</ul>
+<pre><code class="language-toml"># Type: array of user identifiers
+# Values: array of any user identifiers
 # Default: not set
 
 [servers.&lt;name&gt;.filters]
 ignore = [
 "ignored_user", 
-"another_user",
-"#specific-channel user_only_for_channel"
+{ regex = '''(?i)ignored_users-.*''' },
+{ user = "user_in_channel", channel = "#channel_with_user" },
+{ regex = '''(?i)users_in_channel-.*''', channel = "#channel_with_users" }
+]
+</code></pre>
+<h3 id="regex"><a class="header" href="#regex">regex</a></h3>
+<p>A list of regex used to filter messages; if a match is found in the message text, then the message will be hidden.</p>
+<pre><code class="language-toml"># Type: array of strings
+# Values: array of any strings
+# Default: not set
+
+[servers.&lt;name&gt;.filters]
+regex = [
+'''(?i)\bunwanted_pattern\b''',
+'''^[A-Z ]+$''',
 ]
 </code></pre>
 
