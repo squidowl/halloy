@@ -59,9 +59,8 @@ pub enum Message {
 
 pub enum Event {
     ContextMenu(context_menu::Event),
-    OpenBuffers(Vec<(Target, BufferAction)>),
+    OpenBuffers(data::Server, Vec<(Target, BufferAction)>),
     OpenInternalBuffer(buffer::Internal),
-    OpenTargetForServer(data::Server, Target, BufferAction),
     LeaveBuffers(Vec<Target>, Option<String>),
     SelectedServer {
         server: data::Server,
@@ -228,8 +227,8 @@ impl Buffer {
                     channel::Event::ContextMenu(event) => {
                         Event::ContextMenu(event)
                     }
-                    channel::Event::OpenBuffers(targets) => {
-                        Event::OpenBuffers(targets)
+                    channel::Event::OpenBuffers(server, targets) => {
+                        Event::OpenBuffers(server, targets)
                     }
                     channel::Event::OpenInternalBuffer(buffer) => {
                         Event::OpenInternalBuffer(buffer)
@@ -285,8 +284,8 @@ impl Buffer {
                     server::Event::OpenInternalBuffer(buffer) => {
                         Event::OpenInternalBuffer(buffer)
                     }
-                    server::Event::OpenBuffers(targets) => {
-                        Event::OpenBuffers(targets)
+                    server::Event::OpenBuffers(server, targets) => {
+                        Event::OpenBuffers(server, targets)
                     }
                     server::Event::LeaveBuffers(targets, reason) => {
                         Event::LeaveBuffers(targets, reason)
@@ -329,8 +328,8 @@ impl Buffer {
                     query::Event::ContextMenu(event) => {
                         Event::ContextMenu(event)
                     }
-                    query::Event::OpenBuffers(targets) => {
-                        Event::OpenBuffers(targets)
+                    query::Event::OpenBuffers(server, targets) => {
+                        Event::OpenBuffers(server, targets)
                     }
                     query::Event::OpenInternalBuffer(buffer) => {
                         Event::OpenInternalBuffer(buffer)
@@ -394,10 +393,12 @@ impl Buffer {
                     channel_discovery::Event::OpenChannelForServer(
                         server,
                         channel,
-                    ) => Event::OpenTargetForServer(
+                    ) => Event::OpenBuffers(
                         server,
-                        Target::Channel(channel),
-                        config.actions.buffer.click_channel_name,
+                        vec![(
+                            Target::Channel(channel),
+                            config.actions.buffer.click_channel_name,
+                        )],
                     ),
                     channel_discovery::Event::ContextMenu(event) => {
                         Event::ContextMenu(event)
@@ -413,9 +414,6 @@ impl Buffer {
                 let event = event.map(|event| match event {
                     logs::Event::ContextMenu(event) => {
                         Event::ContextMenu(event)
-                    }
-                    logs::Event::OpenBuffer(target, buffer_action) => {
-                        Event::OpenBuffers(vec![(target, buffer_action)])
                     }
                     logs::Event::History(task) => Event::History(task),
                     logs::Event::MarkAsRead => {
@@ -444,9 +442,14 @@ impl Buffer {
                     highlights::Event::ContextMenu(event) => {
                         Event::ContextMenu(event)
                     }
-                    highlights::Event::OpenBuffer(target, buffer_action) => {
-                        Event::OpenBuffers(vec![(target, buffer_action)])
-                    }
+                    highlights::Event::OpenBuffer(
+                        server,
+                        target,
+                        buffer_action,
+                    ) => Event::OpenBuffers(
+                        server,
+                        vec![(target, buffer_action)],
+                    ),
                     highlights::Event::GoToMessage(
                         server,
                         channel,
