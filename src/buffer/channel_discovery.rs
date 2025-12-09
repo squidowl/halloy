@@ -76,10 +76,13 @@ impl ChannelDiscovery {
                     .get_channel_discovery_manager(&server)
                     .is_none_or(|manager| {
                         manager.last_updated.is_none()
-                            || manager.last_updated.is_some_and(|last_updated| {
-                                Utc::now().signed_duration_since(last_updated)
-                                    > Duration::minutes(5)
-                            })
+                            || manager.last_updated.is_some_and(
+                                |last_updated| {
+                                    Utc::now()
+                                        .signed_duration_since(last_updated)
+                                        > Duration::minutes(5)
+                                },
+                            )
                     });
 
                 let event = if should_fetch {
