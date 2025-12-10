@@ -171,16 +171,55 @@ impl Default for Timestamp {
     }
 }
 
+#[derive(Debug, Clone)]
+pub enum BacklogText {
+    Text(String),
+    Hidden,
+}
+
+impl Default for BacklogText {
+    fn default() -> Self {
+        Self::Text("backlog".to_string())
+    }
+}
+
+impl<'de> Deserialize<'de> for BacklogText {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum T {
+            String(String),
+            Bool(bool),
+        }
+
+        match T::deserialize(deserializer)? {
+            T::String(conf) => Ok(Self::Text(conf)),
+            T::Bool(val) => {
+                if !val {
+                    Ok(Self::Hidden)
+                } else {
+                    Ok(Self::default())
+                }
+            }
+        }
+    }
+}
+
 #[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
 pub struct BacklogSeparator {
     pub hide_when_all_read: bool,
+    pub text: BacklogText,
 }
 
 impl Default for BacklogSeparator {
     fn default() -> Self {
         Self {
             hide_when_all_read: true,
+            text: BacklogText::default(),
         }
     }
 }

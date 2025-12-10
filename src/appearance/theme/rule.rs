@@ -22,3 +22,16 @@ pub fn primary(theme: &Theme) -> Style {
         snap: true,
     }
 }
+
+pub fn backlog(theme: &Theme) -> Style {
+    Style {
+        color: theme
+            .styles()
+            .buffer
+            .backlog_rule
+            .unwrap_or(theme.styles().general.horizontal_rule),
+        radius: 0.0.into(),
+        fill_mode: FillMode::Full,
+        snap: true,
+    }
+}
