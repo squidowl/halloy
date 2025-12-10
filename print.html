@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-d1eb7b05.js";
+            window.path_to_searchindex_js = "searchindex-b24695e7.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-fe913ceb.js"></script>
@@ -1096,6 +1096,7 @@ scroll_position_on_open = "newest"
 <li><a href="#configuration-5">Configuration</a>
 <ul>
 <li><a href="#hide_when_all_read">hide_when_all_read</a></li>
+<li><a href="#text">text</a></li>
 </ul>
 </li>
 </ul>
@@ -1110,6 +1111,15 @@ scroll_position_on_open = "newest"
 
 [buffer.backlog_separator]
 hide_when_all_read = true
+</code></pre>
+<h3 id="text"><a class="header" href="#text">text</a></h3>
+<p>Set the text for backlog divider or disable it</p>
+<pre><code class="language-toml"># Type: boolean or string
+# Values: boolean or any string
+# Default: true
+
+[buffer.backlog_separator]
+text = false
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="channel-1"><a class="header" href="#channel-1">Channel</a></h1>
@@ -4562,6 +4572,7 @@ selection = "&lt;color string&gt;"
 timestamp = &lt;text style&gt;
 topic = &lt;text style&gt;
 url = &lt;text style&gt;
+backlog_rule = "&lt;color string&gt;"
 
 [buffer.server_messages]
 # Set below if you want to have a unique color for each.
