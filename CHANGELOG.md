@@ -6,6 +6,7 @@ Added:
 - Emoji, channel, and user completion can be used with commands
 - Auto-completion (emoji/channel/user) will auto-complete at the text cursor (instead of the end of the current input)
 - Insert-nickname will place the nickname at the text cursor (instead of end of the current input)
+- Backlog separator can be customized with a custom color and text (with the ability to remove text from it)
 - Setting to disable unread indicators for specified channels/servers
 - Users and messages can be filtered using regular expressions
 
