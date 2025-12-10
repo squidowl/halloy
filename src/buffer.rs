@@ -55,7 +55,7 @@ pub enum Message {
 
 pub enum Event {
     ContextMenu(context_menu::Event),
-    OpenBuffers(Vec<(Target, BufferAction)>),
+    OpenBuffers(data::Server, Vec<(Target, BufferAction)>),
     LeaveBuffers(Vec<Target>, Option<String>),
     GoToMessage(data::Server, target::Channel, message::Hash),
     History(Task<history::manager::Message>),
@@ -206,8 +206,8 @@ impl Buffer {
                     channel::Event::ContextMenu(event) => {
                         Event::ContextMenu(event)
                     }
-                    channel::Event::OpenBuffers(targets) => {
-                        Event::OpenBuffers(targets)
+                    channel::Event::OpenBuffers(server, targets) => {
+                        Event::OpenBuffers(server, targets)
                     }
                     channel::Event::LeaveBuffers(targets, reason) => {
                         Event::LeaveBuffers(targets, reason)
@@ -257,8 +257,8 @@ impl Buffer {
                     server::Event::ContextMenu(event) => {
                         Event::ContextMenu(event)
                     }
-                    server::Event::OpenBuffers(targets) => {
-                        Event::OpenBuffers(targets)
+                    server::Event::OpenBuffers(server, targets) => {
+                        Event::OpenBuffers(server, targets)
                     }
                     server::Event::LeaveBuffers(targets, reason) => {
                         Event::LeaveBuffers(targets, reason)
@@ -301,8 +301,8 @@ impl Buffer {
                     query::Event::ContextMenu(event) => {
                         Event::ContextMenu(event)
                     }
-                    query::Event::OpenBuffers(targets) => {
-                        Event::OpenBuffers(targets)
+                    query::Event::OpenBuffers(server, targets) => {
+                        Event::OpenBuffers(server, targets)
                     }
                     query::Event::LeaveBuffers(targets, reason) => {
                         Event::LeaveBuffers(targets, reason)
@@ -351,9 +351,6 @@ impl Buffer {
                     logs::Event::ContextMenu(event) => {
                         Event::ContextMenu(event)
                     }
-                    logs::Event::OpenBuffer(target, buffer_action) => {
-                        Event::OpenBuffers(vec![(target, buffer_action)])
-                    }
                     logs::Event::History(task) => Event::History(task),
                     logs::Event::MarkAsRead => {
                         Event::MarkAsRead(history::Kind::Logs)
@@ -381,9 +378,14 @@ impl Buffer {
                     highlights::Event::ContextMenu(event) => {
                         Event::ContextMenu(event)
                     }
-                    highlights::Event::OpenBuffer(target, buffer_action) => {
-                        Event::OpenBuffers(vec![(target, buffer_action)])
-                    }
+                    highlights::Event::OpenBuffer(
+                        server,
+                        target,
+                        buffer_action,
+                    ) => Event::OpenBuffers(
+                        server,
+                        vec![(target, buffer_action)],
+                    ),
                     highlights::Event::GoToMessage(
                         server,
                         channel,

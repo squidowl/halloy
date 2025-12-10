@@ -1923,24 +1923,17 @@ impl Dashboard {
 
                 return (Task::batch(tasks), None);
             }
-            buffer::Event::OpenBuffers(targets) => {
+            buffer::Event::OpenBuffers(server, targets) => {
                 let mut tasks = vec![];
 
-                if let Some(server) = pane
-                    .buffer
-                    .upstream()
-                    .map(buffer::Upstream::server)
-                    .cloned()
-                {
-                    for (target, buffer_action) in targets {
-                        tasks.push(self.open_target(
-                            server.clone(),
-                            target,
-                            clients,
-                            buffer_action,
-                            config,
-                        ));
-                    }
+                for (target, buffer_action) in targets {
+                    tasks.push(self.open_target(
+                        server.clone(),
+                        target,
+                        clients,
+                        buffer_action,
+                        config,
+                    ));
                 }
 
                 return (Task::batch(tasks), None);
