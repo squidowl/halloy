@@ -459,9 +459,7 @@ impl Component {
             Component::Text(text) => text.color(styles),
             Component::Buffer(buffer) => buffer.color(styles),
             Component::Buttons(buttons) => Some(buttons.color(styles)),
-            Component::Formatting(formatting) => {
-                formatting.color(styles)
-            }
+            Component::Formatting(formatting) => formatting.color(styles),
         }
     }
 
