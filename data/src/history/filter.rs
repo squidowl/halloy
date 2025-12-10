@@ -1,4 +1,7 @@
+use fancy_regex::Regex;
+
 use super::Kind;
+use crate::config::server::Ignore;
 use crate::message::{self, Source, source};
 use crate::server::Map as ServerMap;
 use crate::target::{Channel, Query};
@@ -20,6 +23,8 @@ enum FilterClass {
 #[derive(Debug, Clone)]
 enum FilterTarget {
     User(User),
+    UserRegex(Regex),
+    MessageRegex(Regex),
 }
 
 impl FilterTarget {
@@ -33,25 +38,80 @@ impl Filter {
         servers: &ServerMap,
         clients: &client::Map,
     ) -> Vec<Self> {
-        let mut new_filters = Vec::new();
-        servers.entries().for_each(|entry| {
-            let Some(filters) = &entry.config.filters else {
-                return;
-            };
+        servers
+            .entries()
+            .filter_map(|entry| {
+                entry.config.filters.as_ref().map(|filters| {
+                    let chantypes = clients.get_chantypes(&entry.server);
+                    let casemapping = clients.get_casemapping(&entry.server);
 
-            for idx in 0..filters.ignore.len() {
-                let chantypes = clients.get_chantypes(&entry.server);
-                let casemapping = clients.get_casemapping(&entry.server);
+                    filters
+                        .ignore
+                        .iter()
+                        .map(|ignore| match &ignore {
+                            // Use from_str_with_server for backwards compatibility
+                            Ignore::User(user) => Filter::from_str_with_server(
+                                &entry.server,
+                                chantypes,
+                                casemapping,
+                                user,
+                            ),
+                            Ignore::UserInChannel { user, channel } => {
+                                let channel = Channel::from_str(
+                                    channel,
+                                    chantypes,
+                                    casemapping,
+                                );
 
-                new_filters.push(Filter::from_str_with_server(
-                    &entry.server,
-                    chantypes,
-                    casemapping,
-                    &filters.ignore[idx],
-                ));
-            }
-        });
-        new_filters
+                                let target = FilterTarget::from_nick(
+                                    Nick::from_str(user, casemapping),
+                                );
+
+                                Self {
+                                    class: FilterClass::Channel(
+                                        entry.server.clone(),
+                                        channel,
+                                    ),
+                                    target,
+                                }
+                            }
+                            Ignore::Regex { regex } => Self {
+                                class: FilterClass::Server(
+                                    entry.server.clone(),
+                                ),
+                                target: FilterTarget::UserRegex(
+                                    regex.clone().into(),
+                                ),
+                            },
+                            Ignore::RegexInChannel { regex, channel } => {
+                                let channel = Channel::from_str(
+                                    channel,
+                                    chantypes,
+                                    casemapping,
+                                );
+
+                                Self {
+                                    class: FilterClass::Channel(
+                                        entry.server.clone(),
+                                        channel,
+                                    ),
+                                    target: FilterTarget::UserRegex(
+                                        regex.clone().into(),
+                                    ),
+                                }
+                            }
+                        })
+                        .chain(filters.regex.iter().map(|regex| Self {
+                            class: FilterClass::Server(entry.server.clone()),
+                            target: FilterTarget::MessageRegex(
+                                regex.clone().into(),
+                            ),
+                        }))
+                        .collect::<Vec<Self>>()
+                })
+            })
+            .flatten()
+            .collect()
     }
 
     fn from_str_with_server(
@@ -92,6 +152,18 @@ impl Filter {
                         FilterClass::Server(_) => true,
                     })
             }
+            FilterTarget::UserRegex(regex) => {
+                regex.is_match(user.as_str()).is_ok_and(|is_match| is_match)
+                    && (match &self.class {
+                        FilterClass::Channel(_, filter_channel) => channel
+                            .is_some_and(|channel| {
+                                channel.as_normalized_str()
+                                    == filter_channel.as_normalized_str()
+                            }),
+                        FilterClass::Server(_) => true,
+                    })
+            }
+            FilterTarget::MessageRegex(_) => false,
         }
     }
 
@@ -100,7 +172,7 @@ impl Filter {
     /// This function returns `true` when the message matches predicate, false
     /// otherwise.
     ///
-    /// [`Message`]:crate::Message
+    /// [`Message`]:crate::MessageRegex
     pub fn match_message(&self, message: &Message) -> bool {
         match &self.target {
             FilterTarget::User(user) => match &message.target.source() {
@@ -108,9 +180,9 @@ impl Filter {
                     msg_user.nickname() == user.nickname()
                 }
                 Source::Server(Some(server)) => {
-                    // Match server messages from the filtered user, except
-                    // for nick change messages in order to alert the Halloy
-                    // user that the filtered user has a new nickname.
+                    // Match server messages from the filtered user, except for
+                    // nick change messages in order to alert the Halloy user
+                    // that the filtered user has a new nickname.
                     server.nick().is_some_and(|nick| user.nickname() == *nick)
                         && !matches!(
                             server.kind(),
@@ -119,6 +191,30 @@ impl Filter {
                 }
                 _ => false,
             },
+            FilterTarget::UserRegex(regex) => match &message.target.source() {
+                Source::Action(Some(msg_user)) | Source::User(msg_user) => {
+                    regex
+                        .is_match(msg_user.as_str())
+                        .is_ok_and(|is_match| is_match)
+                }
+                Source::Server(Some(server)) => {
+                    // Match server messages from the filtered user, except for
+                    // nick change messages in order to alert the Halloy user
+                    // that the filtered user has a new nickname.
+                    server.nick().is_some_and(|nick| {
+                        regex
+                            .is_match(nick.as_str())
+                            .is_ok_and(|is_match| is_match)
+                    }) && !matches!(
+                        server.kind(),
+                        source::server::Kind::ChangeNick
+                    )
+                }
+                _ => false,
+            },
+            FilterTarget::MessageRegex(regex) => regex
+                .is_match(&message.text())
+                .is_ok_and(|is_match| is_match),
         }
     }
 
@@ -137,6 +233,13 @@ impl Filter {
                         == query.as_normalized_str()
                 }
             },
+            FilterTarget::UserRegex(regex) => match &self.class {
+                FilterClass::Channel(_, _) => false,
+                FilterClass::Server(_) => regex
+                    .is_match(query.as_str())
+                    .is_ok_and(|is_match| is_match),
+            },
+            FilterTarget::MessageRegex(_) => false,
         }
     }
 
@@ -194,6 +297,7 @@ impl Filter {
             FilterTarget::User(user) => {
                 user.renormalize(casemapping);
             }
+            FilterTarget::UserRegex(_) | FilterTarget::MessageRegex(_) => (),
         }
 
         match &self.class {
@@ -268,9 +372,5 @@ impl<'f> FilterChain<'f> {
             .for_each(|filter| {
                 filter.sync_isupport(server, chantypes, casemapping);
             });
-    }
-
-    pub fn filter_message(&self, message: &Message) -> bool {
-        self.filters.iter().any(|f| f.match_message(message))
     }
 }

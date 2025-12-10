@@ -314,9 +314,17 @@ pub fn view<'a>(
                     return Some(binding);
                 }
 
-                // Treat numpad keys as character keys when numlock is on (i.e.
-                // text.is_some())
-                let key = if is_numpad(&key_press.physical_key)
+                // Handling for numpad keys: treat a numpad enter the same as
+                // a normal enter; treat numpad keys as character keys when
+                // numlock is on (i.e. text.is_some())
+                let key = if key_press.physical_key
+                    == iced::keyboard::key::Physical::Code(
+                        iced::keyboard::key::Code::NumpadEnter,
+                    ) {
+                    Cow::Owned(iced::keyboard::Key::Named(
+                        iced::keyboard::key::Named::Enter,
+                    ))
+                } else if is_numpad(&key_press.physical_key)
                     && let Some(text) = &key_press.text
                 {
                     Cow::Owned(keyboard::Key::Character(text.clone()))

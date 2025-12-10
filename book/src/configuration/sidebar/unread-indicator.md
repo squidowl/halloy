@@ -9,6 +9,8 @@ Unread buffer indicator style.
     - [highlight\_icon](#highlight_icon)
     - [icon\_size](#icon_size)
     - [highlight\_icon\_size](#highlight_icon_size)
+    - [exclude](#exclude)
+    - [include](#include)
 
 ## Configuration
 
@@ -79,4 +81,36 @@ Note: If set larger than the line height of the specified [font](../font/) then 
 
 [sidebar.unread_indicator]
 highlight_icon_size = 8
+```
+
+### exclude
+
+[Exclusion conditions](/configuration/conditions.md) for which unread indicators
+won't be shown. Inclusion conditions will take precedence over exclusion
+conditions. You can also exclude all conditions by setting to `"all"` or `"*"`.
+
+```toml
+# Type: inclusion/exclusion conditions
+# Values: channel & server inclusion/exclusion conditions
+# Default: not set
+
+[sidebar.unread_indicator]
+exclude = { channels = ["#noisy-channel"] }
+```
+
+### include
+
+[Inclusion conditions](/configuration/conditions.md) for which unread indicators
+will be shown. Unread indicators are enabled in all conditions unless explicitly
+excluded, so this setting is only relevant when combined with the `exclude`
+setting.
+
+```toml
+# Type: inclusion/exclusion conditions
+# Values: channel & server inclusion/exclusion conditions
+# Default: not set
+
+[sidebar.unread_indicator]
+exclude = "*"
+include = { channels = ["#halloy"] }
 ```

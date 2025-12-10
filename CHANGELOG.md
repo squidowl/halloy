@@ -7,17 +7,21 @@ Added:
 - Auto-completion (emoji/channel/user) will auto-complete at the text cursor (instead of the end of the current input)
 - Insert-nickname will place the nickname at the text cursor (instead of end of the current input)
 - Backlog separator can be customized with a custom color and text (with the ability to remove text from it)
+- Setting to disable unread indicators for specified channels/servers
+- Users and messages can be filtered using regular expressions
 
 Fixed:
 
 - No longer any delay in showing a tooltip after hovering
 - Ignored users will not be suggested by user auto-completion
 - Channel auto-completion works with all channel prefixes specified by the server
+- Number pad enter now sends messages instead of adding a new line
 
 Thanks:
 
+- Contributions: @csmith
 - Bug reports: halloy3002, g00s
-- Feature requests: @tribly
+- Feature requests: @tribly, @deepspaceaxolotl
 
 # 2025.12 (2025-11-28)
 
