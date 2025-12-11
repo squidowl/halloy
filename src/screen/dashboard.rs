@@ -1961,7 +1961,7 @@ impl Dashboard {
 
                 return (Task::batch(tasks), event);
             }
-            buffer::Event::OpenChannelForServer(
+            buffer::Event::OpenTargetForServer(
                 server,
                 target,
                 buffer_action,
