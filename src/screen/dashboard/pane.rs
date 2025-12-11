@@ -461,9 +461,9 @@ impl From<Pane> for data::Pane {
             Buffer::Highlights(_) => {
                 data::Buffer::Internal(buffer::Internal::Highlights)
             }
-            Buffer::ChannelDiscovery(state) => {
-                data::Buffer::Internal(buffer::Internal::ChannelDiscovery(state.server.clone()))
-            }
+            Buffer::ChannelDiscovery(state) => data::Buffer::Internal(
+                buffer::Internal::ChannelDiscovery(state.server.clone()),
+            ),
         };
 
         data::Pane::Buffer { buffer }
