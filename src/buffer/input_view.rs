@@ -887,7 +887,7 @@ impl State {
                                     return (
                                         Task::none(),
                                         Some(Event::OpenInternalBuffer(
-                                            buffer::Internal::ChannelDiscovery,
+                                            buffer::Internal::ChannelDiscovery(Some(buffer.server().clone())),
                                         )),
                                     );
                                 }

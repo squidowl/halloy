@@ -1602,6 +1602,17 @@ impl Dashboard {
 
         match event {
             buffer::Event::OpenInternalBuffer(buffer) => {
+                // If opening channel discovery with a server, send LIST command if needed
+                if let buffer::Internal::ChannelDiscovery(Some(server)) = &buffer {
+                    let should_fetch = clients
+                        .get_channel_discovery_manager(server)
+                        .map_or(true, |manager| manager.needs_refetch());
+                    
+                    if should_fetch {
+                        Self::send_list_command(server, &pane, clients);
+                    }
+                }
+
                 return (
                     self.open_buffer(
                         data::Buffer::Internal(buffer),
@@ -2174,18 +2185,7 @@ impl Dashboard {
                 );
             }
             buffer::Event::ListForServer(server) => {
-                let buffer =
-                    pane.buffer.upstream().cloned().unwrap_or_else(|| {
-                        buffer::Upstream::Server(server.clone())
-                    });
-
-                let command = command::Irc::List(None, None);
-                let input = data::Input::from_command(buffer, command);
-
-                if let Some(encoded) = input.encoded() {
-                    clients.send(&input.buffer, encoded, TokenPriority::User);
-                }
-
+                Self::send_list_command(&server, &pane, clients);
                 return (Task::none(), None);
             }
         }
@@ -2285,6 +2285,25 @@ impl Dashboard {
                 clients,
                 config,
             )
+        }
+    }
+
+    fn send_list_command(
+        server: &data::Server,
+        pane: &Pane,
+        clients: &mut data::client::Map,
+    ) {
+        let buffer = pane
+            .buffer
+            .upstream()
+            .cloned()
+            .unwrap_or_else(|| buffer::Upstream::Server(server.clone()));
+
+        let command = command::Irc::List(None, None);
+        let input = data::Input::from_command(buffer, command);
+
+        if let Some(encoded) = input.encoded() {
+            clients.send(&input.buffer, encoded, TokenPriority::User);
         }
     }
 

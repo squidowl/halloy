@@ -229,7 +229,7 @@ impl Buffer {
         list.extend(
             buffer::Internal::ALL
                 .iter()
-                .copied()
+                .cloned()
                 .map(Buffer::ToggleInternal),
         );
 
@@ -342,7 +342,7 @@ impl std::fmt::Display for Buffer {
                 }
                 buffer::Internal::Logs => write!(f, "Open logs"),
                 buffer::Internal::Highlights => write!(f, "Open highlights"),
-                buffer::Internal::ChannelDiscovery => {
+                buffer::Internal::ChannelDiscovery(_) => {
                     write!(f, "Open Channel discovery")
                 }
             },
