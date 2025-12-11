@@ -1934,7 +1934,7 @@ impl Dashboard {
 
                 return (Task::batch(tasks), None);
             }
-            buffer::Event::OpenChannelForServer(
+            buffer::Event::OpenTargetForServer(
                 server,
                 target,
                 buffer_action,

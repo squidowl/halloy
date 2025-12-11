@@ -61,7 +61,7 @@ pub enum Event {
     ContextMenu(context_menu::Event),
     OpenBuffers(Vec<(Target, BufferAction)>),
     OpenInternalBuffer(buffer::Internal),
-    OpenChannelForServer(data::Server, Target, BufferAction),
+    OpenTargetForServer(data::Server, Target, BufferAction),
     LeaveBuffers(Vec<Target>, Option<String>),
     ListForServer(data::Server),
     GoToMessage(data::Server, target::Channel, message::Hash),
@@ -387,7 +387,7 @@ impl Buffer {
                     channel_discovery::Event::OpenChannelForServer(
                         server,
                         channel,
-                    ) => Event::OpenChannelForServer(
+                    ) => Event::OpenTargetForServer(
                         server,
                         Target::Channel(channel),
                         config.actions.buffer.click_channel_name,
