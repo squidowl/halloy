@@ -168,9 +168,9 @@ impl Buffer {
             Buffer::Highlights(_) => {
                 Some(data::Buffer::Internal(buffer::Internal::Highlights))
             }
-            Buffer::ChannelDiscovery(state) => {
-                Some(data::Buffer::Internal(buffer::Internal::ChannelDiscovery(state.server.clone())))
-            }
+            Buffer::ChannelDiscovery(state) => Some(data::Buffer::Internal(
+                buffer::Internal::ChannelDiscovery(state.server.clone()),
+            )),
         }
     }
 

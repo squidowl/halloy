@@ -1603,11 +1603,15 @@ impl Dashboard {
         match event {
             buffer::Event::OpenInternalBuffer(buffer) => {
                 // If opening channel discovery with a server, send LIST command if needed
-                if let buffer::Internal::ChannelDiscovery(Some(server)) = &buffer {
+                if let buffer::Internal::ChannelDiscovery(Some(server)) =
+                    &buffer
+                {
                     let should_fetch = clients
                         .get_channel_discovery_manager(server)
-                        .is_none_or(data::channel_discovery::Manager::needs_refetch);
-                    
+                        .is_none_or(
+                            data::channel_discovery::Manager::needs_refetch,
+                        );
+
                     if should_fetch {
                         Self::send_list_command(server, pane, clients);
                     }

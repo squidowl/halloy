@@ -478,7 +478,7 @@ impl Commands {
             {
                 Command {
                     title: "ME",
-                    args: vec![Argument { 
+                    args: vec![Argument {
                         text: "action",
                         kind: ArgumentKind::Required,
                         tooltip: None,
@@ -1983,7 +1983,6 @@ static KNOCK_COMMAND: LazyLock<Command> = LazyLock::new(|| Command {
     ],
     subcommands: None,
 });
-
 
 fn monitor_command(target_limit: &Option<u16>) -> Command {
     Command {
