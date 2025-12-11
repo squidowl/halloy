@@ -296,7 +296,7 @@ impl Sidebar {
                                 None,
                                 icon::channel_discovery(),
                                 Message::ToggleInternalBuffer(
-                                    buffer::Internal::ChannelDiscovery,
+                                    buffer::Internal::ChannelDiscovery(None),
                                 ),
                             ),
                             Menu::Logs => context_button(

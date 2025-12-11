@@ -39,6 +39,15 @@ impl Manager {
         self.channels.insert(channel, (topic_content, user_count));
     }
 
+    /// Returns true if cache is stale and needs refetching (5 minutes)
+    pub fn needs_refetch(&self) -> bool {
+        self.last_updated.is_none()
+            || self.last_updated.is_some_and(|last_updated| {
+                Utc::now().signed_duration_since(last_updated)
+                    > chrono::Duration::minutes(5)
+            })
+    }
+
     fn sort_by_user_count<'a>(
         &self,
         mut results: Vec<(&'a String, &'a message::Content, &'a usize)>,

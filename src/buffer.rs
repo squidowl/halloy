@@ -109,8 +109,8 @@ impl Buffer {
                 buffer::Internal::Highlights => {
                     Self::Highlights(Highlights::new(pane_size, config))
                 }
-                buffer::Internal::ChannelDiscovery => {
-                    Self::ChannelDiscovery(ChannelDiscovery::new())
+                buffer::Internal::ChannelDiscovery(server) => {
+                    Self::ChannelDiscovery(ChannelDiscovery::new(server))
                 }
             },
         }
@@ -141,8 +141,8 @@ impl Buffer {
             Buffer::FileTransfers(_) => Some(buffer::Internal::FileTransfers),
             Buffer::Logs(_) => Some(buffer::Internal::Logs),
             Buffer::Highlights(_) => Some(buffer::Internal::Highlights),
-            Buffer::ChannelDiscovery(_) => {
-                Some(buffer::Internal::ChannelDiscovery)
+            Buffer::ChannelDiscovery(state) => {
+                Some(buffer::Internal::ChannelDiscovery(state.server.clone()))
             }
         }
     }
@@ -168,8 +168,8 @@ impl Buffer {
             Buffer::Highlights(_) => {
                 Some(data::Buffer::Internal(buffer::Internal::Highlights))
             }
-            Buffer::ChannelDiscovery(_) => {
-                Some(data::Buffer::Internal(buffer::Internal::ChannelDiscovery))
+            Buffer::ChannelDiscovery(state) => {
+                Some(data::Buffer::Internal(buffer::Internal::ChannelDiscovery(state.server.clone())))
             }
         }
     }
