@@ -25,7 +25,6 @@ pub enum Upstream {
 #[derive(
     Debug,
     Clone,
-    Copy,
     PartialEq,
     Eq,
     Hash,
@@ -39,7 +38,7 @@ pub enum Internal {
     Logs,
     Highlights,
     #[strum(serialize = "Channel Discovery")]
-    ChannelDiscovery,
+    ChannelDiscovery(Option<Server>),
 }
 
 impl Buffer {
@@ -128,7 +127,7 @@ impl Internal {
         Self::FileTransfers,
         Self::Logs,
         Self::Highlights,
-        Self::ChannelDiscovery,
+        Self::ChannelDiscovery(None),
     ];
 
     pub fn key(&self) -> String {
@@ -136,7 +135,7 @@ impl Internal {
             Internal::FileTransfers => "file-transfers",
             Internal::Logs => "logs",
             Internal::Highlights => "highlights",
-            Internal::ChannelDiscovery => "channel-discovery",
+            Internal::ChannelDiscovery(_) => "channel-discovery",
         }
         .to_string()
     }

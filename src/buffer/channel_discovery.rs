@@ -1,4 +1,3 @@
-use chrono::{Duration, Utc};
 use data::{Config, Server, message, target};
 use iced::widget::{
     center, column, container, pick_list, row, rule, scrollable, span, text,
@@ -34,8 +33,11 @@ pub struct ChannelDiscovery {
 }
 
 impl ChannelDiscovery {
-    pub fn new() -> Self {
-        Self::default()
+    pub fn new(server: Option<Server>) -> Self {
+        Self {
+            server,
+            search_query: String::new(),
+        }
     }
 
     pub fn update(
@@ -74,16 +76,7 @@ impl ChannelDiscovery {
 
                 let should_fetch = clients
                     .get_channel_discovery_manager(&server)
-                    .is_none_or(|manager| {
-                        manager.last_updated.is_none()
-                            || manager.last_updated.is_some_and(
-                                |last_updated| {
-                                    Utc::now()
-                                        .signed_duration_since(last_updated)
-                                        > Duration::minutes(5)
-                                },
-                            )
-                    });
+                    .map_or(true, |manager| manager.needs_refetch());
 
                 let event = if should_fetch {
                     Some(Event::ListForServer(server))
