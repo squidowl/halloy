@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-b24695e7.js";
+            window.path_to_searchindex_js = "searchindex-0cf30600.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-fe913ceb.js"></script>
@@ -619,7 +619,7 @@ criteria = [{ channel = "#halloy", user = "GH-Bot" },
 <pre><code class="language-toml">exclude = { criteria = [{ channel = "#halloy", server = "libera" }] }
 </code></pre>
 <p>This example excludes messages in all servers except <code>libera</code>.</p>
-<pre><code class="language-toml">include = { servers = "libera" }
+<pre><code class="language-toml">include = { servers = ["libera"] }
 exclude = "all"
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div>
