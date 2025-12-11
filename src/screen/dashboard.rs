@@ -1606,10 +1606,10 @@ impl Dashboard {
                 if let buffer::Internal::ChannelDiscovery(Some(server)) = &buffer {
                     let should_fetch = clients
                         .get_channel_discovery_manager(server)
-                        .map_or(true, |manager| manager.needs_refetch());
+                        .is_none_or(data::channel_discovery::Manager::needs_refetch);
                     
                     if should_fetch {
-                        Self::send_list_command(server, &pane, clients);
+                        Self::send_list_command(server, pane, clients);
                     }
                 }
 
@@ -2185,7 +2185,7 @@ impl Dashboard {
                 );
             }
             buffer::Event::ListForServer(server) => {
-                Self::send_list_command(&server, &pane, clients);
+                Self::send_list_command(&server, pane, clients);
                 return (Task::none(), None);
             }
         }
