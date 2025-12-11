@@ -56,6 +56,6 @@ exclude = { criteria = [{ channel = "#halloy", server = "libera" }] }
 This example excludes messages in all servers except `libera`.
 
 ```toml
-include = { servers = "libera" }
+include = { servers = ["libera"] }
 exclude = "all"
 ```
