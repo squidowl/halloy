@@ -74,9 +74,10 @@ impl ChannelDiscovery {
             Message::SelectServer(server) => {
                 self.server = Some(server.clone());
 
-                let should_fetch = clients
-                    .get_channel_discovery_manager(&server)
-                    .is_none_or(data::channel_discovery::Manager::needs_refetch);
+                let should_fetch =
+                    clients.get_channel_discovery_manager(&server).is_none_or(
+                        data::channel_discovery::Manager::needs_refetch,
+                    );
 
                 let event = if should_fetch {
                     Some(Event::ListForServer(server))

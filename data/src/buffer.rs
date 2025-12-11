@@ -23,14 +23,7 @@ pub enum Upstream {
 }
 
 #[derive(
-    Debug,
-    Clone,
-    PartialEq,
-    Eq,
-    Hash,
-    Serialize,
-    Deserialize,
-    strum::Display,
+    Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, strum::Display,
 )]
 pub enum Internal {
     #[strum(serialize = "File Transfers")]
