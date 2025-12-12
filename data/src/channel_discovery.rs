@@ -57,6 +57,7 @@ impl Manager {
                 user_count_b.cmp(user_count_a)
             },
         );
+        results.truncate(MAX_RESULTS);
         results
     }
 
@@ -95,7 +96,6 @@ impl Manager {
                         None
                     }
                 })
-                .take(MAX_RESULTS)
                 .collect();
             return self.sort_by_user_count(results);
         }
