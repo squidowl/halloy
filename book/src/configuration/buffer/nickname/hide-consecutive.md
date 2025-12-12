@@ -34,6 +34,7 @@ enabled = { smart = 120 }
 ### show_after_previews
 
 Show nicknames after messages with visible image or link previews.
+Note: has no effect when `enabled = false`.
 
 ```toml
 # Type: boolean
