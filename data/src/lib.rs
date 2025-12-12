@@ -24,6 +24,7 @@ pub mod audio;
 pub mod bouncer;
 pub mod buffer;
 pub mod channel;
+pub mod channel_discovery;
 pub mod client;
 pub mod command;
 mod compression;

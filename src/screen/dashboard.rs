@@ -1601,6 +1601,32 @@ impl Dashboard {
         };
 
         match event {
+            buffer::Event::OpenInternalBuffer(buffer) => {
+                // If opening channel discovery with a server, send LIST command if needed
+                if let buffer::Internal::ChannelDiscovery(Some(server)) =
+                    &buffer
+                {
+                    let should_fetch = clients
+                        .get_channel_discovery_manager(server)
+                        .is_none_or(
+                            data::channel_discovery::Manager::needs_refetch,
+                        );
+
+                    if should_fetch {
+                        Self::send_list_command(server, pane, clients);
+                    }
+                }
+
+                return (
+                    self.open_buffer(
+                        data::Buffer::Internal(buffer),
+                        config.actions.buffer.click_channel_name,
+                        clients,
+                        config,
+                    ),
+                    None,
+                );
+            }
             buffer::Event::ContextMenu(event) => {
                 let mut tasks =
                     vec![context_menu::close(convert::identity).map(
@@ -1923,9 +1949,27 @@ impl Dashboard {
 
                 return (Task::batch(tasks), None);
             }
-            buffer::Event::OpenBuffers(targets) => {
-                let mut tasks = vec![];
+            buffer::Event::OpenTargetForServer(
+                server,
+                target,
+                buffer_action,
+            ) => {
+                let task = self.open_target(
+                    server.clone(),
+                    target,
+                    clients,
+                    buffer_action,
+                    config,
+                );
 
+                return (task, None);
+            }
+            buffer::Event::OpenBuffers(targets) => {
+                // TODO: Internal buffers hitting this wont have a server, so we have to handle that with OpenBufferForServer.
+                // Currently, i believe Highlights and Logs will fail.
+                // We should also rename this so its easier to understand going forward.
+
+                let mut tasks = vec![];
                 if let Some(server) = pane
                     .buffer
                     .upstream()
@@ -2117,6 +2161,10 @@ impl Dashboard {
                     None,
                 );
             }
+            buffer::Event::ListForServer(server) => {
+                Self::send_list_command(&server, pane, clients);
+                return (Task::none(), None);
+            }
         }
 
         (Task::none(), None)
@@ -2214,6 +2262,25 @@ impl Dashboard {
                 clients,
                 config,
             )
+        }
+    }
+
+    fn send_list_command(
+        server: &data::Server,
+        pane: &Pane,
+        clients: &mut data::client::Map,
+    ) {
+        let buffer = pane
+            .buffer
+            .upstream()
+            .cloned()
+            .unwrap_or_else(|| buffer::Upstream::Server(server.clone()));
+
+        let command = command::Irc::List(None, None);
+        let input = data::Input::from_command(buffer, command);
+
+        if let Some(encoded) = input.encoded() {
+            clients.send(&input.buffer, encoded, TokenPriority::User);
         }
     }
 

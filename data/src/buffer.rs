@@ -23,21 +23,15 @@ pub enum Upstream {
 }
 
 #[derive(
-    Debug,
-    Clone,
-    Copy,
-    PartialEq,
-    Eq,
-    Hash,
-    Serialize,
-    Deserialize,
-    strum::Display,
+    Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, strum::Display,
 )]
 pub enum Internal {
     #[strum(serialize = "File Transfers")]
     FileTransfers,
     Logs,
     Highlights,
+    #[strum(serialize = "Channel Discovery")]
+    ChannelDiscovery(Option<Server>),
 }
 
 impl Buffer {
@@ -122,14 +116,19 @@ impl Upstream {
 }
 
 impl Internal {
-    pub const ALL: &'static [Self] =
-        &[Self::FileTransfers, Self::Logs, Self::Highlights];
+    pub const ALL: &'static [Self] = &[
+        Self::FileTransfers,
+        Self::Logs,
+        Self::Highlights,
+        Self::ChannelDiscovery(None),
+    ];
 
     pub fn key(&self) -> String {
         match self {
             Internal::FileTransfers => "file-transfers",
             Internal::Logs => "logs",
             Internal::Highlights => "highlights",
+            Internal::ChannelDiscovery(_) => "channel-discovery",
         }
         .to_string()
     }

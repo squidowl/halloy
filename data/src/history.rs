@@ -104,6 +104,7 @@ impl Kind {
                 Some(Kind::Highlights)
             }
             Buffer::Internal(buffer::Internal::FileTransfers) => None,
+            Buffer::Internal(buffer::Internal::ChannelDiscovery(_)) => None,
         }
     }
 }
