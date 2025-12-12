@@ -19,7 +19,38 @@ pub struct Sidebar {
     #[serde(deserialize_with = "deserialize_positive_integer")]
     pub server_icon_size: u32,
     pub user_menu: UserMenu,
+    pub padding: Padding,
+    pub spacing: Spacing,
 }
+
+
+#[derive(Debug, Copy, Clone, Deserialize)]
+pub struct Padding {
+    pub buffer_button: u16,
+}
+
+impl Default for Padding {
+    fn default() -> Self {
+        Self {
+            buffer_button: 5,
+        }
+    }
+}
+
+#[derive(Debug, Copy, Clone, Deserialize)]
+pub struct Spacing {
+    pub between_servers: u32,
+}
+
+impl Default for Spacing {
+    fn default() -> Self {
+        Self {
+            between_servers: 12,
+        }
+    }
+}
+
+
 #[derive(Debug, Copy, Clone, Deserialize)]
 #[serde(default)]
 pub struct UserMenu {
@@ -46,6 +77,8 @@ impl Default for Sidebar {
             scrollbar: Scrollbar::default(),
             server_icon_size: 12,
             user_menu: UserMenu::default(),
+            padding: Padding::default(),
+            spacing: Spacing::default(),
         }
     }
 }

@@ -425,6 +425,7 @@ impl Sidebar {
                             panes,
                             focus,
                             buffer,
+                            config.sidebar.padding.buffer_button,
                             connected,
                             config.actions.sidebar.buffer,
                             config.actions.sidebar.focused_buffer,
@@ -543,7 +544,7 @@ impl Sidebar {
                                 }
                             } else {
                                 buffers
-                                    .push(space::vertical().height(12).into());
+                                    .push(space::vertical().height(config.sidebar.spacing.between_servers).into());
                             }
                         }
                     }
@@ -752,6 +753,7 @@ fn upstream_buffer_button<'a>(
     panes: &'a Panes,
     focus: Focus,
     buffer: buffer::Upstream,
+    padding: u16,
     connected: bool,
     buffer_action: BufferAction,
     focused_buffer_action: Option<BufferFocusedAction>,
@@ -926,6 +928,7 @@ fn upstream_buffer_button<'a>(
                     open.is_some(),
                 )
             })
+            .padding(padding)
             .on_press({
                 match is_focused {
                     Some((window, pane)) => {
