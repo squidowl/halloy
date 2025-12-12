@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use chrono::{DateTime, Local, NaiveDate, NaiveTime, Utc};
 use data::buffer::DateSeparators;
-use data::config::buffer::nickname::HideConsecutive;
+use data::config::buffer::nickname::HideConsecutiveEnabled;
 use data::dashboard::BufferAction;
 use data::isupport::ChatHistoryState;
 use data::message::{self, Limit};
@@ -293,24 +293,29 @@ pub fn view<'a>(
             .iter()
             .scan(Option::<&data::Message>::None, |prev_message, message| {
                 // Check if the previous message has a visible image preview
-                let prev_has_visible_preview = prev_message
-                    .is_some_and(|prev_msg| has_visible_preview(prev_msg, state, previews, &visible_for_source));
-
-                let hide_nickname = if let HideConsecutive::Enabled(duration) =
-                    config.buffer.nickname.hide_consecutive
-                {
-                    !config.buffer.nickname.alignment.is_top()
-                            && matches!(message.target.source(), message::Source::User(_))
-                            && !prev_has_visible_preview  // don't hide if prev message has visible preview
-                            && prev_message.is_some_and(|prev_message| {
-                                    matches!(
-                                        (message.target.source(), prev_message.target.source()),
-                                        (message::Source::User(user), message::Source::User(prev_user)) if user == prev_user
-                                    ) && duration.is_none_or(|duration| message.server_time - prev_message.server_time < duration)
-                                })
+                let prev_has_visible_preview = if config.buffer.nickname.hide_consecutive.show_after_previews {
+                    prev_message
+                    .is_some_and(|prev_msg| has_visible_preview(prev_msg, state, previews, &visible_for_source))
                 } else {
                     false
                 };
+
+                let hide_nickname =
+                    if let HideConsecutiveEnabled::Enabled(duration) =
+                        config.buffer.nickname.hide_consecutive.enabled
+                    {
+                        !config.buffer.nickname.alignment.is_top()
+                                && matches!(message.target.source(), message::Source::User(_))
+                                && !prev_has_visible_preview  // don't hide if prev message has visible preview
+                                && prev_message.is_some_and(|prev_message| {
+                                        matches!(
+                                            (message.target.source(), prev_message.target.source()),
+                                            (message::Source::User(user), message::Source::User(prev_user)) if user == prev_user
+                                        ) && duration.is_none_or(|duration| message.server_time - prev_message.server_time < duration)
+                                    })
+                    } else {
+                        false
+                    };
 
                 *prev_message = Some(message);
 
