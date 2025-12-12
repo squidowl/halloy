@@ -3,7 +3,7 @@ use data::dashboard::BufferAction;
 use data::user::Nick;
 use data::{Config, Server, User, config, ctcp, isupport, message, target};
 use iced::widget::{Space, button, column, container, row, rule, text};
-use iced::{Length, Padding, padding};
+use iced::{Length, Padding};
 
 use crate::widget::{Element, context_menu, double_pass};
 use crate::{Theme, font, theme, widget};
@@ -143,13 +143,25 @@ impl Entry {
                 let message =
                     Message::Whois(server.clone(), user.nickname().to_owned());
 
-                menu_button("Whois".to_string(), Some(message), length, theme)
+                menu_button(
+                    "Whois".to_string(),
+                    Some(message),
+                    length,
+                    theme,
+                    config,
+                )
             }
             (Entry::Whowas, Context::User { server, user, .. }) => {
                 let message =
                     Message::Whowas(server.clone(), user.nickname().to_owned());
 
-                menu_button("Whowas".to_string(), Some(message), length, theme)
+                menu_button(
+                    "Whowas".to_string(),
+                    Some(message),
+                    length,
+                    theme,
+                    config,
+                )
             }
             (Entry::Query, Context::User { server, user, .. }) => {
                 let message = Message::Query(
@@ -158,7 +170,13 @@ impl Entry {
                     config.actions.buffer.message_user,
                 );
 
-                menu_button("Message".to_string(), Some(message), length, theme)
+                menu_button(
+                    "Message".to_string(),
+                    Some(message),
+                    length,
+                    theme,
+                    config,
+                )
             }
             (
                 Entry::ToggleAccessLevelOp,
@@ -199,7 +217,7 @@ impl Entry {
                         (String::new(), None)
                     };
 
-                menu_button(label, message, length, theme)
+                menu_button(label, message, length, theme, config)
             }
             (
                 Entry::ToggleAccessLevelVoice,
@@ -240,7 +258,7 @@ impl Entry {
                         (String::new(), None)
                     };
 
-                menu_button(label, message, length, theme)
+                menu_button(label, message, length, theme, config)
             }
             (Entry::SendFile, Context::User { server, user, .. }) => {
                 let message = Message::SendFile(server.clone(), user.clone());
@@ -250,6 +268,7 @@ impl Entry {
                     Some(message),
                     length,
                     theme,
+                    config,
                 )
             }
             (
@@ -283,6 +302,7 @@ impl Entry {
                     Some(message),
                     length,
                     theme,
+                    config,
                 )
             }
             (Entry::CtcpRequestVersion, Context::User { server, user, .. }) => {
@@ -298,6 +318,7 @@ impl Entry {
                     Some(message),
                     length,
                     theme,
+                    config,
                 )
             }
             (Entry::CopyUrl, Context::Url(url)) => {
@@ -308,6 +329,7 @@ impl Entry {
                     Some(message),
                     length,
                     theme,
+                    config,
                 )
             }
             (Entry::OpenUrl, Context::Url(url)) => {
@@ -336,6 +358,7 @@ impl Entry {
                     Some(message),
                     length,
                     theme,
+                    config,
                 )
             }
             (
@@ -349,6 +372,7 @@ impl Entry {
                     Some(message),
                     length,
                     theme,
+                    config,
                 )
             }
             (
@@ -362,6 +386,7 @@ impl Entry {
                     Some(message),
                     length,
                     theme,
+                    config,
                 )
             }
             _ => row![].into(),
@@ -547,20 +572,23 @@ fn menu_button(
     message: Option<Message>,
     length: Length,
     theme: &Theme,
+    config: &Config,
 ) -> Element<'static, Message> {
     button(
         text(content)
             .style(theme::text::primary)
             .font_maybe(theme::font_style::primary(theme).map(font::get)),
     )
-    .padding(5)
+    .padding(config.context_menu.padding.entry)
     .width(length)
     .on_press_maybe(message)
     .into()
 }
 
-fn right_justified_padding() -> Padding {
-    padding::all(5).right(5.0 + double_pass::horizontal_expansion())
+fn right_justified_padding(config: &Config) -> Padding {
+    let padding = config.context_menu.padding.entry;
+    Padding::from(padding)
+        .right(padding[1] as f32 + double_pass::horizontal_expansion())
 }
 
 fn user_info<'a>(
@@ -618,7 +646,7 @@ fn user_info<'a>(
 
     column![
         container(row![nickname, state].width(length).spacing(4))
-            .padding(right_justified_padding())
+            .padding(right_justified_padding(config))
     ]
     .into()
 }

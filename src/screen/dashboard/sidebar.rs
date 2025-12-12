@@ -233,7 +233,7 @@ impl Sidebar {
                                     .align_y(iced::Alignment::Center),
                                 )
                                 .width(length)
-                                .padding(5)
+                                .padding(config.context_menu.padding.entry)
                                 .on_press(message)
                                 .into()
                             };
@@ -419,6 +419,10 @@ impl Sidebar {
             let mut buffers = vec![];
             let mut client_enumeration = 0;
 
+            if config.sidebar.position.is_horizontal() {
+                buffers.push(space::horizontal().width(4).into());
+            }
+
             for server in servers.keys() {
                 let casemapping = clients.get_casemapping(server);
 
@@ -430,15 +434,11 @@ impl Sidebar {
                      has_unread: bool,
                      has_highlight: bool| {
                         upstream_buffer_button(
+                            config,
                             panes,
                             focus,
                             buffer,
                             connected,
-                            config.actions.sidebar.buffer,
-                            config.actions.sidebar.focused_buffer,
-                            config.sidebar.position,
-                            config.sidebar.server_icon_size,
-                            &config.sidebar.unread_indicator,
                             server_has_unread,
                             supports_detach,
                             casemapping,
@@ -541,17 +541,24 @@ impl Sidebar {
                             if config.sidebar.position.is_horizontal() {
                                 if client_enumeration < clients.len() {
                                     buffers.push(
-                                        container(rule::vertical(1))
-                                            .padding(padding::top(6))
-                                            .height(20)
-                                            .width(12)
-                                            .align_x(Alignment::Center)
+                                        space::horizontal()
+                                            .width(
+                                                config
+                                                    .sidebar
+                                                    .spacing
+                                                    .server,
+                                            )
                                             .into(),
                                     );
                                 }
                             } else {
-                                buffers
-                                    .push(space::vertical().height(12).into());
+                                buffers.push(
+                                    space::vertical()
+                                        .height(
+                                            config.sidebar.spacing.server,
+                                        )
+                                        .into(),
+                                );
                             }
                         }
                     }
@@ -759,15 +766,11 @@ impl Entry {
 }
 
 fn upstream_buffer_button<'a>(
+    config: &'a Config,
     panes: &'a Panes,
     focus: Focus,
     buffer: buffer::Upstream,
     connected: bool,
-    buffer_action: BufferAction,
-    focused_buffer_action: Option<BufferFocusedAction>,
-    position: sidebar::Position,
-    server_icon_size: u32,
-    unread_indicator: &'a sidebar::UnreadIndicator,
     server_has_unread: bool,
     supports_detach: bool,
     casemapping: isupport::CaseMap,
@@ -790,22 +793,24 @@ fn upstream_buffer_button<'a>(
     });
 
     let should_indicate_unread = buffer.channel().is_none_or(|channel| {
-        unread_indicator.should_indicate_unread(
+        config.sidebar.unread_indicator.should_indicate_unread(
             channel,
             buffer.server(),
             casemapping,
         )
     });
     let show_highlight_icon = has_highlight
-        && unread_indicator.has_unread_highlight_icon()
+        && config.sidebar.unread_indicator.has_unread_highlight_icon()
         && should_indicate_unread;
     let show_unread_icon = has_unread
-        && unread_indicator.has_unread_icon()
+        && config.sidebar.unread_indicator.has_unread_icon()
         && should_indicate_unread;
-    let show_unread_title =
-        has_unread && unread_indicator.title && should_indicate_unread;
-    let show_highlight_unread_title =
-        has_highlight && unread_indicator.title && should_indicate_unread;
+    let show_unread_title = has_unread
+        && config.sidebar.unread_indicator.title
+        && should_indicate_unread;
+    let show_highlight_unread_title = has_highlight
+        && config.sidebar.unread_indicator.title
+        && should_indicate_unread;
 
     let buffer_title_style = if show_highlight_unread_title {
         theme::text::highlight_indicator
@@ -835,45 +840,52 @@ fn upstream_buffer_button<'a>(
             } else {
                 theme::text::error
             })
-            .size(server_icon_size),
-            server_icon_size,
+            .size(config.sidebar.server_icon_size),
+            config.sidebar.server_icon_size,
         ))
     } else if show_highlight_icon
         && let Some(highlight_icon) =
-            icon::from_icon(unread_indicator.highlight_icon)
+            icon::from_icon(config.sidebar.unread_indicator.highlight_icon)
     {
         Some((
             highlight_icon
                 .style(theme::text::highlight_indicator)
-                .size(unread_indicator.highlight_icon_size),
-            unread_indicator.highlight_icon_size,
+                .size(config.sidebar.unread_indicator.highlight_icon_size),
+            config.sidebar.unread_indicator.highlight_icon_size,
         ))
     } else if show_unread_icon
-        && let Some(unread_icon) = icon::from_icon(unread_indicator.icon)
+        && let Some(unread_icon) =
+            icon::from_icon(config.sidebar.unread_indicator.icon)
     {
         Some((
             unread_icon
                 .style(theme::text::unread_indicator)
-                .size(unread_indicator.icon_size),
-            unread_indicator.icon_size,
+                .size(config.sidebar.unread_indicator.icon_size),
+            config.sidebar.unread_indicator.icon_size,
         ))
     } else {
         None
     };
 
-    let (left_padding, icon) = if position.is_horizontal() {
+    let (left_padding, icon) = if config.sidebar.position.is_horizontal() {
         icon_tuple.map_or((0, None), |(icon, icon_size)| {
             (icon_size + 8, Some(container(icon).center_y(Length::Fill)))
         })
     } else {
-        let max_icon_size = server_icon_size.max(
-            unread_indicator
+        let max_icon_size = config.sidebar.server_icon_size.max(
+            config
+                .sidebar
+                .unread_indicator
                 .has_unread_icon()
-                .then_some(unread_indicator.icon_size)
+                .then_some(config.sidebar.unread_indicator.icon_size)
                 .max(
-                    unread_indicator
+                    config
+                        .sidebar
+                        .unread_indicator
                         .has_unread_highlight_icon()
-                        .then_some(unread_indicator.highlight_icon_size),
+                        .then_some(
+                            config.sidebar.unread_indicator.highlight_icon_size,
+                        ),
                 )
                 .unwrap_or(0),
         );
@@ -936,10 +948,13 @@ fn upstream_buffer_button<'a>(
                     open.is_some(),
                 )
             })
+            .padding(config.sidebar.padding.buffer)
             .on_press({
                 match is_focused {
                     Some((window, pane)) => {
-                        if let Some(focus_action) = focused_buffer_action {
+                        if let Some(focus_action) =
+                            config.actions.sidebar.focused_buffer
+                        {
                             match focus_action {
                                 BufferFocusedAction::ClosePane => {
                                     Message::Close(window, pane)
@@ -955,7 +970,7 @@ fn upstream_buffer_button<'a>(
                         if let Some((window, pane)) = open {
                             Message::Focus(window, pane)
                         } else {
-                            match buffer_action {
+                            match config.actions.sidebar.buffer {
                                 BufferAction::NewPane => {
                                     Message::New(buffer.clone())
                                 }
@@ -1060,7 +1075,7 @@ fn upstream_buffer_button<'a>(
 
                 button(text(content))
                     .width(length)
-                    .padding(5)
+                    .padding(config.context_menu.padding.entry)
                     .style(|theme, status| {
                         theme::button::primary(theme, status, false)
                     })
