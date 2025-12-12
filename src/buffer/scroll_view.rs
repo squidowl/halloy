@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use chrono::{DateTime, Local, NaiveDate, NaiveTime, Utc};
 use data::buffer::DateSeparators;
-use data::config::buffer::nickname::HideConsecutive;
+use data::config::buffer::nickname::HideConsecutiveEnabled;
 use data::dashboard::BufferAction;
 use data::isupport::ChatHistoryState;
 use data::message::{self, Limit};
@@ -145,6 +145,52 @@ where
     }
 }
 
+/// Check if a message has a visible image preview
+fn has_visible_preview(
+    message: &data::Message,
+    state: &State,
+    previews: Option<Previews>,
+    visible_for_source: &Option<impl Fn(&Preview, &message::Source) -> bool>,
+) -> bool {
+    if let message::Content::Fragments(fragments) = &message.content
+        && let Some(previews) = previews
+        && let Some(visible_urls) =
+            state.visible_url_messages.get(&message.hash)
+    {
+        let urls = fragments
+            .iter()
+            .filter_map(message::Fragment::url)
+            .collect::<Vec<_>>();
+
+        return urls.iter().any(|url| {
+            // Check if URL is hidden by user
+            if message.hidden_urls.contains(url) {
+                return false;
+            }
+
+            // Check if URL is in visible URLs list
+            if !visible_urls.contains(url) {
+                return false;
+            }
+
+            // Check if preview is loaded and visible for source
+            if let Some(preview::State::Loaded(preview)) = previews.get(url) {
+                let is_visible_for_source =
+                    if let Some(visible_for_source) = visible_for_source {
+                        visible_for_source(preview, message.target.source())
+                    } else {
+                        true
+                    };
+
+                return is_visible_for_source;
+            }
+
+            false
+        });
+    }
+    false
+}
+
 pub fn view<'a>(
     state: &State,
     kind: Kind,
@@ -240,20 +286,23 @@ pub fn view<'a>(
         messages
             .iter()
             .scan(Option::<&data::Message>::None, |prev_message, message| {
-                let hide_nickname = if let HideConsecutive::Enabled(duration) =
-                    config.buffer.nickname.hide_consecutive
-                {
-                    !config.buffer.nickname.alignment.is_top()
-                            && matches!(message.target.source(), message::Source::User(_))
-                            && prev_message.is_some_and(|prev_message| {
-                                    matches!(
-                                        (message.target.source(), prev_message.target.source()),
-                                        (message::Source::User(user), message::Source::User(prev_user)) if user == prev_user
-                                    ) && duration.is_none_or(|duration| message.server_time - prev_message.server_time < duration)
-                                })
-                } else {
-                    false
-                };
+                let hide_nickname =
+                    if let HideConsecutiveEnabled::Enabled(duration) =
+                        config.buffer.nickname.hide_consecutive.enabled
+                    {
+                        !config.buffer.nickname.alignment.is_top() &&
+                        matches!(message.target.source(), message::Source::User(_)) &&
+                        // don't hide if prev message has visible preview (when show_after_previews is enabled)
+                        !(config.buffer.nickname.hide_consecutive.show_after_previews && prev_message.is_some_and(|prev_msg| has_visible_preview(prev_msg, state, previews, &visible_for_source))) &&
+                        prev_message.is_some_and(|prev_message| {
+                            matches!(
+                                (message.target.source(), prev_message.target.source()),
+                                (message::Source::User(user), message::Source::User(prev_user)) if user == prev_user
+                            ) && duration.is_none_or(|duration| message.server_time - prev_message.server_time < duration)
+                        })
+                    } else {
+                        false
+                    };
 
                 *prev_message = Some(message);
 

@@ -59,10 +59,9 @@ pub enum ShownStatus {
 }
 
 #[derive(Debug, Clone, Copy, Default)]
-pub enum HideConsecutive {
-    #[default]
-    Disabled,
-    Enabled(Option<TimeDelta>),
+pub struct HideConsecutive {
+    pub enabled: HideConsecutiveEnabled,
+    pub show_after_previews: bool,
 }
 
 impl<'de> Deserialize<'de> for HideConsecutive {
@@ -72,7 +71,59 @@ impl<'de> Deserialize<'de> for HideConsecutive {
     {
         #[derive(Debug, Clone, Deserialize)]
         #[serde(untagged)]
-        pub enum Inner {
+        enum Inner {
+            Struct {
+                enabled: HideConsecutiveEnabled,
+                #[serde(default)]
+                show_after_previews: bool,
+            },
+            Boolean(bool),
+            Smart {
+                smart: i64,
+            },
+        }
+
+        match Inner::deserialize(deserializer)? {
+            Inner::Struct {
+                enabled,
+                show_after_previews,
+            } => Ok(HideConsecutive {
+                enabled,
+                show_after_previews,
+            }),
+            Inner::Boolean(enabled) => Ok(HideConsecutive {
+                enabled: if enabled {
+                    HideConsecutiveEnabled::Enabled(None)
+                } else {
+                    HideConsecutiveEnabled::Disabled
+                },
+                show_after_previews: false,
+            }),
+            Inner::Smart { smart } => Ok(HideConsecutive {
+                enabled: HideConsecutiveEnabled::Enabled(
+                    TimeDelta::try_seconds(smart),
+                ),
+                show_after_previews: false,
+            }),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+pub enum HideConsecutiveEnabled {
+    #[default]
+    Disabled,
+    Enabled(Option<TimeDelta>),
+}
+
+impl<'de> Deserialize<'de> for HideConsecutiveEnabled {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Debug, Clone, Deserialize)]
+        #[serde(untagged)]
+        enum Inner {
             Boolean(bool),
             Smart { smart: i64 },
         }
@@ -80,14 +131,14 @@ impl<'de> Deserialize<'de> for HideConsecutive {
         match Inner::deserialize(deserializer)? {
             Inner::Boolean(enabled) => {
                 if enabled {
-                    Ok(HideConsecutive::Enabled(None))
+                    Ok(HideConsecutiveEnabled::Enabled(None))
                 } else {
-                    Ok(HideConsecutive::Disabled)
+                    Ok(HideConsecutiveEnabled::Disabled)
                 }
             }
-            Inner::Smart { smart } => {
-                Ok(HideConsecutive::Enabled(TimeDelta::try_seconds(smart)))
-            }
+            Inner::Smart { smart } => Ok(HideConsecutiveEnabled::Enabled(
+                TimeDelta::try_seconds(smart),
+            )),
         }
     }
 }
