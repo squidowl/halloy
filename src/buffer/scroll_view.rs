@@ -154,7 +154,8 @@ fn has_visible_preview(
 ) -> bool {
     if let message::Content::Fragments(fragments) = &message.content
         && let Some(previews) = previews
-        && let Some(visible_urls) = state.visible_url_messages.get(&message.hash)
+        && let Some(visible_urls) =
+            state.visible_url_messages.get(&message.hash)
     {
         let urls = fragments
             .iter()
@@ -174,13 +175,12 @@ fn has_visible_preview(
 
             // Check if preview is loaded and visible for source
             if let Some(preview::State::Loaded(preview)) = previews.get(url) {
-                let is_visible_for_source = if let Some(visible_for_source) =
-                    visible_for_source
-                {
-                    visible_for_source(preview, message.target.source())
-                } else {
-                    true
-                };
+                let is_visible_for_source =
+                    if let Some(visible_for_source) = visible_for_source {
+                        visible_for_source(preview, message.target.source())
+                    } else {
+                        true
+                    };
 
                 return is_visible_for_source;
             }
