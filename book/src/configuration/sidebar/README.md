@@ -11,6 +11,8 @@ Sidebar settings for Halloy.
     - [order\_by](#order_by)
   - [Scrollbar](#scrollbar)
   - [Unread Indicator](#unread-indicator)
+  - [Padding](#padding)
+  - [Spacing](#spacing)
 
 ## Configuration
 
@@ -91,3 +93,11 @@ Scrollbar in sidebar
 ## [Unread Indicator](unread-indicator.md)
 
 Unread buffer indicator style
+
+## [Padding](padding.md)
+
+Adjust padding for sidebar
+
+## [Spacing](spacing.md)
+
+Adjust spacing for sidebar
