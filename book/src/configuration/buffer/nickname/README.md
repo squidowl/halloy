@@ -13,7 +13,7 @@ Customize how nicknames are displayed within a buffer.
     - [shown\_status](#shown_status)
     - [click](#click)
     - [truncate](#truncate)
-    - [hide\_consecutive](#hide_consecutive)
+  - [Hide Consecutive](#hide-consecutive)
 
 ## Configuration
 
@@ -146,23 +146,6 @@ Truncate nicknames in buffer to a maximum length
 truncate = 10
 ```
 
-### hide_consecutive
+## [Hide Consecutive](hide-consecutive.md)
 
-Hide nickname if consecutive messages are from the same user.  If specified as
-`{ smart = integer }` then the nickname will be hidden for consecutive messages
-are from the same user and each is within `smart` seconds of each other.
-
-> ⚠️ `hide_consecutive` does not work in conjunction with `alignment = "top"` .
-
-```toml
-# Type: boolean
-# Values: true, false, or { smart = integer }
-# Default: false
-
-[buffer.nickname]
-hide_consecutive = true
-
-# hide if the previous message was from the same user and sent within 2m of the current message
-[buffer.nickname]
-hide_consecutive = { smart = 120 }
-```
+Hide nickname if consecutive messages are from the same user.
