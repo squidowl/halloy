@@ -152,47 +152,41 @@ fn has_visible_preview(
     previews: Option<Previews>,
     visible_for_source: &Option<impl Fn(&Preview, &message::Source) -> bool>,
 ) -> bool {
-    if let message::Content::Fragments(fragments) = &message.content {
-        if let Some(previews) = previews {
-            if let Some(visible_urls) =
-                state.visible_url_messages.get(&message.hash)
-            {
-                let urls = fragments
-                    .iter()
-                    .filter_map(message::Fragment::url)
-                    .collect::<Vec<_>>();
+    if let message::Content::Fragments(fragments) = &message.content
+        && let Some(previews) = previews
+        && let Some(visible_urls) = state.visible_url_messages.get(&message.hash)
+    {
+        let urls = fragments
+            .iter()
+            .filter_map(message::Fragment::url)
+            .collect::<Vec<_>>();
 
-                return urls.iter().any(|url| {
-                    // Check if URL is hidden by user
-                    if message.hidden_urls.contains(url) {
-                        return false;
-                    }
-
-                    // Check if URL is in visible URLs list
-                    if !visible_urls.contains(url) {
-                        return false;
-                    }
-
-                    // Check if preview is loaded and visible for source
-                    if let Some(preview::State::Loaded(preview)) =
-                        previews.get(url)
-                    {
-                        let is_visible_for_source = if let Some(
-                            visible_for_source,
-                        ) = visible_for_source
-                        {
-                            visible_for_source(preview, message.target.source())
-                        } else {
-                            true
-                        };
-
-                        return is_visible_for_source;
-                    }
-
-                    false
-                });
+        return urls.iter().any(|url| {
+            // Check if URL is hidden by user
+            if message.hidden_urls.contains(url) {
+                return false;
             }
-        }
+
+            // Check if URL is in visible URLs list
+            if !visible_urls.contains(url) {
+                return false;
+            }
+
+            // Check if preview is loaded and visible for source
+            if let Some(preview::State::Loaded(preview)) = previews.get(url) {
+                let is_visible_for_source = if let Some(visible_for_source) =
+                    visible_for_source
+                {
+                    visible_for_source(preview, message.target.source())
+                } else {
+                    true
+                };
+
+                return is_visible_for_source;
+            }
+
+            false
+        });
     }
     false
 }
