@@ -72,15 +72,12 @@ impl<'de> Deserialize<'de> for HideConsecutive {
         #[derive(Debug, Clone, Deserialize)]
         #[serde(untagged)]
         enum Inner {
-            // New struct format
             Struct {
                 enabled: HideConsecutiveEnabled,
                 #[serde(default = "default_show_nickname_after_preview")]
                 show_after_previews: bool,
             },
-            // Old boolean format (backward compatibility)
             Boolean(bool),
-            // Old smart format (backward compatibility)
             Smart {
                 smart: i64,
             },
