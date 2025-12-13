@@ -31,9 +31,7 @@ pub struct Padding {
 
 impl Default for Padding {
     fn default() -> Self {
-        Self {
-            buffer: [5, 5],
-        }
+        Self { buffer: [5, 5] }
     }
 }
 

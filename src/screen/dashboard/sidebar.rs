@@ -543,10 +543,7 @@ impl Sidebar {
                                     buffers.push(
                                         space::horizontal()
                                             .width(
-                                                config
-                                                    .sidebar
-                                                    .spacing
-                                                    .server,
+                                                config.sidebar.spacing.server,
                                             )
                                             .into(),
                                     );
@@ -554,9 +551,7 @@ impl Sidebar {
                             } else {
                                 buffers.push(
                                     space::vertical()
-                                        .height(
-                                            config.sidebar.spacing.server,
-                                        )
+                                        .height(config.sidebar.spacing.server)
                                         .into(),
                                 );
                             }
