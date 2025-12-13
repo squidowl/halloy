@@ -36,6 +36,7 @@ pub enum Entry {
     CtcpRequestVersion,
     // url context
     CopyUrl,
+    OpenUrl,
     // timestamp context
     Timestamp,
     // not sent message context
@@ -57,7 +58,7 @@ impl Entry {
     }
 
     pub fn url_list() -> Vec<Self> {
-        vec![Entry::CopyUrl]
+        vec![Entry::CopyUrl, Entry::OpenUrl]
     }
 
     pub fn user_list(
@@ -309,6 +310,16 @@ impl Entry {
                     theme,
                 )
             }
+            (Entry::OpenUrl, Context::Url(url)) => {
+                let message = Message::OpenUrl(url.clone());
+
+                menu_button(
+                    "Open URL".to_string(),
+                    Some(message),
+                    length,
+                    theme,
+                )
+            }
             (Entry::Timestamp, Context::Timestamp(date_time)) => {
                 let message = Message::CopyTimestamp(
                     *date_time,
@@ -368,6 +379,7 @@ pub enum Message {
     InsertNickname(Nick),
     CtcpRequest(ctcp::Command, Server, Nick, Option<String>),
     CopyUrl(String),
+    OpenUrl(String),
     CopyTimestamp(DateTime<Utc>, Option<String>),
     #[allow(clippy::enum_variant_names)]
     DeleteMessage(DateTime<Utc>, message::Hash),
@@ -385,6 +397,7 @@ pub enum Event {
     InsertNickname(Nick),
     CtcpRequest(ctcp::Command, Server, Nick, Option<String>),
     CopyUrl(String),
+    OpenUrl(String),
     CopyTimestamp(DateTime<Utc>, Option<String>),
     DeleteMessage(DateTime<Utc>, message::Hash),
     ResendMessage(DateTime<Utc>, message::Hash),
@@ -406,6 +419,7 @@ pub fn update(message: Message) -> Event {
             Event::CtcpRequest(command, server, nick, params)
         }
         Message::CopyUrl(url) => Event::CopyUrl(url),
+        Message::OpenUrl(url) => Event::OpenUrl(url),
         Message::CopyTimestamp(date_time, format) => {
             Event::CopyTimestamp(date_time, format)
         }
