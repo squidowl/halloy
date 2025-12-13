@@ -1609,9 +1609,16 @@ impl Dashboard {
                         },
                     )];
 
-                match event {
+                let event = match event {
                     buffer::context_menu::Event::CopyUrl(url) => {
                         tasks.push(clipboard::write(url));
+                        None
+                    }
+                    buffer::context_menu::Event::OpenUrl(url) => {
+                        Some(Event::OpenUrl(
+                            url,
+                            config.buffer.url.prompt_before_open,
+                        ))
                     }
                     buffer::context_menu::Event::ToggleAccessLevel(
                         server,
@@ -1638,6 +1645,8 @@ impl Dashboard {
                                 TokenPriority::User,
                             );
                         }
+
+                        None
                     }
                     buffer::context_menu::Event::SendWhois(server, nick) => {
                         let buffer =
@@ -1713,6 +1722,8 @@ impl Dashboard {
                                 }
                             }
                         }
+
+                        None
                     }
                     buffer::context_menu::Event::SendWhowas(server, nick) => {
                         let buffer =
@@ -1788,6 +1799,8 @@ impl Dashboard {
                                 }
                             }
                         }
+
+                        None
                     }
                     buffer::context_menu::Event::OpenQuery(
                         server,
@@ -1802,6 +1815,8 @@ impl Dashboard {
                             clients,
                             config,
                         ));
+
+                        None
                     }
                     buffer::context_menu::Event::InsertNickname(nick) => {
                         if let Some((_, _, pane, history)) =
@@ -1813,6 +1828,8 @@ impl Dashboard {
                                 &config.buffer.text_input.autocomplete,
                             );
                         }
+
+                        None
                     }
                     buffer::context_menu::Event::SendFile(server, nick) => {
                         tasks.push(Task::perform(
@@ -1830,6 +1847,8 @@ impl Dashboard {
                                 )
                             },
                         ));
+
+                        None
                     }
                     buffer::context_menu::Event::CtcpRequest(
                         command,
@@ -1858,6 +1877,8 @@ impl Dashboard {
                                 TokenPriority::High,
                             );
                         }
+
+                        None
                     }
                     buffer::context_menu::Event::CopyTimestamp(
                         date_time,
@@ -1878,6 +1899,8 @@ impl Dashboard {
                                 ),
                             ));
                         }
+
+                        None
                     }
                     buffer::context_menu::Event::DeleteMessage(
                         server_time,
@@ -1898,6 +1921,8 @@ impl Dashboard {
                                 Task::future(future).map(Message::History),
                             );
                         }
+
+                        None
                     }
                     buffer::context_menu::Event::ResendMessage(
                         server_time,
@@ -1918,10 +1943,12 @@ impl Dashboard {
                                 Task::future(future).map(Message::History),
                             );
                         }
-                    }
-                }
 
-                return (Task::batch(tasks), None);
+                        None
+                    }
+                };
+
+                return (Task::batch(tasks), event);
             }
             buffer::Event::OpenBuffers(targets) => {
                 let mut tasks = vec![];
