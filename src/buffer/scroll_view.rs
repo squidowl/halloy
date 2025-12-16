@@ -329,10 +329,9 @@ pub fn view<'a>(
 
                 let content = if let (
                     message::Content::Fragments(fragments),
-                    Some(previews),
-                    true,
+                    Some(previews)
                 ) =
-                    (&message.content, previews, config.preview.enabled)
+                    (&message.content, previews)
                 {
                     let urls = fragments
                         .iter()

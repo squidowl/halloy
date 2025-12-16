@@ -10,7 +10,7 @@ use crate::{Server, Target, isupport, target};
 #[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
 pub struct Preview {
-    pub enabled: bool,
+    pub enabled: Enabled,
     pub request: Request,
     pub card: Card,
     pub image: Image,
@@ -19,7 +19,7 @@ pub struct Preview {
 impl Default for Preview {
     fn default() -> Self {
         Self {
-            enabled: true,
+            enabled: Enabled::default(),
             request: Request::default(),
             card: Card::default(),
             image: Image::default(),
@@ -27,21 +27,9 @@ impl Default for Preview {
     }
 }
 
-#[derive(Debug, Clone)]
-enum Enabled {
-    Boolean(bool),
-    Regex(Vec<Regex>),
-}
-
-impl Default for Enabled {
-    fn default() -> Self {
-        Self::Boolean(true)
-    }
-}
-
-impl Enabled {
+impl Preview {
     pub fn is_enabled(&self, url: Option<&str>) -> bool {
-        match self {
+        match &self.enabled {
             Enabled::Boolean(b) => *b,
             Enabled::Regex(regexes) => {
                 url.map_or(false, |url| {
@@ -49,6 +37,18 @@ impl Enabled {
                 })
             }
         }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum Enabled {
+    Boolean(bool),
+    Regex(Vec<Regex>),
+}
+
+impl Default for Enabled {
+    fn default() -> Self {
+        Self::Boolean(true)
     }
 }
 
