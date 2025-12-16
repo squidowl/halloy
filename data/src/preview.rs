@@ -55,10 +55,8 @@ impl<'a> Previews<'a> {
     ) -> Previews<'a> {
         Self {
             collection,
-            cards_are_visible: config.enabled
-                && config.card.visible(target, server, casemapping),
-            images_are_visible: config.enabled
-                && config.image.visible(target, server, casemapping),
+            cards_are_visible: config.card.visible(target, server, casemapping),
+            images_are_visible: config.image.visible(target, server, casemapping),
         }
     }
 
@@ -127,7 +125,7 @@ pub async fn load(
     url: Url,
     config: config::Preview,
 ) -> Result<Preview, LoadError> {
-    if !config.enabled {
+    if !config.is_enabled(Some(url.as_str())) {
         return Err(LoadError::Disabled);
     }
 
