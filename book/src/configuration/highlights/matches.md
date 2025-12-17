@@ -63,14 +63,10 @@ case_insensitive = true
 
 Match based on regex.
 
-<div class="warning">
 
-Use toml multi-line literal strings `'''\bfoo'd\b'''` when writing a regex. This allows you to write write the regex without
+> 💡 Use toml multi-line literal strings `'''\bfoo'd\b'''` when writing a regex. This allows you to write write the regex without
 escaping. You can also use a literal string `'\bfoo\b'`, but then you can't use `'` inside the string.
-
 Without literal strings, you'd have to write the above as `"\\bfoo'd\\b"`
-
-</div>
 
 Example shows a regex that matches the word "casper", regardless of case and only when it appears as a whole word in any channel.
 
