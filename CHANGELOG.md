@@ -7,6 +7,7 @@ Added:
 - Channel discovery buffer to view all channels on a server (using LIST). Can be opened via sidebar button or command bar.
 - Setting to adjust buffer padding and server spacing in sidemenu
 - Setting to adjust entry padding in context menus
+- Support for configuring a regex-based allowlist of URL patterns for Preview
 - Setting to open a new pane, replace current pane, or open a new window after `/join`
 - Emoji, channel, and user completion can be used with commands
 - Auto-completion (emoji/channel/user) will auto-complete at the text cursor (instead of the end of the current input)
@@ -29,7 +30,7 @@ Thanks:
 
 - Contributions: @csmith
 - Bug reports: halloy3002, g00s, Eagle-1
-- Feature requests: @tribly, @deepspaceaxolotl, @dieperdev, @Erroneuz, @lorenzosu 
+- Feature requests: @tribly, @deepspaceaxolotl, @dieperdev, @Erroneuz, @lorenzosu, @Summertime
 
 # 2025.12 (2025-11-28)
 
