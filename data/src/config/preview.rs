@@ -7,7 +7,7 @@ use crate::config::inclusivities::{
 use crate::message::Source;
 use crate::{Server, Target, isupport, target};
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize)]
 #[serde(default)]
 pub struct Preview {
     pub enabled: Enabled,
@@ -16,23 +16,12 @@ pub struct Preview {
     pub image: Image,
 }
 
-impl Default for Preview {
-    fn default() -> Self {
-        Self {
-            enabled: Enabled::default(),
-            request: Request::default(),
-            card: Card::default(),
-            image: Image::default(),
-        }
-    }
-}
-
 impl Preview {
     pub fn is_enabled(&self, url: Option<&str>) -> bool {
         match &self.enabled {
             Enabled::Boolean(b) => *b,
             Enabled::Regex(regexes) => {
-                url.map_or(false, |url| {
+                url.is_some_and(|url| {
                     regexes.iter().any(|regex| regex.is_match(url).unwrap_or(false))
                 })
             }
