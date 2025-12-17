@@ -17,14 +17,12 @@ pub struct Preview {
 }
 
 impl Preview {
-    pub fn is_enabled(&self, url: Option<&str>) -> bool {
+    pub fn is_enabled(&self, url: &str) -> bool {
         match &self.enabled {
             Enabled::Boolean(b) => *b,
-            Enabled::Regex(regexes) => {
-                url.is_some_and(|url| {
-                    regexes.iter().any(|regex| regex.is_match(url).unwrap_or(false))
-                })
-            }
+            Enabled::Regex(regexes) => regexes
+                .iter()
+                .any(|regex| regex.is_match(url).unwrap_or(false)),
         }
     }
 }
@@ -83,7 +81,6 @@ impl<'de> Deserialize<'de> for Enabled {
         }
     }
 }
-
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(default)]

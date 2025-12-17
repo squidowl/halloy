@@ -125,7 +125,7 @@ pub async fn load(
     url: Url,
     config: config::Preview,
 ) -> Result<Preview, LoadError> {
-    if !config.is_enabled(Some(url.as_str())) {
+    if !config.is_enabled(url.as_str()) {
         return Err(LoadError::Disabled);
     }
 
