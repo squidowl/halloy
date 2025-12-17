@@ -56,7 +56,11 @@ impl<'a> Previews<'a> {
         Self {
             collection,
             cards_are_visible: config.card.visible(target, server, casemapping),
-            images_are_visible: config.image.visible(target, server, casemapping),
+            images_are_visible: config.image.visible(
+                target,
+                server,
+                casemapping,
+            ),
         }
     }
 
