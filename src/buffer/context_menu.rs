@@ -340,6 +340,7 @@ impl Entry {
                     Some(message),
                     length,
                     theme,
+                    config,
                 )
             }
             (Entry::Timestamp, Context::Timestamp(date_time)) => {
