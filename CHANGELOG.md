@@ -4,6 +4,7 @@ Added:
 
 - Added `Open URL` entry to URL context menus
 - Setting to not hide consecutive if previous message was a image preview
+- Support for configuring a regex-based allowlist of URL patterns for Preview
 - Setting to open a new pane, replace current pane, or open a new window after `/join`
 - Emoji, channel, and user completion can be used with commands
 - Auto-completion (emoji/channel/user) will auto-complete at the text cursor (instead of the end of the current input)
@@ -23,7 +24,7 @@ Thanks:
 
 - Contributions: @csmith
 - Bug reports: halloy3002, g00s
-- Feature requests: @tribly, @deepspaceaxolotl, @dieperdev, @Erroneuz
+- Feature requests: @tribly, @deepspaceaxolotl, @dieperdev, @Erroneuz, @Summertime
 
 # 2025.12 (2025-11-28)
 
