@@ -48,6 +48,7 @@
     - [Success](configuration/buffer/internal-messages/success.md)
   - [Mark as Read](configuration/buffer/mark-as-read/README.md)
   - [Nickname](configuration/buffer/nickname/README.md)
+    - [Hide Consecutive](configuration/buffer/nickname/hide-consecutive.md)
   - [Server Messages](configuration/buffer/server-messages/README.md)
     - [Condense](configuration/buffer/server-messages/condense.md)
   - [Status Message Prefix](configuration/buffer/status-message-prefix/README.md)
