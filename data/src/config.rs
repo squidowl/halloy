@@ -27,6 +27,7 @@ pub use self::sidebar::Sidebar;
 use crate::appearance::theme::Styles;
 use crate::appearance::{self, Appearance};
 use crate::audio::{self};
+use crate::config::event::Event;
 use crate::serde::deserialize_positive_integer_maybe;
 use crate::server::{ConfigMap as ServerMap, ServerName};
 use crate::{Theme, environment};
@@ -46,6 +47,7 @@ pub mod preview;
 pub mod proxy;
 pub mod server;
 pub mod sidebar;
+pub mod event;
 
 const CONFIG_TEMPLATE: &str = include_str!("../../config.toml");
 const DEFAULT_THEME_NAME: &str = "ferra";
@@ -70,6 +72,7 @@ pub struct Config {
     pub ctcp: Ctcp,
     pub logs: Logs,
     pub platform_specific: PlatformSpecific,
+    pub event: Event,
 }
 
 #[derive(Debug, Clone, Copy, Deserialize)]
@@ -318,6 +321,7 @@ impl Config {
             pub ctcp: Ctcp,
             pub logs: Logs,
             pub platform_specific: PlatformSpecific,
+            pub event: Event,
         }
 
         impl Default for Configuration {
@@ -341,6 +345,7 @@ impl Config {
                     ctcp: Ctcp::default(),
                     logs: Logs::default(),
                     platform_specific: PlatformSpecific::default(),
+                    event: Event::default(),
                 }
             }
         }
@@ -374,6 +379,7 @@ impl Config {
             ctcp,
             logs,
             platform_specific,
+            event,
         } = serde_ignored::deserialize(config, |ignored| {
             log::warn!("[config.toml] Ignoring unknown setting: {ignored}");
         })
@@ -404,6 +410,7 @@ impl Config {
             ctcp,
             logs,
             platform_specific,
+            event,
         })
     }
 
