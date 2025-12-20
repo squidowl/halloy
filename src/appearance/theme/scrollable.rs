@@ -1,6 +1,6 @@
 use iced::widget::container;
 use iced::widget::scrollable::{
-    Catalog, Rail, Scroller, Status, Style, StyleFn,
+    AutoScroll, Catalog, Rail, Scroller, Status, Style, StyleFn,
 };
 use iced::{Background, Border, Color, Shadow};
 
@@ -29,13 +29,24 @@ pub fn primary(theme: &Theme, status: Status) -> Style {
         background: None,
         border: Border::default(),
         scroller: Scroller {
-            color: scroller_color,
+            background: Background::Color(scroller_color),
             border: Border {
                 radius: 8.0.into(),
                 width: 0.0,
                 color: Color::TRANSPARENT,
             },
         },
+    };
+
+    let auto_scroll = AutoScroll {
+        background: Background::Color(Color::TRANSPARENT),
+        border: Border {
+            radius: 8.0.into(),
+            width: 0.0,
+            color: Color::TRANSPARENT,
+        },
+        shadow: Shadow::default(),
+        icon: scroller_color,
     };
 
     match status {
@@ -56,6 +67,7 @@ pub fn primary(theme: &Theme, status: Status) -> Style {
             vertical_rail: rail,
             horizontal_rail: rail,
             gap: None,
+            auto_scroll,
         },
     }
 }
@@ -65,13 +77,24 @@ pub fn hidden(_theme: &Theme, status: Status) -> Style {
         background: None,
         border: Border::default(),
         scroller: Scroller {
-            color: Color::TRANSPARENT,
+            background: Background::Color(Color::TRANSPARENT),
             border: Border {
                 radius: 0.0.into(),
                 width: 0.0,
                 color: Color::TRANSPARENT,
             },
         },
+    };
+
+    let auto_scroll = AutoScroll {
+        background: Background::Color(Color::TRANSPARENT),
+        border: Border {
+            radius: 8.0.into(),
+            width: 0.0,
+            color: Color::TRANSPARENT,
+        },
+        shadow: Shadow::default(),
+        icon: Color::TRANSPARENT,
     };
 
     match status {
@@ -92,6 +115,7 @@ pub fn hidden(_theme: &Theme, status: Status) -> Style {
             vertical_rail: rail,
             horizontal_rail: rail,
             gap: None,
+            auto_scroll,
         },
     }
 }

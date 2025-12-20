@@ -43,9 +43,9 @@ dirs-next = "2.0.0"
 xdg = "3.0.0"
 flate2 = "1.0"
 hex = "0.4.3"
-iced_core = "0.14.0-dev"
-iced_wgpu = "0.14.0-dev"
-iced = { version = "0.14.0-dev", default-features = false, features = ["sysinfo"] }
+iced_core = "0.15.0-dev"
+iced_wgpu = "0.15.0-dev"
+iced = { version = "0.15.0-dev", default-features = false, features = ["sysinfo"] }
 indexmap = { version = "2.10", features = ["std", "serde"] }
 seahash = "4.1.0"
 serde_json = "1.0"

@@ -163,6 +163,7 @@ where
                 align_y: self.format.align_y,
                 shaping: self.format.shaping,
                 wrapping: self.format.wrapping,
+                hint_factor: renderer.scale_factor(),
             });
 
             state.paragraph.min_bounds()
