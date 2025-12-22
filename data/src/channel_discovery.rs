@@ -64,6 +64,7 @@ impl Manager {
     pub fn items(
         &self,
         search_query: &str,
+        chantypes: &[char],
     ) -> Vec<(&'_ String, &'_ message::Content, &'_ usize)> {
         let query = search_query.trim();
 
@@ -101,39 +102,87 @@ impl Manager {
         }
 
         // fuzzy search
-        self.fuzzy_search(query)
+        self.fuzzy_search(query, chantypes)
     }
 
     fn fuzzy_search(
         &self,
         query: &str,
+        chantypes: &[char],
     ) -> Vec<(&'_ String, &'_ message::Content, &'_ usize)> {
         fn cmp_entries(
-            (score_a, channel_a, _, user_count_a): &(
+            (
+                exact_score_a,
+                prefix_score_a,
+                substring_score_a,
+                fuzzy_score_a,
+                channel_a,
+                _,
+                user_count_a,
+            ): &(
+                u32,
+                u32,
+                u32,
                 u32,
                 &String,
                 &message::Content,
                 &usize,
             ),
-            (score_b, channel_b, _, user_count_b): &(
+            (
+                exact_score_b,
+                prefix_score_b,
+                substring_score_b,
+                fuzzy_score_b,
+                channel_b,
+                _,
+                user_count_b,
+            ): &(
+                u32,
+                u32,
+                u32,
                 u32,
                 &String,
                 &message::Content,
                 &usize,
             ),
         ) -> Ordering {
-            score_b
-                .cmp(score_a)
+            exact_score_b
+                .cmp(exact_score_a)
+                .then_with(|| prefix_score_b.cmp(prefix_score_a))
+                .then_with(|| substring_score_b.cmp(substring_score_a))
+                .then_with(|| fuzzy_score_b.cmp(fuzzy_score_a))
                 .then_with(|| user_count_b.cmp(user_count_a))
                 .then_with(|| channel_a.cmp(channel_b))
         }
 
-        let pattern = Pattern::new(
+        let exact_pattern = Pattern::new(
+            query,
+            CaseMatching::Ignore,
+            Normalization::Smart,
+            AtomKind::Exact,
+        );
+
+        let prefix_pattern = Pattern::new(
+            query,
+            CaseMatching::Ignore,
+            Normalization::Smart,
+            AtomKind::Prefix,
+        );
+
+        let substring_pattern = Pattern::new(
+            query,
+            CaseMatching::Ignore,
+            Normalization::Smart,
+            AtomKind::Substring,
+        );
+
+        let fuzzy_pattern = Pattern::new(
             query,
             CaseMatching::Ignore,
             Normalization::Smart,
             AtomKind::Fuzzy,
         );
+
         let mut matcher = Matcher::new(Config::DEFAULT);
         let mut buffer = Vec::new();
         let mut topic_buffer = Vec::new();
@@ -142,21 +191,68 @@ impl Manager {
         for (channel, (topic_content, user_count)) in self.channels.iter() {
             // Search channel name
             let channel_hay = Utf32Str::new(channel, &mut buffer);
-            let channel_score =
-                pattern.score(channel_hay, &mut matcher).unwrap_or(0);
+            let channel_substring_score = substring_pattern
+                .score(channel_hay, &mut matcher)
+                .unwrap_or(0);
+            let channel_fuzzy_score =
+                fuzzy_pattern.score(channel_hay, &mut matcher).unwrap_or(0);
 
             // Search topic text
             let topic_text = topic_content.text();
             let topic_hay =
                 Utf32Str::new(topic_text.as_ref(), &mut topic_buffer);
-            let topic_score =
-                pattern.score(topic_hay, &mut matcher).unwrap_or(0);
+            let topic_substring_score = substring_pattern
+                .score(topic_hay, &mut matcher)
+                .unwrap_or(0);
+            let topic_fuzzy_score =
+                fuzzy_pattern.score(topic_hay, &mut matcher).unwrap_or(0);
 
-            // Take the maximum score (match if found in either channel name or topic)
-            let score = channel_score.max(topic_score);
+            // Find exact & prefix matches on channel only.  If the query starts
+            // with a channel prefix then match including prefix(es), otherwise
+            // match against the channel with prefixes removed.
+            let (exact_score, prefix_score) = if query.starts_with(chantypes) {
+                (
+                    exact_pattern.score(channel_hay, &mut matcher).unwrap_or(0),
+                    prefix_pattern
+                        .score(channel_hay, &mut matcher)
+                        .unwrap_or(0),
+                )
+            } else {
+                let stripped_channel_hay = Utf32Str::new(
+                    channel.trim_start_matches(chantypes),
+                    &mut buffer,
+                );
 
-            if score > 0 {
-                scored.push((score, channel, topic_content, user_count));
+                (
+                    exact_pattern
+                        .score(stripped_channel_hay, &mut matcher)
+                        .unwrap_or(0),
+                    prefix_pattern
+                        .score(stripped_channel_hay, &mut matcher)
+                        .unwrap_or(0),
+                )
+            };
+
+            // For substring and fuzzy scores, take the maximum score between
+            // channel and topic.
+
+            let substring_score =
+                channel_substring_score.max(topic_substring_score);
+
+            let fuzzy_score = channel_fuzzy_score.max(topic_fuzzy_score);
+
+            // Fuzzy is the most permissive match, so if it is zero then all
+            // other matches should be zero as well.
+            if fuzzy_score > 0 {
+                scored.push((
+                    exact_score,
+                    prefix_score,
+                    substring_score,
+                    fuzzy_score,
+                    channel,
+                    topic_content,
+                    user_count,
+                ));
             }
         }
 
@@ -171,7 +267,7 @@ impl Manager {
 
         scored
             .into_iter()
-            .map(|(_, channel, topic_content, user_count)| {
+            .map(|(_, _, _, _, channel, topic_content, user_count)| {
                 (channel, topic_content, user_count)
             })
             .collect()

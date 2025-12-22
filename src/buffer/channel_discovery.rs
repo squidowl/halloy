@@ -102,6 +102,8 @@ pub fn view<'a>(
         .as_ref()
         .and_then(|server| clients.get_channel_discovery_manager(server));
 
+    let chantypes = clients.get_chantypes_or_default(state.server.as_ref());
+
     let selected_server = state.server.as_ref();
 
     let header = container(
@@ -129,7 +131,7 @@ pub fn view<'a>(
 
     let data = match (manager, selected_server) {
         (Some(manager), Some(server)) => {
-            let items = manager.items(&state.search_query);
+            let items = manager.items(&state.search_query, chantypes);
             if items.is_empty() {
                 container(center(
                     text("No channels found")
