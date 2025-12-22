@@ -3668,6 +3668,15 @@ impl Map {
             .unwrap_or_default()
     }
 
+    pub fn get_chantypes_or_default<'a>(
+        &'a self,
+        server: Option<&Server>,
+    ) -> &'a [char] {
+        server
+            .and_then(|server| self.client(server).map(Client::chantypes))
+            .unwrap_or_default()
+    }
+
     pub fn get_prefix<'a>(
         &'a self,
         server: &Server,
