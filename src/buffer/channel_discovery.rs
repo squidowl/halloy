@@ -249,7 +249,7 @@ pub fn view<'a>(
     .width(Length::Fill)
     .height(Length::Fill);
 
-    let content = column![header, data].spacing(1).padding([0, 2]);
+    let content = column![header, data].spacing(1).padding([2, 2]);
 
     container(content)
         .width(Length::Fill)
