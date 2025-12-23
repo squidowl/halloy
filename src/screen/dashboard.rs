@@ -145,6 +145,26 @@ impl Dashboard {
             .set_filters(Filter::list_from_servers(servers, clients));
     }
 
+    pub fn update_channel_discoveries(
+        &self,
+        clients: &mut client::Map,
+        server: &data::Server,
+    ) {
+        if let Some(pane) = self.panes.iter().find_map(|(_, _, pane)| {
+            if let Some(data::Buffer::Internal(
+                buffer::Internal::ChannelDiscovery(Some(pane_server)),
+            )) = pane.buffer.data()
+                && pane_server == *server
+            {
+                Some(pane)
+            } else {
+                None
+            }
+        }) {
+            Self::send_list_command(server, pane, clients);
+        }
+    }
+
     pub fn update_filters(
         &mut self,
         servers: &server::Map,
@@ -2188,8 +2208,16 @@ impl Dashboard {
                     None,
                 );
             }
-            buffer::Event::ListForServer(server) => {
-                Self::send_list_command(&server, pane, clients);
+            buffer::Event::SelectedServer {
+                server,
+                send_list_command,
+            } => {
+                if send_list_command {
+                    Self::send_list_command(&server, pane, clients);
+                }
+
+                self.last_changed = Some(Instant::now());
+
                 return (Task::none(), None);
             }
         }

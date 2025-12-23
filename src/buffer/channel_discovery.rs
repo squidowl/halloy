@@ -21,7 +21,10 @@ pub enum Message {
 }
 
 pub enum Event {
-    ListForServer(Server),
+    SelectedServer {
+        server: Server,
+        send_list_command: bool,
+    },
     OpenUrl(String),
     OpenChannelForServer(data::Server, target::Channel),
     ContextMenu(context_menu::Event),
@@ -34,9 +37,9 @@ pub struct ChannelDiscovery {
 }
 
 impl ChannelDiscovery {
-    pub fn new() -> Self {
+    pub fn new(server: Option<Server>) -> Self {
         Self {
-            server: None,
+            server,
             search_query: String::new(),
         }
     }
@@ -75,18 +78,21 @@ impl ChannelDiscovery {
             Message::SelectServer(server) => {
                 self.server = Some(server.clone());
 
-                let should_fetch =
-                    clients.get_channel_discovery_manager(&server).is_none_or(
-                        data::channel_discovery::Manager::needs_refetch,
-                    );
+                let send_list_command = clients
+                    .get_server_supports_list(&server)
+                    && clients
+                        .get_channel_discovery_manager(&server)
+                        .is_none_or(
+                            data::channel_discovery::Manager::needs_refetch,
+                        );
 
-                let event = if should_fetch {
-                    Some(Event::ListForServer(server))
-                } else {
-                    None
-                };
-
-                (Task::none(), event)
+                (
+                    Task::none(),
+                    Some(Event::SelectedServer {
+                        server,
+                        send_list_command,
+                    }),
+                )
             }
         }
     }
