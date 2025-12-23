@@ -24,6 +24,7 @@ pub enum Event {
     ListForServer(Server),
     OpenUrl(String),
     OpenChannelForServer(data::Server, target::Channel),
+    ContextMenu(context_menu::Event),
 }
 
 #[derive(Debug, Clone, Default)]
@@ -47,10 +48,10 @@ impl ChannelDiscovery {
         _config: &Config,
     ) -> (Task<Message>, Option<Event>) {
         match message {
-            Message::ContextMenu(message) => {
-                println!("ContextMenu: {message:?}");
-                (Task::none(), None)
-            }
+            Message::ContextMenu(message) => (
+                Task::none(),
+                Some(Event::ContextMenu(context_menu::update(message))),
+            ),
             Message::Link(link) => match link {
                 message::Link::Url(url) => {
                     (Task::none(), Some(Event::OpenUrl(url)))
