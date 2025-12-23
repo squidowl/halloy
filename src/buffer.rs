@@ -109,8 +109,8 @@ impl Buffer {
                 buffer::Internal::Highlights => {
                     Self::Highlights(Highlights::new(pane_size, config))
                 }
-                buffer::Internal::ChannelDiscovery(server) => {
-                    Self::ChannelDiscovery(ChannelDiscovery::new(server))
+                buffer::Internal::ChannelDiscovery(_) => {
+                    Self::ChannelDiscovery(ChannelDiscovery::new())
                 }
             },
         }

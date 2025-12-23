@@ -33,9 +33,9 @@ pub struct ChannelDiscovery {
 }
 
 impl ChannelDiscovery {
-    pub fn new(server: Option<Server>) -> Self {
+    pub fn new() -> Self {
         Self {
-            server,
+            server: None,
             search_query: String::new(),
         }
     }
