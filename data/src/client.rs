@@ -3337,6 +3337,10 @@ impl Client {
         isupport::get_statusmsg_or_default(&self.isupport)
     }
 
+    pub fn safelist(&self) -> bool {
+        self.isupport.contains_key(&isupport::Kind::SAFELIST)
+    }
+
     pub fn is_channel(&self, target: &str) -> bool {
         proto::is_channel(target, self.chantypes())
     }
@@ -3798,6 +3802,10 @@ impl Map {
     pub fn get_server_supports_detach(&self, server: &Server) -> bool {
         self.client(server)
             .is_some_and(|client| client.supports_detach)
+    }
+
+    pub fn get_server_supports_list(&self, server: &Server) -> bool {
+        self.client(server).is_some_and(Client::safelist)
     }
 
     pub fn get_seed(&self, kind: &history::Kind) -> Option<history::Seed> {

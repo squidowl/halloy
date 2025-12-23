@@ -63,7 +63,10 @@ pub enum Event {
     OpenInternalBuffer(buffer::Internal),
     OpenTargetForServer(data::Server, Target, BufferAction),
     LeaveBuffers(Vec<Target>, Option<String>),
-    ListForServer(data::Server),
+    SelectedServer {
+        server: data::Server,
+        send_list_command: bool,
+    },
     GoToMessage(data::Server, target::Channel, message::Hash),
     History(Task<history::manager::Message>),
     RequestOlderChatHistory,
@@ -109,8 +112,8 @@ impl Buffer {
                 buffer::Internal::Highlights => {
                     Self::Highlights(Highlights::new(pane_size, config))
                 }
-                buffer::Internal::ChannelDiscovery(_) => {
-                    Self::ChannelDiscovery(ChannelDiscovery::new())
+                buffer::Internal::ChannelDiscovery(server) => {
+                    Self::ChannelDiscovery(ChannelDiscovery::new(server))
                 }
             },
         }
@@ -378,9 +381,13 @@ impl Buffer {
                 let (command, event) = state.update(message, clients, config);
 
                 let event = event.map(|event| match event {
-                    channel_discovery::Event::ListForServer(server) => {
-                        Event::ListForServer(server)
-                    }
+                    channel_discovery::Event::SelectedServer {
+                        server,
+                        send_list_command,
+                    } => Event::SelectedServer {
+                        server,
+                        send_list_command,
+                    },
                     channel_discovery::Event::OpenUrl(url) => {
                         Event::OpenUrl(url)
                     }
