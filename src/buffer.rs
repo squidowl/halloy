@@ -392,6 +392,9 @@ impl Buffer {
                         Target::Channel(channel),
                         config.actions.buffer.click_channel_name,
                     ),
+                    channel_discovery::Event::ContextMenu(event) => {
+                        Event::ContextMenu(event)
+                    }
                 });
 
                 (command.map(Message::ChannelList), event)
