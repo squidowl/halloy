@@ -1259,10 +1259,13 @@ impl Client {
                 self.channel_discovery_manager
                     .push(channel, topic, user_count);
 
+                self.channel_discovery_manager.status =
+                    Some(channel_discovery::Status::Receiving(Utc::now()));
                 return Ok(vec![]);
             }
             Command::Numeric(RPL_LISTEND, _) => {
-                self.channel_discovery_manager.last_updated = Some(Utc::now());
+                self.channel_discovery_manager.status =
+                    Some(channel_discovery::Status::Updated(Utc::now()));
                 return Ok(vec![]);
             }
             Command::Numeric(RPL_LOGGEDIN, args) => {
@@ -3806,6 +3809,10 @@ impl Map {
 
     pub fn get_server_supports_list(&self, server: &Server) -> bool {
         self.client(server).is_some_and(Client::safelist)
+    }
+
+    pub fn get_server_is_connected(&self, server: &Server) -> bool {
+        self.client(server).is_some()
     }
 
     pub fn get_seed(&self, kind: &history::Kind) -> Option<history::Seed> {

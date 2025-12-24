@@ -12,20 +12,27 @@ static MAX_RESULTS: usize = 150;
 #[derive(Default, Clone, Debug)]
 pub struct Manager {
     pub channels: HashMap<String, (message::Content, usize)>,
-    pub last_updated: Option<DateTime<Utc>>,
+    pub status: Option<Status>,
+}
+
+#[derive(Clone, Debug)]
+pub enum Status {
+    Requested(DateTime<Utc>),
+    Receiving(DateTime<Utc>),
+    Updated(DateTime<Utc>),
 }
 
 impl Manager {
     pub fn new() -> Self {
         Self {
             channels: HashMap::new(),
-            last_updated: None,
+            status: None,
         }
     }
 
     pub fn clear(&mut self) {
         self.channels.clear();
-        self.last_updated = None;
+        self.status = None;
     }
 
     pub fn amount_of_channels(&self) -> usize {
@@ -39,12 +46,20 @@ impl Manager {
         self.channels.insert(channel, (topic_content, user_count));
     }
 
-    /// Returns true if cache is stale and needs refetching (5 minutes)
+    // Returns true if cache is stale and needs refetching (5 minutes) and there
+    // is no in-progress LIST request (request is assumed timed out if no
+    // activity in last 2 minutes)
     pub fn needs_refetch(&self) -> bool {
-        self.last_updated.is_none()
-            || self.last_updated.is_some_and(|last_updated| {
-                Utc::now().signed_duration_since(last_updated)
-                    > chrono::Duration::minutes(5)
+        self.status.is_none()
+            || self.status.as_ref().is_some_and(|status| match status {
+                Status::Requested(activity) | Status::Receiving(activity) => {
+                    Utc::now().signed_duration_since(activity)
+                        > chrono::Duration::minutes(2)
+                }
+                Status::Updated(last_updated) => {
+                    Utc::now().signed_duration_since(last_updated)
+                        > chrono::Duration::minutes(5)
+                }
             })
     }
 
