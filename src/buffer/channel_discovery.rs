@@ -1,4 +1,4 @@
-use data::{Config, Server, message, target};
+use data::{Config, Server, channel_discovery, message, target};
 use iced::widget::{
     center, column, container, pick_list, row, rule, scrollable, span, text,
     text_input,
@@ -140,8 +140,19 @@ pub fn view<'a>(
         (Some(manager), Some(server)) => {
             let items = manager.items(&state.search_query, chantypes);
             if items.is_empty() {
+                let reason = if !clients.get_server_is_connected(server) {
+                    "Disconnected from server"
+                } else if !clients.get_server_supports_list(server) {
+                    "Server does not permit LIST command"
+                } else {
+                    match manager.status {
+                        Some(channel_discovery::Status::Updated(_)) => "No channels found",
+                        _ => "...",
+                    }
+                };
+
                 container(center(
-                    text("No channels found")
+                    text(reason)
                         .style(theme::text::secondary)
                         .font_maybe(theme::font_style::secondary(theme).map(font::get)),
                 ))
