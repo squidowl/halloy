@@ -840,7 +840,8 @@ where
             .len();
         let fuzzy_score = fuzzy_pattern.score(hay, &mut matcher).unwrap_or(0);
 
-        // add matches to the list
+        // Add matches to the list.  Fuzzy is the most permissive match, so if
+        // it is zero then all other matches should be zero as well.
         if fuzzy_score > 0 {
             hits.push((
                 idx,

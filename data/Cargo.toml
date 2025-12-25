@@ -36,6 +36,7 @@ rand = { workspace = true }
 rand_chacha = { workspace = true }
 palette = { workspace = true }
 log = { workspace = true }
+nucleo-matcher = { workspace = true }
 
 base64 = "0.22.1"
 dirs-next = "2.0.0"

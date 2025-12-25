@@ -1116,22 +1116,25 @@ impl Halloy {
                                             dashboard.renormalize_history(&server, &self.clients);
                                         }
 
-                                        if matches!(
-                                            param,
+                                        match param {
                                             data::isupport::Parameter::CASEMAPPING(_)
-                                                | data::isupport::Parameter::CHANTYPES(_)
-                                        ) {
-                                            let chantypes = self.clients.get_chantypes(&server);
-                                            let casemapping = self.clients.get_casemapping(&server);
+                                            | data::isupport::Parameter::CHANTYPES(_) => {
+                                                let chantypes = self.clients.get_chantypes(&server);
+                                                let casemapping = self.clients.get_casemapping(&server);
 
-                                            FilterChain::sync_isupport(
-                                                dashboard.get_filters(),
-                                                &server,
-                                                chantypes,
-                                                casemapping
-                                            );
+                                                FilterChain::sync_isupport(
+                                                    dashboard.get_filters(),
+                                                    &server,
+                                                    chantypes,
+                                                    casemapping,
+                                                );
 
-                                            dashboard.reprocess_history(&self.clients, &self.config.buffer);
+                                                dashboard.reprocess_history(&self.clients, &self.config.buffer);
+                                            }
+                                            data::isupport::Parameter::SAFELIST => {
+                                                dashboard.update_channel_discoveries(&mut self.clients, &server);
+                                            }
+                                            _ => (),
                                         }
                                     }
                                     Event::BouncerNetwork(server, config) => {

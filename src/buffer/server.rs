@@ -22,6 +22,7 @@ pub enum Message {
 pub enum Event {
     ContextMenu(context_menu::Event),
     OpenBuffers(Vec<(Target, BufferAction)>),
+    OpenInternalBuffer(buffer::Internal),
     LeaveBuffers(Vec<Target>, Option<String>),
     History(Task<history::manager::Message>),
     MarkAsRead(history::Kind),
@@ -292,6 +293,9 @@ impl Server {
                     }) => (command, Some(Event::LeaveBuffers(targets, reason))),
                     Some(input_view::Event::Cleared { history_task }) => {
                         (command, Some(Event::History(history_task)))
+                    }
+                    Some(input_view::Event::OpenInternalBuffer(buffer)) => {
+                        (command, Some(Event::OpenInternalBuffer(buffer)))
                     }
                     None => (command, None),
                 }
