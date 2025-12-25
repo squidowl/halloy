@@ -388,49 +388,58 @@ impl Client {
                 self.start_reroute(&message.command).then(|| buffer.clone());
         }
 
-        if matches!(message.command, Command::WHO(..))
-            && matches!(priority, TokenPriority::User)
-        {
-            let params = message.command.clone().parameters();
+        if matches!(priority, TokenPriority::User) {
+            match &message.command {
+                Command::LIST(..) => {
+                    self.channel_discovery_manager.status =
+                        Some(channel_discovery::Status::Requested(Utc::now()));
+                }
+                Command::WHO(..) => {
+                    let params = message.command.clone().parameters();
 
-            if let Some(mask) = params.first() {
-                let channel = if let Ok(channel) = target::Channel::parse(
-                    mask,
-                    self.chantypes(),
-                    self.statusmsg(),
-                    self.casemapping(),
-                ) {
-                    Some(channel)
-                } else if mask == "*" {
-                    Some(target::Channel::from_str(
-                        mask,
-                        self.chantypes(),
-                        self.casemapping(),
-                    ))
-                } else {
-                    None
-                };
+                    if let Some(mask) = params.first() {
+                        let channel = if let Ok(channel) =
+                            target::Channel::parse(
+                                mask,
+                                self.chantypes(),
+                                self.statusmsg(),
+                                self.casemapping(),
+                            ) {
+                            Some(channel)
+                        } else if mask == "*" {
+                            Some(target::Channel::from_str(
+                                mask,
+                                self.chantypes(),
+                                self.casemapping(),
+                            ))
+                        } else {
+                            None
+                        };
 
-                if let Some(channel) = channel {
-                    // Record user WHO request(s) for reply filtering
-                    let status = WhoStatus::Requested(
-                        WhoSource::User,
-                        Instant::now(),
-                        params
-                            .get(2)
-                            .and_then(|token| token.parse::<WhoToken>().ok()),
-                    );
+                        if let Some(channel) = channel {
+                            // Record user WHO request(s) for reply filtering
+                            let status = WhoStatus::Requested(
+                                WhoSource::User,
+                                Instant::now(),
+                                params.get(2).and_then(|token| {
+                                    token.parse::<WhoToken>().ok()
+                                }),
+                            );
 
-                    if let Some(who_poll) = self
-                        .who_polls
-                        .iter_mut()
-                        .find(|who_poll| who_poll.channel == channel)
-                    {
-                        who_poll.status = status;
-                    } else {
-                        self.who_polls.push_front(WhoPoll { channel, status });
+                            if let Some(who_poll) = self
+                                .who_polls
+                                .iter_mut()
+                                .find(|who_poll| who_poll.channel == channel)
+                            {
+                                who_poll.status = status;
+                            } else {
+                                self.who_polls
+                                    .push_front(WhoPoll { channel, status });
+                            }
+                        }
                     }
                 }
+                _ => (),
             }
         }
 
@@ -1249,6 +1258,8 @@ impl Client {
                 }
             }
             Command::Numeric(RPL_LISTSTART, _) => {
+                self.channel_discovery_manager.status =
+                    Some(channel_discovery::Status::Receiving(Utc::now()));
                 return Ok(vec![]);
             }
             Command::Numeric(RPL_LIST, args) => {
