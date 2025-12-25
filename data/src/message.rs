@@ -1758,7 +1758,7 @@ pub enum Content {
 }
 
 impl Content {
-    fn text(&self) -> Cow<'_, str> {
+    pub fn text(&self) -> Cow<'_, str> {
         match self {
             Content::Plain(s) => s.into(),
             Content::Fragments(fragments) => {

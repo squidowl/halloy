@@ -671,6 +671,14 @@ impl Commands {
                     ]),
             }
             },
+            // LIST
+            {
+                Command {
+                    title: "LIST",
+                    args: vec![],
+                    subcommands: None,
+                }
+            },
         ];
 
         if supports_detach {
@@ -694,25 +702,6 @@ impl Commands {
                 }
                 isupport::Parameter::MONITOR(target_limit) => {
                     Some(monitor_command(target_limit))
-                }
-                isupport::Parameter::SAFELIST => {
-                    let search_extensions = if let Some(
-                        isupport::Parameter::ELIST(search_extensions),
-                    ) =
-                        isupport.get(&isupport::Kind::ELIST)
-                    {
-                        Some(search_extensions)
-                    } else {
-                        None
-                    };
-
-                    let target_limit = find_target_limit(isupport, "LIST");
-
-                    if search_extensions.is_some() || target_limit.is_some() {
-                        Some(list_command(search_extensions, target_limit))
-                    } else {
-                        Some(LIST_COMMAND.clone())
-                    }
                 }
                 isupport::Parameter::NAMELEN(max_len) => {
                     Some(setname_command(max_len))
@@ -1039,6 +1028,7 @@ impl Command {
             "detach" => {
                 "Hide the channel, leaving the bouncer's connection to the channel active"
             }
+            "list" => "Open Channel Discovery for the current server",
             _ => return None,
         })
     }
@@ -1993,76 +1983,6 @@ static KNOCK_COMMAND: LazyLock<Command> = LazyLock::new(|| Command {
     ],
     subcommands: None,
 });
-
-static LIST_COMMAND: LazyLock<Command> = LazyLock::new(|| Command {
-    title: "LIST",
-    args: vec![Argument {
-        text: "channels",
-        kind: ArgumentKind::Optional { skipped: false },
-        tooltip: Some(String::from("comma-separated")),
-    }],
-    subcommands: None,
-});
-
-fn list_command(
-    search_extensions: Option<&String>,
-    target_limit: Option<u16>,
-) -> Command {
-    let mut channels_tooltip = String::from("comma-separated");
-
-    if let Some(target_limit) = target_limit {
-        channels_tooltip
-            .push_str(format!("\nup to {target_limit} channel").as_str());
-        if target_limit != 1 {
-            channels_tooltip.push('s');
-        }
-    }
-
-    if let Some(search_extensions) = search_extensions {
-        let elistconds_tooltip = search_extensions.chars().fold(
-            String::from("comma-separated"),
-            |tooltip, search_extension| {
-                tooltip + match search_extension {
-                    'C' => "\n  C<{#}: created < # min ago\n  C>{#}: created > # min ago",
-                    'M' => "\n {mask}: matches mask",
-                    'N' => "\n!{mask}: does not match mask",
-                    'T' => {
-                        "\n  T<{#}: topic changed < # min ago\n  T>{#}: topic changed > # min ago"
-                    }
-                    'U' => "\n   <{#}: fewer than # users\n   >{#}: more than # users",
-                    _ => "",
-                }
-            },
-        );
-
-        Command {
-            title: "LIST",
-            args: vec![
-                Argument {
-                    text: "channels",
-                    kind: ArgumentKind::Optional { skipped: false },
-                    tooltip: Some(channels_tooltip),
-                },
-                Argument {
-                    text: "elistconds",
-                    kind: ArgumentKind::Optional { skipped: false },
-                    tooltip: Some(elistconds_tooltip),
-                },
-            ],
-            subcommands: None,
-        }
-    } else {
-        Command {
-            title: "LIST",
-            args: vec![Argument {
-                text: "channels",
-                kind: ArgumentKind::Optional { skipped: false },
-                tooltip: Some(channels_tooltip),
-            }],
-            subcommands: None,
-        }
-    }
-}
 
 fn monitor_command(target_limit: &Option<u16>) -> Command {
     Command {

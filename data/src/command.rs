@@ -28,6 +28,7 @@ pub enum Internal {
     /// - Channel to join
     /// - Part message
     Hop(Option<String>, Option<String>),
+    ChannelDiscovery,
     Delay(u64),
     SysInfo,
     Detach(Vec<target::Channel>),
@@ -35,6 +36,7 @@ pub enum Internal {
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub enum Irc {
+    List(Option<String>, Option<String>),
     Join(String, Option<String>),
     Motd(Option<String>),
     Nick(String),
@@ -196,6 +198,7 @@ enum Kind {
     Notice,
     Delay,
     Clear,
+    List,
     ClearTopic,
     SysInfo,
     Detach,
@@ -228,6 +231,7 @@ impl FromStr for Kind {
             "hop" | "rejoin" => Ok(Kind::Hop),
             "delay" => Ok(Kind::Delay),
             "clear" => Ok(Kind::Clear),
+            "list" => Ok(Kind::List),
             "cleartopic" | "ct" => Ok(Kind::ClearTopic),
             "sysinfo" => Ok(Kind::SysInfo),
             "detach" => Ok(Kind::Detach),
@@ -936,6 +940,9 @@ pub fn parse(
             Kind::Clear => validated::<0, 0, false>(args, |_, _| {
                 Ok(Command::Internal(Internal::ClearBuffer))
             }),
+            Kind::List => validated::<0, 1, true>(args, |_, [_]| {
+                Ok(Command::Internal(Internal::ChannelDiscovery))
+            }),
             Kind::SysInfo => validated::<0, 0, false>(args, |_, _| {
                 Ok(Command::Internal(Internal::SysInfo))
             }),
@@ -1159,6 +1166,9 @@ impl TryFrom<Irc> for proto::Command {
             Irc::Unknown(command, args) => proto::Command::new(&command, args),
             Irc::Ctcp(command, target, params) => {
                 ctcp::query_command(&command, target, params)
+            }
+            Irc::List(channels, elistcond) => {
+                proto::Command::LIST(channels, elistcond)
             }
         })
     }

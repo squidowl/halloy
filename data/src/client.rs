@@ -28,8 +28,8 @@ use crate::target::{self, Target};
 use crate::time::Posix;
 use crate::user::{ChannelUsers, Nick, NickRef};
 use crate::{
-    Server, User, buffer, compression, config, ctcp, dcc, environment,
-    file_transfer, history, isupport, message, mode, server,
+    Server, User, buffer, channel_discovery, compression, config, ctcp, dcc,
+    environment, file_transfer, history, isupport, message, mode, server,
 };
 
 pub mod on_connect;
@@ -171,6 +171,7 @@ pub struct Client {
     resolved_netid: Option<String>,
     anti_flood: Option<TokenBucket<message::Encoded>>,
     mode_requests: Vec<ModeRequest>,
+    channel_discovery_manager: channel_discovery::Manager,
 }
 
 impl fmt::Debug for Client {
@@ -230,6 +231,7 @@ impl Client {
             anti_flood: Some(TokenBucket::new(config.anti_flood, 10)),
             mode_requests: Vec::new(),
             config,
+            channel_discovery_manager: channel_discovery::Manager::new(),
         }
     }
 
@@ -386,49 +388,58 @@ impl Client {
                 self.start_reroute(&message.command).then(|| buffer.clone());
         }
 
-        if matches!(message.command, Command::WHO(..))
-            && matches!(priority, TokenPriority::User)
-        {
-            let params = message.command.clone().parameters();
+        if matches!(priority, TokenPriority::User) {
+            match &message.command {
+                Command::LIST(..) => {
+                    self.channel_discovery_manager.status =
+                        Some(channel_discovery::Status::Requested(Utc::now()));
+                }
+                Command::WHO(..) => {
+                    let params = message.command.clone().parameters();
 
-            if let Some(mask) = params.first() {
-                let channel = if let Ok(channel) = target::Channel::parse(
-                    mask,
-                    self.chantypes(),
-                    self.statusmsg(),
-                    self.casemapping(),
-                ) {
-                    Some(channel)
-                } else if mask == "*" {
-                    Some(target::Channel::from_str(
-                        mask,
-                        self.chantypes(),
-                        self.casemapping(),
-                    ))
-                } else {
-                    None
-                };
+                    if let Some(mask) = params.first() {
+                        let channel = if let Ok(channel) =
+                            target::Channel::parse(
+                                mask,
+                                self.chantypes(),
+                                self.statusmsg(),
+                                self.casemapping(),
+                            ) {
+                            Some(channel)
+                        } else if mask == "*" {
+                            Some(target::Channel::from_str(
+                                mask,
+                                self.chantypes(),
+                                self.casemapping(),
+                            ))
+                        } else {
+                            None
+                        };
 
-                if let Some(channel) = channel {
-                    // Record user WHO request(s) for reply filtering
-                    let status = WhoStatus::Requested(
-                        WhoSource::User,
-                        Instant::now(),
-                        params
-                            .get(2)
-                            .and_then(|token| token.parse::<WhoToken>().ok()),
-                    );
+                        if let Some(channel) = channel {
+                            // Record user WHO request(s) for reply filtering
+                            let status = WhoStatus::Requested(
+                                WhoSource::User,
+                                Instant::now(),
+                                params.get(2).and_then(|token| {
+                                    token.parse::<WhoToken>().ok()
+                                }),
+                            );
 
-                    if let Some(who_poll) = self
-                        .who_polls
-                        .iter_mut()
-                        .find(|who_poll| who_poll.channel == channel)
-                    {
-                        who_poll.status = status;
-                    } else {
-                        self.who_polls.push_front(WhoPoll { channel, status });
+                            if let Some(who_poll) = self
+                                .who_polls
+                                .iter_mut()
+                                .find(|who_poll| who_poll.channel == channel)
+                            {
+                                who_poll.status = status;
+                            } else {
+                                self.who_polls
+                                    .push_front(WhoPoll { channel, status });
+                            }
+                        }
                     }
                 }
+                _ => (),
             }
         }
 
@@ -1245,6 +1256,28 @@ impl Client {
                             .try_send(command!("BOUNCER", "BIND", id))?;
                     }
                 }
+            }
+            Command::Numeric(RPL_LISTSTART, _) => {
+                self.channel_discovery_manager.status =
+                    Some(channel_discovery::Status::Receiving(Utc::now()));
+                return Ok(vec![]);
+            }
+            Command::Numeric(RPL_LIST, args) => {
+                let channel = ok!(args.get(1)).clone();
+                let user_count = ok!(args.get(2)).clone();
+                let topic = ok!(args.get(3)).clone();
+
+                self.channel_discovery_manager
+                    .push(channel, topic, user_count);
+
+                self.channel_discovery_manager.status =
+                    Some(channel_discovery::Status::Receiving(Utc::now()));
+                return Ok(vec![]);
+            }
+            Command::Numeric(RPL_LISTEND, _) => {
+                self.channel_discovery_manager.status =
+                    Some(channel_discovery::Status::Updated(Utc::now()));
+                return Ok(vec![]);
             }
             Command::Numeric(RPL_LOGGEDIN, args) => {
                 log::info!("[{}] logged in", self.server);
@@ -3318,6 +3351,10 @@ impl Client {
         isupport::get_statusmsg_or_default(&self.isupport)
     }
 
+    pub fn safelist(&self) -> bool {
+        self.isupport.contains_key(&isupport::Kind::SAFELIST)
+    }
+
     pub fn is_channel(&self, target: &str) -> bool {
         proto::is_channel(target, self.chantypes())
     }
@@ -3528,6 +3565,22 @@ impl Map {
             .and_then(|client| client.resolve_user_attributes(channel, user))
     }
 
+    pub fn get_channel_discovery_manager(
+        &self,
+        server: &Server,
+    ) -> Option<&channel_discovery::Manager> {
+        self.client(server)
+            .map(|client| &client.channel_discovery_manager)
+    }
+
+    pub fn get_channel_discovery_manager_mut(
+        &mut self,
+        server: &Server,
+    ) -> Option<&mut channel_discovery::Manager> {
+        self.client_mut(server)
+            .map(|client| &mut client.channel_discovery_manager)
+    }
+
     pub fn get_channel_users(
         &self,
         server: &Server,
@@ -3630,6 +3683,15 @@ impl Map {
     pub fn get_chantypes<'a>(&'a self, server: &Server) -> &'a [char] {
         self.client(server)
             .map(Client::chantypes)
+            .unwrap_or_default()
+    }
+
+    pub fn get_chantypes_or_default<'a>(
+        &'a self,
+        server: Option<&Server>,
+    ) -> &'a [char] {
+        server
+            .and_then(|server| self.client(server).map(Client::chantypes))
             .unwrap_or_default()
     }
 
@@ -3754,6 +3816,14 @@ impl Map {
     pub fn get_server_supports_detach(&self, server: &Server) -> bool {
         self.client(server)
             .is_some_and(|client| client.supports_detach)
+    }
+
+    pub fn get_server_supports_list(&self, server: &Server) -> bool {
+        self.client(server).is_some_and(Client::safelist)
+    }
+
+    pub fn get_server_is_connected(&self, server: &Server) -> bool {
+        self.client(server).is_some()
     }
 
     pub fn get_seed(&self, kind: &history::Kind) -> Option<history::Seed> {
