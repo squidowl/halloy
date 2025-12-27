@@ -20,6 +20,7 @@ Fixed:
 - Channel auto-completion works with all channel prefixes specified by the server
 - Number pad enter now sends messages instead of adding a new line
 - Join & monitor commands sent automatically on connection respect TARGMAX limits specified by the server
+- Channel and user links in messages in the highlight buffer
 
 Thanks:
 
