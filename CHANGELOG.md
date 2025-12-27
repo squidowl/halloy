@@ -19,6 +19,7 @@ Fixed:
 - Ignored users will not be suggested by user auto-completion
 - Channel auto-completion works with all channel prefixes specified by the server
 - Number pad enter now sends messages instead of adding a new line
+- Join & monitor commands sent automatically on connection respect TARGMAX limits specified by the server
 
 Thanks:
 
