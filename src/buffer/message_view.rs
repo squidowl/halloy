@@ -293,6 +293,7 @@ impl<'a> ChannelQueryLayout<'a> {
 
         let message_content = message_content::with_context(
             &message.content,
+            self.server,
             self.chantypes,
             self.casemapping,
             self.theme,
@@ -302,7 +303,7 @@ impl<'a> ChannelQueryLayout<'a> {
             theme::font_style::primary,
             color_transformation,
             move |link| match link {
-                message::Link::User(_) => context_menu::Entry::user_list(
+                message::Link::User(_, _) => context_menu::Entry::user_list(
                     formatter.target.is_channel(),
                     user_in_channel,
                     formatter.target.our_user(),
@@ -422,6 +423,7 @@ impl<'a> ChannelQueryLayout<'a> {
 
         let message_content = message_content::with_context(
             &message.content,
+            formatter.server,
             formatter.chantypes,
             formatter.casemapping,
             self.theme,
@@ -440,7 +442,7 @@ impl<'a> ChannelQueryLayout<'a> {
                 }
             }),
             move |link| match link {
-                message::Link::User(user) => {
+                message::Link::User(_, user) => {
                     let user_in_channel = formatter
                         .target
                         .users()
@@ -512,6 +514,7 @@ impl<'a> ChannelQueryLayout<'a> {
 
         let message_content = message_content::with_context(
             &message.content,
+            formatter.server,
             formatter.chantypes,
             formatter.casemapping,
             self.theme,
@@ -530,7 +533,7 @@ impl<'a> ChannelQueryLayout<'a> {
                 }
             }),
             move |link| match link {
-                message::Link::User(user) => {
+                message::Link::User(_, user) => {
                     let user_in_channel = formatter
                         .target
                         .users()
@@ -642,6 +645,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
                     let formatter = *self;
                     let message_content = message_content::with_context(
                         &message.content,
+                        formatter.server,
                         formatter.chantypes,
                         formatter.casemapping,
                         formatter.theme,
@@ -651,7 +655,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
                         theme::font_style::action,
                         Option::<fn(Color) -> Color>::None,
                         move |link| match link {
-                            message::Link::User(user) => {
+                            message::Link::User(_, user) => {
                                 let user_in_channel = formatter
                                     .target
                                     .users()
@@ -706,6 +710,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
 
                     let message = message_content(
                         &message.content,
+                        self.server,
                         self.chantypes,
                         self.casemapping,
                         self.theme,

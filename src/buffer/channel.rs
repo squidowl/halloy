@@ -28,7 +28,7 @@ pub enum Message {
 
 pub enum Event {
     ContextMenu(context_menu::Event),
-    OpenBuffers(Vec<(Target, BufferAction)>),
+    OpenBuffers(Server, Vec<(Target, BufferAction)>),
     OpenInternalBuffer(buffer::Internal),
     LeaveBuffers(Vec<Target>, Option<String>),
     History(Task<history::manager::Message>),
@@ -233,9 +233,14 @@ impl Channel {
                     scroll_view::Event::ContextMenu(event) => {
                         Some(Event::ContextMenu(event))
                     }
-                    scroll_view::Event::OpenBuffer(target, buffer_action) => {
-                        Some(Event::OpenBuffers(vec![(target, buffer_action)]))
-                    }
+                    scroll_view::Event::OpenBuffer(
+                        server,
+                        target,
+                        buffer_action,
+                    ) => Some(Event::OpenBuffers(
+                        server,
+                        vec![(target, buffer_action)],
+                    )),
                     scroll_view::Event::GoToMessage(..) => None,
                     scroll_view::Event::RequestOlderChatHistory => {
                         Some(Event::RequestOlderChatHistory)
@@ -303,9 +308,10 @@ impl Channel {
                             }),
                         )
                     }
-                    Some(input_view::Event::OpenBuffers { targets }) => {
-                        (command, Some(Event::OpenBuffers(targets)))
-                    }
+                    Some(input_view::Event::OpenBuffers {
+                        server,
+                        targets,
+                    }) => (command, Some(Event::OpenBuffers(server, targets))),
                     Some(input_view::Event::LeaveBuffers {
                         targets,
                         reason,
@@ -329,11 +335,14 @@ impl Channel {
                     topic::Event::ContextMenu(event) => {
                         Event::ContextMenu(event)
                     }
-                    topic::Event::OpenChannel(channel) => {
-                        Event::OpenBuffers(vec![(
-                            Target::Channel(channel),
-                            config.actions.buffer.click_channel_name,
-                        )])
+                    topic::Event::OpenChannel(server, channel) => {
+                        Event::OpenBuffers(
+                            server,
+                            vec![(
+                                Target::Channel(channel),
+                                config.actions.buffer.click_channel_name,
+                            )],
+                        )
                     }
                     topic::Event::OpenUrl(url) => Event::OpenUrl(url),
                 }),

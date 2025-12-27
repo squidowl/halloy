@@ -11,7 +11,7 @@ use crate::{Theme, font, theme};
 #[derive(Debug, Clone)]
 pub enum Event {
     ContextMenu(context_menu::Event),
-    OpenChannel(target::Channel),
+    OpenChannel(Server, target::Channel),
     OpenUrl(String),
 }
 
@@ -26,13 +26,15 @@ pub fn update(message: Message) -> Option<Event> {
         Message::ContextMenu(message) => {
             Some(Event::ContextMenu(context_menu::update(message)))
         }
-        Message::Link(message::Link::Channel(channel)) => {
-            Some(Event::OpenChannel(channel))
+        Message::Link(message::Link::Channel(server, channel)) => {
+            Some(Event::OpenChannel(server, channel))
         }
         Message::Link(message::Link::Url(url)) => Some(Event::OpenUrl(url)),
-        Message::Link(message::Link::User(user)) => Some(Event::ContextMenu(
-            context_menu::Event::InsertNickname(user.nickname().to_owned()),
-        )),
+        Message::Link(message::Link::User(_, user)) => {
+            Some(Event::ContextMenu(context_menu::Event::InsertNickname(
+                user.nickname().to_owned(),
+            )))
+        }
         Message::Link(message::Link::GoToMessage(..))
         | Message::Link(message::Link::ExpandCondensedMessage(..))
         | Message::Link(message::Link::ContractCondensedMessage(..)) => None,
@@ -103,6 +105,7 @@ pub fn view<'a>(
     let content = column![
         message_content::with_context(
             content,
+            server,
             chantypes,
             casemapping,
             theme,
@@ -112,7 +115,7 @@ pub fn view<'a>(
             theme::font_style::topic,
             Option::<fn(Color) -> Color>::None,
             move |link| match link {
-                message::Link::User(user) => {
+                message::Link::User(_, user) => {
                     let user_in_channel =
                         users.and_then(|users| users.resolve(user));
 

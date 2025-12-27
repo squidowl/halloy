@@ -21,7 +21,7 @@ pub enum Message {
 
 pub enum Event {
     ContextMenu(context_menu::Event),
-    OpenBuffers(Vec<(Target, BufferAction)>),
+    OpenBuffers(data::server::Server, Vec<(Target, BufferAction)>),
     OpenInternalBuffer(buffer::Internal),
     LeaveBuffers(Vec<Target>, Option<String>),
     History(Task<history::manager::Message>),
@@ -84,6 +84,7 @@ pub fn view<'a>(
                     message::Source::Server(server) => {
                         let message = message_content(
                             &message.content,
+                            &state.server,
                             chantypes,
                             casemapping,
                             theme,
@@ -119,6 +120,7 @@ pub fn view<'a>(
                     ) => {
                         let message = message_content(
                             &message.content,
+                            &state.server,
                             chantypes,
                             casemapping,
                             theme,
@@ -224,9 +226,14 @@ impl Server {
                     scroll_view::Event::ContextMenu(event) => {
                         Some(Event::ContextMenu(event))
                     }
-                    scroll_view::Event::OpenBuffer(target, buffer_action) => {
-                        Some(Event::OpenBuffers(vec![(target, buffer_action)]))
-                    }
+                    scroll_view::Event::OpenBuffer(
+                        server,
+                        target,
+                        buffer_action,
+                    ) => Some(Event::OpenBuffers(
+                        server,
+                        vec![(target, buffer_action)],
+                    )),
                     scroll_view::Event::GoToMessage(_, _, _) => None,
                     scroll_view::Event::RequestOlderChatHistory => None,
                     scroll_view::Event::PreviewChanged => None,
@@ -284,9 +291,10 @@ impl Server {
                             open_buffers,
                         }),
                     ),
-                    Some(input_view::Event::OpenBuffers { targets }) => {
-                        (command, Some(Event::OpenBuffers(targets)))
-                    }
+                    Some(input_view::Event::OpenBuffers {
+                        server,
+                        targets,
+                    }) => (command, Some(Event::OpenBuffers(server, targets))),
                     Some(input_view::Event::LeaveBuffers {
                         targets,
                         reason,
