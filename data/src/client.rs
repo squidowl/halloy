@@ -20,7 +20,7 @@ use crate::environment::{SOURCE_WEBSITE, VERSION};
 use crate::history::ReadMarker;
 use crate::isupport::{
     ChatHistoryState, ChatHistorySubcommand, MessageReference, WhoToken,
-    WhoXPollParameters,
+    WhoXPollParameters, find_target_limit,
 };
 use crate::message::{message_id, server_time, source};
 use crate::rate_limit::{BackoffInterval, TokenBucket, TokenPriority};
@@ -291,7 +291,11 @@ impl Client {
     fn join(&mut self, channels: &[target::Channel]) {
         let keys = HashMap::new();
 
-        let messages = group_joins(channels, &keys);
+        let messages = group_joins(
+            channels,
+            &keys,
+            find_target_limit(&self.isupport, "JOIN"),
+        );
 
         for message in messages {
             if let Err(e) = self.handle.try_send(message) {
@@ -1288,6 +1292,7 @@ impl Client {
                     for message in group_joins(
                         &self.registration_required_channels,
                         &self.config.channel_keys,
+                        find_target_limit(&self.isupport, "JOIN"),
                     ) {
                         self.handle.try_send(message)?;
                     }
@@ -2117,6 +2122,7 @@ impl Client {
                             for message in group_joins(
                                 &self.registration_required_channels,
                                 &self.config.channel_keys,
+                                find_target_limit(&self.isupport, "JOIN"),
                             ) {
                                 self.handle.try_send(message)?;
                             }
@@ -2376,18 +2382,6 @@ impl Client {
                                                 // Targets, etc should be
                                                 // renormalized and resorted
                                             }
-                                            isupport::Parameter::MONITOR(
-                                                target_limit,
-                                            ) => {
-                                                let messages = group_monitors(
-                                                    &self.config.monitor,
-                                                    target_limit,
-                                                );
-                                                for message in messages {
-                                                    self.handle
-                                                        .try_send(message)?;
-                                                }
-                                            }
                                             isupport::Parameter::SAFERATE => {
                                                 if let Some(ref mut anti_flood) = self.anti_flood {
                                                     for message in anti_flood.drain_tokens() {
@@ -2487,6 +2481,7 @@ impl Client {
                     for message in group_joins(
                         &self.registration_required_channels,
                         &self.config.channel_keys,
+                        find_target_limit(&self.isupport, "JOIN"),
                     ) {
                         self.handle.try_send(message)?;
                     }
@@ -2770,9 +2765,33 @@ impl Client {
                     .collect::<Vec<_>>();
 
                 // Send JOIN
-                for message in group_joins(&channels, &self.config.channel_keys)
-                {
+                for message in group_joins(
+                    &channels,
+                    &self.config.channel_keys,
+                    find_target_limit(&self.isupport, "JOIN"),
+                ) {
                     self.handle.try_send(message)?;
+                }
+
+                if !self.config.monitor.is_empty() {
+                    if let Some(isupport::Parameter::MONITOR(monitor_limit)) =
+                        self.isupport.get(&isupport::Kind::MONITOR)
+                    {
+                        let messages = group_monitors(
+                            &self.config.monitor,
+                            *monitor_limit,
+                            find_target_limit(&self.isupport, "MONITOR"),
+                            &self.server,
+                        );
+                        for message in messages {
+                            self.handle.try_send(message)?;
+                        }
+                    } else {
+                        log::warn!(
+                            "[{}] Monitor list configured for, but is not supported by the server",
+                            self.server,
+                        );
+                    }
                 }
 
                 return Ok(vec![Event::OnConnect(on_connect(
@@ -4086,6 +4105,7 @@ fn group_capability_requests<'a>(
 fn group_joins<'a>(
     channels: &'a [target::Channel],
     keys: &'a HashMap<String, String>,
+    target_limit: Option<u16>,
 ) -> impl Iterator<Item = proto::Message> + 'a {
     const MAX_LEN: usize = proto::format::BYTE_LIMIT - b"JOIN \r\n".len();
 
@@ -4099,13 +4119,22 @@ fn group_joins<'a>(
 
     let joins_without_keys = without_keys
         .into_iter()
-        .scan(0, |count, channel| {
+        .scan((0, 0, 0), |(char_count, target_count, chunk), channel| {
             // Channel + a comma
-            *count += channel.as_str().len() + 1;
+            *char_count += channel.as_str().len() + 1;
+            *target_count += 1;
 
-            let chunk = *count / MAX_LEN;
+            if *char_count > MAX_LEN
+                || target_limit
+                    .is_some_and(|target_limit| *target_count > target_limit)
+            {
+                *chunk += 1;
 
-            Some((chunk, channel))
+                *char_count = channel.as_str().len() + 1;
+                *target_count = 1;
+            }
+
+            Some((*chunk, channel))
         })
         .into_group_map()
         .into_values()
@@ -4113,14 +4142,27 @@ fn group_joins<'a>(
 
     let joins_with_keys = with_keys
         .into_iter()
-        .scan(0, |count, (channel, key)| {
-            // Channel + key + a comma for each
-            *count += channel.as_str().len() + key.len() + 2;
+        .scan(
+            (0, 0, 0),
+            |(char_count, target_count, chunk), (channel, key)| {
+                // Channel + key + a comma for each
+                *char_count += channel.as_str().len() + key.len() + 2;
+                *target_count += 1;
 
-            let chunk = *count / MAX_LEN;
+                if *char_count > MAX_LEN
+                    || target_limit.is_some_and(|target_limit| {
+                        *target_count > target_limit
+                    })
+                {
+                    *chunk += 1;
 
-            Some((chunk, (channel, key)))
-        })
+                    *char_count = channel.as_str().len() + key.len() + 2;
+                    *target_count = 1;
+                }
+
+                Some((*chunk, (channel, key)))
+            },
+        )
         .into_group_map()
         .into_values()
         .map(|values| {
@@ -4134,25 +4176,45 @@ fn group_joins<'a>(
     joins_without_keys.chain(joins_with_keys)
 }
 
-fn group_monitors(
-    targets: &[String],
+fn group_monitors<'a>(
+    users: &'a [String],
+    monitor_limit: Option<u16>,
     target_limit: Option<u16>,
-) -> impl Iterator<Item = proto::Message> + '_ {
+    server: &Server,
+) -> impl Iterator<Item = proto::Message> + 'a {
     const MAX_LEN: usize = proto::format::BYTE_LIMIT - b"MONITOR + \r\n".len();
 
-    if let Some(target_limit) = target_limit.map(usize::from) {
-        &targets[0..std::cmp::min(target_limit, targets.len())]
+    if let Some(monitor_limit) = monitor_limit.map(usize::from) {
+        if monitor_limit < users.len() {
+            log::warn!(
+                "[{}] More users in monitor list than permitted by the server \
+                      ({} users in monitor list, {monitor_limit} permitted)",
+                server,
+                users.len(),
+            );
+        }
+
+        &users[0..std::cmp::min(monitor_limit, users.len())]
     } else {
-        targets
+        users
     }
     .iter()
-    .scan(0, |count, target| {
+    .scan((0, 0, 0), |(char_count, target_count, chunk), target| {
         // Target + a comma
-        *count += target.len() + 1;
+        *char_count += target.len() + 1;
+        *target_count += 1;
 
-        let chunk = *count / MAX_LEN;
+        if *char_count > MAX_LEN
+            || target_limit
+                .is_some_and(|target_limit| *target_count > target_limit)
+        {
+            *chunk += 1;
 
-        Some((chunk, target))
+            *char_count = target.len() + 1;
+            *target_count = 1;
+        }
+
+        Some((*chunk, target))
     })
     .into_group_map()
     .into_values()
