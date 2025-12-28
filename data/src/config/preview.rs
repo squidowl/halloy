@@ -11,6 +11,7 @@ use crate::{Server, Target, isupport, target};
 #[serde(default)]
 pub struct Preview {
     pub enabled: Enabled,
+    pub exclude: Exclude,
     pub request: Request,
     pub card: Card,
     pub image: Image,
@@ -18,12 +19,46 @@ pub struct Preview {
 
 impl Preview {
     pub fn is_enabled(&self, url: &str) -> bool {
+        // Check if URL is excluded first
+        if self.exclude.is_excluded(url) {
+            return false;
+        }
+
         match &self.enabled {
             Enabled::Boolean(b) => *b,
             Enabled::Regex(regexes) => regexes
                 .iter()
                 .any(|regex| regex.is_match(url).unwrap_or(false)),
         }
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct Exclude(Vec<Regex>);
+
+impl Exclude {
+    pub fn is_excluded(&self, url: &str) -> bool {
+        self.0.iter().any(|regex| regex.is_match(url).unwrap_or(false))
+    }
+}
+
+impl<'de> Deserialize<'de> for Exclude {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let patterns = Vec::<String>::deserialize(deserializer)?;
+        let regexes = patterns
+            .iter()
+            .map(|pattern| {
+                RegexBuilder::new(pattern).build().map_err(|err| {
+                    serde::de::Error::custom(format!(
+                        "invalid regex '{pattern}': {err}"
+                    ))
+                })
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(Exclude(regexes))
     }
 }
 

@@ -5,6 +5,7 @@ URL preview settings for Halloy.
 - [Preview](#preview)
   - [Configuration](#configuration)
     - [enabled](#enabled)
+    - [exclude](#exclude)
   - [Request](#request)
   - [Image](#image)
   - [Card](#card)
@@ -35,6 +36,33 @@ Only show previews for matching URLs:
 enabled = [
     '''https?://(www\.)?imgur\.com/.*''', 
     '''https?://(www\.)?dr\.dk/.*'''
+]
+```
+
+### exclude
+
+Exclude URLs from showing previews by providing regex patterns.
+
+```toml
+# Type: array of strings
+# Values: array of regex patterns
+# Default: []
+
+[preview]
+exclude = []
+```
+
+Prevent previews from showing for matching URLs:
+
+> 💡 Use toml multi-line literal strings `'''\bfoo'd\b'''` when writing a regex. This allows you to write the regex without escaping. You can also use a literal string `'\bfoo\b'`, but then you can't use `'` inside the string.
+>
+> Without literal strings, you'd have to write the above as `"\\bfoo'd\\b"`
+
+```toml
+[preview]
+exclude = [
+    '''https?://(www\.)?example\.com/.*''', 
+    '''https?://(www\.)?spam-site\.net/.*'''
 ]
 ```
 
