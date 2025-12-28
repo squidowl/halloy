@@ -20,11 +20,12 @@ Fixed:
 - Channel auto-completion works with all channel prefixes specified by the server
 - Number pad enter now sends messages instead of adding a new line
 - Join & monitor commands sent automatically on connection respect TARGMAX limits specified by the server
+- `/sysinfo` is cleared from input when sent, and is recorded to the buffer even if the server doesn't support echoes
 
 Thanks:
 
 - Contributions: @csmith
-- Bug reports: halloy3002, g00s
+- Bug reports: halloy3002, g00s, Eagle-1
 - Feature requests: @tribly, @deepspaceaxolotl, @dieperdev, @Erroneuz
 
 # 2025.12 (2025-11-28)
