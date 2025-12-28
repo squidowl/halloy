@@ -653,7 +653,7 @@ impl State {
 
                 let message = sysinfo_parts.join(" ");
 
-                history.record_input_history(buffer, message.clone());
+                let mut history_tasks = vec![];
 
                 if let Ok(data::input::Parsed::Input(input)) = input::parse(
                     buffer.clone(),
@@ -661,12 +661,75 @@ impl State {
                     message.as_str(),
                     clients.nickname(buffer.server()),
                     &clients.get_isupport(buffer.server()),
-                ) && let Some(encoded) = input.encoded()
-                {
-                    clients.send(buffer, encoded, TokenPriority::User);
+                ) {
+                    if let Some(encoded) = input.encoded() {
+                        clients.send(buffer, encoded, TokenPriority::User);
+                    }
+
+                    if let Some(nick) = clients.nickname(buffer.server()) {
+                        let mut user = nick.to_owned().into();
+                        let mut channel_users = None;
+
+                        let chantypes = clients.get_chantypes(buffer.server());
+                        let statusmsg = clients.get_statusmsg(buffer.server());
+                        let casemapping =
+                            clients.get_casemapping(buffer.server());
+                        let supports_echoes =
+                            clients.get_server_supports_echoes(buffer.server());
+
+                        // Resolve our attributes if sending this message in a channel
+                        if let buffer::Upstream::Channel(server, channel) =
+                            &buffer
+                        {
+                            channel_users =
+                                clients.get_channel_users(server, channel);
+
+                            if let Some(user_with_attributes) = clients
+                                .resolve_user_attributes(server, channel, &user)
+                            {
+                                user = user_with_attributes.clone();
+                            }
+                        }
+
+                        if let Some(messages) = input.messages(
+                            user,
+                            channel_users,
+                            buffer.server(),
+                            chantypes,
+                            statusmsg,
+                            casemapping,
+                            supports_echoes,
+                            config,
+                        ) {
+                            for message in messages {
+                                history_tasks.extend(
+                                    history
+                                        .record_input_message(
+                                            message,
+                                            buffer.server(),
+                                            casemapping,
+                                            config,
+                                        )
+                                        .into_iter(),
+                                );
+                            }
+                        }
+                    }
                 }
 
-                (Task::none(), None)
+                let history_task = if history_tasks.is_empty() {
+                    Task::none()
+                } else {
+                    Task::batch(history_tasks.into_iter().map(Task::future))
+                };
+
+                (
+                    Task::none(),
+                    Some(Event::InputSent {
+                        history_task,
+                        open_buffers: vec![],
+                    }),
+                )
             }
             Message::Send => {
                 let raw_input = self.input_content.text().clone();
@@ -912,6 +975,9 @@ impl State {
                                     return (Task::none(), event);
                                 }
                                 command::Internal::SysInfo => {
+                                    self.input_content =
+                                        text_editor::Content::new();
+
                                     return (
                                         iced::system::information()
                                             .map(Message::SysInfoReceived),
