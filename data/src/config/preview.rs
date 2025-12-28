@@ -38,7 +38,9 @@ pub struct Exclude(Vec<Regex>);
 
 impl Exclude {
     pub fn is_excluded(&self, url: &str) -> bool {
-        self.0.iter().any(|regex| regex.is_match(url).unwrap_or(false))
+        self.0
+            .iter()
+            .any(|regex| regex.is_match(url).unwrap_or(false))
     }
 }
 
