@@ -10,7 +10,7 @@ Adjust padding for context menu
 
 ### entry
 
-Controls padding for entries in a context menu
+Controls the padding around each entry in context menus.
 The value is an array where the first value is vertical padding and the second is horizontal padding. 
 
 ```toml

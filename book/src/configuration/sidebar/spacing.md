@@ -11,7 +11,7 @@ Adjust spacing for sidebar
 
 ### server
 
-Controls the vertical spacing between servers
+Controls the vertical spacing between servers (i.e. between the last buffer for one server and the server buffer for the next server).
 
 ```toml
 # Type: number
