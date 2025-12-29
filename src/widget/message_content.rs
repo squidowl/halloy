@@ -1,5 +1,5 @@
 use data::appearance::theme::{FontStyle, randomize_color};
-use data::{Config, isupport, message, target};
+use data::{Config, Server, isupport, message, target};
 use iced::widget::span;
 use iced::widget::text::Span;
 use iced::{Color, Length, border};
@@ -9,6 +9,7 @@ use crate::{Theme, font, theme};
 
 pub fn message_content<'a, M: 'a>(
     content: &'a message::Content,
+    server: &'a Server,
     chantypes: &[char],
     casemapping: isupport::CaseMap,
     theme: &'a Theme,
@@ -21,6 +22,7 @@ pub fn message_content<'a, M: 'a>(
 ) -> Element<'a, M> {
     message_content_impl::<(), M>(
         content,
+        server,
         chantypes,
         casemapping,
         theme,
@@ -36,6 +38,7 @@ pub fn message_content<'a, M: 'a>(
 
 pub fn with_context<'a, T: Copy + 'a, M: 'a>(
     content: &'a message::Content,
+    server: &'a Server,
     chantypes: &[char],
     casemapping: isupport::CaseMap,
     theme: &'a Theme,
@@ -50,6 +53,7 @@ pub fn with_context<'a, T: Copy + 'a, M: 'a>(
 ) -> Element<'a, M> {
     message_content_impl(
         content,
+        server,
         chantypes,
         casemapping,
         theme,
@@ -66,6 +70,7 @@ pub fn with_context<'a, T: Copy + 'a, M: 'a>(
 #[allow(clippy::type_complexity)]
 fn message_content_impl<'a, T: Copy + 'a, M: 'a>(
     content: &'a message::Content,
+    server: &'a Server,
     chantypes: &[char],
     casemapping: isupport::CaseMap,
     theme: &'a Theme,
@@ -122,6 +127,7 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a>(
                                         theme.styles().buffer.url.color,
                                     ))
                                     .link(message::Link::Channel(
+                                        server.clone(),
                                         target::Channel::from_str(
                                             s.as_str(),
                                             chantypes,
@@ -159,7 +165,10 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a>(
                                             .map(font::get),
                                     )
                                     .color(transform_color(color))
-                                    .link(message::Link::User(user.clone()))
+                                    .link(message::Link::User(
+                                        server.clone(),
+                                        user.clone(),
+                                    ))
                             }
                             data::message::Fragment::HighlightNick(
                                 user,
@@ -195,7 +204,10 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a>(
                                     )
                                     .color(transform_color(color))
                                     .background(theme.styles().buffer.highlight)
-                                    .link(message::Link::User(user.clone()))
+                                    .link(message::Link::User(
+                                        server.clone(),
+                                        user.clone(),
+                                    ))
                             }
                             data::message::Fragment::HighlightMatch(text) => {
                                 span(text.as_str())
