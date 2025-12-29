@@ -1,14 +1,12 @@
 use std::path::PathBuf;
 
 use chrono::{DateTime, Utc};
-use data::dashboard::BufferAction;
-use data::target::Target;
-use data::{Config, Preview, client, history, isupport, message};
+use data::{Config, Preview, client, history, message};
 use iced::widget::{container, row};
-use iced::{Color, Length, Size, Task};
+use iced::{Length, Size, Task};
 
 use super::{context_menu, scroll_view};
-use crate::widget::{Element, message_content, selectable_text};
+use crate::widget::{Element, selectable_text};
 use crate::{Theme, font, theme};
 
 #[derive(Debug, Clone)]
@@ -18,7 +16,6 @@ pub enum Message {
 
 pub enum Event {
     ContextMenu(context_menu::Event),
-    OpenBuffer(Target, BufferAction),
     History(Task<history::manager::Message>),
     MarkAsRead,
     OpenUrl(String),
@@ -86,18 +83,11 @@ pub fn view<'a>(
                             .map(font::get),
                     );
 
-                    let message = message_content(
-                        &message.content,
-                        isupport::DEFAULT_CHANTYPES,
-                        isupport::CaseMap::default(),
-                        theme,
-                        scroll_view::Message::Link,
-                        None,
-                        theme::selectable_text::logs,
-                        theme::font_style::primary,
-                        Option::<fn(Color) -> Color>::None,
-                        config,
-                    );
+                    let message = selectable_text(message.text())
+                        .font_maybe(
+                            theme::font_style::primary(theme).map(font::get),
+                        )
+                        .style(theme::selectable_text::logs);
 
                     Some(
                         row![
@@ -158,9 +148,7 @@ impl Logs {
                     scroll_view::Event::ContextMenu(event) => {
                         Some(Event::ContextMenu(event))
                     }
-                    scroll_view::Event::OpenBuffer(target, buffer_action) => {
-                        Some(Event::OpenBuffer(target, buffer_action))
-                    }
+                    scroll_view::Event::OpenBuffer(_, _, _) => None,
                     scroll_view::Event::GoToMessage(_, _, _) => None,
                     scroll_view::Event::RequestOlderChatHistory => None,
                     scroll_view::Event::PreviewChanged => None,

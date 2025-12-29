@@ -59,16 +59,10 @@ impl ChannelDiscovery {
                 message::Link::Url(url) => {
                     (Task::none(), Some(Event::OpenUrl(url)))
                 }
-                message::Link::Channel(channel) => {
-                    if let Some(server) = self.server.clone() {
-                        (
-                            Task::none(),
-                            Some(Event::OpenChannelForServer(server, channel)),
-                        )
-                    } else {
-                        (Task::none(), None)
-                    }
-                }
+                message::Link::Channel(server, channel) => (
+                    Task::none(),
+                    Some(Event::OpenChannelForServer(server, channel)),
+                ),
                 _ => (Task::none(), None),
             },
             Message::SearchQuery(query) => {
@@ -183,6 +177,7 @@ pub fn view<'a>(
                                                 )
                                                 .color(theme.styles().buffer.url.color)
                                                 .link(message::Link::Channel(
+                                                    server.clone(),
                                                     target::Channel::from_str(
                                                         channel.as_str(),
                                                         clients.get_chantypes(server),
@@ -202,6 +197,7 @@ pub fn view<'a>(
                                     } else {
                                         Some(message_content::with_context(
                                             topic_content,
+                                            server,
                                             clients.get_chantypes(server),
                                             clients.get_casemapping(server),
                                             theme,
