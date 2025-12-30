@@ -15,7 +15,7 @@ futures = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
 bytes = { workspace = true }
 
-arti-client = { version = "0.26", default-features = false, features = [
+arti-client = { version = "0.37", default-features = false, features = [
     "rustls",
     "compression",
     "tokio",
