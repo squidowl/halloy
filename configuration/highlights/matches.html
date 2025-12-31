@@ -34,7 +34,7 @@
             const path_to_root = "../../";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../../searchindex-ff3849b0.js";
+            window.path_to_searchindex_js = "../../searchindex-d58b3a7e.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="../../toc-ae98c65a.js"></script>
@@ -234,12 +234,11 @@ case_insensitive = true
 </code></pre>
 <h3 id="regex"><a class="header" href="#regex">regex</a></h3>
 <p>Match based on regex.</p>
-<div class="warning">
-<p>Use toml multi-line literal strings <code>'''\bfoo'd\b'''</code> when writing a regex. This allows you to write write the regex without
-escaping. You can also use a literal string <code>'\bfoo\b'</code>, but then you can’t use <code>'</code> inside the string.</p>
-<p>Without literal strings, you’d have to write the above as <code>"\\bfoo'd\\b"</code></p>
-</div>
-
+<blockquote>
+<p>💡 Use toml multi-line literal strings <code>'''\bfoo'd\b'''</code> when writing a regex. This allows you to write write the regex without
+escaping. You can also use a literal string <code>'\bfoo\b'</code>, but then you can’t use <code>'</code> inside the string.
+Without literal strings, you’d have to write the above as <code>"\\bfoo'd\\b"</code></p>
+</blockquote>
 <p>Example shows a regex that matches the word “casper”, regardless of case and only when it appears as a whole word in any channel.</p>
 <pre><code class="language-toml"># Type: string
 # Values: any string

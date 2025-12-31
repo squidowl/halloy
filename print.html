@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-ff3849b0.js";
+            window.path_to_searchindex_js = "searchindex-d58b3a7e.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-ae98c65a.js"></script>
@@ -2752,12 +2752,11 @@ case_insensitive = true
 </code></pre>
 <h3 id="regex"><a class="header" href="#regex">regex</a></h3>
 <p>Match based on regex.</p>
-<div class="warning">
-<p>Use toml multi-line literal strings <code>'''\bfoo'd\b'''</code> when writing a regex. This allows you to write write the regex without
-escaping. You can also use a literal string <code>'\bfoo\b'</code>, but then you can’t use <code>'</code> inside the string.</p>
-<p>Without literal strings, you’d have to write the above as <code>"\\bfoo'd\\b"</code></p>
-</div>
-
+<blockquote>
+<p>💡 Use toml multi-line literal strings <code>'''\bfoo'd\b'''</code> when writing a regex. This allows you to write write the regex without
+escaping. You can also use a literal string <code>'\bfoo\b'</code>, but then you can’t use <code>'</code> inside the string.
+Without literal strings, you’d have to write the above as <code>"\\bfoo'd\\b"</code></p>
+</blockquote>
 <p>Example shows a regex that matches the word “casper”, regardless of case and only when it appears as a whole word in any channel.</p>
 <pre><code class="language-toml"># Type: string
 # Values: any string
@@ -3304,6 +3303,7 @@ windows.decorations = false
 <li><a href="#configuration-41">Configuration</a>
 <ul>
 <li><a href="#enabled-9">enabled</a></li>
+<li><a href="#exclude-4">exclude</a></li>
 </ul>
 </li>
 <li><a href="#request">Request</a></li>
@@ -3314,13 +3314,44 @@ windows.decorations = false
 </ul>
 <h2 id="configuration-41"><a class="header" href="#configuration-41">Configuration</a></h2>
 <h3 id="enabled-9"><a class="header" href="#enabled-9">enabled</a></h3>
-<p>Enable or disable previews globally</p>
-<pre><code class="language-toml"># Type: boolean
-# Values: true, false
+<p>Enable or disable previews globally with a boolean, or selectively enable them for URLs matching specific regex patterns.</p>
+<pre><code class="language-toml"># Type: boolean or array of strings
+# Values: true, false, or array of regex patterns
 # Default: true
 
 [preview]
 enabled = true
+</code></pre>
+<p>Only show previews for matching URLs:</p>
+<blockquote>
+<p>💡 Use toml multi-line literal strings <code>'''\bfoo'd\b'''</code> when writing a regex. This allows you to write the regex without escaping. You can also use a literal string <code>'\bfoo\b'</code>, but then you can’t use <code>'</code> inside the string.</p>
+<p>Without literal strings, you’d have to write the above as <code>"\\bfoo'd\\b"</code></p>
+</blockquote>
+<pre><code class="language-toml">[preview]
+enabled = [
+    '''https?://(www\.)?imgur\.com/.*''', 
+    '''https?://(www\.)?dr\.dk/.*'''
+]
+</code></pre>
+<h3 id="exclude-4"><a class="header" href="#exclude-4">exclude</a></h3>
+<p>Exclude URLs from showing previews by providing regex patterns.</p>
+<pre><code class="language-toml"># Type: array of strings
+# Values: array of regex patterns
+# Default: []
+
+[preview]
+exclude = []
+</code></pre>
+<p>Prevent previews from showing for matching URLs:</p>
+<blockquote>
+<p>💡 Use toml multi-line literal strings <code>'''\bfoo'd\b'''</code> when writing a regex. This allows you to write the regex without escaping. You can also use a literal string <code>'\bfoo\b'</code>, but then you can’t use <code>'</code> inside the string.</p>
+<p>Without literal strings, you’d have to write the above as <code>"\\bfoo'd\\b"</code></p>
+</blockquote>
+<pre><code class="language-toml">[preview]
+exclude = [
+    '''https?://(www\.)?example\.com/.*''', 
+    '''https?://(www\.)?spam-site\.net/.*'''
+]
 </code></pre>
 <h2 id="request"><a class="header" href="#request"><a href="#request-1">Request</a></a></h2>
 <p>Request settings for previews.</p>
@@ -3340,7 +3371,7 @@ enabled = true
 <li><a href="#show_image">show_image</a></li>
 <li><a href="#round_image_corners">round_image_corners</a></li>
 <li><a href="#include-4">include</a></li>
-<li><a href="#exclude-4">exclude</a></li>
+<li><a href="#exclude-5">exclude</a></li>
 </ul>
 </li>
 </ul>
@@ -3370,7 +3401,7 @@ show_image = true
 [preview.card]
 round_image_corners = true
 </code></pre>
-<h3 id="exclude-4"><a class="header" href="#exclude-4">exclude</a></h3>
+<h3 id="exclude-5"><a class="header" href="#exclude-5">exclude</a></h3>
 <p><a href="/configuration/conditions.html">Exclusion conditions</a> for when card previews will
 be hidden. Inclusion conditions will take precedence over exclusion conditions.
 You can also exclude all conditions by setting to <code>"all"</code> or <code>"*"</code>.</p>
@@ -3405,7 +3436,7 @@ include = { users = ["BridgeBot"] }
 <li><a href="#action">action</a></li>
 <li><a href="#round_corners">round_corners</a></li>
 <li><a href="#include-5">include</a></li>
-<li><a href="#exclude-5">exclude</a></li>
+<li><a href="#exclude-6">exclude</a></li>
 </ul>
 </li>
 </ul>
@@ -3435,7 +3466,7 @@ action = "preview"
 [preview.image]
 round_corners = true
 </code></pre>
-<h3 id="exclude-5"><a class="header" href="#exclude-5">exclude</a></h3>
+<h3 id="exclude-6"><a class="header" href="#exclude-6">exclude</a></h3>
 <p><a href="/configuration/conditions.html">Exclusion conditions</a> for when image previews
 will be hidden. Inclusion conditions will take precedence over exclusion
 conditions. You can also exclude all conditions by setting to <code>"all"</code> or <code>"*"</code>.</p>
@@ -4419,7 +4450,7 @@ scroller_width = 5
 <li><a href="#highlight_icon">highlight_icon</a></li>
 <li><a href="#icon_size">icon_size</a></li>
 <li><a href="#highlight_icon_size">highlight_icon_size</a></li>
-<li><a href="#exclude-6">exclude</a></li>
+<li><a href="#exclude-7">exclude</a></li>
 <li><a href="#include-6">include</a></li>
 </ul>
 </li>
@@ -4474,7 +4505,7 @@ icon_size = 6
 [sidebar.unread_indicator]
 highlight_icon_size = 8
 </code></pre>
-<h3 id="exclude-6"><a class="header" href="#exclude-6">exclude</a></h3>
+<h3 id="exclude-7"><a class="header" href="#exclude-7">exclude</a></h3>
 <p><a href="/configuration/conditions.html">Exclusion conditions</a> for which unread indicators
 won’t be shown. Inclusion conditions will take precedence over exclusion
 conditions. You can also exclude all conditions by setting to <code>"all"</code> or <code>"*"</code>.</p>
