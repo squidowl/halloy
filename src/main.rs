@@ -375,8 +375,7 @@ impl Halloy {
     fn update(&mut self, message: Message) -> Task<Message> {
         match message {
             Message::ConfigReloaded(config) => {
-                self.config_file_reloaded(config);
-                Task::none()
+                self.config_file_reloaded(config)
             }
             Message::AppearanceReloaded(appearance) => {
                 self.config.appearance = appearance;
@@ -410,8 +409,7 @@ impl Halloy {
 
                 let event_task = match event {
                     Some(dashboard::Event::ConfigReloaded(config)) => {
-                        self.config_file_reloaded(config);
-                        Task::none()
+                        self.config_file_reloaded(config)
                     }
                     Some(dashboard::Event::ReloadThemes) => {
                         Task::future(Config::load()).then(|config| match config
@@ -1566,7 +1564,10 @@ impl Halloy {
         Subscription::batch(subscriptions)
     }
 
-    fn config_file_reloaded(&mut self, config: Result<Config, config::Error>) {
+    fn config_file_reloaded(
+        &mut self,
+        config: Result<Config, config::Error>,
+    ) -> Task<Message> {
         match config {
             Ok(updated) => {
                 let removed_servers = self
@@ -1606,11 +1607,17 @@ impl Halloy {
                         &self.clients,
                         &self.config.buffer,
                     );
+
+                    return dashboard
+                        .reload_visible_previews(&self.config.preview)
+                        .map(Message::Dashboard);
                 }
             }
             Err(error) => {
                 self.modal = Some(Modal::ReloadConfigurationError(error));
             }
-        };
+        }
+
+        Task::none()
     }
 }
