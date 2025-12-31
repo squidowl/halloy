@@ -1,4 +1,5 @@
-use serde::Deserialize;
+use fancy_regex::{Regex, RegexBuilder};
+use serde::{Deserialize, Deserializer};
 
 use crate::config::inclusivities::{
     Inclusivities, is_source_included, is_target_included,
@@ -6,22 +7,114 @@ use crate::config::inclusivities::{
 use crate::message::Source;
 use crate::{Server, Target, isupport, target};
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize)]
 #[serde(default)]
 pub struct Preview {
-    pub enabled: bool,
+    pub enabled: Enabled,
+    pub exclude: Exclude,
     pub request: Request,
     pub card: Card,
     pub image: Image,
 }
 
-impl Default for Preview {
+impl Preview {
+    pub fn is_enabled(&self, url: &str) -> bool {
+        // Check if URL is excluded first
+        if self.exclude.is_excluded(url) {
+            return false;
+        }
+
+        match &self.enabled {
+            Enabled::Boolean(b) => *b,
+            Enabled::Regex(regexes) => regexes
+                .iter()
+                .any(|regex| regex.is_match(url).unwrap_or(false)),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct Exclude(Vec<Regex>);
+
+impl Exclude {
+    pub fn is_excluded(&self, url: &str) -> bool {
+        self.0
+            .iter()
+            .any(|regex| regex.is_match(url).unwrap_or(false))
+    }
+}
+
+impl<'de> Deserialize<'de> for Exclude {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let patterns = Vec::<String>::deserialize(deserializer)?;
+        let regexes = patterns
+            .iter()
+            .map(|pattern| {
+                RegexBuilder::new(pattern).build().map_err(|err| {
+                    serde::de::Error::custom(format!(
+                        "invalid regex '{pattern}': {err}"
+                    ))
+                })
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(Exclude(regexes))
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum Enabled {
+    Boolean(bool),
+    Regex(Vec<Regex>),
+}
+
+impl Default for Enabled {
     fn default() -> Self {
-        Self {
-            enabled: true,
-            request: Request::default(),
-            card: Card::default(),
-            image: Image::default(),
+        Self::Boolean(true)
+    }
+}
+
+impl<'de> Deserialize<'de> for Enabled {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Debug, Clone, Deserialize)]
+        #[serde(untagged)]
+        pub enum Inner {
+            Boolean(bool),
+            RegexSingle(String),
+            RegexMultiple(Vec<String>),
+        }
+
+        match Inner::deserialize(deserializer)? {
+            Inner::Boolean(enabled) => Ok(Enabled::Boolean(enabled)),
+            Inner::RegexSingle(regex_str) => {
+                let regex =
+                    RegexBuilder::new(&regex_str).build().map_err(|err| {
+                        serde::de::Error::custom(format!(
+                            "invalid regex '{regex_str}': {err}"
+                        ))
+                    })?;
+
+                Ok(Enabled::Regex(vec![regex]))
+            }
+            Inner::RegexMultiple(regex_strs) => {
+                let regexes = regex_strs
+                    .iter()
+                    .map(|regex_str| {
+                        RegexBuilder::new(regex_str).build().map_err(|err| {
+                            serde::de::Error::custom(format!(
+                                "invalid regex '{regex_str}': {err}"
+                            ))
+                        })
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+
+                Ok(Enabled::Regex(regexes))
+            }
         }
     }
 }

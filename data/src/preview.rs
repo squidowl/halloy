@@ -55,10 +55,12 @@ impl<'a> Previews<'a> {
     ) -> Previews<'a> {
         Self {
             collection,
-            cards_are_visible: config.enabled
-                && config.card.visible(target, server, casemapping),
-            images_are_visible: config.enabled
-                && config.image.visible(target, server, casemapping),
+            cards_are_visible: config.card.visible(target, server, casemapping),
+            images_are_visible: config.image.visible(
+                target,
+                server,
+                casemapping,
+            ),
         }
     }
 
@@ -127,7 +129,7 @@ pub async fn load(
     url: Url,
     config: config::Preview,
 ) -> Result<Preview, LoadError> {
-    if !config.enabled {
+    if !config.is_enabled(url.as_str()) {
         return Err(LoadError::Disabled);
     }
 
@@ -367,7 +369,7 @@ fn decode_html_string(s: &str) -> String {
 
 #[derive(Debug, thiserror::Error)]
 pub enum LoadError {
-    #[error("previews disabled in config")]
+    #[error("preview disabled in config")]
     Disabled,
     #[error("cached failed attempt")]
     CachedFailed,

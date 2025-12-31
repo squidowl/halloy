@@ -293,7 +293,15 @@ pub fn view<'a>(
                         !config.buffer.nickname.alignment.is_top() &&
                         matches!(message.target.source(), message::Source::User(_)) &&
                         // don't hide if prev message has visible preview (when show_after_previews is enabled)
-                        !(config.buffer.nickname.hide_consecutive.show_after_previews && prev_message.is_some_and(|prev_msg| has_visible_preview(prev_msg, state, previews, &visible_for_source))) &&
+                        !(config.buffer.nickname.hide_consecutive.show_after_previews
+                                    && prev_message.is_some_and(|prev_msg| {
+                                        has_visible_preview(
+                                            prev_msg,
+                                            state,
+                                            previews,
+                                            &visible_for_source,
+                                        )
+                            })) &&
                         prev_message.is_some_and(|prev_message| {
                             matches!(
                                 (message.target.source(), prev_message.target.source()),
@@ -329,10 +337,9 @@ pub fn view<'a>(
 
                 let content = if let (
                     message::Content::Fragments(fragments),
-                    Some(previews),
-                    true,
+                    Some(previews)
                 ) =
-                    (&message.content, previews, config.preview.enabled)
+                    (&message.content, previews)
                 {
                     let urls = fragments
                         .iter()
