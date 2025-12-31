@@ -369,7 +369,7 @@ fn decode_html_string(s: &str) -> String {
 
 #[derive(Debug, thiserror::Error)]
 pub enum LoadError {
-    #[error("previews disabled in config")]
+    #[error("preview disabled in config")]
     Disabled,
     #[error("cached failed attempt")]
     CachedFailed,
