@@ -176,6 +176,18 @@ impl Dashboard {
         self.reprocess_history(clients, buffer_config);
     }
 
+    pub fn reload_visible_previews(
+        &mut self,
+        preview_config: &config::Preview,
+    ) -> Task<Message> {
+        Task::batch(self.panes.visible_urls().into_iter().map(|url| {
+            Task::perform(
+                data::preview::load(url.clone(), preview_config.clone()),
+                move |result| Message::LoadPreview((url.clone(), result)),
+            )
+        }))
+    }
+
     pub fn reprocess_history(
         &mut self,
         clients: &client::Map,
