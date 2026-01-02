@@ -460,6 +460,7 @@ where
                     align_y: self.align_y,
                     shaping: Shaping::Advanced,
                     wrapping: text::Wrapping::WordOrGlyph,
+                    hint_factor: renderer.scale_factor(),
                 };
 
                 // Check spoiler
@@ -869,6 +870,7 @@ where
             align_y,
             shaping: Shaping::Advanced,
             wrapping: text::Wrapping::WordOrGlyph,
+            hint_factor: renderer.scale_factor(),
         };
 
         if state.spans != spans {
@@ -896,6 +898,7 @@ where
                 align_y,
                 shaping: Shaping::Advanced,
                 wrapping: text::Wrapping::WordOrGlyph,
+                hint_factor: renderer.scale_factor(),
             }) {
                 text::Difference::None => {}
                 text::Difference::Bounds => {
