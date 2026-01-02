@@ -16,11 +16,59 @@ pub struct Sidebar {
     pub position: Position,
     pub order_by: OrderBy,
     pub scrollbar: Scrollbar,
-    #[serde(deserialize_with = "deserialize_positive_integer")]
-    pub server_icon_size: u32,
+    #[serde(
+        deserialize_with = "deserialize_server_icon",
+        alias = "server_icon_size"
+    )]
+    pub server_icon: ServerIcon,
     pub user_menu: UserMenu,
     pub padding: Padding,
     pub spacing: Spacing,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ServerIcon {
+    Size(u32),
+    Hidden,
+}
+
+impl Default for ServerIcon {
+    fn default() -> Self {
+        Self::Size(12)
+    }
+}
+
+pub fn deserialize_server_icon<'de, D>(
+    deserializer: D,
+) -> Result<ServerIcon, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    UntaggedEnumVisitor::new()
+        .u32(|value| {
+            if value > 0 {
+                Ok(ServerIcon::Size(value))
+            } else {
+                Err(serde::de::Error::invalid_value(
+                    serde::de::Unexpected::Unsigned(value as u64),
+                    &"a positive integer",
+                ))
+            }
+        })
+        .string(|string| match string {
+            "hidden" | "none" => Ok(ServerIcon::Hidden),
+            _ => Err(serde::de::Error::invalid_value(
+                serde::de::Unexpected::Str(string),
+                &"\"hidden\" or a size object",
+            )),
+        })
+        .bool(|value| match value {
+            true => Ok(ServerIcon::Size(12)),
+            false => Ok(ServerIcon::Hidden),
+        })
+        .map(|map| map.deserialize())
+        .deserialize(deserializer)
 }
 
 #[derive(Debug, Copy, Clone, Deserialize)]
@@ -71,7 +119,7 @@ impl Default for Sidebar {
             position: Position::default(),
             order_by: OrderBy::default(),
             scrollbar: Scrollbar::default(),
-            server_icon_size: 12,
+            server_icon: ServerIcon::default(),
             user_menu: UserMenu::default(),
             padding: Padding::default(),
             spacing: Spacing::default(),
