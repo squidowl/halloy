@@ -4,7 +4,7 @@ Sidebar settings for Halloy.
 
 - [Sidebar](#sidebar)
   - [Configuration](#configuration)
-    - [server\_icon\_size](#server_icon_size)
+    - [server\_icon](#server_icon)
     - [position](#position)
     - [max\_width](#max_width)
     - [show\_menu\_button](#show_menu_button)
@@ -16,19 +16,28 @@ Sidebar settings for Halloy.
 
 ## Configuration
 
-### server_icon_size
+### server_icon
 
-Adjust server icon size.
+Configure the server icon display.
 
-Note: If set larger than the line height of the specified [font](../font/) then the icon will not render.
+Note: If size is set larger than the line height of the specified [font](../font/) then the icon will not render.
+
+> 💡 The old `server_icon_size` name is still supported for backwards compatibility.
 
 ```toml
-# Type: integer
-# Values: any positive integer"
+# Type: integer or string
+# Values: any positive integer or "hidden"
 # Default: 12
 
 [sidebar]
-server_icon_size = 12
+server_icon = 12
+```
+
+Hide the server icon:
+
+```toml
+[sidebar]
+server_icon = "hidden"
 ```
 
 ### position
