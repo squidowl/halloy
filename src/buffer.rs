@@ -551,11 +551,13 @@ impl Buffer {
             Buffer::Empty
             | Buffer::FileTransfers(_)
             | Buffer::Logs(_)
-            | Buffer::Highlights(_)
-            | Buffer::ChannelDiscovery(_) => Task::none(),
+            | Buffer::Highlights(_) => Task::none(),
             Buffer::Channel(channel) => channel.focus().map(Message::Channel),
             Buffer::Server(server) => server.focus().map(Message::Server),
             Buffer::Query(query) => query.focus().map(Message::Query),
+            Buffer::ChannelDiscovery(channel_discovery) => {
+                channel_discovery.focus().map(Message::ChannelList)
+            }
         }
     }
 
