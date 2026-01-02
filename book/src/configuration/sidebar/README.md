@@ -22,8 +22,6 @@ Configure the server icon display.
 
 Note: If size is set larger than the line height of the specified [font](../font/) then the icon will not render.
 
-> 💡 The old `server_icon_size` name is still supported for backwards compatibility.
-
 ```toml
 # Type: integer or string
 # Values: any positive integer or "hidden"
