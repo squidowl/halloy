@@ -138,6 +138,19 @@ pub fn view<'a>(
                 .placeholder("Select server"),
                 text_input("Search..", &state.search_query)
                     .id(state.search_query_id.clone())
+                    .style(move |theme, status| {
+                        // Show the disabled text_input as active, since we only
+                        // expect it to be disabled when moving panes (and that
+                        // disabling does not need to be indicated to the user)
+                        if matches!(status, text_input::Status::Disabled) {
+                            theme::text_input::primary(
+                                theme,
+                                text_input::Status::Active,
+                            )
+                        } else {
+                            theme::text_input::primary(theme, status)
+                        }
+                    })
                     .on_input_maybe(
                         selected_server
                             .map(|_| |query| Message::SearchQuery(query))

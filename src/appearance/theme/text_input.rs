@@ -49,12 +49,6 @@ pub fn primary(theme: &Theme, status: Status) -> Style {
                 a: 0.2,
                 ..theme.styles().text.secondary.color
             },
-            border: Border {
-                radius: 4.0.into(),
-                width: 0.0,
-                color: Color::TRANSPARENT,
-                // XXX Not currently displayed in application.
-            },
             ..active
         },
     }
