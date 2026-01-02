@@ -1,7 +1,7 @@
 use data::{Config, Server, channel_discovery, message, target};
 use iced::widget::{
-    center, column, container, pick_list, row, rule, scrollable, span, text,
-    text_input,
+    self, center, column, container, operation, pick_list, row, rule,
+    scrollable, span, text, text_input,
 };
 use iced::{Color, Length, Task, alignment, padding};
 
@@ -30,10 +30,17 @@ pub enum Event {
     ContextMenu(context_menu::Event),
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct ChannelDiscovery {
     pub server: Option<Server>,
     pub search_query: String,
+    search_query_id: widget::Id,
+}
+
+impl Default for ChannelDiscovery {
+    fn default() -> Self {
+        Self::new(None)
+    }
 }
 
 impl ChannelDiscovery {
@@ -41,6 +48,7 @@ impl ChannelDiscovery {
         Self {
             server,
             search_query: String::new(),
+            search_query_id: widget::Id::unique(),
         }
     }
 
@@ -90,6 +98,18 @@ impl ChannelDiscovery {
             }
         }
     }
+
+    pub fn focus(&self) -> Task<Message> {
+        let search_query_id = self.search_query_id.clone();
+
+        operation::is_focused(search_query_id.clone()).then(move |is_focused| {
+            if is_focused {
+                Task::none()
+            } else {
+                operation::focus(search_query_id.clone())
+            }
+        })
+    }
 }
 
 pub fn view<'a>(
@@ -116,10 +136,12 @@ pub fn view<'a>(
                     |server: &Server| Message::SelectServer(server.clone())
                 )
                 .placeholder("Select server"),
-                text_input("Search..", &state.search_query).on_input_maybe(
-                    selected_server
-                        .map(|_| |query| Message::SearchQuery(query))
-                ),
+                text_input("Search..", &state.search_query)
+                    .id(state.search_query_id.clone())
+                    .on_input_maybe(
+                        selected_server
+                            .map(|_| |query| Message::SearchQuery(query))
+                    ),
             ]
             .spacing(8)
             .padding(padding::top(8)),
