@@ -7,7 +7,7 @@ use crate::serde::deserialize_positive_integer;
 use crate::server::Server;
 use crate::{isupport, target};
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize)]
 #[serde(default)]
 pub struct Sidebar {
     pub max_width: Option<u16>,
@@ -39,6 +39,7 @@ impl Default for ServerIcon {
     }
 }
 
+#[allow(clippy::redundant_closure_for_method_calls)]
 pub fn deserialize_server_icon<'de, D>(
     deserializer: D,
 ) -> Result<ServerIcon, D::Error>
@@ -107,22 +108,6 @@ impl Default for UserMenu {
         Self {
             enabled: true,
             show_new_version_indicator: true,
-        }
-    }
-}
-
-impl Default for Sidebar {
-    fn default() -> Self {
-        Sidebar {
-            max_width: None,
-            unread_indicator: UnreadIndicator::default(),
-            position: Position::default(),
-            order_by: OrderBy::default(),
-            scrollbar: Scrollbar::default(),
-            server_icon: ServerIcon::default(),
-            user_menu: UserMenu::default(),
-            padding: Padding::default(),
-            spacing: Spacing::default(),
         }
     }
 }
