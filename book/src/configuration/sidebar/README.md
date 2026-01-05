@@ -20,8 +20,6 @@ Sidebar settings for Halloy.
 
 Configure the server icon display.
 
-Note: If size is set larger than the line height of the specified [font](../font/) then the icon will not render.
-
 ```toml
 # Type: integer or string
 # Values: any positive integer or "hidden"

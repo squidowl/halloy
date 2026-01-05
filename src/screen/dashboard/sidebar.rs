@@ -823,31 +823,35 @@ fn upstream_buffer_button<'a>(
 
     let buffer_title_font = theme::font_style::primary(theme).map(font::get);
 
-    let icon_tuple = if let buffer::Upstream::Server(server) = &buffer {
-        match config.sidebar.server_icon {
-            data::config::sidebar::ServerIcon::Size(size) => Some((
-                if server.is_bouncer_network() {
-                    icon::link()
+    // check for server icon first (only for server buffers with icon size configured)
+    let icon_tuple = if let (
+        buffer::Upstream::Server(server),
+        data::config::sidebar::ServerIcon::Size(size),
+    ) = (&buffer, &config.sidebar.server_icon)
+    {
+        Some((
+            if server.is_bouncer_network() {
+                icon::link()
+            } else {
+                icon::connected()
+            }
+            .style(if connected {
+                if has_highlight {
+                    theme::text::highlight_indicator
+                } else if has_unread {
+                    theme::text::unread_indicator
                 } else {
-                    icon::connected()
+                    theme::text::primary
                 }
-                .style(if connected {
-                    if has_highlight {
-                        theme::text::highlight_indicator
-                    } else if has_unread {
-                        theme::text::unread_indicator
-                    } else {
-                        theme::text::primary
-                    }
-                } else {
-                    theme::text::error
-                })
-                .size(size),
-                size,
-            )),
-            data::config::sidebar::ServerIcon::Hidden => None,
-        }
-    } else if show_highlight_icon
+            } else {
+                theme::text::error
+            })
+            .size(*size),
+            *size,
+        ))
+    }
+    // fall through to unread/highlight icons for all buffers (including server)
+    else if show_highlight_icon
         && let Some(highlight_icon) =
             icon::from_icon(config.sidebar.unread_indicator.highlight_icon)
     {

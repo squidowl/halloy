@@ -61,7 +61,7 @@ where
             "hidden" | "none" => Ok(ServerIcon::Hidden),
             _ => Err(serde::de::Error::invalid_value(
                 serde::de::Unexpected::Str(string),
-                &"\"hidden\" or a size object",
+                &"\"hidden\" or a size (positive integer)",
             )),
         })
         .bool(|value| match value {
