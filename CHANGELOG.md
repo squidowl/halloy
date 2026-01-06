@@ -5,6 +5,7 @@ Added:
 - Added `Open URL` entry to URL context menus
 - Setting to not hide consecutive if previous message was a image preview
 - Channel discovery buffer to view all channels on a server (using LIST). Can be opened via sidebar button or command bar.
+- Setting to hide server icons in sidemenu
 - Setting to adjust buffer padding and server spacing in sidemenu
 - Setting to adjust entry padding in context menus
 - Support for configuring a regex-based allowlist of URL patterns for Preview
