@@ -811,13 +811,24 @@ fn upstream_buffer_button<'a>(
         theme::text::highlight_indicator
     } else if show_unread_title {
         theme::text::unread_indicator
+    } else if !connected {
+        if matches!(&buffer, buffer::Upstream::Server(_)) {
+            theme::text::error
+        } else {
+            theme::text::secondary
+        }
     } else {
         theme::text::primary
     };
 
     let buffer_title_font = theme::font_style::primary(theme).map(font::get);
 
-    let icon_tuple = if let buffer::Upstream::Server(server) = &buffer {
+    // check for server icon first (only for server buffers with icon size configured)
+    let icon_tuple = if let (
+        buffer::Upstream::Server(server),
+        data::config::sidebar::ServerIcon::Size(size),
+    ) = (&buffer, &config.sidebar.server_icon)
+    {
         Some((
             if server.is_bouncer_network() {
                 icon::link()
@@ -835,10 +846,12 @@ fn upstream_buffer_button<'a>(
             } else {
                 theme::text::error
             })
-            .size(config.sidebar.server_icon_size),
-            config.sidebar.server_icon_size,
+            .size(*size),
+            *size,
         ))
-    } else if show_highlight_icon
+    }
+    // fall through to unread/highlight icons for all buffers (including server)
+    else if show_highlight_icon
         && let Some(highlight_icon) =
             icon::from_icon(config.sidebar.unread_indicator.highlight_icon)
     {
@@ -867,7 +880,11 @@ fn upstream_buffer_button<'a>(
             (icon_size + 8, Some(container(icon).center_y(Length::Fill)))
         })
     } else {
-        let max_icon_size = config.sidebar.server_icon_size.max(
+        let server_icon_size = match config.sidebar.server_icon {
+            data::config::sidebar::ServerIcon::Size(size) => size,
+            data::config::sidebar::ServerIcon::Hidden => 0,
+        };
+        let max_icon_size = server_icon_size.max(
             config
                 .sidebar
                 .unread_indicator
