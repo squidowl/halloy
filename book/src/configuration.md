@@ -11,16 +11,8 @@ A default file is created when you launch Halloy for the first time. The locatio
 
 The specification for the configuration file format ([TOML](https://toml.io/)) can be found at [https://toml.io/](https://toml.io/).
 
-Example configuration for connecting to [Libera](https://libera.chat/):
-
-```toml
-theme = "ferra"
-
-[servers.liberachat]
-nickname = "halloy-user"
-server = "irc.libera.chat"
-channels = ["#halloy"]
-
-[buffer.channel.topic]
-enabled = true
-```
+See the following guides for example configurations:
+- [Example Server Configurations](./guides/example-server-configurations.md)
+- [Multiple Servers](./guides/multiple-servers.md)
+- [Connect with soju](./guides/connect-with-soju.md)
+- [Connect with ZNC](./guides/connect-with-znc.md)
