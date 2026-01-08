@@ -2560,7 +2560,10 @@ impl Dashboard {
             ),
             buffer::Upstream::Channel(server, channel) => {
                 // Send part & close history file
-                let command = command::Irc::Part(channel.to_string(), config.buffer.commands.part.default_reason.clone());
+                let command = command::Irc::Part(
+                    channel.to_string(),
+                    config.buffer.commands.part.default_reason.clone(),
+                );
                 let input = data::Input::from_command(buffer.clone(), command);
 
                 if let Some(encoded) = input.encoded() {
