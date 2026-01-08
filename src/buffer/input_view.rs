@@ -663,6 +663,7 @@ impl State {
                     message.as_str(),
                     clients.nickname(buffer.server()),
                     &clients.get_isupport(buffer.server()),
+                    config,
                 ) {
                     if let Some(encoded) = input.encoded() {
                         clients.send(buffer, encoded, TokenPriority::User);
@@ -762,6 +763,7 @@ impl State {
                         raw_input.as_str(),
                         clients.nickname(buffer.server()),
                         &clients.get_isupport(buffer.server()),
+                        config,
                     ) {
                         Ok(input::Parsed::Internal(command)) => {
                             history.record_input_history(
@@ -1490,6 +1492,7 @@ impl State {
                             &input,
                             clients.nickname(buffer.server()),
                             &clients.get_isupport(buffer.server()),
+                            config,
                         ) && match error {
                             input::Error::ExceedsByteLimit { .. } => true,
                             input::Error::Command(

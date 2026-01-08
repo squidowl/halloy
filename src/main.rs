@@ -636,7 +636,7 @@ impl Halloy {
                             let events = match self.clients.receive(
                                 &server,
                                 message,
-                                &self.config.ctcp,
+                                &self.config,
                             ) {
                                 Ok(events) => events,
                                 Err(e) => {
