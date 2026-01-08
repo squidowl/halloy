@@ -45,10 +45,10 @@ You can define multiple server sections in the configuration file. Each server s
 ## Examples
 
 Examples can be found in the following guides:
-- [Example Server Configurations](./guides/example-server-configurations.md)
-- [Multiple Servers](./guides/multiple-servers.md)
-- [Connect with soju](./guides/connect-with-soju.md)
-- [Connect with ZNC](./guides/connect-with-znc.md)
+- [Example Server Configurations](../../guides/example-server-configurations.md)
+- [Multiple Servers](../../guides/multiple-servers.md)
+- [Connect with soju](../../guides/connect-with-soju.md)
+- [Connect with ZNC](../../guides/connect-with-znc.md)
 
 ## Configuration
 
