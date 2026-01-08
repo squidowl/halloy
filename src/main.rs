@@ -1599,7 +1599,10 @@ impl Halloy {
                 self.config = updated;
 
                 for (server, _) in removed_servers {
-                    self.clients.quit(&server, self.config.buffer.commands.quit.default_reason.clone());
+                    self.clients.quit(
+                        &server,
+                        self.config.buffer.commands.quit.default_reason.clone(),
+                    );
                 }
                 if let Screen::Dashboard(dashboard) = &mut self.screen {
                     dashboard.update_filters(

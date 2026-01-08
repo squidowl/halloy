@@ -137,14 +137,18 @@ pub enum OnBufferCloseCondition {
 #[derive(Debug, Clone, Deserialize, Default)]
 #[serde(default)]
 pub struct Quit {
-    #[serde(deserialize_with = "crate::serde::deserialize_empty_string_as_none")]
+    #[serde(
+        deserialize_with = "crate::serde::deserialize_empty_string_as_none"
+    )]
     pub default_reason: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, Default)]
 #[serde(default)]
 pub struct Part {
-    #[serde(deserialize_with = "crate::serde::deserialize_empty_string_as_none")]
+    #[serde(
+        deserialize_with = "crate::serde::deserialize_empty_string_as_none"
+    )]
     pub default_reason: Option<String>,
 }
 
