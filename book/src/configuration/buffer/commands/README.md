@@ -6,6 +6,8 @@ Commands settings.
   - [Configuration](#configuration)
     - [show\_description](#show_description)
   - [Sysinfo](#sysinfo)
+  - [Quit](#quit)
+  - [Part](#part)
 
 ## Configuration
 
@@ -25,3 +27,11 @@ show_description = true
 ## [Sysinfo](sysinfo.md)
 
 Configure which system information components to display when using the `/sysinfo` command
+
+## [Quit](quit.md)
+
+Configure `QUIT` command
+
+## [Part](part.md)
+
+Configure `PART` command

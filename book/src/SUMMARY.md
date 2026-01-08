@@ -41,6 +41,8 @@
   - [Chat History](configuration/buffer/chat-history/README.md)
   - [Commands](configuration/buffer/commands/README.md)
     - [Sysinfo](configuration/buffer/commands/sysinfo.md)
+    - [Quit](configuration/buffer/commands/quit.md)
+    - [Part](configuration/buffer/commands/part.md)
   - [Date Separators](configuration/buffer/date-separators/README.md)
   - [Emojis](configuration/buffer/emojis/README.md)
   - [Internal Messages](configuration/buffer/internal-messages/README.md)
