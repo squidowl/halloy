@@ -20,24 +20,30 @@ pub fn parse(
     input: &str,
     our_nickname: Option<NickRef>,
     isupport: &HashMap<isupport::Kind, isupport::Parameter>,
+    config: &Config,
 ) -> Result<Parsed, Error> {
-    let content =
-        match command::parse(input, Some(&buffer), our_nickname, isupport) {
-            Ok(Command::Internal(command)) => {
-                return Ok(Parsed::Internal(command));
-            }
-            Ok(Command::Irc(command)) => Content::Command(command),
-            Err(command::Error::MissingSlash) => {
-                let text = match auto_format {
-                    AutoFormat::Disabled => input.to_string(),
-                    AutoFormat::Markdown => formatting::encode(input, true),
-                    AutoFormat::All => formatting::encode(input, false),
-                };
+    let content = match command::parse(
+        input,
+        Some(&buffer),
+        our_nickname,
+        isupport,
+        config,
+    ) {
+        Ok(Command::Internal(command)) => {
+            return Ok(Parsed::Internal(command));
+        }
+        Ok(Command::Irc(command)) => Content::Command(command),
+        Err(command::Error::MissingSlash) => {
+            let text = match auto_format {
+                AutoFormat::Disabled => input.to_string(),
+                AutoFormat::Markdown => formatting::encode(input, true),
+                AutoFormat::All => formatting::encode(input, false),
+            };
 
-                Content::Text(text)
-            }
-            Err(error) => return Err(Error::Command(error)),
-        };
+            Content::Text(text)
+        }
+        Err(error) => return Err(Error::Command(error)),
+    };
 
     if let Some(message_bytes) = content
         .proto(&buffer)
