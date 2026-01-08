@@ -35,10 +35,10 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-8bef5570.js";
+            window.path_to_searchindex_js = "searchindex-8f88d611.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-ae98c65a.js"></script>
+        <script src="toc-f2383b0b.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -345,17 +345,13 @@ cd halloy
 <p>💡 Most configuration changes can be applied by reloading the configuration file from the sidebar menu, <a href="#keyboard">keyboard shortcut</a>, or the command bar</p>
 </blockquote>
 <p>The specification for the configuration file format (<a href="https://toml.io/">TOML</a>) can be found at <a href="https://toml.io/">https://toml.io/</a>.</p>
-<p>Example configuration for connecting to <a href="https://libera.chat/">Libera</a>:</p>
-<pre><code class="language-toml">theme = "ferra"
-
-[servers.liberachat]
-nickname = "halloy-user"
-server = "irc.libera.chat"
-channels = ["#halloy"]
-
-[buffer.channel.topic]
-enabled = true
-</code></pre>
+<p>See the following guides for example configurations:</p>
+<ul>
+<li><a href="#example-server-configurations">Example Server Configurations</a></li>
+<li><a href="#multiple-servers">Multiple Servers</a></li>
+<li><a href="#connect-with-soju">Connect with soju</a></li>
+<li><a href="#connect-with-znc">Connect with ZNC</a></li>
+</ul>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="get-in-touch"><a class="header" href="#get-in-touch">Get in Touch</a></h1>
 <p>Join <code>#halloy</code> on <code>libera.chat</code> (<a href="ircs://irc.libera.chat/#halloy">link</a>) if you have questions, looking for help or just want to say hello.
@@ -575,6 +571,42 @@ password = "&lt;your-password&gt;"
 <p>Does your znc listen on a different port? See:
 <a href="/configuration/servers.html#port"><code>servers.&lt;name&gt;.port</code></a></p>
 <div style="break-before: page; page-break-before: always;"></div>
+<h1 id="example-server-configurations"><a class="header" href="#example-server-configurations">Example Server Configurations</a></h1>
+<h2 id="libera"><a class="header" href="#libera"><a href="https://libera.chat/">Libera</a></a></h2>
+<pre><code class="language-toml">[servers.Libera]
+server = "irc.libera.chat"
+use_tls = true # default value
+port = 6697 # default value when use_tls = true
+
+nickname = "halloy-user"
+
+channels = ["#halloy"]
+</code></pre>
+<h2 id="oftc"><a class="header" href="#oftc"><a href="https://oftc.net/">OFTC</a></a></h2>
+<pre><code class="language-toml">[servers.OFTC]
+server = "irc.oftc.net"
+use_tls = true # default value
+port = 6697 # default value when use_tls = true
+
+nickname = "halloy-user"
+</code></pre>
+<h2 id="slashnet"><a class="header" href="#slashnet"><a href="https://www.slashnet.org/">SlashNET</a></a></h2>
+<pre><code class="language-toml">[servers.SlashNET]
+server = "irc.slashnet.org"
+use_tls = false
+port = 6667 # default value when use_tls = false
+
+nickname = "halloy-user"
+</code></pre>
+<h2 id="undernet"><a class="header" href="#undernet"><a href="https://www.undernet.org/">Undernet</a></a></h2>
+<pre><code class="language-toml">[servers.Undernet]
+server = "irc.undernet.org"
+use_tls = false
+port = 6667 # default value when use_tls = false
+
+nickname = "halloy-user"
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div>
 <h1 id="inclusionexclusion-conditions"><a class="header" href="#inclusionexclusion-conditions">Inclusion/Exclusion Conditions</a></h1>
 <p>Inclusion/exclusion conditions can be specified by arrays of users, channels,
 servers, <a href="/configuration/buffer/server-messages#types">server message types</a>,
@@ -643,15 +675,21 @@ exclude = "all"
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="multiple-servers"><a class="header" href="#multiple-servers">Multiple Servers</a></h1>
 <p>Creating multiple <code>[servers]</code> sections lets you connect to multiple servers.<br>All configuration options can be found in the <a href="configuration/servers">servers configuration section</a>.</p>
-<pre><code class="language-toml">[servers.liberachat]
-nickname = "halloy-user"
+<pre><code class="language-toml">[servers.Libera]
 server = "irc.libera.chat"
+use_tls = true # default value
+port = 6697 # default value when use_tls = true
+
+nickname = "nickname-on-libera"
+
 channels = ["#halloy"]
 
-[servers.oftc]
-nickname = "halloy-user"
+[servers.OFTC]
 server = "irc.oftc.net"
-channels = ["#asahi-dev"]
+use_tls = true # default value
+port = 6697 # default value when use_tls = true
+
+nickname = "nickname-on-oftc"
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="optional-features"><a class="header" href="#optional-features">Optional Features</a></h1>
@@ -3769,7 +3807,7 @@ scale_factor = 1.0
 <ul>
 <li><a href="#servers">Servers</a>
 <ul>
-<li><a href="#example-16">Example</a></li>
+<li><a href="#examples-2">Examples</a></li>
 <li><a href="#configuration-48">Configuration</a>
 <ul>
 <li><a href="#nickname-6">nickname</a></li>
@@ -3813,22 +3851,14 @@ scale_factor = 1.0
 </ul>
 </li>
 </ul>
-<h2 id="example-16"><a class="header" href="#example-16">Example</a></h2>
-<pre><code class="language-toml"># with tls
-[servers.liberachat]
-server = "irc.libera.chat"
-nickname = "bar"
-
-# without tls
-[servers.slashnet]
-server = "irc.slashnet.org"
-port = 6667
-nickname = "foo"
-use_tls = false
-</code></pre>
-<blockquote>
-<p>💡 Guide: <a href="#multiple-servers">Multiple servers</a></p>
-</blockquote>
+<h2 id="examples-2"><a class="header" href="#examples-2">Examples</a></h2>
+<p>Examples can be found in the following guides:</p>
+<ul>
+<li><a href="#example-server-configurations">Example Server Configurations</a></li>
+<li><a href="#multiple-servers">Multiple Servers</a></li>
+<li><a href="#connect-with-soju">Connect with soju</a></li>
+<li><a href="#connect-with-znc">Connect with ZNC</a></li>
+</ul>
 <h2 id="configuration-48"><a class="header" href="#configuration-48">Configuration</a></h2>
 <h3 id="nickname-6"><a class="header" href="#nickname-6">nickname</a></h3>
 <p>The client’s nickname.</p>
@@ -3912,7 +3942,7 @@ username = ""
 realname = ""
 </code></pre>
 <h3 id="server-2"><a class="header" href="#server-2">server</a></h3>
-<p>The server to connect to.</p>
+<p>The server to connect to.  Should not contain the protocol, port, username, or password (i.e. should look like <code>"irc.libera.chat"</code> not <code>"ircs://irc.libera.chat:6697"</code>).</p>
 <pre><code class="language-toml"># Type: string
 # Values: any string
 # Default: not set
@@ -4621,7 +4651,7 @@ server = 12
 <ul>
 <li><a href="#themes">Themes</a>
 <ul>
-<li><a href="#example-17">Example</a></li>
+<li><a href="#example-16">Example</a></li>
 <li><a href="#configuration-58">Configuration</a>
 <ul>
 <li><a href="#theme">theme</a></li>
@@ -4633,7 +4663,7 @@ server = 12
 </ul>
 </li>
 </ul>
-<h2 id="example-17"><a class="header" href="#example-17">Example</a></h2>
+<h2 id="example-16"><a class="header" href="#example-16">Example</a></h2>
 <pre><code class="language-toml"># Static single
 theme = "ferra"
 
@@ -4786,7 +4816,7 @@ repository.</p>
 <a href="https://github.com/4e554c4c/base16-halloy/releases/latest">latest release</a>
 and unpack it to the <code>themes</code> folder in the Halloy configuration directory. Then
 you can enable themes individually in <code>config.toml</code>.</p>
-<h2 id="example-18"><a class="header" href="#example-18">Example</a></h2>
+<h2 id="example-17"><a class="header" href="#example-17">Example</a></h2>
 <pre><code class="language-toml"># Static
 theme = "base16-gruvbox-dark-hard"
 </code></pre>
