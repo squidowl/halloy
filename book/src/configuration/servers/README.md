@@ -3,7 +3,7 @@
 You can define multiple server sections in the configuration file. Each server section must have a unique name, which is used as the identifier in the `[servers.<name>]` format.
 
 - [Servers](#servers)
-  - [Example](#example)
+  - [Examples](#examples)
   - [Configuration](#configuration)
     - [nickname](#nickname)
     - [nick\_password](#nick_password)
@@ -42,23 +42,13 @@ You can define multiple server sections in the configuration file. Each server s
   - [SASL Plain](#sasl-plain)
   - [SASL External](#sasl-external)
 
-## Example
+## Examples
 
-```toml
-# with tls
-[servers.liberachat]
-server = "irc.libera.chat"
-nickname = "bar"
-
-# without tls
-[servers.slashnet]
-server = "irc.slashnet.org"
-port = 6667
-nickname = "foo"
-use_tls = false
-```
-
-> 💡 Guide: [Multiple servers](../../guides/multiple-servers.md)
+Examples can be found in the following guides:
+- [Example Server Configurations](./guides/example-server-configurations.md)
+- [Multiple Servers](./guides/multiple-servers.md)
+- [Connect with soju](./guides/connect-with-soju.md)
+- [Connect with ZNC](./guides/connect-with-znc.md)
 
 ## Configuration
 
@@ -181,7 +171,7 @@ realname = ""
 
 ### server
 
-The server to connect to.
+The server to connect to.  Should not contain the protocol, port, username, or password (i.e. should look like `"irc.libera.chat"` not `"ircs://irc.libera.chat:6697"`).
 
 ```toml
 # Type: string
