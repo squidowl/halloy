@@ -16,6 +16,7 @@ Added:
 - Backlog separator can be customized with a custom color and text (with the ability to remove text from it)
 - Setting to disable unread indicators for specified channels/servers
 - Users and messages can be filtered using regular expressions
+- Added ability to set default QUIT and PART reason
 
 Fixed:
 
@@ -31,7 +32,7 @@ Thanks:
 
 - Contributions: @csmith
 - Bug reports: halloy3002, g00s, Eagle-1
-- Feature requests: @tribly, @deepspaceaxolotl, @dieperdev, @Erroneuz, @lorenzosu, @Summertime
+- Feature requests: @tribly, @deepspaceaxolotl, @dieperdev, @Erroneuz, @lorenzosu, @Summertime, @WinnerWind
 
 # 2025.12 (2025-11-28)
 

@@ -245,6 +245,7 @@ pub fn parse(
     buffer: Option<&buffer::Upstream>,
     our_nickname: Option<NickRef>,
     isupport: &HashMap<isupport::Kind, isupport::Parameter>,
+    config: &Config,
 ) -> Result<Command, Error> {
     let (head, rest) = s.split_once('/').ok_or(Error::MissingSlash)?;
     // Don't allow leading whitespace before slash
@@ -375,7 +376,9 @@ pub fn parse(
                 Ok(Command::Irc(Irc::Nick(nick)))
             }),
             Kind::Quit => validated::<0, 1, true>(args, |_, [comment]| {
-                Ok(Command::Irc(Irc::Quit(comment)))
+                Ok(Command::Irc(Irc::Quit(comment.or_else(|| {
+                    config.buffer.commands.quit.default_reason.clone()
+                }))))
             }),
             Kind::Msg => validated::<1, 1, true>(args, |[targets], [msg]| {
                 let target_limit = find_target_limit(isupport, "PRIVMSG")
@@ -510,7 +513,10 @@ pub fn parse(
                     }
 
                     Ok(Command::Internal(Internal::LeaveBuffers(
-                        targets, reason,
+                        targets,
+                        reason.or_else(|| {
+                            config.buffer.commands.part.default_reason.clone()
+                        }),
                     )))
                 })
             }

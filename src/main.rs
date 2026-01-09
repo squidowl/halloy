@@ -636,7 +636,7 @@ impl Halloy {
                             let events = match self.clients.receive(
                                 &server,
                                 message,
-                                &self.config.ctcp,
+                                &self.config,
                             ) {
                                 Ok(events) => events,
                                 Err(e) => {
@@ -1599,7 +1599,10 @@ impl Halloy {
                 self.config = updated;
 
                 for (server, _) in removed_servers {
-                    self.clients.quit(&server, None);
+                    self.clients.quit(
+                        &server,
+                        self.config.buffer.commands.quit.default_reason.clone(),
+                    );
                 }
                 if let Screen::Dashboard(dashboard) = &mut self.screen {
                     dashboard.update_filters(
