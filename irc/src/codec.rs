@@ -55,3 +55,33 @@ pub enum Error {
     #[error(transparent)]
     Io(#[from] io::Error),
 }
+
+#[cfg(test)]
+mod test {
+    use bytes::BytesMut;
+    use tokio_util::codec::Decoder;
+
+    use crate::Codec;
+
+    #[test]
+    fn decode() {
+        let tests = [
+            (Vec::from(b"CAP REQ :sasl\r\n"), Vec::from(b"")),
+            (Vec::from(b"CAP REQ :sasl\r\nCAP"), Vec::from(b"CAP")),
+            (Vec::from(b"CAP REQ :sasl\n"), Vec::from(b"")),
+            (Vec::from(b"CAP REQ :sasl\nCAP"), Vec::from(b"CAP")),
+        ];
+
+        for (input, remaining_exp) in tests {
+            let mut input = BytesMut::from(input.as_slice());
+            let res = Codec.decode(&mut input);
+
+            assert_eq!(input, remaining_exp);
+            assert!(res.is_ok());
+            let res = res.unwrap();
+            assert!(res.is_some());
+            let res = res.unwrap();
+            assert!(res.is_ok());
+        }
+    }
+}
