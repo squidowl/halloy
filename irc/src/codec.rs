@@ -16,19 +16,11 @@ impl Decoder for Codec {
         &mut self,
         src: &mut BytesMut,
     ) -> Result<Option<Self::Item>, Self::Error> {
-        let Some(pos) = src.windows(2).enumerate().find_map(|(i, b)| {
-            if b == [b'\r', b'\n'] {
-                Some(i + 2)
-            } else if b[0] == b'\n' {
-                Some(i + 1)
-            } else {
-                None
-            }
-        }) else {
+        let Some(pos) = src.iter().position(|&b| b == b'\n') else {
             return Ok(None);
         };
 
-        let bytes = Vec::from(src.split_to(pos));
+        let bytes = Vec::from(src.split_to(pos + 1));
 
         Ok(Some(parse::message_bytes(bytes)))
     }
