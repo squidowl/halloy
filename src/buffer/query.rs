@@ -25,6 +25,7 @@ pub enum Event {
     ContextMenu(context_menu::Event),
     OpenBuffers(Server, Vec<(Target, BufferAction)>),
     OpenInternalBuffer(buffer::Internal),
+    OpenServer(String),
     LeaveBuffers(Vec<Target>, Option<String>),
     History(Task<history::manager::Message>),
     RequestOlderChatHistory,
@@ -269,6 +270,9 @@ impl Query {
                     }
                     Some(input_view::Event::OpenInternalBuffer(buffer)) => {
                         (command, Some(Event::OpenInternalBuffer(buffer)))
+                    }
+                    Some(input_view::Event::OpenServer(server)) => {
+                        (command, Some(Event::OpenServer(server)))
                     }
                     None => (command, None),
                 }

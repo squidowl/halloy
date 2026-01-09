@@ -23,6 +23,7 @@ The argument(s) for a command are shown in [tooltips](configuration/tooltips.md)
 | `chathistory` |            | Retrieve message history[^5]                                                       |
 | `clear`       |            | Clear the message history in the current buffer                                    |
 | `cleartopic`  | `ct`       | Clear the topic of a channel[^1]                                                   |
+| `connect`     |            | Connect to a server (specified by URL)                                             |
 | `ctcp`        |            | Client-To-Client requests[^2]                                                      |
 | `delay`       |            | Delay the specified number of seconds[^7]                                          |
 | `detach`      |            | Hide the channel, but leave the bouncer's connection to the channel active[^5][^6] |

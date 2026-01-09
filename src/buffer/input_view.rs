@@ -42,6 +42,7 @@ pub enum Event {
         targets: Vec<(Target, BufferAction)>,
     },
     OpenInternalBuffer(buffer::Internal),
+    OpenServer(String),
     LeaveBuffers {
         targets: Vec<Target>,
         reason: Option<String>,
@@ -990,6 +991,15 @@ impl State {
                                         None,
                                     );
                                 }
+                                command::Internal::Connect(server) => {
+                                    self.input_content =
+                                        text_editor::Content::new();
+
+                                    return (
+                                        Task::none(),
+                                        Some(Event::OpenServer(server)),
+                                    );
+                                }
                             }
                         }
                         Ok(input::Parsed::Input(input)) => input,
@@ -1525,6 +1535,9 @@ impl State {
                             ) => true,
                             input::Error::Command(
                                 command::Error::InvalidChannelName { .. },
+                            ) => true,
+                            input::Error::Command(
+                                command::Error::InvalidServerUrl,
                             ) => true,
                         } {
                             self.error = Some(error.to_string());
