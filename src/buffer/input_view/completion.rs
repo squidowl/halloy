@@ -679,6 +679,21 @@ impl Commands {
                     subcommands: None,
                 }
             },
+            // CONNECT
+            {
+                Command {
+                    title: "CONNECT",
+                    args: vec![Argument {
+                        text: "server",
+                        kind: ArgumentKind::Required,
+                        tooltip: Some(
+                            "URL of the format (irc|ircs)://(server):(port)/"
+                                .to_string(),
+                        ),
+                    }],
+                    subcommands: None,
+                }
+            },
         ];
 
         if supports_detach {
