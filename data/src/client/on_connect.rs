@@ -37,15 +37,17 @@ impl fmt::Debug for Stream {
 
 pub fn on_connect(
     handle: server::Handle,
-    config: Arc<config::Server>,
+    server_config: Arc<config::Server>,
     our_nickname: NickRef,
     isupport: &HashMap<isupport::Kind, isupport::Parameter>,
+    config: &config::Config,
 ) -> Stream {
-    let commands = config
+    let commands = server_config
         .on_connect
         .iter()
         .filter_map(|command| {
-            command::parse(command, None, Some(our_nickname), isupport).ok()
+            command::parse(command, None, Some(our_nickname), isupport, config)
+                .ok()
         })
         .collect::<Vec<_>>();
 

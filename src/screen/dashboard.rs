@@ -2551,12 +2551,19 @@ impl Dashboard {
         }
 
         match buffer.clone() {
-            buffer::Upstream::Server(server) => {
-                (Task::batch(tasks), Some(Event::QuitServer(server, None)))
-            }
+            buffer::Upstream::Server(server) => (
+                Task::batch(tasks),
+                Some(Event::QuitServer(
+                    server,
+                    config.buffer.commands.quit.default_reason.clone(),
+                )),
+            ),
             buffer::Upstream::Channel(server, channel) => {
                 // Send part & close history file
-                let command = command::Irc::Part(channel.to_string(), None);
+                let command = command::Irc::Part(
+                    channel.to_string(),
+                    config.buffer.commands.part.default_reason.clone(),
+                );
                 let input = data::Input::from_command(buffer.clone(), command);
 
                 if let Some(encoded) = input.encoded() {

@@ -151,6 +151,16 @@ where
     }
 }
 
+pub fn deserialize_empty_string_as_none<'de, D>(
+    deserializer: D,
+) -> Result<Option<String>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let s = String::deserialize(deserializer)?;
+    Ok((!s.is_empty()).then_some(s))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

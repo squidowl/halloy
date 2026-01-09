@@ -457,13 +457,13 @@ impl Client {
     fn receive(
         &mut self,
         message: message::Encoded,
-        ctcp_config: &config::Ctcp,
+        config: &config::Config,
     ) -> Result<Vec<Event>> {
         log::trace!("[{}] Message received => {:?}", self.server, *message);
 
         let stop_reroute = self.stop_reroute(&message.command);
 
-        let events = self.handle(message, None, ctcp_config)?;
+        let events = self.handle(message, None, config)?;
 
         if stop_reroute {
             self.reroute_responses_to = None;
@@ -476,7 +476,7 @@ impl Client {
         &mut self,
         mut message: message::Encoded,
         parent_context: Option<Context>,
-        ctcp_config: &config::Ctcp,
+        config: &config::Config,
     ) -> Result<Vec<Event>> {
         use irc::proto::command::Numeric::*;
 
@@ -866,7 +866,7 @@ impl Client {
                         }
                     }
                 } else {
-                    self.handle(message, context, ctcp_config)?
+                    self.handle(message, context, config)?
                 };
 
                 if let Some(batch) = self.batches.get_mut(&Target::parse(
@@ -1397,20 +1397,21 @@ impl Client {
                                             ctcp::response_message(
                                                 &query.command,
                                                 user.nickname().to_string(),
-                                                Some(ctcp_config.client_info()),
+                                                Some(config.ctcp.client_info()),
                                             )
                                             .into(),
                                             TokenPriority::High,
                                         );
                                     }
                                     ctcp::Command::UserInfo => {
-                                        if ctcp_config.userinfo.is_some() {
+                                        if config.ctcp.userinfo.is_some() {
                                             self.send(
                                                 None,
                                                 ctcp::response_message(
                                                     &query.command,
                                                     user.nickname().to_string(),
-                                                    ctcp_config
+                                                    config
+                                                        .ctcp
                                                         .userinfo
                                                         .clone(),
                                                 )
@@ -1421,7 +1422,7 @@ impl Client {
                                     }
                                     ctcp::Command::DCC => (),
                                     ctcp::Command::Ping => {
-                                        if ctcp_config.ping {
+                                        if config.ctcp.ping {
                                             self.send(
                                                 None,
                                                 ctcp::response_message(
@@ -1435,7 +1436,7 @@ impl Client {
                                         }
                                     }
                                     ctcp::Command::Source => {
-                                        if ctcp_config.source {
+                                        if config.ctcp.source {
                                             self.send(
                                                 None,
                                                 ctcp::response_message(
@@ -1449,7 +1450,7 @@ impl Client {
                                         }
                                     }
                                     ctcp::Command::Version => {
-                                        if ctcp_config.version {
+                                        if config.ctcp.version {
                                             self.send(
                                                 None,
                                                 ctcp::response_message(
@@ -1465,7 +1466,7 @@ impl Client {
                                         }
                                     }
                                     ctcp::Command::Time => {
-                                        if ctcp_config.time {
+                                        if config.ctcp.time {
                                             let utc_time = Utc::now();
                                             let formatted = utc_time
                                                 .to_rfc3339_opts(
@@ -2799,6 +2800,7 @@ impl Client {
                     self.config.clone(),
                     self.nickname(),
                     &self.isupport,
+                    config,
                 ))]);
             }
             _ => {}
@@ -3516,10 +3518,10 @@ impl Map {
         &mut self,
         server: &Server,
         message: message::Encoded,
-        ctcp_config: &config::Ctcp,
+        config: &config::Config,
     ) -> Result<Vec<Event>> {
         if let Some(client) = self.client_mut(server) {
-            client.receive(message, ctcp_config)
+            client.receive(message, config)
         } else {
             Ok(Vec::default())
         }
