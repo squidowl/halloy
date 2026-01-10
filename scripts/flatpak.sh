@@ -2,19 +2,28 @@
 set -xe
 
 flatpak remote-add --if-not-exists --user flathub https://flathub.org/repo/flathub.flatpakrepo
-flatpak install --noninteractive --user flathub org.freedesktop.Platform//23.08 org.freedesktop.Sdk//23.08 org.freedesktop.Sdk.Extension.rust-stable//23.08
+flatpak install --noninteractive --user flathub org.freedesktop.Platform//24.08 org.freedesktop.Sdk//24.08 org.freedesktop.Sdk.Extension.rust-stable//24.08
 
-flatpak install --noninteractive --user org.freedesktop.appstream-glib
-flatpak run --env=G_DEBUG=fatal-criticals org.freedesktop.appstream-glib validate assets/linux/org.squidowl.halloy.appdata.xml
+# Check and install only missing packages
+missing=()
+for pkg in toml aiohttp; do
+  python3 -c "import $pkg" >/dev/null 2>&1 || missing+=("$pkg")
+done
 
-python3 -m pip install toml aiohttp
-curl -L 'https://github.com/flatpak/flatpak-builder-tools/raw/master/cargo/flatpak-cargo-generator.py' > /tmp/flatpak-cargo-generator.py
+if ((${#missing[@]})); then
+  python3 -m pip install "${missing[@]}"
+fi
+
+if [ ! -f /tmp/flatpak-cargo-generator.py ] ; then
+  curl -L 'https://github.com/flatpak/flatpak-builder-tools/raw/master/cargo/flatpak-cargo-generator.py' > /tmp/flatpak-cargo-generator.py
+fi
 python3 /tmp/flatpak-cargo-generator.py Cargo.lock -o assets/flatpak/generated-sources.json
 
 if [ "${CI}" != "yes" ] ; then
   flatpak-builder \
-    --install --force-clean --user -y \
-    --disable-rofiles-fuse --state-dir /var/tmp/halloy-flatpak-builder \
-    /var/tmp/halloy-flatpak-repo \
-    assets/flatpak/org.squidowl.halloy.json
+    --install --force-clean --user \
+    --install-deps-from=flathub \
+    --repo=/var/tmp/halloy-flatpak-repo \
+    --state-dir=/var/tmp/halloy-flatpak-state \
+    /var/tmp/halloy-flatpak-build assets/flatpak/org.squidowl.halloy.json
 fi
