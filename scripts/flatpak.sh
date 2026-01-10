@@ -2,7 +2,7 @@
 set -xe
 
 flatpak remote-add --if-not-exists --user flathub https://flathub.org/repo/flathub.flatpakrepo
-flatpak install --noninteractive --user flathub org.freedesktop.Platform//24.08 org.freedesktop.Sdk//24.08 org.freedesktop.Sdk.Extension.rust-stable//24.08
+flatpak install --noninteractive --user flathub org.freedesktop.Platform//25.08 org.freedesktop.Sdk//25.08 org.freedesktop.Sdk.Extension.rust-stable//25.08
 
 # Check and install only missing packages
 missing=()
