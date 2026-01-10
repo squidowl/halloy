@@ -14,9 +14,7 @@ if ((${#missing[@]})); then
   python3 -m pip install "${missing[@]}"
 fi
 
-if [ ! -f /tmp/flatpak-cargo-generator.py ] ; then
-  curl -L 'https://github.com/flatpak/flatpak-builder-tools/raw/master/cargo/flatpak-cargo-generator.py' > /tmp/flatpak-cargo-generator.py
-fi
+curl -L 'https://github.com/flatpak/flatpak-builder-tools/raw/master/cargo/flatpak-cargo-generator.py' > /tmp/flatpak-cargo-generator.py
 python3 /tmp/flatpak-cargo-generator.py Cargo.lock -o assets/flatpak/generated-sources.json
 
 if [ "${CI}" != "yes" ] ; then
