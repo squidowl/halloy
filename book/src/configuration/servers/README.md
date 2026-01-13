@@ -262,7 +262,7 @@ channels = ["#foo", "#bar"]
 
 ### channel_keys
 
-A mapping of channel names to keys for join-on-connect.
+A mapping of channel names to keys (passwords) for join-on-connect.
 
 ```toml
 # Type: map
@@ -270,7 +270,7 @@ A mapping of channel names to keys for join-on-connect.
 # Default: {}
 
 [servers.<name>]
-channel_keys = { channel1 = "key1" }
+channel_keys = { "#foo" = "password" }
 ```
 
 ### ping_time
