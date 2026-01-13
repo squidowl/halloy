@@ -10,7 +10,7 @@ use crate::buffer::{self, Upstream};
 use crate::isupport::{self, find_target_limit};
 use crate::message::{self, formatting};
 use crate::user::{ChannelUsers, NickRef};
-use crate::{Config, Message, Server, Target, User, ctcp, target};
+use crate::{Config, Message, Server, Target, Url, User, ctcp, target};
 
 #[derive(Debug, Clone)]
 pub enum Command {
@@ -32,6 +32,7 @@ pub enum Internal {
     Delay(u64),
     SysInfo,
     Detach(Vec<target::Channel>),
+    Connect(String),
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
@@ -202,6 +203,7 @@ enum Kind {
     ClearTopic,
     SysInfo,
     Detach,
+    Connect,
     Raw,
 }
 
@@ -235,6 +237,7 @@ impl FromStr for Kind {
             "cleartopic" | "ct" => Ok(Kind::ClearTopic),
             "sysinfo" => Ok(Kind::SysInfo),
             "detach" => Ok(Kind::Detach),
+            "connect" => Ok(Kind::Connect),
             _ => Err(()),
         }
     }
@@ -1067,6 +1070,15 @@ pub fn parse(
                     Err(Error::NotPositiveInteger)
                 }
             }),
+            Kind::Connect => validated::<1, 0, false>(args, |[server], _| {
+                if let Ok(url) = Url::from_str(&server)
+                    && matches!(url, Url::ServerConnect { .. })
+                {
+                    Ok(Command::Internal(Internal::Connect(server)))
+                } else {
+                    Err(Error::InvalidServerUrl)
+                }
+            }),
         },
         Err(()) => Ok(unknown()),
     }
@@ -1222,6 +1234,8 @@ pub enum Error {
     NotPositiveInteger,
     #[error("invalid channel name ({requirements}")]
     InvalidChannelName { requirements: String },
+    #[error("invalid server url")]
+    InvalidServerUrl,
 }
 
 fn fmt_incorrect_arg_count(min: usize, max: usize, actual: usize) -> String {

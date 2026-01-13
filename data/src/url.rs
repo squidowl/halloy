@@ -1,7 +1,6 @@
 use std::str::FromStr;
 
 use fancy_regex::Regex;
-use log::warn;
 
 use crate::appearance::theme;
 use crate::config;
@@ -59,9 +58,7 @@ impl FromStr for Url {
         let url = s.parse::<url::Url>().map_err(|_| ())?;
 
         if ["irc", "ircs", "halloy"].contains(&url.scheme()) {
-            Ok(parse(url.clone())
-                .inspect_err(|err| warn!("Failed to parse url {url}: {err}"))
-                .unwrap_or(Url::Unknown(url.to_string())))
+            Ok(parse(url.clone()).unwrap_or(Url::Unknown(url.to_string())))
         } else {
             Err(())
         }

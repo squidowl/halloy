@@ -85,6 +85,7 @@ pub enum Event {
     IrcError(anyhow::Error),
     Exit,
     OpenUrl(String, bool),
+    OpenServer(String),
     ImagePreview(PathBuf, url::Url),
 }
 
@@ -2206,6 +2207,9 @@ impl Dashboard {
                 self.last_changed = Some(Instant::now());
 
                 return (Task::none(), None);
+            }
+            buffer::Event::OpenServer(server) => {
+                return (Task::none(), Some(Event::OpenServer(server)));
             }
         }
 

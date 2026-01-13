@@ -17,6 +17,7 @@ Added:
 - Setting to disable unread indicators for specified channels/servers
 - Users and messages can be filtered using regular expressions
 - Added ability to set default QUIT and PART reason
+- `/connect` command to temporarily connect to a server
 
 Fixed:
 
@@ -32,7 +33,7 @@ Thanks:
 
 - Contributions: @csmith
 - Bug reports: halloy3002, g00s, Eagle-1
-- Feature requests: @tribly, @deepspaceaxolotl, @dieperdev, @Erroneuz, @lorenzosu, @Summertime, @WinnerWind
+- Feature requests: @tribly, @deepspaceaxolotl, @dieperdev, @Erroneuz, @lorenzosu, @Summertime, @WinnerWind, @vidje
 
 # 2025.12 (2025-11-28)
 

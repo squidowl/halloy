@@ -19,6 +19,7 @@ mod widget;
 mod window;
 
 use std::collections::HashSet;
+use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use std::{env, mem};
@@ -456,6 +457,15 @@ impl Halloy {
                         }
 
                         Task::none()
+                    }
+                    Some(dashboard::Event::OpenServer(server)) => {
+                        if let Ok(url) = Url::from_str(&server)
+                            && matches!(url, Url::ServerConnect { .. })
+                        {
+                            self.handle_url(url)
+                        } else {
+                            Task::none()
+                        }
                     }
                     Some(dashboard::Event::ImagePreview(path, url)) => {
                         let Some((id, _, _)) = dashboard.get_focused() else {
