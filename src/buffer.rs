@@ -61,6 +61,7 @@ pub enum Event {
     ContextMenu(context_menu::Event),
     OpenBuffers(data::Server, Vec<(Target, BufferAction)>),
     OpenInternalBuffer(buffer::Internal),
+    OpenServer(String),
     LeaveBuffers(Vec<Target>, Option<String>),
     SelectedServer {
         server: data::Server,
@@ -233,6 +234,9 @@ impl Buffer {
                     channel::Event::OpenInternalBuffer(buffer) => {
                         Event::OpenInternalBuffer(buffer)
                     }
+                    channel::Event::OpenServer(server) => {
+                        Event::OpenServer(server)
+                    }
                     channel::Event::LeaveBuffers(targets, reason) => {
                         Event::LeaveBuffers(targets, reason)
                     }
@@ -284,6 +288,9 @@ impl Buffer {
                     server::Event::OpenInternalBuffer(buffer) => {
                         Event::OpenInternalBuffer(buffer)
                     }
+                    server::Event::OpenServer(server) => {
+                        Event::OpenServer(server)
+                    }
                     server::Event::OpenBuffers(server, targets) => {
                         Event::OpenBuffers(server, targets)
                     }
@@ -333,6 +340,9 @@ impl Buffer {
                     }
                     query::Event::OpenInternalBuffer(buffer) => {
                         Event::OpenInternalBuffer(buffer)
+                    }
+                    query::Event::OpenServer(server) => {
+                        Event::OpenServer(server)
                     }
                     query::Event::LeaveBuffers(targets, reason) => {
                         Event::LeaveBuffers(targets, reason)

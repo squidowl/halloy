@@ -23,12 +23,13 @@ The argument(s) for a command are shown in [tooltips](configuration/tooltips.md)
 | `chathistory` |            | Retrieve message history[^5]                                                       |
 | `clear`       |            | Clear the message history in the current buffer                                    |
 | `cleartopic`  | `ct`       | Clear the topic of a channel[^1]                                                   |
+| `connect`     |            | Connect to a server (specified by URL)[^8]                                         |
 | `ctcp`        |            | Client-To-Client requests[^2]                                                      |
 | `delay`       |            | Delay the specified number of seconds[^7]                                          |
 | `detach`      |            | Hide the channel, but leave the bouncer's connection to the channel active[^5][^6] |
 | `format`      | `f`        | Format text with markdown and colors                                               |
 | `hop`         | `rejoin`   | Part the current channel and join a new one                                        |
-| `join`        | `j`        | Join channel(s) with optional key(s)                                               |
+| `join`        | `j`        | Join channel(s) with optional key(s)[^9]                                           |
 | `kick`        |            | Kick a user from a channel[^1]                                                     |
 | `knock`       |            | Request an invite from an invitation-only channel[^5]                              |
 | `list`        |            | List channel(s) on the server[^5]                                                  |
@@ -55,3 +56,5 @@ The argument(s) for a command are shown in [tooltips](configuration/tooltips.md)
 [^5]: Command must be supported by the bouncer/server to be executed successfully; if not supported then the command will not appear in the command picker.
 [^6]: See [soju](https://soju.im/)'s [documentation on detaching from channels](https://man.sr.ht/chat.sr.ht/bouncer-usage.md#detaching-from-channels) for more information.
 [^7]: Can only be used in [on_connect](./configuration/servers/#on_connect).
+[^8]: Connections made will not be remembered after quitting Halloy (i.e. when next starting Halloy it will not re-make the connection).  Add the connection information to the [servers](configuration/servers/) section in the configuration file.
+[^9]: Channels joined will not be remembered after quitting Halloy (i.e. when next starting Halloy it will not re-join the channels).  Add the channel information to the [channels setting for the server](configuration/servers/#channels) in the configuration file.
