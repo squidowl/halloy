@@ -6,7 +6,7 @@ use data::target::Target;
 use data::user::Nick;
 use data::{Config, Preview, User, buffer, history, message};
 use iced::widget::{column, container, row, space};
-use iced::{Color, Length, Size, Task};
+use iced::{Color, Length, Size, Task, padding};
 
 use super::{context_menu, input_view, scroll_view};
 use crate::widget::{Element, message_content, selectable_text};
@@ -152,7 +152,8 @@ pub fn view<'a>(
         )
         .map(Message::ScrollView),
     )
-    .height(Length::Fill);
+    .height(Length::Fill)
+    .padding(padding::left(8).right(8));
 
     let show_text_input = match config.buffer.text_input.visibility {
         data::config::buffer::text_input::Visibility::Focused => is_focused,
