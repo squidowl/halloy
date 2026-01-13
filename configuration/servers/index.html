@@ -34,7 +34,7 @@
             const path_to_root = "../../";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../../searchindex-77c56309.js";
+            window.path_to_searchindex_js = "../../searchindex-a1f73fa9.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="../../toc-245fabda.js"></script>
@@ -382,13 +382,13 @@ password_command = ""
 channels = ["#foo", "#bar"]
 </code></pre>
 <h3 id="channel_keys"><a class="header" href="#channel_keys">channel_keys</a></h3>
-<p>A mapping of channel names to keys for join-on-connect.</p>
+<p>A mapping of channel names to keys (passwords) for join-on-connect.</p>
 <pre><code class="language-toml"># Type: map
 # Values: map with string key value
 # Default: {}
 
 [servers.&lt;name&gt;]
-channel_keys = { channel1 = "key1" }
+channel_keys = { "#foo" = "password" }
 </code></pre>
 <h3 id="ping_time"><a class="header" href="#ping_time">ping_time</a></h3>
 <p>The amount of inactivity in seconds before the client will ping the server.</p>
