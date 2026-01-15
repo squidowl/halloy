@@ -34,7 +34,7 @@
             const path_to_root = "../../../";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../../../searchindex-46557c16.js";
+            window.path_to_searchindex_js = "../../../searchindex-76569dbc.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="../../../toc-245fabda.js"></script>
@@ -233,7 +233,7 @@ dimmed = true
 <p>How to format condensed messages:</p>
 <ul>
 <li><code>"brief"</code>:  Only show changes to channel state.  If a user joins then leaves, then do not show any message.  If a user joins, leaves, then joins again, then show that they joined the channel (<code>+</code>).</li>
-<li><code>"detailed"</code>: Include messages that do not change channel state, but do not show repeated events.  If a user joins then leaves, show a condensed message with both events (<code>+-</code>).  But, if a user joins and leaves many times in a row, show only indicate that they left and re-joined (i.e. still (<code>+-</code>).</li>
+<li><code>"detailed"</code>: Include messages that do not change channel state, but do not show repeated events.  If a user joins then leaves, show a condensed message with both events (<code>+-</code>).  But, if a user joins and leaves many times in a row, only indicate that they left and re-joined (i.e. still <code>+-</code>).</li>
 <li><code>"full</code>“:  Include all messages in the condensed message.  If a user joins and leaves three times, then show a symbol for each event (<code>+-+-+-</code>).</li>
 </ul>
 <pre><code class="language-toml"># Type: string
