@@ -10,12 +10,21 @@ pub struct TextInput {
     pub key_bindings: KeyBindings,
 }
 
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum KeyBindings {
-    #[default]
     Default,
     Emacs,
+}
+
+impl Default for KeyBindings {
+    fn default() -> Self {
+        if cfg!(target_os = "macos") {
+            KeyBindings::Emacs
+        } else {
+            KeyBindings::Default
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, Default, Deserialize)]
