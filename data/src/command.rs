@@ -949,7 +949,7 @@ pub fn parse(
             Kind::Clear => validated::<0, 0, false>(args, |_, _| {
                 Ok(Command::Internal(Internal::ClearBuffer))
             }),
-            Kind::List => validated::<0, 1, true>(args, |_, [_]| {
+            Kind::List => validated::<0, 0, false>(args, |_, _| {
                 Ok(Command::Internal(Internal::ChannelDiscovery))
             }),
             Kind::SysInfo => validated::<0, 0, false>(args, |_, _| {
