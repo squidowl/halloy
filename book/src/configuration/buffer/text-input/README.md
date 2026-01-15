@@ -48,7 +48,7 @@ Different key bindings for the text input
 ```toml
 # Type: string
 # Values: "default", "emacs"
-# Default: "default
+# Default: "emacs" on macOS, "default" for all other OSes
 
 [buffer.text_input]
 key_bindings = "emacs"
