@@ -29,6 +29,10 @@ Fixed:
 - `/sysinfo` is cleared from input when sent, and is recorded to the buffer even if the server doesn't support echoes
 - Channel and user links in messages in the highlight buffer
 
+Changed:
+
+- Keybindings for macOS default to Emacs-like by default, to match native text-input behavior
+
 Thanks:
 
 - Contributions: @csmith
