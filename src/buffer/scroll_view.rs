@@ -1689,8 +1689,8 @@ mod correct_viewport {
                                 let mut operation = scrollable::scroll_to(
                                     scrollable.clone(),
                                     scrollable::AbsoluteOffset {
-                                        x: 0.0,
-                                        y: new_offset,
+                                        x: None,
+                                        y: Some(new_offset),
                                     },
                                 );
                                 inner
@@ -1854,7 +1854,7 @@ mod correct_viewport {
                 state: &mut dyn Scrollable,
             ) {
                 if id.is_some_and(|id| *id == self.target) {
-                    state.scroll_to(self.offset);
+                    state.scroll_to(self.offset.into());
                 }
             }
 

@@ -68,7 +68,7 @@ irc = { version = "0.1.0", path = "irc" }
 signal-hook = "0.3.18"
 notify-rust = "4.11"
 fern = "0.7.1"
-iced = { version = "0.14.0-dev", default-features = false, features = [
+iced = { version = "0.15.0-dev", default-features = false, features = [
     "wgpu",
     "tiny-skia",
     "fira-sans",
@@ -102,7 +102,7 @@ mundy = { version = "0.1.9", default-features = false, features = [
 
 [target.'cfg(windows)'.dependencies]
 image = "0.24.6"
-iced = { version = "0.14.0-dev", default-features = false, features = [
+iced = { version = "0.15.0-dev", default-features = false, features = [
     "web-colors",
     "sysinfo",
 ] }
@@ -112,9 +112,9 @@ embed-resource = "3.0.2"
 windows_exe_info = "0.4"
 
 [patch.crates-io]
-iced = { git = "https://github.com/squidowl/iced", rev = "78ed897db06129746b5029c47db586f16d63511b" }
-iced_core = { git = "https://github.com/squidowl/iced", rev = "78ed897db06129746b5029c47db586f16d63511b" }
-iced_wgpu = { git = "https://github.com/squidowl/iced", rev = "78ed897db06129746b5029c47db586f16d63511b" }
+iced = { git = "https://github.com/squidowl/iced", rev = "74a89b5e374dc82ec7aa7ff4134b2996d4c3965c" }
+iced_core = { git = "https://github.com/squidowl/iced", rev = "74a89b5e374dc82ec7aa7ff4134b2996d4c3965c" }
+iced_wgpu = { git = "https://github.com/squidowl/iced", rev = "74a89b5e374dc82ec7aa7ff4134b2996d4c3965c" }
 
 [profile.ci]
 inherits = "dev"

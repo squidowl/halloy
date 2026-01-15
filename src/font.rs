@@ -125,6 +125,7 @@ pub fn width_from_chars(len: usize, config: &config::Font) -> f32 {
         align_y: alignment::Vertical::Top,
         shaping: text::Shaping::Basic,
         wrapping: text::Wrapping::default(),
+        hint_factor: None,
     })
     .min_bounds()
     .expand(Size::new(1.0, 0.0))
@@ -151,6 +152,7 @@ pub fn width_of_message_marker(config: &config::Font) -> f32 {
         align_y: alignment::Vertical::Top,
         shaping: text::Shaping::Basic,
         wrapping: text::Wrapping::default(),
+        hint_factor: None,
     })
     .min_bounds()
     .expand(Size::new(1.0, 0.0))

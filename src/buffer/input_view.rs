@@ -737,7 +737,8 @@ impl State {
             }
             Message::Send => {
                 let raw_input = self.input_content.text().clone();
-                let cursor_position = self.input_content.cursor_position().1;
+                let cursor_position =
+                    self.input_content.cursor().position.column;
 
                 // Reset error
                 self.error = None;
@@ -1149,7 +1150,8 @@ impl State {
             }
             Message::Tab(reverse) => {
                 let input = self.input_content.text();
-                let cursor_position = self.input_content.cursor_position().1;
+                let cursor_position =
+                    self.input_content.cursor().position.column;
 
                 if let Some(entry) = self.completion.tab(reverse) {
                     let chantypes = clients.get_chantypes(buffer.server());
@@ -1450,7 +1452,7 @@ impl State {
                     text_editor::Action::Edit(_) => {
                         let input = self.input_content.text();
                         let cursor_position =
-                            self.input_content.cursor_position().1;
+                            self.input_content.cursor().position.column;
 
                         // Reset error state
                         self.error = None;
@@ -1554,7 +1556,7 @@ impl State {
                     | text_editor::Action::Click(_) => {
                         let input = self.input_content.text();
                         let cursor_position =
-                            self.input_content.cursor_position().1;
+                            self.input_content.cursor().position.column;
 
                         let users = buffer.channel().and_then(|channel| {
                             clients.get_channel_users(buffer.server(), channel)
@@ -1682,7 +1684,7 @@ impl State {
         autocomplete: &Autocomplete,
     ) {
         let text = self.input_content.text();
-        let cursor_position = self.input_content.cursor_position().1;
+        let cursor_position = self.input_content.cursor().position.column;
 
         let insert_text = if cursor_position == 0 {
             let suffix_range = cursor_position
