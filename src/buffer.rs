@@ -888,6 +888,68 @@ impl Buffer {
         }
     }
 
+    pub fn has_pending_scroll_to(&self) -> bool {
+        match self {
+            Buffer::Empty
+            | Buffer::FileTransfers(_)
+            | Buffer::ChannelDiscovery(_) => false,
+            Buffer::Channel(state) => state.scroll_view.has_pending_scroll_to(),
+            Buffer::Server(state) => state.scroll_view.has_pending_scroll_to(),
+            Buffer::Query(state) => state.scroll_view.has_pending_scroll_to(),
+            Buffer::Logs(state) => state.scroll_view.has_pending_scroll_to(),
+            Buffer::Highlights(state) => {
+                state.scroll_view.has_pending_scroll_to()
+            }
+        }
+    }
+
+    pub fn set_scroll_limit_for_pending_scroll_to(
+        &mut self,
+        history: &history::Manager,
+        config: &Config,
+    ) {
+        match self {
+            Buffer::Empty
+            | Buffer::FileTransfers(_)
+            | Buffer::ChannelDiscovery(_) => (),
+            Buffer::Channel(state) => {
+                state.scroll_view.set_scroll_limit_for_pending_scroll_to(
+                    scroll_view::Kind::Channel(&state.server, &state.target),
+                    history,
+                    config,
+                );
+            }
+            Buffer::Server(state) => {
+                state.scroll_view.set_scroll_limit_for_pending_scroll_to(
+                    scroll_view::Kind::Server(&state.server),
+                    history,
+                    config,
+                );
+            }
+            Buffer::Query(state) => {
+                state.scroll_view.set_scroll_limit_for_pending_scroll_to(
+                    scroll_view::Kind::Query(&state.server, &state.target),
+                    history,
+                    config,
+                );
+            }
+            Buffer::Logs(state) => {
+                state.scroll_view.set_scroll_limit_for_pending_scroll_to(
+                    scroll_view::Kind::Logs,
+                    history,
+                    config,
+                );
+            }
+            Buffer::Highlights(state) => {
+                state.scroll_view.set_scroll_limit_for_pending_scroll_to(
+                    scroll_view::Kind::Highlights,
+                    history,
+                    config,
+                );
+            }
+        }
+    }
+
     pub fn is_scrolled_to_bottom(&self) -> Option<bool> {
         match self {
             Buffer::Empty
