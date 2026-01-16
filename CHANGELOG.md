@@ -28,6 +28,7 @@ Fixed:
 - Join & monitor commands sent automatically on connection respect TARGMAX limits specified by the server
 - `/sysinfo` is cleared from input when sent, and is recorded to the buffer even if the server doesn't support echoes
 - Channel and user links in messages in the highlight buffer
+- Remember fullscreen state across sessions
 
 Changed:
 
