@@ -82,7 +82,7 @@ pub fn logs<'a>() -> Text<'a> {
 }
 
 pub fn menu<'a>() -> Text<'a> {
-    to_text('\u{F0C9}')
+    to_text('\u{E81E}')
 }
 
 pub fn documentation<'a>() -> Text<'a> {
