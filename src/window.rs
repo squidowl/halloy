@@ -12,6 +12,7 @@ pub struct Window {
     pub position: Option<Point>,
     pub size: Size,
     pub focused: bool,
+    pub fullscreen: bool,
 }
 
 impl Window {
@@ -21,6 +22,7 @@ impl Window {
             position: None,
             size: Size::default(),
             focused: false,
+            fullscreen: false,
         }
     }
 
@@ -36,6 +38,7 @@ impl From<Window> for data::Window {
         data::Window {
             position: window.position,
             size: window.size,
+            fullscreen: window.fullscreen,
         }
     }
 }
