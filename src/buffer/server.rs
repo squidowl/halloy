@@ -24,6 +24,11 @@ pub enum Event {
     OpenBuffers(data::server::Server, Vec<(Target, BufferAction)>),
     OpenInternalBuffer(buffer::Internal),
     OpenServer(String),
+    OpenSearchResults {
+        server: data::Server,
+        target: Option<Target>,
+        text: Option<String>,
+    },
     LeaveBuffers(Vec<Target>, Option<String>),
     History(Task<history::manager::Message>),
     MarkAsRead(history::Kind),
@@ -310,6 +315,18 @@ impl Server {
                     Some(input_view::Event::OpenServer(server)) => {
                         (command, Some(Event::OpenServer(server)))
                     }
+                    Some(input_view::Event::OpenSearchResults {
+                        server,
+                        target,
+                        text,
+                    }) => (
+                        command,
+                        Some(Event::OpenSearchResults {
+                            server,
+                            target,
+                            text,
+                        }),
+                    ),
                     None => (command, None),
                 }
             }

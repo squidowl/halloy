@@ -69,3 +69,21 @@ pub fn error(theme: &Theme, status: Status) -> Style {
         Status::Disabled => primary,
     }
 }
+
+// When the text_input does not need to indicate when it is disable (e.g. if the
+// text_input is in a pane and is only disabled when the pane is being dragged)
+// then this function can be used to hide the disabled state to avoid
+// distracting the user
+pub fn hide_disabled(
+    style: impl Fn(&Theme, Status) -> Style,
+    theme: &Theme,
+    status: Status,
+) -> Style {
+    let status = if matches!(status, Status::Disabled) {
+        Status::Active
+    } else {
+        status
+    };
+
+    style(theme, status)
+}
