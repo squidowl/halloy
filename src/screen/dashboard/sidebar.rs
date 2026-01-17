@@ -171,7 +171,9 @@ impl Sidebar {
         theme: &'a Theme,
     ) -> Element<'a, Message> {
         let keyboard = &config.keyboard;
-        let base = button(icon::menu()).padding(5).width(Length::Shrink);
+        let base = button(icon::menu().size(theme::ICON_SIZE + 2.0))
+            .padding(5)
+            .width(Length::Shrink);
 
         let menu = Menu::list(
             config.sidebar.user_menu.show_new_version_indicator
