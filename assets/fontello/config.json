@@ -121,12 +121,6 @@
       "src": "entypo"
     },
     {
-      "uid": "559647a6f430b3aeadbecd67194451dd",
-      "css": "menu",
-      "code": 61641,
-      "src": "fontawesome"
-    },
-    {
       "uid": "2c5335c6e56b876139d7a58ab2f4b2fe",
       "css": "bell",
       "code": 59409,
@@ -257,6 +251,12 @@
       "css": "users-1",
       "code": 59421,
       "src": "fontawesome"
+    },
+    {
+      "uid": "jh3jpcb1t1bcm80gidkadilh080aq79h",
+      "css": "menu-1",
+      "code": 59422,
+      "src": "typicons"
     }
   ]
 }
