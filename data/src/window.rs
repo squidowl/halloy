@@ -20,6 +20,7 @@ pub struct Window {
     pub position: Option<Point>,
     #[serde(with = "serde_size")]
     pub size: Size,
+    pub fullscreen: bool,
 }
 
 impl Default for Window {
@@ -30,6 +31,7 @@ impl Default for Window {
                 width: 1024.0,
                 height: 768.0,
             },
+            fullscreen: false,
         }
     }
 }
@@ -38,14 +40,22 @@ impl Window {
     pub async fn load() -> Result<Window, Error> {
         let path = path()?;
         let bytes = fs::read(path).await?;
-        let Window { position, size } = serde_json::from_slice(&bytes)?;
+        let Window {
+            position,
+            size,
+            fullscreen,
+        } = serde_json::from_slice(&bytes)?;
 
         let size = size.max(MIN_SIZE);
         let position = position
             .filter(|pos| pos.y.is_sign_positive() && pos.x.is_sign_positive())
             .filter(|pos| is_position_valid(*pos));
 
-        Ok(Window { position, size })
+        Ok(Window {
+            position,
+            size,
+            fullscreen,
+        })
     }
 
     pub async fn save(self) -> Result<(), Error> {
