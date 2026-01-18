@@ -1068,6 +1068,55 @@ impl State {
         })
     }
 
+    pub fn has_pending_scroll_to(&self) -> bool {
+        self.pending_scroll_to.is_some()
+    }
+
+    pub fn set_scroll_limit_for_pending_scroll_to(
+        &mut self,
+        kind: Kind,
+        history: &history::Manager,
+        config: &Config,
+    ) {
+        let Some(key) = self.pending_scroll_to else {
+            return;
+        };
+
+        let Some(history::View {
+            total,
+            old_messages,
+            new_messages,
+            ..
+        }) = history.get_messages(&kind.into(), None, &config.buffer)
+        else {
+            return;
+        };
+
+        let offset = match key {
+            keyed::Key::Message(message) => {
+                let Some(pos) = old_messages
+                    .iter()
+                    .chain(&new_messages)
+                    .position(|m| m.hash == message)
+                else {
+                    return;
+                };
+
+                // Get all messages from bottom until 1 before message
+                total - pos + 1
+            }
+            keyed::Key::Divider => {
+                // Get all messages from bottom until 1 before backlog
+                total - old_messages.len() + 1
+            }
+            keyed::Key::Preview(_, _) => return,
+        };
+
+        self.limit = Limit::Bottom(
+            offset.max(step_messages(2.0 * self.pane_size.height, config)),
+        );
+    }
+
     pub fn visible_urls(&self) -> impl Iterator<Item = &url::Url> {
         self.visible_url_messages.values().flatten()
     }
