@@ -592,27 +592,44 @@ impl Dashboard {
                             if let Some((window, pane, state)) =
                                 self.panes.get_mut_by_buffer(&buffer)
                             {
-                                return (
-                                    match config.buffer.scroll_position_on_open
-                                    {
-                                        ScrollPosition::OldestUnread => state
+                                if state.buffer.has_pending_scroll_to() {
+                                    state
+                                        .buffer
+                                        .set_scroll_limit_for_pending_scroll_to(
+                                            &self.history,
+                                            config,
+                                        );
+
+                                    return (Task::none(), None);
+                                } else {
+                                    return (
+                                        match config
                                             .buffer
-                                            .scroll_to_backlog(
-                                                &self.history,
-                                                config,
-                                            )
-                                            .map(move |message| {
-                                                Message::Pane(
+                                            .scroll_position_on_open
+                                        {
+                                            ScrollPosition::OldestUnread => {
+                                                state
+                                                    .buffer
+                                                    .scroll_to_backlog(
+                                                        &self.history,
+                                                        config,
+                                                    )
+                                                    .map(move |message| {
+                                                        Message::Pane(
                                                     window,
                                                     pane::Message::Buffer(
                                                         pane, message,
                                                     ),
                                                 )
-                                            }),
-                                        ScrollPosition::Newest => Task::none(),
-                                    },
-                                    None,
-                                );
+                                                    })
+                                            }
+                                            ScrollPosition::Newest => {
+                                                Task::none()
+                                            }
+                                        },
+                                        None,
+                                    );
+                                }
                             }
                         }
                         history::manager::Event::Exited => {
