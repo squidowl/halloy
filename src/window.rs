@@ -12,7 +12,7 @@ pub struct Window {
     pub position: Option<Point>,
     pub size: Size,
     pub focused: bool,
-    pub fullscreen: bool,
+    pub fullscreen: Option<Size>,
 }
 
 impl Window {
@@ -22,7 +22,7 @@ impl Window {
             position: None,
             size: Size::default(),
             focused: false,
-            fullscreen: false,
+            fullscreen: None,
         }
     }
 
@@ -30,6 +30,18 @@ impl Window {
         self.position = position;
         self.size = size;
         self.focused = true;
+    }
+
+    /// Toggle fullscreen mode. When entering fullscreen, stores the current
+    /// windowed size. When exiting, restores the previous windowed size.
+    pub fn toggle_fullscreen(&mut self) {
+        self.fullscreen = match self.fullscreen {
+            Some(size) => {
+                self.size = size;
+                None
+            }
+            None => Some(self.size),
+        };
     }
 }
 

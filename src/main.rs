@@ -314,7 +314,7 @@ impl Halloy {
             position,
             min_size: Some(window::MIN_SIZE),
             exit_on_close_request: false,
-            fullscreen,
+            fullscreen: fullscreen.is_some(),
             ..window::settings(config)
         });
 
@@ -415,9 +415,11 @@ impl Halloy {
 
                 let event_task = match event {
                     Some(dashboard::Event::ToggleFullscreen) => {
-                        self.main_window.fullscreen =
-                            !self.main_window.fullscreen;
-                        Task::none()
+                        self.main_window.toggle_fullscreen();
+                        Task::perform(
+                            data::Window::from(self.main_window).save(),
+                            Message::WindowSettingsSaved,
+                        )
                     }
                     Some(dashboard::Event::ConfigReloaded(config)) => {
                         self.config_file_reloaded(config)

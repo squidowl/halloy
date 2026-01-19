@@ -20,7 +20,9 @@ pub struct Window {
     pub position: Option<Point>,
     #[serde(with = "serde_size")]
     pub size: Size,
-    pub fullscreen: bool,
+    /// If fullscreen, stores the windowed size to restore on exit.
+    #[serde(with = "serde_option_size")]
+    pub fullscreen: Option<Size>,
 }
 
 impl Default for Window {
@@ -31,7 +33,7 @@ impl Default for Window {
                 width: 1024.0,
                 height: 768.0,
             },
-            fullscreen: false,
+            fullscreen: None,
         }
     }
 }
@@ -137,33 +139,62 @@ mod serde_position {
 }
 
 mod serde_size {
-    use serde::{Deserializer, Serializer};
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-    use super::*;
+    use super::Size;
 
     #[derive(Deserialize, Serialize)]
-    struct SerdeSize {
+    pub(super) struct SerdeSize {
         width: f32,
         height: f32,
+    }
+
+    impl From<Size> for SerdeSize {
+        fn from(size: Size) -> Self {
+            Self {
+                width: size.width,
+                height: size.height,
+            }
+        }
+    }
+
+    impl From<SerdeSize> for Size {
+        fn from(s: SerdeSize) -> Self {
+            Self {
+                width: s.width,
+                height: s.height,
+            }
+        }
     }
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<Size, D::Error>
     where
         D: Deserializer<'de>,
     {
-        let SerdeSize { width, height } = SerdeSize::deserialize(deserializer)?;
+        SerdeSize::deserialize(deserializer).map(Into::into)
+    }
 
-        Ok(Size { width, height })
+    pub fn serialize<S: Serializer>(size: &Size, serializer: S) -> Result<S::Ok, S::Error> {
+        SerdeSize::from(*size).serialize(serializer)
+    }
+}
+
+mod serde_option_size {
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+    use super::{serde_size::SerdeSize, Size};
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<Size>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        Option::<SerdeSize>::deserialize(deserializer).map(|opt| opt.map(Into::into))
     }
 
     pub fn serialize<S: Serializer>(
-        size: &Size,
+        size: &Option<Size>,
         serializer: S,
     ) -> Result<S::Ok, S::Error> {
-        SerdeSize {
-            width: size.width,
-            height: size.height,
-        }
-        .serialize(serializer)
+        size.map(|s| SerdeSize::from(s)).serialize(serializer)
     }
 }
