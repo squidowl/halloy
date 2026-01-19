@@ -2816,7 +2816,7 @@ fn content<'a>(
             }
         }
         Command::Numeric(_, responses) | Command::Unknown(_, responses) => {
-            Some((
+            (!responses.is_empty()).then_some((
                 parse_fragments(
                     responses
                         .iter()
