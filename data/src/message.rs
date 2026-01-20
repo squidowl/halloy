@@ -2054,6 +2054,14 @@ fn target(
                             source: source(user),
                         })
                     }
+                    (target::Target::Query(query), None)
+                        if query.as_normalized_str()
+                            == our_nick.as_normalized_str() =>
+                    {
+                        Some(Target::Server {
+                            source: Source::Server(None),
+                        })
+                    }
                     _ => None,
                 }
             }
@@ -2816,7 +2824,7 @@ fn content<'a>(
             }
         }
         Command::Numeric(_, responses) | Command::Unknown(_, responses) => {
-            Some((
+            (!responses.is_empty()).then_some((
                 parse_fragments(
                     responses
                         .iter()
