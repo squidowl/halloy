@@ -310,7 +310,7 @@ impl Halloy {
             config.sidebar.user_menu.show_new_version_indicator;
 
         let (main_window, open_main_window) = window::open(window::Settings {
-            size,
+            size: fullscreen.unwrap_or(size),
             position,
             min_size: Some(window::MIN_SIZE),
             exit_on_close_request: false,
