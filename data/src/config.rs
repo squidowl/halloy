@@ -125,6 +125,8 @@ pub struct Font {
     #[serde(deserialize_with = "deserialize_optional_font_weight_from_string")]
     #[serde(alias = "bold-weight")] // For backwards compatibility
     pub bold_weight: Option<font::Weight>,
+    #[serde(deserialize_with = "deserialize_positive_integer_maybe")]
+    pub only_emojis_size: Option<u8>,
 }
 
 impl Default for Font {
@@ -134,6 +136,7 @@ impl Default for Font {
             size: None,
             weight: font::Weight::Normal,
             bold_weight: None,
+            only_emojis_size: None,
         }
     }
 }
