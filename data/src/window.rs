@@ -174,7 +174,10 @@ mod serde_size {
         SerdeSize::deserialize(deserializer).map(Into::into)
     }
 
-    pub fn serialize<S: Serializer>(size: &Size, serializer: S) -> Result<S::Ok, S::Error> {
+    pub fn serialize<S: Serializer>(
+        size: &Size,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error> {
         SerdeSize::from(*size).serialize(serializer)
     }
 }
@@ -182,19 +185,25 @@ mod serde_size {
 mod serde_option_size {
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-    use super::{serde_size::SerdeSize, Size};
+    use super::Size;
+    use super::serde_size::SerdeSize;
 
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<Size>, D::Error>
+    pub fn deserialize<'de, D>(
+        deserializer: D,
+    ) -> Result<Option<Size>, D::Error>
     where
         D: Deserializer<'de>,
     {
-        Option::<SerdeSize>::deserialize(deserializer).map(|opt| opt.map(Into::into))
+        Option::<SerdeSize>::deserialize(deserializer)
+            .map(|opt| opt.map(Into::into))
     }
 
     pub fn serialize<S: Serializer>(
         size: &Option<Size>,
         serializer: S,
     ) -> Result<S::Ok, S::Error> {
-        size.map(|s| SerdeSize::from(s)).serialize(serializer)
+        size.as_ref()
+            .map(|s| SerdeSize::from(*s))
+            .serialize(serializer)
     }
 }
