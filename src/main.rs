@@ -296,7 +296,11 @@ impl Halloy {
         log_stream: ReceiverStream<Vec<logger::Record>>,
         current_mode: appearance::Mode,
     ) -> (Halloy, Task<Message>) {
-        let data::Window { size, position } = window_load.unwrap_or_default();
+        let data::Window {
+            size,
+            position,
+            fullscreen,
+        } = window_load.unwrap_or_default();
         let position =
             position.map(window::Position::Specific).unwrap_or_default();
 
@@ -306,10 +310,11 @@ impl Halloy {
             config.sidebar.user_menu.show_new_version_indicator;
 
         let (main_window, open_main_window) = window::open(window::Settings {
-            size,
+            size: fullscreen.unwrap_or(size),
             position,
             min_size: Some(window::MIN_SIZE),
             exit_on_close_request: false,
+            fullscreen: fullscreen.is_some(),
             ..window::settings(config)
         });
 
@@ -409,6 +414,13 @@ impl Halloy {
                 let track = dashboard.track(Some(&self.clients));
 
                 let event_task = match event {
+                    Some(dashboard::Event::ToggleFullscreen) => {
+                        self.main_window.toggle_fullscreen();
+                        Task::perform(
+                            data::Window::from(self.main_window).save(),
+                            Message::WindowSettingsSaved,
+                        )
+                    }
                     Some(dashboard::Event::ConfigReloaded(config)) => {
                         self.config_file_reloaded(config)
                     }
