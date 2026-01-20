@@ -1,5 +1,7 @@
 # Unreleased
 
+# 2026.1 (2026-01-20)
+
 Added:
 
 - Added `Open URL` entry to URL context menus
