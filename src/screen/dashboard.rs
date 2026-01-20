@@ -87,6 +87,7 @@ pub enum Event {
     OpenUrl(String, bool),
     OpenServer(String),
     ImagePreview(PathBuf, url::Url),
+    ToggleFullscreen,
 }
 
 impl Dashboard {
@@ -839,7 +840,7 @@ impl Dashboard {
                             },
                             command_bar::Command::Application(application) => match application {
                                 command_bar::Application::Quit => (self.exit(clients, config), None),
-                                command_bar::Application::ToggleFullscreen => (window::toggle_fullscreen(), None),
+                                command_bar::Application::ToggleFullscreen => (window::toggle_fullscreen(), Some(Event::ToggleFullscreen)),
                                 command_bar::Application::ToggleSidebarVisibility => {
                                     self.side_menu.toggle_visibility();
                                     (Task::none(), None)
@@ -1082,7 +1083,10 @@ impl Dashboard {
                         );
                     }
                     ToggleFullscreen => {
-                        return (window::toggle_fullscreen(), None);
+                        return (
+                            window::toggle_fullscreen(),
+                            Some(Event::ToggleFullscreen),
+                        );
                     }
                     QuitApplication => {
                         return (self.exit(clients, config), None);
