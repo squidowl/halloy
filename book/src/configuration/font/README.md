@@ -21,6 +21,8 @@ Application wide font settings.
 
 Monospaced font family to use.
 
+> ⚠️ Variable-weight fonts are not currently supported.
+
 ```toml
 # Type: string
 # Values: any string
