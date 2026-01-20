@@ -18,6 +18,7 @@ Added:
 - Users and messages can be filtered using regular expressions
 - Added ability to set default QUIT and PART reason
 - `/connect` command to temporarily connect to a server
+- Setting for the font size of messages that contain only emojis
 
 Fixed:
 
