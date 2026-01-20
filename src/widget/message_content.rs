@@ -3,6 +3,7 @@ use data::{Config, Server, isupport, message, target};
 use iced::widget::span;
 use iced::widget::text::Span;
 use iced::{Color, Length, border};
+use unicode_segmentation::UnicodeSegmentation;
 
 use super::{Element, Renderer, selectable_rich_text, selectable_text};
 use crate::{Theme, font, theme};
@@ -86,10 +87,23 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a>(
     config: &Config,
 ) -> Element<'a, M> {
     match content {
-        data::message::Content::Plain(text) => selectable_text(text)
-            .font_maybe(font_style(theme).map(font::get))
-            .style(style)
-            .into(),
+        data::message::Content::Plain(text) => {
+            if let Some(only_emojis_size) = config.font.only_emojis_size
+                && UnicodeSegmentation::graphemes(text.as_str(), true)
+                    .all(|grapheme| emojis::get(grapheme).is_some())
+            {
+                selectable_text(text)
+                    .font_maybe(font_style(theme).map(font::get))
+                    .size(f32::from(only_emojis_size))
+                    .style(style)
+                    .into()
+            } else {
+                selectable_text(text)
+                    .font_maybe(font_style(theme).map(font::get))
+                    .style(style)
+                    .into()
+            }
+        }
         data::message::Content::Fragments(fragments) => {
             let mut text = selectable_rich_text::<
                 M,

@@ -7,7 +7,8 @@ Application wide font settings.
     - [family](#family)
     - [size](#size)
     - [weight](#weight)
-    - [bold-weight](#bold-weight)
+    - [bold_weight](#bold_weight)
+    - [only_emojis_size](#only_emojis_size)
 
 > ⚠️  Changes to font settings require an application restart to take effect.
 
@@ -19,6 +20,8 @@ Application wide font settings.
 ### family
 
 Monospaced font family to use.
+
+> ⚠️ Variable-weight fonts are not currently supported.
 
 ```toml
 # Type: string
@@ -57,7 +60,7 @@ Font weight.
 weight = "light"
 ```
 
-### bold-weight
+### bold_weight
 
 Bold font weight.  If not set, then the font weight three steps above the regular font weight (e.g. font weight `"light"` → bold font weight `"semibold"`).
 
@@ -67,5 +70,18 @@ Bold font weight.  If not set, then the font weight three steps above the regula
 # Default: not set
 
 [font]
-bold-weight = "semibold"
+bold_weight = "semibold"
+```
+
+### only_emojis_size
+
+Font size for messages that contain only emojis.  If not set, then the regular font size will be used.
+
+```toml
+# Type: integer
+# Values: any positive integer
+# Default: not set
+
+[font]
+only_emojis_size = 18
 ```
