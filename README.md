@@ -1,14 +1,16 @@
 # Halloy-notify - IRC Client Fork for REDacted
 
+This specific fork includes additional config options for Discord integration, particularly for sending pings over a webhook to notify you of changes in the REDacted interview queue.
+
+* Documentation for latest release of this fork: [https://cattoyt.github.io/halloy-notify/](https://cattoyt.github.io/halloy-notify/).
+
 <img src="./assets/banner.png" alt="banner" title="Icon by Rune Seir">
 
 ![halloy](./assets/animation.gif)
 
 Halloy is an open-source IRC client written in Rust, with the Iced GUI library. It aims to provide a simple and fast client for Mac, Windows, and Linux platforms.
 
-This specific release includes additional config options for Discord integration, particularly for sending pings over a webhook to notify you of changes in the REDacted interview queue.
 
-* Documentation for latest release of this fork: [https://cattoyt.github.io/halloy-notify/](https://cattoyt.github.io/halloy-notify/).
 
 Join **#halloy** on libera.chat if you have questions or looking for help.
 
