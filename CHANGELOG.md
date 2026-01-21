@@ -1,5 +1,11 @@
 # Unreleased
 
+# 2026.1.1 (2026-01-21)
+
+Fixed:
+
+- Version number reported in AppData file
+
 # 2026.1 (2026-01-20)
 
 Added:
