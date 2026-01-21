@@ -34,10 +34,10 @@
             const path_to_root = "../../";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../../searchindex-4394c710.js";
+            window.path_to_searchindex_js = "../../searchindex-3f0d8111.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="../../toc-fe913ceb.js"></script>
+        <script src="../../toc-245fabda.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -191,6 +191,8 @@
 <li><a href="#highlight_icon">highlight_icon</a></li>
 <li><a href="#icon_size">icon_size</a></li>
 <li><a href="#highlight_icon_size">highlight_icon_size</a></li>
+<li><a href="#exclude">exclude</a></li>
+<li><a href="#include">include</a></li>
 </ul>
 </li>
 </ul>
@@ -243,6 +245,30 @@ icon_size = 6
 
 [sidebar.unread_indicator]
 highlight_icon_size = 8
+</code></pre>
+<h3 id="exclude"><a class="header" href="#exclude">exclude</a></h3>
+<p><a href="/configuration/conditions.html">Exclusion conditions</a> for which unread indicators
+won’t be shown. Inclusion conditions will take precedence over exclusion
+conditions. You can also exclude all conditions by setting to <code>"all"</code> or <code>"*"</code>.</p>
+<pre><code class="language-toml"># Type: inclusion/exclusion conditions
+# Values: channel &amp; server inclusion/exclusion conditions
+# Default: not set
+
+[sidebar.unread_indicator]
+exclude = { channels = ["#noisy-channel"] }
+</code></pre>
+<h3 id="include"><a class="header" href="#include">include</a></h3>
+<p><a href="/configuration/conditions.html">Inclusion conditions</a> for which unread indicators
+will be shown. Unread indicators are enabled in all conditions unless explicitly
+excluded, so this setting is only relevant when combined with the <code>exclude</code>
+setting.</p>
+<pre><code class="language-toml"># Type: inclusion/exclusion conditions
+# Values: channel &amp; server inclusion/exclusion conditions
+# Default: not set
+
+[sidebar.unread_indicator]
+exclude = "*"
+include = { channels = ["#halloy"] }
 </code></pre>
 
                     </main>

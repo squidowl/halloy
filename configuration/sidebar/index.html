@@ -34,10 +34,10 @@
             const path_to_root = "../../";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../../searchindex-4394c710.js";
+            window.path_to_searchindex_js = "../../searchindex-3f0d8111.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="../../toc-fe913ceb.js"></script>
+        <script src="../../toc-245fabda.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -186,7 +186,7 @@
 <ul>
 <li><a href="#configuration">Configuration</a>
 <ul>
-<li><a href="#server_icon_size">server_icon_size</a></li>
+<li><a href="#server_icon">server_icon</a></li>
 <li><a href="#position">position</a></li>
 <li><a href="#max_width">max_width</a></li>
 <li><a href="#show_menu_button">show_menu_button</a></li>
@@ -195,19 +195,24 @@
 </li>
 <li><a href="#scrollbar">Scrollbar</a></li>
 <li><a href="#unread-indicator">Unread Indicator</a></li>
+<li><a href="#padding">Padding</a></li>
+<li><a href="#spacing">Spacing</a></li>
 </ul>
 </li>
 </ul>
 <h2 id="configuration"><a class="header" href="#configuration">Configuration</a></h2>
-<h3 id="server_icon_size"><a class="header" href="#server_icon_size">server_icon_size</a></h3>
-<p>Adjust server icon size.</p>
-<p>Note: If set larger than the line height of the specified <a href="../font/">font</a> then the icon will not render.</p>
-<pre><code class="language-toml"># Type: integer
-# Values: any positive integer"
+<h3 id="server_icon"><a class="header" href="#server_icon">server_icon</a></h3>
+<p>Configure the server icon display.</p>
+<pre><code class="language-toml"># Type: integer or string
+# Values: any positive integer or "hidden"
 # Default: 12
 
 [sidebar]
-server_icon_size = 12
+server_icon = 12
+</code></pre>
+<p>Hide the server icon:</p>
+<pre><code class="language-toml">[sidebar]
+server_icon = "hidden"
 </code></pre>
 <h3 id="position"><a class="header" href="#position">position</a></h3>
 <p>Sidebar position within the application window.</p>
@@ -253,6 +258,10 @@ order_by = "config"
 <p>Scrollbar in sidebar</p>
 <h2 id="unread-indicator"><a class="header" href="#unread-indicator"><a href="unread-indicator.html">Unread Indicator</a></a></h2>
 <p>Unread buffer indicator style</p>
+<h2 id="padding"><a class="header" href="#padding"><a href="padding.html">Padding</a></a></h2>
+<p>Adjust padding for sidebar</p>
+<h2 id="spacing"><a class="header" href="#spacing"><a href="spacing.html">Spacing</a></a></h2>
+<p>Adjust spacing for sidebar</p>
 
                     </main>
 

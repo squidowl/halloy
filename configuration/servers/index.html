@@ -34,10 +34,10 @@
             const path_to_root = "../../";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../../searchindex-4394c710.js";
+            window.path_to_searchindex_js = "../../searchindex-3f0d8111.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="../../toc-fe913ceb.js"></script>
+        <script src="../../toc-245fabda.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -184,7 +184,7 @@
 <ul>
 <li><a href="#servers">Servers</a>
 <ul>
-<li><a href="#example">Example</a></li>
+<li><a href="#examples">Examples</a></li>
 <li><a href="#configuration">Configuration</a>
 <ul>
 <li><a href="#nickname">nickname</a></li>
@@ -228,22 +228,14 @@
 </ul>
 </li>
 </ul>
-<h2 id="example"><a class="header" href="#example">Example</a></h2>
-<pre><code class="language-toml"># with tls
-[servers.liberachat]
-server = "irc.libera.chat"
-nickname = "bar"
-
-# without tls
-[servers.slashnet]
-server = "irc.slashnet.org"
-port = 6667
-nickname = "foo"
-use_tls = false
-</code></pre>
-<blockquote>
-<p>💡 Guide: <a href="../../guides/multiple-servers.html">Multiple servers</a></p>
-</blockquote>
+<h2 id="examples"><a class="header" href="#examples">Examples</a></h2>
+<p>Examples can be found in the following guides:</p>
+<ul>
+<li><a href="../../guides/example-server-configurations.html">Example Server Configurations</a></li>
+<li><a href="../../guides/multiple-servers.html">Multiple Servers</a></li>
+<li><a href="../../guides/connect-with-soju.html">Connect with soju</a></li>
+<li><a href="../../guides/connect-with-znc.html">Connect with ZNC</a></li>
+</ul>
 <h2 id="configuration"><a class="header" href="#configuration">Configuration</a></h2>
 <h3 id="nickname"><a class="header" href="#nickname">nickname</a></h3>
 <p>The client’s nickname.</p>
@@ -327,7 +319,7 @@ username = ""
 realname = ""
 </code></pre>
 <h3 id="server"><a class="header" href="#server">server</a></h3>
-<p>The server to connect to.</p>
+<p>The server to connect to.  Should not contain the protocol, port, username, or password (i.e. should look like <code>"irc.libera.chat"</code> not <code>"ircs://irc.libera.chat:6697"</code>).</p>
 <pre><code class="language-toml"># Type: string
 # Values: any string
 # Default: not set
@@ -390,13 +382,13 @@ password_command = ""
 channels = ["#foo", "#bar"]
 </code></pre>
 <h3 id="channel_keys"><a class="header" href="#channel_keys">channel_keys</a></h3>
-<p>A mapping of channel names to keys for join-on-connect.</p>
+<p>A mapping of channel names to keys (passwords) for join-on-connect.</p>
 <pre><code class="language-toml"># Type: map
 # Values: map with string key value
 # Default: {}
 
 [servers.&lt;name&gt;]
-channel_keys = { channel1 = "key1" }
+channel_keys = { "#foo" = "password" }
 </code></pre>
 <h3 id="ping_time"><a class="header" href="#ping_time">ping_time</a></h3>
 <p>The amount of inactivity in seconds before the client will ping the server.</p>

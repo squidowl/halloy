@@ -34,10 +34,10 @@
             const path_to_root = "../../../";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../../../searchindex-4394c710.js";
+            window.path_to_searchindex_js = "../../../searchindex-3f0d8111.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="../../../toc-fe913ceb.js"></script>
+        <script src="../../../toc-245fabda.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -187,6 +187,7 @@
 <li><a href="#configuration">Configuration</a>
 <ul>
 <li><a href="#hide_when_all_read">hide_when_all_read</a></li>
+<li><a href="#text">text</a></li>
 </ul>
 </li>
 </ul>
@@ -201,6 +202,15 @@
 
 [buffer.backlog_separator]
 hide_when_all_read = true
+</code></pre>
+<h3 id="text"><a class="header" href="#text">text</a></h3>
+<p>Set the text for backlog divider or disable it</p>
+<pre><code class="language-toml"># Type: boolean or string
+# Values: boolean or any string
+# Default: true
+
+[buffer.backlog_separator]
+text = false
 </code></pre>
 
                     </main>

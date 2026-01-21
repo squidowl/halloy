@@ -34,10 +34,10 @@
             const path_to_root = "../../";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../../searchindex-4394c710.js";
+            window.path_to_searchindex_js = "../../searchindex-3f0d8111.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="../../toc-fe913ceb.js"></script>
+        <script src="../../toc-245fabda.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -187,6 +187,7 @@
 <li><a href="#configuration">Configuration</a>
 <ul>
 <li><a href="#enabled">enabled</a></li>
+<li><a href="#exclude">exclude</a></li>
 </ul>
 </li>
 <li><a href="#request">Request</a></li>
@@ -197,13 +198,44 @@
 </ul>
 <h2 id="configuration"><a class="header" href="#configuration">Configuration</a></h2>
 <h3 id="enabled"><a class="header" href="#enabled">enabled</a></h3>
-<p>Enable or disable previews globally</p>
-<pre><code class="language-toml"># Type: boolean
-# Values: true, false
+<p>Enable or disable previews globally with a boolean, or selectively enable them for URLs matching specific regex patterns.</p>
+<pre><code class="language-toml"># Type: boolean or array of strings
+# Values: true, false, or array of regex patterns
 # Default: true
 
 [preview]
 enabled = true
+</code></pre>
+<p>Only show previews for matching URLs:</p>
+<blockquote>
+<p>💡 Use toml multi-line literal strings <code>'''\bfoo'd\b'''</code> when writing a regex. This allows you to write the regex without escaping. You can also use a literal string <code>'\bfoo\b'</code>, but then you can’t use <code>'</code> inside the string.</p>
+<p>Without literal strings, you’d have to write the above as <code>"\\bfoo'd\\b"</code></p>
+</blockquote>
+<pre><code class="language-toml">[preview]
+enabled = [
+    '''https?://(www\.)?imgur\.com/.*''', 
+    '''https?://(www\.)?dr\.dk/.*'''
+]
+</code></pre>
+<h3 id="exclude"><a class="header" href="#exclude">exclude</a></h3>
+<p>Exclude URLs from showing previews by providing regex patterns.</p>
+<pre><code class="language-toml"># Type: array of strings
+# Values: array of regex patterns
+# Default: []
+
+[preview]
+exclude = []
+</code></pre>
+<p>Prevent previews from showing for matching URLs:</p>
+<blockquote>
+<p>💡 Use toml multi-line literal strings <code>'''\bfoo'd\b'''</code> when writing a regex. This allows you to write the regex without escaping. You can also use a literal string <code>'\bfoo\b'</code>, but then you can’t use <code>'</code> inside the string.</p>
+<p>Without literal strings, you’d have to write the above as <code>"\\bfoo'd\\b"</code></p>
+</blockquote>
+<pre><code class="language-toml">[preview]
+exclude = [
+    '''https?://(www\.)?example\.com/.*''', 
+    '''https?://(www\.)?spam-site\.net/.*'''
+]
 </code></pre>
 <h2 id="request"><a class="header" href="#request"><a href="request.html">Request</a></a></h2>
 <p>Request settings for previews.</p>

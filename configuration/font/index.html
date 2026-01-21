@@ -34,10 +34,10 @@
             const path_to_root = "../../";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../../searchindex-4394c710.js";
+            window.path_to_searchindex_js = "../../searchindex-3f0d8111.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="../../toc-fe913ceb.js"></script>
+        <script src="../../toc-245fabda.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -189,7 +189,8 @@
 <li><a href="#family">family</a></li>
 <li><a href="#size">size</a></li>
 <li><a href="#weight">weight</a></li>
-<li><a href="#bold-weight">bold-weight</a></li>
+<li><a href="#bold_weight">bold_weight</a></li>
+<li><a href="#only_emojis_size">only_emojis_size</a></li>
 </ul>
 </li>
 </ul>
@@ -204,6 +205,9 @@
 <h2 id="configuration"><a class="header" href="#configuration">Configuration</a></h2>
 <h3 id="family"><a class="header" href="#family">family</a></h3>
 <p>Monospaced font family to use.</p>
+<blockquote>
+<p>⚠️ Variable-weight fonts are not currently supported.</p>
+</blockquote>
 <pre><code class="language-toml"># Type: string
 # Values: any string
 # Default: not set
@@ -231,14 +235,23 @@ size = 13
 [font]
 weight = "light"
 </code></pre>
-<h3 id="bold-weight"><a class="header" href="#bold-weight">bold-weight</a></h3>
+<h3 id="bold_weight"><a class="header" href="#bold_weight">bold_weight</a></h3>
 <p>Bold font weight.  If not set, then the font weight three steps above the regular font weight (e.g. font weight <code>"light"</code> → bold font weight <code>"semibold"</code>).</p>
 <pre><code class="language-toml"># Type: string
 # Values: "thin", "extra-light", "light", "normal", "medium", "semibold", "bold", "extra-bold", and "black"
 # Default: not set
 
 [font]
-bold-weight = "semibold"
+bold_weight = "semibold"
+</code></pre>
+<h3 id="only_emojis_size"><a class="header" href="#only_emojis_size">only_emojis_size</a></h3>
+<p>Font size for messages that contain only emojis.  If not set, then the regular font size will be used.</p>
+<pre><code class="language-toml"># Type: integer
+# Values: any positive integer
+# Default: not set
+
+[font]
+only_emojis_size = 18
 </code></pre>
 
                     </main>

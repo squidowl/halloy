@@ -34,10 +34,10 @@
             const path_to_root = "../";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../searchindex-4394c710.js";
+            window.path_to_searchindex_js = "../searchindex-3f0d8111.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="../toc-fe913ceb.js"></script>
+        <script src="../toc-245fabda.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -181,15 +181,21 @@
                     <main>
                         <h1 id="multiple-servers"><a class="header" href="#multiple-servers">Multiple Servers</a></h1>
 <p>Creating multiple <code>[servers]</code> sections lets you connect to multiple servers.<br>All configuration options can be found in the <a href="../configuration/servers/">servers configuration section</a>.</p>
-<pre><code class="language-toml">[servers.liberachat]
-nickname = "halloy-user"
+<pre><code class="language-toml">[servers.Libera]
 server = "irc.libera.chat"
+use_tls = true # default value
+port = 6697 # default value when use_tls = true
+
+nickname = "nickname-on-libera"
+
 channels = ["#halloy"]
 
-[servers.oftc]
-nickname = "halloy-user"
+[servers.OFTC]
 server = "irc.oftc.net"
-channels = ["#asahi-dev"]
+use_tls = true # default value
+port = 6697 # default value when use_tls = true
+
+nickname = "nickname-on-oftc"
 </code></pre>
 
                     </main>
