@@ -23,7 +23,7 @@
 #   alsa-lib-devel openssl-devel libxcb-devel (on Fedora-based distros)
 #   librust-alsa-sys-dev libssl-dev libxcb1-dev (on Debian-based distros)
 
-  cargo install --locked --force --path "$git_root_dir" --root "$prefix"
+  cargo install --locked --force --path "$git_root_dir" --root "$prefix" --profile packaging
 
   desktop-file-install --dir="$prefix/share/applications" "$git_root_dir/assets/linux/org.squidowl.halloy.desktop"
 

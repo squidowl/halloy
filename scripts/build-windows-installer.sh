@@ -12,4 +12,4 @@ dotnet tool install --global wix --version 6.0.2
 wix extension add WixToolset.UI.wixext/6.0.2
 
 # build the installer
-wix build -pdbtype none -arch x64 -d PackageVersion=$HALLOY_VERSION $WXS_FILE -o target/release/halloy-installer.msi -ext WixToolset.UI.wixext
+wix build -pdbtype none -arch x64 -d PackageVersion=$HALLOY_VERSION $WXS_FILE -o target/packaging/halloy-installer.msi -ext WixToolset.UI.wixext

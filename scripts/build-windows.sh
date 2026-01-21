@@ -3,6 +3,7 @@
 
 #!/bin/bash
 EXE_NAME="halloy.exe"
+PROFILE="packaging"
 TARGET="x86_64-pc-windows-msvc"
 HALLOY_VERSION=$(cat VERSION).0
 
@@ -12,5 +13,5 @@ cargo set-version $HALLOY_VERSION
 
 # build binary
 rustup target add $TARGET
-cargo build --release --locked --target=$TARGET
-cp -fp target/$TARGET/release/$EXE_NAME target/release
+cargo build --profile $PROFILE --locked --target=$TARGET
+cp -fp target/$TARGET/$PROFILE/$EXE_NAME target/$PROFILE

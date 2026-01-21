@@ -17,12 +17,12 @@ jobs:
             os: macos-latest
             make: bash scripts/build-macos.sh
             artifact_path: |
-              echo "ARTIFACT_PATH=target/release/macos/halloy.dmg" >> "$GITHUB_ENV"
+              echo "ARTIFACT_PATH=target/packaging/macos/halloy.dmg" >> "$GITHUB_ENV"
           - target: windows
             os: windows-latest
             make: bash scripts/build-windows-installer.sh
             artifact_path: |
-              echo "ARTIFACT_PATH=target/release/halloy-installer.msi" >> $env:GITHUB_ENV
+              echo "ARTIFACT_PATH=target/packaging/halloy-installer.msi" >> $env:GITHUB_ENV
           - target: linux
             os: ubuntu-latest
             make: bash scripts/package-linux.sh package
