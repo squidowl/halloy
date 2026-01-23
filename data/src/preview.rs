@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::io;
-use std::sync::{LazyLock, OnceLock};
+use std::sync::{Arc, LazyLock, OnceLock};
 use std::time::Duration;
 
 use ::image::image_dimensions;
@@ -29,8 +29,6 @@ pub mod image;
 
 // Prevent us from rate limiting ourselves
 static RATE_LIMIT: OnceLock<Semaphore> = OnceLock::new();
-static CLIENT: LazyLock<reqwest::Client> =
-    LazyLock::new(|| reqwest::Client::builder().build().expect("build client"));
 static OPENGRAPH_REGEX: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(
         r#"(?m)<meta[^>]+(name|property|content)=("[^"]+"|'[^']+')[^>]+(name|property|content)=("[^"]+"|'[^']+')[^>]*\/?>"#,
@@ -127,31 +125,33 @@ pub enum State {
 
 pub async fn load(
     url: Url,
+    client: Arc<reqwest::Client>,
     config: config::Preview,
 ) -> Result<Preview, LoadError> {
     if !config.is_enabled(url.as_str()) {
         return Err(LoadError::Disabled);
     }
 
-    let result = if let Some(state) = cache::load(&url, &config).await {
-        match state {
-            cache::State::Ok(preview) => Ok(preview),
-            cache::State::Error => Err(LoadError::CachedFailed),
-        }
-    } else {
-        match load_uncached(url.clone(), &config).await {
-            Ok(preview) => {
-                cache::save(&url, cache::State::Ok(preview.clone())).await;
-
-                Ok(preview)
+    let result =
+        if let Some(state) = cache::load(&url, client.clone(), &config).await {
+            match state {
+                cache::State::Ok(preview) => Ok(preview),
+                cache::State::Error => Err(LoadError::CachedFailed),
             }
-            Err(error) => {
-                cache::save(&url, cache::State::Error).await;
+        } else {
+            match load_uncached(url.clone(), client, &config).await {
+                Ok(preview) => {
+                    cache::save(&url, cache::State::Ok(preview.clone())).await;
 
-                Err(error)
+                    Ok(preview)
+                }
+                Err(error) => {
+                    cache::save(&url, cache::State::Error).await;
+
+                    Err(error)
+                }
             }
-        }
-    };
+        };
 
     if let Ok(ref preview) = result {
         let image = preview.image();
@@ -188,11 +188,12 @@ pub async fn load(
 
 async fn load_uncached(
     url: Url,
+    client: Arc<reqwest::Client>,
     config: &config::Preview,
 ) -> Result<Preview, LoadError> {
     debug!("Loading preview for {url}");
 
-    match fetch(url.clone(), config).await? {
+    match fetch(url.clone(), client.clone(), config).await? {
         Fetched::Image(image) => Ok(Preview::Image(image)),
         Fetched::Other(bytes) => {
             let mut canonical_url = None;
@@ -250,7 +251,9 @@ async fn load_uncached(
             let image_url =
                 image_url.ok_or(LoadError::MissingProperty("image"))?;
 
-            let Fetched::Image(image) = fetch(image_url, config).await? else {
+            let Fetched::Image(image) =
+                fetch(image_url, client, config).await?
+            else {
                 return Err(LoadError::NotImage);
             };
 
@@ -273,15 +276,16 @@ enum Fetched {
 
 async fn fetch(
     url: Url,
+    client: Arc<reqwest::Client>,
     config: &config::Preview,
 ) -> Result<Fetched, LoadError> {
-    // WARN: `concurrency` changes aren't picked up until app is relaunchd
+    // WARN: `concurrency` changes aren't picked up until app is relaunched
     let _permit = RATE_LIMIT
         .get_or_init(|| Semaphore::new(config.request.concurrency))
         .acquire()
         .await;
 
-    let mut req = CLIENT
+    let mut req = client
         .get(url.clone())
         .timeout(Duration::from_millis(config.request.timeout_ms));
 
@@ -295,8 +299,8 @@ async fn fetch(
         return Err(LoadError::EmptyBody);
     };
 
-    // First chunk should always be enough bytes to detect
-    // image MAGIC value (<32 bytes)
+    // First chunk should always be enough bytes to detect image MAGIC value
+    // (<32 bytes)
     let fetched = match image::format(&first_chunk) {
         Some(format) => {
             // Store image to disk, we don't want to explode memory
@@ -402,4 +406,45 @@ pub enum LoadError {
         padded_image_data_size: u64,
         max_buffer_size: u64,
     },
+}
+
+pub fn client_from_proxy(config: &config::Proxy) -> Option<reqwest::Client> {
+    match config {
+        config::Proxy::Http {
+            host,
+            port,
+            username,
+            password,
+        } => {
+            let mut proxy =
+                reqwest::Proxy::all(format!("http://{host}:{port}")).ok()?;
+
+            if let Some(username) = username
+                && let Some(password) = password
+            {
+                proxy = proxy.basic_auth(username, password);
+            }
+
+            reqwest::Client::builder().proxy(proxy).build().ok()
+        }
+        config::Proxy::Socks5 {
+            host,
+            port,
+            username,
+            password,
+        } => {
+            let mut proxy =
+                reqwest::Proxy::all(format!("socks5://{host}:{port}")).ok()?;
+
+            if let Some(username) = username
+                && let Some(password) = password
+            {
+                proxy = proxy.basic_auth(username, password);
+            }
+
+            reqwest::Client::builder().proxy(proxy).build().ok()
+        }
+        #[cfg(feature = "tor")]
+        config::Proxy::Tor => None,
+    }
 }

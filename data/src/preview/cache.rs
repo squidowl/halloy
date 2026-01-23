@@ -1,4 +1,5 @@
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
@@ -15,7 +16,11 @@ pub enum State {
     Error,
 }
 
-pub async fn load(url: &Url, config: &config::Preview) -> Option<State> {
+pub async fn load(
+    url: &Url,
+    client: Arc<reqwest::Client>,
+    config: &config::Preview,
+) -> Option<State> {
     let path = state_path(url);
 
     if !path.exists() {
@@ -29,12 +34,14 @@ pub async fn load(url: &Url, config: &config::Preview) -> Option<State> {
     match &state {
         State::Ok(Preview::Card(card)) => {
             if !card.image.path.exists() {
-                super::fetch(card.image.url.clone(), config).await.ok()?;
+                super::fetch(card.image.url.clone(), client, config)
+                    .await
+                    .ok()?;
             }
         }
         State::Ok(Preview::Image(image)) => {
             if !image.path.exists() {
-                super::fetch(image.url.clone(), config).await.ok()?;
+                super::fetch(image.url.clone(), client, config).await.ok()?;
             }
         }
         State::Error => {}

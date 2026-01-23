@@ -37,6 +37,7 @@ rand_chacha = { workspace = true }
 palette = { workspace = true }
 log = { workspace = true }
 nucleo-matcher = { workspace = true }
+reqwest = { workspace = true }
 
 base64 = "0.22.1"
 dirs-next = "2.0.0"
@@ -53,7 +54,6 @@ serde_ignored = "0.1"
 serde-untagged = "0.1"
 sha2 = "0.10.8"
 toml = "0.8.11"
-reqwest = { version = "0.12", features = ["json"] }
 fancy-regex = "0.14"
 walkdir = "2.5.0"
 nom = "7.1"
