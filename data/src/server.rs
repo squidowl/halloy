@@ -286,6 +286,10 @@ impl ConfigMap {
     ) -> impl Iterator<Item = (&ServerName, &Arc<config::Server>)> {
         self.0.iter()
     }
+
+    pub fn get(&self, server: &Server) -> Option<Arc<config::Server>> {
+        self.0.get(&server.name).cloned()
+    }
 }
 
 #[derive(Debug, Default)]

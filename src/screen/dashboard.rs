@@ -119,12 +119,7 @@ impl Dashboard {
             theme_editor: None,
             notifications: notification::Notifications::new(config),
             previews: preview::Collection::default(),
-            preview_client: config
-                .proxy
-                .as_ref()
-                .and_then(preview::client_from_proxy)
-                .or(reqwest::Client::builder().build().ok())
-                .map(Arc::new),
+            preview_client: preview_client_from_config(config).map(Arc::new),
             buffer_settings: dashboard::BufferSettings::default(),
         };
 
@@ -189,17 +184,17 @@ impl Dashboard {
     pub fn reload_visible_previews(
         &mut self,
         clients: &client::Map,
-        preview_config: &config::Preview,
+        config: &Config,
     ) -> Task<Message> {
         Task::batch(
-            self.visible_urls_with_preview_clients(clients)
+            self.visible_urls_with_preview_clients(clients, config)
                 .into_iter()
                 .map(|(url, client)| {
                     Task::perform(
                         data::preview::load(
                             url.clone(),
                             client.clone(),
-                            preview_config.clone(),
+                            config.preview.clone(),
                         ),
                         move |result| {
                             Message::LoadPreview((url.clone(), result))
@@ -2129,7 +2124,8 @@ impl Dashboard {
                 }
             }
             buffer::Event::PreviewChanged => {
-                let visible = self.visible_urls_with_preview_clients(clients);
+                let visible =
+                    self.visible_urls_with_preview_clients(clients, config);
                 let tracking =
                     self.previews.keys().cloned().collect::<HashSet<_>>();
                 let missing = visible
@@ -3507,12 +3503,7 @@ impl Dashboard {
             theme_editor: None,
             notifications: notification::Notifications::new(config),
             previews: preview::Collection::default(),
-            preview_client: config
-                .proxy
-                .as_ref()
-                .and_then(preview::client_from_proxy)
-                .or(reqwest::Client::builder().build().ok())
-                .map(Arc::new),
+            preview_client: preview_client_from_config(config).map(Arc::new),
             buffer_settings: data.buffer_settings.clone(),
         };
 
@@ -3715,24 +3706,28 @@ impl Dashboard {
     fn visible_urls_with_preview_clients(
         &self,
         clients: &client::Map,
+        config: &Config,
     ) -> HashMap<url::Url, Arc<reqwest::Client>> {
-        let pane_map = |pane: &Pane| -> Vec<(url::Url, Arc<reqwest::Client>)> {
-            if let Some(preview_client) = pane
-                .buffer
-                .server()
-                .and_then(|server| {
+        let pane_map =
+            |pane: &Pane| -> Vec<(url::Url, Arc<reqwest::Client>)> {
+                let preview_client = if let Some(server) = pane.buffer.server()
+                    && config.servers.get(&server).is_some_and(
+                        |server_config| server_config.proxy.is_some(),
+                    ) {
                     clients.get_server_preview_proxy_client(&server)
-                })
-                .or(self.preview_client.clone())
-            {
-                pane.visible_urls()
-                    .into_iter()
-                    .map(move |url| (url.clone(), preview_client.clone()))
-                    .collect()
-            } else {
-                vec![]
-            }
-        };
+                } else {
+                    self.preview_client.clone()
+                };
+
+                if let Some(preview_client) = preview_client {
+                    pane.visible_urls()
+                        .into_iter()
+                        .map(move |url| (url.clone(), preview_client.clone()))
+                        .collect()
+                } else {
+                    vec![]
+                }
+            };
 
         self.panes
             .main
@@ -4092,4 +4087,23 @@ fn cycle_previous_unread_buffer(
     previous_before()
         .or_else(|| previous_after().or(None))
         .cloned()
+}
+
+fn preview_client_from_config(config: &Config) -> Option<reqwest::Client> {
+    let preview_client = if let Some(proxy) = config.proxy.as_ref() {
+        preview::client_from_proxy(proxy)
+    } else {
+        reqwest::Client::builder()
+            .build()
+            .map_err(preview::BuildError::Reqwest)
+    };
+
+    match preview_client {
+        Ok(preview_client) => Some(preview_client),
+        Err(error) => {
+            log::warn!("Preview fetching disabled by default: {error}");
+
+            None
+        }
+    }
 }

@@ -408,7 +408,9 @@ pub enum LoadError {
     },
 }
 
-pub fn client_from_proxy(config: &config::Proxy) -> Option<reqwest::Client> {
+pub fn client_from_proxy(
+    config: &config::Proxy,
+) -> Result<reqwest::Client, BuildError> {
     match config {
         config::Proxy::Http {
             host,
@@ -417,7 +419,7 @@ pub fn client_from_proxy(config: &config::Proxy) -> Option<reqwest::Client> {
             password,
         } => {
             let mut proxy =
-                reqwest::Proxy::all(format!("http://{host}:{port}")).ok()?;
+                reqwest::Proxy::all(format!("http://{host}:{port}"))?;
 
             if let Some(username) = username
                 && let Some(password) = password
@@ -425,7 +427,7 @@ pub fn client_from_proxy(config: &config::Proxy) -> Option<reqwest::Client> {
                 proxy = proxy.basic_auth(username, password);
             }
 
-            reqwest::Client::builder().proxy(proxy).build().ok()
+            Ok(reqwest::Client::builder().proxy(proxy).build()?)
         }
         config::Proxy::Socks5 {
             host,
@@ -434,7 +436,7 @@ pub fn client_from_proxy(config: &config::Proxy) -> Option<reqwest::Client> {
             password,
         } => {
             let mut proxy =
-                reqwest::Proxy::all(format!("socks5://{host}:{port}")).ok()?;
+                reqwest::Proxy::all(format!("socks5://{host}:{port}"))?;
 
             if let Some(username) = username
                 && let Some(password) = password
@@ -442,9 +444,17 @@ pub fn client_from_proxy(config: &config::Proxy) -> Option<reqwest::Client> {
                 proxy = proxy.basic_auth(username, password);
             }
 
-            reqwest::Client::builder().proxy(proxy).build().ok()
+            Ok(reqwest::Client::builder().proxy(proxy).build()?)
         }
         #[cfg(feature = "tor")]
-        config::Proxy::Tor => None,
+        config::Proxy::Tor => Err(BuildError::Tor),
     }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum BuildError {
+    #[error("disabled when Tor proxy provided by Arti")]
+    Tor,
+    #[error("reqwest error: {0}")]
+    Reqwest(#[from] reqwest::Error),
 }
