@@ -2423,7 +2423,7 @@ impl Dashboard {
                                     &self.history,
                                     p.size,
                                     config,
-                                )
+                                );
                             });
                             self.last_changed = Some(Instant::now());
 
