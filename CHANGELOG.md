@@ -5,6 +5,7 @@
 Fixed:
 
 - Version number reported in AppData file
+- Buffer not showing history until resize
 
 # 2026.1 (2026-01-20)
 
