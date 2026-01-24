@@ -188,6 +188,19 @@ impl Client {
         config: Arc<config::Server>,
         sender: mpsc::Sender<proto::Message>,
     ) -> Self {
+        let preview_proxy_client = if let Some(proxy) = config.proxy.as_ref() {
+            match preview::client_from_proxy(proxy) {
+                Ok(preview_proxy_client) => Some(preview_proxy_client),
+                Err(error) => {
+                    log::warn!("[{server}] Preview fetching disabled: {error}");
+
+                    None
+                }
+            }
+        } else {
+            None
+        };
+
         Self {
             server,
             handle: sender,
@@ -232,11 +245,7 @@ impl Client {
             resolved_netid: None,
             anti_flood: Some(TokenBucket::new(config.anti_flood, 10)),
             mode_requests: Vec::new(),
-            preview_proxy_client: config
-                .proxy
-                .as_ref()
-                .and_then(preview::client_from_proxy)
-                .map(Arc::new),
+            preview_proxy_client: preview_proxy_client.map(Arc::new),
             config,
             channel_discovery_manager: channel_discovery::Manager::new(),
         }
