@@ -2418,12 +2418,14 @@ impl Dashboard {
                     for (id, pane) in panes.main.iter() {
                         if matches!(pane.buffer, Buffer::Empty) {
                             self.panes.main.panes.entry(*id).and_modify(|p| {
+                                let size = p.size;
                                 *p = Pane::new(Buffer::from_data(
                                     buffer,
                                     &self.history,
-                                    p.size,
+                                    size,
                                     config,
                                 ));
+                                p.size = size;
                             });
                             self.last_changed = Some(Instant::now());
 
