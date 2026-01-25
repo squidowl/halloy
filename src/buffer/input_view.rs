@@ -698,12 +698,10 @@ impl State {
                         if let Some(messages) = input.messages(
                             user,
                             channel_users,
-                            buffer.server(),
                             chantypes,
                             statusmsg,
                             casemapping,
                             supports_echoes,
-                            config,
                         ) {
                             for message in messages {
                                 history_tasks.extend(
@@ -1080,12 +1078,10 @@ impl State {
                         if let Some(messages) = input.messages(
                             user,
                             channel_users,
-                            buffer.server(),
                             chantypes,
                             statusmsg,
                             casemapping,
                             supports_echoes,
-                            config,
                         ) {
                             for message in messages {
                                 history_tasks.extend(

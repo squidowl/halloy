@@ -711,12 +711,10 @@ impl Dashboard {
                                 if let Some(messages) = command.messages(
                                     user,
                                     channel_users,
-                                    buffer.server(),
                                     chantypes,
                                     statusmsg,
                                     casemapping,
                                     supports_echoes,
-                                    config,
                                 ) && let Some(encoded) =
                                     proto::Command::try_from(command)
                                         .ok()
@@ -1793,12 +1791,10 @@ impl Dashboard {
                             if let Some(messages) = input.messages(
                                 user,
                                 channel_users,
-                                &server,
                                 chantypes,
                                 statusmsg,
                                 casemapping,
                                 supports_echoes,
-                                config,
                             ) {
                                 for message in messages {
                                     if let Some(task) =
@@ -1870,12 +1866,10 @@ impl Dashboard {
                             if let Some(messages) = input.messages(
                                 user,
                                 channel_users,
-                                &server,
                                 chantypes,
                                 statusmsg,
                                 casemapping,
                                 supports_echoes,
-                                config,
                             ) {
                                 for message in messages {
                                     if let Some(task) =

@@ -10,7 +10,7 @@ use crate::buffer::{self, Upstream};
 use crate::isupport::{self, find_target_limit};
 use crate::message::{self, formatting};
 use crate::user::{ChannelUsers, NickRef};
-use crate::{Config, Message, Server, Target, Url, User, ctcp, target};
+use crate::{Config, Message, Target, Url, User, ctcp, target};
 
 #[derive(Debug, Clone)]
 pub enum Command {
@@ -63,12 +63,10 @@ impl Irc {
         &self,
         user: User,
         channel_users: Option<&ChannelUsers>,
-        server: &Server,
         chantypes: &[char],
         statusmsg: &[char],
         casemapping: isupport::CaseMap,
         supports_echoes: bool,
-        config: &Config,
     ) -> Option<Vec<Message>> {
         let to_targets = |target: &str, source| {
             let target =
@@ -101,17 +99,11 @@ impl Irc {
 
                         Message::sent(
                             message_target,
-                            message::parse_fragments_with_highlights(
+                            message::parse_fragments_with_users(
                                 text.clone(),
-                                Some(&user),
                                 channel_users,
-                                &target,
-                                None,
-                                &config.highlights,
-                                server,
                                 casemapping,
-                            )
-                            .0,
+                            ),
                             supports_echoes.then_some(Irc::Msg(
                                 target.to_string(),
                                 text.clone(),
@@ -131,17 +123,11 @@ impl Irc {
 
                         Message::sent(
                             message_target,
-                            message::parse_fragments_with_highlights(
+                            message::parse_fragments_with_users(
                                 text.clone(),
-                                Some(&user),
                                 channel_users,
-                                &target,
-                                None,
-                                &config.highlights,
-                                server,
                                 casemapping,
-                            )
-                            .0,
+                            ),
                             supports_echoes.then_some(Irc::Notice(
                                 target.to_string(),
                                 text.clone(),
@@ -151,7 +137,7 @@ impl Irc {
                     .collect(),
             ),
             Irc::Me(target, action) => {
-                let (target, message_target) = to_targets(
+                let (_, message_target) = to_targets(
                     target,
                     message::Source::Action(Some(user.clone())),
                 );
@@ -162,13 +148,8 @@ impl Irc {
                         &user,
                         Some(action),
                         channel_users,
-                        &target,
-                        None,
-                        &config.highlights,
-                        server,
                         casemapping,
-                    )
-                    .0,
+                    ),
                     supports_echoes.then_some(self.clone()),
                 )])
             }
