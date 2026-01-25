@@ -56,8 +56,13 @@ pub fn view<'a>(
     let chantypes = clients.get_chantypes(server);
     let casemapping = clients.get_casemapping(server);
     let prefix = clients.get_prefix(server);
-    let supports_echoes = clients.get_server_supports_echoes(server);
     let query = &state.target;
+    let confirm_message_delivery = clients.get_server_supports_echoes(server)
+        && config.servers.get(server).is_some_and(|server_config| {
+            server_config
+                .confirm_message_delivery
+                .is_target_query_included(query, server, casemapping)
+        });
     let status = clients.status(server);
     let our_nick = clients.nickname(server);
     let our_user = our_nick.map(|our_nick| User::from(Nick::from(our_nick)));
@@ -78,7 +83,7 @@ pub fn view<'a>(
         chantypes,
         casemapping,
         prefix,
-        supports_echoes,
+        confirm_message_delivery,
         connected,
         server,
         theme,
