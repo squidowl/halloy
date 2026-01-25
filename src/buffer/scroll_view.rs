@@ -1201,7 +1201,7 @@ impl Status {
 fn step_messages(height: f32, config: &Config) -> usize {
     let line_height = theme::line_height(&config.font);
 
-    (height / line_height).min(8.0) as usize
+    (height / line_height).max(8.0) as usize
 }
 
 mod keyed {
