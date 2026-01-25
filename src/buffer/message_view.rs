@@ -60,7 +60,7 @@ pub struct ChannelQueryLayout<'a> {
     pub chantypes: &'a [char],
     pub casemapping: CaseMap,
     pub prefix: &'a [PrefixMap],
-    pub supports_echoes: bool,
+    pub confirm_message_delivery: bool,
     pub connected: bool,
     pub server: &'a Server,
     pub theme: &'a Theme,
@@ -184,7 +184,8 @@ impl<'a> ChannelQueryLayout<'a> {
         user: &'a User,
         hide_nickname: bool,
     ) -> (Element<'a, Message>, Element<'a, Message>) {
-        let not_sent = (self.supports_echoes || message.command.is_some())
+        let not_sent = self.confirm_message_delivery
+            && message.command.is_some()
             && matches!(message.direction, message::Direction::Sent)
             && Utc::now().signed_duration_since(message.server_time)
                 > TimeDelta::seconds(10);

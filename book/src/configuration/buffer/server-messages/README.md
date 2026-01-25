@@ -95,7 +95,7 @@ exclude = "*"
 ### include
 
 [Inclusion conditions](/configuration/conditions.md) in which the server message
-will be shown. Server messages will be shown in all conditions (when enabled)W
+will be shown. Server messages will be shown in all conditions (when enabled)
 unless explicitly excluded, so this setting is only relevant when combined with
 the `exclude` setting.
 

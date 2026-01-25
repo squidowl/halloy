@@ -6,11 +6,14 @@ use fancy_regex::{Regex, RegexBuilder};
 use irc::connection;
 use serde::{Deserialize, Deserializer};
 
-use crate::config;
+use crate::config::inclusivities::{
+    Inclusivities, is_target_channel_included, is_target_query_included,
+};
 use crate::serde::{
     deserialize_path_buf_with_path_transformations,
     deserialize_path_buf_with_path_transformations_maybe,
 };
+use crate::{config, isupport, target};
 
 const DEFAULT_PORT: u16 = 6667;
 const DEFAULT_TLS_PORT: u16 = 6697;
@@ -103,6 +106,7 @@ pub struct Server {
     #[serde(skip)]
     pub order: u16,
     pub proxy: Option<config::Proxy>,
+    pub confirm_message_delivery: ConfirmMessageDelivery,
 }
 
 impl Server {
@@ -216,6 +220,7 @@ impl Default for Server {
             anti_flood: Duration::from_millis(2000),
             order: 0,
             proxy: None,
+            confirm_message_delivery: ConfirmMessageDelivery::default(),
         }
     }
 }
@@ -437,6 +442,59 @@ where
                 .map(FancyRegex)
         })
         .collect::<Result<Vec<FancyRegex>, D::Error>>()
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(default)]
+pub struct ConfirmMessageDelivery {
+    pub enabled: bool,
+    pub exclude: Option<Inclusivities>,
+    pub include: Option<Inclusivities>,
+}
+
+impl Default for ConfirmMessageDelivery {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            exclude: None,
+            include: None,
+        }
+    }
+}
+
+impl ConfirmMessageDelivery {
+    pub fn is_target_channel_included(
+        &self,
+        channel: &target::Channel,
+        server: &crate::server::Server,
+        casemapping: isupport::CaseMap,
+    ) -> bool {
+        self.enabled
+            && is_target_channel_included(
+                self.include.as_ref(),
+                self.exclude.as_ref(),
+                None,
+                channel,
+                server,
+                casemapping,
+            )
+    }
+
+    pub fn is_target_query_included(
+        &self,
+        query: &target::Query,
+        server: &crate::server::Server,
+        casemapping: isupport::CaseMap,
+    ) -> bool {
+        self.enabled
+            && is_target_query_included(
+                self.include.as_ref(),
+                self.exclude.as_ref(),
+                query,
+                server,
+                casemapping,
+            )
+    }
 }
 
 fn deserialize_anti_flood<'de, D>(deserializer: D) -> Result<Duration, D::Error>
