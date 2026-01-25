@@ -93,23 +93,19 @@ impl Input {
         &self,
         user: User,
         channel_users: Option<&ChannelUsers>,
-        server: &Server,
         chantypes: &[char],
         statusmsg: &[char],
         casemapping: isupport::CaseMap,
         supports_echoes: bool,
-        config: &Config,
     ) -> Option<Vec<Message>> {
         self.content.command(&self.buffer).and_then(|command| {
             command.messages(
                 user,
                 channel_users,
-                server,
                 chantypes,
                 statusmsg,
                 casemapping,
                 supports_echoes,
-                config,
             )
         })
     }
