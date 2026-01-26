@@ -96,6 +96,7 @@ pub fn on_connect(
                             | command::Internal::ChannelDiscovery
                             | command::Internal::Connect(_)
                             | command::Internal::Hop(_, _)
+                            | command::Internal::SearchResults(_)
                             | command::Internal::SysInfo => None,
                         },
                     }
