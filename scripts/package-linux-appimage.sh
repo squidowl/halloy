@@ -1,89 +1,53 @@
-#!/bin/bash
+#!/bin/bash -e
 
-if [ ! -f ./VERSION ]; then
-    echo "VERSION file not found"
-    exit 1
-fi
-VERSION=$(cat ./VERSION)
+ARCH="x86_64"
+TARGET="halloy"
+VERSION=$(cat VERSION)
+PROFILE="release"
+ASSETS_DIR="assets/linux"
+RELEASE_DIR="target/$PROFILE"
+APPDIR="$RELEASE_DIR/AppDir"
+APPIMAGE_NAME="$TARGET-$VERSION-$ARCH.AppImage"
+APPIMAGE_PATH="$RELEASE_DIR/$APPIMAGE_NAME"
 
-# First we make sure with have appimagetool-x86_64.AppImage
-echo "Using halloy version: $VERSION for AppImage build"
-if [ ! -f ./assets/linux/appimagetool-x86_64.AppImage ]; then
-  echo "Downloading appimagetool-x86_64.AppImage..."
-  curl -L 'https://github.com/AppImage/appimagetool/releases/download/1.9.1/appimagetool-x86_64.AppImage' -o ./assets/linux/appimagetool-x86_64.AppImage
-  chmod +x ./assets/linux/appimagetool-x86_64.AppImage
-fi
+appimage_name() {
+  echo $APPIMAGE_NAME
+}
 
-script_dir=$(dirname -- "$(realpath -- "${BASH_SOURCE[0]}")")
-git_root_dir=$(git -C "$script_dir" rev-parse --show-toplevel)
-build_dir="/tmp/halloy.AppDir"
-appimage_output_dir="$git_root_dir/target/release/linux-appimage"
-appimage_name="halloy-${VERSION}-x86_64.AppImage"
+appimage_path() {
+  echo $APPIMAGE_PATH
+}
 
-# Clean up any previous build
-echo "Cleaning up previous build directory..."
-rm -rf "$build_dir"
+package() {
+  # Create necessary directories
+  mkdir -p "$APPDIR/usr/bin"
+  mkdir -p "$APPDIR/usr/share/applications"
+  mkdir -p "$APPDIR/usr/share/metainfo/"
 
-# Create necessary directories
-echo "Creating build directories..."
-mkdir -p "$appimage_output_dir"
-mkdir -p "$build_dir/usr/bin"
-mkdir -p "$build_dir/usr/share/applications"
-mkdir -p "$build_dir/usr/share/metainfo/"
+  # Copy desktop stuff
+  cp assets/linux/org.squidowl.halloy.desktop "$APPDIR/usr/share/applications/"
+  cp assets/linux/org.squidowl.halloy.desktop "$APPDIR/usr/share/metainfo/"
+  cp assets/linux/org.squidowl.halloy.appdata.xml "$APPDIR/usr/share/metainfo/"
 
-# Copy desktop stuff
-echo "Copying desktop files..."
-cp "$git_root_dir/assets/linux/org.squidowl.halloy.desktop" "$build_dir/usr/share/applications/"
-cp "$git_root_dir/assets/linux/org.squidowl.halloy.desktop" "$build_dir/usr/share/metainfo/"
-cp "$git_root_dir/assets/linux/org.squidowl.halloy.appdata.xml" "$build_dir/usr/share/metainfo/"
+  cp assets/linux/org.squidowl.halloy.desktop "$APPDIR/"
 
-cp "$git_root_dir/assets/linux/org.squidowl.halloy.desktop" "$build_dir/"
-cp "$git_root_dir/assets/linux/icons/hicolor/256x256/apps/org.squidowl.halloy.png" "$build_dir/"
+  cp -r assets/linux/icons "$APPDIR/usr/share/"
+  ln -rs "$APPDIR/usr/share/icons/hicolor/256x256/apps/org.squidowl.halloy.png" "$APPDIR/org.squidowl.halloy.png"
 
-# Create our AppRun file
-echo "Creating AppRun file..."
-cat << 'EOF' > "$build_dir/AppRun"
-#!/bin/sh
+  # Build the Rust binary
+  cargo install --profile $PROFILE --path . --root "$APPDIR/usr/"
 
-cd "$(dirname "$0")" || exit 1
+  # Create our AppRun file
+  ln -rs "$APPDIR/usr/bin/halloy" "$APPDIR/AppRun"
 
-# Launch the application with specific logging settings
-exec ./usr/bin/halloy
-EOF
+  ./appimagetool-x86_64.AppImage "$APPDIR" "$APPIMAGE_PATH"
+}
 
-chmod +x "$build_dir/AppRun"
-
-# Build the Rust binary
-echo "Building Rust binary..."
-
-# Check cargo is installed
-if ! command -v cargo &> /dev/null; then
-    echo "cargo could not be found, please install Rust and Cargo to proceed."
-    exit 1
-fi
-cargo build --release --target x86_64-unknown-linux-gnu || exit 1
-cp "$git_root_dir/target/x86_64-unknown-linux-gnu/release/halloy" "$build_dir/usr/bin/"
-
-# Now we can build the AppImage
-echo "Creating AppImage..."
-"$(realpath -- "$git_root_dir/assets/linux/appimagetool-x86_64.AppImage")" $build_dir "$appimage_output_dir/$appimage_name"
-
-# Clean up build dir
-echo "Cleaning up build directory..."
-rm -rf "$build_dir"
-
-if [ ! -f "$appimage_output_dir/$appimage_name" ]; then
-    echo "AppImage creation failed!"
-    exit 1
-fi
-echo "AppImage created at: $appimage_output_dir/$appimage_name"
-echo "Making AppImage executable..."
-chmod +x "$appimage_output_dir/$appimage_name"
-
-echo "AppImage build process completed successfully."
-exit 0
-
-
-
-
-
+case "$1" in
+  "package") package;;
+  "appimage_name") appimage_name;;
+  "appimage_path") appimage_path;;
+  *)
+    echo "available commands: package, appimage_name, appimage_path"
+    ;;
+esac

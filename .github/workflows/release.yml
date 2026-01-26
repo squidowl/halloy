@@ -28,6 +28,11 @@ jobs:
             make: bash scripts/package-linux.sh package
             artifact_path: |
               echo "ARTIFACT_PATH=$(bash scripts/package-linux.sh archive_path)" >> "$GITHUB_ENV"
+          - target: linux-appimage
+            os: ubuntu-latest
+            make: bash scripts/package-linux-appimage.sh package
+            artifact_path: |
+              echo "ARTIFACT_PATH=$(bash scripts/package-linux-appimage.sh appimage_path)" >> "$GITHUB_ENV"
     runs-on: ${{ matrix.target.os }}
     steps:
       - uses: actions/checkout@v5
@@ -36,7 +41,7 @@ jobs:
           toolchain: stable
 
       - name: Install linux deps
-        if: matrix.target.target == 'linux'
+        if: matrix.target.target == 'linux' || 'linux-appimage'
         run: |
           sudo apt update
           sudo apt install \
@@ -49,6 +54,12 @@ jobs:
             libfontconfig1-dev \
             libasound2-dev \
             libx11-xcb-dev
+
+      - name: Install linux-appimage deps
+        if: matrix.target.target == 'linux-appimage'
+        run: |
+          wget 'https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage' -O appimagetool-x86_64.AppImage
+          chmod +x appimagetool-x86_64.AppImage
 
       - name: Build
         run: ${{ matrix.target.make }}
@@ -114,6 +125,10 @@ jobs:
             artifact_name: |
               echo "ARTIFACT_NAME=$(bash scripts/package-linux.sh archive_name)" >> "$GITHUB_ENV"
             asset_type: application/gzip
+          - artifact: linux-appimage
+            artifact_name: |
+              echo "ARTIFACT_NAME=$(bash scripts/package-linux-appimage.sh appimage_name)" >> "$GITHUB_ENV"
+            asset_type: application/vnd.appimage
 
     runs-on: ubuntu-latest
     env:
