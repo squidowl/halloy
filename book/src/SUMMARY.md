@@ -92,6 +92,7 @@
   - [Filters](configuration/servers/filters.md)
   - [SASL External](configuration/servers/sasl-external.md)
   - [SASL Plain](configuration/servers/sasl-plain.md)
+  - [Confirm Message Delivery](configuration/servers/confirm-message-delivery.md)
 - [Sidebar](configuration/sidebar/README.md)
   - [Scrollbar](configuration/sidebar/scrollbar.md)
   - [Unread Indicator](configuration/sidebar/unread-indicator.md)

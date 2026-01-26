@@ -169,7 +169,7 @@ pub fn is_user_channel_server_included(
     is_included || !is_excluded
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Inclusivities {
     pub users: Option<Inclusivity>,
     pub channels: Option<Inclusivity>,
@@ -362,7 +362,7 @@ impl Inclusivities {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Inclusivity {
     All,
     Any(Vec<String>),
@@ -396,7 +396,7 @@ impl<'de> Deserialize<'de> for Inclusivity {
     }
 }
 
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
 #[serde(default)]
 pub struct Criterion {
     user: Option<String>,

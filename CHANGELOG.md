@@ -1,5 +1,9 @@
 # Unreleased
 
+Added:
+
+- Settings to disable (selectively, or for the entire server) confirmation of delivery for sent messages
+
 Fixed:
 
 - Buffer not showing history until resize
@@ -12,7 +16,7 @@ Changed:
 
 Thanks:
 
-- Bug reports: @e00E, @oooo-ps, @csmith
+- Bug reports: @e00E, @oooo-ps, @csmith, @bw1
 
 # 2026.1.1 (2026-01-21)
 
