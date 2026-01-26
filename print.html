@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-3f0d8111.js";
+            window.path_to_searchindex_js = "searchindex-0f54a80e.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-245fabda.js"></script>
@@ -3688,6 +3688,9 @@ delay_ms = 500
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="proxy"><a class="header" href="#proxy">Proxy</a></h1>
 <p>Proxy settings for Halloy.</p>
+<blockquote>
+<p>💡 <a href="configuration/preview">Preview</a> requests will be routed through the same proxy that the corresponding message is routed through (i.e. if a proxy is configured for a server, then all previews for messages on that server will be routed through the proxy).  Except for the for the <a href="#tor-2">Tor</a> proxy;  when utilizing the Tor proxy preview requests are disabled.</p>
+</blockquote>
 <ul>
 <li><a href="#proxy">Proxy</a>
 <ul>
@@ -3698,9 +3701,9 @@ delay_ms = 500
 </li>
 </ul>
 <h2 id="http"><a class="header" href="#http"><a href="#http-1">HTTP</a></a></h2>
-<p>Http proxy settings</p>
+<p>HTTP proxy settings</p>
 <h2 id="socks5"><a class="header" href="#socks5"><a href="#socks5-1">SOCKS5</a></a></h2>
-<p>Socks5 proxy settings</p>
+<p>SOCKS5 proxy settings</p>
 <h2 id="tor-1"><a class="header" href="#tor-1"><a href="#tor-2">Tor</a></a></h2>
 <p>Tor proxy settings</p>
 <div style="break-before: page; page-break-before: always;"></div>
@@ -3849,6 +3852,9 @@ password = "password"
 <p>It accepts no further configuration.</p>
 <blockquote>
 <p>⚠️ Tor support is <strong>not included by default</strong>. You must build Halloy with the <code>tor</code> feature to use this proxy type. See <a href="#optional-features">Optional Features</a> for build instructions.</p>
+</blockquote>
+<blockquote>
+<p>⚠️ To preserve privacy, <a href="configuration/preview">previews</a> are disabled when using the Tor proxy.</p>
 </blockquote>
 <ul>
 <li><a href="#tor-2">Tor</a>
