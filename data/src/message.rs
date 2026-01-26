@@ -1485,7 +1485,7 @@ pub fn parse_fragments_with_highlights(
     message_user: Option<&User>,
     channel_users: Option<&ChannelUsers>,
     target: &target::Target,
-    our_nick: Option<&Nick>,
+    our_nick: &Nick,
     highlights: &Highlights,
     server: &Server,
     casemapping: isupport::CaseMap,
@@ -1501,12 +1501,9 @@ pub fn parse_fragments_with_highlights(
                         target,
                         server,
                         casemapping,
-                    ) && ((our_nick
-                        .is_some_and(|nick| user.nickname() == *nick)
+                    ) && (user.nickname() == *our_nick
                         && highlights.nickname.case_insensitive)
-                        || (our_nick.is_some_and(|nick| {
-                            raw.as_str() == nick.as_str()
-                        }))) =>
+                        || raw.as_str() == our_nick.as_str() =>
                 {
                     if highlight_kind.is_none() {
                         highlight_kind = Some(highlight::Kind::Nick);
@@ -2425,17 +2422,19 @@ fn content<'a>(
                 casemapping,
             );
 
+            let user = message.user(casemapping);
+
             let channel_users = target.as_channel().and_then(channel_users);
 
             // Check if a synthetic action message
 
-            if let Some(user) = message.user(casemapping).as_ref()
+            if let Some(user) = user.as_ref()
                 && let Some(action) = parse_action(
                     user,
                     text,
                     channel_users,
                     &target,
-                    Some(our_nick),
+                    our_nick,
                     &config.highlights,
                     server,
                     casemapping,
@@ -2464,16 +2463,30 @@ fn content<'a>(
                 return Some((parse_fragments(text), None));
             }
 
-            Some(parse_fragments_with_highlights(
-                text.clone(),
-                message.user(casemapping).as_ref(),
-                channel_users,
-                &target,
-                Some(our_nick),
-                &config.highlights,
-                server,
-                casemapping,
-            ))
+            if user
+                .as_ref()
+                .is_some_and(|user| user.nickname() == *our_nick)
+            {
+                Some((
+                    parse_fragments_with_users(
+                        text.clone(),
+                        channel_users,
+                        casemapping,
+                    ),
+                    None,
+                ))
+            } else {
+                Some(parse_fragments_with_highlights(
+                    text.clone(),
+                    user.as_ref(),
+                    channel_users,
+                    &target,
+                    our_nick,
+                    &config.highlights,
+                    server,
+                    casemapping,
+                ))
+            }
         }
         Command::Numeric(RPL_TOPIC, params) => {
             let topic = params.get(2)?;
@@ -2860,7 +2873,7 @@ fn parse_action(
     text: &str,
     channel_users: Option<&ChannelUsers>,
     target: &target::Target,
-    our_nick: Option<&Nick>,
+    our_nick: &Nick,
     highlights: &Highlights,
     server: &Server,
     casemapping: isupport::CaseMap,
@@ -2871,24 +2884,46 @@ fn parse_action(
 
     let query = ctcp::parse_query(text)?;
 
-    Some(action_text(
-        user,
-        query.params,
-        channel_users,
-        target,
-        our_nick,
-        highlights,
-        server,
-        casemapping,
-    ))
+    if user.nickname() == *our_nick {
+        Some((
+            action_text(user, query.params, channel_users, casemapping),
+            None,
+        ))
+    } else {
+        Some(action_text_with_highlights(
+            user,
+            query.params,
+            channel_users,
+            target,
+            our_nick,
+            highlights,
+            server,
+            casemapping,
+        ))
+    }
 }
 
 pub fn action_text(
     user: &User,
     action: Option<&str>,
     channel_users: Option<&ChannelUsers>,
+    casemapping: isupport::CaseMap,
+) -> Content {
+    let text = if let Some(action) = action {
+        format!("{} {action}", user.nickname())
+    } else {
+        user.nickname().to_string()
+    };
+
+    parse_fragments_with_users(text, channel_users, casemapping)
+}
+
+pub fn action_text_with_highlights(
+    user: &User,
+    action: Option<&str>,
+    channel_users: Option<&ChannelUsers>,
     target: &target::Target,
-    our_nick: Option<&Nick>,
+    our_nick: &Nick,
     highlights: &Highlights,
     server: &Server,
     casemapping: isupport::CaseMap,
@@ -3281,7 +3316,7 @@ pub mod tests {
                         "Steve",
                     ].into_iter().map(|nick| User::from(Nick::from_str(nick, casemapping))).collect::<ChannelUsers>(),
                     target::Target::parse("#interesting", chantypes, statusmsg, casemapping),
-                    Some(Nick::from_str("Bob", casemapping)),
+                    Nick::from_str("Bob", casemapping),
                     &Highlights {
                         nickname: Nickname {exclude: None, include: Some(Inclusivities::parse(vec!["#interesting".into()])), case_insensitive: true},
                         matches: vec![],
@@ -3314,7 +3349,7 @@ pub mod tests {
                         "`Bill`",
                     ].into_iter().map(|nick| User::from(Nick::from_str(nick, casemapping))).collect::<ChannelUsers>(),
                     target::Target::parse("#interesting", chantypes, statusmsg, casemapping),
-                    Some(Nick::from_str("Bob", casemapping)),
+                    Nick::from_str("Bob", casemapping),
                     &Highlights {
                         nickname: Nickname {exclude: None, include: None, case_insensitive: false},
                         matches: vec![],
@@ -3335,7 +3370,7 @@ pub mod tests {
                         "rx",
                     ].into_iter().map(|nick| User::from(Nick::from_str(nick, casemapping))).collect::<ChannelUsers>(),
                     target::Target::parse("#funderscore-helped", chantypes, statusmsg, casemapping),
-                    Some(Nick::from_str("f_", casemapping)),
+                    Nick::from_str("f_", casemapping),
                     &Highlights {
                         nickname: Nickname {exclude: None, include: Some(Inclusivities::all()), case_insensitive: true},
                         matches: vec![],
@@ -3359,7 +3394,7 @@ pub mod tests {
                     Some(&user),
                     Some(&channel_users),
                     &target,
-                    our_nick.as_ref(),
+                    &our_nick,
                     highlights,
                     &server,
                     casemapping,
