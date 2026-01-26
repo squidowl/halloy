@@ -1634,7 +1634,7 @@ impl Halloy {
                     );
 
                     return dashboard
-                        .reload_visible_previews(&self.config.preview)
+                        .reload_visible_previews(&self.clients, &self.config)
                         .map(Message::Dashboard);
                 }
             }

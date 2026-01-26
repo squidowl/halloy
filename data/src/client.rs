@@ -29,7 +29,8 @@ use crate::time::Posix;
 use crate::user::{ChannelUsers, Nick, NickRef};
 use crate::{
     Server, User, buffer, channel_discovery, compression, config, ctcp, dcc,
-    environment, file_transfer, history, isupport, message, mode, server,
+    environment, file_transfer, history, isupport, message, mode, preview,
+    server,
 };
 
 pub mod on_connect;
@@ -172,6 +173,7 @@ pub struct Client {
     anti_flood: Option<TokenBucket<message::Encoded>>,
     mode_requests: Vec<ModeRequest>,
     channel_discovery_manager: channel_discovery::Manager,
+    preview_proxy_client: Option<Arc<reqwest::Client>>,
 }
 
 impl fmt::Debug for Client {
@@ -186,6 +188,19 @@ impl Client {
         config: Arc<config::Server>,
         sender: mpsc::Sender<proto::Message>,
     ) -> Self {
+        let preview_proxy_client = if let Some(proxy) = config.proxy.as_ref() {
+            match preview::client_from_proxy(proxy) {
+                Ok(preview_proxy_client) => Some(preview_proxy_client),
+                Err(error) => {
+                    log::warn!("[{server}] Preview fetching disabled: {error}");
+
+                    None
+                }
+            }
+        } else {
+            None
+        };
+
         Self {
             server,
             handle: sender,
@@ -230,6 +245,7 @@ impl Client {
             resolved_netid: None,
             anti_flood: Some(TokenBucket::new(config.anti_flood, 10)),
             mode_requests: Vec::new(),
+            preview_proxy_client: preview_proxy_client.map(Arc::new),
             config,
             channel_discovery_manager: channel_discovery::Manager::new(),
         }
@@ -3845,6 +3861,14 @@ impl Map {
 
     pub fn get_server_is_connected(&self, server: &Server) -> bool {
         self.client(server).is_some()
+    }
+
+    pub fn get_server_preview_proxy_client(
+        &self,
+        server: &Server,
+    ) -> Option<Arc<reqwest::Client>> {
+        self.client(server)
+            .and_then(|client| client.preview_proxy_client.clone())
     }
 
     pub fn get_seed(&self, kind: &history::Kind) -> Option<history::Seed> {

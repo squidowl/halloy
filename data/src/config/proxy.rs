@@ -1,3 +1,5 @@
+use std::fmt;
+
 use serde::Deserialize;
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
@@ -46,6 +48,21 @@ impl From<Proxy> for irc::connection::Proxy {
             },
             #[cfg(feature = "tor")]
             Proxy::Tor => irc::connection::Proxy::Tor,
+        }
+    }
+}
+
+impl fmt::Display for Proxy {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Proxy::Http { host, port, .. } => {
+                write!(f, "http://{host}:{port}")
+            }
+            Proxy::Socks5 { host, port, .. } => {
+                write!(f, "socks5://{host}:{port}")
+            }
+            #[cfg(feature = "tor")]
+            Proxy::Tor => write!(f, "tor"),
         }
     }
 }

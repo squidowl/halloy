@@ -2921,6 +2921,7 @@ dependencies = [
  "palette",
  "rand 0.9.2",
  "rand_chacha 0.9.0",
+ "reqwest",
  "rfd",
  "rodio",
  "signal-hook",
