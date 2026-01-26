@@ -41,6 +41,7 @@ You can define multiple server sections in the configuration file. Each server s
   - [Filters](#filters)
   - [SASL Plain](#sasl-plain)
   - [SASL External](#sasl-external)
+  - [Confirm Message Delivery](#confirm-message-delivery)
 
 ## Examples
 
@@ -472,7 +473,7 @@ chathistory = true
 
 ### proxy
 
-Custom proxy for specified Server
+Custom proxy for specified server
 
 The logic is as follows:
 
@@ -511,6 +512,10 @@ Plain SASL auth using a username and password
 ## [SASL External](sasl-external.md)
 
 External SASL auth uses a PEM encoded X509 certificate.
+
+## [Confirm Message Delivery](confirm-message-delivery.md)
+
+Whether and where to confirm delivery of sent messages, if the server supports [`echo-message`](https://ircv3.net/specs/extensions/echo-message)
 
 [^1]: Windows path strings should usually be specified as literal strings (e.g. `'C:\Users\Default\'`), otherwise directory separators will need to be escaped (e.g. `"C:\\Users\\Default\\"`).
 [^2]: Relative paths are prefixed with the config directory (i.e. if you have your config.toml in `/home/me/.config/halloy/config.toml`, path `.passwd/libera` will be converted to `/home/me/.config/halloy/.passwd/libera`).
