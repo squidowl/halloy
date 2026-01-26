@@ -2,18 +2,23 @@
 
 Fixed:
 
+- Buffer not showing history until resize
 - Previews are fetched through the same proxy as the server (or default proxy) for HTTP/SOCKS5 proxies
+- No longer highlight nickname mentions in sent messages in certain scenarios
+
+Changed:
+
+- No longer highlight matches in sent messages
 
 Thanks:
 
-- Bug reports: @oooo-ps
+- Bug reports: @e00E, @oooo-ps, @csmith
 
 # 2026.1.1 (2026-01-21)
 
 Fixed:
 
 - Version number reported in AppData file
-- Buffer not showing history until resize
 
 Thanks:
 
