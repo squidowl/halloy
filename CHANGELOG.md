@@ -1,11 +1,23 @@
 # Unreleased
 
+Fixed:
+
+- Previews are fetched through the same proxy as the server (or default proxy) for HTTP/SOCKS5 proxies
+
+Thanks:
+
+- Bug reports: @oooo-ps
+
 # 2026.1.1 (2026-01-21)
 
 Fixed:
 
 - Version number reported in AppData file
 - Buffer not showing history until resize
+
+Thanks:
+
+- Bug reports: @englut
 
 # 2026.1 (2026-01-20)
 
