@@ -1,6 +1,8 @@
 use nom::branch::alt;
 use nom::bytes::complete::tag;
-use nom::character::complete::{alpha1, char, crlf, none_of, one_of, satisfy};
+use nom::character::complete::{
+    alpha1, char, crlf, line_ending, none_of, one_of, satisfy,
+};
 use nom::combinator::{
     complete, cut, map, opt, peek, recognize, value, verify,
 };
@@ -17,7 +19,7 @@ pub fn message_bytes(bytes: Vec<u8>) -> Result<Message, Error> {
     message(&input)
 }
 
-/// Parses a single IRC message terminated by '\r\n`
+/// Parses a single IRC message
 pub fn message(input: &str) -> Result<Message, Error> {
     let mut message = cut(terminated(
         // '@' <tags> <SPACE>
@@ -27,7 +29,10 @@ pub fn message(input: &str) -> Result<Message, Error> {
             command,
         )),
         // Discard addtl. \r if it exists, allow whitespace before
-        preceded(many0(char(' ')), alt((preceded(char('\r'), crlf), crlf))),
+        preceded(
+            many0(char(' ')),
+            alt((preceded(char('\r'), crlf), line_ending)),
+        ),
     ));
 
     message(input)
@@ -425,6 +430,19 @@ mod test {
                         Some(vec![]),
                     ),
                 },
+            ),
+            // Message only terminted by '\n' sent by irc.ppy.sh
+            (
+                Vec::from(b":user!cho@ppy.sh QUIT :quit\n"),
+                Message {
+                    tags: tags![],
+                    source:Some(Source::User(User {
+                        nickname: "user".to_string(),
+                        username: Some("cho".to_string()),
+                        hostname: Some("ppy.sh".to_string()),
+                    })),
+                    command: Command::QUIT(Some("quit".to_string())),
+                }
             ),
             (
                 Vec::from(b":soju.bouncer FAIL * ACCOUNT_REQUIRED :Authentication required\r\n"),
