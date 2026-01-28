@@ -289,6 +289,7 @@ pub fn view<'a>(
         .padding([2, 4])
         .wrapping(text::Wrapping::WordOrGlyph)
         .height(Length::Shrink)
+        .line_height(theme::line_height(&config.font))
         .style(style);
 
     if !disabled {
@@ -498,6 +499,7 @@ pub fn view<'a>(
                         None,
                     ))
                     .style(move |_| our_user_style)
+                    .line_height(theme::line_height(&config.font))
                     .font_maybe(
                         theme::font_style::nickname(theme, false)
                             .map(font::get),
