@@ -927,18 +927,21 @@ fn upstream_buffer_button<'a>(
                         text(network.name.to_string())
                             .style(buffer_title_style)
                             .font_maybe(buffer_title_font.clone())
-                            .shaping(text::Shaping::Advanced),
+                            .shaping(text::Shaping::Advanced)
+                            .line_height(theme::line_height(&config.font)),
                         Space::new().width(6),
                         text(server.name.to_string())
                             .style(theme::text::secondary)
                             .font_maybe(buffer_title_font)
-                            .shaping(text::Shaping::Advanced),
+                            .shaping(text::Shaping::Advanced)
+                            .line_height(theme::line_height(&config.font)),
                     ])
                 } else {
                     text(server.to_string())
                         .style(buffer_title_style)
                         .font_maybe(buffer_title_font)
                         .shaping(text::Shaping::Advanced)
+                        .line_height(theme::line_height(&config.font))
                         .into()
                 }
             }
@@ -946,11 +949,13 @@ fn upstream_buffer_button<'a>(
                 .style(buffer_title_style)
                 .font_maybe(buffer_title_font)
                 .shaping(text::Shaping::Advanced)
+                .line_height(theme::line_height(&config.font))
                 .into(),
             buffer::Upstream::Query(_, query) => text(query.to_string())
                 .style(buffer_title_style)
                 .font_maybe(buffer_title_font)
                 .shaping(text::Shaping::Advanced)
+                .line_height(theme::line_height(&config.font))
                 .into(),
         })
         .padding(Padding::default().left(left_padding))
