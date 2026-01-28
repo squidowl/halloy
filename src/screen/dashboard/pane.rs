@@ -431,7 +431,7 @@ impl TitleBar {
                 )
                 .shaping(text::Shaping::Advanced),
         )
-        .height(theme::line_height(&config.font).ceil().max(22.0))
+        .height(theme::resolve_line_height(&config.font).ceil().max(22.0))
         .padding([0, 4])
         .align_y(iced::alignment::Vertical::Center);
 
