@@ -151,6 +151,26 @@ where
     }
 }
 
+pub fn deserialize_positive_float_maybe<'de, D>(
+    deserializer: D,
+) -> Result<Option<f32>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let float_maybe: Option<f32> = Deserialize::deserialize(deserializer)?;
+
+    if let Some(float) = float_maybe
+        && (!float.is_finite() || float <= 0.0)
+    {
+        Err(serde::de::Error::invalid_value(
+            serde::de::Unexpected::Float(float.into()),
+            &"any positive number",
+        ))
+    } else {
+        Ok(float_maybe)
+    }
+}
+
 pub fn deserialize_empty_string_as_none<'de, D>(
     deserializer: D,
 ) -> Result<Option<String>, D::Error>
