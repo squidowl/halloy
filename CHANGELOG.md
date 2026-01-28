@@ -3,6 +3,7 @@
 Added:
 
 - Settings to disable (selectively, or for the entire server) confirmation of delivery for sent messages
+- Setting to adjust inner spacing and outer padding for panes (`pane.gap.inner`, `pane.gap.outer`)
 
 Fixed:
 
