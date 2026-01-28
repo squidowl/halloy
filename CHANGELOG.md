@@ -3,6 +3,7 @@
 Added:
 
 - Settings to disable (selectively, or for the entire server) confirmation of delivery for sent messages
+- Setting to configure font line height (`font.line_height`)
 
 Fixed:
 
