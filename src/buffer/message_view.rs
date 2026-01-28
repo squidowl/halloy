@@ -5,7 +5,6 @@ use data::isupport::{CaseMap, PrefixMap};
 use data::server::Server;
 use data::user::ChannelUsers;
 use data::{Config, User, message, target};
-use iced::widget::text::LineHeight;
 use iced::widget::{Space, button, column, container, row, text};
 use iced::{Color, Length, alignment};
 
@@ -329,8 +328,9 @@ impl<'a> ChannelQueryLayout<'a> {
         let content = if not_sent {
             let font_size = 0.85
                 * self.config.font.size.map_or(theme::TEXT_SIZE, f32::from);
-            let icon_size =
-                LineHeight::default().to_absolute(font_size.into()).0;
+            let icon_size = theme::line_height(&self.config.font)
+                .to_absolute(font_size.into())
+                .0;
 
             Element::from(column![
                 message_content,
