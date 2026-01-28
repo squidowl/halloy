@@ -9,6 +9,7 @@ pub struct Pane {
     pub split_axis: SplitAxis,
     pub scrollbar: Scrollbar,
     pub restore_on_launch: bool,
+    pub gap: Gap,
 }
 
 impl Default for Pane {
@@ -17,6 +18,23 @@ impl Default for Pane {
             split_axis: SplitAxis::default(),
             scrollbar: Scrollbar::default(),
             restore_on_launch: true,
+            gap: Gap::default(),
+        }
+    }
+}
+
+#[derive(Debug, Copy, Clone, Deserialize)]
+#[serde(default)]
+pub struct Gap {
+    pub inner: u32,
+    pub outer: u16,
+}
+
+impl Default for Gap {
+    fn default() -> Self {
+        Self {
+            inner: 4,
+            outer: 8,
         }
     }
 }
