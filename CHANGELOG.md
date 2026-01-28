@@ -3,12 +3,18 @@
 Added:
 
 - Settings to disable (selectively, or for the entire server) confirmation of delivery for sent messages
+- Settings to configure card and imagge preview dimensions 
 
 Fixed:
 
 - Buffer not showing history until resize
 - Previews are fetched through the same proxy as the server (or default proxy) for HTTP/SOCKS5 proxies
 - No longer highlight nickname mentions in sent messages in certain scenarios
+- Card preview description text is now limited in height to prevent excessive text display
+
+Thanks:
+
+- Bug reports: @csmith
 
 Changed:
 

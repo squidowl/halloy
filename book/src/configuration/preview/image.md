@@ -7,6 +7,8 @@ Specific image preview settings.
   - [Configuration](#configuration)
     - [action](#action)
     - [round\_corners](#round_corners)
+    - [max\_width](#max_width)
+    - [max\_height](#max_height)
     - [include](#include)
     - [exclude](#exclude)
 
@@ -44,6 +46,32 @@ Round the corners of the image.
 
 [preview.image]
 round_corners = true
+```
+
+### max_width
+
+Maximum width of the image in pixels.
+
+```toml
+# Type: number
+# Values: any positive number
+# Default: 550.0
+
+[preview.image]
+max_width = 550.0
+```
+
+### max_height
+
+Maximum height of the image in pixels.
+
+```toml
+# Type: number
+# Values: any positive number
+# Default: 350.0
+
+[preview.image]
+max_height = 350.0
 ```
 
 ### exclude

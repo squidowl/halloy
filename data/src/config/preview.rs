@@ -168,6 +168,12 @@ pub struct Card {
     pub include: Option<Inclusivities>,
     pub show_image: bool,
     pub round_image_corners: bool,
+    /// Maximum width of the card in pixels
+    pub max_width: f32,
+    /// Maximum height of the description in pixels
+    pub description_max_height: f32,
+    /// Maximum height of the image in pixels
+    pub image_max_height: f32,
 }
 
 impl Default for Card {
@@ -177,6 +183,9 @@ impl Default for Card {
             include: None,
             show_image: true,
             round_image_corners: true,
+            max_width: 400.0,
+            description_max_height: 100.0,
+            image_max_height: 200.0,
         }
     }
 }
@@ -223,6 +232,10 @@ pub struct Image {
     pub exclude: Option<Inclusivities>,
     pub include: Option<Inclusivities>,
     pub round_corners: bool,
+    /// Maximum width of the image in pixels
+    pub max_width: f32,
+    /// Maximum height of the image in pixels
+    pub max_height: f32,
 }
 
 impl Default for Image {
@@ -232,6 +245,8 @@ impl Default for Image {
             exclude: None,
             include: None,
             round_corners: true,
+            max_width: 550.0,
+            max_height: 350.0,
         }
     }
 }
