@@ -1492,7 +1492,9 @@ fn preview_row<'a>(
                                     ),
                             )
                             .clip(false)
-                            .max_height(config.preview.card.description_max_height)
+                            .max_height(
+                                config.preview.card.description_max_height,
+                            )
                         }),
                         config.preview.card.show_image.then_some(
                             container(
