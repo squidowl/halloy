@@ -28,7 +28,9 @@ pub use self::sidebar::Sidebar;
 use crate::appearance::theme::Styles;
 use crate::appearance::{self, Appearance};
 use crate::audio::{self};
-use crate::serde::deserialize_positive_integer_maybe;
+use crate::serde::{
+    deserialize_positive_float_maybe, deserialize_positive_integer_maybe,
+};
 use crate::server::{ConfigMap as ServerMap, ServerName};
 use crate::{Theme, environment};
 
@@ -120,6 +122,8 @@ pub struct Font {
     pub family: Option<String>,
     #[serde(deserialize_with = "deserialize_positive_integer_maybe")]
     pub size: Option<u8>,
+    #[serde(deserialize_with = "deserialize_positive_float_maybe")]
+    pub line_height: Option<f32>,
     #[serde(deserialize_with = "deserialize_font_weight_from_string")]
     pub weight: font::Weight,
     #[serde(deserialize_with = "deserialize_optional_font_weight_from_string")]
@@ -134,6 +138,7 @@ impl Default for Font {
         Self {
             family: None,
             size: None,
+            line_height: None,
             weight: font::Weight::Normal,
             bold_weight: None,
             only_emojis_size: None,
