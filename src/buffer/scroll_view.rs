@@ -1481,13 +1481,18 @@ fn preview_row<'a>(
                                     .map(font::get)
                             ),
                         description.as_ref().map(|description| {
-                            text(description)
-                                .shaping(text::Shaping::Advanced)
-                                .style(theme::text::secondary)
-                                .font_maybe(
-                                    theme::font_style::secondary(theme)
-                                        .map(font::get),
-                                )
+                            container(
+                                text(description)
+                                    .shaping(text::Shaping::Advanced)
+                                    .wrapping(text::Wrapping::WordOrGlyph)
+                                    .style(theme::text::secondary)
+                                    .font_maybe(
+                                        theme::font_style::secondary(theme)
+                                            .map(font::get),
+                                    ),
+                            )
+                            .clip(false)
+                            .max_height(100.0)
                         }),
                         config.preview.card.show_image.then_some(
                             container(
@@ -1505,6 +1510,7 @@ fn preview_row<'a>(
                                     )
                                     .content_fit(ContentFit::ScaleDown)
                             )
+                            .padding(Padding::default().top(8))
                             .max_height(200)
                         ),
                     ]
