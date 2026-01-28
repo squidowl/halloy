@@ -1492,7 +1492,7 @@ fn preview_row<'a>(
                                     ),
                             )
                             .clip(false)
-                            .max_height(100.0)
+                            .max_height(config.preview.card.description_max_height)
                         }),
                         config.preview.card.show_image.then_some(
                             container(
@@ -1511,11 +1511,11 @@ fn preview_row<'a>(
                                     .content_fit(ContentFit::ScaleDown)
                             )
                             .padding(Padding::default().top(8))
-                            .max_height(200)
+                            .max_height(config.preview.card.image_max_height)
                         ),
                     ]
                     .spacing(8)
-                    .max_width(400),
+                    .max_width(config.preview.card.max_width),
                 )
                 .padding(8),
             )
@@ -1534,8 +1534,8 @@ fn preview_row<'a>(
                         })
                         .content_fit(ContentFit::ScaleDown),
                 )
-                .max_width(550)
-                .max_height(350),
+                .max_width(config.preview.image.max_width)
+                .max_height(config.preview.image.max_height),
             )
             .on_press(match config.preview.image.action {
                 data::config::preview::ImageAction::OpenUrl => {

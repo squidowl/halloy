@@ -7,6 +7,9 @@ Specific card preview settings.
   - [Configuration](#configuration)
     - [show\_image](#show_image)
     - [round\_image\_corners](#round_image_corners)
+    - [max\_width](#max_width)
+    - [description\_max\_height](#description_max_height)
+    - [image\_max\_height](#image_max_height)
     - [include](#include)
     - [exclude](#exclude)
 
@@ -44,6 +47,45 @@ Round the corners of the image in the card preview (if shown).
 
 [preview.card]
 round_image_corners = true
+```
+
+### max_width
+
+Maximum width of the card in pixels.
+
+```toml
+# Type: number
+# Values: any positive number
+# Default: 400.0
+
+[preview.card]
+max_width = 400.0
+```
+
+### description_max_height
+
+Maximum height of the description text in pixels.
+
+```toml
+# Type: number
+# Values: any positive number
+# Default: 100.0
+
+[preview.card]
+description_max_height = 100.0
+```
+
+### image_max_height
+
+Maximum height of the image in the card preview in pixels.
+
+```toml
+# Type: number
+# Values: any positive number
+# Default: 200.0
+
+[preview.card]
+image_max_height = 200.0
 ```
 
 ### exclude
