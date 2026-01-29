@@ -32,10 +32,7 @@ pub struct Gap {
 
 impl Default for Gap {
     fn default() -> Self {
-        Self {
-            inner: 4,
-            outer: 8,
-        }
+        Self { inner: 4, outer: 8 }
     }
 }
 
