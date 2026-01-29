@@ -938,7 +938,8 @@ impl Commands {
                     column(entries.iter().map(|(index, command)| {
                         let selected = Some(*index) == *highlighted;
                         let content =
-                            text(format!("/{}", command.title.to_lowercase()));
+                            text(format!("/{}", command.title.to_lowercase()))
+                                .line_height(theme::line_height(&config.font));
 
                         Element::from(
                             container(content)
@@ -970,7 +971,12 @@ impl Commands {
                 subcommand,
             } => {
                 if config.buffer.commands.show_description {
-                    Some(command.view(input, subcommand.as_ref(), theme))
+                    Some(command.view(
+                        input,
+                        subcommand.as_ref(),
+                        config,
+                        theme,
+                    ))
                 } else {
                     None
                 }
@@ -1077,6 +1083,7 @@ impl Command {
         &self,
         input: &str,
         subcommand: Option<&Command>,
+        config: &Config,
         theme: &'a Theme,
     ) -> Element<'a, Message> {
         let command_prefix = format!("/{}", self.title.to_lowercase());
@@ -1110,10 +1117,13 @@ impl Command {
             .saturating_sub(1),
         );
 
-        let title = Some(Element::from(text(self.title)));
+        let title = Some(Element::from(
+            text(self.title).line_height(theme::line_height(&config.font)),
+        ));
 
         let arg_text = |index: usize, arg: &Argument| {
             let content = text(format!("{arg}"))
+                .line_height(theme::line_height(&config.font))
                 .style(move |theme| {
                     if index == active_arg {
                         theme::text::tertiary(theme)
@@ -1129,6 +1139,7 @@ impl Command {
 
             if let Some(arg_tooltip) = &arg.tooltip {
                 let tooltip_indicator = text("*")
+                    .line_height(theme::line_height(&config.font))
                     .style(move |theme| {
                         if index == active_arg {
                             theme::text::tertiary(theme)
@@ -1144,12 +1155,13 @@ impl Command {
                     .size(8);
 
                 Element::from(row![
-                    text(" "),
+                    text(" ").line_height(theme::line_height(&config.font)),
                     tooltip(
                         row![content, tooltip_indicator]
                             .align_y(iced::Alignment::Start),
                         container(
                             text(arg_tooltip.clone())
+                                .line_height(theme::line_height(&config.font))
                                 .style(move |theme| {
                                     if index == active_arg {
                                         theme::text::tertiary(theme)
@@ -1172,7 +1184,10 @@ impl Command {
                     .delay(iced::time::Duration::ZERO)
                 ])
             } else {
-                Element::from(row![text(" "), content])
+                Element::from(row![
+                    text(" ").line_height(theme::line_height(&config.font)),
+                    content
+                ])
             }
         };
 
@@ -1211,7 +1226,9 @@ impl Command {
 
             Either::Right(if self.subcommands.is_some() {
                 Either::Left(args.chain(iter::once(Element::from(row![
-                    text(" ...").style(theme::text::none)
+                    text(" ...")
+                        .line_height(theme::line_height(&config.font))
+                        .style(theme::text::none)
                 ]))))
             } else {
                 Either::Right(args)
@@ -1224,9 +1241,12 @@ impl Command {
                     subcommand.description()
                 })
                 .map(|description| {
-                    text(description).style(theme::text::secondary).font_maybe(
-                        theme::font_style::secondary(theme).map(font::get),
-                    )
+                    text(description)
+                        .line_height(theme::line_height(&config.font))
+                        .style(theme::text::secondary)
+                        .font_maybe(
+                            theme::font_style::secondary(theme).map(font::get),
+                        )
                 }),
             row(title.into_iter().chain(args)),
         ])
@@ -2667,6 +2687,7 @@ impl Emojis {
                             .unwrap_or(" "),
                             shortcode
                         ))
+                        .line_height(theme::line_height(&config.font))
                         .shaping(text::Shaping::Advanced);
 
                         Element::from(
