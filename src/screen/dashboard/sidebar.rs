@@ -796,8 +796,11 @@ fn upstream_buffer_button<'a>(
             casemapping,
         )
     });
-    let is_unread_query = matches!(buffer, buffer::Upstream::Query(_, _)) && has_unread;
-    let has_highlight = has_highlight || (is_unread_query && config.sidebar.unread_indicator.query_as_highlight);
+    let is_unread_query =
+        matches!(buffer, buffer::Upstream::Query(_, _)) && has_unread;
+    let has_highlight = has_highlight
+        || (is_unread_query
+            && config.sidebar.unread_indicator.query_as_highlight);
 
     let show_highlight_icon = has_highlight
         && config.sidebar.unread_indicator.has_unread_highlight_icon()
