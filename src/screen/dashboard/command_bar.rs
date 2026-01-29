@@ -65,12 +65,14 @@ impl CommandBar {
         // 1px larger than default
         let font_size =
             config.font.size.map_or(theme::TEXT_SIZE, f32::from) + 1.0;
+        let line_height = theme::line_height(&config.font);
 
         let combo_box =
             combo_box(&self.state, "Type a command...", None, Message::Command)
                 .on_close(Message::Unfocused)
                 .on_option_hovered(Message::Hovered)
                 .size(font_size)
+                .line_height(line_height)
                 .padding([8, 8]);
 
         // Capture ESC so we can close the combobox manually from application
@@ -85,22 +87,28 @@ impl CommandBar {
         double_pass(
             // Layout should be based on the Shrink text size width of largest option
             column(
-                std::iter::once(text("Type a command...").size(font_size))
-                    .chain(
-                        Command::list(
-                            buffers,
-                            config,
-                            focus,
-                            resize_buffer,
-                            version,
-                            main_window,
-                        )
-                        .iter()
-                        .map(|command| {
-                            text(command.to_string()).size(font_size)
-                        }),
+                std::iter::once(
+                    text("Type a command...")
+                        .size(font_size)
+                        .line_height(line_height),
+                )
+                .chain(
+                    Command::list(
+                        buffers,
+                        config,
+                        focus,
+                        resize_buffer,
+                        version,
+                        main_window,
                     )
-                    .map(Element::from),
+                    .iter()
+                    .map(|command| {
+                        text(command.to_string())
+                            .size(font_size)
+                            .line_height(line_height)
+                    }),
+                )
+                .map(Element::from),
             )
             // Give it some extra width
             .padding([0, 20]),
