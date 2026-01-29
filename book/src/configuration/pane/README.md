@@ -9,6 +9,7 @@ Pane settings
     - [width](#width)
     - [scroller\_width](#scroller_width)
     - [split\_axis](#split_axis)
+  - [Gap](#gap)
 
 ## Configuration
 
@@ -68,3 +69,7 @@ Default axis used when splitting the focused pane to create a new pane (i.e. def
 [pane]
 split_axis = "vertical"
 ```
+
+## [Gap](gap.md)
+
+Gap configuration for pane spacing and padding.
