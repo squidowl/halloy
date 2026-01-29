@@ -9,6 +9,7 @@ Unread buffer indicator style.
     - [highlight\_icon](#highlight_icon)
     - [icon\_size](#icon_size)
     - [highlight\_icon\_size](#highlight_icon_size)
+    - [query\_as\_highlight](#query_as_highlight)
     - [exclude](#exclude)
     - [include](#include)
 
@@ -81,6 +82,19 @@ Note: If set larger than the line height of the specified [font](../font/) then 
 
 [sidebar.unread_indicator]
 highlight_icon_size = 8
+```
+
+### query_as_highlight
+
+Treat unread query (direct message) buffers as highlights for sidebar styling.
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: false
+
+[sidebar.unread_indicator]
+query_as_highlight = true
 ```
 
 ### exclude
