@@ -20,7 +20,7 @@ pub use self::selectable_text::selectable_text;
 pub use self::shortcut::shortcut;
 pub use self::tooltip::tooltip;
 use crate::appearance::theme::TEXT_SIZE;
-use crate::{Theme, font};
+use crate::{Theme, font, theme};
 
 pub mod anchored_overlay;
 pub mod color_picker;
@@ -77,8 +77,8 @@ where
     let (text, font_size, line_height) = match marker {
         Marker::Dot => (
             "\u{E81A}",
-            font_size * font::MESSAGE_MARKER_FONT_SCALE,
-            LineHeight::Relative(1.0),
+            font_size,
+            theme::line_height(&config.font),
         ),
         Marker::Expand => {
             ("\u{E81B}", font_size * 0.75, LineHeight::Relative(1.75))

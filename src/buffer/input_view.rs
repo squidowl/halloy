@@ -289,6 +289,7 @@ pub fn view<'a>(
         .padding([2, 4])
         .wrapping(text::Wrapping::WordOrGlyph)
         .height(Length::Shrink)
+        .line_height(theme::line_height(&config.font))
         .style(style);
 
     if !disabled {
@@ -498,6 +499,7 @@ pub fn view<'a>(
                         None,
                     ))
                     .style(move |_| our_user_style)
+                    .line_height(theme::line_height(&config.font))
                     .font_maybe(
                         theme::font_style::nickname(theme, false)
                             .map(font::get),
@@ -517,7 +519,9 @@ pub fn view<'a>(
                 .height(Length::Shrink)
                 .align_y(Alignment::Center)
         )
-        .max_height((7.55 * theme::line_height(&config.font).ceil()).ceil())
+        .max_height(
+            (7.55 * theme::resolve_line_height(&config.font).ceil()).ceil(),
+        )
         .padding(8)
         .style(theme::container::buffer_text_input)
     ]
