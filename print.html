@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-2a5b0acd.js";
+            window.path_to_searchindex_js = "searchindex-4ceb480d.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-72d18ae4.js"></script>
@@ -4669,6 +4669,7 @@ scroller_width = 5
 <li><a href="#highlight_icon">highlight_icon</a></li>
 <li><a href="#icon_size">icon_size</a></li>
 <li><a href="#highlight_icon_size">highlight_icon_size</a></li>
+<li><a href="#query_as_highlight">query_as_highlight</a></li>
 <li><a href="#exclude-8">exclude</a></li>
 <li><a href="#include-7">include</a></li>
 </ul>
@@ -4723,6 +4724,15 @@ icon_size = 6
 
 [sidebar.unread_indicator]
 highlight_icon_size = 8
+</code></pre>
+<h3 id="query_as_highlight"><a class="header" href="#query_as_highlight">query_as_highlight</a></h3>
+<p>Treat unread query (direct message) buffers as highlights for sidebar styling.</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: false
+
+[sidebar.unread_indicator]
+query_as_highlight = true
 </code></pre>
 <h3 id="exclude-8"><a class="header" href="#exclude-8">exclude</a></h3>
 <p><a href="/configuration/conditions.html">Exclusion conditions</a> for which unread indicators
