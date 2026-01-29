@@ -5,6 +5,7 @@ Added:
 - Settings to disable (selectively, or for the entire server) confirmation of delivery for sent messages
 - Setting to adjust inner spacing and outer padding for panes (`pane.gap.inner`, `pane.gap.outer`)
 - Setting to style unread query buffers as highlights in the sidebar (`sidebar.unread_indicator.query_as_highlight`)
+- Settings to configure card and imagge preview dimensions 
 
 Fixed:
 
@@ -12,6 +13,7 @@ Fixed:
 - Previews are fetched through the same proxy as the server (or default proxy) for HTTP/SOCKS5 proxies
 - No longer highlight nickname mentions in sent messages in certain scenarios
 - Filters applied to one server will no longer hide query panes for other servers
+- Card preview description text is now limited in height to prevent excessive text display
 
 Changed:
 
