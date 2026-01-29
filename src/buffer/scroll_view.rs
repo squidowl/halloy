@@ -1481,13 +1481,20 @@ fn preview_row<'a>(
                                     .map(font::get)
                             ),
                         description.as_ref().map(|description| {
-                            text(description)
-                                .shaping(text::Shaping::Advanced)
-                                .style(theme::text::secondary)
-                                .font_maybe(
-                                    theme::font_style::secondary(theme)
-                                        .map(font::get),
-                                )
+                            container(
+                                text(description)
+                                    .shaping(text::Shaping::Advanced)
+                                    .wrapping(text::Wrapping::WordOrGlyph)
+                                    .style(theme::text::secondary)
+                                    .font_maybe(
+                                        theme::font_style::secondary(theme)
+                                            .map(font::get),
+                                    ),
+                            )
+                            .clip(false)
+                            .max_height(
+                                config.preview.card.description_max_height,
+                            )
                         }),
                         config.preview.card.show_image.then_some(
                             container(
@@ -1505,11 +1512,12 @@ fn preview_row<'a>(
                                     )
                                     .content_fit(ContentFit::ScaleDown)
                             )
-                            .max_height(200)
+                            .padding(Padding::default().top(8))
+                            .max_height(config.preview.card.image_max_height)
                         ),
                     ]
                     .spacing(8)
-                    .max_width(400),
+                    .max_width(config.preview.card.max_width),
                 )
                 .padding(8),
             )
@@ -1528,8 +1536,8 @@ fn preview_row<'a>(
                         })
                         .content_fit(ContentFit::ScaleDown),
                 )
-                .max_width(550)
-                .max_height(350),
+                .max_width(config.preview.image.max_width)
+                .max_height(config.preview.image.max_height),
             )
             .on_press(match config.preview.image.action {
                 data::config::preview::ImageAction::OpenUrl => {
@@ -1550,9 +1558,12 @@ fn preview_row<'a>(
         .map(|timestamp| {
             selectable_text(" ".repeat(timestamp.chars().count()))
         });
+    let space = selectable_text(" ");
 
     let aligned_content = match &config.buffer.nickname.alignment {
-        data::buffer::Alignment::Left => row![timestamp_gap, content].into(),
+        data::buffer::Alignment::Left => {
+            row![timestamp_gap, space, content].into()
+        }
         data::buffer::Alignment::Right => {
             let prefixes = message.target.prefixes().map_or(
                 right_aligned_width.and_then(|_| {
@@ -1581,7 +1592,6 @@ fn preview_row<'a>(
                 },
             );
 
-            let space = selectable_text(" ");
             let with_access_levels = config.buffer.nickname.show_access_levels;
             let truncate = config.buffer.nickname.truncate;
 
@@ -1610,9 +1620,11 @@ fn preview_row<'a>(
             };
 
             let timestamp_nickname_row =
-                row![timestamp_gap, prefixes, nick, space,];
+                row![timestamp_gap, space, prefixes, nick];
 
-            row![timestamp_nickname_row, content].into()
+            let space = selectable_text(" ");
+
+            row![timestamp_nickname_row, space, content].into()
         }
         data::buffer::Alignment::Top => content,
     };
