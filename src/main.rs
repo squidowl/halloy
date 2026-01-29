@@ -1087,7 +1087,7 @@ impl Halloy {
                                                 statusmsg,
                                                 casemapping,
                                             ) {
-                                                let blocked = FilterChain::borrow(dashboard.get_filters()).filter_query(&query);
+                                                let blocked = FilterChain::borrow(dashboard.get_filters()).filter_query(&query, &server);
                                                 let has_unread = dashboard.history().has_unread(&history::Kind::Query(server.clone(), query));
 
                                                 if !blocked && (has_unread || !self.main_window.focused) {
