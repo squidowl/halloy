@@ -409,6 +409,8 @@ pub fn view<'a>(
                 |title: Text<'a>,
                  keybind: Option<data::shortcut::KeyBind>,
                  message: Option<Message>| {
+                    let title =
+                        title.line_height(theme::line_height(&config.font));
                     button(
                         row![
                             title,
@@ -416,6 +418,9 @@ pub fn view<'a>(
                                 text(format!("({kb})"))
                                     .shaping(text::Shaping::Advanced)
                                     .size(theme::TEXT_SIZE - 2.0)
+                                    .line_height(theme::line_height(
+                                        &config.font,
+                                    ))
                                     .style(theme::text::secondary)
                                     .font_maybe(
                                         theme::font_style::secondary(theme)

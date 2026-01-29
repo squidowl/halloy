@@ -207,6 +207,9 @@ impl Sidebar {
                              keybind: Option<&data::shortcut::KeyBind>,
                              icon: Text<'a>,
                              message: Message| {
+                                let title = title.line_height(
+                                    theme::line_height(&config.font),
+                                );
                                 let keybind = keybind.and_then(|kb| match kb {
                                     data::shortcut::KeyBind::Bind {
                                         ..
@@ -214,6 +217,9 @@ impl Sidebar {
                                         text(format!("({kb})"))
                                             .shaping(text::Shaping::Advanced)
                                             .size(theme::TEXT_SIZE - 2.0)
+                                            .line_height(theme::line_height(
+                                                &config.font,
+                                            ))
                                             .style(theme::text::secondary)
                                             .font_maybe(
                                                 theme::font_style::secondary(
@@ -352,6 +358,9 @@ impl Sidebar {
                             ),
                             Menu::Version => container(
                                 text(format!("Halloy ({})", version.current))
+                                    .line_height(theme::line_height(
+                                        &config.font,
+                                    ))
                                     .style(theme::text::secondary)
                                     .font_maybe(
                                         theme::font_style::secondary(theme)
@@ -1098,14 +1107,16 @@ fn upstream_buffer_button<'a>(
                     ),
                 };
 
-                button(text(content))
-                    .width(length)
-                    .padding(config.context_menu.padding.entry)
-                    .style(|theme, status| {
-                        theme::button::primary(theme, status, false)
-                    })
-                    .on_press_maybe(message)
-                    .into()
+                button(
+                    text(content).line_height(theme::line_height(&config.font)),
+                )
+                .width(length)
+                .padding(config.context_menu.padding.entry)
+                .style(|theme, status| {
+                    theme::button::primary(theme, status, false)
+                })
+                .on_press_maybe(message)
+                .into()
             },
         )
         .into()
