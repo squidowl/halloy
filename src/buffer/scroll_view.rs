@@ -1558,9 +1558,12 @@ fn preview_row<'a>(
         .map(|timestamp| {
             selectable_text(" ".repeat(timestamp.chars().count()))
         });
+    let space = selectable_text(" ");
 
     let aligned_content = match &config.buffer.nickname.alignment {
-        data::buffer::Alignment::Left => row![timestamp_gap, content].into(),
+        data::buffer::Alignment::Left => {
+            row![timestamp_gap, space, content].into()
+        }
         data::buffer::Alignment::Right => {
             let prefixes = message.target.prefixes().map_or(
                 right_aligned_width.and_then(|_| {
@@ -1589,7 +1592,6 @@ fn preview_row<'a>(
                 },
             );
 
-            let space = selectable_text(" ");
             let with_access_levels = config.buffer.nickname.show_access_levels;
             let truncate = config.buffer.nickname.truncate;
 
@@ -1618,9 +1620,11 @@ fn preview_row<'a>(
             };
 
             let timestamp_nickname_row =
-                row![timestamp_gap, prefixes, nick, space,];
+                row![timestamp_gap, space, prefixes, nick];
 
-            row![timestamp_nickname_row, content].into()
+            let space = selectable_text(" ");
+
+            row![timestamp_nickname_row, space, content].into()
         }
         data::buffer::Alignment::Top => content,
     };
