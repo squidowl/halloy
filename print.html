@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-4ceb480d.js";
+            window.path_to_searchindex_js = "searchindex-72573ae3.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-72d18ae4.js"></script>
@@ -3535,6 +3535,9 @@ exclude = [
 <ul>
 <li><a href="#show_image">show_image</a></li>
 <li><a href="#round_image_corners">round_image_corners</a></li>
+<li><a href="#max_width">max_width</a></li>
+<li><a href="#description_max_height">description_max_height</a></li>
+<li><a href="#image_max_height">image_max_height</a></li>
 <li><a href="#include-4">include</a></li>
 <li><a href="#exclude-5">exclude</a></li>
 </ul>
@@ -3565,6 +3568,33 @@ show_image = true
 
 [preview.card]
 round_image_corners = true
+</code></pre>
+<h3 id="max_width"><a class="header" href="#max_width">max_width</a></h3>
+<p>Maximum width of the card in pixels.</p>
+<pre><code class="language-toml"># Type: number
+# Values: any positive number
+# Default: 400.0
+
+[preview.card]
+max_width = 400.0
+</code></pre>
+<h3 id="description_max_height"><a class="header" href="#description_max_height">description_max_height</a></h3>
+<p>Maximum height of the description text in pixels.</p>
+<pre><code class="language-toml"># Type: number
+# Values: any positive number
+# Default: 100.0
+
+[preview.card]
+description_max_height = 100.0
+</code></pre>
+<h3 id="image_max_height"><a class="header" href="#image_max_height">image_max_height</a></h3>
+<p>Maximum height of the image in the card preview in pixels.</p>
+<pre><code class="language-toml"># Type: number
+# Values: any positive number
+# Default: 200.0
+
+[preview.card]
+image_max_height = 200.0
 </code></pre>
 <h3 id="exclude-5"><a class="header" href="#exclude-5">exclude</a></h3>
 <p><a href="/configuration/conditions.html">Exclusion conditions</a> for when card previews will
@@ -3600,6 +3630,8 @@ include = { users = ["BridgeBot"] }
 <ul>
 <li><a href="#action">action</a></li>
 <li><a href="#round_corners">round_corners</a></li>
+<li><a href="#max_width-1">max_width</a></li>
+<li><a href="#max_height">max_height</a></li>
 <li><a href="#include-5">include</a></li>
 <li><a href="#exclude-6">exclude</a></li>
 </ul>
@@ -3630,6 +3662,24 @@ action = "preview"
 
 [preview.image]
 round_corners = true
+</code></pre>
+<h3 id="max_width-1"><a class="header" href="#max_width-1">max_width</a></h3>
+<p>Maximum width of the image in pixels.</p>
+<pre><code class="language-toml"># Type: number
+# Values: any positive number
+# Default: 550.0
+
+[preview.image]
+max_width = 550.0
+</code></pre>
+<h3 id="max_height"><a class="header" href="#max_height">max_height</a></h3>
+<p>Maximum height of the image in pixels.</p>
+<pre><code class="language-toml"># Type: number
+# Values: any positive number
+# Default: 350.0
+
+[preview.image]
+max_height = 350.0
 </code></pre>
 <h3 id="exclude-6"><a class="header" href="#exclude-6">exclude</a></h3>
 <p><a href="/configuration/conditions.html">Exclusion conditions</a> for when image previews
@@ -4548,7 +4598,7 @@ include = { channels = ["#halloy"] }
 <ul>
 <li><a href="#server_icon">server_icon</a></li>
 <li><a href="#position-1">position</a></li>
-<li><a href="#max_width">max_width</a></li>
+<li><a href="#max_width-2">max_width</a></li>
 <li><a href="#show_menu_button">show_menu_button</a></li>
 <li><a href="#order_by-1">order_by</a></li>
 </ul>
@@ -4583,7 +4633,7 @@ server_icon = "hidden"
 [sidebar]
 position = "left"
 </code></pre>
-<h3 id="max_width"><a class="header" href="#max_width">max_width</a></h3>
+<h3 id="max_width-2"><a class="header" href="#max_width-2">max_width</a></h3>
 <p>Specify sidebar max width in pixels. Only used if <code>position</code> is <code>"left"</code> or <code>"right"</code>.</p>
 <pre><code class="language-toml"># Type: integer
 # Values: any non-negative integer

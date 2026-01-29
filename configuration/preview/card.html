@@ -34,7 +34,7 @@
             const path_to_root = "../../";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../../searchindex-4ceb480d.js";
+            window.path_to_searchindex_js = "../../searchindex-72573ae3.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="../../toc-72d18ae4.js"></script>
@@ -189,6 +189,9 @@
 <ul>
 <li><a href="#show_image">show_image</a></li>
 <li><a href="#round_image_corners">round_image_corners</a></li>
+<li><a href="#max_width">max_width</a></li>
+<li><a href="#description_max_height">description_max_height</a></li>
+<li><a href="#image_max_height">image_max_height</a></li>
 <li><a href="#include">include</a></li>
 <li><a href="#exclude">exclude</a></li>
 </ul>
@@ -219,6 +222,33 @@ show_image = true
 
 [preview.card]
 round_image_corners = true
+</code></pre>
+<h3 id="max_width"><a class="header" href="#max_width">max_width</a></h3>
+<p>Maximum width of the card in pixels.</p>
+<pre><code class="language-toml"># Type: number
+# Values: any positive number
+# Default: 400.0
+
+[preview.card]
+max_width = 400.0
+</code></pre>
+<h3 id="description_max_height"><a class="header" href="#description_max_height">description_max_height</a></h3>
+<p>Maximum height of the description text in pixels.</p>
+<pre><code class="language-toml"># Type: number
+# Values: any positive number
+# Default: 100.0
+
+[preview.card]
+description_max_height = 100.0
+</code></pre>
+<h3 id="image_max_height"><a class="header" href="#image_max_height">image_max_height</a></h3>
+<p>Maximum height of the image in the card preview in pixels.</p>
+<pre><code class="language-toml"># Type: number
+# Values: any positive number
+# Default: 200.0
+
+[preview.card]
+image_max_height = 200.0
 </code></pre>
 <h3 id="exclude"><a class="header" href="#exclude">exclude</a></h3>
 <p><a href="/configuration/conditions.html">Exclusion conditions</a> for when card previews will
