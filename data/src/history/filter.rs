@@ -139,28 +139,39 @@ impl Filter {
         Self { class, target }
     }
 
-    pub fn match_user(&self, user: &User, channel: Option<&Channel>) -> bool {
+    pub fn match_user(
+        &self,
+        user: &User,
+        channel: Option<&Channel>,
+        server: &Server,
+    ) -> bool {
         match &self.target {
             FilterTarget::User(filter_user) => {
                 user.as_normalized_str() == filter_user.as_normalized_str()
                     && (match &self.class {
-                        FilterClass::Channel(_, filter_channel) => channel
-                            .is_some_and(|channel| {
+                        FilterClass::Channel(filter_server, filter_channel) => {
+                            channel.is_some_and(|channel| {
                                 channel.as_normalized_str()
                                     == filter_channel.as_normalized_str()
-                            }),
-                        FilterClass::Server(_) => true,
+                            }) && filter_server == server
+                        }
+                        FilterClass::Server(filter_server) => {
+                            filter_server == server
+                        }
                     })
             }
             FilterTarget::UserRegex(regex) => {
                 regex.is_match(user.as_str()).is_ok_and(|is_match| is_match)
                     && (match &self.class {
-                        FilterClass::Channel(_, filter_channel) => channel
-                            .is_some_and(|channel| {
+                        FilterClass::Channel(filter_server, filter_channel) => {
+                            channel.is_some_and(|channel| {
                                 channel.as_normalized_str()
                                     == filter_channel.as_normalized_str()
-                            }),
-                        FilterClass::Server(_) => true,
+                            }) && filter_server == server
+                        }
+                        FilterClass::Server(filter_server) => {
+                            filter_server == server
+                        }
                     })
             }
             FilterTarget::MessageRegex(_) => false,
@@ -224,20 +235,24 @@ impl Filter {
     /// otherwise.
     ///
     /// [`Query`]:crate::Query
-    pub fn match_query(&self, query: &Query) -> bool {
+    pub fn match_query(&self, query: &Query, server: &Server) -> bool {
         match &self.target {
             FilterTarget::User(user) => match &self.class {
                 FilterClass::Channel(_, _) => false,
-                FilterClass::Server(_) => {
+                FilterClass::Server(filter_server) => {
                     user.nickname().as_normalized_str()
                         == query.as_normalized_str()
+                        && filter_server == server
                 }
             },
             FilterTarget::UserRegex(regex) => match &self.class {
                 FilterClass::Channel(_, _) => false,
-                FilterClass::Server(_) => regex
-                    .is_match(query.as_str())
-                    .is_ok_and(|is_match| is_match),
+                FilterClass::Server(filter_server) => {
+                    regex
+                        .is_match(query.as_str())
+                        .is_ok_and(|is_match| is_match)
+                        && filter_server == server
+                }
             },
             FilterTarget::MessageRegex(_) => false,
         }
@@ -331,12 +346,19 @@ impl<'f> FilterChain<'f> {
         Self { filters }
     }
 
-    pub fn filter_user(&self, user: &User, channel: Option<&Channel>) -> bool {
-        self.filters.iter().any(|f| f.match_user(user, channel))
+    pub fn filter_user(
+        &self,
+        user: &User,
+        channel: Option<&Channel>,
+        server: &Server,
+    ) -> bool {
+        self.filters
+            .iter()
+            .any(|f| f.match_user(user, channel, server))
     }
 
-    pub fn filter_query(&self, kind: &Query) -> bool {
-        self.filters.iter().any(|f| f.match_query(kind))
+    pub fn filter_query(&self, query: &Query, server: &Server) -> bool {
+        self.filters.iter().any(|f| f.match_query(query, server))
     }
 
     pub fn filter_message_of_kind(&self, message: &mut Message, kind: &Kind) {

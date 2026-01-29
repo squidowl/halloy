@@ -9,6 +9,7 @@ Fixed:
 - Buffer not showing history until resize
 - Previews are fetched through the same proxy as the server (or default proxy) for HTTP/SOCKS5 proxies
 - No longer highlight nickname mentions in sent messages in certain scenarios
+- Filters applied to one server will no longer hide query panes for other servers
 
 Changed:
 
@@ -16,7 +17,7 @@ Changed:
 
 Thanks:
 
-- Bug reports: @e00E, @oooo-ps, @csmith, @bw1
+- Bug reports: @e00E, @oooo-ps, @csmith, @bw1, @deepspaceaxolotl
 
 # 2026.1.1 (2026-01-21)
 
