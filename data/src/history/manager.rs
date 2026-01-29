@@ -478,10 +478,9 @@ impl Manager {
             .filter_map(|kind| match kind {
                 #[allow(clippy::bool_comparison)] // easy to miss exclaimation
                 history::Kind::Query(s, query) => (s == server
-                    && self
-                        .filters
-                        .iter()
-                        .all(|filter| filter.match_query(query) == false))
+                    && self.filters.iter().all(|filter| {
+                        filter.match_query(query, server) == false
+                    }))
                 .then_some(query),
                 _ => None,
             })

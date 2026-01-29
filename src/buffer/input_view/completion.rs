@@ -10,6 +10,7 @@ use data::buffer::SkinTone;
 use data::config::buffer::text_input::{OrderBy, SortDirection};
 use data::history::filter::FilterChain;
 use data::isupport::{self, find_target_limit};
+use data::server::Server;
 use data::target::{self, Target};
 use data::user::{ChannelUsers, Nick, NickRef};
 use data::{Config, mode};
@@ -49,6 +50,7 @@ impl Completion {
         last_seen: &HashMap<Nick, DateTime<Utc>>,
         channels: &[target::Channel],
         current_target: Option<&Target>,
+        server: &Server,
         supports_detach: bool,
         isupport: &HashMap<isupport::Kind, isupport::Parameter>,
         config: &Config,
@@ -100,6 +102,7 @@ impl Completion {
                 last_seen,
                 channels,
                 current_target,
+                server,
                 chantypes,
                 config,
             );
@@ -1300,6 +1303,7 @@ impl Text {
         last_seen: &HashMap<Nick, DateTime<Utc>>,
         channels: &[target::Channel],
         current_target: Option<&Target>,
+        server: &Server,
         chantypes: &[char],
         config: &Config,
     ) {
@@ -1318,6 +1322,7 @@ impl Text {
                 users,
                 filters,
                 current_target.and_then(Target::as_channel),
+                server,
                 last_seen,
                 config,
             );
@@ -1332,6 +1337,7 @@ impl Text {
         users: Option<&ChannelUsers>,
         filters: FilterChain,
         current_channel: Option<&target::Channel>,
+        server: &Server,
         last_seen: &HashMap<Nick, DateTime<Utc>>,
         config: &Config,
     ) {
@@ -1349,7 +1355,7 @@ impl Text {
         self.filtered = users
             .into_iter()
             .flatten()
-            .filter(|user| !filters.filter_user(user, current_channel))
+            .filter(|user| !filters.filter_user(user, current_channel, server))
             .sorted_by(|a, b| {
                 if matches!(autocomplete.order_by, OrderBy::Recent) {
                     if let Some(a_last_seen) =
