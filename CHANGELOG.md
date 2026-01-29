@@ -3,6 +3,7 @@
 Added:
 
 - Settings to disable (selectively, or for the entire server) confirmation of delivery for sent messages
+- Setting to style unread query buffers as highlights in the sidebar (`sidebar.unread_indicator.query_as_highlight`)
 
 Fixed:
 
