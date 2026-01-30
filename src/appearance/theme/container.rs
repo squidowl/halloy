@@ -100,6 +100,13 @@ pub fn primary_background_hover(theme: &Theme) -> Style {
     }
 }
 
+pub fn root(theme: &Theme) -> Style {
+    Style {
+        text_color: Some(theme.styles().text.primary.color),
+        ..Default::default()
+    }
+}
+
 pub fn general(theme: &Theme) -> Style {
     Style {
         background: Some(Background::Color(theme.styles().general.background)),
