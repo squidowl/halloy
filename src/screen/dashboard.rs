@@ -93,6 +93,10 @@ pub enum Event {
 }
 
 impl Dashboard {
+    pub fn set_focused(&mut self, focused: bool) {
+        self.notifications.set_focused(focused);
+    }
+
     pub fn empty(
         main_window: &Window,
         config: &Config,
@@ -117,11 +121,16 @@ impl Dashboard {
             command_bar: None,
             file_transfers: file_transfer::Manager::default(),
             theme_editor: None,
-            notifications: notification::Notifications::new(config),
+            notifications: notification::Notifications::new(
+                config,
+                main_window.id,
+            ),
             previews: preview::Collection::default(),
             preview_client: preview_client_from_config(config).map(Arc::new),
             buffer_settings: dashboard::BufferSettings::default(),
         };
+
+        dashboard.set_focused(main_window.focused);
 
         let command = dashboard.track(None);
 
@@ -135,6 +144,8 @@ impl Dashboard {
     ) -> (Self, Task<Message>) {
         let (mut dashboard, task) =
             Dashboard::from_data(dashboard, config, main_window);
+
+        dashboard.set_focused(main_window.focused);
 
         let tasks = Task::batch(vec![task, dashboard.track(None)]);
 
@@ -3351,7 +3362,7 @@ impl Dashboard {
 
         let event = self.file_transfers.receive(request.clone(), config)?;
 
-        self.notifications.notify(
+        let attention_task = self.notifications.notify(
             &config.notifications,
             &Notification::FileTransferRequest {
                 nick: request.from.nickname().to_owned(),
@@ -3368,12 +3379,18 @@ impl Dashboard {
 
         let query = target::Query::from(request.from);
 
-        Some(self.handle_file_transfer_event(
+        let task = self.handle_file_transfer_event(
             server,
             &query,
             event,
             &config.buffer,
-        ))
+        );
+
+        if let Some(attention_task) = attention_task {
+            Some(Task::batch(vec![task, attention_task]))
+        } else {
+            Some(task)
+        }
     }
 
     pub fn handle_file_transfer_event(
@@ -3495,7 +3512,10 @@ impl Dashboard {
             command_bar: None,
             file_transfers: file_transfer::Manager::default(),
             theme_editor: None,
-            notifications: notification::Notifications::new(config),
+            notifications: notification::Notifications::new(
+                config,
+                main_window.id,
+            ),
             previews: preview::Collection::default(),
             preview_client: preview_client_from_config(config).map(Arc::new),
             buffer_settings: data.buffer_settings.clone(),

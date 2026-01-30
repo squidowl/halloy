@@ -6,9 +6,10 @@ use data::config::{self, notification};
 use data::target::join_targets;
 use data::user::Nick;
 use data::{Config, Notification, Server, User};
+use iced::Task;
 
 pub use self::toast::prepare;
-use crate::audio;
+use crate::{audio, window};
 
 mod toast;
 
@@ -64,10 +65,12 @@ impl From<&Notification> for NotificationDelayKey {
 pub struct Notifications {
     recent_notifications: HashMap<NotificationDelayKey, DateTime<Utc>>,
     sounds: HashMap<String, Sound>,
+    window_id: window::Id,
+    focused: bool,
 }
 
 impl Notifications {
-    pub fn new(config: &Config) -> Self {
+    pub fn new(config: &Config, window_id: window::Id) -> Self {
         // Load sounds from different sources.
         let sounds =
             config.notifications.load_sounds(
@@ -79,45 +82,59 @@ impl Notifications {
         Self {
             recent_notifications: HashMap::new(),
             sounds,
+            window_id,
+            focused: false,
         }
     }
 
-    pub fn notify(
+    pub fn set_focused(&mut self, focused: bool) {
+        self.focused = focused;
+    }
+
+    pub fn notify<Message: 'static + Send>(
         &mut self,
         config: &config::Notifications,
         notification: &Notification,
         server: &Server,
-    ) {
+    ) -> Option<Task<Message>> {
+        let mut request_attention = false;
+
         match notification {
             Notification::Connected => {
-                self.execute(
+                let notified = self.execute(
                     &config.connected,
                     notification,
                     "Connected",
                     &server.to_string(),
                     None,
                 );
+                request_attention =
+                    notified && config.connected.request_attention;
             }
             Notification::Disconnected => {
-                self.execute(
+                let notified = self.execute(
                     &config.disconnected,
                     notification,
                     "Disconnected",
                     &server.to_string(),
                     None,
                 );
+                request_attention =
+                    notified && config.disconnected.request_attention;
             }
             Notification::Reconnected => {
-                self.execute(
+                let notified = self.execute(
                     &config.reconnected,
                     notification,
                     "Reconnected",
                     &server.to_string(),
                     None,
                 );
+                request_attention =
+                    notified && config.reconnected.request_attention;
             }
             Notification::MonitoredOnline(targets) => {
-                self.execute(
+                let notified = self.execute(
                     &config.monitored_online,
                     notification,
                     if targets.len() == 1 {
@@ -128,9 +145,11 @@ impl Notifications {
                     &join_targets(targets.iter().map(User::as_str).collect()),
                     None,
                 );
+                request_attention =
+                    notified && config.monitored_online.request_attention;
             }
             Notification::MonitoredOffline(targets) => {
-                self.execute(
+                let notified = self.execute(
                     &config.monitored_online,
                     notification,
                     if targets.len() == 1 {
@@ -141,6 +160,8 @@ impl Notifications {
                     &join_targets(targets.iter().map(Nick::as_str).collect()),
                     None,
                 );
+                request_attention =
+                    notified && config.monitored_online.request_attention;
             }
             Notification::FileTransferRequest {
                 nick,
@@ -168,13 +189,15 @@ impl Notifications {
                         )
                     };
 
-                    self.execute(
+                    let notified = self.execute(
                         &config.file_transfer_request,
                         notification,
                         title,
                         body,
                         None,
                     );
+                    request_attention = notified
+                        && config.file_transfer_request.request_attention;
                 }
             }
             Notification::DirectMessage {
@@ -206,13 +229,15 @@ impl Notifications {
                         )
                     };
 
-                    self.execute(
+                    let notified = self.execute(
                         &config.direct_message,
                         notification,
                         title,
                         body,
                         None,
                     );
+                    request_attention =
+                        notified && config.direct_message.request_attention;
                 }
             }
             Notification::Highlight {
@@ -232,7 +257,7 @@ impl Notifications {
                     // Description is expected to be expanded by the calling
                     // routine when show_content is true
                     if config.highlight.show_content {
-                        self.execute(
+                        let notified = self.execute(
                             &config.highlight,
                             notification,
                             &format!(
@@ -242,8 +267,10 @@ impl Notifications {
                             message,
                             sound.as_deref(),
                         );
+                        request_attention =
+                            notified && config.highlight.request_attention;
                     } else {
-                        self.execute(
+                        let notified = self.execute(
                             &config.highlight,
                             notification,
                             &format!(
@@ -253,6 +280,8 @@ impl Notifications {
                             &server.name,
                             sound.as_deref(),
                         );
+                        request_attention =
+                            notified && config.highlight.request_attention;
                     }
                 }
             }
@@ -272,7 +301,7 @@ impl Notifications {
                     )
                 {
                     if notification_config.show_content {
-                        self.execute(
+                        let notified = self.execute(
                             notification_config,
                             notification,
                             &format!(
@@ -282,8 +311,10 @@ impl Notifications {
                             message,
                             None,
                         );
+                        request_attention =
+                            notified && notification_config.request_attention;
                     } else {
-                        self.execute(
+                        let notified = self.execute(
                             notification_config,
                             notification,
                             &format!(
@@ -293,9 +324,20 @@ impl Notifications {
                             &server.name,
                             None,
                         );
+                        request_attention =
+                            notified && notification_config.request_attention;
                     }
                 }
             }
+        }
+
+        if request_attention && !self.focused {
+            Some(iced::window::request_user_attention(
+                self.window_id,
+                Some(iced::window::UserAttention::Informational),
+            ))
+        } else {
+            None
         }
     }
 
@@ -306,7 +348,7 @@ impl Notifications {
         title: &str,
         body: &str,
         sound_name: Option<&str>,
-    ) {
+    ) -> bool {
         let now = Utc::now();
         let delay_key = notification.into();
 
@@ -314,7 +356,7 @@ impl Notifications {
             now - last_notification
                 < TimeDelta::milliseconds(config.delay.unwrap_or(500) as i64)
         }) {
-            return;
+            return false;
         }
 
         self.recent_notifications.insert(delay_key, now);
@@ -329,5 +371,7 @@ impl Notifications {
         {
             audio::play(sound.clone());
         }
+
+        true
     }
 }

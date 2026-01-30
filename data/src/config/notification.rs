@@ -15,6 +15,7 @@ use crate::user::User;
 #[serde(default)]
 pub struct Notification {
     pub show_toast: bool,
+    pub request_attention: bool,
     pub show_content: bool,
     pub sound: Option<String>,
     pub delay: Option<u32>,
@@ -26,6 +27,7 @@ impl Default for Notification {
     fn default() -> Self {
         Self {
             show_toast: false,
+            request_attention: false,
             show_content: false,
             sound: None,
             delay: Some(500),

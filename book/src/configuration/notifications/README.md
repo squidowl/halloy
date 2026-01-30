@@ -10,6 +10,7 @@ Customize and enable notifications.
   - [Configuration](#configuration)
     - [sound](#sound)
     - [show\_toast](#show_toast)
+    - [request_attention](#request_attention)
     - [show\_content](#show_content)
     - [delay](#delay)
     - [exclude](#exclude)
@@ -97,6 +98,20 @@ Notification should trigger a OS toast.
 
 [notifications.<notification>]
 show_toast = true
+```
+
+### request_attention
+
+Notification should request user attention for the window (aka urgency).
+Triggers only when the window is not focused.
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: false
+
+[notifications.<notification>]
+request_attention = true
 ```
 
 ### show_content
