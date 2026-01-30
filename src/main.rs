@@ -1498,7 +1498,7 @@ impl Halloy {
                 container(screen)
                     .width(Length::Fill)
                     .height(Length::Fill)
-                    .style(theme::container::general),
+                    .style(theme::container::root),
             )
             .padding(padding::top(platform_specific_padding));
 
