@@ -105,6 +105,7 @@ pub fn settings(config: &Config) -> Settings {
             override_redirect: false,
         },
         decorations: config.platform_specific.linux.decorations,
+        transparent: true,
         ..Default::default()
     }
 }
@@ -120,6 +121,7 @@ pub fn settings(config: &Config) -> Settings {
             fullsize_content_view: true,
         },
         decorations: config.platform_specific.macos.decorations,
+        transparent: true,
         ..Default::default()
     }
 }
@@ -143,6 +145,7 @@ pub fn settings(config: &Config) -> Settings {
                 )
                 .ok(),
                 decorations: config.platform_specific.windows.decorations,
+                transparent: true,
                 ..Default::default()
             },
             None => Settings::default(),
