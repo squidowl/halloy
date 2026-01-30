@@ -18,6 +18,7 @@ Fixed:
 Changed:
 
 - No longer highlight matches in sent messages
+- No longer show notifications for messages where the relevant buffer is open and Halloy is focused
 
 Thanks:
 
