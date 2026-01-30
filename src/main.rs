@@ -560,11 +560,13 @@ impl Halloy {
                             )
                             .map(Message::Dashboard)
                     } else {
-                        self.notifications.notify(
-                            &self.config.notifications,
-                            &Notification::Disconnected,
-                            &server,
-                        );
+                        if !self.main_window.focused {
+                            self.notifications.notify(
+                                &self.config.notifications,
+                                &Notification::Disconnected,
+                                &server,
+                            );
+                        }
 
                         dashboard
                             .broadcast(
@@ -590,11 +592,13 @@ impl Halloy {
                     };
 
                     let broadcast = if is_initial {
-                        self.notifications.notify(
-                            &self.config.notifications,
-                            &Notification::Connected,
-                            &server,
-                        );
+                        if !self.main_window.focused {
+                            self.notifications.notify(
+                                &self.config.notifications,
+                                &Notification::Connected,
+                                &server,
+                            );
+                        }
 
                         dashboard
                             .broadcast(
@@ -606,11 +610,13 @@ impl Halloy {
                             )
                             .map(Message::Dashboard)
                     } else {
-                        self.notifications.notify(
-                            &self.config.notifications,
-                            &Notification::Reconnected,
-                            &server,
-                        );
+                        if !self.main_window.focused {
+                            self.notifications.notify(
+                                &self.config.notifications,
+                                &Notification::Reconnected,
+                                &server,
+                            );
+                        }
 
                         dashboard
                             .broadcast(
@@ -733,9 +739,13 @@ impl Halloy {
                                                 prefix,
                                             )
                                         {
-                                            if let Some(kind) =
-                                                history::Kind::from_server_message(server.clone(), &message)
-                                            {
+                                            let kind = history::Kind::from_server_message(server.clone(), &message);
+
+                                            let is_open_in_pane = kind
+                                                .as_ref()
+                                                .is_some_and(|kind| dashboard.is_open_in_pane(kind));
+
+                                            if let Some(kind) = kind {
                                                 dashboard.block_message(
                                                     &mut message,
                                                     &kind,
@@ -754,7 +764,10 @@ impl Halloy {
                                             {
                                                 highlight_message.blocked = message.blocked;
 
-                                                if !highlight_message.blocked && notification_enabled {
+                                                if !highlight_message.blocked
+                                                    && notification_enabled
+                                                    && (!is_open_in_pane || !self.main_window.focused)
+                                                {
                                                     let (description, sound) = match highlight_kind {
                                                         message::highlight::Kind::Nick => {
                                                             ("highlighted you".to_string(), None)
@@ -798,6 +811,7 @@ impl Halloy {
                                                     source: message::Source::Action(Some(user)),
                                                     ..
                                                 } = &message.target
+                                                && (!is_open_in_pane || !self.main_window.focused)
                                             {
                                                 let channel = channel.clone();
                                                 let user = user.clone();
@@ -816,11 +830,7 @@ impl Halloy {
 
                                             commands.push(
                                                 dashboard
-                                                    .record_message(
-                                                        &server,
-                                                        message,
-                                                        &self.config.buffer,
-                                                    )
+                                                    .record_message(&server, message, &self.config.buffer)
                                                     .map(Message::Dashboard),
                                             );
                                         }
@@ -1086,36 +1096,55 @@ impl Halloy {
                                                 chantypes,
                                                 statusmsg,
                                                 casemapping,
-                                            ) {
-                                                let blocked = FilterChain::borrow(dashboard.get_filters()).filter_query(&query, &server);
-                                                let has_unread = dashboard.history().has_unread(&history::Kind::Query(server.clone(), query));
+                                            )
+                                        {
+                                            let blocked = FilterChain::borrow(dashboard.get_filters())
+                                                .filter_query(&query, &server);
+                                            let kind = history::Kind::Query(server.clone(), query);
+                                            let has_unread = dashboard.history().has_unread(&kind);
+                                            // If show_content isn't enabled then there's no new
+                                            // information that would be shown by notifications past
+                                            // the first.
+                                            let notification_enabled = !has_unread
+                                                || self.config.notifications.direct_message.show_content;
 
-                                                if !blocked && (has_unread || !self.main_window.focused) {
-                                                    self.notifications.notify(
-                                                        &self.config.notifications,
-                                                        &Notification::DirectMessage{
-                                                            user,
-                                                            casemapping,
-                                                            message: message.text(),
-                                                        },
-                                                        &server,
-                                                    );
-                                                }
+                                            if !blocked
+                                                && notification_enabled
+                                                && (!dashboard.is_open_in_pane(&kind) || !self.main_window.focused)
+                                            {
+                                                self.notifications.notify(
+                                                    &self.config.notifications,
+                                                    &Notification::DirectMessage {
+                                                        user,
+                                                        casemapping,
+                                                        message: message.text(),
+                                                    },
+                                                    &server,
+                                                );
                                             }
+                                        }
                                     }
                                     Event::MonitoredOnline(users) => {
-                                        self.notifications.notify(
-                                            &self.config.notifications,
-                                            &Notification::MonitoredOnline(users),
-                                            &server,
-                                        );
+                                        let kind = history::Kind::Server(server.clone());
+
+                                        if !dashboard.is_open_in_pane(&kind) || !self.main_window.focused {
+                                            self.notifications.notify(
+                                                &self.config.notifications,
+                                                &Notification::MonitoredOnline(users),
+                                                &server,
+                                            );
+                                        }
                                     }
                                     Event::MonitoredOffline(users) => {
-                                        self.notifications.notify(
-                                            &self.config.notifications,
-                                            &Notification::MonitoredOffline(users),
-                                            &server,
-                                        );
+                                        let kind = history::Kind::Server(server.clone());
+
+                                        if !dashboard.is_open_in_pane(&kind) || !self.main_window.focused {
+                                            self.notifications.notify(
+                                                &self.config.notifications,
+                                                &Notification::MonitoredOffline(users),
+                                                &server,
+                                            );
+                                        }
                                     }
                                     Event::OnConnect(
                                         on_connect,
