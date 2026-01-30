@@ -412,7 +412,7 @@ fn topic<'a>(
     )
 }
 
-mod nick_list {
+pub(crate) mod nick_list {
     use context_menu::Message;
     use data::user::ChannelUsers;
     use data::{Config, Server, User, config, isupport, target};

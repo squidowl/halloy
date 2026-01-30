@@ -543,6 +543,18 @@ impl Dashboard {
 
                         (Task::none(), None)
                     }
+                    sidebar::Event::NicklistEvent(message) => {
+                        let Focus { window, pane } = self.focus;
+                        let event = buffer::context_menu::update(message);
+
+                        self.handle_buffer_event(
+                            window,
+                            pane,
+                            buffer::Event::ContextMenu(event),
+                            clients,
+                            config,
+                        )
+                    }
                     sidebar::Event::OpenConfigFile => {
                         let _ = open::that_detached(Config::path());
                         (Task::none(), None)

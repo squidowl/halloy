@@ -11,6 +11,7 @@ use iced::{Alignment, Length, Padding, Task, padding};
 use tokio::time;
 
 use super::{Focus, Panes, Server};
+use crate::buffer::context_menu as buffer_context_menu;
 use crate::widget::{Element, Text, context_menu, double_pass};
 use crate::{Theme, font, icon, platform_specific, theme, window};
 
@@ -38,6 +39,7 @@ pub enum Message {
     ReloadComplete,
     MarkAsRead(buffer::Upstream),
     MarkServerAsRead(Server),
+    NicklistEvent(buffer_context_menu::Message),
     QuitApplication,
 }
 
@@ -61,6 +63,7 @@ pub enum Event {
     ConfigReloaded(Result<Config, config::Error>),
     MarkAsRead(buffer::Upstream),
     MarkServerAsRead(Server),
+    NicklistEvent(buffer_context_menu::Message),
     QuitApplication,
 }
 
@@ -155,6 +158,9 @@ impl Sidebar {
             }
             Message::MarkServerAsRead(server) => {
                 (Task::none(), Some(Event::MarkServerAsRead(server)))
+            }
+            Message::NicklistEvent(message) => {
+                (Task::none(), Some(Event::NicklistEvent(message)))
             }
             Message::OpenConfigFile => {
                 (Task::none(), Some(Event::OpenConfigFile))
@@ -393,7 +399,7 @@ impl Sidebar {
     pub fn view<'a>(
         &'a self,
         servers: &server::Map,
-        clients: &data::client::Map,
+        clients: &'a data::client::Map,
         history: &'a history::Manager,
         panes: &'a Panes,
         focus: Focus,
@@ -564,27 +570,49 @@ impl Sidebar {
 
             match config.sidebar.position {
                 sidebar::Position::Left | sidebar::Position::Right => {
-                    // Add buffers to a column.
-                    let buffers = column![
-                        Scrollable::new(
-                            Column::with_children(buffers).spacing(1)
-                        )
-                        .direction(
-                            scrollable::Direction::Vertical(
-                                scrollable::Scrollbar::default()
-                                    .width(config.sidebar.scrollbar.width)
-                                    .scroller_width(
-                                        config.sidebar.scrollbar.scroller_width
-                                    )
+                    let nicklist: Option<Element<'a, Message>> =
+                        if config.sidebar.show_nicklist {
+                            focused_channel_nicklist(
+                                panes, focus, clients, config, theme, width,
                             )
-                        )
-                    ];
+                            .map(|list| {
+                                container(list)
+                                    .padding([0, 2])
+                                    .height(if config.sidebar.split {
+                                        Length::FillPortion(
+                                            config.sidebar.nicklist_space,
+                                        )
+                                    } else {
+                                        Length::Fill
+                                    })
+                                    .into()
+                            })
+                        } else {
+                            None
+                        };
 
-                    // Wrap buffers in a column with user_menu_button
-                    let content = column![
-                        container(buffers).height(Length::Fill),
-                        user_menu_button,
-                    ];
+                    let buflist_height =
+                        if config.sidebar.split && nicklist.is_some() {
+                            Length::FillPortion(config.sidebar.buflist_space)
+                        } else if nicklist.is_some() {
+                            Length::Shrink
+                        } else {
+                            Length::Fill
+                        };
+
+                    let buflist = Scrollable::new(
+                        Column::with_children(buffers).spacing(0),
+                    )
+                    .direction(scrollable::Direction::Vertical(
+                        scrollable::Scrollbar::default()
+                            .width(config.sidebar.scrollbar.width)
+                            .scroller_width(
+                                config.sidebar.scrollbar.scroller_width,
+                            ),
+                    ))
+                    .height(buflist_height);
+
+                    let content = column![buflist, nicklist, user_menu_button,];
 
                     container(content)
                 }
@@ -654,6 +682,41 @@ impl Sidebar {
 
         Some(content.into())
     }
+}
+
+fn focused_channel_nicklist<'a>(
+    panes: &'a Panes,
+    focus: Focus,
+    clients: &'a data::client::Map,
+    config: &'a Config,
+    theme: &'a Theme,
+    width: Length,
+) -> Option<Element<'a, Message>> {
+    if !matches!(width, Length::Fill) {
+        return None;
+    }
+
+    let (server, channel) =
+        panes.iter().find_map(|(window, pane, state)| {
+            if (Focus { window, pane }) != focus {
+                return None;
+            }
+            match state.buffer.upstream() {
+                Some(buffer::Upstream::Channel(server, channel)) => {
+                    Some((server, channel))
+                }
+                _ => None,
+            }
+        })?;
+
+    let users = clients.get_channel_users(server, channel);
+    let prefix = clients.get_prefix(server);
+    let list = crate::buffer::channel::nick_list::view(
+        server, prefix, channel, users, None, config, theme,
+    )
+    .map(Message::NicklistEvent);
+
+    Some(list)
 }
 
 #[derive(Debug, Clone, Copy)]
