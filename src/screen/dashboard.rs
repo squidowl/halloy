@@ -1013,15 +1013,44 @@ impl Dashboard {
                         }
                     }
                     ToggleNicklist => {
-                        if let Some((_, _, pane)) = self.get_focused_mut() {
-                            if let Some(buffer) = pane.buffer.data() {
+                        if config.sidebar.show_nicklist
+                            && !config.sidebar.position.is_horizontal()
+                        {
+                            self.side_menu.toggle_nicklist();
+                        } else {
+                            if let Some((_, _, pane)) = self.get_focused_mut()
+                                && let Some(buffer) = pane.buffer.data()
+                            {
                                 let settings = self.buffer_settings.entry(
                                     &buffer,
                                     Some(config.buffer.clone().into()),
                                 );
                                 settings.channel.nicklist.toggle_visibility();
                             }
+                        }
 
+                        self.last_changed = Some(Instant::now());
+                        return (Task::none(), None);
+                    }
+                    ToggleBufferNicklist => {
+                        if let Some((_, _, pane)) = self.get_focused_mut()
+                            && let Some(buffer) = pane.buffer.data()
+                        {
+                            let settings = self.buffer_settings.entry(
+                                &buffer,
+                                Some(config.buffer.clone().into()),
+                            );
+                            settings.channel.nicklist.toggle_visibility();
+                        }
+
+                        self.last_changed = Some(Instant::now());
+                        return (Task::none(), None);
+                    }
+                    ToggleSidebarNicklist => {
+                        if config.sidebar.show_nicklist
+                            && !config.sidebar.position.is_horizontal()
+                        {
+                            self.side_menu.toggle_nicklist();
                             self.last_changed = Some(Instant::now());
                             return (Task::none(), None);
                         }

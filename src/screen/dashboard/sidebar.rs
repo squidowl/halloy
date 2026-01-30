@@ -70,6 +70,7 @@ pub enum Event {
 #[derive(Clone)]
 pub struct Sidebar {
     pub hidden: bool,
+    nicklist_hidden: bool,
     reloading_config: bool,
 }
 
@@ -83,12 +84,17 @@ impl Sidebar {
     pub fn new() -> Self {
         Self {
             hidden: false,
+            nicklist_hidden: false,
             reloading_config: false,
         }
     }
 
     pub fn toggle_visibility(&mut self) {
         self.hidden = !self.hidden;
+    }
+
+    pub fn toggle_nicklist(&mut self) {
+        self.nicklist_hidden = !self.nicklist_hidden;
     }
 
     pub fn update(
@@ -570,26 +576,29 @@ impl Sidebar {
 
             match config.sidebar.position {
                 sidebar::Position::Left | sidebar::Position::Right => {
-                    let nicklist: Option<Element<'a, Message>> =
-                        if config.sidebar.show_nicklist {
-                            focused_channel_nicklist(
-                                panes, focus, clients, config, theme, width,
-                            )
-                            .map(|list| {
-                                container(list)
-                                    .padding([0, 2])
-                                    .height(if config.sidebar.split {
-                                        Length::FillPortion(
-                                            config.sidebar.nicklist_space,
-                                        )
-                                    } else {
-                                        Length::Fill
-                                    })
-                                    .into()
-                            })
-                        } else {
-                            None
-                        };
+                    let nicklist: Option<Element<'a, Message>> = if config
+                        .sidebar
+                        .show_nicklist
+                        && !self.nicklist_hidden
+                    {
+                        focused_channel_nicklist(
+                            panes, focus, clients, config, theme, width,
+                        )
+                        .map(|list| {
+                            container(list)
+                                .padding([0, 2])
+                                .height(if config.sidebar.split {
+                                    Length::FillPortion(
+                                        config.sidebar.nicklist_space,
+                                    )
+                                } else {
+                                    Length::Fill
+                                })
+                                .into()
+                        })
+                    } else {
+                        None
+                    };
 
                     let buflist_height =
                         if config.sidebar.split && nicklist.is_some() {
