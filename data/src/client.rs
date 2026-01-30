@@ -1529,7 +1529,10 @@ impl Client {
                         self.notification_blackout.allowed(),
                     );
 
-                    if direct_message {
+                    // Event::DirectMessage is currently only used to send a
+                    // notification, so only return the event it notifications
+                    // are allowed.
+                    if direct_message && self.notification_blackout.allowed() {
                         return Ok(vec![
                             event,
                             Event::DirectMessage(
