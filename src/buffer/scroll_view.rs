@@ -237,12 +237,14 @@ pub fn view<'a>(
 
         let top_row_button = button(text(content).size(divider_font_size))
             .padding([3, 5])
-            .style(|theme, status| theme::button::primary(theme, status, false))
+            .style(|theme, status| {
+                theme::button::secondary(theme, status, false)
+            })
             .on_press_maybe(message);
 
         Some(
             row![space::horizontal(), top_row_button, space::horizontal()]
-                .padding(padding::top(2).bottom(6))
+                .padding(padding::top(4).bottom(6))
                 .width(Length::Fill)
                 .align_y(iced::Alignment::Center),
         )
