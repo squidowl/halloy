@@ -1137,7 +1137,6 @@ impl Halloy {
         server: Server,
         messages: Vec<message::Encoded>,
     ) -> Task<Message> {
-        // First phase: collect all events
         let mut all_events = vec![];
         for message in messages {
             match self.clients.receive(&server, message, &self.config) {
@@ -1146,7 +1145,6 @@ impl Halloy {
             }
         }
 
-        // Second phase: process events
         let Screen::Dashboard(dashboard) = &mut self.screen else {
             return Task::none();
         };
