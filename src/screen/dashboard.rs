@@ -1017,7 +1017,8 @@ impl Dashboard {
                             && !config.sidebar.position.is_horizontal()
                         {
                             self.side_menu.toggle_nicklist();
-                        } else if let Some((_, _, pane)) = self.get_focused_mut()
+                        } else if let Some((_, _, pane)) =
+                            self.get_focused_mut()
                             && let Some(buffer) = pane.buffer.data()
                         {
                             let settings = self.buffer_settings.entry(
