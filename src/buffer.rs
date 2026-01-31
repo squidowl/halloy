@@ -63,10 +63,7 @@ pub enum Event {
     OpenInternalBuffer(buffer::Internal),
     OpenServer(String),
     LeaveBuffers(Vec<Target>, Option<String>),
-    SelectedServer {
-        server: data::Server,
-        send_list_command: bool,
-    },
+    SelectedServer(data::Server),
     GoToMessage(data::Server, target::Channel, message::Hash),
     History(Task<history::manager::Message>),
     RequestOlderChatHistory,
@@ -81,6 +78,7 @@ pub enum Event {
         history_task: Task<history::manager::Message>,
         open_buffers: Vec<(Target, BufferAction)>,
     },
+    SendUnsafeList(data::Server),
 }
 
 impl Buffer {
@@ -387,16 +385,15 @@ impl Buffer {
                 Buffer::ChannelDiscovery(state),
                 Message::ChannelList(message),
             ) => {
-                let (command, event) = state.update(message, clients, config);
+                let (command, event) = state.update(message, config);
 
                 let event = event.map(|event| match event {
-                    channel_discovery::Event::SelectedServer {
-                        server,
-                        send_list_command,
-                    } => Event::SelectedServer {
-                        server,
-                        send_list_command,
-                    },
+                    channel_discovery::Event::SelectedServer(server) => {
+                        Event::SelectedServer(server)
+                    }
+                    channel_discovery::Event::SendUnsafeList(server) => {
+                        Event::SendUnsafeList(server)
+                    }
                     channel_discovery::Event::OpenUrl(url) => {
                         Event::OpenUrl(url)
                     }
