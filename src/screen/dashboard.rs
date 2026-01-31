@@ -3693,6 +3693,16 @@ impl Dashboard {
         }
     }
 
+    pub fn is_open_in_pane(&mut self, kind: &history::Kind) -> bool {
+        self.panes.iter().any(|(_, _, state)| {
+            state
+                .buffer
+                .data()
+                .and_then(history::Kind::from_buffer)
+                .is_some_and(|pane_kind| pane_kind == *kind)
+        })
+    }
+
     fn main_window(&self) -> window::Id {
         self.panes.main_window
     }
