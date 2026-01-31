@@ -83,16 +83,16 @@ show_nicklist = true
 
 When `show_nicklist` is enabled, controls how the vertical space is split between the buffer list and the nicklist.
 
-- `false`: buffer list shrinks; nicklist takes the remaining space.
 - `true`: buffer list and nicklist use proportional space controlled by `buflist_space` and `nicklist_space`.
+- `false`: buffer list shrinks; nicklist takes the remaining space.
 
 ```toml
 # Type: bool
 # Values: true, false
-# Default: false
+# Default: true
 
 [sidebar]
-split = true
+split = false
 ```
 
 ### buflist_space

@@ -39,7 +39,7 @@ impl Default for Sidebar {
             unread_indicator: UnreadIndicator::default(),
             position: Position::default(),
             show_nicklist: false,
-            split: false,
+            split: true,
             buflist_space: 2,
             nicklist_space: 1,
             order_by: OrderBy::default(),
