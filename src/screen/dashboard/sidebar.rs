@@ -39,7 +39,7 @@ pub enum Message {
     ReloadComplete,
     MarkAsRead(buffer::Upstream),
     MarkServerAsRead(Server),
-    NicklistEvent(buffer_context_menu::Message),
+    Nicklist(buffer_context_menu::Message),
     QuitApplication,
 }
 
@@ -63,7 +63,7 @@ pub enum Event {
     ConfigReloaded(Result<Config, config::Error>),
     MarkAsRead(buffer::Upstream),
     MarkServerAsRead(Server),
-    NicklistEvent(buffer_context_menu::Message),
+    Nicklist(buffer_context_menu::Message),
     QuitApplication,
 }
 
@@ -165,8 +165,8 @@ impl Sidebar {
             Message::MarkServerAsRead(server) => {
                 (Task::none(), Some(Event::MarkServerAsRead(server)))
             }
-            Message::NicklistEvent(message) => {
-                (Task::none(), Some(Event::NicklistEvent(message)))
+            Message::Nicklist(message) => {
+                (Task::none(), Some(Event::Nicklist(message)))
             }
             Message::OpenConfigFile => {
                 (Task::none(), Some(Event::OpenConfigFile))
@@ -723,7 +723,7 @@ fn focused_channel_nicklist<'a>(
     let list = crate::buffer::channel::nick_list::view(
         server, prefix, channel, users, None, config, theme,
     )
-    .map(Message::NicklistEvent);
+    .map(Message::Nicklist);
 
     Some(list)
 }

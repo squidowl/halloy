@@ -543,7 +543,7 @@ impl Dashboard {
 
                         (Task::none(), None)
                     }
-                    sidebar::Event::NicklistEvent(message) => {
+                    sidebar::Event::Nicklist(message) => {
                         let Focus { window, pane } = self.focus;
                         let event = buffer::context_menu::update(message);
 
