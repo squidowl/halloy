@@ -1325,6 +1325,56 @@ fn handle_client_event(
     }
 }
 
+fn create_message(
+    server: &Server,
+    encoded: message::Encoded,
+    our_nick: data::user::Nick,
+    config: &Config,
+    clients: &data::client::Map,
+) -> Option<data::Message> {
+    data::Message::received(
+        encoded,
+        our_nick,
+        config,
+        |user, channel| {
+            clients
+                .resolve_user_attributes(server, channel, user)
+                .cloned()
+        },
+        |channel| clients.get_channel_users(server, channel),
+        server,
+        clients.get_chantypes(server),
+        clients.get_statusmsg(server),
+        clients.get_casemapping(server),
+        clients.get_prefix(server),
+    )
+}
+
+fn create_message_with_highlight(
+    server: &Server,
+    encoded: message::Encoded,
+    our_nick: data::user::Nick,
+    config: &Config,
+    clients: &data::client::Map,
+) -> Option<(data::Message, Option<message::Highlight>)> {
+    data::Message::received_with_highlight(
+        encoded,
+        our_nick,
+        config,
+        |user, channel| {
+            clients
+                .resolve_user_attributes(server, channel, user)
+                .cloned()
+        },
+        |channel| clients.get_channel_users(server, channel),
+        server,
+        clients.get_chantypes(server),
+        clients.get_statusmsg(server),
+        clients.get_casemapping(server),
+        clients.get_prefix(server),
+    )
+}
+
 fn handle_single_event(
     server: &Server,
     encoded: message::Encoded,
@@ -1334,30 +1384,9 @@ fn handle_single_event(
     clients: &data::client::Map,
     config: &Config,
 ) {
-    let resolve_user_attributes = |user: &User, channel: &target::Channel| {
-        clients
-            .resolve_user_attributes(server, channel, user)
-            .cloned()
-    };
-    let channel_users =
-        |channel: &target::Channel| clients.get_channel_users(server, channel);
-    let chantypes = clients.get_chantypes(server);
-    let statusmsg = clients.get_statusmsg(server);
-    let casemapping = clients.get_casemapping(server);
-    let prefix = clients.get_prefix(server);
-
-    let Some(message) = data::Message::received(
-        encoded,
-        our_nick,
-        config,
-        resolve_user_attributes,
-        channel_users,
-        server,
-        chantypes,
-        statusmsg,
-        casemapping,
-        prefix,
-    ) else {
+    let Some(message) =
+        create_message(server, encoded, our_nick, config, clients)
+    else {
         return;
     };
 
@@ -1365,7 +1394,7 @@ fn handle_single_event(
         dashboard
             .block_and_record_message(
                 server,
-                casemapping,
+                clients.get_casemapping(server),
                 message,
                 &config.buffer,
             )
@@ -1383,30 +1412,9 @@ fn handle_with_target_event(
     clients: &data::client::Map,
     config: &Config,
 ) {
-    let resolve_user_attributes = |user: &User, channel: &target::Channel| {
-        clients
-            .resolve_user_attributes(server, channel, user)
-            .cloned()
-    };
-    let channel_users =
-        |channel: &target::Channel| clients.get_channel_users(server, channel);
-    let chantypes = clients.get_chantypes(server);
-    let statusmsg = clients.get_statusmsg(server);
-    let casemapping = clients.get_casemapping(server);
-    let prefix = clients.get_prefix(server);
-
-    let Some(message) = data::Message::received(
-        encoded,
-        our_nick,
-        config,
-        resolve_user_attributes,
-        channel_users,
-        server,
-        chantypes,
-        statusmsg,
-        casemapping,
-        prefix,
-    ) else {
+    let Some(message) =
+        create_message(server, encoded, our_nick, config, clients)
+    else {
         return;
     };
 
@@ -1414,7 +1422,7 @@ fn handle_with_target_event(
         dashboard
             .block_and_record_message(
                 server,
-                casemapping,
+                clients.get_casemapping(server),
                 message.with_target(target),
                 &config.buffer,
             )
@@ -1433,32 +1441,13 @@ fn handle_priv_or_notice(
     config: &Config,
     notifications: &mut Notifications,
 ) {
-    let resolve_user_attributes = |user: &User, channel: &target::Channel| {
-        clients
-            .resolve_user_attributes(server, channel, user)
-            .cloned()
-    };
-    let channel_users =
-        |channel: &target::Channel| clients.get_channel_users(server, channel);
-    let chantypes = clients.get_chantypes(server);
-    let statusmsg = clients.get_statusmsg(server);
-    let casemapping = clients.get_casemapping(server);
-    let prefix = clients.get_prefix(server);
-
-    let Some((mut msg, highlight)) = data::Message::received_with_highlight(
-        encoded,
-        our_nick,
-        config,
-        resolve_user_attributes,
-        channel_users,
-        server,
-        chantypes,
-        statusmsg,
-        casemapping,
-        prefix,
+    let Some((mut msg, highlight)) = create_message_with_highlight(
+        server, encoded, our_nick, config, clients,
     ) else {
         return;
     };
+
+    let casemapping = clients.get_casemapping(server);
 
     if let Some(kind) = history::Kind::from_server_message(server.clone(), &msg)
     {
@@ -1718,32 +1707,14 @@ fn handle_direct_message(
     notifications: &mut Notifications,
     main_window: &Window,
 ) {
-    let resolve_user_attributes = |user: &User, channel: &target::Channel| {
-        clients
-            .resolve_user_attributes(server, channel, user)
-            .cloned()
+    let Some(msg) = create_message(server, encoded, our_nick, config, clients)
+    else {
+        return;
     };
-    let channel_users =
-        |channel: &target::Channel| clients.get_channel_users(server, channel);
+
     let chantypes = clients.get_chantypes(server);
     let statusmsg = clients.get_statusmsg(server);
     let casemapping = clients.get_casemapping(server);
-    let prefix = clients.get_prefix(server);
-
-    let Some(msg) = data::Message::received(
-        encoded,
-        our_nick,
-        config,
-        resolve_user_attributes,
-        channel_users,
-        server,
-        chantypes,
-        statusmsg,
-        casemapping,
-        prefix,
-    ) else {
-        return;
-    };
 
     let Ok(query) = target::Query::parse(
         user.nickname().as_str(),
