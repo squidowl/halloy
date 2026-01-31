@@ -1200,6 +1200,7 @@ fn handle_client_event(
                 clients,
                 config,
                 notifications,
+                main_window,
             );
         }
         Event::WithTarget(encoded, our_nick, target) => {
@@ -1293,18 +1294,26 @@ fn handle_client_event(
             );
         }
         Event::MonitoredOnline(users) => {
-            notifications.notify(
-                &config.notifications,
-                &Notification::MonitoredOnline(users),
-                server,
-            );
+            let kind = history::Kind::Server(server.clone());
+
+            if !dashboard.is_open_in_pane(&kind) || !main_window.focused {
+                notifications.notify(
+                    &config.notifications,
+                    &Notification::MonitoredOnline(users),
+                    server,
+                );
+            }
         }
         Event::MonitoredOffline(users) => {
-            notifications.notify(
-                &config.notifications,
-                &Notification::MonitoredOffline(users),
-                server,
-            );
+            let kind = history::Kind::Server(server.clone());
+
+            if !dashboard.is_open_in_pane(&kind) || !main_window.focused {
+                notifications.notify(
+                    &config.notifications,
+                    &Notification::MonitoredOffline(users),
+                    server,
+                );
+            }
         }
         Event::OnConnect(on_connect) => {
             let server = server.clone();
@@ -1438,6 +1447,7 @@ fn handle_priv_or_notice(
     clients: &data::client::Map,
     config: &Config,
     notifications: &mut Notifications,
+    main_window: &Window,
 ) {
     let Some((mut msg, highlight)) = create_message_with_highlight(
         server, encoded, our_nick, config, clients,
@@ -1446,12 +1456,15 @@ fn handle_priv_or_notice(
     };
 
     let casemapping = clients.get_casemapping(server);
+    let kind = history::Kind::from_server_message(server.clone(), &msg);
+    let is_open_in_pane = kind
+        .as_ref()
+        .is_some_and(|kind| dashboard.is_open_in_pane(kind));
 
-    if let Some(kind) = history::Kind::from_server_message(server.clone(), &msg)
-    {
+    if let Some(kind) = &kind {
         dashboard.block_message(
             &mut msg,
-            &kind,
+            kind,
             server,
             casemapping,
             &config.buffer,
@@ -1464,20 +1477,24 @@ fn handle_priv_or_notice(
             highlight,
             &msg,
             notification_enabled,
+            is_open_in_pane,
             casemapping,
             dashboard,
             commands,
             config,
             notifications,
+            main_window,
         );
     } else {
         maybe_notify_channel_message(
             server,
             &msg,
             notification_enabled,
+            is_open_in_pane,
             casemapping,
             config,
             notifications,
+            main_window,
         );
     }
 
@@ -1493,11 +1510,13 @@ fn handle_highlight(
     highlight: message::Highlight,
     msg: &data::Message,
     notification_enabled: bool,
+    is_open_in_pane: bool,
     casemapping: data::isupport::CaseMap,
     dashboard: &mut screen::Dashboard,
     commands: &mut Vec<Task<Message>>,
     config: &Config,
     notifications: &mut Notifications,
+    main_window: &Window,
 ) {
     let message::Highlight {
         kind: highlight_kind,
@@ -1508,7 +1527,10 @@ fn handle_highlight(
 
     highlight_message.blocked = msg.blocked;
 
-    if !highlight_message.blocked && notification_enabled {
+    if !highlight_message.blocked
+        && notification_enabled
+        && (!is_open_in_pane || !main_window.focused)
+    {
         let (description, sound) = match highlight_kind {
             message::highlight::Kind::Nick => {
                 ("highlighted you".to_string(), None)
@@ -1543,11 +1565,16 @@ fn maybe_notify_channel_message(
     server: &Server,
     msg: &data::Message,
     notification_enabled: bool,
+    is_open_in_pane: bool,
     casemapping: data::isupport::CaseMap,
     config: &Config,
     notifications: &mut Notifications,
+    main_window: &Window,
 ) {
-    if msg.blocked || !notification_enabled {
+    if msg.blocked
+        || !notification_enabled
+        || (is_open_in_pane && main_window.focused)
+    {
         return;
     }
 
@@ -1725,11 +1752,17 @@ fn handle_direct_message(
 
     let blocked = FilterChain::borrow(dashboard.get_filters())
         .filter_query(&query, server);
-    let has_unread = dashboard
-        .history()
-        .has_unread(&history::Kind::Query(server.clone(), query));
+    let kind = history::Kind::Query(server.clone(), query);
+    let has_unread = dashboard.history().has_unread(&kind);
+    // If show_content isn't enabled then there's no new information that would
+    // be shown by notifications past the first.
+    let notification_enabled =
+        !has_unread || config.notifications.direct_message.show_content;
 
-    if !blocked && (has_unread || !main_window.focused) {
+    if !blocked
+        && notification_enabled
+        && (!dashboard.is_open_in_pane(&kind) || !main_window.focused)
+    {
         notifications.notify(
             &config.notifications,
             &Notification::DirectMessage {
