@@ -103,6 +103,9 @@ impl Pane {
                     base.to_string()
                 }
             }
+            Buffer::SearchResults(state) => {
+                format!("Search Results @ {}", state.server)
+            }
             Buffer::Logs(_) => "Logs".to_string(),
             Buffer::Highlights(_) => "Highlights".to_string(),
         };
@@ -165,6 +168,9 @@ impl Pane {
             }),
             Buffer::Logs(_) => Some(history::Resource::logs()),
             Buffer::Highlights(_) => Some(history::Resource::highlights()),
+            Buffer::SearchResults(state) => Some(history::Resource {
+                kind: history::Kind::SearchResults(state.server.clone()),
+            }),
             Buffer::ChannelDiscovery(_) | Buffer::FileTransfers(_) => None,
         }
     }
@@ -180,7 +186,8 @@ impl Pane {
             | Buffer::FileTransfers(_)
             | Buffer::Logs(_)
             | Buffer::Highlights(_)
-            | Buffer::ChannelDiscovery(_) => vec![],
+            | Buffer::ChannelDiscovery(_)
+            | Buffer::SearchResults(_) => vec![],
         }
     }
 }
@@ -463,6 +470,9 @@ impl From<Pane> for data::Pane {
             }
             Buffer::ChannelDiscovery(state) => data::Buffer::Internal(
                 buffer::Internal::ChannelDiscovery(state.server.clone()),
+            ),
+            Buffer::SearchResults(state) => data::Buffer::Internal(
+                buffer::Internal::SearchResults(state.server.clone()),
             ),
         };
 

@@ -27,7 +27,7 @@ use crate::server::Server;
 use crate::target::join_targets;
 use crate::time::Posix;
 use crate::user::{ChannelUsers, Nick, NickRef};
-use crate::{Config, User, command, ctcp, isupport, target};
+use crate::{Config, User, command, ctcp, history, isupport, target};
 
 // References:
 // - https://datatracker.ietf.org/doc/html/rfc1738#section-5
@@ -147,6 +147,10 @@ pub enum Target {
         channel: target::Channel,
         source: Source,
     },
+    SearchResults {
+        target: Option<target::Target>,
+        source: Source,
+    },
 }
 
 impl Target {
@@ -154,15 +158,31 @@ impl Target {
         match self {
             Target::Server { .. } => None,
             Target::Channel { channel, .. } => {
-                if channel.prefixes().is_empty() {
-                    None
-                } else {
+                if !channel.prefixes().is_empty() {
                     Some(channel.prefixes())
+                } else {
+                    None
                 }
             }
             Target::Query { .. } => None,
             Target::Logs { .. } => None,
-            Target::Highlights { .. } => None,
+            Target::Highlights { channel, .. } => {
+                if !channel.prefixes().is_empty() {
+                    Some(channel.prefixes())
+                } else {
+                    None
+                }
+            }
+            Target::SearchResults { target, .. } => {
+                if let Some(channel) =
+                    target.as_ref().and_then(|target| target.as_channel())
+                    && !channel.prefixes().is_empty()
+                {
+                    Some(channel.prefixes())
+                } else {
+                    None
+                }
+            }
         }
     }
 
@@ -173,6 +193,7 @@ impl Target {
             Target::Query { source, .. } => source,
             Target::Logs { source } => source,
             Target::Highlights { source, .. } => source,
+            Target::SearchResults { source, .. } => source,
         }
     }
 
@@ -183,6 +204,7 @@ impl Target {
             Target::Query { source, .. } => source,
             Target::Logs { source } => source,
             Target::Highlights { source, .. } => source,
+            Target::SearchResults { source, .. } => source,
         }
     }
 }
@@ -331,7 +353,7 @@ impl Message {
             casemapping,
         )?;
         let received_at = Posix::now();
-        let hash = Hash::new(&server_time, &content);
+        let hash = Hash::new(&received_at, &server_time, &content);
 
         Some(Message {
             received_at,
@@ -388,7 +410,7 @@ impl Message {
             casemapping,
         )?;
         let received_at = Posix::now();
-        let hash = Hash::new(&server_time, &content);
+        let hash = Hash::new(&received_at, &server_time, &content);
 
         let message = Message {
             received_at,
@@ -454,7 +476,7 @@ impl Message {
     ) -> Self {
         let received_at = Posix::now();
         let server_time = Utc::now();
-        let hash = Hash::new(&server_time, &content);
+        let hash = Hash::new(&received_at, &server_time, &content);
 
         Message {
             received_at,
@@ -484,7 +506,7 @@ impl Message {
             "{} wants to send you \"{filename}\"",
             from.nickname()
         ));
-        let hash = Hash::new(&server_time, &content);
+        let hash = Hash::new(&received_at, &server_time, &content);
 
         Message {
             received_at,
@@ -515,7 +537,7 @@ impl Message {
         let server_time = Utc::now();
         let content =
             plain(format!("offering to send {} \"{filename}\"", to.nickname()));
-        let hash = Hash::new(&server_time, &content);
+        let hash = Hash::new(&received_at, &server_time, &content);
 
         Message {
             received_at,
@@ -560,7 +582,7 @@ impl Message {
             source: Source::Internal(source::Internal::Logs(record.level)),
         };
         let content = Content::Log(record);
-        let hash = Hash::new(&server_time, &content);
+        let hash = Hash::new(&received_at, &server_time, &content);
 
         Self {
             received_at,
@@ -595,6 +617,16 @@ impl Message {
                 }
                 _ => (),
             });
+        }
+    }
+
+    pub fn ordering_datetime(
+        &self,
+        ordered_by: history::OrderedBy,
+    ) -> DateTime<Utc> {
+        match ordered_by {
+            history::OrderedBy::ReceivedAt => self.received_at.datetime(),
+            history::OrderedBy::ServerTime => self.server_time,
         }
     }
 }
@@ -690,7 +722,7 @@ impl<'de> Deserialize<'de> for Message {
 
         let is_echo = is_echo.unwrap_or_default();
 
-        let hash = Hash::new(&server_time, &content);
+        let hash = Hash::new(&received_at, &server_time, &content);
 
         Ok(Message {
             received_at,
@@ -737,6 +769,10 @@ pub fn condense(
             } => Target::Highlights {
                 server: server.clone(),
                 channel: channel.clone(),
+                source,
+            },
+            Target::SearchResults { target, .. } => Target::SearchResults {
+                target: target.clone(),
                 source,
             },
         };
@@ -1468,8 +1504,13 @@ fn condense_associated_fragments(
 pub struct Hash(u64);
 
 impl Hash {
-    pub fn new(server_time: &DateTime<Utc>, content: &Content) -> Self {
+    pub fn new(
+        received_at: &Posix,
+        server_time: &DateTime<Utc>,
+        content: &Content,
+    ) -> Self {
         let mut hasher = DefaultHasher::new();
+        received_at.hash(&mut hasher);
         server_time.hash(&mut hasher);
         content.hash(&mut hasher);
         Self(hasher.finish())
@@ -2122,6 +2163,10 @@ fn target(
                 }),
             }
         }
+        Command::SEARCH(_) => Some(Target::SearchResults {
+            target: None,
+            source: Source::Server(None),
+        }),
         // Server
         Command::PASS(_)
         | Command::NICK(_)
@@ -2507,7 +2552,7 @@ fn content<'a>(
             let sign_on = params.get(3)?.parse::<u64>().ok()?;
 
             let sign_on = Posix::from_seconds(sign_on);
-            let sign_on_datetime = sign_on.datetime()?.to_string();
+            let sign_on_datetime = sign_on.datetime().to_string();
 
             let mut formatter = timeago::Formatter::new();
             // Remove "ago" from relative time.
@@ -2650,7 +2695,7 @@ fn content<'a>(
                 .ok()
                 .map(Posix::from_seconds)
                 .as_ref()
-                .and_then(Posix::datetime)?
+                .map(Posix::datetime)?
                 .with_timezone(&Local)
                 .to_rfc2822();
 
@@ -2836,6 +2881,9 @@ fn content<'a>(
                 }
             }
         }
+        Command::SEARCH(search_query) => {
+            Some((search_query_text(search_query)?, None))
+        }
         Command::Numeric(_, responses) | Command::Unknown(_, responses) => {
             (!responses.is_empty()).then_some((
                 parse_fragments(
@@ -2857,7 +2905,7 @@ fn content<'a>(
 pub enum Limit {
     Top(usize),
     Bottom(usize),
-    Since(DateTime<Utc>),
+    Since(DateTime<Utc>, history::OrderedBy),
 }
 
 pub fn is_action(text: &str) -> bool {
@@ -2996,12 +3044,43 @@ fn monitored_targets_text(targets: Vec<String>) -> Option<String> {
     }
 }
 
+pub fn search_query_text(search_query: &str) -> Option<Content> {
+    let search_parameters = search_query
+        .split(';')
+        .filter_map(|token| {
+            token.split_once('=').map(|(parameter, value)| {
+                (parameter.to_string(), value.to_string())
+            })
+        })
+        .collect::<HashMap<String, String>>();
+
+    let target = search_parameters.get("in")?;
+
+    let mut search_text = format!("Searching for messages in {target}");
+
+    if let Some(from) = search_parameters.get("from") {
+        search_text.push_str(&format!(" from {from}"));
+    }
+
+    if let Some(timestamp) = search_parameters.get("before") {
+        search_text.push_str(&format!(" before {timestamp}"));
+    } else if let Some(timestamp) = search_parameters.get("after") {
+        search_text.push_str(&format!(" after {timestamp}"));
+    }
+
+    if let Some(text) = search_parameters.get("text") {
+        search_text.push_str(&format!(" containing \"{text}\""));
+    }
+
+    Some(plain(search_text))
+}
+
 #[derive(Debug, Clone)]
 pub enum Link {
     Channel(Server, target::Channel),
     Url(String),
     User(Server, User),
-    GoToMessage(Server, target::Channel, Hash),
+    GoToMessage(Server, target::Target, Hash),
     ExpandCondensedMessage(DateTime<Utc>, Hash),
     ContractCondensedMessage(DateTime<Utc>, Hash),
 }

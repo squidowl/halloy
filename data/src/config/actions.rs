@@ -16,9 +16,11 @@ pub struct Buffer {
     pub click_highlight: BufferAction,
     pub click_username: BufferAction,
     pub join_channel: Option<BufferAction>,
+    pub list: BufferAction,
     pub local: BufferAction,
     pub message_channel: BufferAction,
     pub message_user: BufferAction,
+    pub search: BufferAction,
 }
 
 #[derive(Debug, Default, Clone, Deserialize)]

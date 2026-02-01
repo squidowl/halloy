@@ -407,6 +407,21 @@ impl Manager {
             .contract_condensed_message(kind, server_time, hash, config);
     }
 
+    pub fn record_search_result(
+        &mut self,
+        server: &Server,
+        message: crate::Message,
+    ) -> Option<impl Future<Output = Message> + use<>> {
+        if let message::Target::SearchResults { .. } = &message.target {
+            self.data.add_message(
+                history::Kind::SearchResults(server.clone()),
+                message,
+            )
+        } else {
+            None
+        }
+    }
+
     pub fn update_read_marker<T: Into<history::Kind>>(
         &mut self,
         kind: T,
@@ -476,7 +491,7 @@ impl Manager {
             .map
             .keys()
             .filter_map(|kind| match kind {
-                #[allow(clippy::bool_comparison)] // easy to miss exclaimation
+                #[allow(clippy::bool_comparison)] // easy to miss exclamation
                 history::Kind::Query(s, query) => (s == server
                     && self.filters.iter().all(|filter| {
                         filter.match_query(query, server) == false
@@ -968,8 +983,10 @@ fn with_limit<'a>(
             let length = collected.len();
             collected[length.saturating_sub(n)..length].to_vec()
         }
-        Some(Limit::Since(timestamp)) => messages
-            .skip_while(|message| message.server_time < timestamp)
+        Some(Limit::Since(timestamp, ordered_by)) => messages
+            .skip_while(|message| {
+                message.ordering_datetime(ordered_by) < timestamp
+            })
             .collect(),
         None => messages.collect(),
     }
@@ -1010,7 +1027,11 @@ impl Data {
                         |message| {
                             history::update_last_seen(&mut last_seen, &message);
 
-                            history::insert_message(&mut messages, message);
+                            history::insert_message(
+                                &mut messages,
+                                kind.ordered_by(),
+                                message,
+                            );
                         },
                     );
 
@@ -1224,12 +1245,15 @@ impl Data {
         let first_with_limit = limited.first();
         let last_with_limit = limited.last();
 
+        let ordered_by = kind.ordered_by();
+
         let split_at = read_marker.map_or(0, |read_marker| {
             limited
                 .iter()
                 .rev()
                 .position(|message| {
-                    message.server_time <= read_marker.date_time()
+                    message.ordering_datetime(ordered_by)
+                        <= read_marker.date_time()
                 })
                 .map_or_else(
                     || 0, // Backlog is before this limit view of messages
@@ -1242,12 +1266,14 @@ impl Data {
         let has_more_older_messages = first_without_limit
             .zip(first_with_limit)
             .is_some_and(|(without_limit, with_limit)| {
-                without_limit.server_time < with_limit.server_time
+                without_limit.ordering_datetime(ordered_by)
+                    < with_limit.ordering_datetime(ordered_by)
             });
         let has_more_newer_messages = last_without_limit
             .zip(last_with_limit)
             .is_some_and(|(without_limit, with_limit)| {
-                without_limit.server_time > with_limit.server_time
+                without_limit.ordering_datetime(ordered_by)
+                    > with_limit.ordering_datetime(ordered_by)
             });
 
         Some(history::View {
@@ -1260,6 +1286,7 @@ impl Data {
             max_prefix_chars,
             range_timestamp_extra_chars,
             cleared: *cleared,
+            ordered_by,
         })
     }
 

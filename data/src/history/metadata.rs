@@ -181,6 +181,9 @@ async fn path(kind: &Kind) -> Result<PathBuf, Error> {
         }
         Kind::Logs => "logs-metadata".to_string(),
         Kind::Highlights => "highlights-metadata".to_string(),
+        Kind::SearchResults(server) => {
+            format!("{server}search results-metadata")
+        }
     };
 
     let hashed_name = seahash::hash(name.as_bytes());

@@ -160,6 +160,7 @@ pub struct Client {
     supports_chathistory: bool,
     supports_bouncer_networks: bool,
     supports_detach: bool,
+    supports_search: bool,
     sasl_succeeded: bool,
     chathistory_requests: HashMap<Target, ChatHistoryRequest>,
     chathistory_exhausted: HashMap<Target, bool>,
@@ -227,6 +228,7 @@ impl Client {
             supports_chathistory: false,
             supports_bouncer_networks: false,
             supports_detach: false,
+            supports_search: false,
             sasl_succeeded: false,
             chathistory_requests: HashMap::new(),
             chathistory_exhausted: HashMap::new(),
@@ -552,23 +554,29 @@ impl Client {
                     '+' => {
                         let mut batch = Batch::new(context);
 
-                        batch.chathistory =
-                            match params.first().map(String::as_str) {
-                                Some("chathistory") => {
-                                    params.get(1).map(|target| {
-                                        ChatHistoryBatch::Target(Target::parse(
-                                            target,
-                                            self.chantypes(),
-                                            self.statusmsg(),
-                                            self.casemapping(),
-                                        ))
-                                    })
-                                }
-                                Some("draft/chathistory-targets") => {
-                                    Some(ChatHistoryBatch::Targets)
-                                }
-                                _ => None,
-                            };
+                        batch.kind = match params.first().map(String::as_str) {
+                            Some("chathistory") => {
+                                params.get(1).map(|target| {
+                                    BatchKind::ChatHistory(
+                                        ChatHistoryBatch::Target(
+                                            Target::parse(
+                                                target,
+                                                self.chantypes(),
+                                                self.statusmsg(),
+                                                self.casemapping(),
+                                            ),
+                                        ),
+                                    )
+                                })
+                            }
+                            Some("draft/chathistory-targets") => {
+                                Some(BatchKind::ChatHistory(
+                                    ChatHistoryBatch::Targets,
+                                ))
+                            }
+                            Some("soju.im/search") => Some(BatchKind::Search),
+                            _ => None,
+                        };
 
                         self.batches.insert(
                             Target::parse(
@@ -602,9 +610,9 @@ impl Client {
                             {
                                 parent.events.extend(finished.events);
                             } else {
-                                match &finished.chathistory {
-                                    Some(ChatHistoryBatch::Target(
-                                        batch_target,
+                                match &finished.kind {
+                                    Some(BatchKind::ChatHistory(
+                                        ChatHistoryBatch::Target(batch_target),
                                     )) => {
                                         let continuation_subcommand =
                                             if let Some(ChatHistoryRequest {
@@ -726,7 +734,9 @@ impl Client {
                                             );
                                         }
                                     }
-                                    Some(ChatHistoryBatch::Targets) => {
+                                    Some(BatchKind::ChatHistory(
+                                        ChatHistoryBatch::Targets,
+                                    )) => {
                                         if let Some(ChatHistoryRequest {
                                             subcommand,
                                             ..
@@ -770,7 +780,7 @@ impl Client {
                 return Ok(vec![]);
             }
             _ if batch_tag.is_some() => {
-                let events = if let Some(batch_target) = batch_tag
+                let events = if let Some(batch_kind) = batch_tag
                     .as_ref()
                     .and_then(|batch| {
                         self.batches.get(&Target::parse(
@@ -780,106 +790,139 @@ impl Client {
                             self.casemapping(),
                         ))
                     })
-                    .and_then(|batch| {
-                        batch
-                            .chathistory
-                            .as_ref()
-                            .and_then(ChatHistoryBatch::target)
-                    })
-                    .and_then(|target| {
-                        match self.chathistory_requests.contains_key(&target) {
-                            true => Some(target),
-                            false => None,
-                        }
-                    }) {
-                    if Some(User::from(Nick::from_str(
-                        "HistServ",
-                        self.casemapping(),
-                    ))) == message.user(self.casemapping())
+                    .and_then(|batch| batch.kind.as_ref())
+                {
+                    if let BatchKind::ChatHistory(chathistory_batch) =
+                        batch_kind
+                        && let Some(batch_target) =
+                            chathistory_batch.target().and_then(|target| {
+                                match self
+                                    .chathistory_requests
+                                    .contains_key(&target)
+                                {
+                                    true => Some(target),
+                                    false => None,
+                                }
+                            })
                     {
-                        // HistServ provides event-playback without event-playback
-                        // which would require client-side parsing to map appropriately.
-                        // Avoid that complexity by only providing that functionality
-                        // via event-playback.
-                        vec![]
-                    } else {
-                        match &message.command {
-                            Command::NICK(_) => batch_target
-                                .as_channel()
-                                .map(|channel| {
-                                    let target = message::Target::Channel {
-                                        channel: channel.clone(),
-                                        source: source::Source::Server(None),
-                                    };
-
-                                    vec![Event::WithTarget(
-                                        message,
-                                        self.nickname().to_owned(),
-                                        target,
-                                    )]
-                                })
-                                .unwrap_or_default(),
-                            Command::QUIT(_) => batch_target
-                                .as_channel()
-                                .map(|channel| {
-                                    let target = message::Target::Channel {
-                                        channel: channel.clone(),
-                                        source: source::Source::Server(Some(
-                                            source::Server::new(
-                                                source::server::Kind::Quit,
-                                                message
-                                                    .user(self.casemapping())
-                                                    .map(|user| {
-                                                        Nick::from(
-                                                            user.nickname(),
-                                                        )
-                                                    }),
+                        if Some(User::from(Nick::from_str(
+                            "HistServ",
+                            self.casemapping(),
+                        ))) == message.user(self.casemapping())
+                        {
+                            // HistServ provides event-playback without event-playback
+                            // which would require client-side parsing to map appropriately.
+                            // Avoid that complexity by only providing that functionality
+                            // via event-playback.
+                            vec![]
+                        } else {
+                            match &message.command {
+                                Command::NICK(_) => batch_target
+                                    .as_channel()
+                                    .map(|channel| {
+                                        let target = message::Target::Channel {
+                                            channel: channel.clone(),
+                                            source: source::Source::Server(
                                                 None,
                                             ),
-                                        )),
-                                    };
+                                        };
 
-                                    vec![Event::WithTarget(
-                                        message,
-                                        self.nickname().to_owned(),
-                                        target,
-                                    )]
-                                })
-                                .unwrap_or_default(),
-                            Command::PRIVMSG(target, text)
-                            | Command::NOTICE(target, text) => {
-                                if ctcp::is_query(text)
-                                    && !message::is_action(text)
-                                {
-                                    // Ignore historical CTCP queries/responses except for ACTIONs
-                                    vec![]
-                                } else {
-                                    if let Some(user) =
-                                        message.user(self.casemapping())
+                                        vec![Event::WithTarget(
+                                            message,
+                                            self.nickname().to_owned(),
+                                            target,
+                                        )]
+                                    })
+                                    .unwrap_or_default(),
+                                Command::QUIT(_) => batch_target
+                                    .as_channel()
+                                    .map(|channel| {
+                                        let target = message::Target::Channel {
+                                            channel: channel.clone(),
+                                            source: source::Source::Server(
+                                                Some(source::Server::new(
+                                                    source::server::Kind::Quit,
+                                                    message
+                                                        .user(
+                                                            self.casemapping(),
+                                                        )
+                                                        .map(|user| {
+                                                            Nick::from(
+                                                                user.nickname(),
+                                                            )
+                                                        }),
+                                                    None,
+                                                )),
+                                            ),
+                                        };
+
+                                        vec![Event::WithTarget(
+                                            message,
+                                            self.nickname().to_owned(),
+                                            target,
+                                        )]
+                                    })
+                                    .unwrap_or_default(),
+                                Command::PRIVMSG(target, text)
+                                | Command::NOTICE(target, text) => {
+                                    if ctcp::is_query(text)
+                                        && !message::is_action(text)
                                     {
-                                        // If direct message, update resolved queries with user
-                                        if target
-                                            == &self.nickname().to_string()
+                                        // Ignore historical CTCP queries/responses except for ACTIONs
+                                        vec![]
+                                    } else {
+                                        if let Some(user) =
+                                            message.user(self.casemapping())
                                         {
-                                            self.resolved_queries.replace(
-                                                target::Query::from(user),
-                                            );
+                                            // If direct message, update resolved queries with user
+                                            if target
+                                                == &self.nickname().to_string()
+                                            {
+                                                self.resolved_queries.replace(
+                                                    target::Query::from(user),
+                                                );
+                                            }
                                         }
-                                    }
 
-                                    vec![Event::PrivOrNotice(
-                                        message,
-                                        self.nickname().to_owned(),
-                                        // Don't allow notifications from history
-                                        false,
-                                    )]
+                                        vec![Event::PrivOrNotice(
+                                            message,
+                                            self.nickname().to_owned(),
+                                            // Don't allow notifications from history
+                                            false,
+                                        )]
+                                    }
                                 }
+                                _ => vec![Event::Single(
+                                    message,
+                                    self.nickname().to_owned(),
+                                )],
                             }
-                            _ => vec![Event::Single(
+                        }
+                    } else if matches!(batch_kind, BatchKind::Search) {
+                        if let Command::PRIVMSG(target, _)
+                        | Command::NOTICE(target, _) = &message.command
+                            && let Some(user) = message.user(self.casemapping())
+                        {
+                            let target = Target::parse(
+                                target,
+                                self.chantypes(),
+                                self.statusmsg(),
+                                self.casemapping(),
+                            );
+
+                            vec![Event::WithTarget(
                                 message,
                                 self.nickname().to_owned(),
-                            )],
+                                message::Target::SearchResults {
+                                    target: Some(target),
+                                    source: source::Source::User(user),
+                                },
+                            )]
+                        } else {
+                            vec![]
                         }
+                    } else {
+                        vec![]
                     }
                 } else {
                     self.handle(message, context, config)?
@@ -901,7 +944,7 @@ impl Client {
             _ if context.as_ref().is_some_and(Context::is_whois) => {
                 if let Some(source) = context
                     .map(Context::buffer)
-                    .map(|buffer| buffer.server_message_target(None))
+                    .and_then(|buffer| buffer.server_message_target(None))
                 {
                     return Ok(vec![Event::WithTarget(
                         message,
@@ -926,7 +969,7 @@ impl Client {
                 if let Some(source) = self
                     .reroute_responses_to
                     .clone()
-                    .map(|buffer| buffer.server_message_target(None))
+                    .and_then(|buffer| buffer.server_message_target(None))
                 {
                     return Ok(vec![Event::WithTarget(
                         message,
@@ -1051,6 +1094,9 @@ impl Client {
                     if contains("soju.im/bouncer-networks") {
                         requested.push("soju.im/bouncer-networks");
                     }
+                    if contains("soju.im/search") {
+                        requested.push("soju.im/search");
+                    }
 
                     if !requested.is_empty() {
                         // Request
@@ -1097,6 +1143,9 @@ impl Client {
                 }
                 if caps.contains(&"soju.im/bouncer-networks") {
                     self.supports_bouncer_networks = true;
+                }
+                if caps.contains(&"soju.im/search") {
+                    self.supports_search = true;
                 }
 
                 let supports_sasl = caps.iter().any(|cap| cap.contains("sasl"));
@@ -1210,6 +1259,9 @@ impl Client {
                 if newly_contains("soju.im/bouncer-networks") {
                     requested.push("soju.im/bouncer-networks");
                 }
+                if newly_contains("soju.im/search") {
+                    requested.push("soju.im/search");
+                }
 
                 if !requested.is_empty() {
                     for message in group_capability_requests(&requested) {
@@ -1252,6 +1304,9 @@ impl Client {
                 }
                 if del_caps.contains(&"soju.im/bouncer-networks") {
                     self.supports_bouncer_networks = false;
+                }
+                if del_caps.contains(&"soju.im/search") {
+                    self.supports_search = false;
                 }
 
                 self.listed_caps.retain(|cap| {
@@ -1824,7 +1879,7 @@ impl Client {
                     } else if let Some(source) = self
                         .reroute_responses_to
                         .clone()
-                        .map(|buffer| buffer.server_message_target(None))
+                        .and_then(|buffer| buffer.server_message_target(None))
                     {
                         return Ok(vec![Event::WithTarget(
                             message,
@@ -1935,7 +1990,7 @@ impl Client {
                     } else if let Some(source) = self
                         .reroute_responses_to
                         .clone()
-                        .map(|buffer| buffer.server_message_target(None))
+                        .and_then(|buffer| buffer.server_message_target(None))
                     {
                         return Ok(vec![Event::WithTarget(
                             message,
@@ -2010,7 +2065,7 @@ impl Client {
                     } else if let Some(source) = self
                         .reroute_responses_to
                         .clone()
-                        .map(|buffer| buffer.server_message_target(None))
+                        .and_then(|buffer| buffer.server_message_target(None))
                     {
                         return Ok(vec![Event::WithTarget(
                             message,
@@ -2259,13 +2314,7 @@ impl Client {
                     )));
                     let timestamp =
                         Posix::from_seconds(ok!(args.get(3)).parse::<u64>()?);
-                    channel.topic.time =
-                        Some(timestamp.datetime().ok_or_else(|| {
-                            anyhow!(
-                                "Unable to parse timestamp: {:?}",
-                                timestamp
-                            )
-                        })?);
+                    channel.topic.time = Some(timestamp.datetime());
                 }
                 // Exclude topic message from history to prevent spam during dev
                 #[cfg(feature = "dev")]
@@ -3774,6 +3823,11 @@ impl Map {
             .is_some_and(|client| client.supports_chathistory)
     }
 
+    pub fn get_server_supports_search(&self, server: &Server) -> bool {
+        self.client(server)
+            .is_some_and(|client| client.supports_search)
+    }
+
     pub fn get_chathistory_request(
         &self,
         server: &Server,
@@ -3990,10 +4044,16 @@ impl ChatHistoryBatch {
 }
 
 #[derive(Debug)]
+pub enum BatchKind {
+    ChatHistory(ChatHistoryBatch),
+    Search,
+}
+
+#[derive(Debug)]
 pub struct Batch {
     context: Option<Context>,
     events: Vec<Event>,
-    chathistory: Option<ChatHistoryBatch>,
+    kind: Option<BatchKind>,
 }
 
 impl Batch {
@@ -4001,7 +4061,7 @@ impl Batch {
         Self {
             context,
             events: vec![],
-            chathistory: None,
+            kind: None,
         }
     }
 }

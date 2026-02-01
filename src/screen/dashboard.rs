@@ -496,6 +496,34 @@ impl Dashboard {
                     sidebar::Event::Leave(buffer) => {
                         self.leave_buffer(clients, config, buffer)
                     }
+                    sidebar::Event::Search(buffer) => {
+                        let server = buffer.server();
+                        let target = buffer.target();
+
+                        let buffer = data::Buffer::Internal(
+                            buffer::Internal::SearchResults(server.clone()),
+                        );
+
+                        let task = self.open_or_focus_buffer(
+                            buffer.clone(),
+                            config.actions.buffer.search,
+                            clients,
+                            config,
+                        );
+
+                        if let Some((_, _, state)) =
+                            self.panes.get_mut_by_buffer(&buffer)
+                            && let buffer::Buffer::SearchResults(search_results) =
+                                &mut state.buffer
+                        {
+                            search_results.update_search_query(
+                                target.map(|target| target.to_string()),
+                                None,
+                            );
+                        }
+
+                        (task, None)
+                    }
                     sidebar::Event::ToggleInternalBuffer(buffer) => (
                         self.toggle_internal_buffer(clients, config, buffer),
                         None,
@@ -1675,15 +1703,53 @@ impl Dashboard {
                     Self::send_list_command_if_needed(server, pane, clients);
                 }
 
+                let buffer_action = if matches!(
+                    buffer,
+                    buffer::Internal::ChannelDiscovery(_)
+                ) {
+                    config.actions.buffer.list
+                } else {
+                    config.actions.buffer.local
+                };
+
                 return (
                     self.open_buffer(
                         data::Buffer::Internal(buffer),
-                        config.actions.buffer.click_channel_name,
+                        buffer_action,
                         clients,
                         config,
                     ),
                     None,
                 );
+            }
+            buffer::Event::OpenSearchResults {
+                server,
+                target,
+                text,
+            } => {
+                let buffer = data::Buffer::Internal(
+                    buffer::Internal::SearchResults(server),
+                );
+
+                let task = self.open_or_focus_buffer(
+                    buffer.clone(),
+                    config.actions.buffer.search,
+                    clients,
+                    config,
+                );
+
+                if let Some((_, _, state)) =
+                    self.panes.get_mut_by_buffer(&buffer)
+                    && let buffer::Buffer::SearchResults(search_results) =
+                        &mut state.buffer
+                {
+                    search_results.update_search_query(
+                        target.map(|target| target.to_string()),
+                        text,
+                    );
+                }
+
+                return (task, None);
             }
             buffer::Event::ContextMenu(event) => {
                 let mut tasks =
@@ -2070,21 +2136,22 @@ impl Dashboard {
             buffer::Event::History(history_task) => {
                 return (history_task.map(Message::History), None);
             }
-            buffer::Event::GoToMessage(server, channel, message) => {
-                let buffer = data::Buffer::Upstream(buffer::Upstream::Channel(
-                    server, channel,
-                ));
+            buffer::Event::GoToMessage(server, target, message) => {
+                let buffer = match target {
+                    Target::Channel(channel) => data::Buffer::Upstream(
+                        buffer::Upstream::Channel(server, channel),
+                    ),
+                    Target::Query(query) => data::Buffer::Upstream(
+                        buffer::Upstream::Query(server, query),
+                    ),
+                };
 
-                let mut tasks = vec![];
-
-                if self.panes.get_mut_by_buffer(&buffer).is_none() {
-                    tasks.push(self.open_buffer(
-                        buffer.clone(),
-                        config.actions.buffer.click_highlight,
-                        clients,
-                        config,
-                    ));
-                }
+                let mut tasks = vec![self.open_or_focus_buffer(
+                    buffer.clone(),
+                    config.actions.buffer.click_highlight,
+                    clients,
+                    config,
+                )];
 
                 if let Some((window, pane, state)) =
                     self.panes.get_mut_by_buffer(&buffer)
@@ -2244,6 +2311,60 @@ impl Dashboard {
             buffer::Event::OpenServer(server) => {
                 return (Task::none(), Some(Event::OpenServer(server)));
             }
+            buffer::Event::SendSearchQuery {
+                server,
+                search_query,
+            } => {
+                let buffer =
+                    pane.buffer.upstream().cloned().unwrap_or_else(|| {
+                        buffer::Upstream::Server(server.clone())
+                    });
+
+                let command = command::Irc::Search(search_query);
+
+                let chantypes = clients.get_chantypes(&server);
+                let statusmsg = clients.get_statusmsg(&server);
+                let casemapping = clients.get_casemapping(&server);
+                let supports_echoes =
+                    clients.get_server_supports_echoes(&server);
+
+                let task = if let Some(user) = clients
+                    .nickname(&server)
+                    .map(|nick| User::from(nick.to_owned()))
+                    && let Some(messages) = command.messages(
+                        user,
+                        None,
+                        chantypes,
+                        statusmsg,
+                        casemapping,
+                        supports_echoes,
+                    ) {
+                    Task::batch(
+                        messages
+                            .into_iter()
+                            .flat_map(|message| {
+                                self.history.record_input_message(
+                                    message,
+                                    &server,
+                                    casemapping,
+                                    config,
+                                )
+                            })
+                            .map(Task::future),
+                    )
+                    .map(Message::History)
+                } else {
+                    Task::none()
+                };
+
+                let input = data::Input::from_command(buffer, command);
+
+                if let Some(encoded) = input.encoded() {
+                    clients.send(&input.buffer, encoded, TokenPriority::User);
+                }
+
+                return (task, None);
+            }
         }
 
         (Task::none(), None)
@@ -2335,9 +2456,19 @@ impl Dashboard {
         if let Some((window, pane)) = open {
             self.close_pane(clients, config, window, pane)
         } else {
+            let buffer_action = match &buffer {
+                buffer::Internal::ChannelDiscovery(_) => {
+                    config.actions.buffer.list
+                }
+                buffer::Internal::SearchResults(_) => {
+                    config.actions.buffer.search
+                }
+                _ => config.actions.buffer.local,
+            };
+
             self.open_buffer(
                 data::Buffer::Internal(buffer),
-                config.actions.buffer.local,
+                buffer_action,
                 clients,
                 config,
             )
@@ -2567,6 +2698,20 @@ impl Dashboard {
                     }
                 })
             }
+        }
+    }
+
+    fn open_or_focus_buffer(
+        &mut self,
+        buffer: data::Buffer,
+        buffer_action: BufferAction,
+        clients: &mut data::client::Map,
+        config: &Config,
+    ) -> Task<Message> {
+        if let Some((window, pane, _)) = self.panes.get_by_buffer(&buffer) {
+            self.focus_pane(window, pane)
+        } else {
+            self.open_buffer(buffer, buffer_action, clients, config)
         }
     }
 
@@ -3890,6 +4035,15 @@ impl Panes {
                 .get_mut(&window)
                 .and_then(|panes| panes.get_mut(pane))
         }
+    }
+
+    fn get_by_buffer(
+        &mut self,
+        buffer: &data::Buffer,
+    ) -> Option<(window::Id, pane_grid::Pane, &Pane)> {
+        self.iter().find(|(_, _, state)| {
+            state.buffer.data().is_some_and(|b| b == *buffer)
+        })
     }
 
     fn get_mut_by_buffer(
