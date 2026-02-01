@@ -166,7 +166,7 @@ impl Dashboard {
                 None
             }
         }) {
-            Self::send_list_command(server, pane, clients);
+            Self::send_list_command_if_needed(server, pane, clients);
         }
     }
 
@@ -1672,15 +1672,7 @@ impl Dashboard {
                 if let buffer::Internal::ChannelDiscovery(Some(server)) =
                     &buffer
                 {
-                    let should_fetch = clients
-                        .get_channel_discovery_manager(server)
-                        .is_none_or(
-                            data::channel_discovery::Manager::needs_refetch,
-                        );
-
-                    if should_fetch {
-                        Self::send_list_command(server, pane, clients);
-                    }
+                    Self::send_list_command_if_needed(server, pane, clients);
                 }
 
                 return (
@@ -2237,15 +2229,15 @@ impl Dashboard {
                     None,
                 );
             }
-            buffer::Event::SelectedServer {
-                server,
-                send_list_command,
-            } => {
-                if send_list_command {
-                    Self::send_list_command(&server, pane, clients);
-                }
+            buffer::Event::SelectedServer(server) => {
+                Self::send_list_command_if_needed(&server, pane, clients);
 
                 self.last_changed = Some(Instant::now());
+
+                return (Task::none(), None);
+            }
+            buffer::Event::SendUnsafeList(server) => {
+                Self::send_list_command(&server, pane, clients);
 
                 return (Task::none(), None);
             }
@@ -2349,6 +2341,26 @@ impl Dashboard {
                 clients,
                 config,
             )
+        }
+    }
+
+    fn send_list_command_if_needed(
+        server: &data::Server,
+        pane: &Pane,
+        clients: &mut data::client::Map,
+    ) {
+        let is_needed = if clients.get_server_supports_list(server) {
+            clients.get_channel_discovery_manager(server).is_none_or(
+                data::channel_discovery::Manager::needs_fetch_or_refetch,
+            )
+        } else {
+            clients
+                .get_channel_discovery_manager(server)
+                .is_some_and(data::channel_discovery::Manager::needs_refetch)
+        };
+
+        if is_needed {
+            Self::send_list_command(server, pane, clients);
         }
     }
 

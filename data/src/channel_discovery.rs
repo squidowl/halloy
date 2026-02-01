@@ -46,21 +46,24 @@ impl Manager {
         self.channels.insert(channel, (topic_content, user_count));
     }
 
+    pub fn needs_fetch_or_refetch(&self) -> bool {
+        self.status.is_none() || self.needs_refetch()
+    }
+
     // Returns true if cache is stale and needs refetching (5 minutes) and there
     // is no in-progress LIST request (request is assumed timed out if no
     // activity in last 2 minutes)
     pub fn needs_refetch(&self) -> bool {
-        self.status.is_none()
-            || self.status.as_ref().is_some_and(|status| match status {
-                Status::Requested(activity) | Status::Receiving(activity) => {
-                    Utc::now().signed_duration_since(activity)
-                        > chrono::Duration::minutes(2)
-                }
-                Status::Updated(last_updated) => {
-                    Utc::now().signed_duration_since(last_updated)
-                        > chrono::Duration::minutes(5)
-                }
-            })
+        self.status.as_ref().is_some_and(|status| match status {
+            Status::Requested(activity) | Status::Receiving(activity) => {
+                Utc::now().signed_duration_since(activity)
+                    > chrono::Duration::minutes(2)
+            }
+            Status::Updated(last_updated) => {
+                Utc::now().signed_duration_since(last_updated)
+                    > chrono::Duration::minutes(5)
+            }
+        })
     }
 
     fn sort_by_user_count<'a>(
