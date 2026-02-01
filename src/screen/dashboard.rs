@@ -1502,12 +1502,12 @@ impl Dashboard {
                         window != self.main_window(),
                     )
                 })
-                .spacing(config.pane.gap.inner)
+                .spacing(config.spacing.pane.gap.inner)
                 .on_click(pane::Message::PaneClicked),
             )
             .width(Length::Fill)
             .height(Length::Fill)
-            .padding(config.pane.gap.outer);
+            .padding(config.spacing.pane.gap.outer);
 
             return Element::new(content)
                 .map(move |message| Message::Pane(window, message));
@@ -1559,7 +1559,7 @@ impl Dashboard {
             .on_click(pane::Message::PaneClicked)
             .on_resize(6, pane::Message::PaneResized)
             .on_drag(pane::Message::PaneDragged)
-            .spacing(config.pane.gap.inner)
+            .spacing(config.spacing.pane.gap.inner)
             .into();
 
         let pane_grid =
@@ -1568,7 +1568,7 @@ impl Dashboard {
             }))
             .width(Length::Fill)
             .height(Length::Fill)
-            .padding(config.pane.gap.outer);
+            .padding(config.spacing.pane.gap.outer);
 
         let side_menu = self
             .side_menu

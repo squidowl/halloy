@@ -580,14 +580,14 @@ fn menu_button(
             .style(theme::text::primary)
             .font_maybe(theme::font_style::primary(theme).map(font::get)),
     )
-    .padding(config.context_menu.padding.entry)
+    .padding(config.spacing.context_menu.padding.entry)
     .width(length)
     .on_press_maybe(message)
     .into()
 }
 
 fn right_justified_padding(config: &Config) -> Padding {
-    let padding = config.context_menu.padding.entry;
+    let padding = config.spacing.context_menu.padding.entry;
     Padding::from(padding)
         .right(padding[1] as f32 + double_pass::horizontal_expansion())
 }

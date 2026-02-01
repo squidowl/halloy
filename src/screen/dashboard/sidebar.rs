@@ -235,7 +235,9 @@ impl Sidebar {
                                     .align_y(iced::Alignment::Center),
                                 )
                                 .width(length)
-                                .padding(config.context_menu.padding.entry)
+                                .padding(
+                                    config.spacing.context_menu.padding.entry,
+                                )
                                 .on_press(message)
                                 .into()
                             };
@@ -545,7 +547,11 @@ impl Sidebar {
                                     buffers.push(
                                         space::horizontal()
                                             .width(
-                                                config.sidebar.spacing.server,
+                                                config
+                                                    .spacing
+                                                    .sidebar
+                                                    .spacing
+                                                    .server,
                                             )
                                             .into(),
                                     );
@@ -553,7 +559,13 @@ impl Sidebar {
                             } else {
                                 buffers.push(
                                     space::vertical()
-                                        .height(config.sidebar.spacing.server)
+                                        .height(
+                                            config
+                                                .spacing
+                                                .sidebar
+                                                .spacing
+                                                .server,
+                                        )
                                         .into(),
                                 );
                             }
@@ -968,7 +980,7 @@ fn upstream_buffer_button<'a>(
                     open.is_some(),
                 )
             })
-            .padding(config.sidebar.padding.buffer)
+            .padding(config.spacing.sidebar.padding.buffer)
             .on_press({
                 match is_focused {
                     Some((window, pane)) => {
@@ -1095,7 +1107,7 @@ fn upstream_buffer_button<'a>(
 
                 button(text(content))
                     .width(length)
-                    .padding(config.context_menu.padding.entry)
+                    .padding(config.spacing.context_menu.padding.entry)
                     .style(|theme, status| {
                         theme::button::primary(theme, status, false)
                     })

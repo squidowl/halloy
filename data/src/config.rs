@@ -25,6 +25,7 @@ pub use self::preview::Preview;
 pub use self::proxy::Proxy;
 pub use self::server::Server;
 pub use self::sidebar::Sidebar;
+pub use self::spacing::Spacing;
 use crate::appearance::theme::Styles;
 use crate::appearance::{self, Appearance};
 use crate::audio::{self};
@@ -48,6 +49,7 @@ pub mod preview;
 pub mod proxy;
 pub mod server;
 pub mod sidebar;
+pub mod spacing;
 
 const CONFIG_TEMPLATE: &str = include_str!("../../config.toml");
 const DEFAULT_THEME_NAME: &str = "ferra";
@@ -60,6 +62,7 @@ pub struct Config {
     pub proxy: Option<Proxy>,
     pub font: Font,
     pub scale_factor: ScaleFactor,
+    pub spacing: Spacing,
     pub buffer: Buffer,
     pub pane: Pane,
     pub sidebar: Sidebar,
@@ -312,6 +315,7 @@ impl Config {
             pub proxy: Option<Proxy>,
             pub font: Font,
             pub scale_factor: ScaleFactor,
+            pub spacing: Spacing,
             pub buffer: Buffer,
             pub pane: Pane,
             pub sidebar: Sidebar,
@@ -336,6 +340,7 @@ impl Config {
                     proxy: None,
                     font: Font::default(),
                     scale_factor: ScaleFactor::default(),
+                    spacing: Spacing::default(),
                     buffer: Buffer::default(),
                     pane: Pane::default(),
                     sidebar: Sidebar::default(),
@@ -353,6 +358,71 @@ impl Config {
             }
         }
 
+        fn config_migrate<T: Copy>(
+            raw_toml: &toml::Value,
+            old_path: &[&str],
+            new_path: &[&str],
+            old_value: T,
+            new_value: &mut T,
+        ) {
+            if !toml_path_exists(raw_toml, new_path)
+                && toml_path_exists(raw_toml, old_path)
+            {
+                *new_value = old_value;
+            }
+        }
+
+        fn apply_config_migrations(
+            config: &mut Configuration,
+            raw_toml: &toml::Value,
+        ) {
+            config_migrate(
+                raw_toml,
+                &["buffer", "line_spacing"],
+                &["spacing", "buffer", "line_spacing"],
+                config.buffer.line_spacing,
+                &mut config.spacing.buffer.line_spacing,
+            );
+
+            config_migrate(
+                raw_toml,
+                &["pane", "gap", "inner"],
+                &["spacing", "pane", "gap", "inner"],
+                config.pane.gap.inner,
+                &mut config.spacing.pane.gap.inner,
+            );
+            config_migrate(
+                raw_toml,
+                &["pane", "gap", "outer"],
+                &["spacing", "pane", "gap", "outer"],
+                config.pane.gap.outer,
+                &mut config.spacing.pane.gap.outer,
+            );
+
+            config_migrate(
+                raw_toml,
+                &["sidebar", "padding", "buffer"],
+                &["spacing", "sidebar", "padding", "buffer"],
+                config.sidebar.padding.buffer,
+                &mut config.spacing.sidebar.padding.buffer,
+            );
+            config_migrate(
+                raw_toml,
+                &["sidebar", "spacing", "server"],
+                &["spacing", "sidebar", "spacing", "server"],
+                config.sidebar.spacing.server,
+                &mut config.spacing.sidebar.spacing.server,
+            );
+
+            config_migrate(
+                raw_toml,
+                &["context_menu", "padding", "entry"],
+                &["spacing", "context_menu", "padding", "entry"],
+                config.context_menu.padding.entry,
+                &mut config.spacing.context_menu.padding.entry,
+            );
+        }
+
         let path = Self::path();
         if !path.try_exists()? {
             return Err(Error::ConfigMissing);
@@ -363,6 +433,17 @@ impl Config {
 
         let config = toml::Deserializer::new(content.as_ref());
 
+        let mut configuration: Configuration =
+            serde_ignored::deserialize(config, |ignored| {
+                log::warn!("[config.toml] Ignoring unknown setting: {ignored}");
+            })
+            .map_err(|e| Error::Parse(e.to_string()))?;
+
+        let raw_toml: toml::Value = toml::from_str(content.as_ref())
+            .map_err(|e| Error::Parse(e.to_string()))?;
+
+        apply_config_migrations(&mut configuration, &raw_toml);
+
         let Configuration {
             theme,
             servers,
@@ -370,6 +451,7 @@ impl Config {
             font,
             proxy,
             scale_factor,
+            spacing,
             buffer,
             sidebar,
             keyboard,
@@ -383,10 +465,7 @@ impl Config {
             ctcp,
             logs,
             platform_specific,
-        } = serde_ignored::deserialize(config, |ignored| {
-            log::warn!("[config.toml] Ignoring unknown setting: {ignored}");
-        })
-        .map_err(|e| Error::Parse(e.to_string()))?;
+        } = configuration;
 
         let servers = ServerMap::new(servers).await?;
 
@@ -401,6 +480,7 @@ impl Config {
             font,
             proxy,
             scale_factor,
+            spacing,
             buffer,
             sidebar,
             keyboard,
@@ -528,6 +608,23 @@ impl Config {
 
         let _ = std::fs::write(config_path, config_bytes);
     }
+}
+
+fn toml_path_exists(root: &toml::Value, path: &[&str]) -> bool {
+    let mut current = root;
+
+    for key in path {
+        let Some(table) = current.as_table() else {
+            return false;
+        };
+        let Some(value) = table.get(*key) else {
+            return false;
+        };
+
+        current = value;
+    }
+
+    true
 }
 
 pub fn random_nickname() -> String {
