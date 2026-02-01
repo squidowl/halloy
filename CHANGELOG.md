@@ -1,5 +1,7 @@
 # Unreleased
 
+# 2026.2 (2026-02-01)
+
 Added:
 
 - Settings to disable (selectively, or for the entire server) confirmation of delivery for sent messages
