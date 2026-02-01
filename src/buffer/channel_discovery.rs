@@ -8,7 +8,7 @@ use iced::{Color, Length, Task, alignment, padding};
 use crate::appearance::theme;
 use crate::buffer::context_menu::{self, Context};
 use crate::widget::{
-    Element, message_content, selectable_rich_text, selectable_text, tooltip,
+    Element, message_content, selectable_rich_text, selectable_text,
 };
 use crate::{Theme, font, icon};
 
@@ -317,15 +317,14 @@ fn unsafe_list_view<'a>(
     theme: &'a Theme,
 ) -> Element<'a, Message> {
     column![
-        tooltip(
-            text("Server does not confirm LIST command is safe*")
-                .style(theme::text::secondary)
-                .font_maybe(theme::font_style::secondary(theme).map(font::get)),
-            Some("Sending LIST command may result in disconnection"),
-            tooltip::Position::Top,
-            theme,
-        ),
-        button(text("Send LIST"))
+        text(
+            "Server does not register SAFELIST support\n\
+             Requesting channels may disconnect you"
+        )
+        .align_x(alignment::Horizontal::Center)
+        .style(theme::text::secondary)
+        .font_maybe(theme::font_style::secondary(theme).map(font::get)),
+        button(text("Fetch Channels"))
             .style(|theme, status| theme::button::secondary(
                 theme, status, false
             ))
