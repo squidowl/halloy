@@ -13,9 +13,14 @@ pub fn tooltip<'a, Message: 'a>(
     match tooltip {
         Some(tooltip) => iced::widget::tooltip(
             content,
-            container(text(tooltip).style(theme::text::secondary).font_maybe(
-                theme::font_style::secondary(theme).map(font::get),
-            ))
+            container(
+                text(tooltip)
+                    .style(theme::text::secondary)
+                    .line_height(font::line_height())
+                    .font_maybe(
+                        theme::font_style::secondary(theme).map(font::get),
+                    ),
+            )
             .style(theme::container::tooltip)
             .padding(8),
             position,
