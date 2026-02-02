@@ -2261,10 +2261,7 @@ impl Client {
                         Posix::from_seconds(ok!(args.get(3)).parse::<u64>()?);
                     channel.topic.time =
                         Some(timestamp.datetime().ok_or_else(|| {
-                            anyhow!(
-                                "Unable to parse timestamp: {:?}",
-                                timestamp
-                            )
+                            anyhow!("Unable to parse timestamp: {timestamp:?}")
                         })?);
                 }
                 // Exclude topic message from history to prevent spam during dev
