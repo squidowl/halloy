@@ -34,10 +34,10 @@
             const path_to_root = "../../";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../../searchindex-3f0d8111.js";
+            window.path_to_searchindex_js = "../../searchindex-72573ae3.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="../../toc-245fabda.js"></script>
+        <script src="../../toc-72d18ae4.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -191,6 +191,7 @@
 <li><a href="#highlight_icon">highlight_icon</a></li>
 <li><a href="#icon_size">icon_size</a></li>
 <li><a href="#highlight_icon_size">highlight_icon_size</a></li>
+<li><a href="#query_as_highlight">query_as_highlight</a></li>
 <li><a href="#exclude">exclude</a></li>
 <li><a href="#include">include</a></li>
 </ul>
@@ -245,6 +246,15 @@ icon_size = 6
 
 [sidebar.unread_indicator]
 highlight_icon_size = 8
+</code></pre>
+<h3 id="query_as_highlight"><a class="header" href="#query_as_highlight">query_as_highlight</a></h3>
+<p>Treat unread query (direct message) buffers as highlights for sidebar styling.</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: false
+
+[sidebar.unread_indicator]
+query_as_highlight = true
 </code></pre>
 <h3 id="exclude"><a class="header" href="#exclude">exclude</a></h3>
 <p><a href="/configuration/conditions.html">Exclusion conditions</a> for which unread indicators

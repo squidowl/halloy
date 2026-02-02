@@ -35,10 +35,10 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-3f0d8111.js";
+            window.path_to_searchindex_js = "searchindex-72573ae3.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-245fabda.js"></script>
+        <script src="toc-72d18ae4.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -2005,7 +2005,7 @@ exclude = "*"
 </code></pre>
 <h3 id="include"><a class="header" href="#include">include</a></h3>
 <p><a href="/configuration/conditions.html">Inclusion conditions</a> in which the server message
-will be shown. Server messages will be shown in all conditions (when enabled)W
+will be shown. Server messages will be shown in all conditions (when enabled)
 unless explicitly excluded, so this setting is only relevant when combined with
 the <code>exclude</code> setting.</p>
 <pre><code class="language-toml"># Type: inclusion/exclusion conditions
@@ -3255,6 +3255,7 @@ include = { users = ["HalloyUser1", "#halloy"] }
 <li><a href="#split_axis">split_axis</a></li>
 </ul>
 </li>
+<li><a href="#gap">Gap</a></li>
 </ul>
 </li>
 </ul>
@@ -3297,6 +3298,48 @@ scroller_width = 5
 [pane]
 split_axis = "vertical"
 </code></pre>
+<h2 id="gap"><a class="header" href="#gap"><a href="#gap-1">Gap</a></a></h2>
+<p>Gap configuration for pane spacing and padding.</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="gap-1"><a class="header" href="#gap-1">Gap</a></h1>
+<p>Gap configuration for pane spacing and padding.</p>
+<ul>
+<li><a href="#gap-1">Gap</a>
+<ul>
+<li><a href="#example-11">Example</a></li>
+<li><a href="#configuration-40">Configuration</a>
+<ul>
+<li><a href="#inner">inner</a></li>
+<li><a href="#outer">outer</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<h2 id="example-11"><a class="header" href="#example-11">Example</a></h2>
+<pre><code class="language-toml">[pane]
+inner = 4
+outer = 4
+</code></pre>
+<h2 id="configuration-40"><a class="header" href="#configuration-40">Configuration</a></h2>
+<h3 id="inner"><a class="header" href="#inner">inner</a></h3>
+<p>Controls the spacing between panes in a pane grid.</p>
+<pre><code class="language-toml"># Type: integer
+# Values: any non-negative integer
+# Default: 4
+
+[pane.gap]
+inner = 4
+</code></pre>
+<h3 id="outer"><a class="header" href="#outer">outer</a></h3>
+<p>Controls the padding around the outer edge of the pane grid.</p>
+<pre><code class="language-toml"># Type: integer
+# Values: any non-negative integer
+# Default: 8
+
+[pane.gap]
+outer = 8
+</code></pre>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="platform-specific"><a class="header" href="#platform-specific">Platform Specific</a></h1>
 <p>Platform specific settings for Halloy.</p>
@@ -3321,7 +3364,7 @@ split_axis = "vertical"
 <ul>
 <li><a href="#linux-2">Linux</a>
 <ul>
-<li><a href="#configuration-40">Configuration</a>
+<li><a href="#configuration-41">Configuration</a>
 <ul>
 <li><a href="#decorations">decorations</a></li>
 </ul>
@@ -3329,7 +3372,7 @@ split_axis = "vertical"
 </ul>
 </li>
 </ul>
-<h2 id="configuration-40"><a class="header" href="#configuration-40">Configuration</a></h2>
+<h2 id="configuration-41"><a class="header" href="#configuration-41">Configuration</a></h2>
 <h3 id="decorations"><a class="header" href="#decorations">decorations</a></h3>
 <p>Whether the window should have a border, a title bar, etc. or not.</p>
 <blockquote>
@@ -3348,7 +3391,7 @@ linux.decorations = false
 <ul>
 <li><a href="#macos-2">macOS</a>
 <ul>
-<li><a href="#configuration-41">Configuration</a>
+<li><a href="#configuration-42">Configuration</a>
 <ul>
 <li><a href="#content_padding">content_padding</a></li>
 <li><a href="#sidebar_padding">sidebar_padding</a></li>
@@ -3358,7 +3401,7 @@ linux.decorations = false
 </ul>
 </li>
 </ul>
-<h2 id="configuration-41"><a class="header" href="#configuration-41">Configuration</a></h2>
+<h2 id="configuration-42"><a class="header" href="#configuration-42">Configuration</a></h2>
 <h3 id="content_padding"><a class="header" href="#content_padding">content_padding</a></h3>
 <p>Controls if the content (panes) are rendered inside the the titlebar content view, or padded just below it.</p>
 <pre><code class="language-toml"># Type: string
@@ -3395,7 +3438,7 @@ macos.decorations = false
 <ul>
 <li><a href="#windows-2">Windows</a>
 <ul>
-<li><a href="#configuration-42">Configuration</a>
+<li><a href="#configuration-43">Configuration</a>
 <ul>
 <li><a href="#decorations-2">decorations</a></li>
 </ul>
@@ -3403,7 +3446,7 @@ macos.decorations = false
 </ul>
 </li>
 </ul>
-<h2 id="configuration-42"><a class="header" href="#configuration-42">Configuration</a></h2>
+<h2 id="configuration-43"><a class="header" href="#configuration-43">Configuration</a></h2>
 <h3 id="decorations-2"><a class="header" href="#decorations-2">decorations</a></h3>
 <p>Whether the window should have a border, a title bar, etc. or not.</p>
 <blockquote>
@@ -3422,7 +3465,7 @@ windows.decorations = false
 <ul>
 <li><a href="#preview">Preview</a>
 <ul>
-<li><a href="#configuration-43">Configuration</a>
+<li><a href="#configuration-44">Configuration</a>
 <ul>
 <li><a href="#enabled-9">enabled</a></li>
 <li><a href="#exclude-4">exclude</a></li>
@@ -3434,7 +3477,7 @@ windows.decorations = false
 </ul>
 </li>
 </ul>
-<h2 id="configuration-43"><a class="header" href="#configuration-43">Configuration</a></h2>
+<h2 id="configuration-44"><a class="header" href="#configuration-44">Configuration</a></h2>
 <h3 id="enabled-9"><a class="header" href="#enabled-9">enabled</a></h3>
 <p>Enable or disable previews globally with a boolean, or selectively enable them for URLs matching specific regex patterns.</p>
 <pre><code class="language-toml"># Type: boolean or array of strings
@@ -3487,11 +3530,14 @@ exclude = [
 <ul>
 <li><a href="#card-1">Card</a>
 <ul>
-<li><a href="#example-11">Example</a></li>
-<li><a href="#configuration-44">Configuration</a>
+<li><a href="#example-12">Example</a></li>
+<li><a href="#configuration-45">Configuration</a>
 <ul>
 <li><a href="#show_image">show_image</a></li>
 <li><a href="#round_image_corners">round_image_corners</a></li>
+<li><a href="#max_width">max_width</a></li>
+<li><a href="#description_max_height">description_max_height</a></li>
+<li><a href="#image_max_height">image_max_height</a></li>
 <li><a href="#include-4">include</a></li>
 <li><a href="#exclude-5">exclude</a></li>
 </ul>
@@ -3499,12 +3545,12 @@ exclude = [
 </ul>
 </li>
 </ul>
-<h2 id="example-11"><a class="header" href="#example-11">Example</a></h2>
+<h2 id="example-12"><a class="header" href="#example-12">Example</a></h2>
 <pre><code class="language-toml">[preview.card]
 exclude = "*" # hide card previews in all channels
 include = { channels = ["#halloy"] } # show card previews in #halloy
 </code></pre>
-<h2 id="configuration-44"><a class="header" href="#configuration-44">Configuration</a></h2>
+<h2 id="configuration-45"><a class="header" href="#configuration-45">Configuration</a></h2>
 <h3 id="show_image"><a class="header" href="#show_image">show_image</a></h3>
 <p>Show image for card previews.</p>
 <pre><code class="language-toml"># Type: boolean
@@ -3522,6 +3568,33 @@ show_image = true
 
 [preview.card]
 round_image_corners = true
+</code></pre>
+<h3 id="max_width"><a class="header" href="#max_width">max_width</a></h3>
+<p>Maximum width of the card in pixels.</p>
+<pre><code class="language-toml"># Type: number
+# Values: any positive number
+# Default: 400.0
+
+[preview.card]
+max_width = 400.0
+</code></pre>
+<h3 id="description_max_height"><a class="header" href="#description_max_height">description_max_height</a></h3>
+<p>Maximum height of the description text in pixels.</p>
+<pre><code class="language-toml"># Type: number
+# Values: any positive number
+# Default: 100.0
+
+[preview.card]
+description_max_height = 100.0
+</code></pre>
+<h3 id="image_max_height"><a class="header" href="#image_max_height">image_max_height</a></h3>
+<p>Maximum height of the image in the card preview in pixels.</p>
+<pre><code class="language-toml"># Type: number
+# Values: any positive number
+# Default: 200.0
+
+[preview.card]
+image_max_height = 200.0
 </code></pre>
 <h3 id="exclude-5"><a class="header" href="#exclude-5">exclude</a></h3>
 <p><a href="/configuration/conditions.html">Exclusion conditions</a> for when card previews will
@@ -3552,11 +3625,13 @@ include = { users = ["BridgeBot"] }
 <ul>
 <li><a href="#image-1">Image</a>
 <ul>
-<li><a href="#example-12">Example</a></li>
-<li><a href="#configuration-45">Configuration</a>
+<li><a href="#example-13">Example</a></li>
+<li><a href="#configuration-46">Configuration</a>
 <ul>
 <li><a href="#action">action</a></li>
 <li><a href="#round_corners">round_corners</a></li>
+<li><a href="#max_width-1">max_width</a></li>
+<li><a href="#max_height">max_height</a></li>
 <li><a href="#include-5">include</a></li>
 <li><a href="#exclude-6">exclude</a></li>
 </ul>
@@ -3564,12 +3639,12 @@ include = { users = ["BridgeBot"] }
 </ul>
 </li>
 </ul>
-<h2 id="example-12"><a class="header" href="#example-12">Example</a></h2>
+<h2 id="example-13"><a class="header" href="#example-13">Example</a></h2>
 <pre><code class="language-toml">[preview.image]
 exclude = "*" # hide image previews in all channels
 include = { channels = ["#halloy"] } # show image previews in #halloy
 </code></pre>
-<h2 id="configuration-45"><a class="header" href="#configuration-45">Configuration</a></h2>
+<h2 id="configuration-46"><a class="header" href="#configuration-46">Configuration</a></h2>
 <h3 id="action"><a class="header" href="#action">action</a></h3>
 <p>Action when clicking on a image. <code>open-url</code> will open the image in the browser, and <code>preview</code> will display a larger version of the image in-app.</p>
 <pre><code class="language-toml"># Type: string
@@ -3587,6 +3662,24 @@ action = "preview"
 
 [preview.image]
 round_corners = true
+</code></pre>
+<h3 id="max_width-1"><a class="header" href="#max_width-1">max_width</a></h3>
+<p>Maximum width of the image in pixels.</p>
+<pre><code class="language-toml"># Type: number
+# Values: any positive number
+# Default: 550.0
+
+[preview.image]
+max_width = 550.0
+</code></pre>
+<h3 id="max_height"><a class="header" href="#max_height">max_height</a></h3>
+<p>Maximum height of the image in pixels.</p>
+<pre><code class="language-toml"># Type: number
+# Values: any positive number
+# Default: 350.0
+
+[preview.image]
+max_height = 350.0
 </code></pre>
 <h3 id="exclude-6"><a class="header" href="#exclude-6">exclude</a></h3>
 <p><a href="/configuration/conditions.html">Exclusion conditions</a> for when image previews
@@ -3617,7 +3710,7 @@ include = { users = ["BridgeBot"] }
 <ul>
 <li><a href="#request-1">Request</a>
 <ul>
-<li><a href="#configuration-46">Configuration</a>
+<li><a href="#configuration-47">Configuration</a>
 <ul>
 <li><a href="#user_agent">user_agent</a></li>
 <li><a href="#timeout_ms">timeout_ms</a></li>
@@ -3630,7 +3723,7 @@ include = { users = ["BridgeBot"] }
 </ul>
 </li>
 </ul>
-<h2 id="configuration-46"><a class="header" href="#configuration-46">Configuration</a></h2>
+<h2 id="configuration-47"><a class="header" href="#configuration-47">Configuration</a></h2>
 <h3 id="user_agent"><a class="header" href="#user_agent">user_agent</a></h3>
 <p>Some servers will only send opengraph metadata to browser-like user agents. We default to <code>WhatsApp/2</code> for wide compatibility.</p>
 <pre><code class="language-toml"># Type: string
@@ -3688,6 +3781,9 @@ delay_ms = 500
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="proxy"><a class="header" href="#proxy">Proxy</a></h1>
 <p>Proxy settings for Halloy.</p>
+<blockquote>
+<p>💡 <a href="configuration/preview">Preview</a> requests will be routed through the same proxy that the corresponding message is routed through (i.e. if a proxy is configured for a server, then all previews for messages on that server will be routed through the proxy).  Except for the for the <a href="#tor-2">Tor</a> proxy;  when utilizing the Tor proxy preview requests are disabled.</p>
+</blockquote>
 <ul>
 <li><a href="#proxy">Proxy</a>
 <ul>
@@ -3698,9 +3794,9 @@ delay_ms = 500
 </li>
 </ul>
 <h2 id="http"><a class="header" href="#http"><a href="#http-1">HTTP</a></a></h2>
-<p>Http proxy settings</p>
+<p>HTTP proxy settings</p>
 <h2 id="socks5"><a class="header" href="#socks5"><a href="#socks5-1">SOCKS5</a></a></h2>
-<p>Socks5 proxy settings</p>
+<p>SOCKS5 proxy settings</p>
 <h2 id="tor-1"><a class="header" href="#tor-1"><a href="#tor-2">Tor</a></a></h2>
 <p>Tor proxy settings</p>
 <div style="break-before: page; page-break-before: always;"></div>
@@ -3709,8 +3805,8 @@ delay_ms = 500
 <ul>
 <li><a href="#http-1">HTTP</a>
 <ul>
-<li><a href="#example-13">Example</a></li>
-<li><a href="#configuration-47">Configuration</a>
+<li><a href="#example-14">Example</a></li>
+<li><a href="#configuration-48">Configuration</a>
 <ul>
 <li><a href="#host">host</a></li>
 <li><a href="#port">port</a></li>
@@ -3721,14 +3817,14 @@ delay_ms = 500
 </ul>
 </li>
 </ul>
-<h2 id="example-13"><a class="header" href="#example-13">Example</a></h2>
+<h2 id="example-14"><a class="header" href="#example-14">Example</a></h2>
 <pre><code class="language-toml">[proxy.http]
 host = "192.168.1.100"
 port = 1080
 username = "username"
 password = "password"
 </code></pre>
-<h2 id="configuration-47"><a class="header" href="#configuration-47">Configuration</a></h2>
+<h2 id="configuration-48"><a class="header" href="#configuration-48">Configuration</a></h2>
 <h3 id="host"><a class="header" href="#host">host</a></h3>
 <p>Proxy host to connect to.</p>
 <pre><code class="language-toml"># Type: string
@@ -3779,8 +3875,8 @@ password = "password"
 <ul>
 <li><a href="#socks5-1">SOCKS5</a>
 <ul>
-<li><a href="#example-14">Example</a></li>
-<li><a href="#configuration-48">Configuration</a>
+<li><a href="#example-15">Example</a></li>
+<li><a href="#configuration-49">Configuration</a>
 <ul>
 <li><a href="#host-1">host</a></li>
 <li><a href="#port-1">port</a></li>
@@ -3791,14 +3887,14 @@ password = "password"
 </ul>
 </li>
 </ul>
-<h2 id="example-14"><a class="header" href="#example-14">Example</a></h2>
+<h2 id="example-15"><a class="header" href="#example-15">Example</a></h2>
 <pre><code class="language-toml">[proxy.socks5]
 host = "192.168.1.100"
 port = 1080
 username = "username"
 password = "password"
 </code></pre>
-<h2 id="configuration-48"><a class="header" href="#configuration-48">Configuration</a></h2>
+<h2 id="configuration-49"><a class="header" href="#configuration-49">Configuration</a></h2>
 <h3 id="host-1"><a class="header" href="#host-1">host</a></h3>
 <p>Proxy host to connect to.</p>
 <pre><code class="language-toml"># Type: string
@@ -3850,14 +3946,17 @@ password = "password"
 <blockquote>
 <p>⚠️ Tor support is <strong>not included by default</strong>. You must build Halloy with the <code>tor</code> feature to use this proxy type. See <a href="#optional-features">Optional Features</a> for build instructions.</p>
 </blockquote>
+<blockquote>
+<p>⚠️ To preserve privacy, <a href="configuration/preview">previews</a> are disabled when using the Tor proxy.</p>
+</blockquote>
 <ul>
 <li><a href="#tor-2">Tor</a>
 <ul>
-<li><a href="#example-15">Example</a></li>
+<li><a href="#example-16">Example</a></li>
 </ul>
 </li>
 </ul>
-<h2 id="example-15"><a class="header" href="#example-15">Example</a></h2>
+<h2 id="example-16"><a class="header" href="#example-16">Example</a></h2>
 <pre><code class="language-toml">[proxy.tor]
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div>
@@ -3866,7 +3965,7 @@ password = "password"
 <ul>
 <li><a href="#scale-factor">Scale Factor</a>
 <ul>
-<li><a href="#configuration-49">Configuration</a>
+<li><a href="#configuration-50">Configuration</a>
 <ul>
 <li><a href="#scale_factor">scale_factor</a></li>
 </ul>
@@ -3874,7 +3973,7 @@ password = "password"
 </ul>
 </li>
 </ul>
-<h2 id="configuration-49"><a class="header" href="#configuration-49">Configuration</a></h2>
+<h2 id="configuration-50"><a class="header" href="#configuration-50">Configuration</a></h2>
 <h3 id="scale_factor"><a class="header" href="#scale_factor">scale_factor</a></h3>
 <blockquote>
 <p>⚠️ <code>scale_factor</code> is a root key, so it must be placed before any section.</p>
@@ -3892,7 +3991,7 @@ scale_factor = 1.0
 <li><a href="#servers">Servers</a>
 <ul>
 <li><a href="#examples-2">Examples</a></li>
-<li><a href="#configuration-50">Configuration</a>
+<li><a href="#configuration-51">Configuration</a>
 <ul>
 <li><a href="#nickname-6">nickname</a></li>
 <li><a href="#nick_password">nick_password</a></li>
@@ -3932,6 +4031,7 @@ scale_factor = 1.0
 <li><a href="#filters">Filters</a></li>
 <li><a href="#sasl-plain">SASL Plain</a></li>
 <li><a href="#sasl-external">SASL External</a></li>
+<li><a href="#confirm-message-delivery">Confirm Message Delivery</a></li>
 </ul>
 </li>
 </ul>
@@ -3943,7 +4043,7 @@ scale_factor = 1.0
 <li><a href="#connect-with-soju">Connect with soju</a></li>
 <li><a href="#connect-with-znc">Connect with ZNC</a></li>
 </ul>
-<h2 id="configuration-50"><a class="header" href="#configuration-50">Configuration</a></h2>
+<h2 id="configuration-51"><a class="header" href="#configuration-51">Configuration</a></h2>
 <h3 id="nickname-6"><a class="header" href="#nickname-6">nickname</a></h3>
 <p>The client’s nickname.</p>
 <pre><code class="language-toml"># Type: string
@@ -4236,7 +4336,7 @@ monitor = ["Foo", "Bar"]
 chathistory = true
 </code></pre>
 <h3 id="proxy-1"><a class="header" href="#proxy-1">proxy</a></h3>
-<p>Custom proxy for specified Server</p>
+<p>Custom proxy for specified server</p>
 <p>The logic is as follows:</p>
 <ul>
 <li>If a server proxy is provided, it will be used.</li>
@@ -4263,6 +4363,8 @@ password = "password"
 <p>Plain SASL auth using a username and password</p>
 <h2 id="sasl-external"><a class="header" href="#sasl-external"><a href="#sasl-external-1">SASL External</a></a></h2>
 <p>External SASL auth uses a PEM encoded X509 certificate.</p>
+<h2 id="confirm-message-delivery"><a class="header" href="#confirm-message-delivery"><a href="#confirm-message-delivery-1">Confirm Message Delivery</a></a></h2>
+<p>Whether and where to confirm delivery of sent messages, if the server supports <a href="https://ircv3.net/specs/extensions/echo-message"><code>echo-message</code></a></p>
 <hr>
 <ol class="footnote-definition">
 <li id="footnote-1-3">
@@ -4278,7 +4380,7 @@ password = "password"
 <ul>
 <li><a href="#filters-1">Filters</a>
 <ul>
-<li><a href="#configuration-51">Configuration</a>
+<li><a href="#configuration-52">Configuration</a>
 <ul>
 <li><a href="#ignore-1">ignore</a></li>
 <li><a href="#regex-1">regex</a></li>
@@ -4287,7 +4389,7 @@ password = "password"
 </ul>
 </li>
 </ul>
-<h2 id="configuration-51"><a class="header" href="#configuration-51">Configuration</a></h2>
+<h2 id="configuration-52"><a class="header" href="#configuration-52">Configuration</a></h2>
 <h3 id="ignore-1"><a class="header" href="#ignore-1">ignore</a></h3>
 <p>A list of users to ignore. Users may be identified in any of these four ways:</p>
 <ul>
@@ -4326,7 +4428,7 @@ regex = [
 <ul>
 <li><a href="#sasl-external-1">SASL External</a>
 <ul>
-<li><a href="#configuration-52">Configuration</a>
+<li><a href="#configuration-53">Configuration</a>
 <ul>
 <li><a href="#cert">cert</a></li>
 <li><a href="#key">key</a></li>
@@ -4335,7 +4437,7 @@ regex = [
 </ul>
 </li>
 </ul>
-<h2 id="configuration-52"><a class="header" href="#configuration-52">Configuration</a></h2>
+<h2 id="configuration-53"><a class="header" href="#configuration-53">Configuration</a></h2>
 <h3 id="cert"><a class="header" href="#cert">cert</a></h3>
 <p>The path to PEM encoded X509 user certificate for external auth.<sup class="footnote-reference" id="fr-1-1-4"><a href="#footnote-1-4">1</a></sup> <sup class="footnote-reference" id="fr-2-1-3"><a href="#footnote-2-3">2</a></sup></p>
 <pre><code class="language-toml"># Type: string
@@ -4369,7 +4471,7 @@ key = "/path/to/your/private_key.pem"
 <ul>
 <li><a href="#sasl-plain-1">SASL Plain</a>
 <ul>
-<li><a href="#configuration-53">Configuration</a>
+<li><a href="#configuration-54">Configuration</a>
 <ul>
 <li><a href="#username-3">username</a></li>
 <li><a href="#password-3">password</a></li>
@@ -4381,7 +4483,7 @@ key = "/path/to/your/private_key.pem"
 </ul>
 </li>
 </ul>
-<h2 id="configuration-53"><a class="header" href="#configuration-53">Configuration</a></h2>
+<h2 id="configuration-54"><a class="header" href="#configuration-54">Configuration</a></h2>
 <h3 id="username-3"><a class="header" href="#username-3">username</a></h3>
 <p>The account name used for authentication.</p>
 <pre><code class="language-toml"># Type: string
@@ -4437,16 +4539,66 @@ password_command = ""
 </li>
 </ol>
 <div style="break-before: page; page-break-before: always;"></div>
+<h1 id="confirm-message-delivery-1"><a class="header" href="#confirm-message-delivery-1">Confirm Message Delivery</a></h1>
+<p>Whether and where to confirm delivery of sent messages, if the server supports <a href="https://ircv3.net/specs/extensions/echo-message"><code>echo-message</code></a></p>
+<ul>
+<li><a href="#confirm-message-delivery-1">Confirm Message Delivery</a>
+<ul>
+<li><a href="#configuration-55">Configuration</a>
+<ul>
+<li><a href="#enabled-10">enabled</a></li>
+<li><a href="#exclude-7">exclude</a></li>
+<li><a href="#include-6">include</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<h2 id="configuration-55"><a class="header" href="#configuration-55">Configuration</a></h2>
+<h3 id="enabled-10"><a class="header" href="#enabled-10">enabled</a></h3>
+<p>Control if delivery of sent messages is to be confirmed (if the server supports <a href="https://ircv3.net/specs/extensions/echo-message"><code>echo-message</code></a>).</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: true
+
+[servers.&lt;name&gt;.confirm_message_delivery]
+enabled = true
+</code></pre>
+<h3 id="exclude-7"><a class="header" href="#exclude-7">exclude</a></h3>
+<p><a href="/configuration/conditions.html">Exclusion conditions</a> in which sent message
+delivery confirmation will be skipped. Inclusion conditions will take precedence
+over exclusion conditions. You can also exclude all conditions by setting to
+<code>"all"</code> or <code>"*"</code>.</p>
+<pre><code class="language-toml"># Type: inclusion/exclusion conditions
+# Values: user &amp; channel inclusion/exclusion conditions
+# Default: not set
+
+[servers.&lt;name&gt;.confirm_message_delivery]
+exclude = "*"
+</code></pre>
+<h3 id="include-6"><a class="header" href="#include-6">include</a></h3>
+<p><a href="/configuration/conditions.html">Inclusion conditions</a> in which sent message
+delivery will be confirmed . Delivery of sent messages be confirmed in all
+conditions (when enabled) unless explicitly excluded, so this setting is only
+relevant when combined with the <code>exclude</code> setting.</p>
+<pre><code class="language-toml"># Type: inclusion/exclusion conditions
+# Values: user &amp; channel inclusion/exclusion conditions
+# Default: not set
+
+[servers.&lt;name&gt;.confirm_message_delivery]
+include = { channels = ["#halloy"] }
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div>
 <h1 id="sidebar-2"><a class="header" href="#sidebar-2">Sidebar</a></h1>
 <p>Sidebar settings for Halloy.</p>
 <ul>
 <li><a href="#sidebar-2">Sidebar</a>
 <ul>
-<li><a href="#configuration-54">Configuration</a>
+<li><a href="#configuration-56">Configuration</a>
 <ul>
 <li><a href="#server_icon">server_icon</a></li>
 <li><a href="#position-1">position</a></li>
-<li><a href="#max_width">max_width</a></li>
+<li><a href="#max_width-2">max_width</a></li>
 <li><a href="#show_menu_button">show_menu_button</a></li>
 <li><a href="#order_by-1">order_by</a></li>
 </ul>
@@ -4458,7 +4610,7 @@ password_command = ""
 </ul>
 </li>
 </ul>
-<h2 id="configuration-54"><a class="header" href="#configuration-54">Configuration</a></h2>
+<h2 id="configuration-56"><a class="header" href="#configuration-56">Configuration</a></h2>
 <h3 id="server_icon"><a class="header" href="#server_icon">server_icon</a></h3>
 <p>Configure the server icon display.</p>
 <pre><code class="language-toml"># Type: integer or string
@@ -4481,7 +4633,7 @@ server_icon = "hidden"
 [sidebar]
 position = "left"
 </code></pre>
-<h3 id="max_width"><a class="header" href="#max_width">max_width</a></h3>
+<h3 id="max_width-2"><a class="header" href="#max_width-2">max_width</a></h3>
 <p>Specify sidebar max width in pixels. Only used if <code>position</code> is <code>"left"</code> or <code>"right"</code>.</p>
 <pre><code class="language-toml"># Type: integer
 # Values: any non-negative integer
@@ -4526,7 +4678,7 @@ order_by = "config"
 <ul>
 <li><a href="#scrollbar-2">Scrollbar</a>
 <ul>
-<li><a href="#configuration-55">Configuration</a>
+<li><a href="#configuration-57">Configuration</a>
 <ul>
 <li><a href="#width-2">width</a></li>
 <li><a href="#scroller_width-1">scroller_width</a></li>
@@ -4535,7 +4687,7 @@ order_by = "config"
 </ul>
 </li>
 </ul>
-<h2 id="configuration-55"><a class="header" href="#configuration-55">Configuration</a></h2>
+<h2 id="configuration-57"><a class="header" href="#configuration-57">Configuration</a></h2>
 <h3 id="width-2"><a class="header" href="#width-2">width</a></h3>
 <p>Width of the scrollbar.</p>
 <pre><code class="language-toml"># Type: integer
@@ -4560,21 +4712,22 @@ scroller_width = 5
 <ul>
 <li><a href="#unread-indicator-1">Unread Indicator</a>
 <ul>
-<li><a href="#configuration-56">Configuration</a>
+<li><a href="#configuration-58">Configuration</a>
 <ul>
 <li><a href="#title">title</a></li>
 <li><a href="#icon">icon</a></li>
 <li><a href="#highlight_icon">highlight_icon</a></li>
 <li><a href="#icon_size">icon_size</a></li>
 <li><a href="#highlight_icon_size">highlight_icon_size</a></li>
-<li><a href="#exclude-7">exclude</a></li>
-<li><a href="#include-6">include</a></li>
+<li><a href="#query_as_highlight">query_as_highlight</a></li>
+<li><a href="#exclude-8">exclude</a></li>
+<li><a href="#include-7">include</a></li>
 </ul>
 </li>
 </ul>
 </li>
 </ul>
-<h2 id="configuration-56"><a class="header" href="#configuration-56">Configuration</a></h2>
+<h2 id="configuration-58"><a class="header" href="#configuration-58">Configuration</a></h2>
 <h3 id="title"><a class="header" href="#title">title</a></h3>
 <p>Changes buffer title color when unread messages are present</p>
 <pre><code class="language-toml"># Type: boolean
@@ -4622,7 +4775,16 @@ icon_size = 6
 [sidebar.unread_indicator]
 highlight_icon_size = 8
 </code></pre>
-<h3 id="exclude-7"><a class="header" href="#exclude-7">exclude</a></h3>
+<h3 id="query_as_highlight"><a class="header" href="#query_as_highlight">query_as_highlight</a></h3>
+<p>Treat unread query (direct message) buffers as highlights for sidebar styling.</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: false
+
+[sidebar.unread_indicator]
+query_as_highlight = true
+</code></pre>
+<h3 id="exclude-8"><a class="header" href="#exclude-8">exclude</a></h3>
 <p><a href="/configuration/conditions.html">Exclusion conditions</a> for which unread indicators
 won’t be shown. Inclusion conditions will take precedence over exclusion
 conditions. You can also exclude all conditions by setting to <code>"all"</code> or <code>"*"</code>.</p>
@@ -4633,7 +4795,7 @@ conditions. You can also exclude all conditions by setting to <code>"all"</code>
 [sidebar.unread_indicator]
 exclude = { channels = ["#noisy-channel"] }
 </code></pre>
-<h3 id="include-6"><a class="header" href="#include-6">include</a></h3>
+<h3 id="include-7"><a class="header" href="#include-7">include</a></h3>
 <p><a href="/configuration/conditions.html">Inclusion conditions</a> for which unread indicators
 will be shown. Unread indicators are enabled in all conditions unless explicitly
 excluded, so this setting is only relevant when combined with the <code>exclude</code>
@@ -4652,17 +4814,17 @@ include = { channels = ["#halloy"] }
 <ul>
 <li><a href="#user-menu">User Menu</a>
 <ul>
-<li><a href="#configuration-57">Configuration</a>
+<li><a href="#configuration-59">Configuration</a>
 <ul>
-<li><a href="#enabled-10">enabled</a></li>
+<li><a href="#enabled-11">enabled</a></li>
 <li><a href="#show_new_version_indicator">show_new_version_indicator</a></li>
 </ul>
 </li>
 </ul>
 </li>
 </ul>
-<h2 id="configuration-57"><a class="header" href="#configuration-57">Configuration</a></h2>
-<h3 id="enabled-10"><a class="header" href="#enabled-10">enabled</a></h3>
+<h2 id="configuration-59"><a class="header" href="#configuration-59">Configuration</a></h2>
+<h3 id="enabled-11"><a class="header" href="#enabled-11">enabled</a></h3>
 <p>Controls whether the user menu is shown in the sidebar or hidden</p>
 <pre><code class="language-toml"># Type: boolean
 # Values: true, false
@@ -4687,7 +4849,7 @@ show_new_version_indicator = true
 <ul>
 <li><a href="#padding-3">Padding</a>
 <ul>
-<li><a href="#configuration-58">Configuration</a>
+<li><a href="#configuration-60">Configuration</a>
 <ul>
 <li><a href="#buffer-4">buffer</a></li>
 </ul>
@@ -4695,7 +4857,7 @@ show_new_version_indicator = true
 </ul>
 </li>
 </ul>
-<h2 id="configuration-58"><a class="header" href="#configuration-58">Configuration</a></h2>
+<h2 id="configuration-60"><a class="header" href="#configuration-60">Configuration</a></h2>
 <h3 id="buffer-4"><a class="header" href="#buffer-4">buffer</a></h3>
 <p>Controls padding for buffer buttons (server, channels, queries) in the sidebar
 The value is an array where the first value is vertical padding and the second is horizontal padding.</p>
@@ -4712,7 +4874,7 @@ buffer = [2, 5]
 <ul>
 <li><a href="#spacing-1">Spacing</a>
 <ul>
-<li><a href="#configuration-59">Configuration</a>
+<li><a href="#configuration-61">Configuration</a>
 <ul>
 <li><a href="#server-3">server</a></li>
 </ul>
@@ -4720,7 +4882,7 @@ buffer = [2, 5]
 </ul>
 </li>
 </ul>
-<h2 id="configuration-59"><a class="header" href="#configuration-59">Configuration</a></h2>
+<h2 id="configuration-61"><a class="header" href="#configuration-61">Configuration</a></h2>
 <h3 id="server-3"><a class="header" href="#server-3">server</a></h3>
 <p>Controls the vertical spacing between servers (i.e. between the last buffer for one server and the server buffer for the next server).</p>
 <pre><code class="language-toml"># Type: number
@@ -4735,8 +4897,8 @@ server = 12
 <ul>
 <li><a href="#themes">Themes</a>
 <ul>
-<li><a href="#example-16">Example</a></li>
-<li><a href="#configuration-60">Configuration</a>
+<li><a href="#example-17">Example</a></li>
+<li><a href="#configuration-62">Configuration</a>
 <ul>
 <li><a href="#theme">theme</a></li>
 </ul>
@@ -4747,7 +4909,7 @@ server = 12
 </ul>
 </li>
 </ul>
-<h2 id="example-16"><a class="header" href="#example-16">Example</a></h2>
+<h2 id="example-17"><a class="header" href="#example-17">Example</a></h2>
 <pre><code class="language-toml"># Static single
 theme = "ferra"
 
@@ -4760,7 +4922,7 @@ theme = { light = "ferra-light", dark = "ferra" }
 # Dynamic multiple (random selection)
 theme = { light = ["ferra-light", "booberry-light"], dark = ["ferra", "booberry"] }
 </code></pre>
-<h2 id="configuration-60"><a class="header" href="#configuration-60">Configuration</a></h2>
+<h2 id="configuration-62"><a class="header" href="#configuration-62">Configuration</a></h2>
 <blockquote>
 <p>⚠️  <code>theme</code> is a root key, so it must be placed before every section.</p>
 </blockquote>
@@ -4900,7 +5062,7 @@ repository.</p>
 <a href="https://github.com/4e554c4c/base16-halloy/releases/latest">latest release</a>
 and unpack it to the <code>themes</code> folder in the Halloy configuration directory. Then
 you can enable themes individually in <code>config.toml</code>.</p>
-<h2 id="example-17"><a class="header" href="#example-17">Example</a></h2>
+<h2 id="example-18"><a class="header" href="#example-18">Example</a></h2>
 <pre><code class="language-toml"># Static
 theme = "base16-gruvbox-dark-hard"
 </code></pre>
@@ -4914,7 +5076,7 @@ theme = "base16-gruvbox-dark-hard"
 <ul>
 <li><a href="#tooltips">Tooltips</a>
 <ul>
-<li><a href="#configuration-61">Configuration</a>
+<li><a href="#configuration-63">Configuration</a>
 <ul>
 <li><a href="#tooltip">tooltip</a></li>
 </ul>
@@ -4922,7 +5084,7 @@ theme = "base16-gruvbox-dark-hard"
 </ul>
 </li>
 </ul>
-<h2 id="configuration-61"><a class="header" href="#configuration-61">Configuration</a></h2>
+<h2 id="configuration-63"><a class="header" href="#configuration-63">Configuration</a></h2>
 <h3 id="tooltip"><a class="header" href="#tooltip">tooltip</a></h3>
 <blockquote>
 <p>💡 <code>tooltips</code> is a root key, so it must be placed before any section.</p>
