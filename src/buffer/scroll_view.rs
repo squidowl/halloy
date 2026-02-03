@@ -134,7 +134,7 @@ impl From<Kind<'_>> for history::Kind {
 
 pub trait LayoutMessage<'a> {
     fn format(
-        &self,
+        &mut self,
         message: &'a data::Message,
         right_aligned_width: Option<f32>,
         max_prefix_width: Option<f32>,
@@ -145,7 +145,7 @@ pub trait LayoutMessage<'a> {
 
 impl<'a, T> LayoutMessage<'a> for T
 where
-    T: Fn(
+    T: FnMut(
         &'a data::Message,
         Option<f32>,
         Option<f32>,
@@ -154,7 +154,7 @@ where
     ) -> Option<Element<'a, Message>>,
 {
     fn format(
-        &self,
+        &mut self,
         message: &'a data::Message,
         right_aligned_width: Option<f32>,
         max_prefix_width: Option<f32>,
@@ -252,7 +252,7 @@ pub fn view<'a>(
     reserve_bottom_line_for_typing: bool,
     config: &'a Config,
     theme: &'a Theme,
-    formatter: impl LayoutMessage<'a> + 'a,
+    mut formatter: impl LayoutMessage<'a> + 'a,
 ) -> Element<'a, Message> {
     let divider_font_size =
         config.font.size.map_or(theme::TEXT_SIZE, f32::from) - 1.0;
@@ -345,29 +345,31 @@ pub fn view<'a>(
     let max_prefix_width = max_prefix_chars
         .map(|len| font::width_from_chars(len, &config.font) + 1.0);
 
-    let message_rows = |last_date: Option<NaiveDate>,
-                        messages: &[&'a data::Message]| {
-        messages
-            .iter()
-            .scan(Option::<&data::Message>::None, |prev_message, message| {
-                let hide_timestamp =
-                    if let HideConsecutiveEnabled::Enabled(duration) =
-                        config.buffer.timestamp.hide_consecutive.enabled
-                    {
-                        is_consecutive_user_message(
-                            message,
-                            *prev_message,
-                            duration,
-                        )
-                    } else {
-                        false
-                    };
+    let mut message_rows =
+        |last_date: Option<NaiveDate>, messages: &[&'a data::Message]| {
+            messages
+                .iter()
+                .scan(
+                    Option::<&data::Message>::None,
+                    |prev_message, message| {
+                        let hide_timestamp =
+                            if let HideConsecutiveEnabled::Enabled(duration) =
+                                config.buffer.timestamp.hide_consecutive.enabled
+                            {
+                                is_consecutive_user_message(
+                                    message,
+                                    *prev_message,
+                                    duration,
+                                )
+                            } else {
+                                false
+                            };
 
-                let hide_nickname =
-                    if let HideConsecutiveEnabled::Enabled(duration) =
-                        config.buffer.nickname.hide_consecutive.enabled
-                    {
-                        !config.buffer.nickname.alignment.is_top()
+                        let hide_nickname =
+                            if let HideConsecutiveEnabled::Enabled(duration) =
+                                config.buffer.nickname.hide_consecutive.enabled
+                            {
+                                !config.buffer.nickname.alignment.is_top()
                         && is_consecutive_user_message(
                             message,
                             *prev_message,
@@ -387,149 +389,156 @@ pub fn view<'a>(
                                     &visible_for_source,
                                 )
                             }))
-                    } else {
-                        false
-                    };
+                            } else {
+                                false
+                            };
 
-                *prev_message = Some(message);
+                        *prev_message = Some(message);
 
-                Some(
-                    formatter
-                        .format(
-                            message,
-                            right_aligned_width,
-                            max_prefix_width,
-                            hide_timestamp,
-                            hide_nickname,
+                        Some(
+                            formatter
+                                .format(
+                                    message,
+                                    right_aligned_width,
+                                    max_prefix_width,
+                                    hide_timestamp,
+                                    hide_nickname,
+                                )
+                                .map(|element| (message, element)),
                         )
-                        .map(|element| (message, element)),
+                    },
                 )
-            })
-            .flatten()
-            .scan(last_date, |last_date, (message, element)| {
-                let date =
-                    message.server_time.with_timezone(&Local).date_naive();
+                .flatten()
+                .scan(last_date, |last_date, (message, element)| {
+                    let date =
+                        message.server_time.with_timezone(&Local).date_naive();
 
-                let is_new_day = last_date.is_none_or(|prev| date != prev);
+                    let is_new_day = last_date.is_none_or(|prev| date != prev);
 
-                *last_date = Some(date);
+                    *last_date = Some(date);
 
-                let content = if let (
-                    message::Content::Fragments(fragments),
-                    Some(previews),
-                ) = (&message.content, previews)
-                {
-                    let urls = eligible_preview_urls(
-                        fragments
-                            .iter()
-                            .filter_map(message::Fragment::url)
-                            .cloned(),
-                        &message.hidden_urls,
-                        config.preview.max_per_message,
-                    );
+                    let content = if let (
+                        message::Content::Fragments(fragments),
+                        Some(previews),
+                    ) = (&message.content, previews)
+                    {
+                        let urls = eligible_preview_urls(
+                            fragments
+                                .iter()
+                                .filter_map(message::Fragment::url)
+                                .cloned(),
+                            &message.hidden_urls,
+                            config.preview.max_per_message,
+                        );
 
-                    if !urls.is_empty() {
-                        let is_message_visible = state
-                            .visible_url_messages
-                            .contains_key(&message.hash);
+                        if !urls.is_empty() {
+                            let is_message_visible = state
+                                .visible_url_messages
+                                .contains_key(&message.hash);
 
-                        let mut column = column![element].spacing(2);
+                            let mut column = column![element].spacing(2);
 
-                        for (idx, url) in urls.iter().enumerate() {
-                            if let (
-                                true,
-                                Some(preview::State::Loaded(preview)),
-                            ) = (is_message_visible, previews.get(url))
-                            {
-                                let is_hovered =
-                                    state.hovered_preview.is_some_and(
-                                        |(a, b)| a == message.hash && b == idx,
-                                    );
+                            for (idx, url) in urls.iter().enumerate() {
+                                if let (
+                                    true,
+                                    Some(preview::State::Loaded(preview)),
+                                ) = (is_message_visible, previews.get(url))
+                                {
+                                    let is_hovered = state
+                                        .hovered_preview
+                                        .is_some_and(|(a, b)| {
+                                            a == message.hash && b == idx
+                                        });
 
-                                let is_visible_for_source =
-                                    if let Some(visible_for_source) =
-                                        &visible_for_source
-                                    {
-                                        visible_for_source(
+                                    let is_visible_for_source =
+                                        if let Some(visible_for_source) =
+                                            &visible_for_source
+                                        {
+                                            visible_for_source(
+                                                preview,
+                                                message.target.source(),
+                                            )
+                                        } else {
+                                            true
+                                        };
+
+                                    if is_visible_for_source {
+                                        column = column.push(preview_row(
+                                            message,
                                             preview,
-                                            message.target.source(),
-                                        )
-                                    } else {
-                                        true
-                                    };
-
-                                if is_visible_for_source {
-                                    column = column.push(preview_row(
-                                        message,
-                                        preview,
-                                        url,
-                                        idx,
-                                        right_aligned_width,
-                                        max_prefix_width,
-                                        is_hovered,
-                                        config,
-                                        theme,
-                                    ));
+                                            url,
+                                            idx,
+                                            right_aligned_width,
+                                            max_prefix_width,
+                                            is_hovered,
+                                            config,
+                                            theme,
+                                        ));
+                                    }
                                 }
                             }
-                        }
 
-                        if is_message_visible {
-                            notify_visibility(
-                                column,
-                                2000.0,
-                                notify_visibility::When::NotVisible,
-                                message.hash,
-                                Message::ExitingViewport(message.hash),
-                            )
+                            if is_message_visible {
+                                notify_visibility(
+                                    column,
+                                    2000.0,
+                                    notify_visibility::When::NotVisible,
+                                    message.hash,
+                                    Message::ExitingViewport(message.hash),
+                                )
+                            } else {
+                                notify_visibility(
+                                    column,
+                                    1000.0,
+                                    notify_visibility::When::Visible,
+                                    message.hash,
+                                    Message::EnteringViewport(
+                                        message.hash,
+                                        urls,
+                                    ),
+                                )
+                            }
                         } else {
-                            notify_visibility(
-                                column,
-                                1000.0,
-                                notify_visibility::When::Visible,
-                                message.hash,
-                                Message::EnteringViewport(message.hash, urls),
-                            )
+                            element
                         }
                     } else {
                         element
-                    }
-                } else {
-                    element
-                };
+                    };
 
-                let content = if is_new_day
-                    && config.buffer.date_separators.show
-                {
-                    column![
-                        row![
-                            container(rule::horizontal(1))
-                                .width(Length::Fill)
-                                .padding(padding::right(6)),
-                            text(config.buffer.format_date_separator(&date))
+                    let content = if is_new_day
+                        && config.buffer.date_separators.show
+                    {
+                        column![
+                            row![
+                                container(rule::horizontal(1))
+                                    .width(Length::Fill)
+                                    .padding(padding::right(6)),
+                                text(
+                                    config.buffer.format_date_separator(&date)
+                                )
                                 .size(divider_font_size)
                                 .style(theme::text::secondary)
                                 .font_maybe(
                                     theme::font_style::secondary(theme)
                                         .map(font::get)
                                 ),
-                            container(rule::horizontal(1))
-                                .width(Length::Fill)
-                                .padding(padding::left(6))
+                                container(rule::horizontal(1))
+                                    .width(Length::Fill)
+                                    .padding(padding::left(6))
+                            ]
+                            .padding(2)
+                            .align_y(iced::Alignment::Center),
+                            content
                         ]
-                        .padding(2)
-                        .align_y(iced::Alignment::Center),
+                        .into()
+                    } else {
                         content
-                    ]
-                    .into()
-                } else {
-                    content
-                };
+                    };
 
-                Some(keyed(keyed::Key::message(message), content))
-            })
-            .collect::<Vec<_>>()
-    };
+                    Some(keyed(keyed::Key::message(message), content))
+                })
+                .collect::<Vec<_>>()
+        };
 
     let line_spacing = config.buffer.line_spacing;
 
