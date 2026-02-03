@@ -576,52 +576,61 @@ impl Sidebar {
 
             match config.sidebar.position {
                 sidebar::Position::Left | sidebar::Position::Right => {
-                    let nicklist: Option<Element<'a, Message>> = if config
-                        .sidebar
-                        .show_nicklist
-                        && !self.nicklist_hidden
-                    {
-                        focused_channel_nicklist(
-                            panes, focus, clients, config, theme, width,
-                        )
-                        .map(|list| {
-                            container(list)
-                                .padding([0, 2])
-                                .height(if config.sidebar.split {
-                                    Length::FillPortion(
-                                        config.sidebar.nicklist_space,
-                                    )
-                                } else {
-                                    Length::Fill
-                                })
-                                .into()
-                        })
-                    } else {
-                        None
-                    };
+                    let show_nicklist =
+                        config.sidebar.show_nicklist && !self.nicklist_hidden;
 
-                    let buflist_height =
-                        if config.sidebar.split && nicklist.is_some() {
-                            Length::FillPortion(config.sidebar.buflist_space)
-                        } else if nicklist.is_some() {
-                            Length::Shrink
-                        } else {
-                            Length::Fill
-                        };
-
-                    let buflist = Scrollable::new(
-                        Column::with_children(buffers).spacing(0),
-                    )
-                    .direction(scrollable::Direction::Vertical(
+                    let direction = scrollable::Direction::Vertical(
                         scrollable::Scrollbar::default()
                             .width(config.sidebar.scrollbar.width)
                             .scroller_width(
                                 config.sidebar.scrollbar.scroller_width,
                             ),
-                    ))
-                    .height(buflist_height);
+                    );
 
-                    let content = column![buflist, nicklist, user_menu_button,];
+                    let mut nicklist: Option<Element<'a, Message>> = None;
+                    let mut buflist_content =
+                        Column::with_children(buffers).spacing(0);
+
+                    if show_nicklist
+                        && let Some(list) = focused_channel_nicklist(
+                            panes, focus, clients, config, theme, width,
+                        )
+                    {
+                        if config.sidebar.split {
+                            let scrollable = Scrollable::new(list)
+                                .direction(direction)
+                                .width(Length::Shrink);
+
+                            nicklist = Some(
+                                container(scrollable)
+                                    .padding([0, 2])
+                                    .height(Length::FillPortion(
+                                        config.sidebar.nicklist_space,
+                                    ))
+                                    .into(),
+                            );
+                        } else {
+                            buflist_content = buflist_content
+                                .push(container(list).padding([0, 2]));
+                        }
+                    }
+
+                    let buflist_height =
+                        if config.sidebar.split && nicklist.is_some() {
+                            Length::FillPortion(config.sidebar.buflist_space)
+                        } else {
+                            Length::Fill
+                        };
+
+                    let buflist = Scrollable::new(buflist_content)
+                        .direction(direction)
+                        .height(buflist_height);
+
+                    let content = if show_nicklist && !config.sidebar.split {
+                        column![buflist, user_menu_button]
+                    } else {
+                        column![buflist, nicklist, user_menu_button]
+                    };
 
                     container(content)
                 }
@@ -720,7 +729,7 @@ fn focused_channel_nicklist<'a>(
 
     let users = clients.get_channel_users(server, channel);
     let prefix = clients.get_prefix(server);
-    let list = crate::buffer::channel::nick_list::view(
+    let list = crate::buffer::channel::nick_list::content(
         server, prefix, channel, users, None, config, theme,
     )
     .map(Message::Nicklist);

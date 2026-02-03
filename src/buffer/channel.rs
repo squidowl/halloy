@@ -424,7 +424,7 @@ pub(crate) mod nick_list {
     use crate::widget::{Element, selectable_text};
     use crate::{Theme, font, theme};
 
-    pub fn view<'a>(
+    pub fn content<'a>(
         server: &'a Server,
         prefix: &'a [isupport::PrefixMap],
         channel: &'a target::Channel,
@@ -453,7 +453,7 @@ pub(crate) mod nick_list {
             }
         };
 
-        let content = column(users.into_iter().flatten().map(|user| {
+        column(users.into_iter().flatten().map(|user| {
             let content = selectable_text(
                 user.display(nicklist_config.show_access_levels, None),
             )
@@ -485,14 +485,27 @@ pub(crate) mod nick_list {
                 theme,
                 &config.buffer.channel.nicklist.click,
             )
-        }));
+        }))
+        .into()
+    }
 
-        Scrollable::new(content)
-            .direction(scrollable::Direction::Vertical(
-                scrollable::Scrollbar::new().width(1).scroller_width(1),
-            ))
-            .width(Length::Shrink)
-            .style(theme::scrollable::hidden)
-            .into()
+    pub fn view<'a>(
+        server: &'a Server,
+        prefix: &'a [isupport::PrefixMap],
+        channel: &'a target::Channel,
+        users: Option<&'a ChannelUsers>,
+        our_user: Option<&'a User>,
+        config: &'a Config,
+        theme: &'a Theme,
+    ) -> Element<'a, Message> {
+        Scrollable::new(content(
+            server, prefix, channel, users, our_user, config, theme,
+        ))
+        .direction(scrollable::Direction::Vertical(
+            scrollable::Scrollbar::new().width(1).scroller_width(1),
+        ))
+        .width(Length::Shrink)
+        .style(theme::scrollable::hidden)
+        .into()
     }
 }
