@@ -1100,7 +1100,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
     }
 
     fn format(
-        &self,
+        &mut self,
         message: &'a data::Message,
         right_alignment_widths: Option<RightAlignmentWidths>,
         hide_timestamp: bool,
