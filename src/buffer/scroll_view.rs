@@ -149,7 +149,7 @@ pub trait LayoutMessage<'a> {
     }
 
     fn format(
-        &self,
+        &mut self,
         message: &'a data::Message,
         right_alignment_widths: Option<RightAlignmentWidths>,
         hide_timestamp: bool,
@@ -165,7 +165,7 @@ pub trait LayoutMessage<'a> {
 
 impl<'a, T> LayoutMessage<'a> for T
 where
-    T: Fn(
+    T: FnMut(
         &'a data::Message,
         Option<RightAlignmentWidths>,
         bool,
@@ -173,7 +173,7 @@ where
     ) -> Option<Element<'a, Message>>,
 {
     fn format(
-        &self,
+        &mut self,
         message: &'a data::Message,
         right_alignment_widths: Option<RightAlignmentWidths>,
         hide_timestamp: bool,
@@ -273,7 +273,7 @@ pub fn view<'a>(
     reserved_bottom_padding: f32,
     config: &'a Config,
     theme: &'a Theme,
-    formatter: impl LayoutMessage<'a> + 'a,
+    mut formatter: impl LayoutMessage<'a> + 'a,
     registry: &'a dyn metadata::Registry,
 ) -> Element<'a, Message> {
     let divider_font_size =
@@ -442,31 +442,35 @@ pub fn view<'a>(
             }
         });
 
-    let message_rows = |last_date: Option<NaiveDate>,
-                        messages: &[&'a data::Message]| {
-        messages
-            .iter()
-            .scan(Option::<&data::Message>::None, |prev_message, message| {
-                let hide_timestamp =
-                    if let HideConsecutiveEnabled::Enabled(duration) =
-                        config.buffer.timestamp.hide_consecutive.enabled
-                    {
-                        message.reply_to.is_none()
-                            && is_consecutive_user_message(
-                                message,
-                                *prev_message,
-                                duration,
-                                config,
-                            )
-                    } else {
-                        false
-                    };
+    let should_track_reply_target_visibility =
+        formatter.should_track_reply_target_visibility();
+    let mut message_rows =
+        |last_date: Option<NaiveDate>, messages: &[&'a data::Message]| {
+            messages
+                .iter()
+                .scan(
+                    Option::<&data::Message>::None,
+                    |prev_message, message| {
+                        let hide_timestamp =
+                            if let HideConsecutiveEnabled::Enabled(duration) =
+                                config.buffer.timestamp.hide_consecutive.enabled
+                            {
+                                message.reply_to.is_none()
+                                    && is_consecutive_user_message(
+                                        message,
+                                        *prev_message,
+                                        duration,
+                                        config,
+                                    )
+                            } else {
+                                false
+                            };
 
-                let hide_nickname =
-                    if let HideConsecutiveEnabled::Enabled(duration) =
-                        config.buffer.nickname.hide_consecutive.enabled
-                    {
-                        !config.buffer.nickname.alignment.is_top()
+                        let hide_nickname =
+                            if let HideConsecutiveEnabled::Enabled(duration) =
+                                config.buffer.nickname.hide_consecutive.enabled
+                            {
+                                !config.buffer.nickname.alignment.is_top()
                         && message.reply_to.is_none()
                         && is_consecutive_user_message(
                             message,
@@ -488,64 +492,67 @@ pub fn view<'a>(
                                     &visible_for_source,
                                 )
                             }))
+                            } else {
+                                false
+                            };
+
+                        *prev_message = Some(message);
+
+                        Some(
+                            formatter
+                                .format(
+                                    message,
+                                    right_alignment_widths,
+                                    hide_timestamp,
+                                    hide_nickname,
+                                    visible_for_source.as_ref(),
+                                    &state.visible_url_messages,
+                                    state.hovered_preview,
+                                    state.hover_highlighted_message,
+                                )
+                                .map(|element| (message, element)),
+                        )
+                    },
+                )
+                .flatten()
+                .scan(last_date, |last_date, (message, element)| {
+                    let date =
+                        message.server_time.with_timezone(&Local).date_naive();
+
+                    let is_new_day = last_date.is_none_or(|prev| date != prev);
+
+                    *last_date = Some(date);
+
+                    let element = if let Some((hash, alpha)) =
+                        state.highlighted_message
+                        && hash == message.hash
+                    {
+                        container(element)
+                            .width(Length::Fill)
+                            .style(move |theme| {
+                                theme::container::highlighted_message(
+                                    theme, alpha,
+                                )
+                            })
+                            .into()
+                    } else if state.hover_highlighted_message
+                        == Some(message.hash)
+                    {
+                        container(element)
+                            .width(Length::Fill)
+                            .style(move |theme| {
+                                theme::container::highlighted_message(
+                                    theme,
+                                    HOVER_HIGHLIGHT_ALPHA,
+                                )
+                            })
+                            .into()
                     } else {
-                        false
+                        element
                     };
 
-                *prev_message = Some(message);
-
-                Some(
-                    formatter
-                        .format(
-                            message,
-                            right_alignment_widths,
-                            hide_timestamp,
-                            hide_nickname,
-                            visible_for_source.as_ref(),
-                            &state.visible_url_messages,
-                            state.hovered_preview,
-                            state.hover_highlighted_message,
-                        )
-                        .map(|element| (message, element)),
-                )
-            })
-            .flatten()
-            .scan(last_date, |last_date, (message, element)| {
-                let date =
-                    message.server_time.with_timezone(&Local).date_naive();
-
-                let is_new_day = last_date.is_none_or(|prev| date != prev);
-
-                *last_date = Some(date);
-
-                let element = if let Some((hash, alpha)) =
-                    state.highlighted_message
-                    && hash == message.hash
-                {
-                    container(element)
-                        .width(Length::Fill)
-                        .style(move |theme| {
-                            theme::container::highlighted_message(theme, alpha)
-                        })
-                        .into()
-                } else if state.hover_highlighted_message == Some(message.hash)
-                {
-                    container(element)
-                        .width(Length::Fill)
-                        .style(move |theme| {
-                            theme::container::highlighted_message(
-                                theme,
-                                HOVER_HIGHLIGHT_ALPHA,
-                            )
-                        })
-                        .into()
-                } else {
-                    element
-                };
-
-                // this prevents flicker when a message sits right at the edge
-                let element =
-                    if formatter.should_track_reply_target_visibility() {
+                    // this prevents flicker when a message sits right at the edge
+                    let element = if should_track_reply_target_visibility {
                         let is_visible =
                             state.visible_messages.contains(&message.hash);
                         if is_visible {
@@ -569,42 +576,46 @@ pub fn view<'a>(
                         element
                     };
 
-                let content = if is_new_day
-                    && config.buffer.date_separators.show
-                {
-                    column![
-                        row![
-                            container(
-                                rule::horizontal(1).style(theme::rule::date)
-                            )
-                            .width(Length::Fill)
-                            .padding(padding::right(6)),
-                            text(config.buffer.format_date_separator(&date))
+                    let content = if is_new_day
+                        && config.buffer.date_separators.show
+                    {
+                        column![
+                            row![
+                                container(
+                                    rule::horizontal(1)
+                                        .style(theme::rule::date)
+                                )
+                                .width(Length::Fill)
+                                .padding(padding::right(6)),
+                                text(
+                                    config.buffer.format_date_separator(&date)
+                                )
                                 .size(divider_font_size)
                                 .style(theme::text::date_separator)
                                 .font_maybe(
                                     theme::font_style::secondary(theme)
                                         .map(font::get)
                                 ),
-                            container(
-                                rule::horizontal(1).style(theme::rule::date)
-                            )
-                            .width(Length::Fill)
-                            .padding(padding::left(6))
+                                container(
+                                    rule::horizontal(1)
+                                        .style(theme::rule::date)
+                                )
+                                .width(Length::Fill)
+                                .padding(padding::left(6))
+                            ]
+                            .padding(2)
+                            .align_y(iced::Alignment::Center),
+                            element
                         ]
-                        .padding(2)
-                        .align_y(iced::Alignment::Center),
+                        .into()
+                    } else {
                         element
-                    ]
-                    .into()
-                } else {
-                    element
-                };
+                    };
 
-                Some(keyed(keyed::Key::message(message), content))
-            })
-            .collect::<Vec<_>>()
-    };
+                    Some(keyed(keyed::Key::message(message), content))
+                })
+                .collect::<Vec<_>>()
+        };
 
     let line_spacing = config.buffer.line_spacing;
 

@@ -137,7 +137,9 @@ pub fn view<'a>(
                     )
             ]
             .spacing(8),
-            container(rule::horizontal(1)).width(Length::Fill),
+            container(rule::horizontal(1))
+                .width(Length::Fill)
+                .padding(padding::left(8).right(12)),
         ]
         .spacing(8),
     )
@@ -149,6 +151,8 @@ pub fn view<'a>(
     let casemapping = clients.get_server_casemapping_or_default(server);
     let prefix = clients.get_server_prefix_or_default(server);
     let registry = clients.get_registry(server);
+
+    let mut idx = 1;
 
     let messages = container(
         scroll_view::view(
@@ -166,6 +170,8 @@ pub fn view<'a>(
                     target,
                     source: message::Source::User(user),
                 } => {
+                    idx += 1;
+
                     let users = target
                         .as_ref()
                         .and_then(|target| target.as_channel())
@@ -353,6 +359,9 @@ pub fn view<'a>(
                             selectable_text(" "),
                             text,
                         ])
+                        .style(move |theme| theme::container::table(theme, idx))
+                        .width(Length::Fill)
+                        .padding(padding::vertical(6).left(4))
                         .into(),
                     )
                 }
@@ -360,6 +369,8 @@ pub fn view<'a>(
                     target,
                     source: message::Source::Action(_),
                 } => {
+                    idx += 1;
+
                     let timestamp = config
                         .buffer
                         .format_timestamp(&message.server_time)
@@ -422,6 +433,9 @@ pub fn view<'a>(
                             target_text,
                             text
                         ])
+                        .style(move |theme| theme::container::table(theme, idx))
+                        .width(Length::Fill)
+                        .padding(padding::vertical(6).left(4))
                         .into(),
                     )
                 }
@@ -429,6 +443,8 @@ pub fn view<'a>(
                     target: None,
                     source: message::Source::Server(source),
                 } => {
+                    idx = 0;
+
                     let timestamp = config
                         .buffer
                         .format_timestamp(&message.server_time)
@@ -473,6 +489,9 @@ pub fn view<'a>(
 
                     Some(
                         container(row![timestamp, selectable_text(" "), text])
+                            .style(theme::container::table_header)
+                            .width(Length::Fill)
+                            .padding(padding::vertical(6).left(4))
                             .into(),
                     )
                 }
@@ -484,7 +503,7 @@ pub fn view<'a>(
     )
     .width(Length::Fill)
     .height(Length::Fill)
-    .padding([0, 6]);
+    .padding(padding::right(6).left(2));
 
     let content = column![
         key_press(
@@ -500,7 +519,7 @@ pub fn view<'a>(
         ),
         messages
     ]
-    .padding([8, 2]);
+    .padding(padding::vertical(8).horizontal(2));
 
     container(content)
         .width(Length::Fill)
