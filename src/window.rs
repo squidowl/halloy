@@ -145,7 +145,7 @@ pub fn settings(config: &Config) -> Settings {
                 )
                 .ok(),
                 decorations: config.platform_specific.windows.decorations,
-                transparent: true,
+                transparent: false,
                 ..Default::default()
             },
             None => Settings::default(),
