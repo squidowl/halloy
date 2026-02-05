@@ -119,6 +119,11 @@ iced = { git = "https://github.com/squidowl/iced", rev = "19f12c509614465cb93f07
 iced_core = { git = "https://github.com/squidowl/iced", rev = "19f12c509614465cb93f078d33581f48ead78fdd" }
 iced_wgpu = { git = "https://github.com/squidowl/iced", rev = "19f12c509614465cb93f078d33581f48ead78fdd" }
 
+[profile.packaging]
+lto = "fat"
+inherits = "release"
+codegen-units = 1
+
 [profile.ci]
 inherits = "dev"
 opt-level = 0
