@@ -48,6 +48,7 @@ enabled = false
 | `standard_reply_warn` | Message is sent when there is feedback about a command/function or session                                                     |
 | `topic`               | Message is sent when the client joins a channel to inform them of the topic (does not include message sent when topic changes) |
 | `wallops`             | Message is sent by operators to all users with mode +w on the network                                                          |
+| `default`             | Pseudo-type to provide fallback settings for when a specific event type has not been configured                                |
 
 ## Configuration
 
