@@ -8,6 +8,7 @@ Added:
 - Default internal message pseudo-type, allowing the default values for internal message types to be user-specified
 - Add setting to specify queries to be added to the sidebar after connecting to a server
 - Added ability to disconnect on SASL authentication failure
+- Setting to configure font line height (`font.line_height`)
 
 Thanks:
 
@@ -23,7 +24,6 @@ Added:
 - Setting to style unread query buffers as highlights in the sidebar (`sidebar.unread_indicator.query_as_highlight`)
 - Settings to configure card and image preview dimensions 
 - Support for transparent background.
-- Setting to configure font line height (`font.line_height`)
 
 Fixed:
 
