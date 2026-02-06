@@ -102,8 +102,12 @@ show_toast = true
 
 ### request_attention
 
-Notification should request user attention for the window (aka urgency).
-Triggers only when the window is not focused.
+Notification should request user attention for its window (aka urgency).  Exact
+behavior is platform specific:
+
+  - macOS: Bounces the dock icon once.
+  - Windows: Flashes the taskbar button until the application is in focus.
+  - Linux: Depends on the desktop environment.
 
 ```toml
 # Type: boolean
