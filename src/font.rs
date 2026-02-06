@@ -66,7 +66,7 @@ pub fn line_height() -> LineHeight {
 pub fn set(config: Option<&Config>) {
     let family = config
         .and_then(|config| config.font.family.clone())
-        .unwrap_or_else(|| String::from("Iosevka Term"));
+        .unwrap_or_else(|| String::from("Victor Mono"));
     let weight =
         config.map_or(font::Weight::Normal, |config| config.font.weight);
     let bold_weight = config
@@ -97,22 +97,46 @@ pub fn set(config: Option<&Config>) {
 
 pub fn load() -> Vec<Cow<'static, [u8]>> {
     vec![
-        include_bytes!("../fonts/iosevka-term-regular.ttf")
+        include_bytes!("../fonts/victor-mono/VictorMono-BoldItalic.otf")
             .as_slice()
             .into(),
-        include_bytes!("../fonts/iosevka-term-bold.ttf")
+        include_bytes!("../fonts/victor-mono/VictorMono-Bold.otf")
             .as_slice()
             .into(),
-        include_bytes!("../fonts/iosevka-term-italic.ttf")
+        include_bytes!("../fonts/victor-mono/VictorMono-ExtraLightItalic.otf")
             .as_slice()
             .into(),
-        include_bytes!("../fonts/iosevka-term-light.ttf")
+        include_bytes!("../fonts/victor-mono/VictorMono-ExtraLight.otf")
             .as_slice()
             .into(),
-        include_bytes!("../fonts/iosevka-term-semibold.ttf")
+        include_bytes!("../fonts/victor-mono/VictorMono-Italic.otf")
             .as_slice()
             .into(),
-        include_bytes!("../fonts/iosevka-term-lightitalic.ttf")
+        include_bytes!("../fonts/victor-mono/VictorMono-LightItalic.otf")
+            .as_slice()
+            .into(),
+        include_bytes!("../fonts/victor-mono/VictorMono-Light.otf")
+            .as_slice()
+            .into(),
+        include_bytes!("../fonts/victor-mono/VictorMono-MediumItalic.otf")
+            .as_slice()
+            .into(),
+        include_bytes!("../fonts/victor-mono/VictorMono-Medium.otf")
+            .as_slice()
+            .into(),
+        include_bytes!("../fonts/victor-mono/VictorMono-Regular.otf")
+            .as_slice()
+            .into(),
+        include_bytes!("../fonts/victor-mono/VictorMono-SemiBoldItalic.otf")
+            .as_slice()
+            .into(),
+        include_bytes!("../fonts/victor-mono/VictorMono-SemiBold.otf")
+            .as_slice()
+            .into(),
+        include_bytes!("../fonts/victor-mono/VictorMono-ThinItalic.otf")
+            .as_slice()
+            .into(),
+        include_bytes!("../fonts/victor-mono/VictorMono-Thin.otf")
             .as_slice()
             .into(),
         include_bytes!("../fonts/halloy-icons.ttf")
