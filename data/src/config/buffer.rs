@@ -483,25 +483,45 @@ impl Default for ServerMessageDefault {
 pub struct InternalMessages {
     pub success: InternalMessage,
     pub error: InternalMessage,
+    pub default: InternalMessageDefault,
 }
 
 impl InternalMessages {
-    pub fn get(&self, server: &source::Status) -> Option<&InternalMessage> {
-        match server {
-            source::Status::Success => Some(&self.success),
-            source::Status::Error => Some(&self.error),
+    pub fn get(&self, status: &source::Status) -> &InternalMessage {
+        match status {
+            source::Status::Success => &self.success,
+            source::Status::Error => &self.error,
         }
     }
+
+    pub fn enabled(&self, status: &source::Status) -> bool {
+        if let Some(enabled) = self.get(status).enabled {
+            enabled
+        } else {
+            self.default.enabled
+        }
+    }
+
+    pub fn smart(&self, status: &source::Status) -> Option<i64> {
+        self.get(status).smart.or(self.default.smart)
+    }
+}
+
+#[derive(Debug, Default, Clone, Deserialize)]
+#[serde(default)]
+pub struct InternalMessage {
+    pub enabled: Option<bool>,
+    pub smart: Option<i64>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
-pub struct InternalMessage {
+pub struct InternalMessageDefault {
     pub enabled: bool,
     pub smart: Option<i64>,
 }
 
-impl Default for InternalMessage {
+impl Default for InternalMessageDefault {
     fn default() -> Self {
         Self {
             enabled: true,

@@ -864,17 +864,14 @@ impl Manager {
                     message::Source::Internal(
                         message::source::Internal::Status(status),
                     ) => {
-                        if let Some(internal_message) =
-                            buffer_config.internal_messages.get(status)
+                        if !buffer_config.internal_messages.enabled(status) {
+                            message.blocked = true;
+                        } else if let Some(seconds) =
+                            buffer_config.internal_messages.smart(status)
                         {
-                            if !internal_message.enabled {
-                                message.blocked = true;
-                            } else if let Some(seconds) = internal_message.smart
-                            {
-                                message.blocked = smart_filter_internal_message(
-                                    message, &seconds,
-                                );
-                            }
+                            message.blocked = smart_filter_internal_message(
+                                message, &seconds,
+                            );
                         }
                     }
                     _ => (),
@@ -1094,19 +1091,16 @@ impl Data {
                         message::Source::Internal(
                             message::source::Internal::Status(status),
                         ) => {
-                            if let Some(internal_message) =
-                                buffer_config.internal_messages.get(status)
+                            if !buffer_config.internal_messages.enabled(status)
                             {
-                                if !internal_message.enabled {
-                                    return None;
-                                } else if let Some(seconds) =
-                                    internal_message.smart
-                                {
-                                    return (!smart_filter_internal_message(
-                                        message, &seconds,
-                                    ))
-                                    .then_some(message);
-                                }
+                                return None;
+                            } else if let Some(seconds) =
+                                buffer_config.internal_messages.smart(status)
+                            {
+                                return (!smart_filter_internal_message(
+                                    message, &seconds,
+                                ))
+                                .then_some(message);
                             }
 
                             Some(message)
