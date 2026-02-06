@@ -177,7 +177,7 @@ pub fn quit(
                 config
                     .buffer
                     .server_messages
-                    .username_format(source::server::Kind::Quit)
+                    .username_format(Some(source::server::Kind::Quit))
             )
         ),
         user,

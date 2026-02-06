@@ -2265,7 +2265,7 @@ fn content<'a>(
                             config
                                 .buffer
                                 .server_messages
-                                .username_format(Kind::Part)
+                                .username_format(Some(Kind::Part))
                         )
                     ),
                     &user,
@@ -2295,7 +2295,7 @@ fn content<'a>(
                                 config
                                     .buffer
                                     .server_messages
-                                    .username_format(Kind::Join)
+                                    .username_format(Some(Kind::Join))
                             )
                         ),
                         &user,
