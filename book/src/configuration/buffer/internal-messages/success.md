@@ -1,6 +1,6 @@
 # Success
 
-A internal messages which is considered a "success" such as when a connection was restored, or when connected successfully to a server.
+Internal messages which are considered a "success" such as when a connection was restored, or when connected successfully to a server.
 
 - [Success](#success)
   - [Configuration](#configuration)

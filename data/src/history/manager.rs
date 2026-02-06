@@ -611,14 +611,15 @@ impl Manager {
     ) {
         message.blocked = false;
 
-        if let message::Source::Server(Some(source)) = message.target.source()
-            && let Some(server_message) =
-                buffer_config.server_messages.get(source)
-        {
+        if let message::Source::Server(source) = message.target.source() {
             // Check if target is a channel, and if included/excluded.
             if let message::Target::Channel { channel, .. } = &message.target
-                && !server_message.should_send_message(
-                    source.nick().map(Nick::as_nickref),
+                && !buffer_config.server_messages.should_send_message(
+                    source.as_ref().map(message::source::server::Server::kind),
+                    source
+                        .as_ref()
+                        .and_then(|source| source.nick())
+                        .map(Nick::as_nickref),
                     channel,
                     server,
                     casemapping,
@@ -628,15 +629,18 @@ impl Manager {
                 return;
             }
 
-            if let Some(seconds) = server_message.smart {
-                let nick = match source.nick() {
-                    Some(nick) => Some(nick.clone()),
-                    None => message.plain().and_then(|s| {
-                        s.split(' ')
-                            .nth(1)
-                            .map(|nick| Nick::from_str(nick, casemapping))
-                    }),
-                };
+            if let Some(seconds) = buffer_config.server_messages.smart(
+                source.as_ref().map(message::source::server::Server::kind),
+            ) {
+                let nick =
+                    match source.as_ref().and_then(|source| source.nick()) {
+                        Some(nick) => Some(nick.clone()),
+                        None => message.plain().and_then(|s| {
+                            s.split(' ')
+                                .nth(1)
+                                .map(|nick| Nick::from_str(nick, casemapping))
+                        }),
+                    };
 
                 if let Some(nick) = nick
                     && let Some(history) = self.data.map.get(kind)
@@ -802,7 +806,7 @@ impl Manager {
                 message.blocked = false;
 
                 match message.target.source() {
-                    message::Source::Server(Some(source)) => {
+                    message::Source::Server(source) => {
                         let server = if let Some(server) = kind.server() {
                             Some(server)
                         } else if let message::Target::Highlights {
@@ -818,40 +822,52 @@ impl Manager {
                         let casemapping =
                             clients.get_casemapping_or_default(server);
 
-                        if let Some(server_message) =
-                            buffer_config.server_messages.get(source)
-                        {
-                            // Check if target is a channel, and if included/excluded.
-                            if let message::Target::Channel { channel, .. }
-                            | message::Target::Highlights {
-                                channel, ..
-                            } = &message.target
-                                && let Some(server) = server
-                                && !server_message.should_send_message(
-                                    source.nick().map(Nick::as_nickref),
+                        // Check if target is a channel, and if included/excluded.
+                        if let message::Target::Channel { channel, .. }
+                        | message::Target::Highlights { channel, .. } =
+                            &message.target
+                            && let Some(server) = server
+                            && !buffer_config
+                                .server_messages
+                                .should_send_message(
+                                    source.as_ref().map(
+                                        message::source::server::Server::kind,
+                                    ),
+                                    source
+                                        .as_ref()
+                                        .and_then(|source| source.nick())
+                                        .map(Nick::as_nickref),
                                     channel,
                                     server,
                                     casemapping,
                                 )
+                        {
+                            message.blocked = true;
+                        } else if let Some(seconds) =
+                            buffer_config.server_messages.smart(
+                                source
+                                    .as_ref()
+                                    .map(message::source::server::Server::kind),
+                            )
+                        {
+                            let nick = match source
+                                .as_ref()
+                                .and_then(|source| source.nick())
                             {
-                                message.blocked = true;
-                            } else if let Some(seconds) = server_message.smart {
-                                let nick = match source.nick() {
-                                    Some(nick) => Some(nick.clone()),
-                                    None => message.plain().and_then(|s| {
-                                        s.split(' ').nth(1).map(|nick| {
-                                            Nick::from_str(nick, casemapping)
-                                        })
-                                    }),
-                                };
+                                Some(nick) => Some(nick.clone()),
+                                None => message.plain().and_then(|s| {
+                                    s.split(' ').nth(1).map(|nick| {
+                                        Nick::from_str(nick, casemapping)
+                                    })
+                                }),
+                            };
 
-                                if let Some(nick) = nick {
-                                    message.blocked = smart_filter_message(
-                                        message,
-                                        &seconds,
-                                        last_seen.get(&nick),
-                                    );
-                                }
+                            if let Some(nick) = nick {
+                                message.blocked = smart_filter_message(
+                                    message,
+                                    &seconds,
+                                    last_seen.get(&nick),
+                                );
                             }
                         }
                     }
@@ -864,17 +880,14 @@ impl Manager {
                     message::Source::Internal(
                         message::source::Internal::Status(status),
                     ) => {
-                        if let Some(internal_message) =
-                            buffer_config.internal_messages.get(status)
+                        if !buffer_config.internal_messages.enabled(status) {
+                            message.blocked = true;
+                        } else if let Some(seconds) =
+                            buffer_config.internal_messages.smart(status)
                         {
-                            if !internal_message.enabled {
-                                message.blocked = true;
-                            } else if let Some(seconds) = internal_message.smart
-                            {
-                                message.blocked = smart_filter_internal_message(
-                                    message, &seconds,
-                                );
-                            }
+                            message.blocked = smart_filter_internal_message(
+                                message, &seconds,
+                            );
                         }
                     }
                     _ => (),
@@ -1094,19 +1107,16 @@ impl Data {
                         message::Source::Internal(
                             message::source::Internal::Status(status),
                         ) => {
-                            if let Some(internal_message) =
-                                buffer_config.internal_messages.get(status)
+                            if !buffer_config.internal_messages.enabled(status)
                             {
-                                if !internal_message.enabled {
-                                    return None;
-                                } else if let Some(seconds) =
-                                    internal_message.smart
-                                {
-                                    return (!smart_filter_internal_message(
-                                        message, &seconds,
-                                    ))
-                                    .then_some(message);
-                                }
+                                return None;
+                            } else if let Some(seconds) =
+                                buffer_config.internal_messages.smart(status)
+                            {
+                                return (!smart_filter_internal_message(
+                                    message, &seconds,
+                                ))
+                                .then_some(message);
                             }
 
                             Some(message)

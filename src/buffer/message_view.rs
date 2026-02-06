@@ -376,7 +376,11 @@ impl<'a> ChannelQueryLayout<'a> {
     ) -> (Element<'a, Message>, Element<'a, Message>) {
         let formatter = *self;
 
-        let dimmed = formatter.config.buffer.server_messages.dimmed(server);
+        let dimmed = formatter
+            .config
+            .buffer
+            .server_messages
+            .dimmed(server.map(message::source::Server::kind));
 
         let message_style = move |message_theme: &Theme| {
             theme::selectable_text::dimmed(
