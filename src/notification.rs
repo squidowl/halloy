@@ -6,9 +6,10 @@ use data::config::{self, notification};
 use data::target::join_targets;
 use data::user::Nick;
 use data::{Config, Notification, Server, User};
+use iced::Task;
 
 pub use self::toast::prepare;
-use crate::audio;
+use crate::{audio, window};
 
 mod toast;
 
@@ -82,13 +83,14 @@ impl Notifications {
         }
     }
 
-    pub fn notify(
+    pub fn notify<Message: 'static + Send>(
         &mut self,
         config: &config::Notifications,
         notification: &Notification,
         server: &Server,
-    ) {
-        match notification {
+        window_id: window::Id,
+    ) -> Option<Task<Message>> {
+        let request_attention = match notification {
             Notification::Connected => {
                 self.execute(
                     &config.connected,
@@ -97,6 +99,8 @@ impl Notifications {
                     &server.to_string(),
                     None,
                 );
+
+                config.connected.request_attention
             }
             Notification::Disconnected => {
                 self.execute(
@@ -106,6 +110,8 @@ impl Notifications {
                     &server.to_string(),
                     None,
                 );
+
+                config.disconnected.request_attention
             }
             Notification::Reconnected => {
                 self.execute(
@@ -115,6 +121,8 @@ impl Notifications {
                     &server.to_string(),
                     None,
                 );
+
+                config.reconnected.request_attention
             }
             Notification::MonitoredOnline(targets) => {
                 self.execute(
@@ -128,6 +136,8 @@ impl Notifications {
                     &join_targets(targets.iter().map(User::as_str).collect()),
                     None,
                 );
+
+                config.monitored_online.request_attention
             }
             Notification::MonitoredOffline(targets) => {
                 self.execute(
@@ -141,6 +151,8 @@ impl Notifications {
                     &join_targets(targets.iter().map(Nick::as_str).collect()),
                     None,
                 );
+
+                config.monitored_online.request_attention
             }
             Notification::FileTransferRequest {
                 nick,
@@ -175,6 +187,10 @@ impl Notifications {
                         body,
                         None,
                     );
+
+                    config.file_transfer_request.request_attention
+                } else {
+                    false
                 }
             }
             Notification::DirectMessage {
@@ -213,6 +229,10 @@ impl Notifications {
                         body,
                         None,
                     );
+
+                    config.direct_message.request_attention
+                } else {
+                    false
                 }
             }
             Notification::Highlight {
@@ -242,6 +262,8 @@ impl Notifications {
                             message,
                             sound.as_deref(),
                         );
+
+                        config.highlight.request_attention
                     } else {
                         self.execute(
                             &config.highlight,
@@ -253,7 +275,11 @@ impl Notifications {
                             &server.name,
                             sound.as_deref(),
                         );
+
+                        config.highlight.request_attention
                     }
+                } else {
+                    false
                 }
             }
             Notification::Channel {
@@ -282,6 +308,8 @@ impl Notifications {
                             message,
                             None,
                         );
+
+                        notification_config.request_attention
                     } else {
                         self.execute(
                             notification_config,
@@ -293,9 +321,22 @@ impl Notifications {
                             &server.name,
                             None,
                         );
+
+                        notification_config.request_attention
                     }
+                } else {
+                    false
                 }
             }
+        };
+
+        if request_attention {
+            Some(iced::window::request_user_attention(
+                window_id,
+                Some(iced::window::UserAttention::Informational),
+            ))
+        } else {
+            None
         }
     }
 

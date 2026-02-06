@@ -10,6 +10,7 @@ Customize and enable notifications.
   - [Configuration](#configuration)
     - [sound](#sound)
     - [show\_toast](#show_toast)
+    - [request_attention](#request_attention)
     - [show\_content](#show_content)
     - [delay](#delay)
     - [exclude](#exclude)
@@ -97,6 +98,24 @@ Notification should trigger a OS toast.
 
 [notifications.<notification>]
 show_toast = true
+```
+
+### request_attention
+
+Notification should request user attention for its window (aka urgency).  Exact
+behavior is platform specific:
+
+  - macOS: Bounces the dock icon once.
+  - Windows: Flashes the taskbar button until the application is in focus.
+  - Linux: Depends on the desktop environment.
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: false
+
+[notifications.<notification>]
+request_attention = true
 ```
 
 ### show_content

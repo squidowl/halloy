@@ -9,6 +9,7 @@ Added:
 - Setting to style unread query buffers as highlights in the sidebar (`sidebar.unread_indicator.query_as_highlight`)
 - Settings to configure card and image preview dimensions 
 - Support for transparent background.
+- Support requesting window attention (setting urgency) for notifications (`notifications.<type>.request_attention`)
 
 Fixed:
 
