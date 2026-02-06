@@ -1,5 +1,14 @@
 # Unreleased
 
+Added:
+
+- Support requesting window attention (setting urgency) for notifications (`notifications.<type>.request_attention`)
+
+Thanks:
+
+- Contributions: @Hummer12007
+- Feature requests: @megumintyan
+
 # 2026.2 (2026-02-01)
 
 Added:
@@ -9,7 +18,6 @@ Added:
 - Setting to style unread query buffers as highlights in the sidebar (`sidebar.unread_indicator.query_as_highlight`)
 - Settings to configure card and image preview dimensions 
 - Support for transparent background.
-- Support requesting window attention (setting urgency) for notifications (`notifications.<type>.request_attention`)
 
 Fixed:
 
@@ -26,6 +34,7 @@ Changed:
 
 Thanks:
 
+- Contributions: @Hummer12007
 - Bug reports: @e00E, @oooo-ps, @csmith, @bw1, @deepspaceaxolotl
 
 # 2026.1.1 (2026-01-21)
