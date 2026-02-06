@@ -292,17 +292,18 @@ impl ServerMessages {
         }
     }
 
-    pub fn dimmed(&self, server: Option<&source::Server>) -> Option<&Dimmed> {
-        server.and_then(|server| {
-            self.get(server.kind())
-                .dimmed
-                .as_ref()
-                .or(self.default.dimmed.as_ref())
-        })
+    pub fn dimmed(
+        &self,
+        kind: Option<source::server::Kind>,
+    ) -> Option<&Dimmed> {
+        kind.and_then(|kind| self.get(kind).dimmed.as_ref())
+            .or(self.default.dimmed.as_ref())
     }
 
-    pub fn enabled(&self, kind: source::server::Kind) -> bool {
-        if let Some(enabled) = self.get(kind).enabled {
+    pub fn enabled(&self, kind: Option<source::server::Kind>) -> bool {
+        if let Some(kind) = kind
+            && let Some(enabled) = self.get(kind).enabled
+        {
             enabled
         } else {
             self.default.enabled
@@ -311,27 +312,23 @@ impl ServerMessages {
 
     pub fn exclude(
         &self,
-        kind: source::server::Kind,
+        kind: Option<source::server::Kind>,
     ) -> Option<&Inclusivities> {
-        self.get(kind)
-            .exclude
-            .as_ref()
+        kind.and_then(|kind| self.get(kind).exclude.as_ref())
             .or(self.default.exclude.as_ref())
     }
 
     pub fn include(
         &self,
-        kind: source::server::Kind,
+        kind: Option<source::server::Kind>,
     ) -> Option<&Inclusivities> {
-        self.get(kind)
-            .include
-            .as_ref()
+        kind.and_then(|kind| self.get(kind).include.as_ref())
             .or(self.default.include.as_ref())
     }
 
     pub fn should_send_message(
         &self,
-        kind: source::server::Kind,
+        kind: Option<source::server::Kind>,
         nick: Option<NickRef>,
         channel: &target::Channel,
         server: &Server,
@@ -352,16 +349,16 @@ impl ServerMessages {
         )
     }
 
-    pub fn smart(&self, kind: source::server::Kind) -> Option<i64> {
-        self.get(kind).smart.or(self.default.smart)
+    pub fn smart(&self, kind: Option<source::server::Kind>) -> Option<i64> {
+        kind.and_then(|kind| self.get(kind).smart)
+            .or(self.default.smart)
     }
 
     pub fn username_format(
         &self,
-        kind: source::server::Kind,
+        kind: Option<source::server::Kind>,
     ) -> UsernameFormat {
-        self.get(kind)
-            .username_format
+        kind.and_then(|kind| self.get(kind).username_format)
             .unwrap_or(self.default.username_format)
     }
 }

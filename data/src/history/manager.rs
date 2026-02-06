@@ -611,12 +611,15 @@ impl Manager {
     ) {
         message.blocked = false;
 
-        if let message::Source::Server(Some(source)) = message.target.source() {
+        if let message::Source::Server(source) = message.target.source() {
             // Check if target is a channel, and if included/excluded.
             if let message::Target::Channel { channel, .. } = &message.target
                 && !buffer_config.server_messages.should_send_message(
-                    source.kind(),
-                    source.nick().map(Nick::as_nickref),
+                    source.as_ref().map(message::source::server::Server::kind),
+                    source
+                        .as_ref()
+                        .and_then(|source| source.nick())
+                        .map(Nick::as_nickref),
                     channel,
                     server,
                     casemapping,
@@ -626,17 +629,18 @@ impl Manager {
                 return;
             }
 
-            if let Some(seconds) =
-                buffer_config.server_messages.smart(source.kind())
-            {
-                let nick = match source.nick() {
-                    Some(nick) => Some(nick.clone()),
-                    None => message.plain().and_then(|s| {
-                        s.split(' ')
-                            .nth(1)
-                            .map(|nick| Nick::from_str(nick, casemapping))
-                    }),
-                };
+            if let Some(seconds) = buffer_config.server_messages.smart(
+                source.as_ref().map(message::source::server::Server::kind),
+            ) {
+                let nick =
+                    match source.as_ref().and_then(|source| source.nick()) {
+                        Some(nick) => Some(nick.clone()),
+                        None => message.plain().and_then(|s| {
+                            s.split(' ')
+                                .nth(1)
+                                .map(|nick| Nick::from_str(nick, casemapping))
+                        }),
+                    };
 
                 if let Some(nick) = nick
                     && let Some(history) = self.data.map.get(kind)
@@ -802,7 +806,7 @@ impl Manager {
                 message.blocked = false;
 
                 match message.target.source() {
-                    message::Source::Server(Some(source)) => {
+                    message::Source::Server(source) => {
                         let server = if let Some(server) = kind.server() {
                             Some(server)
                         } else if let message::Target::Highlights {
@@ -826,8 +830,13 @@ impl Manager {
                             && !buffer_config
                                 .server_messages
                                 .should_send_message(
-                                    source.kind(),
-                                    source.nick().map(Nick::as_nickref),
+                                    source.as_ref().map(
+                                        message::source::server::Server::kind,
+                                    ),
+                                    source
+                                        .as_ref()
+                                        .and_then(|source| source.nick())
+                                        .map(Nick::as_nickref),
                                     channel,
                                     server,
                                     casemapping,
@@ -835,9 +844,16 @@ impl Manager {
                         {
                             message.blocked = true;
                         } else if let Some(seconds) =
-                            buffer_config.server_messages.smart(source.kind())
+                            buffer_config.server_messages.smart(
+                                source
+                                    .as_ref()
+                                    .map(message::source::server::Server::kind),
+                            )
                         {
-                            let nick = match source.nick() {
+                            let nick = match source
+                                .as_ref()
+                                .and_then(|source| source.nick())
+                            {
                                 Some(nick) => Some(nick.clone()),
                                 None => message.plain().and_then(|s| {
                                     s.split(' ').nth(1).map(|nick| {
