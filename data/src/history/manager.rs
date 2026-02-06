@@ -611,13 +611,11 @@ impl Manager {
     ) {
         message.blocked = false;
 
-        if let message::Source::Server(Some(source)) = message.target.source()
-            && let Some(server_message) =
-                buffer_config.server_messages.get(source)
-        {
+        if let message::Source::Server(Some(source)) = message.target.source() {
             // Check if target is a channel, and if included/excluded.
             if let message::Target::Channel { channel, .. } = &message.target
-                && !server_message.should_send_message(
+                && !buffer_config.server_messages.should_send_message(
+                    source.kind(),
                     source.nick().map(Nick::as_nickref),
                     channel,
                     server,
@@ -628,7 +626,9 @@ impl Manager {
                 return;
             }
 
-            if let Some(seconds) = server_message.smart {
+            if let Some(seconds) =
+                buffer_config.server_messages.smart(source.kind())
+            {
                 let nick = match source.nick() {
                     Some(nick) => Some(nick.clone()),
                     None => message.plain().and_then(|s| {
@@ -818,40 +818,40 @@ impl Manager {
                         let casemapping =
                             clients.get_casemapping_or_default(server);
 
-                        if let Some(server_message) =
-                            buffer_config.server_messages.get(source)
-                        {
-                            // Check if target is a channel, and if included/excluded.
-                            if let message::Target::Channel { channel, .. }
-                            | message::Target::Highlights {
-                                channel, ..
-                            } = &message.target
-                                && let Some(server) = server
-                                && !server_message.should_send_message(
+                        // Check if target is a channel, and if included/excluded.
+                        if let message::Target::Channel { channel, .. }
+                        | message::Target::Highlights { channel, .. } =
+                            &message.target
+                            && let Some(server) = server
+                            && !buffer_config
+                                .server_messages
+                                .should_send_message(
+                                    source.kind(),
                                     source.nick().map(Nick::as_nickref),
                                     channel,
                                     server,
                                     casemapping,
                                 )
-                            {
-                                message.blocked = true;
-                            } else if let Some(seconds) = server_message.smart {
-                                let nick = match source.nick() {
-                                    Some(nick) => Some(nick.clone()),
-                                    None => message.plain().and_then(|s| {
-                                        s.split(' ').nth(1).map(|nick| {
-                                            Nick::from_str(nick, casemapping)
-                                        })
-                                    }),
-                                };
+                        {
+                            message.blocked = true;
+                        } else if let Some(seconds) =
+                            buffer_config.server_messages.smart(source.kind())
+                        {
+                            let nick = match source.nick() {
+                                Some(nick) => Some(nick.clone()),
+                                None => message.plain().and_then(|s| {
+                                    s.split(' ').nth(1).map(|nick| {
+                                        Nick::from_str(nick, casemapping)
+                                    })
+                                }),
+                            };
 
-                                if let Some(nick) = nick {
-                                    message.blocked = smart_filter_message(
-                                        message,
-                                        &seconds,
-                                        last_seen.get(&nick),
-                                    );
-                                }
+                            if let Some(nick) = nick {
+                                message.blocked = smart_filter_message(
+                                    message,
+                                    &seconds,
+                                    last_seen.get(&nick),
+                                );
                             }
                         }
                     }

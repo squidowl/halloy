@@ -4,6 +4,7 @@ Added:
 
 - Added default `Ctrl+Q` shortcut to quit application on Linux
 - Support requesting window attention (setting urgency) for notifications (`notifications.<type>.request_attention`)
+- Default server message pseudo-type, allowing the default values for server message types to be user-specified
 
 Thanks:
 

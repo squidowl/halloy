@@ -173,7 +173,12 @@ pub fn quit(
     let content = parse_fragments_with_user(
         format!(
             "⟵ {} has quit{comment}",
-            user.formatted(config.buffer.server_messages.quit.username_format)
+            user.formatted(
+                config
+                    .buffer
+                    .server_messages
+                    .username_format(source::server::Kind::Quit)
+            )
         ),
         user,
         casemapping,
