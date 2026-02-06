@@ -66,13 +66,11 @@ pub fn line_height() -> LineHeight {
 }
 
 fn default_font() -> iced::Font {
-    #[cfg(feature = "iosevka-font")]
-    {
+    if cfg!(feature = "iosevka-font") {
         iced::Font::with_family("Iosevka Term")
-    }
-
-    #[cfg(not(feature = "iosevka-font"))]
-    {
+    } else if cfg!(feature = "victor-mono-font") {
+        iced::Font::with_family("Victor Mono")
+    } else {
         iced::Font::MONOSPACE
     }
 }
@@ -114,35 +112,87 @@ pub fn set(config: Option<&Config>) {
 }
 
 pub fn load() -> Vec<Cow<'static, [u8]>> {
-    vec![
-        #[cfg(feature = "iosevka-font")]
-        include_bytes!("../fonts/iosevka-term-regular.ttf")
-            .as_slice()
-            .into(),
-        #[cfg(feature = "iosevka-font")]
-        include_bytes!("../fonts/iosevka-term-bold.ttf")
-            .as_slice()
-            .into(),
-        #[cfg(feature = "iosevka-font")]
-        include_bytes!("../fonts/iosevka-term-italic.ttf")
-            .as_slice()
-            .into(),
-        #[cfg(feature = "iosevka-font")]
-        include_bytes!("../fonts/iosevka-term-light.ttf")
-            .as_slice()
-            .into(),
-        #[cfg(feature = "iosevka-font")]
-        include_bytes!("../fonts/iosevka-term-semibold.ttf")
-            .as_slice()
-            .into(),
-        #[cfg(feature = "iosevka-font")]
-        include_bytes!("../fonts/iosevka-term-lightitalic.ttf")
-            .as_slice()
-            .into(),
+    let mut fonts = vec![
         include_bytes!("../fonts/halloy-icons.ttf")
             .as_slice()
             .into(),
-    ]
+    ];
+
+    if cfg!(feature = "iosevka-font") {
+        fonts.extend(vec![
+            include_bytes!("../fonts/iosevka-term-regular.ttf")
+                .as_slice()
+                .into(),
+            include_bytes!("../fonts/iosevka-term-bold.ttf")
+                .as_slice()
+                .into(),
+            include_bytes!("../fonts/iosevka-term-italic.ttf")
+                .as_slice()
+                .into(),
+            include_bytes!("../fonts/iosevka-term-light.ttf")
+                .as_slice()
+                .into(),
+            include_bytes!("../fonts/iosevka-term-semibold.ttf")
+                .as_slice()
+                .into(),
+            include_bytes!("../fonts/iosevka-term-lightitalic.ttf")
+                .as_slice()
+                .into(),
+        ]);
+    }
+
+    if cfg!(feature = "victor-mono-font") {
+        fonts.extend(vec![
+            include_bytes!("../fonts/victor-mono/VictorMono-BoldItalic.otf")
+                .as_slice()
+                .into(),
+            include_bytes!("../fonts/victor-mono/VictorMono-Bold.otf")
+                .as_slice()
+                .into(),
+            include_bytes!(
+                "../fonts/victor-mono/VictorMono-ExtraLightItalic.otf"
+            )
+            .as_slice()
+            .into(),
+            include_bytes!("../fonts/victor-mono/VictorMono-ExtraLight.otf")
+                .as_slice()
+                .into(),
+            include_bytes!("../fonts/victor-mono/VictorMono-Italic.otf")
+                .as_slice()
+                .into(),
+            include_bytes!("../fonts/victor-mono/VictorMono-LightItalic.otf")
+                .as_slice()
+                .into(),
+            include_bytes!("../fonts/victor-mono/VictorMono-Light.otf")
+                .as_slice()
+                .into(),
+            include_bytes!("../fonts/victor-mono/VictorMono-MediumItalic.otf")
+                .as_slice()
+                .into(),
+            include_bytes!("../fonts/victor-mono/VictorMono-Medium.otf")
+                .as_slice()
+                .into(),
+            include_bytes!("../fonts/victor-mono/VictorMono-Regular.otf")
+                .as_slice()
+                .into(),
+            include_bytes!(
+                "../fonts/victor-mono/VictorMono-SemiBoldItalic.otf"
+            )
+            .as_slice()
+            .into(),
+            include_bytes!("../fonts/victor-mono/VictorMono-SemiBold.otf")
+                .as_slice()
+                .into(),
+            include_bytes!("../fonts/victor-mono/VictorMono-ThinItalic.otf")
+                .as_slice()
+                .into(),
+            include_bytes!("../fonts/victor-mono/VictorMono-Thin.otf")
+                .as_slice()
+                .into(),
+        ]);
+    }
+
+    fonts
 }
 
 pub fn width_from_chars(len: usize, config: &config::Font) -> f32 {

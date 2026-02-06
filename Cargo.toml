@@ -10,6 +10,7 @@ edition.workspace = true
 [features]
 default = ["iosevka-font"]
 iosevka-font = []
+victor-mono-font = []
 tor = ["data/tor"]
 
 [workspace]
