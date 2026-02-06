@@ -409,11 +409,9 @@ pub fn view<'a>(
                 |title: Text<'a>,
                  keybind: Option<data::shortcut::KeyBind>,
                  message: Option<Message>| {
-                    let title =
-                        title.line_height(theme::line_height(&config.font));
                     button(
                         row![
-                            title,
+                            title.line_height(theme::line_height(&config.font)),
                             keybind.map(|kb| {
                                 text(format!("({kb})"))
                                     .shaping(text::Shaping::Advanced)

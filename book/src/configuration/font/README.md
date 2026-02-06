@@ -50,12 +50,12 @@ size = 13
 
 ### line_height
 
-Line height (relative to the font size).
+Line height (relative to the font size). Changing this also requires a restart to take effect.
 
 ```toml
 # Type: number
 # Values: any positive float
-# Default: not set (resolves to LineHeight::default()) in iced, which is 1.3
+# Default: 1.3
 
 [font]
 line_height = 1.1
