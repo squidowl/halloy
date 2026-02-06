@@ -2,6 +2,7 @@
 
 Added:
 
+- Added default `Ctrl+Q` shortcut to quit application on Linux
 - Support requesting window attention (setting urgency) for notifications (`notifications.<type>.request_attention`)
 
 Thanks:
