@@ -54,6 +54,11 @@ pub enum Command {
 }
 
 macro_rules! default {
+    ($name:ident) => {
+        pub fn $name() -> KeyBind {
+            KeyBind::Unbind
+        }
+    };
     ($name:ident, $k:tt) => {
         pub fn $name() -> KeyBind {
             KeyBind::Bind {
@@ -226,6 +231,10 @@ impl KeyBind {
     default!(cycle_previous_unread_buffer, "`", CTRL | SHIFT);
     // Command + m is minimize in macOS
     default!(mark_as_read, "m", COMMAND | SHIFT);
+    #[cfg(target_os = "linux")]
+    default!(quit_application, "q", CTRL);
+    #[cfg(not(target_os = "linux"))]
+    default!(quit_application);
 }
 
 impl From<(keyboard::Key, keyboard::Modifiers)> for KeyBind {
