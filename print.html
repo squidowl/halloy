@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-72573ae3.js";
+            window.path_to_searchindex_js = "searchindex-3422cd91.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-72d18ae4.js"></script>
@@ -3103,6 +3103,7 @@ pane_level = "info"
 <ul>
 <li><a href="#sound-1">sound</a></li>
 <li><a href="#show_toast">show_toast</a></li>
+<li><a href="#request_attention">request_attention</a></li>
 <li><a href="#show_content">show_content</a></li>
 <li><a href="#delay">delay</a></li>
 <li><a href="#exclude-3">exclude</a></li>
@@ -3188,6 +3189,21 @@ sound = "zone"
 
 [notifications.&lt;notification&gt;]
 show_toast = true
+</code></pre>
+<h3 id="request_attention"><a class="header" href="#request_attention">request_attention</a></h3>
+<p>Notification should request user attention for its window (aka urgency).  Exact
+behavior is platform specific:</p>
+<ul>
+<li>macOS: Bounces the dock icon once.</li>
+<li>Windows: Flashes the taskbar button until the application is in focus.</li>
+<li>Linux: Depends on the desktop environment.</li>
+</ul>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: false
+
+[notifications.&lt;notification&gt;]
+request_attention = true
 </code></pre>
 <h3 id="show_content"><a class="header" href="#show_content">show_content</a></h3>
 <p>Notification should show the content of the trigger (as described in the <a href="#types-4">table above</a>)).</p>
