@@ -237,7 +237,7 @@ impl Halloy {
             ),
         };
 
-        let notifications = Notifications::new(&config, main_window.id);
+        let notifications = Notifications::new(&config);
 
         (
             Halloy {
@@ -559,11 +559,14 @@ impl Halloy {
                             )
                             .map(Message::Dashboard)
                     } else {
-                        let attention_task = if !self.main_window.focused {
+                        let request_attention = if !self.main_window.focused {
                             self.notifications.notify(
                                 &self.config.notifications,
                                 &Notification::Disconnected,
                                 &server,
+                                dashboard
+                                    .find_window_with_server(&server)
+                                    .unwrap_or(self.main_window.id),
                             )
                         } else {
                             None
@@ -581,8 +584,8 @@ impl Halloy {
                                 .map(Message::Dashboard),
                         ];
 
-                        if let Some(task) = attention_task {
-                            tasks.push(task);
+                        if let Some(request_attention) = request_attention {
+                            tasks.push(request_attention);
                         }
 
                         Task::batch(tasks)
@@ -606,11 +609,14 @@ impl Halloy {
                         (Notification::Reconnected, Broadcast::Reconnected)
                     };
 
-                    let attention_task = if !self.main_window.focused {
+                    let request_attention = if !self.main_window.focused {
                         self.notifications.notify(
                             &self.config.notifications,
                             &notification,
                             &server,
+                            dashboard
+                                .find_window_with_server(&server)
+                                .unwrap_or(self.main_window.id),
                         )
                     } else {
                         None
@@ -631,8 +637,8 @@ impl Halloy {
 
                     let mut tasks = vec![broadcast, refocus_pane];
 
-                    if let Some(task) = attention_task {
-                        tasks.push(task);
+                    if let Some(request_attention) = request_attention {
+                        tasks.push(request_attention);
                     }
 
                     Task::batch(tasks)
@@ -812,30 +818,12 @@ impl Halloy {
                         }
                         window::Event::Focused => {
                             self.main_window.focused = true;
-                            self.notifications.set_focused(true);
-                            if let Screen::Dashboard(dashboard) =
-                                &mut self.screen
-                            {
-                                dashboard.set_focused(true);
-                            }
                         }
                         window::Event::Unfocused => {
                             self.main_window.focused = false;
-                            self.notifications.set_focused(false);
-                            if let Screen::Dashboard(dashboard) =
-                                &mut self.screen
-                            {
-                                dashboard.set_focused(false);
-                            }
                         }
                         window::Event::Opened { position, size } => {
                             self.main_window.opened(position, size);
-                            self.notifications.set_focused(true);
-                            if let Screen::Dashboard(dashboard) =
-                                &mut self.screen
-                            {
-                                dashboard.set_focused(true);
-                            }
                         }
                         window::Event::CloseRequested => {
                             if let Screen::Dashboard(dashboard) =
@@ -1124,9 +1112,7 @@ impl Halloy {
                     .into();
 
                 // Load new notification sounds.
-                self.notifications =
-                    Notifications::new(&updated, self.main_window.id);
-                self.notifications.set_focused(self.main_window.focused);
+                self.notifications = Notifications::new(&updated);
 
                 self.config = updated;
 
@@ -1320,28 +1306,36 @@ fn handle_client_event(
         }
         Event::MonitoredOnline(users) => {
             let kind = history::Kind::Server(server.clone());
+            let message_window = dashboard.find_window_with_history(&kind);
 
-            if (!dashboard.is_open_in_pane(&kind) || !main_window.focused)
-                && let Some(task) = notifications.notify(
+            if message_window.is_none() || !main_window.focused {
+                let request_attention = notifications.notify(
                     &config.notifications,
                     &Notification::MonitoredOnline(users),
                     server,
-                )
-            {
-                commands.push(task);
+                    message_window.unwrap_or(main_window.id),
+                );
+
+                if let Some(request_attention) = request_attention {
+                    commands.push(request_attention);
+                }
             }
         }
         Event::MonitoredOffline(users) => {
             let kind = history::Kind::Server(server.clone());
+            let message_window = dashboard.find_window_with_history(&kind);
 
-            if (!dashboard.is_open_in_pane(&kind) || !main_window.focused)
-                && let Some(task) = notifications.notify(
+            if message_window.is_none() || !main_window.focused {
+                let request_attention = notifications.notify(
                     &config.notifications,
                     &Notification::MonitoredOffline(users),
                     server,
-                )
-            {
-                commands.push(task);
+                    message_window.unwrap_or(main_window.id),
+                );
+
+                if let Some(request_attention) = request_attention {
+                    commands.push(request_attention);
+                }
             }
         }
         Event::OnConnect(on_connect) => {
@@ -1486,9 +1480,6 @@ fn handle_priv_or_notice(
 
     let casemapping = clients.get_casemapping(server);
     let kind = history::Kind::from_server_message(server.clone(), &msg);
-    let is_open_in_pane = kind
-        .as_ref()
-        .is_some_and(|kind| dashboard.is_open_in_pane(kind));
 
     if let Some(kind) = &kind {
         dashboard.block_message(
@@ -1500,13 +1491,17 @@ fn handle_priv_or_notice(
         );
     }
 
+    let window = kind
+        .as_ref()
+        .and_then(|kind| dashboard.find_window_with_history(kind));
+
     if let Some(highlight) = highlight {
         handle_highlight(
             server,
             highlight,
             &msg,
             notification_enabled,
-            is_open_in_pane,
+            window,
             casemapping,
             dashboard,
             commands,
@@ -1519,7 +1514,7 @@ fn handle_priv_or_notice(
             server,
             &msg,
             notification_enabled,
-            is_open_in_pane,
+            window,
             casemapping,
             commands,
             config,
@@ -1540,7 +1535,7 @@ fn handle_highlight(
     highlight: message::Highlight,
     msg: &data::Message,
     notification_enabled: bool,
-    is_open_in_pane: bool,
+    message_window: Option<window::Id>,
     casemapping: data::isupport::CaseMap,
     dashboard: &mut screen::Dashboard,
     commands: &mut Vec<Task<Message>>,
@@ -1559,7 +1554,7 @@ fn handle_highlight(
 
     if !highlight_message.blocked
         && notification_enabled
-        && (!is_open_in_pane || !main_window.focused)
+        && (message_window.is_none() || !main_window.focused)
     {
         let (description, sound) = match highlight_kind {
             message::highlight::Kind::Nick => {
@@ -1570,7 +1565,7 @@ fn handle_highlight(
             }
         };
 
-        if let Some(task) = notifications.notify(
+        let request_attention = notifications.notify(
             &config.notifications,
             &Notification::Highlight {
                 user: highlight_user,
@@ -1581,8 +1576,11 @@ fn handle_highlight(
                 sound,
             },
             server,
-        ) {
-            commands.push(task);
+            message_window.unwrap_or(main_window.id),
+        );
+
+        if let Some(request_attention) = request_attention {
+            commands.push(request_attention);
         }
     }
 
@@ -1597,7 +1595,7 @@ fn maybe_notify_channel_message(
     server: &Server,
     msg: &data::Message,
     notification_enabled: bool,
-    is_open_in_pane: bool,
+    message_window: Option<window::Id>,
     casemapping: data::isupport::CaseMap,
     commands: &mut Vec<Task<Message>>,
     config: &Config,
@@ -1606,7 +1604,7 @@ fn maybe_notify_channel_message(
 ) {
     if msg.blocked
         || !notification_enabled
-        || (is_open_in_pane && main_window.focused)
+        || (message_window.is_some() && main_window.focused)
     {
         return;
     }
@@ -1625,7 +1623,7 @@ fn maybe_notify_channel_message(
         _ => return,
     };
 
-    if let Some(task) = notifications.notify(
+    let request_attention = notifications.notify(
         &config.notifications,
         &Notification::Channel {
             user,
@@ -1634,8 +1632,11 @@ fn maybe_notify_channel_message(
             message: msg.text(),
         },
         server,
-    ) {
-        commands.push(task);
+        message_window.unwrap_or(main_window.id),
+    );
+
+    if let Some(request_attention) = request_attention {
+        commands.push(request_attention);
     }
 }
 
@@ -1795,10 +1796,13 @@ fn handle_direct_message(
     let notification_enabled =
         !has_unread || config.notifications.direct_message.show_content;
 
+    let message_window = dashboard.find_window_with_history(&kind);
+
     if !blocked
         && notification_enabled
-        && (!dashboard.is_open_in_pane(&kind) || !main_window.focused)
-        && let Some(task) = notifications.notify(
+        && (message_window.is_none() || !main_window.focused)
+    {
+        let request_attention = notifications.notify(
             &config.notifications,
             &Notification::DirectMessage {
                 user,
@@ -1806,9 +1810,12 @@ fn handle_direct_message(
                 message: msg.text(),
             },
             server,
-        )
-    {
-        commands.push(task);
+            message_window.unwrap_or(main_window.id),
+        );
+
+        if let Some(request_attention) = request_attention {
+            commands.push(request_attention);
+        }
     }
 }
 

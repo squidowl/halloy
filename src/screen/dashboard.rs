@@ -93,10 +93,6 @@ pub enum Event {
 }
 
 impl Dashboard {
-    pub fn set_focused(&mut self, focused: bool) {
-        self.notifications.set_focused(focused);
-    }
-
     pub fn empty(
         main_window: &Window,
         config: &Config,
@@ -121,16 +117,11 @@ impl Dashboard {
             command_bar: None,
             file_transfers: file_transfer::Manager::default(),
             theme_editor: None,
-            notifications: notification::Notifications::new(
-                config,
-                main_window.id,
-            ),
+            notifications: notification::Notifications::new(config),
             previews: preview::Collection::default(),
             preview_client: preview_client_from_config(config).map(Arc::new),
             buffer_settings: dashboard::BufferSettings::default(),
         };
-
-        dashboard.set_focused(main_window.focused);
 
         let command = dashboard.track(None);
 
@@ -144,8 +135,6 @@ impl Dashboard {
     ) -> (Self, Task<Message>) {
         let (mut dashboard, task) =
             Dashboard::from_data(dashboard, config, main_window);
-
-        dashboard.set_focused(main_window.focused);
 
         let tasks = Task::batch(vec![task, dashboard.track(None)]);
 
@@ -3362,7 +3351,11 @@ impl Dashboard {
 
         let event = self.file_transfers.receive(request.clone(), config)?;
 
-        let attention_task = self.notifications.notify(
+        let request_attention_window = self
+            .find_window_with_file_transfers()
+            .unwrap_or(self.main_window());
+
+        let request_attention = self.notifications.notify(
             &config.notifications,
             &Notification::FileTransferRequest {
                 nick: request.from.nickname().to_owned(),
@@ -3375,6 +3368,7 @@ impl Dashboard {
                 },
             },
             server,
+            request_attention_window,
         );
 
         let query = target::Query::from(request.from);
@@ -3386,8 +3380,8 @@ impl Dashboard {
             &config.buffer,
         );
 
-        if let Some(attention_task) = attention_task {
-            Some(Task::batch(vec![task, attention_task]))
+        if let Some(request_attention) = request_attention {
+            Some(Task::batch(vec![task, request_attention]))
         } else {
             Some(task)
         }
@@ -3512,10 +3506,7 @@ impl Dashboard {
             command_bar: None,
             file_transfers: file_transfer::Manager::default(),
             theme_editor: None,
-            notifications: notification::Notifications::new(
-                config,
-                main_window.id,
-            ),
+            notifications: notification::Notifications::new(config),
             previews: preview::Collection::default(),
             preview_client: preview_client_from_config(config).map(Arc::new),
             buffer_settings: data.buffer_settings.clone(),
@@ -3713,13 +3704,37 @@ impl Dashboard {
         }
     }
 
-    pub fn is_open_in_pane(&mut self, kind: &history::Kind) -> bool {
-        self.panes.iter().any(|(_, _, state)| {
+    pub fn find_window_with_file_transfers(&mut self) -> Option<window::Id> {
+        self.panes.iter().find_map(|(window_id, _, state)| {
+            matches!(state.buffer, Buffer::FileTransfers(_))
+                .then_some(window_id)
+        })
+    }
+
+    pub fn find_window_with_history(
+        &mut self,
+        kind: &history::Kind,
+    ) -> Option<window::Id> {
+        self.panes.iter().find_map(|(window_id, _, state)| {
             state
                 .buffer
                 .data()
                 .and_then(history::Kind::from_buffer)
                 .is_some_and(|pane_kind| pane_kind == *kind)
+                .then_some(window_id)
+        })
+    }
+
+    pub fn find_window_with_server(
+        &mut self,
+        server: &Server,
+    ) -> Option<window::Id> {
+        self.panes.iter().find_map(|(window_id, _, state)| {
+            state
+                .buffer
+                .server()
+                .is_some_and(|pane_server| pane_server == *server)
+                .then_some(window_id)
         })
     }
 
