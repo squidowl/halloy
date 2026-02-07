@@ -4,6 +4,7 @@ use std::sync::OnceLock;
 use data::appearance::theme::FontStyle;
 use data::{Config, config};
 use iced::font;
+use iced::widget::text::LineHeight;
 
 pub static MONO: Font = Font::new(false, false);
 pub static MONO_BOLD: Font = Font::new(true, false);
@@ -11,6 +12,8 @@ pub static MONO_ITALICS: Font = Font::new(false, true);
 pub static MONO_BOLD_ITALICS: Font = Font::new(true, true);
 pub const ICON: iced::Font = iced::Font::with_name("halloy-icons");
 pub const MESSAGE_MARKER_FONT_SCALE: f32 = 1.33;
+
+static LINE_HEIGHT: OnceLock<LineHeight> = OnceLock::new();
 
 #[derive(Debug, Clone)]
 pub struct Font {
@@ -56,6 +59,10 @@ impl From<Font> for iced::Font {
     }
 }
 
+pub fn line_height() -> LineHeight {
+    LINE_HEIGHT.get().copied().unwrap_or_default()
+}
+
 pub fn set(config: Option<&Config>) {
     let family = config
         .and_then(|config| config.font.family.clone())
@@ -80,6 +87,12 @@ pub fn set(config: Option<&Config>) {
     MONO_BOLD.set(family.clone(), weight, bold_weight);
     MONO_ITALICS.set(family.clone(), weight, bold_weight);
     MONO_BOLD_ITALICS.set(family, weight, bold_weight);
+
+    let lh = config
+        .and_then(|c| c.font.line_height)
+        .map(LineHeight::Relative)
+        .unwrap_or_default();
+    let _ = LINE_HEIGHT.set(lh);
 }
 
 pub fn load() -> Vec<Cow<'static, [u8]>> {
@@ -119,7 +132,7 @@ pub fn width_from_chars(len: usize, config: &config::Font) -> f32 {
         content: &"W".repeat(len),
         bounds: Size::INFINITE,
         size: config.size.map_or(theme::TEXT_SIZE, f32::from).into(),
-        line_height: text::LineHeight::default(),
+        line_height: line_height(),
         font: MONO.clone().into(),
         align_x: text::Alignment::Right,
         align_y: alignment::Vertical::Top,
@@ -146,7 +159,7 @@ pub fn width_of_message_marker(config: &config::Font) -> f32 {
         content: "\u{E81A}",
         bounds: Size::INFINITE,
         size: font_size.into(),
-        line_height: text::LineHeight::default(),
+        line_height: line_height(),
         font: ICON,
         align_x: text::Alignment::Right,
         align_y: alignment::Vertical::Top,

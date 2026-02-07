@@ -6,6 +6,7 @@ Application wide font settings.
   - [Configuration](#configuration)
     - [family](#family)
     - [size](#size)
+    - [line_height](#line_height)
     - [weight](#weight)
     - [bold_weight](#bold_weight)
     - [only_emojis_size](#only_emojis_size)
@@ -45,6 +46,19 @@ Font size.
 
 [font]
 size = 13
+```
+
+### line_height
+
+Line height (relative to the font size). Changing this also requires a restart to take effect.
+
+```toml
+# Type: number
+# Values: any positive float
+# Default: 1.3
+
+[font]
+line_height = 1.1
 ```
 
 ### weight
