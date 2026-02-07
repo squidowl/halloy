@@ -7,13 +7,19 @@ use crate::serde::deserialize_positive_integer;
 use crate::server::Server;
 use crate::{isupport, target};
 
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
 pub struct Sidebar {
     pub max_width: Option<u16>,
     #[serde(deserialize_with = "deserialize_unread_indicator")]
     pub unread_indicator: UnreadIndicator,
     pub position: Position,
+    pub show_nicklist: bool,
+    pub split: bool,
+    #[serde(deserialize_with = "deserialize_positive_integer")]
+    pub buflist_space: u16,
+    #[serde(deserialize_with = "deserialize_positive_integer")]
+    pub nicklist_space: u16,
     pub order_by: OrderBy,
     pub scrollbar: Scrollbar,
     #[serde(
@@ -24,6 +30,26 @@ pub struct Sidebar {
     pub user_menu: UserMenu,
     pub padding: Padding,
     pub spacing: Spacing,
+}
+
+impl Default for Sidebar {
+    fn default() -> Self {
+        Self {
+            max_width: None,
+            unread_indicator: UnreadIndicator::default(),
+            position: Position::default(),
+            show_nicklist: false,
+            split: true,
+            buflist_space: 2,
+            nicklist_space: 1,
+            order_by: OrderBy::default(),
+            scrollbar: Scrollbar::default(),
+            server_icon: ServerIcon::default(),
+            user_menu: UserMenu::default(),
+            padding: Padding::default(),
+            spacing: Spacing::default(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]

@@ -133,21 +133,22 @@ where
     }
 }
 
-pub fn deserialize_positive_integer<'de, D>(
+pub fn deserialize_positive_integer<'de, D, T>(
     deserializer: D,
-) -> Result<u32, D::Error>
+) -> Result<T, D::Error>
 where
     D: Deserializer<'de>,
+    T: Deserialize<'de> + PartialEq + Default,
 {
-    let integer: u32 = Deserialize::deserialize(deserializer)?;
+    let value: T = T::deserialize(deserializer)?;
 
-    if integer == 0 {
+    if value == T::default() {
         Err(serde::de::Error::invalid_value(
-            serde::de::Unexpected::Unsigned(integer.into()),
+            serde::de::Unexpected::Unsigned(0),
             &"any positive integer",
         ))
     } else {
-        Ok(integer)
+        Ok(value)
     }
 }
 
