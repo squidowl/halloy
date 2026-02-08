@@ -29,6 +29,8 @@ use crate::{Theme, font, icon, theme};
 
 const HIDE_BUTTON_WIDTH: f32 = 22.0;
 const SCROLL_TO_TIMEOUT: Duration = Duration::from_millis(200);
+/// Pages of off-screen messages to keep rendered above and below the viewport
+const BUFFER_PAGES: usize = 3;
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -470,13 +472,67 @@ pub fn view<'a>(
             .collect::<Vec<_>>()
     };
 
-    let old = message_rows(None, &old_messages);
-    let new = message_rows(
-        old_messages.last().map(|message| {
-            message.server_time.with_timezone(&Local).date_naive()
-        }),
-        &new_messages,
-    );
+    let line_spacing = config.buffer.line_spacing;
+
+    // Only create widgets for messages near the viewport, use height
+    // spacers for the rest so we doesn't lay out thousands of children
+    let row_height = theme::line_height(&config.font) + line_spacing as f32;
+    let total = old_messages.len() + new_messages.len();
+    let visible = (state.pane_size.height / row_height).max(1.0_f32) as usize;
+    let buffer = visible * BUFFER_PAGES;
+    let render_budget = visible + 2 * buffer;
+
+    let (render_start, render_end) = if total > render_budget {
+        let first_visible = match state.status {
+            Status::Bottom => {
+                let from_bottom =
+                    (state.last_scroll_offset / row_height) as usize;
+                total.saturating_sub(from_bottom + visible)
+            }
+            Status::Unlocked => {
+                (state.last_scroll_offset / row_height) as usize
+            }
+        };
+
+        (
+            first_visible.saturating_sub(buffer),
+            (first_visible + visible + buffer).min(total),
+        )
+    } else {
+        (0, total)
+    };
+
+    let old_start = render_start.min(old_messages.len());
+    let old_end = render_end.min(old_messages.len());
+    let new_start = render_start
+        .saturating_sub(old_messages.len())
+        .min(new_messages.len());
+    let new_end = render_end
+        .saturating_sub(old_messages.len())
+        .min(new_messages.len());
+
+    let date_of =
+        |m: &data::Message| m.server_time.with_timezone(&Local).date_naive();
+
+    let old_last_date = old_start
+        .checked_sub(1)
+        .and_then(|i| old_messages.get(i))
+        .map(|m| date_of(m));
+
+    let new_last_date = new_start
+        .checked_sub(1)
+        .and_then(|i| new_messages.get(i))
+        .map(|m| date_of(m))
+        .or_else(|| old_messages.last().map(|m| date_of(m)));
+
+    let old = message_rows(old_last_date, &old_messages[old_start..old_end]);
+    let new = message_rows(new_last_date, &new_messages[new_start..new_end]);
+
+    let top_spacer = (render_start > 0)
+        .then(|| space::vertical().height(render_start as f32 * row_height));
+    let bottom_spacer = (render_end < total).then(|| {
+        space::vertical().height((total - render_end) as f32 * row_height)
+    });
 
     let show_backlog_divier = if old.is_empty() {
         // If all newer messages in viewport, only show backlog divider at the top
@@ -524,12 +580,14 @@ pub fn view<'a>(
     let content = on_resize(
         column![
             top_row,
-            column(old).spacing(config.buffer.line_spacing),
+            top_spacer,
+            column(old).spacing(line_spacing),
             keyed(keyed::Key::Divider, divider),
-            column(new).spacing(config.buffer.line_spacing),
-            space::vertical().height(config.buffer.line_spacing),
+            column(new).spacing(line_spacing),
+            bottom_spacer,
+            space::vertical().height(line_spacing),
         ]
-        .spacing(config.buffer.line_spacing),
+        .spacing(line_spacing),
         Message::ContentResized,
     );
 
@@ -562,6 +620,7 @@ pub struct State {
     content_size: Size,
     limit: Limit,
     status: Status,
+    last_scroll_offset: f32,
     pending_scroll_to: Option<keyed::Key>,
     visible_url_messages: HashMap<message::Hash, Vec<url::Url>>,
     hovered_preview: Option<(message::Hash, usize)>,
@@ -577,6 +636,7 @@ impl State {
             content_size: Size::default(), // Will get set initially via `on_resize`
             limit: Limit::Bottom(step_messages),
             status: Status::default(),
+            last_scroll_offset: 0.0,
             pending_scroll_to: None,
             visible_url_messages: HashMap::new(),
             hovered_preview: None,
@@ -601,6 +661,8 @@ impl State {
                 status: old_status,
                 viewport,
             } => {
+                self.last_scroll_offset = viewport.absolute_offset().y;
+
                 let relative_offset = viewport.relative_offset().y;
                 let absolute_offset = viewport.absolute_offset().y;
                 let height = self.pane_size.height;
