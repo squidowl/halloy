@@ -80,6 +80,30 @@ pub fn table(theme: &Theme, idx: usize) -> Style {
     }
 }
 
+pub fn buffer_transparent(_theme: &Theme) -> Style {
+    Style {
+        background: None,
+        border: Border {
+            radius: 4.0.into(),
+            width: 0.0,
+            color: Color::TRANSPARENT,
+        },
+        ..Default::default()
+    }
+}
+
+pub fn buffer_title_bar_transparent(_theme: &Theme) -> Style {
+    Style {
+        background: None,
+        border: Border {
+            radius: border::top_left(4).top_right(4),
+            width: 0.0,
+            color: Color::TRANSPARENT,
+        },
+        ..Default::default()
+    }
+}
+
 pub fn none(_theme: &Theme) -> Style {
     Style {
         background: None,

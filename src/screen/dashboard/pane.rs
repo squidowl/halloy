@@ -15,6 +15,7 @@ pub enum Message {
     PaneDragged(pane_grid::DragEvent),
     Buffer(pane_grid::Pane, buffer::Message),
     ClosePane,
+    ToggleTransparent,
     SplitPane(pane_grid::Axis),
     MaximizePane,
     ToggleShowUserList,
@@ -30,6 +31,7 @@ pub enum Message {
 pub struct Pane {
     pub buffer: Buffer,
     pub size: Size,
+    pub transparent: bool,
     title_bar: TitleBar,
 }
 
@@ -41,6 +43,7 @@ impl Pane {
         Self {
             buffer,
             size: Size::default(), // Will get set initially via `Message::Resized`
+            transparent: false,
             title_bar: TitleBar::default(),
         }
     }
@@ -60,6 +63,7 @@ impl Pane {
         theme: &'a Theme,
         settings: Option<&'a buffer::Settings>,
         is_popout: bool,
+        open_internals: &[buffer::Internal],
     ) -> widget::Content<'a, Message> {
         let title_bar_text = match &self.buffer {
             Buffer::Empty => String::new(),
@@ -105,8 +109,10 @@ impl Pane {
             }
             Buffer::Logs(_) => "Logs".to_string(),
             Buffer::Highlights(_) => "Highlights".to_string(),
+            Buffer::InternalBuffers(_) => "Internal Buffers".to_string(),
         };
 
+        let transparent = self.transparent;
         let title_bar = self.title_bar.view(
             &self.buffer,
             history,
@@ -119,6 +125,7 @@ impl Pane {
             settings,
             config.tooltips,
             is_popout,
+            transparent,
             config,
             theme,
         );
@@ -135,14 +142,27 @@ impl Pane {
                 theme,
                 is_focused,
                 sidebar,
+                open_internals,
             )
             .map(move |msg| Message::Buffer(id, msg));
 
-        widget::Content::new(on_resize(content, move |size| {
-            Message::ContentResized(id, size)
-        }))
-        .style(move |theme| theme::container::buffer(theme, is_focused))
-        .title_bar(title_bar.style(theme::container::buffer_title_bar))
+        let pane_content =
+            widget::Content::new(on_resize(content, move |size| {
+                Message::ContentResized(id, size)
+            }));
+
+        if transparent {
+            pane_content
+                .style(move |theme| theme::container::buffer_transparent(theme))
+                .title_bar(
+                    title_bar
+                        .style(theme::container::buffer_title_bar_transparent),
+                )
+        } else {
+            pane_content
+                .style(move |theme| theme::container::buffer(theme, is_focused))
+                .title_bar(title_bar.style(theme::container::buffer_title_bar))
+        }
     }
 
     pub fn resource(&self) -> Option<history::Resource> {
@@ -165,7 +185,9 @@ impl Pane {
             }),
             Buffer::Logs(_) => Some(history::Resource::logs()),
             Buffer::Highlights(_) => Some(history::Resource::highlights()),
-            Buffer::ChannelDiscovery(_) | Buffer::FileTransfers(_) => None,
+            Buffer::ChannelDiscovery(_)
+            | Buffer::FileTransfers(_)
+            | Buffer::InternalBuffers(_) => None,
         }
     }
 
@@ -180,7 +202,8 @@ impl Pane {
             | Buffer::FileTransfers(_)
             | Buffer::Logs(_)
             | Buffer::Highlights(_)
-            | Buffer::ChannelDiscovery(_) => vec![],
+            | Buffer::ChannelDiscovery(_)
+            | Buffer::InternalBuffers(_) => vec![],
         }
     }
 }
@@ -199,6 +222,7 @@ impl TitleBar {
         settings: Option<&'a buffer::Settings>,
         show_tooltips: bool,
         is_popout: bool,
+        transparent: bool,
         config: &'a Config,
         theme: &'a Theme,
     ) -> widget::TitleBar<'a, Message> {
@@ -335,6 +359,26 @@ impl TitleBar {
             } else {
                 None
             },
+            if matches!(buffer, Buffer::InternalBuffers(_)) {
+                let transparent_button = button(center(icon::theme_editor()))
+                    .padding(5)
+                    .width(22)
+                    .height(22)
+                    .on_press(Message::ToggleTransparent)
+                    .style(move |theme, status| {
+                        theme::button::secondary(theme, status, transparent)
+                    });
+
+                let transparent_button_with_tooltip = tooltip(
+                    transparent_button,
+                    show_tooltips.then_some("Transparent"),
+                    tooltip::Position::Bottom,
+                    theme,
+                );
+                Some(transparent_button_with_tooltip)
+            } else {
+                None
+            },
             if panes > 1 {
                 let maximize_button = button(center(if maximized {
                     icon::restore()
@@ -464,6 +508,9 @@ impl From<Pane> for data::Pane {
             Buffer::ChannelDiscovery(state) => data::Buffer::Internal(
                 buffer::Internal::ChannelDiscovery(state.server.clone()),
             ),
+            Buffer::InternalBuffers(_) => {
+                data::Buffer::Internal(buffer::Internal::InternalBuffers)
+            }
         };
 
         data::Pane::Buffer { buffer }

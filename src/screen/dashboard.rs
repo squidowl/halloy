@@ -368,6 +368,13 @@ impl Dashboard {
                             return (Task::none(), None);
                         }
                     }
+                    pane::Message::ToggleTransparent => {
+                        if let Some((_, _, pane)) = self.get_focused_mut() {
+                            pane.transparent = !pane.transparent;
+                            self.last_changed = Some(Instant::now());
+                            return (Task::none(), None);
+                        }
+                    }
                     pane::Message::MaximizePane => self.maximize_pane(),
                     pane::Message::Popout => {
                         return (self.popout_pane(clients, config), None);
@@ -1478,6 +1485,7 @@ impl Dashboard {
         theme: &'a Theme,
     ) -> Element<'a, Message> {
         if let Some(state) = self.panes.popout.get(&window) {
+            let open_internals = self.open_internals();
             let content = container(
                 PaneGrid::new(state, |id, pane, _maximized| {
                     let is_focused = self.focus == Focus { window, pane: id };
@@ -1500,6 +1508,7 @@ impl Dashboard {
                         theme,
                         settings,
                         window != self.main_window(),
+                        &open_internals,
                     )
                 })
                 .spacing(config.pane.gap.inner)
@@ -1528,6 +1537,7 @@ impl Dashboard {
         config: &'a Config,
         theme: &'a Theme,
     ) -> Element<'a, Message> {
+        let open_internals = self.open_internals();
         let pane_grid: Element<_> =
             PaneGrid::new(&self.panes.main, |id, pane, maximized| {
                 let is_focused = self.focus
@@ -1554,6 +1564,7 @@ impl Dashboard {
                     theme,
                     settings,
                     false,
+                    &open_internals,
                 )
             })
             .on_click(pane::Message::PaneClicked)
@@ -2935,6 +2946,13 @@ impl Dashboard {
         clients
             .overwrite_chathistory_targets_timestamp(server, timestamp)
             .map(|task| Task::perform(task, Message::Client))
+    }
+
+    fn open_internals(&self) -> Vec<buffer::Internal> {
+        self.panes
+            .iter()
+            .filter_map(|(_, _, state)| state.buffer.internal())
+            .collect()
     }
 
     pub fn get_focused(&self) -> Option<(window::Id, pane_grid::Pane, &Pane)> {
