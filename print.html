@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-3422cd91.js";
+            window.path_to_searchindex_js = "searchindex-1be69ec9.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-72d18ae4.js"></script>
@@ -1623,16 +1623,19 @@ characters_to_trigger_picker = 2
 <ul>
 <li><a href="#success">Success</a></li>
 <li><a href="#error">Error</a></li>
+<li><a href="#default">Default</a></li>
 </ul>
 </li>
 </ul>
 <h2 id="success"><a class="header" href="#success"><a href="#success-1">Success</a></a></h2>
-<p>A internal messages which is considered a “success” such as when a connection was restored, or when connected successfully to a server.</p>
+<p>Internal messages which are considered a “success” such as when a connection was restored, or when connected successfully to a server.</p>
 <h2 id="error"><a class="header" href="#error"><a href="#error-1">Error</a></a></h2>
-<p>A internal messages which is considered a “error” such as when a connection was lost, or when connection to server failed.</p>
+<p>Internal messages which are considered an “error” such as when a connection was lost, or when connection to server failed.</p>
+<h2 id="default"><a class="header" href="#default"><a href="configuration/buffer/internal-messages/default.html">Default</a></a></h2>
+<p>Default settings which will be used for all internal messages when a specific value is not provided for the specific internal message type.</p>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="error-1"><a class="header" href="#error-1">Error</a></h1>
-<p>A internal messages which is considered a “error” such as when a connection was lost, or when connection to server failed.</p>
+<p>Internal messages which are considered an “error” such as when a connection was lost, or when connection to server failed.</p>
 <ul>
 <li><a href="#error-1">Error</a>
 <ul>
@@ -1666,7 +1669,7 @@ smart = 180
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="success-1"><a class="header" href="#success-1">Success</a></h1>
-<p>A internal messages which is considered a “success” such as when a connection was restored, or when connected successfully to a server.</p>
+<p>Internal messages which are considered a “success” such as when a connection was restored, or when connected successfully to a server.</p>
 <ul>
 <li><a href="#success-1">Success</a>
 <ul>
@@ -1970,6 +1973,7 @@ enabled = false
 <tr><td><code>standard_reply_warn</code></td><td>Message is sent when there is feedback about a command/function or session</td></tr>
 <tr><td><code>topic</code></td><td>Message is sent when the client joins a channel to inform them of the topic (does not include message sent when topic changes)</td></tr>
 <tr><td><code>wallops</code></td><td>Message is sent by operators to all users with mode +w on the network</td></tr>
+<tr><td><code>default</code></td><td>Pseudo-type to provide fallback settings for when a specific event type has not been configured</td></tr>
 </tbody>
 </table>
 </div>
