@@ -1,6 +1,6 @@
 # Error
 
-A internal messages which is considered a "error" such as when a connection was lost, or when connection to server failed.
+Internal messages which are considered an "error" such as when a connection was lost, or when connection to server failed.
 
 - [Error](#error)
   - [Configuration](#configuration)

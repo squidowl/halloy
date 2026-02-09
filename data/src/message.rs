@@ -2262,7 +2262,10 @@ fn content<'a>(
                     format!(
                         "⟵ {} has left the channel{text}",
                         user.formatted(
-                            config.buffer.server_messages.part.username_format
+                            config
+                                .buffer
+                                .server_messages
+                                .username_format(Some(Kind::Part))
                         )
                     ),
                     &user,
@@ -2292,8 +2295,7 @@ fn content<'a>(
                                 config
                                     .buffer
                                     .server_messages
-                                    .join
-                                    .username_format
+                                    .username_format(Some(Kind::Join))
                             )
                         ),
                         &user,
