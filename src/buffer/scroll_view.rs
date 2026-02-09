@@ -55,6 +55,7 @@ pub enum Message {
     MarkAsRead,
     ContentResized(Size),
     PendingScrollTo,
+    HeightsCollected(Vec<(message::Hash, f32)>),
 }
 
 #[derive(Debug, Clone)]
@@ -482,15 +483,42 @@ pub fn view<'a>(
     let buffer = visible * BUFFER_PAGES;
     let render_budget = visible + 2 * buffer;
 
+    let msg_height = |m: &&data::Message| -> f32 {
+        state
+            .height_cache
+            .get(&m.hash)
+            .copied()
+            .map(|h| h + line_spacing as f32)
+            .unwrap_or(row_height)
+    };
+
     let (render_start, render_end) = if total > render_budget {
         let first_visible = match state.status {
             Status::Bottom => {
-                let from_bottom =
-                    (state.last_scroll_offset / row_height) as usize;
+                let offset = state.last_scroll_offset;
+                let mut acc = 0.0_f32;
+                let mut from_bottom = 0;
+                for m in old_messages.iter().chain(&new_messages).rev() {
+                    acc += msg_height(&m);
+                    if acc > offset {
+                        break;
+                    }
+                    from_bottom += 1;
+                }
                 total.saturating_sub(from_bottom + visible)
             }
             Status::Unlocked => {
-                (state.last_scroll_offset / row_height) as usize
+                let offset = state.last_scroll_offset;
+                let mut acc = 0.0_f32;
+                let mut idx = 0;
+                for m in old_messages.iter().chain(&new_messages) {
+                    acc += msg_height(&m);
+                    if acc > offset {
+                        break;
+                    }
+                    idx += 1;
+                }
+                idx
             }
         };
 
@@ -528,10 +556,21 @@ pub fn view<'a>(
     let old = message_rows(old_last_date, &old_messages[old_start..old_end]);
     let new = message_rows(new_last_date, &new_messages[new_start..new_end]);
 
-    let top_spacer = (render_start > 0)
-        .then(|| space::vertical().height(render_start as f32 * row_height));
+    let top_spacer = (render_start > 0).then(|| {
+        let h: f32 = old_messages[..old_start]
+            .iter()
+            .chain(&new_messages[..new_start])
+            .map(&msg_height)
+            .sum();
+        space::vertical().height(h)
+    });
     let bottom_spacer = (render_end < total).then(|| {
-        space::vertical().height((total - render_end) as f32 * row_height)
+        let h: f32 = old_messages[old_end..]
+            .iter()
+            .chain(&new_messages[new_end..])
+            .map(&msg_height)
+            .sum();
+        space::vertical().height(h)
     });
 
     let show_backlog_divier = if old.is_empty() {
@@ -621,6 +660,7 @@ pub struct State {
     limit: Limit,
     status: Status,
     last_scroll_offset: f32,
+    height_cache: HashMap<message::Hash, f32>,
     pending_scroll_to: Option<keyed::Key>,
     visible_url_messages: HashMap<message::Hash, Vec<url::Url>>,
     hovered_preview: Option<(message::Hash, usize)>,
@@ -637,6 +677,7 @@ impl State {
             limit: Limit::Bottom(step_messages),
             status: Status::default(),
             last_scroll_offset: 0.0,
+            height_cache: HashMap::new(),
             pending_scroll_to: None,
             visible_url_messages: HashMap::new(),
             hovered_preview: None,
@@ -799,11 +840,17 @@ impl State {
                 if let Some(new_offset) =
                     self.status.flipped(old_status, viewport)
                 {
+                    self.last_scroll_offset = new_offset.y;
                     tasks.push(correct_viewport::scroll_to(
                         self.scrollable.clone(),
                         new_offset,
                     ));
                 }
+
+                tasks.push(
+                    keyed::collect_heights(self.scrollable.clone())
+                        .map(Message::HeightsCollected),
+                );
 
                 return (Task::batch(tasks), event);
             }
@@ -967,13 +1014,18 @@ impl State {
             Message::ContentResized(size) => {
                 self.content_size = size;
 
+                let collect = keyed::collect_heights(self.scrollable.clone())
+                    .map(Message::HeightsCollected);
+
                 if let Some(key) = &self.pending_scroll_to {
                     let scroll_to = keyed::find(self.scrollable.clone(), *key)
                         .map(Message::ScrollTo);
 
                     self.pending_scroll_to = None;
-                    return (scroll_to, None);
+                    return (Task::batch([scroll_to, collect]), None);
                 }
+
+                return (collect, None);
             }
             Message::ImagePreview(path, url) => {
                 return (Task::none(), Some(Event::ImagePreview(path, url)));
@@ -985,6 +1037,11 @@ impl State {
 
                     self.pending_scroll_to = None;
                     return (scroll_to, None);
+                }
+            }
+            Message::HeightsCollected(heights) => {
+                for (hash, height) in heights {
+                    self.height_cache.insert(hash, height);
                 }
             }
         }
@@ -1006,6 +1063,7 @@ impl State {
         }
 
         self.pane_size = pane_size;
+        self.height_cache.clear();
     }
 
     pub fn scroll_up_page(&mut self) -> Task<Message> {
@@ -1512,6 +1570,69 @@ mod keyed {
                 None => widget::operation::Outcome::None,
             }
         }
+    }
+
+    pub struct CollectHeights {
+        active: bool,
+        scrollable_id: widget::Id,
+        heights: Vec<(message::Hash, f32)>,
+    }
+
+    impl Operation<Vec<(message::Hash, f32)>> for CollectHeights {
+        fn scrollable(
+            &mut self,
+            id: Option<&widget::Id>,
+            _bounds: Rectangle,
+            _content_bounds: Rectangle,
+            _translation: Vector,
+            _state: &mut dyn widget::operation::Scrollable,
+        ) {
+            self.active = id == Some(&self.scrollable_id);
+        }
+
+        fn container(&mut self, _id: Option<&widget::Id>, _bounds: Rectangle) {}
+
+        fn traverse(
+            &mut self,
+            operate: &mut dyn FnMut(
+                &mut dyn Operation<Vec<(message::Hash, f32)>>,
+            ),
+        ) {
+            operate(self);
+        }
+
+        fn custom(
+            &mut self,
+            _id: Option<&widget::Id>,
+            bounds: Rectangle,
+            state: &mut dyn std::any::Any,
+        ) {
+            if self.active
+                && let Some(Key::Message(hash)) = state.downcast_ref::<Key>()
+            {
+                self.heights.push((*hash, bounds.height));
+            }
+        }
+
+        fn finish(
+            &self,
+        ) -> widget::operation::Outcome<Vec<(message::Hash, f32)>> {
+            if self.heights.is_empty() {
+                widget::operation::Outcome::None
+            } else {
+                widget::operation::Outcome::Some(self.heights.clone())
+            }
+        }
+    }
+
+    pub fn collect_heights(
+        scrollable: widget::Id,
+    ) -> Task<Vec<(message::Hash, f32)>> {
+        widget::operate(CollectHeights {
+            active: false,
+            scrollable_id: scrollable,
+            heights: vec![],
+        })
     }
 }
 
