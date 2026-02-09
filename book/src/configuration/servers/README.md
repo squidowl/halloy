@@ -22,6 +22,7 @@ You can define multiple server sections in the configuration file. Each server s
     - [password\_command](#password_command)
     - [channels](#channels)
     - [channel\_keys](#channel_keys)
+    - [queries](#queries)
     - [ping\_time](#ping_time)
     - [ping\_timeout](#ping_timeout)
     - [reconnect\_delay](#reconnect_delay)
@@ -272,6 +273,19 @@ A mapping of channel names to keys (passwords) for join-on-connect.
 
 [servers.<name>]
 channel_keys = { "#foo" = "password" }
+```
+
+### queries
+
+A list of queries to add to the sidebar on connection.
+
+```toml
+# Type: array of strings
+# Values: array of any strings
+# Default: not set
+
+[servers.<name>]
+queries = ["alice", "bob"]
 ```
 
 ### ping_time

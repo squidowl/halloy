@@ -1352,6 +1352,9 @@ fn handle_client_event(
         Event::BouncerNetwork(server, config) => {
             servers.insert(server, config.into());
         }
+        Event::AddToSidebar(query) => {
+            dashboard.add_to_sidebar(server.clone(), query);
+        }
     }
 }
 
