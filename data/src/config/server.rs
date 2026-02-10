@@ -63,6 +63,8 @@ pub struct Server {
     pub channels: Vec<String>,
     /// A mapping of channel names to keys for join-on-connect.
     pub channel_keys: HashMap<String, String>,
+    /// A list of queries to add to the sidebar on connection.
+    pub queries: Vec<String>,
     /// The amount of inactivity in seconds before the client will ping the server.
     pub ping_time: u64,
     /// The amount of time in seconds for a client to reconnect due to no ping response.
@@ -202,6 +204,7 @@ impl Default for Server {
             filters: Option::default(),
             channels: Vec::default(),
             channel_keys: HashMap::default(),
+            queries: Vec::default(),
             ping_time: 180,
             ping_timeout: 20,
             reconnect_delay: 10,
