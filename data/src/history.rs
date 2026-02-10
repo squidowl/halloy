@@ -106,6 +106,7 @@ impl Kind {
             Buffer::Internal(buffer::Internal::FileTransfers) => None,
             Buffer::Internal(buffer::Internal::ChannelDiscovery(_)) => None,
             Buffer::Internal(buffer::Internal::InternalBuffers) => None,
+            Buffer::Internal(buffer::Internal::Connections) => None,
         }
     }
 }

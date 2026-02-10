@@ -2041,6 +2041,17 @@ impl Dashboard {
 
                 return (Task::batch(tasks), event);
             }
+            buffer::Event::OpenUpstream(upstream, action) => {
+                return (
+                    self.open_buffer(
+                        data::Buffer::Upstream(upstream),
+                        action,
+                        clients,
+                        config,
+                    ),
+                    None,
+                );
+            }
             buffer::Event::OpenBuffers(server, targets) => {
                 let mut tasks = vec![];
 

@@ -348,6 +348,9 @@ impl std::fmt::Display for Buffer {
                 buffer::Internal::InternalBuffers => {
                     write!(f, "Open internal buffers")
                 }
+                buffer::Internal::Connections => {
+                    write!(f, "Open connections")
+                }
             },
             Buffer::Replace(buffer) => match buffer {
                 buffer::Upstream::Server(server) => {

@@ -36,6 +36,7 @@ pub fn view<'a>(
                 Internal::Highlights => icon::highlights(),
                 Internal::ChannelDiscovery(_) => icon::channel_discovery(),
                 Internal::InternalBuffers => icon::file_transfer(),
+                Internal::Connections => icon::connected(),
             };
 
             let content = container(

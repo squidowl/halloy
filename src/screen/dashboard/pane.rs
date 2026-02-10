@@ -110,6 +110,7 @@ impl Pane {
             Buffer::Logs(_) => "Logs".to_string(),
             Buffer::Highlights(_) => "Highlights".to_string(),
             Buffer::InternalBuffers(_) => "Internal Buffers".to_string(),
+            Buffer::Connections(_) => "Connections".to_string(),
         };
 
         let transparent = self.transparent;
@@ -187,7 +188,8 @@ impl Pane {
             Buffer::Highlights(_) => Some(history::Resource::highlights()),
             Buffer::ChannelDiscovery(_)
             | Buffer::FileTransfers(_)
-            | Buffer::InternalBuffers(_) => None,
+            | Buffer::InternalBuffers(_)
+            | Buffer::Connections(_) => None,
         }
     }
 
@@ -203,7 +205,8 @@ impl Pane {
             | Buffer::Logs(_)
             | Buffer::Highlights(_)
             | Buffer::ChannelDiscovery(_)
-            | Buffer::InternalBuffers(_) => vec![],
+            | Buffer::InternalBuffers(_)
+            | Buffer::Connections(_) => vec![],
         }
     }
 }
@@ -546,6 +549,9 @@ impl From<Pane> for data::Pane {
             ),
             Buffer::InternalBuffers(_) => {
                 data::Buffer::Internal(buffer::Internal::InternalBuffers)
+            }
+            Buffer::Connections(_) => {
+                data::Buffer::Internal(buffer::Internal::Connections)
             }
         };
 

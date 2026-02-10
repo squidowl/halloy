@@ -11,6 +11,7 @@ use iced::{Size, Task};
 
 pub use self::channel::Channel;
 pub use self::channel_discovery::ChannelDiscovery;
+pub use self::connections::Connections;
 pub use self::file_transfers::FileTransfers;
 pub use self::highlights::Highlights;
 pub use self::internal_buffers::InternalBuffers;
@@ -24,6 +25,7 @@ use crate::window::Window;
 
 pub mod channel;
 pub mod channel_discovery;
+pub mod connections;
 pub mod context_menu;
 pub mod empty;
 pub mod file_transfers;
@@ -47,6 +49,7 @@ pub enum Buffer {
     Highlights(Highlights),
     ChannelDiscovery(ChannelDiscovery),
     InternalBuffers(InternalBuffers),
+    Connections(Connections),
 }
 
 #[derive(Debug, Clone)]
@@ -59,11 +62,13 @@ pub enum Message {
     Highlights(highlights::Message),
     ChannelList(channel_discovery::Message),
     InternalBuffers(internal_buffers::Message),
+    Connections(connections::Message),
 }
 
 pub enum Event {
     ContextMenu(context_menu::Event),
     OpenBuffers(data::Server, Vec<(Target, BufferAction)>),
+    OpenUpstream(buffer::Upstream, BufferAction),
     OpenInternalBuffer(buffer::Internal),
     OpenServer(String),
     LeaveBuffers(Vec<Target>, Option<String>),
@@ -120,6 +125,9 @@ impl Buffer {
                 buffer::Internal::InternalBuffers => {
                     Self::InternalBuffers(InternalBuffers::new())
                 }
+                buffer::Internal::Connections => {
+                    Self::Connections(Connections::new())
+                }
             },
         }
     }
@@ -137,7 +145,8 @@ impl Buffer {
             | Buffer::Logs(_)
             | Buffer::Highlights(_)
             | Buffer::ChannelDiscovery(_)
-            | Buffer::InternalBuffers(_) => None,
+            | Buffer::InternalBuffers(_)
+            | Buffer::Connections(_) => None,
         }
     }
 
@@ -156,6 +165,7 @@ impl Buffer {
             Buffer::InternalBuffers(_) => {
                 Some(buffer::Internal::InternalBuffers)
             }
+            Buffer::Connections(_) => Some(buffer::Internal::Connections),
         }
     }
 
@@ -186,6 +196,9 @@ impl Buffer {
             Buffer::InternalBuffers(_) => {
                 Some(data::Buffer::Internal(buffer::Internal::InternalBuffers))
             }
+            Buffer::Connections(_) => {
+                Some(data::Buffer::Internal(buffer::Internal::Connections))
+            }
         }
     }
 
@@ -199,7 +212,8 @@ impl Buffer {
             | Buffer::Logs(_)
             | Buffer::Highlights(_)
             | Buffer::ChannelDiscovery(_)
-            | Buffer::InternalBuffers(_) => None,
+            | Buffer::InternalBuffers(_)
+            | Buffer::Connections(_) => None,
         }
     }
 
@@ -215,7 +229,8 @@ impl Buffer {
             | Buffer::Logs(_)
             | Buffer::Highlights(_)
             | Buffer::ChannelDiscovery(_)
-            | Buffer::InternalBuffers(_) => None,
+            | Buffer::InternalBuffers(_)
+            | Buffer::Connections(_) => None,
         }
     }
 
@@ -503,6 +518,17 @@ impl Buffer {
                     ),
                 }
             }
+            (Buffer::Connections(_), Message::Connections(message)) => {
+                match message {
+                    connections::Message::Open(upstream) => (
+                        Task::none(),
+                        Some(Event::OpenUpstream(
+                            upstream,
+                            BufferAction::ReplacePane,
+                        )),
+                    ),
+                }
+            }
             _ => (Task::none(), None),
         }
     }
@@ -554,6 +580,10 @@ impl Buffer {
                 internal_buffers::view(state, open_internals, theme)
                     .map(Message::InternalBuffers)
             }
+            Buffer::Connections(state) => {
+                connections::view(state, clients, history, theme)
+                    .map(Message::Connections)
+            }
         }
     }
 
@@ -588,7 +618,8 @@ impl Buffer {
             | Buffer::FileTransfers(_)
             | Buffer::Logs(_)
             | Buffer::Highlights(_)
-            | Buffer::InternalBuffers(_) => Task::none(),
+            | Buffer::InternalBuffers(_)
+            | Buffer::Connections(_) => Task::none(),
             Buffer::Channel(channel) => channel.focus().map(Message::Channel),
             Buffer::Server(server) => server.focus().map(Message::Server),
             Buffer::Query(query) => query.focus().map(Message::Query),
@@ -605,7 +636,8 @@ impl Buffer {
             | Buffer::Logs(_)
             | Buffer::Highlights(_)
             | Buffer::ChannelDiscovery(_)
-            | Buffer::InternalBuffers(_) => {}
+            | Buffer::InternalBuffers(_)
+            | Buffer::Connections(_) => {}
             Buffer::Channel(channel) => channel.reset(),
             Buffer::Server(server) => server.reset(),
             Buffer::Query(query) => query.reset(),
@@ -624,7 +656,8 @@ impl Buffer {
             | Buffer::Logs(_)
             | Buffer::Highlights(_)
             | Buffer::ChannelDiscovery(_)
-            | Buffer::InternalBuffers(_) => (),
+            | Buffer::InternalBuffers(_)
+            | Buffer::Connections(_) => (),
             Buffer::Server(state) => state.input_view.insert_user(
                 nick,
                 state.buffer.clone(),
@@ -651,7 +684,8 @@ impl Buffer {
             Buffer::Empty
             | Buffer::FileTransfers(_)
             | Buffer::ChannelDiscovery(_)
-            | Buffer::InternalBuffers(_) => Task::none(),
+            | Buffer::InternalBuffers(_)
+            | Buffer::Connections(_) => Task::none(),
             Buffer::Channel(channel) => {
                 channel.scroll_view.scroll_up_page().map(|message| {
                     Message::Channel(channel::Message::ScrollView(message))
@@ -687,7 +721,8 @@ impl Buffer {
             Buffer::Empty
             | Buffer::FileTransfers(_)
             | Buffer::ChannelDiscovery(_)
-            | Buffer::InternalBuffers(_) => Task::none(),
+            | Buffer::InternalBuffers(_)
+            | Buffer::Connections(_) => Task::none(),
             Buffer::Channel(channel) => {
                 channel.scroll_view.scroll_down_page().map(|message| {
                     Message::Channel(channel::Message::ScrollView(message))
@@ -723,7 +758,8 @@ impl Buffer {
             Buffer::Empty
             | Buffer::FileTransfers(_)
             | Buffer::ChannelDiscovery(_)
-            | Buffer::InternalBuffers(_) => Task::none(),
+            | Buffer::InternalBuffers(_)
+            | Buffer::Connections(_) => Task::none(),
             Buffer::Channel(channel) => {
                 channel.scroll_view.scroll_to_start(config).map(|message| {
                     Message::Channel(channel::Message::ScrollView(message))
@@ -760,7 +796,8 @@ impl Buffer {
             Buffer::Empty
             | Buffer::FileTransfers(_)
             | Buffer::ChannelDiscovery(_)
-            | Buffer::InternalBuffers(_) => Task::none(),
+            | Buffer::InternalBuffers(_)
+            | Buffer::Connections(_) => Task::none(),
             Buffer::Channel(channel) => {
                 channel.scroll_view.scroll_to_end(config).map(|message| {
                     Message::Channel(channel::Message::ScrollView(message))
@@ -801,7 +838,8 @@ impl Buffer {
             Buffer::Empty
             | Buffer::FileTransfers(_)
             | Buffer::ChannelDiscovery(_)
-            | Buffer::InternalBuffers(_) => Task::none(),
+            | Buffer::InternalBuffers(_)
+            | Buffer::Connections(_) => Task::none(),
             Buffer::Channel(state) => state
                 .scroll_view
                 .scroll_to_message(
@@ -871,7 +909,8 @@ impl Buffer {
             Buffer::Empty
             | Buffer::FileTransfers(_)
             | Buffer::ChannelDiscovery(_)
-            | Buffer::InternalBuffers(_) => Task::none(),
+            | Buffer::InternalBuffers(_)
+            | Buffer::Connections(_) => Task::none(),
             Buffer::Channel(state) => state
                 .scroll_view
                 .scroll_to_backlog(
@@ -928,7 +967,8 @@ impl Buffer {
             Buffer::Empty
             | Buffer::FileTransfers(_)
             | Buffer::ChannelDiscovery(_)
-            | Buffer::InternalBuffers(_) => false,
+            | Buffer::InternalBuffers(_)
+            | Buffer::Connections(_) => false,
             Buffer::Channel(state) => state.scroll_view.has_pending_scroll_to(),
             Buffer::Server(state) => state.scroll_view.has_pending_scroll_to(),
             Buffer::Query(state) => state.scroll_view.has_pending_scroll_to(),
@@ -948,7 +988,8 @@ impl Buffer {
             Buffer::Empty
             | Buffer::FileTransfers(_)
             | Buffer::ChannelDiscovery(_)
-            | Buffer::InternalBuffers(_) => (),
+            | Buffer::InternalBuffers(_)
+            | Buffer::Connections(_) => (),
             Buffer::Channel(state) => {
                 state.scroll_view.set_scroll_limit_for_pending_scroll_to(
                     scroll_view::Kind::Channel(&state.server, &state.target),
@@ -992,7 +1033,8 @@ impl Buffer {
             Buffer::Empty
             | Buffer::FileTransfers(_)
             | Buffer::ChannelDiscovery(_)
-            | Buffer::InternalBuffers(_) => None,
+            | Buffer::InternalBuffers(_)
+            | Buffer::Connections(_) => None,
             Buffer::Channel(channel) => {
                 Some(channel.scroll_view.is_scrolled_to_bottom())
             }
@@ -1016,7 +1058,8 @@ impl Buffer {
             | Buffer::Logs(_)
             | Buffer::Highlights(_)
             | Buffer::ChannelDiscovery(_)
-            | Buffer::InternalBuffers(_) => false,
+            | Buffer::InternalBuffers(_)
+            | Buffer::Connections(_) => false,
             Buffer::Server(state) => state.input_view.close_picker(),
             Buffer::Channel(state) => state.input_view.close_picker(),
             Buffer::Query(state) => state.input_view.close_picker(),
@@ -1028,7 +1071,8 @@ impl Buffer {
             Buffer::Empty
             | Buffer::FileTransfers(_)
             | Buffer::ChannelDiscovery(_)
-            | Buffer::InternalBuffers(_) => (),
+            | Buffer::InternalBuffers(_)
+            | Buffer::Connections(_) => (),
             Buffer::Channel(channel) => {
                 channel.scroll_view.update_pane_size(pane_size, config);
             }
