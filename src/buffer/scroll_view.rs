@@ -704,6 +704,14 @@ impl State {
             } => {
                 self.last_scroll_offset = viewport.absolute_offset().y;
 
+                // collect heights iff waiting for a scroll-to.
+                if self.pending_scroll_to.is_some() {
+                    let collect =
+                        keyed::collect_heights(self.scrollable.clone())
+                            .map(Message::HeightsCollected);
+                    return (collect, None);
+                }
+
                 let relative_offset = viewport.relative_offset().y;
                 let absolute_offset = viewport.absolute_offset().y;
                 let height = self.pane_size.height;
@@ -720,11 +728,16 @@ impl State {
                     ) && has_more_newer_messages =>
                     {
                         self.status = Status::Unlocked;
-                        self.limit =
-                            Limit::Top(count + step_messages(height, config));
+                        let n = count + step_messages(height, config);
+                        self.limit = match self.limit {
+                            Limit::Around(_, ts) => Limit::Around(n, ts),
+                            _ => Limit::Top(n),
+                        };
                     }
-                    // Hit bottom, anchor it
-                    _ if old_status.is_bottom(relative_offset) => {
+
+                    _ if old_status.is_bottom(relative_offset)
+                        && !matches!(self.limit, Limit::Around(_, _)) =>
+                    {
                         if !matches!(self.status, Status::Bottom)
                             && config.buffer.mark_as_read.on_scroll_to_bottom
                         {
@@ -762,23 +775,27 @@ impl State {
                     ) && has_more_older_messages =>
                     {
                         self.status = Status::Unlocked;
-                        self.limit = Limit::Bottom(
-                            count + step_messages(height, config),
-                        );
+                        let n = count + step_messages(height, config);
 
-                        // Get new oldest message w/ new limit and use that w/ Since
-                        if let Some(history::View {
-                            old_messages,
-                            new_messages,
-                            ..
-                        }) = history.get_messages(
-                            &kind.into(),
-                            Some(self.limit),
-                            &config.buffer,
-                        ) && let Some(oldest) =
-                            old_messages.iter().chain(&new_messages).next()
-                        {
-                            self.limit = Limit::Since(oldest.server_time);
+                        if let Limit::Around(_, ts) = self.limit {
+                            self.limit = Limit::Around(n, ts);
+                        } else {
+                            self.limit = Limit::Bottom(n);
+
+                            // Get new oldest message w/ new limit and use that w/ Since
+                            if let Some(history::View {
+                                old_messages,
+                                new_messages,
+                                ..
+                            }) = history.get_messages(
+                                &kind.into(),
+                                Some(self.limit),
+                                &config.buffer,
+                            ) && let Some(oldest) =
+                                old_messages.iter().chain(&new_messages).next()
+                            {
+                                self.limit = Limit::Since(oldest.server_time);
+                            }
                         }
                     }
                     // Hit top
@@ -810,6 +827,10 @@ impl State {
                                         count + step_messages(height, config),
                                     );
                                 }
+                            } else if matches!(self.limit, Limit::Around(_, _))
+                            {
+
+                                self.limit = Limit::Since(oldest);
                             } else {
                                 self.limit = Limit::Top(step_messages(
                                     2.0 * height,
@@ -829,7 +850,10 @@ impl State {
                     _ => {
                         self.status = Status::Unlocked;
 
-                        if !matches!(self.limit, Limit::Top(_)) {
+                        if !matches!(
+                            self.limit,
+                            Limit::Top(_) | Limit::Around(_, _)
+                        ) {
                             self.limit = Limit::Since(oldest);
                         }
                     }
@@ -920,8 +944,9 @@ impl State {
                 }
                 .min(max_offset);
 
-                // Did this cause us to hit the bottom? If so, anchor it
-                if (offset - max_offset).abs() <= f32::EPSILON {
+                if (offset - max_offset).abs() <= f32::EPSILON
+                    && !matches!(self.limit, Limit::Around(_, _))
+                {
                     self.status = Status::Bottom;
 
                     if !matches!(self.limit, Limit::Bottom(_)) {
@@ -1059,6 +1084,9 @@ impl State {
             Limit::Bottom(x) if x < step_messages => {
                 self.limit = Limit::Bottom(step_messages);
             }
+            Limit::Around(x, ts) if x < step_messages => {
+                self.limit = Limit::Around(step_messages, ts);
+            }
             _ => {}
         }
 
@@ -1120,7 +1148,6 @@ impl State {
         config: &Config,
     ) -> Task<Message> {
         let Some(history::View {
-            total,
             old_messages,
             new_messages,
             ..
@@ -1133,20 +1160,17 @@ impl State {
             return Task::none();
         };
 
-        let Some(pos) = old_messages
+        let Some(target) = old_messages
             .iter()
             .chain(&new_messages)
-            .position(|m| m.hash == message)
+            .find(|m| m.hash == message)
         else {
             return Task::none();
         };
 
-        // Get all messages from bottom until 1 before message
-        let offset = total - pos + 1;
-
-        self.limit = Limit::Bottom(
-            offset.max(step_messages(2.0 * self.pane_size.height, config)),
-        );
+        // Load a windoww of messages centered on the target.
+        let around_count = step_messages(4.0 * self.pane_size.height, config);
+        self.limit = Limit::Around(around_count, target.server_time);
 
         self.pending_scroll_to = Some(keyed::Key::Message(message));
 
@@ -1214,29 +1238,32 @@ impl State {
             return;
         };
 
-        let offset = match key {
+        match key {
             keyed::Key::Message(message) => {
-                let Some(pos) = old_messages
+                let Some(target) = old_messages
                     .iter()
                     .chain(&new_messages)
-                    .position(|m| m.hash == message)
+                    .find(|m| m.hash == message)
                 else {
                     return;
                 };
 
-                // Get all messages from bottom until 1 before message
-                total - pos + 1
+                // Load a window of messages centered on the target
+                let around_count =
+                    step_messages(4.0 * self.pane_size.height, config);
+                self.limit = Limit::Around(around_count, target.server_time);
             }
             keyed::Key::Divider => {
                 // Get all messages from bottom until 1 before backlog
-                total - old_messages.len() + 1
+                let offset = total - old_messages.len() + 1;
+                self.limit =
+                    Limit::Bottom(offset.max(step_messages(
+                        2.0 * self.pane_size.height,
+                        config,
+                    )));
             }
             keyed::Key::Preview(_, _) => return,
         };
-
-        self.limit = Limit::Bottom(
-            offset.max(step_messages(2.0 * self.pane_size.height, config)),
-        );
     }
 
     pub fn visible_urls(&self) -> impl Iterator<Item = &url::Url> {

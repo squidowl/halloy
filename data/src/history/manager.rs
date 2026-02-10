@@ -991,6 +991,18 @@ fn with_limit<'a>(
         Some(Limit::Since(timestamp)) => messages
             .skip_while(|message| message.server_time < timestamp)
             .collect(),
+        Some(Limit::Around(n, timestamp)) => {
+            let collected = messages.collect::<Vec<_>>();
+            let length = collected.len();
+            let center = collected
+                .iter()
+                .position(|m| m.server_time >= timestamp)
+                .unwrap_or(length.saturating_sub(1));
+            let start =
+                center.saturating_sub(n / 2).min(length.saturating_sub(n));
+            let end = (start + n).min(length);
+            collected[start..end].to_vec()
+        }
         None => messages.collect(),
     }
 }
