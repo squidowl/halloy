@@ -472,16 +472,16 @@ pub fn hex_to_color(hex: &str) -> Option<Color> {
 
         return match (hash, r, g, b, a) {
             ("#", Ok(r), Ok(g), Ok(b), None) => Some(Color {
-                r: r as f32 / 255.0,
-                g: g as f32 / 255.0,
-                b: b as f32 / 255.0,
+                r: f32::from(r) / 255.0,
+                g: f32::from(g) / 255.0,
+                b: f32::from(b) / 255.0,
                 a: 1.0,
             }),
             ("#", Ok(r), Ok(g), Ok(b), Some(a)) => Some(Color {
-                r: r as f32 / 255.0,
-                g: g as f32 / 255.0,
-                b: b as f32 / 255.0,
-                a: a as f32 / 255.0,
+                r: f32::from(r) / 255.0,
+                g: f32::from(g) / 255.0,
+                b: f32::from(b) / 255.0,
+                a: f32::from(a) / 255.0,
             }),
             _ => None,
         };
@@ -678,7 +678,7 @@ mod binary {
                     chunk[1],
                     chunk[2],
                     chunk[3],
-                    chunk[4] as f32 / 255.0,
+                    f32::from(chunk[4]) / 255.0,
                 );
 
                 tag.update_color(&mut styles, color);
