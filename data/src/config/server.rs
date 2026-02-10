@@ -93,6 +93,8 @@ pub struct Server {
     root_cert_path: Option<PathBuf>,
     /// Sasl authentication
     pub sasl: Option<Sasl>,
+    /// Disconnect from server if SASL authentication fails. Defaults to `false`.
+    pub disconnect_on_sasl_failure: bool,
     /// Commands which are executed once connected.
     pub on_connect: Vec<String>,
     /// Enable WHO polling. Defaults to `true`.
@@ -215,6 +217,7 @@ impl Default for Server {
             dangerously_accept_invalid_certs: Default::default(),
             root_cert_path: Option::default(),
             sasl: Option::default(),
+            disconnect_on_sasl_failure: false,
             on_connect: Vec::default(),
             who_poll_enabled: true,
             who_poll_interval: Duration::from_secs(2),

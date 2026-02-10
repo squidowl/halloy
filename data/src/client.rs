@@ -2629,7 +2629,14 @@ impl Client {
                 self.handle.try_send(command!("CAP", "END"))?;
             }
             Command::Numeric(ERR_SASLFAIL | ERR_SASLTOOLONG, _) => {
-                log::debug!("[{}] sasl auth failed", self.server);
+                log::warn!("[{}] sasl authentication failed", self.server);
+
+                if self.config.disconnect_on_sasl_failure {
+                    bail!(
+                        "[{}] sasl disconnected to protect identity",
+                        self.server
+                    );
+                }
 
                 self.registration_step = RegistrationStep::End;
                 self.handle.try_send(command!("CAP", "END"))?;
