@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-1be69ec9.js";
+            window.path_to_searchindex_js = "searchindex-a388c74e.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-72d18ae4.js"></script>
@@ -4030,6 +4030,7 @@ scale_factor = 1.0
 <li><a href="#password_command">password_command</a></li>
 <li><a href="#channels">channels</a></li>
 <li><a href="#channel_keys">channel_keys</a></li>
+<li><a href="#queries">queries</a></li>
 <li><a href="#ping_time">ping_time</a></li>
 <li><a href="#ping_timeout">ping_timeout</a></li>
 <li><a href="#reconnect_delay">reconnect_delay</a></li>
@@ -4216,6 +4217,15 @@ channels = ["#foo", "#bar"]
 
 [servers.&lt;name&gt;]
 channel_keys = { "#foo" = "password" }
+</code></pre>
+<h3 id="queries"><a class="header" href="#queries">queries</a></h3>
+<p>A list of queries to add to the sidebar on connection.</p>
+<pre><code class="language-toml"># Type: array of strings
+# Values: array of any strings
+# Default: not set
+
+[servers.&lt;name&gt;]
+queries = ["alice", "bob"]
 </code></pre>
 <h3 id="ping_time"><a class="header" href="#ping_time">ping_time</a></h3>
 <p>The amount of inactivity in seconds before the client will ping the server.</p>
