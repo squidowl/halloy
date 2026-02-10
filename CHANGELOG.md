@@ -7,6 +7,7 @@ Added:
 - Default server message pseudo-type, allowing the default values for server message types to be user-specified
 - Default internal message pseudo-type, allowing the default values for internal message types to be user-specified
 - Add setting to specify queries to be added to the sidebar after connecting to a server
+- Added abillity to disconnect on SASL authentication failure
 
 Thanks:
 
