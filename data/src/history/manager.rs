@@ -239,6 +239,13 @@ impl Manager {
         )
     }
 
+    pub fn open(&mut self, kind: history::Kind) {
+        self.data
+            .map
+            .entry(kind.clone())
+            .or_insert(History::partial(kind.clone()));
+    }
+
     pub fn exit(
         &mut self,
         clients: &client::Map,

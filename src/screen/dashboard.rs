@@ -2971,6 +2971,12 @@ impl Dashboard {
         self.history.get_unique_queries(server)
     }
 
+    pub fn add_to_sidebar(&mut self, server: Server, query: target::Query) {
+        let kind = history::Kind::Query(server, query);
+
+        self.history.open(kind);
+    }
+
     pub fn refocus_pane(&mut self) -> Task<Message> {
         let Focus { window, pane } = self.focus;
 

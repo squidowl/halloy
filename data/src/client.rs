@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use std::{fmt, io};
+use std::{fmt, io, iter};
 
 use anyhow::{Context as ErrorContext, Result, anyhow, bail};
 use chrono::{DateTime, Utc};
@@ -129,6 +129,7 @@ pub enum Event {
     MonitoredOffline(Vec<Nick>),
     OnConnect(on_connect::Stream),
     BouncerNetwork(Server, config::Server),
+    AddToSidebar(target::Query),
 }
 
 struct ChatHistoryRequest {
@@ -2811,13 +2812,30 @@ impl Client {
                     }
                 }
 
-                return Ok(vec![Event::OnConnect(on_connect(
-                    self.handle.clone(),
-                    self.config.clone(),
-                    self.nickname(),
-                    &self.isupport,
-                    config,
-                ))]);
+                let events = self
+                    .config
+                    .queries
+                    .iter()
+                    .filter_map(|query| {
+                        target::Query::parse(
+                            query,
+                            self.chantypes(),
+                            self.statusmsg(),
+                            self.casemapping(),
+                        )
+                        .ok()
+                        .map(Event::AddToSidebar)
+                    })
+                    .chain(iter::once(Event::OnConnect(on_connect(
+                        self.handle.clone(),
+                        self.config.clone(),
+                        self.nickname(),
+                        &self.isupport,
+                        config,
+                    ))))
+                    .collect::<Vec<_>>();
+
+                return Ok(events);
             }
             _ => {}
         }
