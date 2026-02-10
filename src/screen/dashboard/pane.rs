@@ -379,6 +379,42 @@ impl TitleBar {
             } else {
                 None
             },
+            {
+                let split_v_button = button(center(icon::split_vertical()))
+                    .padding(5)
+                    .width(22)
+                    .height(22)
+                    .on_press(Message::SplitPane(pane_grid::Axis::Vertical))
+                    .style(|theme, status| {
+                        theme::button::secondary(theme, status, false)
+                    });
+
+                let split_v_button_with_tooltip = tooltip(
+                    split_v_button,
+                    show_tooltips.then_some("Split Right"),
+                    tooltip::Position::Bottom,
+                    theme,
+                );
+                Some(split_v_button_with_tooltip)
+            },
+            {
+                let split_h_button = button(center(icon::split_horizontal()))
+                    .padding(5)
+                    .width(22)
+                    .height(22)
+                    .on_press(Message::SplitPane(pane_grid::Axis::Horizontal))
+                    .style(|theme, status| {
+                        theme::button::secondary(theme, status, false)
+                    });
+
+                let split_h_button_with_tooltip = tooltip(
+                    split_h_button,
+                    show_tooltips.then_some("Split Down"),
+                    tooltip::Position::Bottom,
+                    theme,
+                );
+                Some(split_h_button_with_tooltip)
+            },
             if panes > 1 {
                 let maximize_button = button(center(if maximized {
                     icon::restore()

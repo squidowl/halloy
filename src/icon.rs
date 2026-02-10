@@ -141,6 +141,14 @@ pub fn quit<'a>() -> Text<'a> {
     to_text('\u{F02D}')
 }
 
+pub fn split_horizontal<'a>() -> Text<'a> {
+    to_text('\u{E81C}')
+}
+
+pub fn split_vertical<'a>() -> Text<'a> {
+    to_text('\u{E81B}')
+}
+
 pub fn channel_discovery<'a>() -> Text<'a> {
     to_text('\u{E81D}')
 }
