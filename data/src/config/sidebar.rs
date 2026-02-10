@@ -52,7 +52,7 @@ where
                 Ok(ServerIcon::Size(value))
             } else {
                 Err(serde::de::Error::invalid_value(
-                    serde::de::Unexpected::Unsigned(value as u64),
+                    serde::de::Unexpected::Unsigned(u64::from(value)),
                     &"a positive integer",
                 ))
             }

@@ -132,6 +132,7 @@ opt-level = 1
 opt-level = 3
 
 [workspace.lints.clippy]
+cast_lossless = "deny"
 cloned_instead_of_copied = "deny"
 default_trait_access = "deny"
 ignored_unit_patterns = "deny"
