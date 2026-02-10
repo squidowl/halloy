@@ -413,7 +413,7 @@ Disconnect from the server if SASL authentication fails. This is useful on serve
 ```toml
 # Type: boolean
 # Values: true, false
-# Default: false
+# Default: true
 
 [servers.<name>]
 disconnect_on_sasl_failure = false
