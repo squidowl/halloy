@@ -106,8 +106,15 @@ impl iced::theme::Base for Theme {
 
 impl combo_box::Catalog for Theme {}
 
-pub fn line_height(config: &config::Font) -> f32 {
-    LineHeight::default()
+pub fn line_height(config: &config::Font) -> LineHeight {
+    config
+        .line_height
+        .map(LineHeight::Relative)
+        .unwrap_or_default()
+}
+
+pub fn resolve_line_height(config: &config::Font) -> f32 {
+    line_height(config)
         .to_absolute(
             if let Some(size) = config.size {
                 f32::from(size)

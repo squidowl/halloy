@@ -84,7 +84,7 @@ where
         Self {
             spans: Cow::default(),
             size: None,
-            line_height: LineHeight::default(),
+            line_height: crate::font::line_height(),
             width: Length::Shrink,
             height: Length::Shrink,
             font: None,

@@ -74,18 +74,28 @@ where
 {
     let font_size = config.font.size.map_or(TEXT_SIZE, f32::from);
 
+    let def_line_height = 1.3;
+    let cfg_line_height = config.font.line_height.unwrap_or(def_line_height);
+    let line_height_ratio = cfg_line_height / def_line_height;
+
     let (text, font_size, line_height) = match marker {
         Marker::Dot => (
             "\u{E81A}",
             font_size * font::MESSAGE_MARKER_FONT_SCALE,
-            LineHeight::Relative(1.0),
+            LineHeight::Relative(
+                cfg_line_height / font::MESSAGE_MARKER_FONT_SCALE,
+            ),
         ),
-        Marker::Expand => {
-            ("\u{E81B}", font_size * 0.75, LineHeight::Relative(1.75))
-        }
-        Marker::Contract => {
-            ("\u{E81C}", font_size * 0.75, LineHeight::Relative(1.75))
-        }
+        Marker::Expand => (
+            "\u{E81B}",
+            font_size * 0.75,
+            LineHeight::Relative(1.75 * line_height_ratio),
+        ),
+        Marker::Contract => (
+            "\u{E81C}",
+            font_size * 0.75,
+            LineHeight::Relative(1.75 * line_height_ratio),
+        ),
         Marker::None => ("", font_size, LineHeight::Relative(1.0)),
     };
 
