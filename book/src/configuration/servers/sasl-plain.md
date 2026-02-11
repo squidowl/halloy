@@ -9,6 +9,7 @@ Plain SASL auth using a username and password
     - [password\_file](#password_file)
     - [password\_file\_first\_line\_only](#password_file_first_line_only)
     - [password\_command](#password_command)
+    - [disconnect\_on\_failure](#disconnect_on_failure)
 
 ## Configuration
 
@@ -75,6 +76,19 @@ Executes the command with `sh` (or equivalent) and reads `password` as the outpu
 
 [servers.<name>.sasl.plain]
 password_command = ""
+```
+
+### disconnect_on_failure
+
+Disconnect from the server if SASL authentication fails. This is useful on servers which apply a hostname cloak after identifying, such as Libera.Chat. Without this option, a failed SASL authentication would result in connecting with your real IP/hostname exposed.
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: true
+
+[servers.<name>.sasl.plain]
+disconnect_on_failure = false
 ```
 
 [^1]: Windows path strings should usually be specified as literal strings (e.g. `'C:\Users\Default\'`), otherwise directory separators will need to be escaped (e.g. `"C:\\Users\\Default\\"`).

@@ -32,7 +32,6 @@ You can define multiple server sections in the configuration file. Each server s
     - [use\_tls](#use_tls)
     - [dangerously\_accept\_invalid\_certs](#dangerously_accept_invalid_certs)
     - [root\_cert\_path](#root_cert_path)
-    - [disconnect\_on\_sasl\_failure](#disconnect_on_sasl_failure)
     - [on\_connect](#on_connect)
     - [anti\_flood](#anti_flood)
     - [who\_poll\_enabled](#who_poll_enabled)
@@ -404,19 +403,6 @@ The path to the root TLS certificate for this server in PEM format.[^1] [^2]
 
 [servers.<name>]
 root_cert_path = ""
-```
-
-### disconnect_on_sasl_failure
-
-Disconnect from the server if SASL authentication fails. This is useful on servers which apply a hostname cloak after identifying, such as Libera.Chat. Without this option, a failed SASL authentication would result in connecting with your real IP/hostname exposed.
-
-```toml
-# Type: boolean
-# Values: true, false
-# Default: true
-
-[servers.<name>]
-disconnect_on_sasl_failure = false
 ```
 
 ### on_connect
