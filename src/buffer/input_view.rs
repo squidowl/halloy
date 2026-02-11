@@ -791,12 +791,7 @@ impl State {
                     }
 
                     self.send_input_line(
-                        raw_input,
-                        buffer,
-                        clients,
-                        history,
-                        config,
-                        true,
+                        raw_input, buffer, clients, history, config, true,
                     )
                 } else {
                     (Task::none(), None)
@@ -1281,20 +1276,15 @@ impl State {
             return (Task::none(), None);
         };
 
-        let (send_task, event) = self.send_input_line(
-            line,
-            buffer,
-            clients,
-            history,
-            config,
-            false,
-        );
+        let (send_task, event) =
+            self.send_input_line(line, buffer, clients, history, config, false);
 
         if lines.is_empty() {
             return (send_task, event);
         }
 
-        let delay = Duration::from_millis(config.buffer.text_input.send_line_delay);
+        let delay =
+            Duration::from_millis(config.buffer.text_input.send_line_delay);
         let next_message = Message::SendLines {
             buffer: buffer.clone(),
             lines,
@@ -1342,7 +1332,10 @@ impl State {
                                     .map(|target| match target {
                                         Target::Channel(_) => (
                                             target,
-                                            config.actions.buffer.message_channel,
+                                            config
+                                                .actions
+                                                .buffer
+                                                .message_channel,
                                         ),
                                         Target::Query(_) => (
                                             target,
@@ -1381,7 +1374,9 @@ impl State {
                             first.clone()
                         } else {
                             // If first argument isn't a channel, we use buffer channel
-                            buffer.channel().map(|chan| chan.as_str().to_string())
+                            buffer
+                                .channel()
+                                .map(|chan| chan.as_str().to_string())
                         };
 
                         // If we don't have a target channel for some reason we return
@@ -1403,16 +1398,17 @@ impl State {
                         };
 
                         // Part channel. Might not exist if we execute on a query/server.
-                        let part_command = buffer.channel().and_then(|channel| {
-                            data::Input::from_command(
-                                buffer.clone(),
-                                command::Irc::Part(
-                                    channel.as_str().to_string(),
-                                    message,
-                                ),
-                            )
-                            .encoded()
-                        });
+                        let part_command =
+                            buffer.channel().and_then(|channel| {
+                                data::Input::from_command(
+                                    buffer.clone(),
+                                    command::Irc::Part(
+                                        channel.as_str().to_string(),
+                                        message,
+                                    ),
+                                )
+                                .encoded()
+                            });
 
                         // Send part command.
                         if let Some(part_command) = part_command {
@@ -1440,7 +1436,8 @@ impl State {
 
                         let chantypes = clients.get_chantypes(buffer.server());
                         let statusmsg = clients.get_statusmsg(buffer.server());
-                        let casemapping = clients.get_casemapping(buffer.server());
+                        let casemapping =
+                            clients.get_casemapping(buffer.server());
 
                         let target = Target::parse(
                             target_channel.as_str(),
@@ -1487,12 +1484,11 @@ impl State {
                         let kind =
                             history::Kind::from_input_buffer(buffer.clone());
 
-                        let event =
-                            history.clear_messages(kind, clients).map(
-                                |history_task| Event::Cleared {
-                                    history_task: Task::future(history_task),
-                                },
-                            );
+                        let event = history.clear_messages(kind, clients).map(
+                            |history_task| Event::Cleared {
+                                history_task: Task::future(history_task),
+                            },
+                        );
 
                         return (Task::none(), event);
                     }
@@ -1508,10 +1504,7 @@ impl State {
                     command::Internal::Connect(server) => {
                         self.input_content = text_editor::Content::new();
 
-                        return (
-                            Task::none(),
-                            Some(Event::OpenServer(server)),
-                        );
+                        return (Task::none(), Some(Event::OpenServer(server)));
                     }
                 }
             }
