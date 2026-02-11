@@ -130,6 +130,7 @@ pub enum Event {
     OnConnect(on_connect::Stream),
     BouncerNetwork(Server, config::Server),
     AddToSidebar(target::Query),
+    Disconnect,
 }
 
 struct ChatHistoryRequest {
@@ -2629,13 +2630,15 @@ impl Client {
                 self.handle.try_send(command!("CAP", "END"))?;
             }
             Command::Numeric(ERR_SASLFAIL | ERR_SASLTOOLONG, _) => {
-                log::warn!("[{}] sasl authentication failed", self.server);
+                log::warn!("[{}] SASL authentication failed", self.server);
 
                 if self.config.disconnect_on_sasl_failure {
-                    bail!(
-                        "[{}] sasl disconnected to protect identity",
+                    log::warn!(
+                        "[{}] disconnected in order to protect identity from SASL authentication failure",
                         self.server
                     );
+
+                    return Ok(vec![Event::Disconnect]);
                 }
 
                 self.registration_step = RegistrationStep::End;
