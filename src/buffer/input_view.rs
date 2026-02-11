@@ -1295,7 +1295,7 @@ impl State {
             Task::perform(time::sleep(delay), move |()| next_message)
         };
 
-        (Task::batch(vec![send_task, next_task]), event)
+        (send_task.chain(next_task), event)
     }
 
     fn send_input_line(
