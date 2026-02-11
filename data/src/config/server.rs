@@ -93,8 +93,6 @@ pub struct Server {
     root_cert_path: Option<PathBuf>,
     /// Sasl authentication
     pub sasl: Option<Sasl>,
-    /// Disconnect from server if SASL authentication fails. Defaults to `true`.
-    pub disconnect_on_sasl_failure: bool,
     /// Commands which are executed once connected.
     pub on_connect: Vec<String>,
     /// Enable WHO polling. Defaults to `true`.
@@ -217,7 +215,6 @@ impl Default for Server {
             dangerously_accept_invalid_certs: Default::default(),
             root_cert_path: Option::default(),
             sasl: Option::default(),
-            disconnect_on_sasl_failure: true,
             on_connect: Vec::default(),
             who_poll_enabled: true,
             who_poll_interval: Duration::from_secs(2),
@@ -256,6 +253,8 @@ pub enum Sasl {
         password_file_first_line_only: Option<bool>,
         /// Account password command
         password_command: Option<String>,
+        /// Disconnect from server if SASL authentication fails. Defaults to `true`.
+        disconnect_on_failure: Option<bool>,
     },
     External {
         /// The path to PEM encoded X509 user certificate for external auth
@@ -269,10 +268,21 @@ pub enum Sasl {
             deserialize_with = "deserialize_path_buf_with_path_transformations_maybe"
         )]
         key: Option<PathBuf>,
+        /// Disconnect from server if SASL authentication fails. Defaults to `true`.
+        disconnect_on_failure: Option<bool>,
     },
 }
 
 impl Sasl {
+    pub fn disconnect_on_failure(&self) -> bool {
+        match self {
+            Sasl::Plain { disconnect_on_failure, .. }
+            | Sasl::External { disconnect_on_failure, .. } => {
+                disconnect_on_failure.unwrap_or(true)
+            }
+        }
+    }
+
     pub fn command(&self) -> &'static str {
         match self {
             Sasl::Plain { .. } => "PLAIN",

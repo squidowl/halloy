@@ -6,6 +6,7 @@ External SASL auth uses a PEM encoded X509 certificate. [Reference](https://libe
   - [Configuration](#configuration)
     - [cert](#cert)
     - [key](#key)
+    - [disconnect\_on\_failure](#disconnect_on_failure)
 
 ## Configuration
 
@@ -33,6 +34,19 @@ The path to PEM encoded PKCS#8 private key for external auth (optional).[^1] [^2
 
 [servers.<name>.sasl.external]
 key = "/path/to/your/private_key.pem"
+```
+
+### disconnect_on_failure
+
+Disconnect from the server if SASL authentication fails. This is useful on servers which apply a hostname cloak after identifying, such as Libera.Chat. Without this option, a failed SASL authentication would result in connecting with your real IP/hostname exposed.
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: true
+
+[servers.<name>.sasl.external]
+disconnect_on_failure = false
 ```
 
 [^1]: Windows path strings should usually be specified as literal strings (e.g. `'C:\Users\Default\'`), otherwise directory separators will need to be escaped (e.g. `"C:\\Users\\Default\\"`).
