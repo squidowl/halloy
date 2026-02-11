@@ -1,8 +1,7 @@
+use crate::config::buffer::AccessLevelFormat;
 use serde::Deserialize;
 
-use crate::config::buffer::AccessLevelFormat;
-
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
 pub struct TextInput {
     pub visibility: Visibility,
@@ -10,6 +9,20 @@ pub struct TextInput {
     pub autocomplete: Autocomplete,
     pub nickname: Nickname,
     pub key_bindings: KeyBindings,
+    pub send_line_delay: u64,
+}
+
+impl Default for TextInput {
+    fn default() -> Self {
+        Self {
+            visibility: Visibility::default(),
+            auto_format: AutoFormat::default(),
+            autocomplete: Autocomplete::default(),
+            nickname: Nickname::default(),
+            key_bindings: KeyBindings::default(),
+            send_line_delay: 100,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]

@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use std::collections::VecDeque;
 use std::convert;
 use std::time::Duration;
 
@@ -70,6 +71,10 @@ pub enum Message {
     SendCommand {
         buffer: Upstream,
         command: command::Irc,
+    },
+    SendLines {
+        buffer: Upstream,
+        lines: VecDeque<String>,
     },
     Paste,
     SelectAll,
@@ -340,12 +345,11 @@ pub fn view<'a>(
 
                 match *key {
                     // New line
-                    // TODO: Add shift+enter binding
-                    // iced::keyboard::Key::Named(
-                    //     iced::keyboard::key::Named::Enter,
-                    // ) if key_press.modifiers.shift() => {
-                    //     Some(text_editor::Binding::Enter)
-                    // }
+                    iced::keyboard::Key::Named(
+                        iced::keyboard::key::Named::Enter,
+                    ) if key_press.modifiers.shift() => {
+                        Some(text_editor::Binding::Enter)
+                    }
                     //
                     // Send
                     iced::keyboard::Key::Named(
@@ -559,6 +563,18 @@ fn error<'a, 'b, Message: 'a>(
     .into()
 }
 
+fn is_multiline_input(input: &str) -> bool {
+    input.contains('\n') || input.contains('\r')
+}
+
+fn multiline_lines(input: &str) -> VecDeque<String> {
+    input
+        .lines()
+        .filter(|line| !line.trim().is_empty())
+        .map(ToOwned::to_owned)
+        .collect()
+}
+
 #[derive(Debug, Clone)]
 pub struct State {
     input_id: widget::Id,
@@ -760,389 +776,27 @@ impl State {
                 } else if !raw_input.is_empty() {
                     self.completion.reset();
 
-                    // Parse input
-                    let input = match input::parse(
-                        buffer.clone(),
-                        config.buffer.text_input.auto_format,
-                        raw_input.as_str(),
-                        clients.nickname(buffer.server()),
-                        &clients.get_isupport(buffer.server()),
-                        config,
-                    ) {
-                        Ok(input::Parsed::Internal(command)) => {
-                            history.record_input_history(
-                                buffer,
-                                raw_input.to_owned(),
-                            );
+                    if is_multiline_input(raw_input.as_str()) {
+                        history
+                            .record_input_history(buffer, raw_input.to_owned());
+                        self.input_content = text_editor::Content::new();
 
-                            match command {
-                                command::Internal::OpenBuffers(targets) => {
-                                    return (
-                                        Task::none(),
-                                        Some(Event::OpenBuffers {
-                                            server: buffer.server().clone(),
-                                            targets: targets
-                                                .into_iter()
-                                                .map(|target| match target {
-                                                    Target::Channel(_) => (
-                                                        target,
-                                                        config
-                                                            .actions
-                                                            .buffer
-                                                            .message_channel,
-                                                    ),
-                                                    Target::Query(_) => (
-                                                        target,
-                                                        config
-                                                            .actions
-                                                            .buffer
-                                                            .message_user,
-                                                    ),
-                                                })
-                                                .collect(),
-                                        }),
-                                    );
-                                }
-                                command::Internal::LeaveBuffers(
-                                    targets,
-                                    reason,
-                                ) => {
-                                    return (
-                                        Task::none(),
-                                        Some(Event::LeaveBuffers {
-                                            targets,
-                                            reason,
-                                        }),
-                                    );
-                                }
-                                command::Internal::Detach(channels) => {
-                                    return (
-                                        Task::none(),
-                                        Some(Event::LeaveBuffers {
-                                            targets: channels
-                                                .into_iter()
-                                                .map(Target::Channel)
-                                                .collect(),
-                                            reason: Some("detach".to_string()),
-                                        }),
-                                    );
-                                }
-                                command::Internal::Hop(first, rest) => {
-                                    let has_channel_argument = first
-                                        .as_ref()
-                                        .is_some_and(|s| s.starts_with('#'));
-
-                                    // Channel to join, either from first argument or buffer channel
-                                    let target_channel = if has_channel_argument
-                                    {
-                                        // Use first argument as channel.
-                                        first.clone()
-                                    } else {
-                                        // If first argument isn't a channel, we use buffer channel
-                                        buffer.channel().map(|chan| {
-                                            chan.as_str().to_string()
-                                        })
-                                    };
-
-                                    // If we don't have a target channel for some reason we return
-                                    let Some(target_channel) = target_channel
-                                    else {
-                                        return (Task::none(), None);
-                                    };
-
-                                    let message = if has_channel_argument {
-                                        // If first argument is a channel, we use second argument as message
-                                        rest
-                                    } else {
-                                        // Otherwise we use both arguments
-                                        match (
-                                            first.as_deref(),
-                                            rest.as_deref(),
-                                        ) {
-                                            (Some(a), Some(b)) => {
-                                                Some(format!("{a} {b}"))
-                                            }
-                                            (Some(a), None) => {
-                                                Some(a.to_string())
-                                            }
-                                            (None, Some(b)) => {
-                                                Some(b.to_string())
-                                            }
-                                            (None, None) => None,
-                                        }
-                                    };
-
-                                    // Part channel. Might not exist if we execute on a query/server.
-                                    let part_command =
-                                        buffer.channel().and_then(|channel| {
-                                            data::Input::from_command(
-                                                buffer.clone(),
-                                                command::Irc::Part(
-                                                    channel
-                                                        .as_str()
-                                                        .to_string(),
-                                                    message,
-                                                ),
-                                            )
-                                            .encoded()
-                                        });
-
-                                    // Send part command.
-                                    if let Some(part_command) = part_command {
-                                        clients.send(
-                                            buffer,
-                                            part_command,
-                                            TokenPriority::User,
-                                        );
-                                    }
-
-                                    // Create a delay task that will execute the join after waiting
-                                    let buffer_clone = buffer.clone();
-                                    let target_channel_clone =
-                                        target_channel.clone();
-
-                                    let delayed_join_task = Task::perform(
-                                        time::sleep(Duration::from_millis(100)),
-                                        move |()| Message::SendCommand {
-                                            buffer: buffer_clone,
-                                            command: command::Irc::Join(
-                                                target_channel_clone,
-                                                None,
-                                            ),
-                                        },
-                                    );
-
-                                    let chantypes =
-                                        clients.get_chantypes(buffer.server());
-                                    let statusmsg =
-                                        clients.get_statusmsg(buffer.server());
-                                    let casemapping = clients
-                                        .get_casemapping(buffer.server());
-
-                                    let target = Target::parse(
-                                        target_channel.as_str(),
-                                        chantypes,
-                                        statusmsg,
-                                        casemapping,
-                                    );
-
-                                    let event =
-                                        has_channel_argument.then_some({
-                                            let buffer_action = match buffer {
-                                                // If it's a channel, we want to replace it when hopping to a new channel.
-                                                Upstream::Channel(..) => {
-                                                    BufferAction::ReplacePane
-                                                }
-                                                // If it's a server or query, we want to follow config for actions.
-                                                Upstream::Server(..)
-                                                | Upstream::Query(..) => {
-                                                    config
-                                                        .actions
-                                                        .buffer
-                                                        .message_channel
-                                                }
-                                            };
-
-                                            Event::OpenBuffers {
-                                                server: buffer.server().clone(),
-                                                targets: vec![(
-                                                    target,
-                                                    buffer_action,
-                                                )],
-                                            }
-                                        });
-
-                                    return (delayed_join_task, event);
-                                }
-                                command::Internal::ChannelDiscovery => {
-                                    self.input_content =
-                                        text_editor::Content::new();
-                                    return (
-                                        Task::none(),
-                                        Some(Event::OpenInternalBuffer(
-                                            buffer::Internal::ChannelDiscovery(
-                                                Some(buffer.server().clone()),
-                                            ),
-                                        )),
-                                    );
-                                }
-                                command::Internal::Delay(_) => {
-                                    return (Task::none(), None);
-                                }
-                                command::Internal::ClearBuffer => {
-                                    let kind = history::Kind::from_input_buffer(
-                                        buffer.clone(),
-                                    );
-
-                                    let event = history
-                                        .clear_messages(kind, clients)
-                                        .map(|history_task| Event::Cleared {
-                                            history_task: Task::future(
-                                                history_task,
-                                            ),
-                                        });
-
-                                    return (Task::none(), event);
-                                }
-                                command::Internal::SysInfo => {
-                                    self.input_content =
-                                        text_editor::Content::new();
-
-                                    return (
-                                        iced::system::information()
-                                            .map(Message::SysInfoReceived),
-                                        None,
-                                    );
-                                }
-                                command::Internal::Connect(server) => {
-                                    self.input_content =
-                                        text_editor::Content::new();
-
-                                    return (
-                                        Task::none(),
-                                        Some(Event::OpenServer(server)),
-                                    );
-                                }
-                            }
-                        }
-                        Ok(input::Parsed::Input(input)) => input,
-                        Err(error) => {
-                            self.error = Some(error.to_string());
-                            return (Task::none(), None);
-                        }
-                    };
-
-                    history.record_input_history(buffer, raw_input.to_owned());
-                    self.input_content = text_editor::Content::new();
-
-                    if let Some(encoded) = input.encoded() {
-                        let sent_time = server_time(&encoded);
-
-                        clients.send(buffer, encoded, TokenPriority::User);
-
-                        let supports_echoes =
-                            clients.get_server_supports_echoes(buffer.server());
-
-                        if config.buffer.mark_as_read.on_message_sent
-                            // If the server supports echoes, then send MARKREAD
-                            // on echo only (not when recording the input)
-                            && !supports_echoes
-                        {
-                            let chantypes =
-                                clients.get_chantypes(buffer.server());
-                            let statusmsg =
-                                clients.get_statusmsg(buffer.server());
-                            let casemapping =
-                                clients.get_casemapping(buffer.server());
-
-                            if let Some(targets) =
-                                input.targets(chantypes, statusmsg, casemapping)
-                            {
-                                for target in targets {
-                                    clients.send_markread(
-                                        buffer.server(),
-                                        target,
-                                        ReadMarker::from_date_time(sent_time),
-                                        TokenPriority::High,
-                                    );
-                                }
-                            }
-                        }
-                    }
-
-                    let mut history_task = Task::none();
-
-                    if let Some(nick) = clients.nickname(buffer.server()) {
-                        let mut user = nick.to_owned().into();
-                        let mut channel_users = None;
-
-                        let chantypes = clients.get_chantypes(buffer.server());
-                        let statusmsg = clients.get_statusmsg(buffer.server());
-                        let casemapping =
-                            clients.get_casemapping(buffer.server());
-                        let supports_echoes =
-                            clients.get_server_supports_echoes(buffer.server());
-
-                        // Resolve our attributes if sending this message in a channel
-                        if let buffer::Upstream::Channel(server, channel) =
-                            &buffer
-                        {
-                            channel_users =
-                                clients.get_channel_users(server, channel);
-
-                            if let Some(user_with_attributes) = clients
-                                .resolve_user_attributes(server, channel, &user)
-                            {
-                                user = user_with_attributes.clone();
-                            }
-                        }
-
-                        let mut history_tasks = vec![];
-
-                        if let Some(messages) = input.messages(
-                            user,
-                            channel_users,
-                            chantypes,
-                            statusmsg,
-                            casemapping,
-                            supports_echoes,
-                        ) {
-                            for message in messages {
-                                history_tasks.extend(
-                                    history
-                                        .record_input_message(
-                                            message,
-                                            buffer.server(),
-                                            casemapping,
-                                            config,
-                                        )
-                                        .into_iter(),
-                                );
-                            }
-                        }
-
-                        history_task = Task::batch(
-                            history_tasks.into_iter().map(Task::future),
+                        return self.send_multiline_lines(
+                            multiline_lines(raw_input.as_str()),
+                            buffer,
+                            clients,
+                            history,
+                            config,
                         );
                     }
 
-                    let open_buffers =
-                        if let Some(command::Irc::Join(targets, _)) =
-                            input.command()
-                            && let Some(buffer_action) =
-                                config.actions.buffer.join_channel
-                        {
-                            let chantypes =
-                                clients.get_chantypes(buffer.server());
-                            let statusmsg =
-                                clients.get_statusmsg(buffer.server());
-                            let casemapping =
-                                clients.get_casemapping(buffer.server());
-
-                            targets
-                                .split(',')
-                                .filter_map(|target| {
-                                    let target = Target::parse(
-                                        target,
-                                        chantypes,
-                                        statusmsg,
-                                        casemapping,
-                                    );
-
-                                    matches!(target, Target::Channel(_))
-                                        .then_some((target, buffer_action))
-                                })
-                                .collect()
-                        } else {
-                            vec![]
-                        };
-
-                    (
-                        Task::none(),
-                        Some(Event::InputSent {
-                            history_task,
-                            open_buffers,
-                        }),
+                    self.send_input_line(
+                        raw_input,
+                        buffer,
+                        clients,
+                        history,
+                        config,
+                        true,
                     )
                 } else {
                     (Task::none(), None)
@@ -1294,6 +948,16 @@ impl State {
 
                 (Task::none(), None)
             }
+            Message::SendLines {
+                buffer: send_buffer,
+                lines,
+            } => self.send_multiline_lines(
+                lines,
+                &send_buffer,
+                clients,
+                history,
+                config,
+            ),
             Message::Paste => {
                 let task = clipboard::read().and_then(|clipboard| {
                     Task::done(Message::Action(text_editor::Action::Edit(
@@ -1435,20 +1099,7 @@ impl State {
                 (task, None)
             }
             Message::Action(action) => {
-                if let text_editor::Action::Edit(text_editor::Edit::Paste(
-                    clipboard,
-                )) = &action
-                {
-                    // TODO: Remove newline cleaning when adding multiline
-                    // support
-                    let cleaned = clipboard.replace(['\n', '\r'], " ");
-                    let action = text_editor::Action::Edit(
-                        text_editor::Edit::Paste(std::sync::Arc::new(cleaned)),
-                    );
-                    self.input_content.perform(action);
-                } else {
-                    self.input_content.perform(action.clone());
-                }
+                self.input_content.perform(action.clone());
 
                 match &action {
                     text_editor::Action::Edit(_) => {
@@ -1615,6 +1266,382 @@ impl State {
                 .collect::<Vec<_>>(),
             ),
             None,
+        )
+    }
+
+    fn send_multiline_lines(
+        &mut self,
+        mut lines: VecDeque<String>,
+        buffer: &Upstream,
+        clients: &mut client::Map,
+        history: &mut history::Manager,
+        config: &Config,
+    ) -> (Task<Message>, Option<Event>) {
+        let Some(line) = lines.pop_front() else {
+            return (Task::none(), None);
+        };
+
+        let (send_task, event) = self.send_input_line(
+            line,
+            buffer,
+            clients,
+            history,
+            config,
+            false,
+        );
+
+        if lines.is_empty() {
+            return (send_task, event);
+        }
+
+        let delay = Duration::from_millis(config.buffer.text_input.send_line_delay);
+        let next_message = Message::SendLines {
+            buffer: buffer.clone(),
+            lines,
+        };
+        let next_task = if delay.is_zero() {
+            Task::done(next_message)
+        } else {
+            Task::perform(time::sleep(delay), move |()| next_message)
+        };
+
+        (Task::batch(vec![send_task, next_task]), event)
+    }
+
+    fn send_input_line(
+        &mut self,
+        raw_input: String,
+        buffer: &buffer::Upstream,
+        clients: &mut client::Map,
+        history: &mut history::Manager,
+        config: &Config,
+        record_input_history: bool,
+    ) -> (Task<Message>, Option<Event>) {
+        // Parse input
+        let input = match input::parse(
+            buffer.clone(),
+            config.buffer.text_input.auto_format,
+            raw_input.as_str(),
+            clients.nickname(buffer.server()),
+            &clients.get_isupport(buffer.server()),
+            config,
+        ) {
+            Ok(input::Parsed::Internal(command)) => {
+                if record_input_history {
+                    history.record_input_history(buffer, raw_input.to_owned());
+                }
+
+                match command {
+                    command::Internal::OpenBuffers(targets) => {
+                        return (
+                            Task::none(),
+                            Some(Event::OpenBuffers {
+                                server: buffer.server().clone(),
+                                targets: targets
+                                    .into_iter()
+                                    .map(|target| match target {
+                                        Target::Channel(_) => (
+                                            target,
+                                            config.actions.buffer.message_channel,
+                                        ),
+                                        Target::Query(_) => (
+                                            target,
+                                            config.actions.buffer.message_user,
+                                        ),
+                                    })
+                                    .collect(),
+                            }),
+                        );
+                    }
+                    command::Internal::LeaveBuffers(targets, reason) => {
+                        return (
+                            Task::none(),
+                            Some(Event::LeaveBuffers { targets, reason }),
+                        );
+                    }
+                    command::Internal::Detach(channels) => {
+                        return (
+                            Task::none(),
+                            Some(Event::LeaveBuffers {
+                                targets: channels
+                                    .into_iter()
+                                    .map(Target::Channel)
+                                    .collect(),
+                                reason: Some("detach".to_string()),
+                            }),
+                        );
+                    }
+                    command::Internal::Hop(first, rest) => {
+                        let has_channel_argument =
+                            first.as_ref().is_some_and(|s| s.starts_with('#'));
+
+                        // Channel to join, either from first argument or buffer channel
+                        let target_channel = if has_channel_argument {
+                            // Use first argument as channel.
+                            first.clone()
+                        } else {
+                            // If first argument isn't a channel, we use buffer channel
+                            buffer.channel().map(|chan| chan.as_str().to_string())
+                        };
+
+                        // If we don't have a target channel for some reason we return
+                        let Some(target_channel) = target_channel else {
+                            return (Task::none(), None);
+                        };
+
+                        let message = if has_channel_argument {
+                            // If first argument is a channel, we use second argument as message
+                            rest
+                        } else {
+                            // Otherwise we use both arguments
+                            match (first.as_deref(), rest.as_deref()) {
+                                (Some(a), Some(b)) => Some(format!("{a} {b}")),
+                                (Some(a), None) => Some(a.to_string()),
+                                (None, Some(b)) => Some(b.to_string()),
+                                (None, None) => None,
+                            }
+                        };
+
+                        // Part channel. Might not exist if we execute on a query/server.
+                        let part_command = buffer.channel().and_then(|channel| {
+                            data::Input::from_command(
+                                buffer.clone(),
+                                command::Irc::Part(
+                                    channel.as_str().to_string(),
+                                    message,
+                                ),
+                            )
+                            .encoded()
+                        });
+
+                        // Send part command.
+                        if let Some(part_command) = part_command {
+                            clients.send(
+                                buffer,
+                                part_command,
+                                TokenPriority::User,
+                            );
+                        }
+
+                        // Create a delay task that will execute the join after waiting
+                        let buffer_clone = buffer.clone();
+                        let target_channel_clone = target_channel.clone();
+
+                        let delayed_join_task = Task::perform(
+                            time::sleep(Duration::from_millis(100)),
+                            move |()| Message::SendCommand {
+                                buffer: buffer_clone,
+                                command: command::Irc::Join(
+                                    target_channel_clone,
+                                    None,
+                                ),
+                            },
+                        );
+
+                        let chantypes = clients.get_chantypes(buffer.server());
+                        let statusmsg = clients.get_statusmsg(buffer.server());
+                        let casemapping = clients.get_casemapping(buffer.server());
+
+                        let target = Target::parse(
+                            target_channel.as_str(),
+                            chantypes,
+                            statusmsg,
+                            casemapping,
+                        );
+
+                        let event = has_channel_argument.then_some({
+                            let buffer_action = match buffer {
+                                // If it's a channel, we want to replace it when hopping to a new channel.
+                                Upstream::Channel(..) => {
+                                    BufferAction::ReplacePane
+                                }
+                                // If it's a server or query, we want to follow config for actions.
+                                Upstream::Server(..) | Upstream::Query(..) => {
+                                    config.actions.buffer.message_channel
+                                }
+                            };
+
+                            Event::OpenBuffers {
+                                server: buffer.server().clone(),
+                                targets: vec![(target, buffer_action)],
+                            }
+                        });
+
+                        return (delayed_join_task, event);
+                    }
+                    command::Internal::ChannelDiscovery => {
+                        self.input_content = text_editor::Content::new();
+                        return (
+                            Task::none(),
+                            Some(Event::OpenInternalBuffer(
+                                buffer::Internal::ChannelDiscovery(Some(
+                                    buffer.server().clone(),
+                                )),
+                            )),
+                        );
+                    }
+                    command::Internal::Delay(_) => {
+                        return (Task::none(), None);
+                    }
+                    command::Internal::ClearBuffer => {
+                        let kind =
+                            history::Kind::from_input_buffer(buffer.clone());
+
+                        let event =
+                            history.clear_messages(kind, clients).map(
+                                |history_task| Event::Cleared {
+                                    history_task: Task::future(history_task),
+                                },
+                            );
+
+                        return (Task::none(), event);
+                    }
+                    command::Internal::SysInfo => {
+                        self.input_content = text_editor::Content::new();
+
+                        return (
+                            iced::system::information()
+                                .map(Message::SysInfoReceived),
+                            None,
+                        );
+                    }
+                    command::Internal::Connect(server) => {
+                        self.input_content = text_editor::Content::new();
+
+                        return (
+                            Task::none(),
+                            Some(Event::OpenServer(server)),
+                        );
+                    }
+                }
+            }
+            Ok(input::Parsed::Input(input)) => input,
+            Err(error) => {
+                self.error = Some(error.to_string());
+                return (Task::none(), None);
+            }
+        };
+
+        if record_input_history {
+            history.record_input_history(buffer, raw_input.to_owned());
+        }
+        self.input_content = text_editor::Content::new();
+
+        if let Some(encoded) = input.encoded() {
+            let sent_time = server_time(&encoded);
+
+            clients.send(buffer, encoded, TokenPriority::User);
+
+            let supports_echoes =
+                clients.get_server_supports_echoes(buffer.server());
+
+            if config.buffer.mark_as_read.on_message_sent
+                // If the server supports echoes, then send MARKREAD
+                // on echo only (not when recording the input)
+                && !supports_echoes
+            {
+                let chantypes = clients.get_chantypes(buffer.server());
+                let statusmsg = clients.get_statusmsg(buffer.server());
+                let casemapping = clients.get_casemapping(buffer.server());
+
+                if let Some(targets) =
+                    input.targets(chantypes, statusmsg, casemapping)
+                {
+                    for target in targets {
+                        clients.send_markread(
+                            buffer.server(),
+                            target,
+                            ReadMarker::from_date_time(sent_time),
+                            TokenPriority::High,
+                        );
+                    }
+                }
+            }
+        }
+
+        let mut history_task = Task::none();
+
+        if let Some(nick) = clients.nickname(buffer.server()) {
+            let mut user = nick.to_owned().into();
+            let mut channel_users = None;
+
+            let chantypes = clients.get_chantypes(buffer.server());
+            let statusmsg = clients.get_statusmsg(buffer.server());
+            let casemapping = clients.get_casemapping(buffer.server());
+            let supports_echoes =
+                clients.get_server_supports_echoes(buffer.server());
+
+            // Resolve our attributes if sending this message in a channel
+            if let buffer::Upstream::Channel(server, channel) = buffer {
+                channel_users = clients.get_channel_users(server, channel);
+
+                if let Some(user_with_attributes) =
+                    clients.resolve_user_attributes(server, channel, &user)
+                {
+                    user = user_with_attributes.clone();
+                }
+            }
+
+            let mut history_tasks = vec![];
+
+            if let Some(messages) = input.messages(
+                user,
+                channel_users,
+                chantypes,
+                statusmsg,
+                casemapping,
+                supports_echoes,
+            ) {
+                for message in messages {
+                    history_tasks.extend(
+                        history
+                            .record_input_message(
+                                message,
+                                buffer.server(),
+                                casemapping,
+                                config,
+                            )
+                            .into_iter(),
+                    );
+                }
+            }
+
+            history_task =
+                Task::batch(history_tasks.into_iter().map(Task::future));
+        }
+
+        let open_buffers = if let Some(command::Irc::Join(targets, _)) =
+            input.command()
+            && let Some(buffer_action) = config.actions.buffer.join_channel
+        {
+            let chantypes = clients.get_chantypes(buffer.server());
+            let statusmsg = clients.get_statusmsg(buffer.server());
+            let casemapping = clients.get_casemapping(buffer.server());
+
+            targets
+                .split(',')
+                .filter_map(|target| {
+                    let target = Target::parse(
+                        target,
+                        chantypes,
+                        statusmsg,
+                        casemapping,
+                    );
+
+                    matches!(target, Target::Channel(_))
+                        .then_some((target, buffer_action))
+                })
+                .collect()
+        } else {
+            vec![]
+        };
+
+        (
+            Task::none(),
+            Some(Event::InputSent {
+                history_task,
+                open_buffers,
+            }),
         )
     }
 
