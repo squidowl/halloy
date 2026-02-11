@@ -276,10 +276,14 @@ pub enum Sasl {
 impl Sasl {
     pub fn disconnect_on_failure(&self) -> bool {
         match self {
-            Sasl::Plain { disconnect_on_failure, .. }
-            | Sasl::External { disconnect_on_failure, .. } => {
-                disconnect_on_failure.unwrap_or(true)
+            Sasl::Plain {
+                disconnect_on_failure,
+                ..
             }
+            | Sasl::External {
+                disconnect_on_failure,
+                ..
+            } => disconnect_on_failure.unwrap_or(true),
         }
     }
 

@@ -2632,7 +2632,12 @@ impl Client {
             Command::Numeric(ERR_SASLFAIL | ERR_SASLTOOLONG, _) => {
                 log::warn!("[{}] SASL authentication failed", self.server);
 
-                if self.config.sasl.as_ref().is_some_and(config::server::Sasl::disconnect_on_failure) {
+                if self
+                    .config
+                    .sasl
+                    .as_ref()
+                    .is_some_and(config::server::Sasl::disconnect_on_failure)
+                {
                     log::warn!(
                         "[{}] disconnected in order to protect identity from SASL authentication failure",
                         self.server
