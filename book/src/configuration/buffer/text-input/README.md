@@ -8,6 +8,7 @@ Customize the text input for in buffers.
     - [auto\_format](#auto_format)
     - [key\_bindings](#key_bindings)
       - [emacs](#emacs)
+    - [send\_line\_delay](#send_line_delay)
   - [Autocomplete](#autocomplete)
   - [Nickname](#nickname)
 
@@ -68,6 +69,19 @@ Emacs variant has the following binds:
   `alt+f`: Move the cursor forward one word  
 
 > 💡 Global [keyboard shortcuts](../../keyboard.md) take precedence. Unset any that collide (e.g., set `command_bar = "unset"`).
+
+### send_line_delay
+
+Delay (milliseconds) between each line when sending multiple messages.
+
+```toml
+# Type: integer
+# Values: >= 0
+# Default: 100
+
+[buffer.text_input]
+send_line_delay = 100
+```
 
 ## [Autocomplete](autocomplete.md)
 
