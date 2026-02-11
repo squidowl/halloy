@@ -2,10 +2,10 @@ use chrono::{DateTime, Local, Utc};
 use data::dashboard::BufferAction;
 use data::user::Nick;
 use data::{Config, Server, User, config, ctcp, isupport, message, target};
-use iced::widget::{Space, button, column, container, row, rule, text};
+use iced::widget::{Space, button, column, container, row, rule};
 use iced::{Length, Padding};
 
-use crate::widget::{Element, context_menu, double_pass};
+use crate::widget::{Element, context_menu, double_pass, text};
 use crate::{Theme, font, theme, widget};
 
 pub enum Context<'a> {
@@ -576,8 +576,7 @@ fn menu_button(
     config: &Config,
 ) -> Element<'static, Message> {
     button(
-        text(content)
-            .line_height(theme::line_height(&config.font))
+        text(content, config)
             .style(theme::text::primary)
             .font_maybe(theme::font_style::primary(theme).map(font::get)),
     )
@@ -604,8 +603,7 @@ fn user_info<'a>(
         Some(user) => {
             if user.is_away() {
                 Some(
-                    text("(Away)")
-                        .line_height(theme::line_height(&config.font))
+                    text("(Away)", config)
                         .style(theme::text::secondary)
                         .font_maybe(
                             theme::font_style::secondary(theme).map(font::get),
@@ -617,8 +615,7 @@ fn user_info<'a>(
             }
         }
         None => Some(
-            text("(Offline)")
-                .line_height(theme::line_height(&config.font))
+            text("(Offline)", config)
                 .style(theme::text::secondary)
                 .font_maybe(theme::font_style::secondary(theme).map(font::get))
                 .width(length),
@@ -644,8 +641,7 @@ fn user_info<'a>(
     let style =
         theme::text::nickname(theme, seed, is_user_away, is_user_offline);
 
-    let nickname = text(nickname.to_string())
-        .line_height(theme::line_height(&config.font))
+    let nickname = text(nickname.to_string(), config)
         .style(move |_| style)
         .font_maybe(
             theme::font_style::nickname(theme, is_user_offline).map(font::get),

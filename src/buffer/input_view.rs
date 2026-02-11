@@ -16,8 +16,9 @@ use data::user::Nick;
 use data::{Config, User, client, command, shortcut};
 use iced::advanced::widget::Tree;
 use iced::advanced::{Clipboard, Layout, Shell, mouse};
+use iced::widget::text::{Shaping, Wrapping};
 use iced::widget::{
-    self, button, column, container, operation, row, rule, text, text_editor,
+    self, button, column, container, operation, row, rule, text_editor,
 };
 use iced::{Alignment, Length, Task, clipboard, event, keyboard, padding};
 use tokio::time;
@@ -26,6 +27,7 @@ use self::completion::Completion;
 use crate::widget::key_press::is_numpad;
 use crate::widget::{
     Element, Renderer, Text, anchored_overlay, context_menu, decorate,
+    text,
 };
 use crate::window::Window;
 use crate::{Theme, font, theme, window};
@@ -287,7 +289,7 @@ pub fn view<'a>(
         .id(state.input_id.clone())
         .placeholder("Send message...")
         .padding([2, 4])
-        .wrapping(text::Wrapping::WordOrGlyph)
+        .wrapping(Wrapping::WordOrGlyph)
         .height(Length::Shrink)
         .line_height(theme::line_height(&config.font))
         .style(style);
@@ -413,12 +415,9 @@ pub fn view<'a>(
                         row![
                             title.line_height(theme::line_height(&config.font)),
                             keybind.map(|kb| {
-                                text(format!("({kb})"))
-                                    .shaping(text::Shaping::Advanced)
+                                text(format!("({kb})"), config)
+                                    .shaping(Shaping::Advanced)
                                     .size(theme::TEXT_SIZE - 2.0)
-                                    .line_height(theme::line_height(
-                                        &config.font,
-                                    ))
                                     .style(theme::text::secondary)
                                     .font_maybe(
                                         theme::font_style::secondary(theme)
@@ -437,17 +436,17 @@ pub fn view<'a>(
 
             match menu {
                 Actions::Cut => context_button(
-                    text("Cut"),
+                    text("Cut", config),
                     Some(shortcut::cut()),
                     state.input_content.selection().map(|_| Message::Cut),
                 ),
                 Actions::Copy => context_button(
-                    text("Copy"),
+                    text("Copy", config),
                     Some(shortcut::copy()),
                     state.input_content.selection().map(|_| Message::Copy),
                 ),
                 Actions::CopyAll => context_button(
-                    text("Copy All"),
+                    text("Copy All", config),
                     None,
                     if !state.input_content.text().is_empty() {
                         Some(Message::CopyAll)
@@ -456,7 +455,7 @@ pub fn view<'a>(
                     },
                 ),
                 Actions::SelectAll => context_button(
-                    text("Select All"),
+                    text("Select All", config),
                     Some(shortcut::select_all()),
                     if !state.input_content.text().is_empty() {
                         Some(Message::SelectAll)
@@ -465,7 +464,7 @@ pub fn view<'a>(
                     },
                 ),
                 Actions::Paste => context_button(
-                    text("Paste"),
+                    text("Paste", config),
                     Some(shortcut::paste()),
                     Some(Message::Paste),
                 ),
@@ -497,12 +496,14 @@ pub fn view<'a>(
         config.buffer.text_input.nickname.enabled.then(move || {
             our_user.map(|user| {
                 container(
-                    text(user.display(
-                        config.buffer.text_input.nickname.show_access_level,
-                        None,
-                    ))
+                    text(
+                        user.display(
+                            config.buffer.text_input.nickname.show_access_level,
+                            None,
+                        ),
+                        config,
+                    )
                     .style(move |_| our_user_style)
-                    .line_height(theme::line_height(&config.font))
                     .font_maybe(
                         theme::font_style::nickname(theme, false)
                             .map(font::get),
@@ -540,7 +541,7 @@ pub fn view<'a>(
         state
             .error
             .as_deref()
-            .map(|error_str| error(error_str, theme)),
+            .map(|error_str| error(error_str, config, theme)),
     ]
     .padding([0, 8])
     .spacing(4);
@@ -550,10 +551,11 @@ pub fn view<'a>(
 
 fn error<'a, 'b, Message: 'a>(
     error: &'b str,
+    config: &'a Config,
     theme: &'a Theme,
 ) -> Element<'a, Message> {
     container(
-        text(error.to_string())
+        text(error.to_string(), config)
             .style(theme::text::error)
             .font_maybe(theme::font_style::error(theme).map(font::get)),
     )

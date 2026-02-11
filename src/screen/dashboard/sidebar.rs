@@ -5,13 +5,14 @@ use data::dashboard::{BufferAction, BufferFocusedAction};
 use data::{Version, buffer, file_transfer, history, isupport, server, target};
 use iced::widget::{
     Column, Row, Scrollable, Space, button, column, container, pane_grid, row,
-    rule, scrollable, space, stack, text,
+    rule, scrollable, space, stack,
 };
+use iced::widget::text::Shaping;
 use iced::{Alignment, Length, Padding, Task, padding};
 use tokio::time;
 
 use super::{Focus, Panes, Server};
-use crate::widget::{Element, Text, context_menu, double_pass};
+use crate::widget::{Element, Text, context_menu, double_pass, text};
 use crate::{Theme, font, icon, platform_specific, theme, window};
 
 const CONFIG_RELOAD_DELAY: Duration = Duration::from_secs(1);
@@ -214,12 +215,9 @@ impl Sidebar {
                                     data::shortcut::KeyBind::Bind {
                                         ..
                                     } => Some(
-                                        text(format!("({kb})"))
-                                            .shaping(text::Shaping::Advanced)
+                                        text(format!("({kb})"), config)
+                                            .shaping(Shaping::Advanced)
                                             .size(theme::TEXT_SIZE - 2.0)
-                                            .line_height(theme::line_height(
-                                                &config.font,
-                                            ))
                                             .style(theme::text::secondary)
                                             .font_maybe(
                                                 theme::font_style::secondary(
@@ -248,25 +246,25 @@ impl Sidebar {
 
                         match menu {
                             Menu::QuitApplication => context_button(
-                                text("Quit Halloy"),
+                                text("Quit Halloy", config),
                                 Some(&keyboard.quit_application),
                                 icon::quit(),
                                 Message::QuitApplication,
                             ),
                             Menu::RefreshConfig => context_button(
-                                text("Reload config file"),
+                                text("Reload config file", config),
                                 Some(&keyboard.reload_configuration),
                                 icon::refresh(),
                                 Message::ReloadConfigFile,
                             ),
                             Menu::CommandBar => context_button(
-                                text("Command Bar"),
+                                text("Command Bar", config),
                                 Some(&keyboard.command_bar),
                                 icon::search(),
                                 Message::ToggleCommandBar,
                             ),
                             Menu::FileTransfers => context_button(
-                                text("File Transfers")
+                                text("File Transfers", config)
                                     .style(if file_transfers.is_empty() {
                                         theme::text::primary
                                     } else {
@@ -292,7 +290,7 @@ impl Sidebar {
                                 ),
                             ),
                             Menu::Highlights => context_button(
-                                text("Highlights"),
+                                text("Highlights", config),
                                 Some(&keyboard.highlights),
                                 icon::highlights(),
                                 Message::ToggleInternalBuffer(
@@ -300,7 +298,7 @@ impl Sidebar {
                                 ),
                             ),
                             Menu::ChannelDiscovery => context_button(
-                                text("Channel Discovery"),
+                                text("Channel Discovery", config),
                                 None,
                                 icon::channel_discovery(),
                                 Message::ToggleInternalBuffer(
@@ -308,7 +306,7 @@ impl Sidebar {
                                 ),
                             ),
                             Menu::Logs => context_button(
-                                text("Logs")
+                                text("Logs", config)
                                     .style(if logs_has_unread {
                                         theme::text::tertiary
                                     } else {
@@ -332,7 +330,7 @@ impl Sidebar {
                                 ),
                             ),
                             Menu::ThemeEditor => context_button(
-                                text("Theme Editor"),
+                                text("Theme Editor", config),
                                 Some(&keyboard.theme_editor),
                                 icon::theme_editor(),
                                 Message::ToggleThemeEditor,
@@ -346,7 +344,7 @@ impl Sidebar {
                                 }
                             },
                             Menu::Update => context_button(
-                                text("New version available")
+                                text("New version available", config)
                                     .style(theme::text::tertiary)
                                     .font_maybe(
                                         theme::font_style::tertiary(theme)
@@ -357,10 +355,10 @@ impl Sidebar {
                                 Message::OpenReleaseWebsite,
                             ),
                             Menu::Version => container(
-                                text(format!("Halloy ({})", version.current))
-                                    .line_height(theme::line_height(
-                                        &config.font,
-                                    ))
+                                text(
+                                    format!("Halloy ({})", version.current),
+                                    config,
+                                )
                                     .style(theme::text::secondary)
                                     .font_maybe(
                                         theme::font_style::secondary(theme)
@@ -370,13 +368,13 @@ impl Sidebar {
                             .padding(5)
                             .into(),
                             Menu::Documentation => context_button(
-                                text("Documentation"),
+                                text("Documentation", config),
                                 None,
                                 icon::documentation(),
                                 Message::OpenDocumentation,
                             ),
                             Menu::OpenConfigFile => context_button(
-                                text("Open config file"),
+                                text("Open config file", config),
                                 None,
                                 icon::config(),
                                 Message::OpenConfigFile,
@@ -933,39 +931,38 @@ fn upstream_buffer_button<'a>(
             buffer::Upstream::Server(server) => {
                 if let Some(network) = &server.network {
                     Element::from(row![
-                        text(network.name.to_string())
+                        text(network.name.to_string(), config)
                             .style(buffer_title_style)
                             .font_maybe(buffer_title_font.clone())
-                            .shaping(text::Shaping::Advanced)
-                            .line_height(theme::line_height(&config.font)),
+                            .shaping(Shaping::Advanced),
                         Space::new().width(6),
-                        text(server.name.to_string())
+                        text(server.name.to_string(), config)
                             .style(theme::text::secondary)
                             .font_maybe(buffer_title_font)
-                            .shaping(text::Shaping::Advanced)
-                            .line_height(theme::line_height(&config.font)),
+                            .shaping(Shaping::Advanced),
                     ])
                 } else {
-                    text(server.to_string())
+                    text(server.to_string(), config)
                         .style(buffer_title_style)
                         .font_maybe(buffer_title_font)
-                        .shaping(text::Shaping::Advanced)
-                        .line_height(theme::line_height(&config.font))
+                        .shaping(Shaping::Advanced)
                         .into()
                 }
             }
-            buffer::Upstream::Channel(_, channel) => text(channel.to_string())
-                .style(buffer_title_style)
-                .font_maybe(buffer_title_font)
-                .shaping(text::Shaping::Advanced)
-                .line_height(theme::line_height(&config.font))
-                .into(),
-            buffer::Upstream::Query(_, query) => text(query.to_string())
-                .style(buffer_title_style)
-                .font_maybe(buffer_title_font)
-                .shaping(text::Shaping::Advanced)
-                .line_height(theme::line_height(&config.font))
-                .into(),
+            buffer::Upstream::Channel(_, channel) => {
+                text(channel.to_string(), config)
+                    .style(buffer_title_style)
+                    .font_maybe(buffer_title_font)
+                    .shaping(Shaping::Advanced)
+                    .into()
+            }
+            buffer::Upstream::Query(_, query) => {
+                text(query.to_string(), config)
+                    .style(buffer_title_style)
+                    .font_maybe(buffer_title_font)
+                    .shaping(Shaping::Advanced)
+                    .into()
+            }
         })
         .padding(Padding::default().left(left_padding))
         .align_y(iced::Alignment::Center),
@@ -1107,9 +1104,7 @@ fn upstream_buffer_button<'a>(
                     ),
                 };
 
-                button(
-                    text(content).line_height(theme::line_height(&config.font)),
-                )
+                button(text(content, config))
                 .width(length)
                 .padding(config.context_menu.padding.entry)
                 .style(|theme, status| {
