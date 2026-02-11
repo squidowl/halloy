@@ -12,6 +12,7 @@ Added:
   - `new_horizontal_buffer` (not bound by default)
   - `new_vertical_buffer` (not bound by default)
   - `quit_application` (defaults to `Ctrl+Q` on linux, not bound on Windows/MacOS)
+- Multi-line send support
 
 Fixed:
 
