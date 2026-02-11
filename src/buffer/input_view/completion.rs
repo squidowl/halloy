@@ -938,10 +938,8 @@ impl Commands {
                 let content = |width| {
                     column(entries.iter().map(|(index, command)| {
                         let selected = Some(*index) == *highlighted;
-                        let content = text(
-                            format!("/{}", command.title.to_lowercase()),
-                            config,
-                        );
+                        let content =
+                            text(format!("/{}", command.title.to_lowercase()));
 
                         Element::from(
                             container(content)
@@ -973,12 +971,7 @@ impl Commands {
                 subcommand,
             } => {
                 if config.buffer.commands.show_description {
-                    Some(command.view(
-                        input,
-                        subcommand.as_ref(),
-                        config,
-                        theme,
-                    ))
+                    Some(command.view(input, subcommand.as_ref(), theme))
                 } else {
                     None
                 }
@@ -1085,7 +1078,6 @@ impl Command {
         &self,
         input: &str,
         subcommand: Option<&Command>,
-        config: &Config,
         theme: &'a Theme,
     ) -> Element<'a, Message> {
         let command_prefix = format!("/{}", self.title.to_lowercase());
@@ -1119,10 +1111,10 @@ impl Command {
             .saturating_sub(1),
         );
 
-        let title = Some(Element::from(text(self.title, config)));
+        let title = Some(Element::from(text(self.title)));
 
         let arg_text = |index: usize, arg: &Argument| {
-            let content = text(format!("{arg}"), config)
+            let content = text(format!("{arg}"))
                 .style(move |theme| {
                     if index == active_arg {
                         theme::text::tertiary(theme)
@@ -1137,7 +1129,7 @@ impl Command {
                 );
 
             if let Some(arg_tooltip) = &arg.tooltip {
-                let tooltip_indicator = text("*", config)
+                let tooltip_indicator = text("*")
                     .style(move |theme| {
                         if index == active_arg {
                             theme::text::tertiary(theme)
@@ -1153,12 +1145,12 @@ impl Command {
                     .size(8);
 
                 Element::from(row![
-                    text(" ", config),
+                    text(" "),
                     tooltip(
                         row![content, tooltip_indicator]
                             .align_y(iced::Alignment::Start),
                         container(
-                            text(arg_tooltip.clone(), config)
+                            text(arg_tooltip.clone())
                                 .style(move |theme| {
                                     if index == active_arg {
                                         theme::text::tertiary(theme)
@@ -1181,7 +1173,7 @@ impl Command {
                     .delay(iced::time::Duration::ZERO)
                 ])
             } else {
-                Element::from(row![text(" ", config), content])
+                Element::from(row![text(" "), content])
             }
         };
 
@@ -1198,7 +1190,6 @@ impl Command {
                                 .title
                                 .strip_prefix(self.title)
                                 .unwrap_or_default(),
-                            config
                         )
                         .style(move |theme| {
                             if 0 == active_arg {
@@ -1221,7 +1212,7 @@ impl Command {
 
             Either::Right(if self.subcommands.is_some() {
                 Either::Left(args.chain(iter::once(Element::from(row![
-                    text(" ...", config).style(theme::text::none)
+                    text(" ...").style(theme::text::none)
                 ]))))
             } else {
                 Either::Right(args)
@@ -1234,11 +1225,9 @@ impl Command {
                     subcommand.description()
                 })
                 .map(|description| {
-                    text(description, config)
-                        .style(theme::text::secondary)
-                        .font_maybe(
-                            theme::font_style::secondary(theme).map(font::get),
-                        )
+                    text(description).style(theme::text::secondary).font_maybe(
+                        theme::font_style::secondary(theme).map(font::get),
+                    )
                 }),
             row(title.into_iter().chain(args)),
         ])
@@ -2670,18 +2659,15 @@ impl Emojis {
                 let content = |width| {
                     column(entries.iter().map(|(index, shortcode)| {
                         let selected = Some(*index) == *highlighted;
-                        let content = text(
-                            format!(
-                                "{} :{}:",
-                                pick_emoji(
-                                    shortcode,
-                                    config.buffer.emojis.skin_tone
-                                )
-                                .unwrap_or(" "),
-                                shortcode
-                            ),
-                            config,
-                        )
+                        let content = text(format!(
+                            "{} :{}:",
+                            pick_emoji(
+                                shortcode,
+                                config.buffer.emojis.skin_tone
+                            )
+                            .unwrap_or(" "),
+                            shortcode
+                        ))
                         .shaping(Shaping::Advanced);
 
                         Element::from(

@@ -576,7 +576,7 @@ fn menu_button(
     config: &Config,
 ) -> Element<'static, Message> {
     button(
-        text(content, config)
+        text(content)
             .style(theme::text::primary)
             .font_maybe(theme::font_style::primary(theme).map(font::get)),
     )
@@ -603,7 +603,7 @@ fn user_info<'a>(
         Some(user) => {
             if user.is_away() {
                 Some(
-                    text("(Away)", config)
+                    text("(Away)")
                         .style(theme::text::secondary)
                         .font_maybe(
                             theme::font_style::secondary(theme).map(font::get),
@@ -615,7 +615,7 @@ fn user_info<'a>(
             }
         }
         None => Some(
-            text("(Offline)", config)
+            text("(Offline)")
                 .style(theme::text::secondary)
                 .font_maybe(theme::font_style::secondary(theme).map(font::get))
                 .width(length),
@@ -641,11 +641,9 @@ fn user_info<'a>(
     let style =
         theme::text::nickname(theme, seed, is_user_away, is_user_offline);
 
-    let nickname = text(nickname.to_string(), config)
-        .style(move |_| style)
-        .font_maybe(
-            theme::font_style::nickname(theme, is_user_offline).map(font::get),
-        );
+    let nickname = text(nickname.to_string()).style(move |_| style).font_maybe(
+        theme::font_style::nickname(theme, is_user_offline).map(font::get),
+    );
 
     column![
         container(row![nickname, state].width(length).spacing(4))
