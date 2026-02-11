@@ -215,7 +215,7 @@ impl Sidebar {
                                     data::shortcut::KeyBind::Bind {
                                         ..
                                     } => Some(
-                                        text(format!("({kb})"), config)
+                                        text(format!("({kb})"))
                                             .shaping(Shaping::Advanced)
                                             .size(theme::TEXT_SIZE - 2.0)
                                             .style(theme::text::secondary)
@@ -246,25 +246,25 @@ impl Sidebar {
 
                         match menu {
                             Menu::QuitApplication => context_button(
-                                text("Quit Halloy", config),
+                                text("Quit Halloy"),
                                 Some(&keyboard.quit_application),
                                 icon::quit(),
                                 Message::QuitApplication,
                             ),
                             Menu::RefreshConfig => context_button(
-                                text("Reload config file", config),
+                                text("Reload config file"),
                                 Some(&keyboard.reload_configuration),
                                 icon::refresh(),
                                 Message::ReloadConfigFile,
                             ),
                             Menu::CommandBar => context_button(
-                                text("Command Bar", config),
+                                text("Command Bar"),
                                 Some(&keyboard.command_bar),
                                 icon::search(),
                                 Message::ToggleCommandBar,
                             ),
                             Menu::FileTransfers => context_button(
-                                text("File Transfers", config)
+                                text("File Transfers")
                                     .style(if file_transfers.is_empty() {
                                         theme::text::primary
                                     } else {
@@ -290,7 +290,7 @@ impl Sidebar {
                                 ),
                             ),
                             Menu::Highlights => context_button(
-                                text("Highlights", config),
+                                text("Highlights"),
                                 Some(&keyboard.highlights),
                                 icon::highlights(),
                                 Message::ToggleInternalBuffer(
@@ -298,7 +298,7 @@ impl Sidebar {
                                 ),
                             ),
                             Menu::ChannelDiscovery => context_button(
-                                text("Channel Discovery", config),
+                                text("Channel Discovery"),
                                 None,
                                 icon::channel_discovery(),
                                 Message::ToggleInternalBuffer(
@@ -306,7 +306,7 @@ impl Sidebar {
                                 ),
                             ),
                             Menu::Logs => context_button(
-                                text("Logs", config)
+                                text("Logs")
                                     .style(if logs_has_unread {
                                         theme::text::tertiary
                                     } else {
@@ -330,7 +330,7 @@ impl Sidebar {
                                 ),
                             ),
                             Menu::ThemeEditor => context_button(
-                                text("Theme Editor", config),
+                                text("Theme Editor"),
                                 Some(&keyboard.theme_editor),
                                 icon::theme_editor(),
                                 Message::ToggleThemeEditor,
@@ -344,7 +344,7 @@ impl Sidebar {
                                 }
                             },
                             Menu::Update => context_button(
-                                text("New version available", config)
+                                text("New version available")
                                     .style(theme::text::tertiary)
                                     .font_maybe(
                                         theme::font_style::tertiary(theme)
@@ -355,26 +355,23 @@ impl Sidebar {
                                 Message::OpenReleaseWebsite,
                             ),
                             Menu::Version => container(
-                                text(
-                                    format!("Halloy ({})", version.current),
-                                    config,
-                                )
-                                .style(theme::text::secondary)
-                                .font_maybe(
-                                    theme::font_style::secondary(theme)
-                                        .map(font::get),
-                                ),
+                                text(format!("Halloy ({})", version.current))
+                                    .style(theme::text::secondary)
+                                    .font_maybe(
+                                        theme::font_style::secondary(theme)
+                                            .map(font::get),
+                                    ),
                             )
                             .padding(5)
                             .into(),
                             Menu::Documentation => context_button(
-                                text("Documentation", config),
+                                text("Documentation"),
                                 None,
                                 icon::documentation(),
                                 Message::OpenDocumentation,
                             ),
                             Menu::OpenConfigFile => context_button(
-                                text("Open config file", config),
+                                text("Open config file"),
                                 None,
                                 icon::config(),
                                 Message::OpenConfigFile,
@@ -931,18 +928,18 @@ fn upstream_buffer_button<'a>(
             buffer::Upstream::Server(server) => {
                 if let Some(network) = &server.network {
                     Element::from(row![
-                        text(network.name.to_string(), config)
+                        text(network.name.to_string())
                             .style(buffer_title_style)
                             .font_maybe(buffer_title_font.clone())
                             .shaping(Shaping::Advanced),
                         Space::new().width(6),
-                        text(server.name.to_string(), config)
+                        text(server.name.to_string())
                             .style(theme::text::secondary)
                             .font_maybe(buffer_title_font)
                             .shaping(Shaping::Advanced),
                     ])
                 } else {
-                    text(server.to_string(), config)
+                    text(server.to_string())
                         .style(buffer_title_style)
                         .font_maybe(buffer_title_font)
                         .shaping(Shaping::Advanced)
@@ -950,14 +947,14 @@ fn upstream_buffer_button<'a>(
                 }
             }
             buffer::Upstream::Channel(_, channel) => {
-                text(channel.to_string(), config)
+                text(channel.to_string())
                     .style(buffer_title_style)
                     .font_maybe(buffer_title_font)
                     .shaping(Shaping::Advanced)
                     .into()
             }
             buffer::Upstream::Query(_, query) => {
-                text(query.to_string(), config)
+                text(query.to_string())
                     .style(buffer_title_style)
                     .font_maybe(buffer_title_font)
                     .shaping(Shaping::Advanced)
@@ -1104,7 +1101,7 @@ fn upstream_buffer_button<'a>(
                     ),
                 };
 
-                button(text(content, config))
+                button(text(content))
                     .width(length)
                     .padding(config.context_menu.padding.entry)
                     .style(|theme, status| {
