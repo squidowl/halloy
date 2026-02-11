@@ -253,6 +253,8 @@ pub enum Sasl {
         password_file_first_line_only: Option<bool>,
         /// Account password command
         password_command: Option<String>,
+        /// Disconnect from server if SASL authentication fails. Defaults to `true`.
+        disconnect_on_failure: Option<bool>,
     },
     External {
         /// The path to PEM encoded X509 user certificate for external auth
@@ -266,10 +268,25 @@ pub enum Sasl {
             deserialize_with = "deserialize_path_buf_with_path_transformations_maybe"
         )]
         key: Option<PathBuf>,
+        /// Disconnect from server if SASL authentication fails. Defaults to `true`.
+        disconnect_on_failure: Option<bool>,
     },
 }
 
 impl Sasl {
+    pub fn disconnect_on_failure(&self) -> bool {
+        match self {
+            Sasl::Plain {
+                disconnect_on_failure,
+                ..
+            }
+            | Sasl::External {
+                disconnect_on_failure,
+                ..
+            } => disconnect_on_failure.unwrap_or(true),
+        }
+    }
+
     pub fn command(&self) -> &'static str {
         match self {
             Sasl::Plain { .. } => "PLAIN",

@@ -1355,6 +1355,9 @@ fn handle_client_event(
         Event::AddToSidebar(query) => {
             dashboard.add_to_sidebar(server.clone(), query);
         }
+        Event::Disconnect => {
+            clients.disconnected(server.clone());
+        }
     }
 }
 
