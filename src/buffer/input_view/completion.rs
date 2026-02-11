@@ -15,14 +15,15 @@ use data::target::{self, Target};
 use data::user::{ChannelUsers, Nick, NickRef};
 use data::{Config, mode};
 use iced::Length;
-use iced::widget::{column, container, row, text, text_editor, tooltip};
+use iced::widget::{column, container, row, text_editor, tooltip};
+use iced::widget::text::Shaping;
 use irc::proto;
 use itertools::{Either, Itertools};
 use strsim::jaro_winkler;
 
 use crate::font;
 use crate::theme::{self, Theme};
-use crate::widget::{Element, double_pass};
+use crate::widget::{Element, double_pass, text};
 
 const MAX_SHOWN_COMMAND_ENTRIES: usize = 5;
 const MAX_SHOWN_EMOJI_ENTRIES: usize = 8;
@@ -937,9 +938,10 @@ impl Commands {
                 let content = |width| {
                     column(entries.iter().map(|(index, command)| {
                         let selected = Some(*index) == *highlighted;
-                        let content =
-                            text(format!("/{}", command.title.to_lowercase()))
-                                .line_height(theme::line_height(&config.font));
+                        let content = text(
+                            format!("/{}", command.title.to_lowercase()),
+                            config,
+                        );
 
                         Element::from(
                             container(content)
@@ -1117,13 +1119,10 @@ impl Command {
             .saturating_sub(1),
         );
 
-        let title = Some(Element::from(
-            text(self.title).line_height(theme::line_height(&config.font)),
-        ));
+        let title = Some(Element::from(text(self.title, config)));
 
         let arg_text = |index: usize, arg: &Argument| {
-            let content = text(format!("{arg}"))
-                .line_height(theme::line_height(&config.font))
+            let content = text(format!("{arg}"), config)
                 .style(move |theme| {
                     if index == active_arg {
                         theme::text::tertiary(theme)
@@ -1138,8 +1137,7 @@ impl Command {
                 );
 
             if let Some(arg_tooltip) = &arg.tooltip {
-                let tooltip_indicator = text("*")
-                    .line_height(theme::line_height(&config.font))
+                let tooltip_indicator = text("*", config)
                     .style(move |theme| {
                         if index == active_arg {
                             theme::text::tertiary(theme)
@@ -1155,13 +1153,12 @@ impl Command {
                     .size(8);
 
                 Element::from(row![
-                    text(" ").line_height(theme::line_height(&config.font)),
+                    text(" ", config),
                     tooltip(
                         row![content, tooltip_indicator]
                             .align_y(iced::Alignment::Start),
                         container(
-                            text(arg_tooltip.clone())
-                                .line_height(theme::line_height(&config.font))
+                            text(arg_tooltip.clone(), config)
                                 .style(move |theme| {
                                     if index == active_arg {
                                         theme::text::tertiary(theme)
@@ -1185,7 +1182,7 @@ impl Command {
                 ])
             } else {
                 Element::from(row![
-                    text(" ").line_height(theme::line_height(&config.font)),
+                    text(" ", config),
                     content
                 ])
             }
@@ -1204,7 +1201,7 @@ impl Command {
                                 .title
                                 .strip_prefix(self.title)
                                 .unwrap_or_default()
-                        )
+                        , config)
                         .style(move |theme| {
                             if 0 == active_arg {
                                 theme::text::tertiary(theme)
@@ -1226,8 +1223,7 @@ impl Command {
 
             Either::Right(if self.subcommands.is_some() {
                 Either::Left(args.chain(iter::once(Element::from(row![
-                    text(" ...")
-                        .line_height(theme::line_height(&config.font))
+                    text(" ...", config)
                         .style(theme::text::none)
                 ]))))
             } else {
@@ -1241,8 +1237,7 @@ impl Command {
                     subcommand.description()
                 })
                 .map(|description| {
-                    text(description)
-                        .line_height(theme::line_height(&config.font))
+                    text(description, config)
                         .style(theme::text::secondary)
                         .font_maybe(
                             theme::font_style::secondary(theme).map(font::get),
@@ -2686,9 +2681,8 @@ impl Emojis {
                             )
                             .unwrap_or(" "),
                             shortcode
-                        ))
-                        .line_height(theme::line_height(&config.font))
-                        .shaping(text::Shaping::Advanced);
+                        ), config)
+                        .shaping(Shaping::Advanced);
 
                         Element::from(
                             container(content)

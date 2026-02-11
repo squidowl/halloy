@@ -20,7 +20,7 @@ pub use self::selectable_text::selectable_text;
 pub use self::shortcut::shortcut;
 pub use self::tooltip::tooltip;
 use crate::appearance::theme::TEXT_SIZE;
-use crate::{Theme, font};
+use crate::{Theme, font, theme};
 
 pub mod anchored_overlay;
 pub mod color_picker;
@@ -60,6 +60,14 @@ pub enum Marker {
     Expand,
     Contract,
     None,
+}
+
+pub fn text<'a>(
+    content: impl iced::widget::text::IntoFragment<'a>,
+    config: &Config,
+) -> Text<'a> {
+    iced::widget::text(content)
+        .line_height(theme::line_height(&config.font))
 }
 
 pub fn message_marker<'a, M>(
