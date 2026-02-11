@@ -15,8 +15,8 @@ use data::target::{self, Target};
 use data::user::{ChannelUsers, Nick, NickRef};
 use data::{Config, mode};
 use iced::Length;
-use iced::widget::{column, container, row, text_editor, tooltip};
 use iced::widget::text::Shaping;
+use iced::widget::{column, container, row, text_editor, tooltip};
 use irc::proto;
 use itertools::{Either, Itertools};
 use strsim::jaro_winkler;
@@ -1181,10 +1181,7 @@ impl Command {
                     .delay(iced::time::Duration::ZERO)
                 ])
             } else {
-                Element::from(row![
-                    text(" ", config),
-                    content
-                ])
+                Element::from(row![text(" ", config), content])
             }
         };
 
@@ -1200,8 +1197,9 @@ impl Command {
                             subcommand
                                 .title
                                 .strip_prefix(self.title)
-                                .unwrap_or_default()
-                        , config)
+                                .unwrap_or_default(),
+                            config
+                        )
                         .style(move |theme| {
                             if 0 == active_arg {
                                 theme::text::tertiary(theme)
@@ -1223,8 +1221,7 @@ impl Command {
 
             Either::Right(if self.subcommands.is_some() {
                 Either::Left(args.chain(iter::once(Element::from(row![
-                    text(" ...", config)
-                        .style(theme::text::none)
+                    text(" ...", config).style(theme::text::none)
                 ]))))
             } else {
                 Either::Right(args)
@@ -2673,15 +2670,18 @@ impl Emojis {
                 let content = |width| {
                     column(entries.iter().map(|(index, shortcode)| {
                         let selected = Some(*index) == *highlighted;
-                        let content = text(format!(
-                            "{} :{}:",
-                            pick_emoji(
-                                shortcode,
-                                config.buffer.emojis.skin_tone
-                            )
-                            .unwrap_or(" "),
-                            shortcode
-                        ), config)
+                        let content = text(
+                            format!(
+                                "{} :{}:",
+                                pick_emoji(
+                                    shortcode,
+                                    config.buffer.emojis.skin_tone
+                                )
+                                .unwrap_or(" "),
+                                shortcode
+                            ),
+                            config,
+                        )
                         .shaping(Shaping::Advanced);
 
                         Element::from(

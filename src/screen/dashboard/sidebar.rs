@@ -3,11 +3,11 @@ use std::time::Duration;
 use data::config::{self, Config, sidebar};
 use data::dashboard::{BufferAction, BufferFocusedAction};
 use data::{Version, buffer, file_transfer, history, isupport, server, target};
+use iced::widget::text::Shaping;
 use iced::widget::{
     Column, Row, Scrollable, Space, button, column, container, pane_grid, row,
     rule, scrollable, space, stack,
 };
-use iced::widget::text::Shaping;
 use iced::{Alignment, Length, Padding, Task, padding};
 use tokio::time;
 
@@ -359,11 +359,11 @@ impl Sidebar {
                                     format!("Halloy ({})", version.current),
                                     config,
                                 )
-                                    .style(theme::text::secondary)
-                                    .font_maybe(
-                                        theme::font_style::secondary(theme)
-                                            .map(font::get),
-                                    ),
+                                .style(theme::text::secondary)
+                                .font_maybe(
+                                    theme::font_style::secondary(theme)
+                                        .map(font::get),
+                                ),
                             )
                             .padding(5)
                             .into(),
@@ -1105,13 +1105,13 @@ fn upstream_buffer_button<'a>(
                 };
 
                 button(text(content, config))
-                .width(length)
-                .padding(config.context_menu.padding.entry)
-                .style(|theme, status| {
-                    theme::button::primary(theme, status, false)
-                })
-                .on_press_maybe(message)
-                .into()
+                    .width(length)
+                    .padding(config.context_menu.padding.entry)
+                    .style(|theme, status| {
+                        theme::button::primary(theme, status, false)
+                    })
+                    .on_press_maybe(message)
+                    .into()
             },
         )
         .into()

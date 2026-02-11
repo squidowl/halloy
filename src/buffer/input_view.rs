@@ -26,8 +26,7 @@ use tokio::time;
 use self::completion::Completion;
 use crate::widget::key_press::is_numpad;
 use crate::widget::{
-    Element, Renderer, Text, anchored_overlay, context_menu, decorate,
-    text,
+    Element, Renderer, Text, anchored_overlay, context_menu, decorate, text,
 };
 use crate::window::Window;
 use crate::{Theme, font, theme, window};
