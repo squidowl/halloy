@@ -1271,12 +1271,12 @@ impl Data {
         let has_more_older_messages = first_without_limit
             .zip(first_with_limit)
             .is_some_and(|(without_limit, with_limit)| {
-                without_limit.server_time < with_limit.server_time
+                without_limit.hash != with_limit.hash
             });
         let has_more_newer_messages = last_without_limit
             .zip(last_with_limit)
             .is_some_and(|(without_limit, with_limit)| {
-                without_limit.server_time > with_limit.server_time
+                without_limit.hash != with_limit.hash
             });
 
         Some(history::View {
