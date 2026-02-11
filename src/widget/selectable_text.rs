@@ -48,6 +48,7 @@ where
                 #[cfg(not(debug_assertions))]
                 shaping: Shaping::Advanced,
                 wrapping: Wrapping::WordOrGlyph,
+                line_height: crate::font::line_height(),
                 ..Format::default()
             },
             class: Theme::default(),
