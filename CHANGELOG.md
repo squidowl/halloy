@@ -10,6 +10,10 @@ Added:
 - Added ability to disconnect on SASL authentication failure
 - Setting to configure font line height (`font.line_height`)
 
+Fixed
+
+- Virtualize message rendering to improve buffer performance
+
 Thanks:
 
 - Contributions: @Hummer12007
