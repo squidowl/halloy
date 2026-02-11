@@ -589,7 +589,7 @@ fn menu_button(
 fn right_justified_padding(config: &Config) -> Padding {
     let padding = config.context_menu.padding.entry;
     Padding::from(padding)
-        .right(padding[1] as f32 + double_pass::horizontal_expansion())
+        .right(f32::from(padding[1]) + double_pass::horizontal_expansion())
 }
 
 fn user_info<'a>(

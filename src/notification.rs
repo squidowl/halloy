@@ -351,10 +351,14 @@ impl Notifications {
         let now = Utc::now();
         let delay_key = notification.into();
 
-        if self.recent_notifications.get(&delay_key).is_some_and(|last_notification| {
-            now - last_notification
-                < TimeDelta::milliseconds(config.delay.unwrap_or(500) as i64)
-        }) {
+        if self.recent_notifications.get(&delay_key).is_some_and(
+            |last_notification| {
+                now - last_notification
+                    < TimeDelta::milliseconds(i64::from(
+                        config.delay.unwrap_or(500),
+                    ))
+            },
+        ) {
             return;
         }
 

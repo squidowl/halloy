@@ -163,9 +163,9 @@ pub async fn load(
             // multiple of wgpu::COPY_BYTES_PER_ROW_ALIGNMENT.
             let align = wgpu::COPY_BYTES_PER_ROW_ALIGNMENT;
             let padding = (align - (4 * image_width) % align) % align;
-            let padded_image_width = (4 * image_width + padding) as u64;
+            let padded_image_width = u64::from(4 * image_width + padding);
             let padded_image_data_size =
-                padded_image_width * image_height as u64;
+                padded_image_width * u64::from(image_height);
 
             let max_buffer_size =
                 wgpu::Limits::downlevel_defaults().max_buffer_size;
