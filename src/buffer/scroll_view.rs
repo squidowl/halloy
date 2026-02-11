@@ -926,19 +926,26 @@ impl State {
                 );
             }
             Message::ScrollTo(keyed::Hit {
+                key,
                 hit_bounds,
                 scrollable,
                 prev_bounds,
-                ..
             }) => {
                 let max_offset = scrollable.max_vertical_offset();
 
-                // If a prev element exists, put scrollable halfway over prev
-                // element so it's obvious user can scroll up
-                let offset = if let Some(bounds) = prev_bounds {
-                    (bounds.y - scrollable.content.y) + bounds.height / 2.0
-                } else {
-                    hit_bounds.y - scrollable.content.y
+                let offset = match key {
+                    // For go-to-message we want the target message pinned at the ttop
+                    keyed::Key::Message(_) => {
+                        hit_bounds.y - scrollable.content.y
+                    }
+                    keyed::Key::Divider | keyed::Key::Preview(_, _) => {
+                        if let Some(bounds) = prev_bounds {
+                            (bounds.y - scrollable.content.y)
+                                + bounds.height / 2.0
+                        } else {
+                            hit_bounds.y - scrollable.content.y
+                        }
+                    }
                 }
                 .min(max_offset);
 
