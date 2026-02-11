@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-a388c74e.js";
+            window.path_to_searchindex_js = "searchindex-0b4feffc.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-72d18ae4.js"></script>
@@ -4462,6 +4462,7 @@ regex = [
 <ul>
 <li><a href="#cert">cert</a></li>
 <li><a href="#key">key</a></li>
+<li><a href="#disconnect_on_failure">disconnect_on_failure</a></li>
 </ul>
 </li>
 </ul>
@@ -4486,6 +4487,15 @@ cert = "/path/to/your/certificate.pem"
 [servers.&lt;name&gt;.sasl.external]
 key = "/path/to/your/private_key.pem"
 </code></pre>
+<h3 id="disconnect_on_failure"><a class="header" href="#disconnect_on_failure">disconnect_on_failure</a></h3>
+<p>Disconnect from the server if SASL authentication fails. This is useful on servers which apply a hostname cloak after identifying, such as Libera.Chat. Without this option, a failed SASL authentication would result in connecting with your real IP/hostname exposed.</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: true
+
+[servers.&lt;name&gt;.sasl.external]
+disconnect_on_failure = false
+</code></pre>
 <hr>
 <ol class="footnote-definition">
 <li id="footnote-1-4">
@@ -4508,6 +4518,7 @@ key = "/path/to/your/private_key.pem"
 <li><a href="#password_file-1">password_file</a></li>
 <li><a href="#password_file_first_line_only-1">password_file_first_line_only</a></li>
 <li><a href="#password_command-1">password_command</a></li>
+<li><a href="#disconnect_on_failure-1">disconnect_on_failure</a></li>
 </ul>
 </li>
 </ul>
@@ -4558,6 +4569,15 @@ password_file_first_line_only = true
 
 [servers.&lt;name&gt;.sasl.plain]
 password_command = ""
+</code></pre>
+<h3 id="disconnect_on_failure-1"><a class="header" href="#disconnect_on_failure-1">disconnect_on_failure</a></h3>
+<p>Disconnect from the server if SASL authentication fails. This is useful on servers which apply a hostname cloak after identifying, such as Libera.Chat. Without this option, a failed SASL authentication would result in connecting with your real IP/hostname exposed.</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: true
+
+[servers.&lt;name&gt;.sasl.plain]
+disconnect_on_failure = false
 </code></pre>
 <hr>
 <ol class="footnote-definition">
