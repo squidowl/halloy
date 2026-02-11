@@ -2860,7 +2860,7 @@ pub enum Limit {
     Top(usize),
     Bottom(usize),
     Since(DateTime<Utc>),
-    Around(usize, DateTime<Utc>),
+    Around(usize, Hash),
 }
 
 pub fn is_action(text: &str) -> bool {

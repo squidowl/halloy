@@ -488,8 +488,7 @@ pub fn view<'a>(
             .height_cache
             .get(&m.hash)
             .copied()
-            .map(|h| h + line_spacing as f32)
-            .unwrap_or(row_height)
+            .map_or(row_height, |h| h + line_spacing as f32)
     };
 
     let (render_start, render_end) = if total > render_budget {
@@ -499,7 +498,7 @@ pub fn view<'a>(
                 let mut acc = 0.0_f32;
                 let mut from_bottom = 0;
                 for m in old_messages.iter().chain(&new_messages).rev() {
-                    acc += msg_height(&m);
+                    acc += msg_height(m);
                     if acc > offset {
                         break;
                     }
@@ -512,7 +511,7 @@ pub fn view<'a>(
                 let mut acc = 0.0_f32;
                 let mut idx = 0;
                 for m in old_messages.iter().chain(&new_messages) {
-                    acc += msg_height(&m);
+                    acc += msg_height(m);
                     if acc > offset {
                         break;
                     }
@@ -730,7 +729,7 @@ impl State {
                         self.status = Status::Unlocked;
                         let n = count + step_messages(height, config);
                         self.limit = match self.limit {
-                            Limit::Around(_, ts) => Limit::Around(n, ts),
+                            Limit::Around(_, hash) => Limit::Around(n, hash),
                             _ => Limit::Top(n),
                         };
                     }
@@ -777,8 +776,8 @@ impl State {
                         self.status = Status::Unlocked;
                         let n = count + step_messages(height, config);
 
-                        if let Limit::Around(_, ts) = self.limit {
-                            self.limit = Limit::Around(n, ts);
+                        if let Limit::Around(_, hash) = self.limit {
+                            self.limit = Limit::Around(n, hash);
                         } else {
                             self.limit = Limit::Bottom(n);
 
@@ -829,7 +828,6 @@ impl State {
                                 }
                             } else if matches!(self.limit, Limit::Around(_, _))
                             {
-
                                 self.limit = Limit::Since(oldest);
                             } else {
                                 self.limit = Limit::Top(step_messages(
@@ -1084,8 +1082,8 @@ impl State {
             Limit::Bottom(x) if x < step_messages => {
                 self.limit = Limit::Bottom(step_messages);
             }
-            Limit::Around(x, ts) if x < step_messages => {
-                self.limit = Limit::Around(step_messages, ts);
+            Limit::Around(x, hash) if x < step_messages => {
+                self.limit = Limit::Around(step_messages, hash);
             }
             _ => {}
         }
@@ -1168,9 +1166,9 @@ impl State {
             return Task::none();
         };
 
-        // Load a windoww of messages centered on the target.
+        // Load a window of messages centered on the target.
         let around_count = step_messages(4.0 * self.pane_size.height, config);
-        self.limit = Limit::Around(around_count, target.server_time);
+        self.limit = Limit::Around(around_count, target.hash);
 
         self.pending_scroll_to = Some(keyed::Key::Message(message));
 
@@ -1251,7 +1249,7 @@ impl State {
                 // Load a window of messages centered on the target
                 let around_count =
                     step_messages(4.0 * self.pane_size.height, config);
-                self.limit = Limit::Around(around_count, target.server_time);
+                self.limit = Limit::Around(around_count, target.hash);
             }
             keyed::Key::Divider => {
                 // Get all messages from bottom until 1 before backlog
@@ -1262,7 +1260,7 @@ impl State {
                         config,
                     )));
             }
-            keyed::Key::Preview(_, _) => return,
+            keyed::Key::Preview(_, _) => (),
         };
     }
 
