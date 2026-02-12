@@ -43,11 +43,16 @@ Changed:
   - `sidebar.padding.buffer`: `[5,5]` → `[4,4]`
   - `sidebar.spacing.server`: `12` → `6`
 
+Fixed:
+
+- When joining a channel fails (for example, invite-only or channel full), we now show the
+  failure reason
+
 Thanks:
 
 - Contributions: @Hummer12007, @chamlis, @englut
 - Feature requests: @megumintyan, @4e554c4c, @RoboDanjal, @stacyharper, @zZzUP3RzZz
-- Bug reports: @someone2037492034, @deepspaceaxolotl, @whitequark, @sebbu2, @esden, @Porkepix
+- Bug reports: @someone2037492034, @deepspaceaxolotl, @whitequark, @sebbu2, @esden, @Porkepix, @someone2037492034
 
 # 2026.2 (2026-02-01)
 
