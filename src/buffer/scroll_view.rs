@@ -919,32 +919,17 @@ impl State {
                 );
             }
             Message::ScrollTo(keyed::Hit {
-                key,
+                key: _,
                 hit_bounds,
                 scrollable,
-                prev_bounds,
             }) => {
                 let max_offset = scrollable.max_vertical_offset();
 
-                let offset = match key {
-                    // For go-to-message we want the target message pinned at the top
-                    keyed::Key::Message(_) => {
-                        let top_inset =
-                            theme::resolve_line_height(&config.font) * 0.5;
+                let top_inset = theme::resolve_line_height(&config.font) * 0.5;
 
-                        (hit_bounds.y - scrollable.content.y - top_inset)
-                            .max(0.0)
-                    }
-                    keyed::Key::Divider | keyed::Key::Preview(_, _) => {
-                        if let Some(bounds) = prev_bounds {
-                            (bounds.y - scrollable.content.y)
-                                + bounds.height / 2.0
-                        } else {
-                            hit_bounds.y - scrollable.content.y
-                        }
-                    }
-                }
-                .min(max_offset);
+                let offset = (hit_bounds.y - scrollable.content.y - top_inset)
+                    .max(0.0)
+                    .min(max_offset);
 
                 if (offset - max_offset).abs() <= f32::EPSILON
                     && !matches!(self.limit, Limit::Around(_, _))
@@ -1399,7 +1384,6 @@ mod keyed {
     pub struct Hit {
         pub key: Key,
         pub hit_bounds: Rectangle,
-        pub prev_bounds: Option<Rectangle>,
         pub scrollable: Scrollable,
     }
 
@@ -1442,7 +1426,6 @@ mod keyed {
             key,
             scrollable: None,
             hit_bounds: None,
-            prev_bounds: None,
         })
     }
 
@@ -1453,7 +1436,6 @@ mod keyed {
         pub scrollable_id: widget::Id,
         pub scrollable: Option<Scrollable>,
         pub hit_bounds: Option<Rectangle>,
-        pub prev_bounds: Option<Rectangle>,
     }
 
     impl Operation<Hit> for Find {
@@ -1497,12 +1479,9 @@ mod keyed {
         ) {
             if self.active
                 && let Some(key) = state.downcast_ref::<Key>()
+                && self.key == *key
             {
-                if self.key == *key {
-                    self.hit_bounds = Some(bounds);
-                } else if self.hit_bounds.is_none() {
-                    self.prev_bounds = Some(bounds);
-                }
+                self.hit_bounds = Some(bounds);
             }
         }
 
@@ -1512,7 +1491,6 @@ mod keyed {
                     key: self.key,
                     scrollable,
                     hit_bounds,
-                    prev_bounds: self.prev_bounds,
                 },
             ) {
                 Some(hit) => widget::operation::Outcome::Some(hit),
@@ -1591,7 +1569,6 @@ mod keyed {
                     key,
                     scrollable,
                     hit_bounds,
-                    prev_bounds: None,
                 },
             ) {
                 Some(hit) => widget::operation::Outcome::Some(hit),
@@ -1926,7 +1903,6 @@ mod correct_viewport {
                                 scrollable_id: scrollable.clone(),
                                 scrollable: None,
                                 hit_bounds: None,
-                                prev_bounds: None,
                             },
                             {
                                 let hit = hit.clone();
