@@ -17,10 +17,15 @@ Fixed:
 
 - Channel mode in pane headers not updating immediately after mode changes
 
+Fixed:
+
+- When joining a channel fails (for example, invite-only or channel full), we now show the
+  failure reason
+
 Thanks:
 
 - Contributions: @Hummer12007
-- Feature requests: @megumintyan
+- Feature requests: @megumintyan, @Erroneuz
 
 # 2026.2 (2026-02-01)
 
