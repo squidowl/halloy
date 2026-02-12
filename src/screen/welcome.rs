@@ -4,7 +4,7 @@ use iced::widget::{button, column, container, image, row, space, text};
 use iced::{Length, alignment};
 
 use crate::widget::Element;
-use crate::{Theme, font, theme};
+use crate::{Theme, font, open_url, theme};
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -38,12 +38,12 @@ impl Welcome {
         match message {
             Message::RefreshConfiguration => Some(Event::RefreshConfiguration),
             Message::OpenConfigurationDirectory => {
-                let _ = open::that_detached(Config::config_dir());
+                let _ = open_url::open(Config::config_dir());
 
                 None
             }
             Message::OpenWikiWebsite => {
-                let _ = open::that_detached(WIKI_WEBSITE);
+                let _ = open_url::open(WIKI_WEBSITE);
 
                 None
             }

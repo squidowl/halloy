@@ -34,7 +34,7 @@ use crate::widget::{
     shortcut,
 };
 use crate::window::Window;
-use crate::{Theme, event, notification, theme, window};
+use crate::{Theme, event, notification, open_url, theme, window};
 
 mod command_bar;
 pub mod pane;
@@ -513,7 +513,7 @@ impl Dashboard {
                         (Task::none(), Some(Event::ConfigReloaded(conf)))
                     }
                     sidebar::Event::OpenReleaseWebsite => {
-                        let _ = open::that_detached(RELEASE_WEBSITE);
+                        let _ = open_url::open(RELEASE_WEBSITE);
                         (Task::none(), None)
                     }
                     sidebar::Event::ToggleThemeEditor => (
@@ -521,7 +521,7 @@ impl Dashboard {
                         None,
                     ),
                     sidebar::Event::OpenDocumentation => {
-                        let _ = open::that_detached(WIKI_WEBSITE);
+                        let _ = open_url::open(WIKI_WEBSITE);
                         (Task::none(), None)
                     }
                     sidebar::Event::MarkServerAsRead(server) => {
@@ -544,7 +544,7 @@ impl Dashboard {
                         (Task::none(), None)
                     }
                     sidebar::Event::OpenConfigFile => {
-                        let _ = open::that_detached(Config::path());
+                        let _ = open_url::open(Config::path());
                         (Task::none(), None)
                     }
                 };
@@ -773,7 +773,7 @@ impl Dashboard {
                         let (command, event) = match command {
                             command_bar::Command::Version(command) => match command {
                                 command_bar::Version::Application(_) => {
-                                    let _ = open::that_detached(RELEASE_WEBSITE);
+                                    let _ = open_url::open(RELEASE_WEBSITE);
                                     (Task::none(), None)
                                 }
                             },
@@ -806,26 +806,26 @@ impl Dashboard {
                             },
                             command_bar::Command::Configuration(command) => match command {
                                 command_bar::Configuration::OpenConfigDirectory => {
-                                    let _ = open::that_detached(Config::config_dir());
+                                    let _ = open_url::open(Config::config_dir());
                                     (Task::none(), None)
                                 }
                                 command_bar::Configuration::OpenCacheDirectory => {
-                                    let _ = open::that_detached(environment::cache_dir());
+                                    let _ = open_url::open(environment::cache_dir());
                                     (Task::none(), None)
                                 }
                                 command_bar::Configuration::OpenDataDirectory => {
-                                    let _ = open::that_detached(environment::data_dir());
+                                    let _ = open_url::open(environment::data_dir());
                                     (Task::none(), None)
                                 }
                                 command_bar::Configuration::OpenWebsite => {
-                                    let _ = open::that_detached(environment::WIKI_WEBSITE);
+                                    let _ = open_url::open(environment::WIKI_WEBSITE);
                                     (Task::none(), None)
                                 }
                                 command_bar::Configuration::Reload => {
                                     (Task::perform(Config::load(), Message::ConfigReloaded), None)
                                 }
                                 command_bar::Configuration::OpenConfigFile => {
-                                    let _ = open::that_detached(Config::path());
+                                    let _ = open_url::open(Config::path());
                                     (Task::none(), None)
                                 },
                             },
@@ -846,7 +846,7 @@ impl Dashboard {
                                     }
                                 }
                                 command_bar::Theme::OpenThemesWebsite => {
-                                    let _ = open::that_detached(environment::THEME_WEBSITE);
+                                    let _ = open_url::open(environment::THEME_WEBSITE);
                                     (Task::none(), None)
                                 }
                             },

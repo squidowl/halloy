@@ -17,7 +17,7 @@ use crate::widget::{
     Element, color_picker, combo_box, font_style_pick_list, tooltip,
 };
 use crate::window::{self, Window};
-use crate::{icon, widget};
+use crate::{icon, open_url, widget};
 
 #[derive(Debug, Clone)]
 pub enum Event {
@@ -205,7 +205,7 @@ impl ThemeEditor {
             }
             Message::Share => {
                 let url = url::theme_submit(theme.styles());
-                let _ = open::that_detached(url);
+                let _ = open_url::open(url);
 
                 return (Task::none(), None);
             }
