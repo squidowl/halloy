@@ -702,14 +702,6 @@ impl State {
             } => {
                 self.last_scroll_offset = viewport.absolute_offset().y;
 
-                // collect heights iff waiting for a scroll-to.
-                if self.pending_scroll_to.is_some() {
-                    let collect =
-                        keyed::collect_heights(self.scrollable.clone())
-                            .map(Message::HeightsCollected);
-                    return (collect, None);
-                }
-
                 let relative_offset = viewport.relative_offset().y;
                 let absolute_offset = viewport.absolute_offset().y;
                 let height = self.pane_size.height;
@@ -1044,19 +1036,6 @@ impl State {
             }
             Message::ContentResized(size) => {
                 self.content_size = size;
-
-                let collect = keyed::collect_heights(self.scrollable.clone())
-                    .map(Message::HeightsCollected);
-
-                if let Some(key) = &self.pending_scroll_to {
-                    let scroll_to = keyed::find(self.scrollable.clone(), *key)
-                        .map(Message::ScrollTo);
-
-                    self.pending_scroll_to = None;
-                    return (Task::batch([scroll_to, collect]), None);
-                }
-
-                return (collect, None);
             }
             Message::ImagePreview(path, url) => {
                 return (Task::none(), Some(Event::ImagePreview(path, url)));
@@ -1073,6 +1052,15 @@ impl State {
             Message::HeightsCollected(heights) => {
                 for (hash, height) in heights {
                     self.height_cache.insert(hash, height);
+                }
+
+                if let Some(key) = &self.pending_scroll_to {
+                    let scroll_to = keyed::find(self.scrollable.clone(), *key)
+                        .map(Message::ScrollTo);
+
+                    self.pending_scroll_to = None;
+
+                    return (scroll_to, None);
                 }
             }
         }
@@ -1224,14 +1212,14 @@ impl State {
         self.pending_scroll_to.is_some()
     }
 
-    pub fn set_scroll_limit_for_pending_scroll_to(
+    pub fn prepare_for_pending_scroll_to(
         &mut self,
         kind: Kind,
         history: &history::Manager,
         config: &Config,
-    ) {
+    ) -> Task<Message> {
         let Some(key) = self.pending_scroll_to else {
-            return;
+            return Task::none();
         };
 
         let Some(history::View {
@@ -1241,7 +1229,7 @@ impl State {
             ..
         }) = history.get_messages(&kind.into(), None, &config.buffer)
         else {
-            return;
+            return Task::none();
         };
 
         match key {
@@ -1251,7 +1239,7 @@ impl State {
                     .chain(&new_messages)
                     .find(|m| m.hash == message)
                 else {
-                    return;
+                    return Task::none();
                 };
 
                 // Load a window of messages centered on the target
@@ -1270,6 +1258,9 @@ impl State {
             }
             keyed::Key::Preview(_, _) => (),
         };
+
+        keyed::collect_heights(self.scrollable.clone())
+            .map(Message::HeightsCollected)
     }
 
     pub fn visible_urls(&self) -> impl Iterator<Item = &url::Url> {
