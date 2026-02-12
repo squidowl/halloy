@@ -10,6 +10,10 @@ Added:
 - Added ability to disconnect on SASL authentication failure
 - Setting to configure font line height (`font.line_height`)
 
+Fixed:
+
+- Channel mode in pane headers not updating immediately after mode changes
+
 Thanks:
 
 - Contributions: @Hummer12007
