@@ -15,14 +15,15 @@ use data::target::{self, Target};
 use data::user::{ChannelUsers, Nick, NickRef};
 use data::{Config, mode};
 use iced::Length;
-use iced::widget::{column, container, row, text, text_editor, tooltip};
+use iced::widget::text::Shaping;
+use iced::widget::{column, container, row, text_editor, tooltip};
 use irc::proto;
 use itertools::{Either, Itertools};
 use strsim::jaro_winkler;
 
 use crate::font;
 use crate::theme::{self, Theme};
-use crate::widget::{Element, double_pass};
+use crate::widget::{Element, double_pass, text};
 
 const MAX_SHOWN_COMMAND_ENTRIES: usize = 5;
 const MAX_SHOWN_EMOJI_ENTRIES: usize = 8;
@@ -938,8 +939,7 @@ impl Commands {
                     column(entries.iter().map(|(index, command)| {
                         let selected = Some(*index) == *highlighted;
                         let content =
-                            text(format!("/{}", command.title.to_lowercase()))
-                                .line_height(theme::line_height(&config.font));
+                            text(format!("/{}", command.title.to_lowercase()));
 
                         Element::from(
                             container(content)
@@ -971,12 +971,7 @@ impl Commands {
                 subcommand,
             } => {
                 if config.buffer.commands.show_description {
-                    Some(command.view(
-                        input,
-                        subcommand.as_ref(),
-                        config,
-                        theme,
-                    ))
+                    Some(command.view(input, subcommand.as_ref(), theme))
                 } else {
                     None
                 }
@@ -1083,7 +1078,6 @@ impl Command {
         &self,
         input: &str,
         subcommand: Option<&Command>,
-        config: &Config,
         theme: &'a Theme,
     ) -> Element<'a, Message> {
         let command_prefix = format!("/{}", self.title.to_lowercase());
@@ -1117,13 +1111,10 @@ impl Command {
             .saturating_sub(1),
         );
 
-        let title = Some(Element::from(
-            text(self.title).line_height(theme::line_height(&config.font)),
-        ));
+        let title = Some(Element::from(text(self.title)));
 
         let arg_text = |index: usize, arg: &Argument| {
             let content = text(format!("{arg}"))
-                .line_height(theme::line_height(&config.font))
                 .style(move |theme| {
                     if index == active_arg {
                         theme::text::tertiary(theme)
@@ -1139,7 +1130,6 @@ impl Command {
 
             if let Some(arg_tooltip) = &arg.tooltip {
                 let tooltip_indicator = text("*")
-                    .line_height(theme::line_height(&config.font))
                     .style(move |theme| {
                         if index == active_arg {
                             theme::text::tertiary(theme)
@@ -1155,13 +1145,12 @@ impl Command {
                     .size(8);
 
                 Element::from(row![
-                    text(" ").line_height(theme::line_height(&config.font)),
+                    text(" "),
                     tooltip(
                         row![content, tooltip_indicator]
                             .align_y(iced::Alignment::Start),
                         container(
                             text(arg_tooltip.clone())
-                                .line_height(theme::line_height(&config.font))
                                 .style(move |theme| {
                                     if index == active_arg {
                                         theme::text::tertiary(theme)
@@ -1184,10 +1173,7 @@ impl Command {
                     .delay(iced::time::Duration::ZERO)
                 ])
             } else {
-                Element::from(row![
-                    text(" ").line_height(theme::line_height(&config.font)),
-                    content
-                ])
+                Element::from(row![text(" "), content])
             }
         };
 
@@ -1203,7 +1189,7 @@ impl Command {
                             subcommand
                                 .title
                                 .strip_prefix(self.title)
-                                .unwrap_or_default()
+                                .unwrap_or_default(),
                         )
                         .style(move |theme| {
                             if 0 == active_arg {
@@ -1226,9 +1212,7 @@ impl Command {
 
             Either::Right(if self.subcommands.is_some() {
                 Either::Left(args.chain(iter::once(Element::from(row![
-                    text(" ...")
-                        .line_height(theme::line_height(&config.font))
-                        .style(theme::text::none)
+                    text(" ...").style(theme::text::none)
                 ]))))
             } else {
                 Either::Right(args)
@@ -1241,12 +1225,9 @@ impl Command {
                     subcommand.description()
                 })
                 .map(|description| {
-                    text(description)
-                        .line_height(theme::line_height(&config.font))
-                        .style(theme::text::secondary)
-                        .font_maybe(
-                            theme::font_style::secondary(theme).map(font::get),
-                        )
+                    text(description).style(theme::text::secondary).font_maybe(
+                        theme::font_style::secondary(theme).map(font::get),
+                    )
                 }),
             row(title.into_iter().chain(args)),
         ])
@@ -2687,8 +2668,7 @@ impl Emojis {
                             .unwrap_or(" "),
                             shortcode
                         ))
-                        .line_height(theme::line_height(&config.font))
-                        .shaping(text::Shaping::Advanced);
+                        .shaping(Shaping::Advanced);
 
                         Element::from(
                             container(content)
