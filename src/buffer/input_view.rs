@@ -16,8 +16,9 @@ use data::user::Nick;
 use data::{Config, User, client, command, shortcut};
 use iced::advanced::widget::Tree;
 use iced::advanced::{Clipboard, Layout, Shell, mouse};
+use iced::widget::text::{Shaping, Wrapping};
 use iced::widget::{
-    self, button, column, container, operation, row, rule, text, text_editor,
+    self, button, column, container, operation, row, rule, text_editor,
 };
 use iced::{Alignment, Length, Task, clipboard, event, keyboard, padding};
 use tokio::time;
@@ -25,7 +26,7 @@ use tokio::time;
 use self::completion::Completion;
 use crate::widget::key_press::is_numpad;
 use crate::widget::{
-    Element, Renderer, Text, anchored_overlay, context_menu, decorate,
+    Element, Renderer, Text, anchored_overlay, context_menu, decorate, text,
 };
 use crate::window::Window;
 use crate::{Theme, font, theme, window};
@@ -287,7 +288,7 @@ pub fn view<'a>(
         .id(state.input_id.clone())
         .placeholder("Send message...")
         .padding([2, 4])
-        .wrapping(text::Wrapping::WordOrGlyph)
+        .wrapping(Wrapping::WordOrGlyph)
         .height(Length::Shrink)
         .line_height(theme::line_height(&config.font))
         .style(style);
@@ -414,11 +415,8 @@ pub fn view<'a>(
                             title.line_height(theme::line_height(&config.font)),
                             keybind.map(|kb| {
                                 text(format!("({kb})"))
-                                    .shaping(text::Shaping::Advanced)
+                                    .shaping(Shaping::Advanced)
                                     .size(theme::TEXT_SIZE - 2.0)
-                                    .line_height(theme::line_height(
-                                        &config.font,
-                                    ))
                                     .style(theme::text::secondary)
                                     .font_maybe(
                                         theme::font_style::secondary(theme)
@@ -502,7 +500,6 @@ pub fn view<'a>(
                         None,
                     ))
                     .style(move |_| our_user_style)
-                    .line_height(theme::line_height(&config.font))
                     .font_maybe(
                         theme::font_style::nickname(theme, false)
                             .map(font::get),

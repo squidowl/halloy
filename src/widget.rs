@@ -62,6 +62,12 @@ pub enum Marker {
     None,
 }
 
+pub fn text<'a>(
+    content: impl iced::widget::text::IntoFragment<'a>,
+) -> Text<'a> {
+    iced::widget::text(content).line_height(font::line_height())
+}
+
 pub fn message_marker<'a, M>(
     marker: Marker,
     width: Option<f32>,

@@ -3,15 +3,16 @@ use std::time::Duration;
 use data::config::{self, Config, sidebar};
 use data::dashboard::{BufferAction, BufferFocusedAction};
 use data::{Version, buffer, file_transfer, history, isupport, server, target};
+use iced::widget::text::Shaping;
 use iced::widget::{
     Column, Row, Scrollable, Space, button, column, container, pane_grid, row,
-    rule, scrollable, space, stack, text,
+    rule, scrollable, space, stack,
 };
 use iced::{Alignment, Length, Padding, Task, padding};
 use tokio::time;
 
 use super::{Focus, Panes, Server};
-use crate::widget::{Element, Text, context_menu, double_pass};
+use crate::widget::{Element, Text, context_menu, double_pass, text};
 use crate::{Theme, font, icon, platform_specific, theme, window};
 
 const CONFIG_RELOAD_DELAY: Duration = Duration::from_secs(1);
@@ -215,11 +216,8 @@ impl Sidebar {
                                         ..
                                     } => Some(
                                         text(format!("({kb})"))
-                                            .shaping(text::Shaping::Advanced)
+                                            .shaping(Shaping::Advanced)
                                             .size(theme::TEXT_SIZE - 2.0)
-                                            .line_height(theme::line_height(
-                                                &config.font,
-                                            ))
                                             .style(theme::text::secondary)
                                             .font_maybe(
                                                 theme::font_style::secondary(
@@ -358,9 +356,6 @@ impl Sidebar {
                             ),
                             Menu::Version => container(
                                 text(format!("Halloy ({})", version.current))
-                                    .line_height(theme::line_height(
-                                        &config.font,
-                                    ))
                                     .style(theme::text::secondary)
                                     .font_maybe(
                                         theme::font_style::secondary(theme)
@@ -936,36 +931,35 @@ fn upstream_buffer_button<'a>(
                         text(network.name.to_string())
                             .style(buffer_title_style)
                             .font_maybe(buffer_title_font.clone())
-                            .shaping(text::Shaping::Advanced)
-                            .line_height(theme::line_height(&config.font)),
+                            .shaping(Shaping::Advanced),
                         Space::new().width(6),
                         text(server.name.to_string())
                             .style(theme::text::secondary)
                             .font_maybe(buffer_title_font)
-                            .shaping(text::Shaping::Advanced)
-                            .line_height(theme::line_height(&config.font)),
+                            .shaping(Shaping::Advanced),
                     ])
                 } else {
                     text(server.to_string())
                         .style(buffer_title_style)
                         .font_maybe(buffer_title_font)
-                        .shaping(text::Shaping::Advanced)
-                        .line_height(theme::line_height(&config.font))
+                        .shaping(Shaping::Advanced)
                         .into()
                 }
             }
-            buffer::Upstream::Channel(_, channel) => text(channel.to_string())
-                .style(buffer_title_style)
-                .font_maybe(buffer_title_font)
-                .shaping(text::Shaping::Advanced)
-                .line_height(theme::line_height(&config.font))
-                .into(),
-            buffer::Upstream::Query(_, query) => text(query.to_string())
-                .style(buffer_title_style)
-                .font_maybe(buffer_title_font)
-                .shaping(text::Shaping::Advanced)
-                .line_height(theme::line_height(&config.font))
-                .into(),
+            buffer::Upstream::Channel(_, channel) => {
+                text(channel.to_string())
+                    .style(buffer_title_style)
+                    .font_maybe(buffer_title_font)
+                    .shaping(Shaping::Advanced)
+                    .into()
+            }
+            buffer::Upstream::Query(_, query) => {
+                text(query.to_string())
+                    .style(buffer_title_style)
+                    .font_maybe(buffer_title_font)
+                    .shaping(Shaping::Advanced)
+                    .into()
+            }
         })
         .padding(Padding::default().left(left_padding))
         .align_y(iced::Alignment::Center),
@@ -1107,16 +1101,14 @@ fn upstream_buffer_button<'a>(
                     ),
                 };
 
-                button(
-                    text(content).line_height(theme::line_height(&config.font)),
-                )
-                .width(length)
-                .padding(config.context_menu.padding.entry)
-                .style(|theme, status| {
-                    theme::button::primary(theme, status, false)
-                })
-                .on_press_maybe(message)
-                .into()
+                button(text(content))
+                    .width(length)
+                    .padding(config.context_menu.padding.entry)
+                    .style(|theme, status| {
+                        theme::button::primary(theme, status, false)
+                    })
+                    .on_press_maybe(message)
+                    .into()
             },
         )
         .into()
