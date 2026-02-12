@@ -2119,14 +2119,14 @@ impl Client {
                                 channel.users.insert(user);
                             }
                         }
-                    }
 
-                    // Send MODE reply to ensure the pane header is updated.
-                    self.send(
-                        None,
-                        command!("MODE", target_channel.to_string()).into(),
-                        TokenPriority::Low,
-                    );
+                        // Send MODE reply to ensure the pane header is updated.
+                        self.send(
+                            None,
+                            command!("MODE", target_channel.to_string()).into(),
+                            TokenPriority::Low,
+                        );
+                    }
                 } else {
                     // Only check for being logged in via mode if account-notify is not available,
                     // since it is not standardized across networks.
