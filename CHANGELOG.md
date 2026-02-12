@@ -28,9 +28,14 @@ Changed:
 - The default condensed server message icon is now `"none"`
 - `sidebar.user_menu.show_new_version_indicator` setting has been changed to `check_for_update_on_launch` to clarify that it prevents the check for an update
 
+Fixed:
+
+- When joining a channel fails (for example, invite-only or channel full), we now show the
+  failure reason
+
 Thanks:
 
-- Contributions: @Hummer12007, @chamlis
+- Contributions: @Hummer12007, @chamlis, @Erroneuz
 - Feature requests: @megumintyan, @4e554c4c
 - Bug reports: @someone2037492034
 
