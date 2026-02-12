@@ -1693,18 +1693,17 @@ impl Client {
                 ));
 
                 if user.nickname() == self.nickname() {
-                    // TODO(pounce, #1070) change to `insert_sorted_by` when merged
-                    let (Ok(i) | Err(i)) =
-                        self.chanmap.binary_search_by(|c, _| {
-                            self.compare_channels(
-                                c.as_normalized_str(),
-                                target_channel.as_normalized_str(),
-                            )
-                        });
-                    self.chanmap.insert_before(
-                        i,
+                    let chantypes = self.chantypes().to_vec();
+                    let _ = self.chanmap.insert_sorted_by(
                         target_channel.clone(),
                         Channel::default(),
+                        |c1, _, c2, _| {
+                            compare_channels(
+                                &chantypes,
+                                c1.as_normalized_str(),
+                                c2.as_normalized_str(),
+                            )
+                        },
                     );
 
                     // Add channel to WHO poll queue
@@ -2894,32 +2893,6 @@ impl Client {
         }
     }
 
-    // TODO allow configuring the "sorting method"
-    // this function sorts channels together which have similar names when the chantype prefix
-    // (sometimes multiplied) is removed
-    // e.g. '#chat', '##chat-offtopic' and '&chat-local' all get sorted together instead of in
-    // wildly different places.
-    fn compare_channels(&self, a: &str, b: &str) -> Ordering {
-        let (Some(a_chantype), Some(b_chantype)) =
-            (a.chars().nth(0), b.chars().nth(0))
-        else {
-            return a.cmp(b);
-        };
-
-        if [a_chantype, b_chantype]
-            .iter()
-            .all(|c| self.chantypes().contains(c))
-        {
-            let ord = a
-                .trim_start_matches(a_chantype)
-                .cmp(b.trim_start_matches(b_chantype));
-            if ord != Ordering::Equal {
-                return ord;
-            }
-        }
-        a.cmp(b)
-    }
-
     pub fn chathistory_limit(&self) -> u16 {
         if let Some(isupport::Parameter::CHATHISTORY(server_limit)) =
             self.isupport.get(&isupport::Kind::CHATHISTORY)
@@ -3428,6 +3401,33 @@ impl Client {
     pub fn is_channel(&self, target: &str) -> bool {
         proto::is_channel(target, self.chantypes())
     }
+}
+
+// TODO allow configuring the "sorting method"
+// this function sorts channels together which have similar names when the chantype prefix
+// (sometimes multiplied) is removed
+// e.g. '#chat', '##chat-offtopic' and '&chat-local' all get sorted together instead of in
+// wildly different places.
+fn compare_channels(chantypes: &[char], a: &str, b: &str) -> Ordering {
+    let (Some(a_chantype), Some(b_chantype)) =
+        (a.chars().next(), b.chars().next())
+    else {
+        return a.cmp(b);
+    };
+
+    if [a_chantype, b_chantype]
+        .iter()
+        .all(|c| chantypes.contains(c))
+    {
+        let ord = a
+            .trim_start_matches(a_chantype)
+            .cmp(b.trim_start_matches(b_chantype));
+        if ord != Ordering::Equal {
+            return ord;
+        }
+    }
+
+    a.cmp(b)
 }
 
 fn continue_chathistory_between(
