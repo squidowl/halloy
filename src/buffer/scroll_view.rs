@@ -160,36 +160,34 @@ fn has_visible_preview(
         && let Some(visible_urls) =
             state.visible_url_messages.get(&message.hash)
     {
-        let urls = fragments
-            .iter()
-            .filter_map(message::Fragment::url)
-            .collect::<Vec<_>>();
+        return fragments.iter().filter_map(message::Fragment::url).any(
+            |url| {
+                // Check if URL is hidden by user
+                if message.hidden_urls.contains(url) {
+                    return false;
+                }
 
-        return urls.iter().any(|url| {
-            // Check if URL is hidden by user
-            if message.hidden_urls.contains(url) {
-                return false;
-            }
+                // Check if URL is in visible URLs list
+                if !visible_urls.contains(url) {
+                    return false;
+                }
 
-            // Check if URL is in visible URLs list
-            if !visible_urls.contains(url) {
-                return false;
-            }
+                // Check if preview is loaded and visible for source
+                if let Some(preview::State::Loaded(preview)) = previews.get(url)
+                {
+                    let is_visible_for_source =
+                        if let Some(visible_for_source) = visible_for_source {
+                            visible_for_source(preview, message.target.source())
+                        } else {
+                            true
+                        };
 
-            // Check if preview is loaded and visible for source
-            if let Some(preview::State::Loaded(preview)) = previews.get(url) {
-                let is_visible_for_source =
-                    if let Some(visible_for_source) = visible_for_source {
-                        visible_for_source(preview, message.target.source())
-                    } else {
-                        true
-                    };
+                    return is_visible_for_source;
+                }
 
-                return is_visible_for_source;
-            }
-
-            false
-        });
+                false
+            },
+        );
     }
     false
 }
@@ -715,7 +713,6 @@ impl State {
                 let absolute_offset = viewport.absolute_offset().y;
                 let height = self.pane_size.height;
 
-                let mut tasks = vec![];
                 let mut event = None;
 
                 match old_status {
@@ -863,18 +860,21 @@ impl State {
                     self.status.flipped(old_status, viewport)
                 {
                     self.last_scroll_offset = new_offset.y;
-                    tasks.push(correct_viewport::scroll_to(
+                    let scroll_to = correct_viewport::scroll_to(
                         self.scrollable.clone(),
                         new_offset,
-                    ));
+                    );
+                    let collect =
+                        keyed::collect_heights(self.scrollable.clone())
+                            .map(Message::HeightsCollected);
+
+                    return (Task::batch([scroll_to, collect]), event);
                 }
 
-                tasks.push(
-                    keyed::collect_heights(self.scrollable.clone())
-                        .map(Message::HeightsCollected),
-                );
+                let collect = keyed::collect_heights(self.scrollable.clone())
+                    .map(Message::HeightsCollected);
 
-                return (Task::batch(tasks), event);
+                return (collect, event);
             }
             Message::ContextMenu(message) => {
                 return (
@@ -1469,7 +1469,7 @@ mod keyed {
             translation: Vector,
             _state: &mut dyn widget::operation::Scrollable,
         ) {
-            if id == Some(&self.scrollable_id.clone()) {
+            if id.is_some_and(|id| *id == self.scrollable_id) {
                 self.scrollable = Some(Scrollable {
                     viewport: bounds,
                     content: content_bounds,
@@ -1542,7 +1542,7 @@ mod keyed {
             translation: Vector,
             _state: &mut dyn widget::operation::Scrollable,
         ) {
-            if id == Some(&self.scrollable_id.clone()) {
+            if id.is_some_and(|id| *id == self.scrollable_id) {
                 self.scrollable = Some(Scrollable {
                     viewport: bounds,
                     content: content_bounds,
@@ -2014,12 +2014,10 @@ mod correct_viewport {
                         }
                     }
 
-                    let is_scrolled = messages
-                        .clone()
-                        .iter()
-                        .any(|message| matches!(message, Message::Scrolled { .. }));
-
+                    let mut is_scrolled = false;
                     for message in messages {
+                        is_scrolled |=
+                            matches!(message, Message::Scrolled { .. });
                         shell.publish(message);
                     }
 
@@ -2066,7 +2064,7 @@ mod correct_viewport {
                     let mut is_scroll_to = false;
 
                     operation.custom(
-                        Some(&scrollable.clone()),
+                        Some(&scrollable),
                         layout.bounds(),
                         &mut is_scroll_to,
                     );
