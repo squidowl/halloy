@@ -1212,7 +1212,6 @@ impl State {
         };
 
         let Some(history::View {
-            total,
             old_messages,
             new_messages,
             ..
@@ -1221,8 +1220,10 @@ impl State {
             return Task::none();
         };
 
+        let around_count = step_messages(4.0 * self.pane_size.height, config);
+
         match key {
-            keyed::Key::Message(message) => {
+            keyed::Key::Message(message) | keyed::Key::Preview(message, _) => {
                 let Some(target) = old_messages
                     .iter()
                     .chain(&new_messages)
@@ -1232,20 +1233,19 @@ impl State {
                 };
 
                 // Load a window of messages centered on the target
-                let around_count =
-                    step_messages(4.0 * self.pane_size.height, config);
                 self.limit = Limit::Around(around_count, target.hash);
             }
             keyed::Key::Divider => {
-                // Get all messages from bottom until 1 before backlog
-                let offset = total - old_messages.len() + 1;
-                self.limit =
-                    Limit::Bottom(offset.max(step_messages(
-                        2.0 * self.pane_size.height,
-                        config,
-                    )));
+                let Some(target) = old_messages
+                    .iter()
+                    .chain(&new_messages)
+                    .nth(old_messages.len().saturating_sub(1))
+                else {
+                    return Task::none();
+                };
+
+                self.limit = Limit::Around(around_count, target.hash);
             }
-            keyed::Key::Preview(_, _) => (),
         };
 
         keyed::collect_heights(self.scrollable.clone())
