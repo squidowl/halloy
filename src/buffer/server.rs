@@ -45,7 +45,6 @@ pub fn view<'a>(
     theme: &'a Theme,
     is_focused: bool,
 ) -> Element<'a, Message> {
-    let status = clients.status(&state.server);
     let chantypes = clients.get_chantypes(&state.server);
     let casemapping = clients.get_casemapping(&state.server);
     let our_nick: Option<data::user::NickRef<'_>> =
@@ -166,7 +165,6 @@ pub fn view<'a>(
             input_view::view(
                 &state.input_view,
                 our_user.as_ref(),
-                !status.connected(),
                 config,
                 theme,
             )

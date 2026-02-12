@@ -148,18 +148,9 @@ pub fn view<'a>(
         data::config::buffer::text_input::Visibility::Always => true,
     };
 
-    let mut channels = clients.get_channels(&state.server);
-    let is_connected_to_channel = channels.any(|c| c == &state.target);
-
     let text_input = show_text_input.then(move || {
-        input_view::view(
-            &state.input_view,
-            our_user,
-            !is_connected_to_channel,
-            config,
-            theme,
-        )
-        .map(Message::InputView)
+        input_view::view(&state.input_view, our_user, config, theme)
+            .map(Message::InputView)
     });
 
     let content = column![topic, messages];

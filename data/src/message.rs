@@ -1988,6 +1988,29 @@ fn target(
                 source: Source::Action(None),
             })
         }
+        Command::Numeric(
+            ERR_NOSUCHCHANNEL | ERR_TOOMANYCHANNELS | ERR_CHANNELISFULL
+            | ERR_INVITEONLYCHAN | ERR_BANNEDFROMCHAN | ERR_BADCHANNELKEY
+            | ERR_BADCHANMASK,
+            params,
+        ) => {
+            let channel = target::Channel::parse(
+                params.get(1)?,
+                chantypes,
+                statusmsg,
+                casemapping,
+            )
+            .ok()?;
+
+            Some(Target::Channel {
+                channel,
+                source: Source::Server(Some(source::Server::new(
+                    Kind::StandardReply(StandardReply::Fail),
+                    None,
+                    None,
+                ))),
+            })
+        }
         Command::PRIVMSG(target, text) | Command::NOTICE(target, text) => {
             let is_action = is_action(&text);
 
