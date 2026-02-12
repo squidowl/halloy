@@ -927,9 +927,13 @@ impl State {
                 let max_offset = scrollable.max_vertical_offset();
 
                 let offset = match key {
-                    // For go-to-message we want the target message pinned at the ttop
+                    // For go-to-message we want the target message pinned at the top
                     keyed::Key::Message(_) => {
-                        hit_bounds.y - scrollable.content.y
+                        let top_inset =
+                            theme::resolve_line_height(&config.font) * 0.5;
+
+                        (hit_bounds.y - scrollable.content.y - top_inset)
+                            .max(0.0)
                     }
                     keyed::Key::Divider | keyed::Key::Preview(_, _) => {
                         if let Some(bounds) = prev_bounds {
