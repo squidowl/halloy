@@ -2101,6 +2101,7 @@ impl Client {
                         self.chanmodes(),
                         self.prefix(),
                     );
+                    let target_channel = channel.clone();
 
                     if let Some(channel) = self.chanmap.get_mut(&channel) {
                         for mode in modes {
@@ -2119,6 +2120,13 @@ impl Client {
                             }
                         }
                     }
+
+                    // Send MODE reply to ensure the pane header is updated.
+                    self.send(
+                        None,
+                        command!("MODE", target_channel.to_string()).into(),
+                        TokenPriority::Low,
+                    );
                 } else {
                     // Only check for being logged in via mode if account-notify is not available,
                     // since it is not standardized across networks.
