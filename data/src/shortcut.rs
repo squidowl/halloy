@@ -34,6 +34,8 @@ pub enum Command {
     CyclePreviousBuffer,
     LeaveBuffer,
     ToggleNicklist,
+    ToggleBufferNicklist,
+    ToggleSidebarNicklist,
     ToggleTopic,
     ToggleSidebar,
     ToggleFullscreen,

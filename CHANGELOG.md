@@ -24,6 +24,8 @@ Added:
 - Setting to style unread query buffers as highlights in the sidebar (`sidebar.unread_indicator.query_as_highlight`)
 - Settings to configure card and image preview dimensions 
 - Support for transparent background.
+- Settings to show nicklist in the sidebar together with the buflist (`sidebar.show_nicklist`, `sidebar.split`, `sidebar.buflist_space`, `sidebar.nicklist_space`)
+- Keybindings for toggling sidebar nicklist (made `toggle_nick_list` context-dependent, added `toggle_pane_nick_list` and `toggle_sidebar_nick_list`)
 
 Fixed:
 

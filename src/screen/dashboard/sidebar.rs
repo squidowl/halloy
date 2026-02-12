@@ -11,6 +11,7 @@ use iced::{Alignment, Length, Padding, Task, padding};
 use tokio::time;
 
 use super::{Focus, Panes, Server};
+use crate::buffer::context_menu as buffer_context_menu;
 use crate::widget::{Element, Text, context_menu, double_pass};
 use crate::{Theme, font, icon, platform_specific, theme, window};
 
@@ -38,6 +39,7 @@ pub enum Message {
     ReloadComplete,
     MarkAsRead(buffer::Upstream),
     MarkServerAsRead(Server),
+    Nicklist(buffer_context_menu::Message),
     QuitApplication,
 }
 
@@ -61,12 +63,14 @@ pub enum Event {
     ConfigReloaded(Result<Config, config::Error>),
     MarkAsRead(buffer::Upstream),
     MarkServerAsRead(Server),
+    Nicklist(buffer_context_menu::Message),
     QuitApplication,
 }
 
 #[derive(Clone)]
 pub struct Sidebar {
     pub hidden: bool,
+    nicklist_hidden: bool,
     reloading_config: bool,
 }
 
@@ -80,12 +84,17 @@ impl Sidebar {
     pub fn new() -> Self {
         Self {
             hidden: false,
+            nicklist_hidden: false,
             reloading_config: false,
         }
     }
 
     pub fn toggle_visibility(&mut self) {
         self.hidden = !self.hidden;
+    }
+
+    pub fn toggle_nicklist(&mut self) {
+        self.nicklist_hidden = !self.nicklist_hidden;
     }
 
     pub fn update(
@@ -155,6 +164,9 @@ impl Sidebar {
             }
             Message::MarkServerAsRead(server) => {
                 (Task::none(), Some(Event::MarkServerAsRead(server)))
+            }
+            Message::Nicklist(message) => {
+                (Task::none(), Some(Event::Nicklist(message)))
             }
             Message::OpenConfigFile => {
                 (Task::none(), Some(Event::OpenConfigFile))
@@ -402,7 +414,7 @@ impl Sidebar {
     pub fn view<'a>(
         &'a self,
         servers: &server::Map,
-        clients: &data::client::Map,
+        clients: &'a data::client::Map,
         history: &'a history::Manager,
         panes: &'a Panes,
         focus: Focus,
@@ -573,27 +585,61 @@ impl Sidebar {
 
             match config.sidebar.position {
                 sidebar::Position::Left | sidebar::Position::Right => {
-                    // Add buffers to a column.
-                    let buffers = column![
-                        Scrollable::new(
-                            Column::with_children(buffers).spacing(1)
-                        )
-                        .direction(
-                            scrollable::Direction::Vertical(
-                                scrollable::Scrollbar::default()
-                                    .width(config.sidebar.scrollbar.width)
-                                    .scroller_width(
-                                        config.sidebar.scrollbar.scroller_width
-                                    )
-                            )
-                        )
-                    ];
+                    let show_nicklist =
+                        config.sidebar.show_nicklist && !self.nicklist_hidden;
 
-                    // Wrap buffers in a column with user_menu_button
-                    let content = column![
-                        container(buffers).height(Length::Fill),
-                        user_menu_button,
-                    ];
+                    let direction = scrollable::Direction::Vertical(
+                        scrollable::Scrollbar::default()
+                            .width(config.sidebar.scrollbar.width)
+                            .scroller_width(
+                                config.sidebar.scrollbar.scroller_width,
+                            ),
+                    );
+
+                    let mut nicklist: Option<Element<'a, Message>> = None;
+                    let mut buflist_content =
+                        Column::with_children(buffers).spacing(0);
+
+                    if show_nicklist
+                        && let Some(list) = focused_channel_nicklist(
+                            panes, focus, clients, config, theme, width,
+                        )
+                    {
+                        if config.sidebar.split {
+                            let scrollable = Scrollable::new(list)
+                                .direction(direction)
+                                .width(Length::Shrink);
+
+                            nicklist = Some(
+                                container(scrollable)
+                                    .padding([0, 2])
+                                    .height(Length::FillPortion(
+                                        config.sidebar.nicklist_space,
+                                    ))
+                                    .into(),
+                            );
+                        } else {
+                            buflist_content = buflist_content
+                                .push(container(list).padding([0, 2]));
+                        }
+                    }
+
+                    let buflist_height =
+                        if config.sidebar.split && nicklist.is_some() {
+                            Length::FillPortion(config.sidebar.buflist_space)
+                        } else {
+                            Length::Fill
+                        };
+
+                    let buflist = Scrollable::new(buflist_content)
+                        .direction(direction)
+                        .height(buflist_height);
+
+                    let content = if show_nicklist && !config.sidebar.split {
+                        column![buflist, user_menu_button]
+                    } else {
+                        column![buflist, nicklist, user_menu_button]
+                    };
 
                     container(content)
                 }
@@ -663,6 +709,41 @@ impl Sidebar {
 
         Some(content.into())
     }
+}
+
+fn focused_channel_nicklist<'a>(
+    panes: &'a Panes,
+    focus: Focus,
+    clients: &'a data::client::Map,
+    config: &'a Config,
+    theme: &'a Theme,
+    width: Length,
+) -> Option<Element<'a, Message>> {
+    if !matches!(width, Length::Fill) {
+        return None;
+    }
+
+    let (server, channel) =
+        panes.iter().find_map(|(window, pane, state)| {
+            if (Focus { window, pane }) != focus {
+                return None;
+            }
+            match state.buffer.upstream() {
+                Some(buffer::Upstream::Channel(server, channel)) => {
+                    Some((server, channel))
+                }
+                _ => None,
+            }
+        })?;
+
+    let users = clients.get_channel_users(server, channel);
+    let prefix = clients.get_prefix(server);
+    let list = crate::buffer::channel::nick_list::content(
+        server, prefix, channel, users, None, config, theme,
+    )
+    .map(Message::Nicklist);
+
+    Some(list)
 }
 
 #[derive(Debug, Clone, Copy)]
