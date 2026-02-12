@@ -29,6 +29,8 @@ Note you can disable a key bind by setting it to `"noop"` or `"none"`.
 | `move_down`                    | Moves focus down             | <kbd>⌘</kbd> + <kbd>⌥</kbd> + <kbd>↓</kbd>          | <kbd>ctrl</kbd> + <kbd>alt</kbd> + <kbd>↓</kbd>     |
 | `move_left`                    | Moves focus left             | <kbd>⌘</kbd> + <kbd>⌥</kbd> + <kbd>←</kbd>          | <kbd>ctrl</kbd> + <kbd>alt</kbd> + <kbd>←</kbd>     |
 | `move_right`                   | Moves focus right            | <kbd>⌘</kbd> + <kbd>⌥</kbd> + <kbd>→</kbd>          | <kbd>ctrl</kbd> + <kbd>alt</kbd> + <kbd>→</kbd>     |
+| `new_horizontal_buffer`        | New horizontal buffer        | None                                                | None                                                |
+| `new_vertical_buffer`          | New vertical buffer          | None                                                | None                                                |
 | `close_buffer`                 | Close focused buffer         | <kbd>⌘</kbd> + <kbd>w</kbd>                         | <kbd>ctrl</kbd> + <kbd>w</kbd>                      |
 | `maximize_buffer`              | Maximize focused buffer      | <kbd>⌘</kbd> + <kbd>shift</kbd> + <kbd>↑</kbd>      | <kbd>ctrl</kbd> + <kbd>shift</kbd> + <kbd>↑</kbd>   |
 | `restore_buffer`               | Restore focused buffer       | <kbd>⌘</kbd> + <kbd>shift</kbd> + <kbd>↓</kbd>      | <kbd>ctrl</kbd> + <kbd>shift</kbd> + <kbd>↓</kbd>   |

@@ -27,6 +27,8 @@ pub enum Command {
     MoveDown,
     MoveLeft,
     MoveRight,
+    NewHorizontalBuffer,
+    NewVerticalBuffer,
     CloseBuffer,
     MaximizeBuffer,
     RestoreBuffer,
@@ -203,6 +205,8 @@ impl KeyBind {
     default!(move_down, ArrowDown, COMMAND | ALT);
     default!(move_left, ArrowLeft, COMMAND | ALT);
     default!(move_right, ArrowRight, COMMAND | ALT);
+    default!(new_horizontal_buffer);
+    default!(new_vertical_buffer);
     default!(close_buffer, "w", COMMAND);
     default!(maximize_buffer, ArrowUp, COMMAND | SHIFT);
     default!(restore_buffer, ArrowDown, COMMAND | SHIFT);

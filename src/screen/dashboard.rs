@@ -782,8 +782,19 @@ impl Dashboard {
                                     self.maximize_pane();
                                     (Task::none(), None)
                                 }
-                                command_bar::Buffer::New => {
-                                    (self.new_pane(pane_grid::Axis::Horizontal), None)
+                                command_bar::Buffer::NewHorizontal => {
+                                    (
+                                        self.new_pane(
+                                            pane_grid::Axis::Horizontal,
+                                        ),
+                                        None,
+                                    )
+                                }
+                                command_bar::Buffer::NewVertical => {
+                                    (
+                                        self.new_pane(pane_grid::Axis::Vertical),
+                                        None,
+                                    )
                                 }
                                 command_bar::Buffer::Close => {
                                     let Focus { window, pane } = self.focus;
@@ -916,6 +927,18 @@ impl Dashboard {
                     }
                     MoveRight => {
                         return (move_focus(pane_grid::Direction::Right), None);
+                    }
+                    NewHorizontalBuffer => {
+                        return (
+                            self.new_pane(pane_grid::Axis::Horizontal),
+                            None,
+                        );
+                    }
+                    NewVerticalBuffer => {
+                        return (
+                            self.new_pane(pane_grid::Axis::Vertical),
+                            None,
+                        );
                     }
                     CloseBuffer => {
                         let Focus { window, pane } = self.focus;
