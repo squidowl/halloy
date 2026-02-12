@@ -73,10 +73,9 @@ impl ChannelUsers {
     }
 
     pub fn insert(&mut self, user: User) -> bool {
-        // TODO(pounce, #1070) change to `insert_sorted_by_key` when merged
-        let (Ok(i) | Err(i)) =
-            self.0.binary_search_by_key(&user.key(), User::key);
-        self.0.insert_before(i, user).1
+        self.0
+            .insert_sorted_by(user, |a, b| a.key().cmp(&b.key()))
+            .1
     }
 
     pub fn remove(&mut self, user: &User) -> bool {
