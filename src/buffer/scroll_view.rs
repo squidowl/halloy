@@ -475,7 +475,8 @@ pub fn view<'a>(
 
     // Only create widgets for messages near the viewport, use height
     // spacers for the rest so we doesn't lay out thousands of children
-    let row_height = theme::line_height(&config.font) + line_spacing as f32;
+    let row_height =
+        theme::resolve_line_height(&config.font) + line_spacing as f32;
     let total = old_messages.len() + new_messages.len();
     let visible = (state.pane_size.height / row_height).max(1.0_f32) as usize;
     let buffer = visible * BUFFER_PAGES;
