@@ -60,6 +60,7 @@
     - [Nickname](configuration/buffer/text-input/nickname.md)
   - [Timestamp](configuration/buffer/timestamp/README.md)
   - [Url](configuration/buffer/url/README.md)
+- [Check for Update on Launch](configuration/check-for-update-on-launch.md)
 - [Commands](commands.md)
 - [Context Menu](configuration/context-menu/README.md)
   - [Padding](configuration/context-menu/padding.md)

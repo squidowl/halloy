@@ -306,8 +306,8 @@ impl Halloy {
 
         let default_config = Config::default();
         let config = config_load.as_ref().unwrap_or(&default_config);
-        let show_new_version_indicator =
-            config.sidebar.user_menu.show_new_version_indicator;
+        let proxy_config = config.proxy.clone();
+        let check_for_update_on_launch = config.check_for_update_on_launch;
 
         let (main_window, open_main_window) = window::open(window::Settings {
             size: fullscreen.unwrap_or(size),
@@ -327,7 +327,7 @@ impl Halloy {
             Task::stream(log_stream).map(Message::Logging),
         ];
 
-        if show_new_version_indicator {
+        if check_for_update_on_launch {
             commands.push(Task::perform(
                 version::latest_remote_version(proxy_config),
                 Message::Version,
