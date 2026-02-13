@@ -860,7 +860,7 @@ impl State {
                             return (Task::none(), None);
                         }
 
-                        *index = *index + 1;
+                        *index += 1;
                     } else {
                         self.selected_history = Some(0);
                     }
