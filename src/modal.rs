@@ -5,7 +5,7 @@ use data::{Server, config};
 use iced::Task;
 
 use crate::widget::Element;
-use crate::{Theme, window};
+use crate::{Theme, open_url, window};
 
 pub mod connect_to_server;
 pub mod image_preview;
@@ -92,7 +92,7 @@ impl Modal {
                 }
             },
             Message::OpenURL(url) => {
-                let _ = open::that_detached(url);
+                let _ = open_url::open(url);
                 (Task::none(), Some(Event::CloseModal))
             }
             Message::ImagePreview(image_preview) => match image_preview {

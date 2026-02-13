@@ -10,6 +10,7 @@ mod icon;
 mod logger;
 mod modal;
 mod notification;
+mod open_url;
 mod platform_specific;
 mod screen;
 mod stream;
@@ -464,7 +465,7 @@ impl Halloy {
                                 window: id,
                             });
                         } else {
-                            let _ = open::that_detached(url);
+                            let _ = open_url::open(url);
                         }
 
                         Task::none()
