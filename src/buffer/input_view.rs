@@ -766,19 +766,23 @@ impl State {
             }
             Message::Send => {
                 let raw_input = self.input_content.text().clone();
-                let cursor_position =
-                    self.input_content.cursor().position.column;
+                let cursor_position = self.input_content.cursor().position;
 
                 // Reset error
                 self.error = None;
                 // Reset selected history
                 self.selected_history = None;
 
-                if let Some(entry) = self.completion.select(config) {
+                if let Some(entry) = self.completion.select(config)
+                    && let Some(line) = self
+                        .input_content
+                        .line(cursor_position.line)
+                        .map(|line| line.text)
+                {
                     let chantypes = clients.get_chantypes(buffer.server());
                     let actions = entry.complete_input(
-                        raw_input.as_str(),
-                        cursor_position,
+                        &line,
+                        cursor_position.column,
                         chantypes,
                         config,
                     );
@@ -792,7 +796,7 @@ impl State {
                             .record_input_history(buffer, raw_input.to_owned());
                         self.input_content = text_editor::Content::new();
 
-                        return self.send_multiline_lines(
+                        return self.send_multiline_line(
                             multiline_lines(raw_input.as_str()),
                             buffer,
                             clients,
@@ -812,15 +816,18 @@ impl State {
                 }
             }
             Message::Tab(reverse) => {
-                let input = self.input_content.text();
-                let cursor_position =
-                    self.input_content.cursor().position.column;
+                let cursor_position = self.input_content.cursor().position;
 
-                if let Some(entry) = self.completion.tab(reverse) {
+                if let Some(entry) = self.completion.tab(reverse)
+                    && let Some(line) = self
+                        .input_content
+                        .line(cursor_position.line)
+                        .map(|line| line.text)
+                {
                     let chantypes = clients.get_chantypes(buffer.server());
                     let actions = entry.complete_input(
-                        input.as_str(),
-                        cursor_position,
+                        &line,
+                        cursor_position.column,
                         chantypes,
                         config,
                     );
@@ -871,33 +878,6 @@ impl State {
                         .unwrap()
                         .clone();
 
-                    let users = buffer.channel().and_then(|channel| {
-                        clients.get_channel_users(buffer.server(), channel)
-                    });
-                    let last_seen = history.get_last_seen(buffer);
-                    let filters = FilterChain::borrow(history.get_filters());
-                    let is_connected =
-                        clients.get_server_is_connected(buffer.server());
-                    let supports_detach =
-                        clients.get_server_supports_detach(buffer.server());
-                    let isupport = clients.get_isupport(buffer.server());
-
-                    self.completion.process(
-                        &new_input,
-                        new_input.len(),
-                        clients.nickname(buffer.server()),
-                        users,
-                        filters,
-                        &last_seen,
-                        clients.get_channels(buffer.server()),
-                        current_target.as_ref(),
-                        buffer.server(),
-                        is_connected,
-                        supports_detach,
-                        &isupport,
-                        config,
-                    );
-
                     return self.on_history_navigation(
                         buffer, history, &new_input, false,
                     );
@@ -920,37 +900,7 @@ impl State {
                         cache.draft.to_string()
                     } else {
                         *index -= 1;
-                        let new_input =
-                            cache.history.get(*index).unwrap().clone();
-
-                        let users = buffer.channel().and_then(|channel| {
-                            clients.get_channel_users(buffer.server(), channel)
-                        });
-                        let last_seen = history.get_last_seen(buffer);
-                        let filters =
-                            FilterChain::borrow(history.get_filters());
-                        let is_connected =
-                            clients.get_server_is_connected(buffer.server());
-                        let supports_detach =
-                            clients.get_server_supports_detach(buffer.server());
-                        let isupport = clients.get_isupport(buffer.server());
-
-                        self.completion.process(
-                            &new_input,
-                            new_input.len(),
-                            clients.nickname(buffer.server()),
-                            users,
-                            filters,
-                            &last_seen,
-                            clients.get_channels(buffer.server()),
-                            current_target.as_ref(),
-                            buffer.server(),
-                            is_connected,
-                            supports_detach,
-                            &isupport,
-                            config,
-                        );
-                        new_input
+                        cache.history.get(*index).unwrap().clone()
                     };
 
                     return self.on_history_navigation(
@@ -977,7 +927,7 @@ impl State {
             Message::SendLines {
                 buffer: send_buffer,
                 lines,
-            } => self.send_multiline_lines(
+            } => self.send_multiline_line(
                 lines,
                 &send_buffer,
                 clients,
@@ -1129,136 +1079,152 @@ impl State {
 
                 match &action {
                     text_editor::Action::Edit(_) => {
-                        let input = self.input_content.text();
                         let cursor_position =
-                            self.input_content.cursor().position.column;
+                            self.input_content.cursor().position;
 
                         // Reset error state
                         self.error = None;
                         // Reset selected history
                         self.selected_history = None;
 
-                        let users = buffer.channel().and_then(|channel| {
-                            clients.get_channel_users(buffer.server(), channel)
-                        });
-                        let last_seen = history.get_last_seen(buffer);
-                        let filters =
-                            FilterChain::borrow(history.get_filters());
-                        let is_connected =
-                            clients.get_server_is_connected(buffer.server());
-                        let supports_detach =
-                            clients.get_server_supports_detach(buffer.server());
-                        let isupport = clients.get_isupport(buffer.server());
-
-                        self.completion.process(
-                            &input,
-                            cursor_position,
-                            clients.nickname(buffer.server()),
-                            users,
-                            filters,
-                            &last_seen,
-                            clients.get_channels(buffer.server()),
-                            current_target.as_ref(),
-                            buffer.server(),
-                            is_connected,
-                            supports_detach,
-                            &isupport,
-                            config,
-                        );
-
-                        let actions = self
-                            .completion
-                            .complete_emoji(&input, cursor_position);
-
-                        if let Some(actions) = actions {
-                            for action in actions.into_iter() {
-                                self.input_content.perform(action);
-                            }
-                        }
-
-                        if let Err(error) = input::parse(
-                            buffer.clone(),
-                            config.buffer.text_input.auto_format,
-                            &input,
-                            clients.nickname(buffer.server()),
-                            buffer.channel().map(|target| {
+                        if let Some(line) = self
+                            .input_content
+                            .line(cursor_position.line)
+                            .map(|line| line.text)
+                        {
+                            let users = buffer.channel().and_then(|channel| {
                                 clients
-                                    .get_channels(buffer.server())
-                                    .any(|channel| target == channel)
-                            }),
-                            is_connected,
-                            &clients.get_isupport(buffer.server()),
-                            clients.get_relay_bytes(buffer.server()),
-                            config,
-                        ) && match error {
-                            input::Error::ExceedsByteLimit { .. }
-                            | input::Error::Command(
-                                command::Error::InvalidModeString
-                                | command::Error::ArgTooLong { .. }
-                                | command::Error::TooManyTargets { .. }
-                                | command::Error::NotPositiveInteger
-                                | command::Error::InvalidChannelName { .. }
-                                | command::Error::InvalidServerUrl,
-                            ) => true,
-                            input::Error::Command(
-                                command::Error::IncorrectArgCount {
-                                    actual,
-                                    max,
-                                    ..
-                                },
-                            ) => actual > max,
-                            input::Error::Command(
-                                command::Error::MissingSlash
-                                | command::Error::MissingCommand
-                                | command::Error::NoModeString
-                                | command::Error::Connected
-                                | command::Error::Disconnected
-                                | command::Error::NotInChannel,
-                            ) => false,
-                        } {
-                            self.error = Some(error.to_string());
+                                    .get_channel_users(buffer.server(), channel)
+                            });
+                            let last_seen = history.get_last_seen(buffer);
+                            let filters =
+                                FilterChain::borrow(history.get_filters());
+                            let is_connected = clients
+                                .get_server_is_connected(buffer.server());
+                            let supports_detach = clients
+                                .get_server_supports_detach(buffer.server());
+                            let isupport =
+                                clients.get_isupport(buffer.server());
+
+                            self.completion.process(
+                                &line,
+                                cursor_position.column,
+                                clients.nickname(buffer.server()),
+                                users,
+                                filters,
+                                &last_seen,
+                                clients.get_channels(buffer.server()),
+                                current_target.as_ref(),
+                                buffer.server(),
+                                is_connected,
+                                supports_detach,
+                                &isupport,
+                                config,
+                            );
+
+                            let actions = self
+                                .completion
+                                .complete_emoji(&line, cursor_position.column);
+
+                            if let Err(error) = input::parse(
+                                buffer.clone(),
+                                config.buffer.text_input.auto_format,
+                                &line,
+                                clients.nickname(buffer.server()),
+                                buffer.channel().map(|target| {
+                                    clients
+                                        .get_channels(buffer.server())
+                                        .any(|channel| target == channel)
+                                }),
+                                is_connected,
+                                &clients.get_isupport(buffer.server()),
+                                clients.get_relay_bytes(buffer.server()),
+                                config,
+                            ) && match error {
+                                input::Error::ExceedsByteLimit { .. }
+                                | input::Error::Command(
+                                    command::Error::InvalidModeString
+                                    | command::Error::ArgTooLong { .. }
+                                    | command::Error::TooManyTargets { .. }
+                                    | command::Error::NotPositiveInteger
+                                    | command::Error::InvalidChannelName {
+                                        ..
+                                    }
+                                    | command::Error::InvalidServerUrl,
+                                ) => true,
+                                input::Error::Command(
+                                    command::Error::IncorrectArgCount {
+                                        actual,
+                                        max,
+                                        ..
+                                    },
+                                ) => actual > max,
+                                input::Error::Command(
+                                    command::Error::MissingSlash
+                                    | command::Error::MissingCommand
+                                    | command::Error::NoModeString
+                                    | command::Error::Connected
+                                    | command::Error::Disconnected
+                                    | command::Error::NotInChannel,
+                                ) => false,
+                            } {
+                                self.error = Some(error.to_string());
+                            }
+
+                            if let Some(actions) = actions {
+                                for action in actions.into_iter() {
+                                    self.input_content.perform(action);
+                                }
+                            }
                         }
 
                         history.record_draft(RawInput {
                             buffer: buffer.clone(),
-                            text: input,
+                            text: self.input_content.text(),
                         });
 
                         (Task::none(), None)
                     }
                     text_editor::Action::Move(_)
                     | text_editor::Action::Click(_) => {
-                        let input = self.input_content.text();
                         let cursor_position =
-                            self.input_content.cursor().position.column;
+                            self.input_content.cursor().position;
 
-                        let users = buffer.channel().and_then(|channel| {
-                            clients.get_channel_users(buffer.server(), channel)
-                        });
-                        let last_seen = history.get_last_seen(buffer);
-                        let filters =
-                            FilterChain::borrow(history.get_filters());
-                        let is_connected =
-                            clients.get_server_is_connected(buffer.server());
-                        let supports_detach =
-                            clients.get_server_supports_detach(buffer.server());
-                        let isupport = clients.get_isupport(buffer.server());
+                        if let Some(line) = self
+                            .input_content
+                            .line(cursor_position.line)
+                            .map(|line| line.text)
+                        {
+                            let users = buffer.channel().and_then(|channel| {
+                                clients
+                                    .get_channel_users(buffer.server(), channel)
+                            });
+                            let last_seen = history.get_last_seen(buffer);
+                            let filters =
+                                FilterChain::borrow(history.get_filters());
+                            let is_connected = clients
+                                .get_server_is_connected(buffer.server());
+                            let supports_detach = clients
+                                .get_server_supports_detach(buffer.server());
+                            let isupport =
+                                clients.get_isupport(buffer.server());
 
-                        self.completion.process(
-                            &input,
-                            cursor_position,
-                            clients.nickname(buffer.server()),
-                            users,
-                            filters,
-                            &last_seen,
-                            clients.get_channels(buffer.server()),
-                            current_target.as_ref(),
-                            buffer.server(),
-                            is_connected,
-                            supports_detach,
-                            &isupport,
-                            config,
-                        );
+                            self.completion.process(
+                                &line,
+                                cursor_position.column,
+                                clients.nickname(buffer.server()),
+                                users,
+                                filters,
+                                &last_seen,
+                                clients.get_channels(buffer.server()),
+                                current_target.as_ref(),
+                                buffer.server(),
+                                is_connected,
+                                supports_detach,
+                                &isupport,
+                                config,
+                            );
+                        }
 
                         (Task::none(), None)
                     }
@@ -1287,7 +1253,7 @@ impl State {
         )
     }
 
-    fn send_multiline_lines(
+    fn send_multiline_line(
         &mut self,
         mut lines: VecDeque<String>,
         buffer: &Upstream,
@@ -1726,45 +1692,52 @@ impl State {
         history: &mut history::Manager,
         autocomplete: &Autocomplete,
     ) {
-        let text = self.input_content.text();
-        let cursor_position = self.input_content.cursor().position.column;
+        let cursor_position = self.input_content.cursor().position;
 
-        let insert_text = if cursor_position == 0 {
-            let suffix_range = cursor_position
-                ..cursor_position + autocomplete.completion_suffixes[0].len();
+        let insert_text = if let Some(line) = self
+            .input_content
+            .line(cursor_position.line)
+            .map(|line| line.text)
+        {
+            if cursor_position.column == 0 {
+                let suffix_range = cursor_position.column
+                    ..cursor_position.column
+                        + autocomplete.completion_suffixes[0].len();
 
-            if text
-                .get(suffix_range)
-                .is_some_and(|text| text == autocomplete.completion_suffixes[0])
-            {
-                format!("{nick}")
-            } else {
-                format!("{nick}{}", autocomplete.completion_suffixes[0])
-            }
-        } else {
-            let suffix_range = cursor_position
-                ..cursor_position + autocomplete.completion_suffixes[1].len();
-
-            if text
-                .chars()
-                .nth(cursor_position - 1)
-                .is_some_and(|c| c == ' ')
-            {
-                if text.get(suffix_range).is_some_and(|text| {
-                    text == autocomplete.completion_suffixes[1]
+                if line.get(suffix_range).is_some_and(|text| {
+                    text == autocomplete.completion_suffixes[0]
                 }) {
                     format!("{nick}")
                 } else {
-                    format!("{nick}{}", autocomplete.completion_suffixes[1])
+                    format!("{nick}{}", autocomplete.completion_suffixes[0])
                 }
-            } else if text
-                .get(suffix_range)
-                .is_some_and(|text| text == autocomplete.completion_suffixes[1])
-            {
-                format!(" {nick}")
             } else {
-                format!(" {nick}{}", autocomplete.completion_suffixes[1])
+                let suffix_range = cursor_position.column
+                    ..cursor_position.column
+                        + autocomplete.completion_suffixes[1].len();
+
+                if line
+                    .chars()
+                    .nth(cursor_position.column - 1)
+                    .is_some_and(|c| c == ' ')
+                {
+                    if line.get(suffix_range).is_some_and(|text| {
+                        text == autocomplete.completion_suffixes[1]
+                    }) {
+                        format!("{nick}")
+                    } else {
+                        format!("{nick}{}", autocomplete.completion_suffixes[1])
+                    }
+                } else if line.get(suffix_range).is_some_and(|text| {
+                    text == autocomplete.completion_suffixes[1]
+                }) {
+                    format!(" {nick}")
+                } else {
+                    format!(" {nick}{}", autocomplete.completion_suffixes[1])
+                }
             }
+        } else {
+            format!("{nick}")
         };
 
         self.input_content.perform(text_editor::Action::Edit(
