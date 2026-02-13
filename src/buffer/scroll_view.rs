@@ -351,9 +351,11 @@ pub fn view<'a>(
                         .collect::<Vec<_>>();
 
                     if !urls.is_empty() {
-                        let is_message_visible = state
-                            .visible_url_messages
-                            .contains_key(&message.hash);
+                        let is_message_visible =
+                            state.pending_scroll_to.is_some()
+                                || state
+                                    .visible_url_messages
+                                    .contains_key(&message.hash);
 
                         let mut column = column![element];
 
@@ -490,7 +492,9 @@ pub fn view<'a>(
             .map_or(row_height, |h| h + line_spacing as f32)
     };
 
-    let (render_start, render_end) = if total > render_budget {
+    let (render_start, render_end) = if state.pending_scroll_to.is_some() {
+        (0, total)
+    } else if total > render_budget {
         let first_visible = match state.status {
             Status::Bottom => {
                 let offset = state.last_scroll_offset;
@@ -923,6 +927,8 @@ impl State {
                 hit_bounds,
                 scrollable,
             }) => {
+                self.pending_scroll_to = None;
+
                 let max_offset = scrollable.max_vertical_offset();
 
                 let top_inset = theme::resolve_line_height(&config.font) * 0.5;
@@ -1033,9 +1039,12 @@ impl State {
                 if let Some(key) = &self.pending_scroll_to {
                     let scroll_to = keyed::find(self.scrollable.clone(), *key)
                         .map(Message::ScrollTo);
+                    let retry = Task::perform(
+                        time::sleep(SCROLL_TO_TIMEOUT),
+                        move |()| Message::PendingScrollTo,
+                    );
 
-                    self.pending_scroll_to = None;
-                    return (scroll_to, None);
+                    return (Task::batch([scroll_to, retry]), None);
                 }
             }
             Message::HeightsCollected(heights) => {
@@ -1046,8 +1055,6 @@ impl State {
                 if let Some(key) = &self.pending_scroll_to {
                     let scroll_to = keyed::find(self.scrollable.clone(), *key)
                         .map(Message::ScrollTo);
-
-                    self.pending_scroll_to = None;
 
                     return (scroll_to, None);
                 }
@@ -1175,20 +1182,25 @@ impl State {
         }
 
         let Some(history::View {
-            total,
             old_messages,
+            new_messages,
             ..
         }) = history.get_messages(&kind.into(), None, &config.buffer)
         else {
             return Task::none();
         };
 
-        // Get all messages from bottom until 1 before backlog
-        let offset = total - old_messages.len() + 1;
+        // Use the message at the divider boundary as anchor
+        let Some(target) = old_messages
+            .iter()
+            .chain(&new_messages)
+            .nth(old_messages.len().saturating_sub(1))
+        else {
+            return Task::none();
+        };
 
-        self.limit = Limit::Bottom(
-            offset.max(step_messages(2.0 * self.pane_size.height, config)),
-        );
+        let around_count = step_messages(4.0 * self.pane_size.height, config);
+        self.limit = Limit::Around(around_count, target.hash);
 
         self.pending_scroll_to = Some(keyed::Key::Divider);
 
