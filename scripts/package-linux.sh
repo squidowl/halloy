@@ -3,7 +3,7 @@
 ARCH="x86_64"
 TARGET="halloy"
 VERSION=$(cat VERSION)
-PROFILE="release"
+PROFILE="packaging"
 ASSETS_DIR="assets/linux"
 RELEASE_DIR="target/$PROFILE"
 BINARY="$RELEASE_DIR/$TARGET"
