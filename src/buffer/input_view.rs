@@ -1665,8 +1665,9 @@ impl State {
         // update the input content
         self.input_content = text_editor::Content::with_text(text);
         // move the cursor to the end of the input
-        self.input_content
-            .perform(text_editor::Action::Move(text_editor::Motion::End));
+        self.input_content.perform(text_editor::Action::Move(
+            text_editor::Motion::DocumentEnd,
+        ));
 
         (Task::none(), None)
     }
