@@ -21,6 +21,60 @@ impl Shortcut {
     }
 }
 
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct KeyBinds(Vec<KeyBind>);
+
+impl KeyBinds {
+    pub fn iter(&self) -> impl Iterator<Item = &KeyBind> {
+        self.0.iter()
+    }
+
+    pub fn primary(&self) -> Option<&KeyBind> {
+        self.0.first()
+    }
+}
+
+impl From<KeyBind> for KeyBinds {
+    fn from(value: KeyBind) -> Self {
+        match value {
+            KeyBind::Bind { .. } => Self(vec![value]),
+            KeyBind::Unbind => Self::default(),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for KeyBinds {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum Input {
+            Single(KeyBind),
+            Multiple(Vec<KeyBind>),
+        }
+
+        let keybinds = match Input::deserialize(deserializer)? {
+            Input::Single(key_bind) => return Ok(Self::from(key_bind)),
+            Input::Multiple(key_binds) => key_binds,
+        };
+
+        let mut unique = Vec::with_capacity(keybinds.len());
+
+        for key_bind in keybinds {
+            if matches!(key_bind, KeyBind::Unbind) || unique.contains(&key_bind)
+            {
+                continue;
+            }
+
+            unique.push(key_bind);
+        }
+
+        Ok(Self(unique))
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Command {
     MoveUp,
