@@ -110,6 +110,17 @@ iced = { version = "0.15.0-dev", default-features = false, features = [
     "sysinfo",
 ] }
 
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2-app-kit = { version = "0.3.2", default-features = false, features = [
+    "std",
+    "NSWorkspace",
+] }
+objc2-foundation = { version = "0.3.2", default-features = false, features = [
+    "std",
+    "NSString",
+    "NSURL",
+] }
+
 [target.'cfg(windows)'.build-dependencies]
 embed-resource = "3.0.2"
 windows_exe_info = "0.4"
