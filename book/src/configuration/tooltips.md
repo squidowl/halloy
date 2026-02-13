@@ -2,13 +2,13 @@
 
 Control if tooltips are displayed or not.
 
-- [Tooltips](#tooltips)
+- [Tooltips](#Tooltips)
   - [Configuration](#configuration)
-    - [tooltip](#tooltip)
+    - [tooltips](#tooltips)
 
 ## Configuration
 
-### tooltip
+### tooltips
 
 > 💡 `tooltips` is a root key, so it must be placed before any section.
 
