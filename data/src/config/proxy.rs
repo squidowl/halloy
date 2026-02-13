@@ -66,3 +66,52 @@ impl fmt::Display for Proxy {
         }
     }
 }
+
+pub fn build_client(config: &Proxy) -> Result<reqwest::Client, BuildError> {
+    match config {
+        Proxy::Http {
+            host,
+            port,
+            username,
+            password,
+        } => {
+            let mut proxy =
+                reqwest::Proxy::all(format!("http://{host}:{port}"))?;
+
+            if let Some(username) = username
+                && let Some(password) = password
+            {
+                proxy = proxy.basic_auth(username, password);
+            }
+
+            Ok(reqwest::Client::builder().proxy(proxy).build()?)
+        }
+        Proxy::Socks5 {
+            host,
+            port,
+            username,
+            password,
+        } => {
+            let mut proxy =
+                reqwest::Proxy::all(format!("socks5://{host}:{port}"))?;
+
+            if let Some(username) = username
+                && let Some(password) = password
+            {
+                proxy = proxy.basic_auth(username, password);
+            }
+
+            Ok(reqwest::Client::builder().proxy(proxy).build()?)
+        }
+        #[cfg(feature = "tor")]
+        Proxy::Tor => Err(BuildError::Tor),
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum BuildError {
+    #[error("disabled when Tor proxy provided by Arti")]
+    Tor,
+    #[error("reqwest error: {0}")]
+    Reqwest(#[from] reqwest::Error),
+}

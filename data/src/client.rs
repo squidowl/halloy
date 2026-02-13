@@ -29,8 +29,7 @@ use crate::time::Posix;
 use crate::user::{ChannelUsers, Nick, NickRef};
 use crate::{
     Server, User, buffer, channel_discovery, compression, config, ctcp, dcc,
-    environment, file_transfer, history, isupport, message, mode, preview,
-    server,
+    environment, file_transfer, history, isupport, message, mode, server,
 };
 
 pub mod on_connect;
@@ -191,7 +190,7 @@ impl Client {
         sender: mpsc::Sender<proto::Message>,
     ) -> Self {
         let preview_proxy_client = if let Some(proxy) = config.proxy.as_ref() {
-            match preview::client_from_proxy(proxy) {
+            match config::proxy::build_client(proxy) {
                 Ok(preview_proxy_client) => Some(preview_proxy_client),
                 Err(error) => {
                     log::warn!("[{server}] Preview fetching disabled: {error}");

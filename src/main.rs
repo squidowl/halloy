@@ -329,7 +329,7 @@ impl Halloy {
 
         if show_new_version_indicator {
             commands.push(Task::perform(
-                version::latest_remote_version(),
+                version::latest_remote_version(proxy_config),
                 Message::Version,
             ));
         }
