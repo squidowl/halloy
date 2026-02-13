@@ -350,7 +350,6 @@ pub fn view<'a>(
                     ) if key_press.modifiers.shift() => {
                         Some(text_editor::Binding::Enter)
                     }
-                    //
                     // Send
                     iced::keyboard::Key::Named(
                         iced::keyboard::key::Named::Enter,
@@ -364,11 +363,34 @@ pub fn view<'a>(
                     // Up
                     iced::keyboard::Key::Named(
                         iced::keyboard::key::Named::ArrowUp,
-                    ) => Some(text_editor::Binding::Custom(Message::Up)),
+                    ) => {
+                        let cursor_position =
+                            state.input_content.cursor().position;
+
+                        if cursor_position.line == 0 {
+                            Some(text_editor::Binding::Custom(Message::Up))
+                        } else {
+                            text_editor::Binding::from_key_press(key_press)
+                        }
+                    }
                     // Down
                     iced::keyboard::Key::Named(
                         iced::keyboard::key::Named::ArrowDown,
-                    ) => Some(text_editor::Binding::Custom(Message::Down)),
+                    ) => {
+                        let cursor_position =
+                            state.input_content.cursor().position;
+
+                        if cursor_position.line
+                            == state
+                                .input_content
+                                .line_count()
+                                .saturating_sub(1)
+                        {
+                            Some(text_editor::Binding::Custom(Message::Down))
+                        } else {
+                            text_editor::Binding::from_key_press(key_press)
+                        }
+                    }
                     // Escape
                     iced::keyboard::Key::Named(
                         iced::keyboard::key::Named::Escape,
@@ -834,7 +856,11 @@ impl State {
 
                 if !cache.history.is_empty() {
                     if let Some(index) = self.selected_history.as_mut() {
-                        *index = (*index + 1).min(cache.history.len() - 1);
+                        if *index == cache.history.len().saturating_sub(1) {
+                            return (Task::none(), None);
+                        }
+
+                        *index = *index + 1;
                     } else {
                         self.selected_history = Some(0);
                     }
