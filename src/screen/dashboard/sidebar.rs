@@ -205,29 +205,32 @@ impl Sidebar {
                     move |menu, length| {
                         let context_button =
                             |title: Text<'a>,
-                             keybind: Option<&data::shortcut::KeyBind>,
+                             keybinds: Option<&data::shortcut::KeyBinds>,
                              icon: Text<'a>,
                              message: Message| {
                                 let title = title.line_height(
                                     theme::line_height(&config.font),
                                 );
-                                let keybind = keybind.and_then(|kb| match kb {
-                                    data::shortcut::KeyBind::Bind {
-                                        ..
-                                    } => Some(
-                                        text(format!("({kb})"))
-                                            .shaping(Shaping::Advanced)
-                                            .size(theme::TEXT_SIZE - 2.0)
-                                            .style(theme::text::secondary)
-                                            .font_maybe(
-                                                theme::font_style::secondary(
-                                                    theme,
-                                                )
-                                                .map(font::get),
-                                            ),
-                                    ),
-                                    data::shortcut::KeyBind::Unbind => None,
-                                });
+                                let keybind =
+                                    keybinds.and_then(|key_binds| match key_binds
+                                        .primary()
+                                    {
+                                        Some(kb @ data::shortcut::KeyBind::Bind {
+                                            ..
+                                        }) => Some(
+                                            text(format!("({kb})"))
+                                                .shaping(Shaping::Advanced)
+                                                .size(theme::TEXT_SIZE - 2.0)
+                                                .style(theme::text::secondary)
+                                                .font_maybe(
+                                                    theme::font_style::secondary(
+                                                        theme,
+                                                    )
+                                                    .map(font::get),
+                                                ),
+                                        ),
+                                        _ => None,
+                                    });
 
                                 button(
                                     row![
