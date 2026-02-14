@@ -27,6 +27,7 @@ use std::{env, mem};
 
 use appearance::{Theme, theme};
 use chrono::Utc;
+use data::config::wgpu::{WgpuBackend, WgpuPowerPref};
 use data::config::{self, Config};
 use data::history::filter::FilterChain;
 use data::message::{self, Broadcast};
@@ -96,6 +97,8 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         })
     };
 
+    set_wgpu_env(&config_load);
+
     // Futures have only been run via block_on, so we should be able to
     // shutdown_background without leaks
     rt.shutdown_background();
@@ -161,6 +164,44 @@ fn settings(config_load: &Result<Config, config::Error>) -> iced::Settings {
         antialiasing: false,
         fonts: font::load(),
         vsync: true,
+    }
+}
+
+pub fn set_wgpu_env(config_load: &Result<Config, config::Error>) {
+    let Ok(config) = config_load else { return };
+
+    if std::env::var_os("WGPU_BACKEND").is_some() {
+        log::info!("WGPU_BACKEND already set by environment variable.");
+    } else {
+        match &config.wgpu.backend {
+            WgpuBackend::Auto => {
+                log::info!("WGPU_BACKEND is using WGPU default");
+            }
+            backend => {
+                unsafe {
+                    std::env::set_var("WGPU_BACKEND", backend.to_string());
+                }
+                log::info!(
+                    "WGPU_BACKEND set from config to: {}",
+                    config.wgpu.backend
+                );
+            }
+        };
+    }
+
+    if std::env::var_os("WGPU_POWER_PREF").is_some() {
+        log::info!("WGPU_POWER_PREF already set by environment variable.");
+    } else {
+        match &config.wgpu.power_pref {
+            WgpuPowerPref::NotSet => return,
+            power_pref => unsafe {
+                std::env::set_var("WGPU_POWER_PREF", power_pref.to_string());
+            },
+        };
+        log::info!(
+            "Set WGPU_POWER_PREF from config to: {}",
+            config.wgpu.power_pref
+        );
     }
 }
 

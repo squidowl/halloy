@@ -25,6 +25,7 @@ pub use self::preview::Preview;
 pub use self::proxy::Proxy;
 pub use self::server::Server;
 pub use self::sidebar::Sidebar;
+pub use self::wgpu::Wgpu;
 use crate::appearance::theme::Styles;
 use crate::appearance::{self, Appearance};
 use crate::audio::{self};
@@ -50,6 +51,7 @@ pub mod preview;
 pub mod proxy;
 pub mod server;
 pub mod sidebar;
+pub mod wgpu;
 
 const CONFIG_TEMPLATE: &str = include_str!("../../config.toml");
 const DEFAULT_THEME_NAME: &str = "ferra";
@@ -75,6 +77,7 @@ pub struct Config {
     pub ctcp: Ctcp,
     pub logs: Logs,
     pub platform_specific: PlatformSpecific,
+    pub wgpu: Wgpu,
 }
 
 #[derive(Debug, Clone, Copy, Deserialize)]
@@ -330,6 +333,7 @@ impl Config {
             pub ctcp: Ctcp,
             pub logs: Logs,
             pub platform_specific: PlatformSpecific,
+            pub wgpu: Wgpu,
         }
 
         impl Default for Configuration {
@@ -354,6 +358,7 @@ impl Config {
                     ctcp: Ctcp::default(),
                     logs: Logs::default(),
                     platform_specific: PlatformSpecific::default(),
+                    wgpu: Wgpu::default(),
                 }
             }
         }
@@ -388,6 +393,7 @@ impl Config {
             ctcp,
             logs,
             platform_specific,
+            wgpu,
         } = serde_ignored::deserialize(config, |ignored| {
             log::warn!("[config.toml] Ignoring unknown setting: {ignored}");
         })
@@ -419,6 +425,7 @@ impl Config {
             ctcp,
             logs,
             platform_specific,
+            wgpu,
         })
     }
 
