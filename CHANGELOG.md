@@ -17,11 +17,17 @@ Fixed:
 
 - Channel mode in pane headers not updating immediately after mode changes
 - Cycle next/previous (unread) buffer shortcuts work from an empty pane
+- Default proxy used when checking for an update
+
+Changed:
+
+- `sidebar.user_menu.show_new_version_indicator` setting has been changed to `check_for_update_on_launch` to clarify that it prevents the check for an update
 
 Thanks:
 
 - Contributions: @Hummer12007, @chamlis
 - Feature requests: @megumintyan
+- Bug reports: @someone2037492034
 
 # 2026.2 (2026-02-01)
 

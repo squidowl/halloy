@@ -54,7 +54,7 @@ pub mod sidebar;
 const CONFIG_TEMPLATE: &str = include_str!("../../config.toml");
 const DEFAULT_THEME_NAME: &str = "ferra";
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct Config {
     pub appearance: Appearance,
     pub context_menu: ContextMenu,
@@ -75,6 +75,34 @@ pub struct Config {
     pub ctcp: Ctcp,
     pub logs: Logs,
     pub platform_specific: PlatformSpecific,
+    pub check_for_update_on_launch: bool,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            appearance: Appearance::default(),
+            context_menu: ContextMenu::default(),
+            servers: ServerMap::default(),
+            proxy: None,
+            font: Font::default(),
+            scale_factor: ScaleFactor::default(),
+            buffer: Buffer::default(),
+            pane: Pane::default(),
+            sidebar: Sidebar::default(),
+            keyboard: Keyboard::default(),
+            notifications: Notifications::default(),
+            file_transfer: FileTransfer::default(),
+            tooltips: true,
+            preview: Preview::default(),
+            highlights: Highlights::default(),
+            actions: Actions::default(),
+            ctcp: Ctcp::default(),
+            logs: Logs::default(),
+            platform_specific: PlatformSpecific::default(),
+            check_for_update_on_launch: true,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, Deserialize)]
@@ -330,6 +358,7 @@ impl Config {
             pub ctcp: Ctcp,
             pub logs: Logs,
             pub platform_specific: PlatformSpecific,
+            pub check_for_update_on_launch: bool,
         }
 
         impl Default for Configuration {
@@ -354,6 +383,7 @@ impl Config {
                     ctcp: Ctcp::default(),
                     logs: Logs::default(),
                     platform_specific: PlatformSpecific::default(),
+                    check_for_update_on_launch: true,
                 }
             }
         }
@@ -388,6 +418,7 @@ impl Config {
             ctcp,
             logs,
             platform_specific,
+            check_for_update_on_launch,
         } = serde_ignored::deserialize(config, |ignored| {
             log::warn!("[config.toml] Ignoring unknown setting: {ignored}");
         })
@@ -419,6 +450,7 @@ impl Config {
             ctcp,
             logs,
             platform_specific,
+            check_for_update_on_launch,
         })
     }
 
