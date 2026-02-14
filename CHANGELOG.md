@@ -8,6 +8,7 @@ Added:
 - Add setting to specify queries to be added to the sidebar after connecting to a server
 - Added ability to disconnect on SASL authentication failure
 - Setting to configure font line height (`font.line_height`)
+- Ability to add multiple keybinds for a single shortcut
 - New shortcuts:
   - `new_horizontal_buffer` (not bound by default)
   - `new_vertical_buffer` (not bound by default)
