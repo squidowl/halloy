@@ -730,10 +730,8 @@ impl State {
                             _ => Limit::Top(n),
                         };
                     }
-
-                    _ if old_status.is_bottom(relative_offset)
-                        && !matches!(self.limit, Limit::Around(_, _)) =>
-                    {
+                    // Hit bottom, anchor it
+                    _ if old_status.is_bottom(relative_offset) => {
                         if !matches!(self.status, Status::Bottom)
                             && config.buffer.mark_as_read.on_scroll_to_bottom
                         {
