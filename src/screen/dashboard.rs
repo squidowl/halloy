@@ -4083,13 +4083,16 @@ fn cycle_next_buffer(
 ) -> Option<buffer::Upstream> {
     all.retain(|buffer| Some(buffer) == current || !opened.contains(buffer));
 
-    let next = || {
-        let buffer = current?;
-        let index = all.iter().position(|b| b == buffer)?;
-        all.get(index + 1)
-    };
+    let index = current
+        .and_then(|buffer| all.iter().position(|b| b == buffer))
+        .unwrap_or(all.len().saturating_sub(1));
 
-    next().or_else(|| all.first()).cloned()
+    if index == all.len().saturating_sub(1) {
+        all.first()
+    } else {
+        all.get(index + 1)
+    }
+    .cloned()
 }
 
 fn cycle_previous_buffer(
@@ -4099,14 +4102,16 @@ fn cycle_previous_buffer(
 ) -> Option<buffer::Upstream> {
     all.retain(|buffer| Some(buffer) == current || !opened.contains(buffer));
 
-    let previous = || {
-        let buffer = current?;
-        let index = all.iter().position(|b| b == buffer).filter(|i| *i > 0)?;
+    let index = current
+        .and_then(|buffer| all.iter().position(|b| b == buffer))
+        .unwrap_or(0);
 
+    if index == 0 {
+        all.last()
+    } else {
         all.get(index - 1)
-    };
-
-    previous().or_else(|| all.last()).cloned()
+    }
+    .cloned()
 }
 
 fn cycle_next_unread_buffer(
@@ -4118,9 +4123,9 @@ fn cycle_next_unread_buffer(
         Some(buffer) == current || !opened.contains(buffer)
     });
 
-    let buffer = current?;
-
-    let index = all.iter().position(|(b, _)| b == buffer)?;
+    let index = current
+        .and_then(|buffer| all.iter().position(|(b, _)| b == buffer))
+        .unwrap_or(all.len().saturating_sub(1));
 
     let next_after = || {
         all.iter()
@@ -4146,9 +4151,9 @@ fn cycle_previous_unread_buffer(
         Some(buffer) == current || !opened.contains(buffer)
     });
 
-    let buffer = current?;
-
-    let index = all.iter().rev().position(|(b, _)| b == buffer)?;
+    let index = current
+        .and_then(|buffer| all.iter().position(|(b, _)| b == buffer))
+        .unwrap_or(0);
 
     let previous_before = || {
         all.iter()

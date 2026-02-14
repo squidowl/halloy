@@ -16,10 +16,11 @@ Added:
 Fixed:
 
 - Channel mode in pane headers not updating immediately after mode changes
+- Cycle next/previous (unread) buffer shortcuts work from an empty pane
 
 Thanks:
 
-- Contributions: @Hummer12007
+- Contributions: @Hummer12007, @chamlis
 - Feature requests: @megumintyan
 
 # 2026.2 (2026-02-01)
