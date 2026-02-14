@@ -150,7 +150,8 @@ pub enum Version {
 #[derive(Debug, Clone)]
 pub enum Buffer {
     Maximize(bool),
-    New,
+    NewHorizontal,
+    NewVertical,
     Close,
     Replace(buffer::Upstream),
     Popout,
@@ -233,7 +234,7 @@ impl Buffer {
         resize_buffer: data::buffer::Resize,
         main_window: window::Id,
     ) -> Vec<Self> {
-        let mut list = vec![Buffer::New];
+        let mut list = vec![Buffer::NewHorizontal, Buffer::NewVertical];
         list.extend(
             buffer::Internal::ALL
                 .iter()
@@ -340,7 +341,8 @@ impl std::fmt::Display for Buffer {
                     "Restore buffer size"
                 }
             ),
-            Buffer::New => write!(f, "New buffer"),
+            Buffer::NewHorizontal => write!(f, "New horizontal buffer"),
+            Buffer::NewVertical => write!(f, "New vertical buffer"),
             Buffer::Close => write!(f, "Close buffer"),
             Buffer::Popout => write!(f, "Pop out buffer"),
             Buffer::Merge => write!(f, "Merge buffer"),
