@@ -29,7 +29,7 @@ use appearance::{Theme, theme};
 use chrono::Utc;
 use data::config::{self, Config};
 use data::history::filter::FilterChain;
-use data::message::{self, Broadcast};
+use data::message::{self, Broadcast, Reaction};
 use data::target::{self, Target};
 use data::version::Version;
 use data::{
@@ -1358,6 +1358,20 @@ fn handle_client_event(
         }
         Event::Disconnect => {
             clients.disconnected(server.clone());
+        }
+        Event::Reaction(encoded) => {
+            if let Some(reaction) = Reaction::received(
+                encoded,
+                clients.get_chantypes(server),
+                clients.get_statusmsg(server),
+                clients.get_casemapping(server),
+            ) {
+                commands.push(
+                    dashboard
+                        .record_reaction(server, reaction)
+                        .map(Message::Dashboard),
+                );
+            }
         }
     }
 }

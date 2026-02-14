@@ -42,6 +42,7 @@ fn expand(
             condensed: None,
             expanded: false,
             command: None,
+            reactions: vec![],
         }
     };
 
