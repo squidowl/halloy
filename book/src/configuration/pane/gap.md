@@ -11,7 +11,7 @@ Gap configuration for pane spacing and padding.
 ## Example
 
 ```toml
-[pane]
+[pane.gap]
 inner = 4
 outer = 4
 ```
