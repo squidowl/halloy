@@ -4118,9 +4118,9 @@ fn cycle_next_unread_buffer(
         Some(buffer) == current || !opened.contains(buffer)
     });
 
-    let buffer = current?;
-
-    let index = all.iter().position(|(b, _)| b == buffer)?;
+    let index = current
+        .and_then(|buffer| all.iter().position(|(b, _)| b == buffer))
+        .unwrap_or(all.len());
 
     let next_after = || {
         all.iter()
@@ -4146,9 +4146,9 @@ fn cycle_previous_unread_buffer(
         Some(buffer) == current || !opened.contains(buffer)
     });
 
-    let buffer = current?;
-
-    let index = all.iter().rev().position(|(b, _)| b == buffer)?;
+    let index = current
+        .and_then(|buffer| all.iter().position(|(b, _)| b == buffer))
+        .unwrap_or(all.len());
 
     let previous_before = || {
         all.iter()
