@@ -1195,6 +1195,10 @@ impl State {
             return Task::none();
         };
 
+        if new_messages.is_empty() {
+            return self.scroll_to_end(config);
+        }
+
         // Use the message at the divider boundary as anchor
         let Some(target) = old_messages
             .iter()
