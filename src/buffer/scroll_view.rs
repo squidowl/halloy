@@ -352,7 +352,7 @@ pub fn view<'a>(
 
                     if !urls.is_empty() {
                         let is_message_visible =
-                            state.pending_scroll_to.is_some()
+                            (state.pending_scroll_to.is_some() || state.is_scrolling_to)
                                 || state
                                     .visible_url_messages
                                     .contains_key(&message.hash);
@@ -492,45 +492,46 @@ pub fn view<'a>(
             .map_or(row_height, |h| h + line_spacing as f32)
     };
 
-    let (render_start, render_end) = if state.pending_scroll_to.is_some() {
-        (0, total)
-    } else if total > render_budget {
-        let first_visible = match state.status {
-            Status::Bottom => {
-                let offset = state.last_scroll_offset;
-                let mut acc = 0.0_f32;
-                let mut from_bottom = 0;
-                for m in old_messages.iter().chain(&new_messages).rev() {
-                    acc += msg_height(m);
-                    if acc > offset {
-                        break;
+    let (render_start, render_end) =
+        if state.pending_scroll_to.is_some() || state.is_scrolling_to {
+            (0, total)
+        } else if total > render_budget {
+            let first_visible = match state.status {
+                Status::Bottom => {
+                    let offset = state.last_scroll_offset;
+                    let mut acc = 0.0_f32;
+                    let mut from_bottom = 0;
+                    for m in old_messages.iter().chain(&new_messages).rev() {
+                        acc += msg_height(m);
+                        if acc > offset {
+                            break;
+                        }
+                        from_bottom += 1;
                     }
-                    from_bottom += 1;
+                    total.saturating_sub(from_bottom + visible)
                 }
-                total.saturating_sub(from_bottom + visible)
-            }
-            Status::Unlocked => {
-                let offset = state.last_scroll_offset;
-                let mut acc = 0.0_f32;
-                let mut idx = 0;
-                for m in old_messages.iter().chain(&new_messages) {
-                    acc += msg_height(m);
-                    if acc > offset {
-                        break;
+                Status::Unlocked => {
+                    let offset = state.last_scroll_offset;
+                    let mut acc = 0.0_f32;
+                    let mut idx = 0;
+                    for m in old_messages.iter().chain(&new_messages) {
+                        acc += msg_height(m);
+                        if acc > offset {
+                            break;
+                        }
+                        idx += 1;
                     }
-                    idx += 1;
+                    idx
                 }
-                idx
-            }
-        };
+            };
 
-        (
-            first_visible.saturating_sub(buffer),
-            (first_visible + visible + buffer).min(total),
-        )
-    } else {
-        (0, total)
-    };
+            (
+                first_visible.saturating_sub(buffer),
+                (first_visible + visible + buffer).min(total),
+            )
+        } else {
+            (0, total)
+        };
 
     let old_start = render_start.min(old_messages.len());
     let old_end = render_end.min(old_messages.len());
@@ -664,6 +665,7 @@ pub struct State {
     last_scroll_offset: f32,
     height_cache: HashMap<message::Hash, f32>,
     pending_scroll_to: Option<keyed::Key>,
+    is_scrolling_to: bool,
     visible_url_messages: HashMap<message::Hash, Vec<url::Url>>,
     hovered_preview: Option<(message::Hash, usize)>,
 }
@@ -681,6 +683,7 @@ impl State {
             last_scroll_offset: 0.0,
             height_cache: HashMap::new(),
             pending_scroll_to: None,
+            is_scrolling_to: false,
             visible_url_messages: HashMap::new(),
             hovered_preview: None,
         }
@@ -927,7 +930,7 @@ impl State {
                 hit_bounds,
                 scrollable,
             }) => {
-                self.pending_scroll_to = None;
+                self.is_scrolling_to = false;
 
                 let max_offset = scrollable.max_vertical_offset();
 
@@ -1039,12 +1042,11 @@ impl State {
                 if let Some(key) = &self.pending_scroll_to {
                     let scroll_to = keyed::find(self.scrollable.clone(), *key)
                         .map(Message::ScrollTo);
-                    let retry = Task::perform(
-                        time::sleep(SCROLL_TO_TIMEOUT),
-                        move |()| Message::PendingScrollTo,
-                    );
 
-                    return (Task::batch([scroll_to, retry]), None);
+                    self.pending_scroll_to = None;
+                    self.is_scrolling_to = true;
+
+                    return (scroll_to, None);
                 }
             }
             Message::HeightsCollected(heights) => {
@@ -1055,6 +1057,9 @@ impl State {
                 if let Some(key) = &self.pending_scroll_to {
                     let scroll_to = keyed::find(self.scrollable.clone(), *key)
                         .map(Message::ScrollTo);
+
+                    self.pending_scroll_to = None;
+                    self.is_scrolling_to = true;
 
                     return (scroll_to, None);
                 }
