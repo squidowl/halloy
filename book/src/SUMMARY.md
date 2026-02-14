@@ -76,6 +76,7 @@
 - [Notifications](configuration/notifications/README.md)
 - [Pane](configuration/pane/README.md)
   - [Gap](configuration/pane/gap.md)
+- [Spacing](configuration/spacing/README.md)
 - [Platform Specific](configuration/platform-specific/README.md)
   - [Linux](configuration/platform-specific/linux.md)
   - [macOS](configuration/platform-specific/macos.md)

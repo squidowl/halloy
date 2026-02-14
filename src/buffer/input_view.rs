@@ -428,7 +428,7 @@ pub fn view<'a>(
                         .align_y(iced::Alignment::Center),
                     )
                     .width(length)
-                    .padding(config.context_menu.padding.entry)
+                    .padding(config.spacing.context_menu.padding.entry)
                     .on_press_maybe(message)
                     .into()
                 };

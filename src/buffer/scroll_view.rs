@@ -524,12 +524,12 @@ pub fn view<'a>(
     let content = on_resize(
         column![
             top_row,
-            column(old).spacing(config.buffer.line_spacing),
+            column(old).spacing(config.spacing.buffer.line_spacing),
             keyed(keyed::Key::Divider, divider),
-            column(new).spacing(config.buffer.line_spacing),
-            space::vertical().height(config.buffer.line_spacing),
+            column(new).spacing(config.spacing.buffer.line_spacing),
+            space::vertical().height(config.spacing.buffer.line_spacing),
         ]
-        .spacing(config.buffer.line_spacing),
+        .spacing(config.spacing.buffer.line_spacing),
         Message::ContentResized,
     );
 
