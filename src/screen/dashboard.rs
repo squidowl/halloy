@@ -2751,6 +2751,15 @@ impl Dashboard {
         }
     }
 
+    pub fn record_reaction(
+        &mut self,
+        server: &Server,
+        reaction: message::ReactionContext,
+    ) -> Task<Message> {
+        self.history.record_reaction(server, reaction);
+        Task::none()
+    }
+
     pub fn block_and_record_message(
         &mut self,
         server: &Server,

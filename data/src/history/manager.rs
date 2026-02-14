@@ -320,8 +320,8 @@ impl Manager {
         message: crate::Message,
         buffer_config: &config::Buffer,
     ) -> Option<impl Future<Output = Message> + use<>> {
-        history::Kind::from_server_message(server.clone(), &message).and_then(
-            |kind| {
+        history::Kind::from_server_message(server.clone(), &message)
+            .and_then(|kind| {
                 let condensers = (message
                     .can_condense(&buffer_config.server_messages.condense)
                     && !message.blocked)
@@ -338,8 +338,19 @@ impl Manager {
                 }
 
                 future
-            },
-        )
+            })
+    }
+
+    pub fn record_reaction(
+        &mut self,
+        server: &Server,
+        reaction: message::ReactionContext,
+    ) -> Option<()> {
+        let kind =
+            history::Kind::from_target(server.clone(), reaction.target.clone());
+        self.data
+            .add_reaction(&kind, reaction.in_reply_to, reaction.inner, reaction.unreact);
+        None
     }
 
     pub fn block_and_record_message(
@@ -1498,6 +1509,18 @@ impl Data {
     ) {
         if let Some(history) = self.map.get_mut(kind) {
             history.hide_preview(message, url);
+        }
+    }
+
+    fn add_reaction(
+        &mut self,
+        kind: &history::Kind,
+        in_reply_to: message::Id,
+        reaction: message::Reaction,
+        unreact: bool,
+    ) {
+        if let Some(history) = self.map.get_mut(kind) {
+            history.add_reaction(in_reply_to, reaction, unreact);
         }
     }
 }

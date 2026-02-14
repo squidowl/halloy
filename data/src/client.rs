@@ -22,7 +22,7 @@ use crate::isupport::{
     ChatHistoryState, ChatHistorySubcommand, MessageReference, WhoToken,
     WhoXPollParameters, find_target_limit,
 };
-use crate::message::{message_id, server_time, source};
+use crate::message::source;
 use crate::rate_limit::{BackoffInterval, TokenBucket, TokenPriority};
 use crate::target::{self, Target};
 use crate::time::Posix;
@@ -115,6 +115,7 @@ pub enum Message {
 pub enum Event {
     Single(message::Encoded, Nick),
     PrivOrNotice(message::Encoded, Nick, bool),
+    Reaction(message::Encoded),
     WithTarget(message::Encoded, Nick, message::Target),
     Broadcast(Broadcast),
     FileTransferRequest(file_transfer::ReceiveRequest),
@@ -545,6 +546,9 @@ impl Client {
         }
 
         match &message.command {
+            _ if is_reaction(&message) => {
+                return Ok(vec![Event::Reaction(message)]);
+            }
             Command::BATCH(batch, params) => {
                 let mut chars = batch.chars();
                 let symbol = ok!(chars.next());
@@ -751,9 +755,9 @@ impl Client {
                                             }
 
                                             finished.events.push(
-                                                Event::ChatHistoryTargetsReceived(server_time(
-                                                    &message,
-                                                )),
+                                                Event::ChatHistoryTargetsReceived(
+                                                    message.server_time(),
+                                                ),
                                             );
                                         }
 
@@ -1332,7 +1336,7 @@ impl Client {
                     });
                 }
 
-                return Ok(vec![Event::LoggedIn(server_time(&message))]);
+                return Ok(vec![Event::LoggedIn(message.server_time())]);
             }
             Command::Numeric(RPL_LOGGEDOUT, _) => {
                 log::info!("[{}] logged out", self.server);
@@ -1566,7 +1570,7 @@ impl Client {
                     inviter,
                     channel,
                     user_channels,
-                    sent_time: server_time(&message),
+                    sent_time: message.server_time(),
                 })]);
             }
             Command::NICK(nick) => {
@@ -1598,7 +1602,7 @@ impl Client {
                     new_nick,
                     ourself,
                     channels,
-                    sent_time: server_time(&message),
+                    sent_time: message.server_time(),
                 })]);
             }
             Command::Numeric(ERR_NICKNAMEINUSE | ERR_ERRONEUSNICKNAME, _)
@@ -1654,7 +1658,7 @@ impl Client {
                     user,
                     comment: comment.clone(),
                     channels,
-                    sent_time: server_time(&message),
+                    sent_time: message.server_time(),
                 })]);
             }
             Command::PART(channel, _) => {
@@ -1729,7 +1733,7 @@ impl Client {
 
                     return Ok(vec![Event::JoinedChannel(
                         target_channel,
-                        server_time(&message),
+                        message.server_time(),
                     )]);
                 } else if let Some(channel) =
                     self.chanmap.get_mut(&target_channel)
@@ -1767,7 +1771,7 @@ impl Client {
                                 victim: User::from(self.nickname().to_owned()),
                                 reason: reason.clone(),
                                 channel,
-                                sent_time: server_time(&message),
+                                sent_time: message.server_time(),
                             }),
                             Event::Single(message, self.nickname().to_owned()),
                         ]);
@@ -2223,7 +2227,7 @@ impl Client {
                         channel.topic.content =
                             Some(message::parse_fragments(text.clone()));
                         channel.topic.who = message.user(casemapping);
-                        channel.topic.time = Some(server_time(&message));
+                        channel.topic.time = Some(message.server_time());
                     } else {
                         channel.topic.content = None;
                         channel.topic.who = None;
@@ -2538,7 +2542,7 @@ impl Client {
                     ourself,
                     logged_in: self.logged_in,
                     channels,
-                    sent_time: server_time(&message),
+                    sent_time: message.server_time(),
                 })]);
             }
             Command::Numeric(RPL_MONONLINE, args) => {
@@ -2608,14 +2612,14 @@ impl Client {
                             {
                                 events.push(Event::ChatHistoryTargetReceived(
                                     target,
-                                    server_time(&message),
+                                    message.server_time(),
                                 ));
                             }
                         }
                         Target::Query(_) => {
                             events.push(Event::ChatHistoryTargetReceived(
                                 target,
-                                server_time(&message),
+                                message.server_time(),
                             ));
                         }
                     }
@@ -3438,6 +3442,12 @@ fn compare_channels(chantypes: &[char], a: &str, b: &str) -> Ordering {
     a.cmp(b)
 }
 
+fn is_reaction(message: &message::Encoded) -> bool {
+    matches!(message.command, Command::PRIVMSG(..) | Command::TAGMSG(..))
+        && message.in_reply_to().is_some()
+        && message.tags.contains_key("+draft/react")
+}
+
 fn continue_chathistory_between(
     target: &Target,
     events: &[Event],
@@ -3449,10 +3459,10 @@ fn continue_chathistory_between(
             Event::Single(message, _) | Event::WithTarget(message, _, _) => {
                 match end_message_reference {
                     MessageReference::MessageId(_) => {
-                        message_id(message).map(MessageReference::MessageId)
+                        message.message_id().map(MessageReference::MessageId)
                     }
                     MessageReference::Timestamp(_) => {
-                        Some(MessageReference::Timestamp(server_time(message)))
+                        Some(MessageReference::Timestamp(message.server_time()))
                     }
                     MessageReference::None => None,
                 }
