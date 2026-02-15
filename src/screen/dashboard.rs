@@ -4092,16 +4092,13 @@ fn cycle_next_buffer(
 ) -> Option<buffer::Upstream> {
     all.retain(|buffer| Some(buffer) == current || !opened.contains(buffer));
 
-    let index = current
-        .and_then(|buffer| all.iter().position(|b| b == buffer))
-        .unwrap_or(all.len().saturating_sub(1));
-
-    if index == all.len().saturating_sub(1) {
-        all.first()
-    } else {
+    let next = || {
+        let buffer = current?;
+        let index = all.iter().position(|b| b == buffer)?;
         all.get(index + 1)
-    }
-    .cloned()
+    };
+
+    next().or_else(|| all.first()).cloned()
 }
 
 fn cycle_previous_buffer(
@@ -4111,16 +4108,14 @@ fn cycle_previous_buffer(
 ) -> Option<buffer::Upstream> {
     all.retain(|buffer| Some(buffer) == current || !opened.contains(buffer));
 
-    let index = current
-        .and_then(|buffer| all.iter().position(|b| b == buffer))
-        .unwrap_or(0);
+    let previous = || {
+        let buffer = current?;
+        let index = all.iter().position(|b| b == buffer).filter(|i| *i > 0)?;
 
-    if index == 0 {
-        all.last()
-    } else {
         all.get(index - 1)
-    }
-    .cloned()
+    };
+
+    previous().or_else(|| all.last()).cloned()
 }
 
 fn cycle_next_unread_buffer(
@@ -4134,7 +4129,7 @@ fn cycle_next_unread_buffer(
 
     let index = current
         .and_then(|buffer| all.iter().position(|(b, _)| b == buffer))
-        .unwrap_or(all.len().saturating_sub(1));
+        .unwrap_or(all.len());
 
     let next_after = || {
         all.iter()
@@ -4161,8 +4156,8 @@ fn cycle_previous_unread_buffer(
     });
 
     let index = current
-        .and_then(|buffer| all.iter().position(|(b, _)| b == buffer))
-        .unwrap_or(0);
+        .and_then(|buffer| all.iter().rev().position(|(b, _)| b == buffer))
+        .unwrap_or(all.len());
 
     let previous_before = || {
         all.iter()
