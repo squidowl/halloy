@@ -608,14 +608,23 @@ impl Dashboard {
                                 self.panes.get_mut_by_buffer(&buffer)
                             {
                                 if state.buffer.has_pending_scroll_to() {
-                                    state
-                                        .buffer
-                                        .set_scroll_limit_for_pending_scroll_to(
-                                            &self.history,
-                                            config,
-                                        );
-
-                                    return (Task::none(), None);
+                                    return (
+                                        state
+                                            .buffer
+                                            .prepare_for_pending_scroll_to(
+                                                &self.history,
+                                                config,
+                                            )
+                                            .map(move |message| {
+                                                Message::Pane(
+                                                    window,
+                                                    pane::Message::Buffer(
+                                                        pane, message,
+                                                    ),
+                                                )
+                                            }),
+                                        None,
+                                    );
                                 } else {
                                     return (
                                         match config
