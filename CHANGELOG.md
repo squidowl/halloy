@@ -18,6 +18,10 @@ Fixed:
 - Channel mode in pane headers not updating immediately after mode changes
 - Cycle next/previous (unread) buffer shortcuts work from an empty pane
 
+Fixed
+
+- Virtualize message rendering to improve buffer performance
+
 Thanks:
 
 - Contributions: @Hummer12007, @chamlis

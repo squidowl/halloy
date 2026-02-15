@@ -991,6 +991,18 @@ fn with_limit<'a>(
         Some(Limit::Since(timestamp)) => messages
             .skip_while(|message| message.server_time < timestamp)
             .collect(),
+        Some(Limit::Around(n, hash)) => {
+            let collected = messages.collect::<Vec<_>>();
+            let length = collected.len();
+            let center = collected
+                .iter()
+                .position(|m| m.hash == hash)
+                .unwrap_or(length.saturating_sub(1));
+            let start =
+                center.saturating_sub(n / 2).min(length.saturating_sub(n));
+            let end = (start + n).min(length);
+            collected[start..end].to_vec()
+        }
         None => messages.collect(),
     }
 }
@@ -1259,12 +1271,12 @@ impl Data {
         let has_more_older_messages = first_without_limit
             .zip(first_with_limit)
             .is_some_and(|(without_limit, with_limit)| {
-                without_limit.server_time < with_limit.server_time
+                without_limit.hash != with_limit.hash
             });
         let has_more_newer_messages = last_without_limit
             .zip(last_with_limit)
             .is_some_and(|(without_limit, with_limit)| {
-                without_limit.server_time > with_limit.server_time
+                without_limit.hash != with_limit.hash
             });
 
         Some(history::View {
