@@ -29,6 +29,8 @@ use crate::{Theme, font, icon, theme};
 
 const HIDE_BUTTON_WIDTH: f32 = 22.0;
 const SCROLL_TO_TIMEOUT: Duration = Duration::from_millis(200);
+/// Pages of off-screen messages to keep rendered above and below the viewport
+const BUFFER_PAGES: usize = 3;
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -53,6 +55,7 @@ pub enum Message {
     MarkAsRead,
     ContentResized(Size),
     PendingScrollTo,
+    HeightsCollected(Vec<(message::Hash, f32)>),
 }
 
 #[derive(Debug, Clone)]
@@ -157,36 +160,34 @@ fn has_visible_preview(
         && let Some(visible_urls) =
             state.visible_url_messages.get(&message.hash)
     {
-        let urls = fragments
-            .iter()
-            .filter_map(message::Fragment::url)
-            .collect::<Vec<_>>();
+        return fragments.iter().filter_map(message::Fragment::url).any(
+            |url| {
+                // Check if URL is hidden by user
+                if message.hidden_urls.contains(url) {
+                    return false;
+                }
 
-        return urls.iter().any(|url| {
-            // Check if URL is hidden by user
-            if message.hidden_urls.contains(url) {
-                return false;
-            }
+                // Check if URL is in visible URLs list
+                if !visible_urls.contains(url) {
+                    return false;
+                }
 
-            // Check if URL is in visible URLs list
-            if !visible_urls.contains(url) {
-                return false;
-            }
+                // Check if preview is loaded and visible for source
+                if let Some(preview::State::Loaded(preview)) = previews.get(url)
+                {
+                    let is_visible_for_source =
+                        if let Some(visible_for_source) = visible_for_source {
+                            visible_for_source(preview, message.target.source())
+                        } else {
+                            true
+                        };
 
-            // Check if preview is loaded and visible for source
-            if let Some(preview::State::Loaded(preview)) = previews.get(url) {
-                let is_visible_for_source =
-                    if let Some(visible_for_source) = visible_for_source {
-                        visible_for_source(preview, message.target.source())
-                    } else {
-                        true
-                    };
+                    return is_visible_for_source;
+                }
 
-                return is_visible_for_source;
-            }
-
-            false
-        });
+                false
+            },
+        );
     }
     false
 }
@@ -351,8 +352,8 @@ pub fn view<'a>(
 
                     if !urls.is_empty() {
                         let is_message_visible = state
-                            .visible_url_messages
-                            .contains_key(&message.hash);
+                                    .visible_url_messages
+                                    .contains_key(&message.hash);
 
                         let mut column = column![element];
 
@@ -470,13 +471,110 @@ pub fn view<'a>(
             .collect::<Vec<_>>()
     };
 
-    let old = message_rows(None, &old_messages);
-    let new = message_rows(
-        old_messages.last().map(|message| {
-            message.server_time.with_timezone(&Local).date_naive()
-        }),
-        &new_messages,
-    );
+    let line_spacing = config.buffer.line_spacing;
+
+    // Only create widgets for messages near the viewport, use height
+    // spacers for the rest so we doesn't lay out thousands of children
+    let row_height =
+        theme::resolve_line_height(&config.font) + line_spacing as f32;
+    let total = old_messages.len() + new_messages.len();
+    let visible = (state.pane_size.height / row_height).ceil() as usize;
+    let buffer = visible * BUFFER_PAGES;
+    let render_budget = visible + 2 * buffer;
+
+    let msg_height = |m: &&data::Message| -> f32 {
+        state
+            .height_cache
+            .get(&m.hash)
+            .copied()
+            .map_or(row_height, |h| h + line_spacing as f32)
+    };
+
+    let (render_start, render_end) = if state.pending_scroll_to.is_some()
+        || state.is_scrolling_to
+        || total <= render_budget
+    {
+        (0, total)
+    } else {
+        let first_visible = match state.status {
+            Status::Bottom => {
+                let offset = state.last_scroll_offset;
+                let mut acc = 0.0_f32;
+                let mut from_bottom = 0;
+                for m in old_messages.iter().chain(&new_messages).rev() {
+                    acc += msg_height(m);
+                    if acc > offset {
+                        break;
+                    }
+                    acc += line_spacing as f32;
+                    from_bottom += 1;
+                }
+                total.saturating_sub(from_bottom + visible)
+            }
+            Status::Unlocked => {
+                let offset = state.last_scroll_offset;
+                let mut acc = 0.0_f32;
+                let mut idx = 0;
+                for m in old_messages.iter().chain(&new_messages) {
+                    acc += msg_height(m);
+                    if acc > offset {
+                        break;
+                    }
+                    acc += line_spacing as f32;
+                    idx += 1;
+                }
+                idx
+            }
+        };
+
+        (
+            first_visible.saturating_sub(buffer),
+            (first_visible + visible + buffer).min(total),
+        )
+    };
+
+    let old_start = render_start.min(old_messages.len());
+    let old_end = render_end.min(old_messages.len());
+    let new_start = render_start
+        .saturating_sub(old_messages.len())
+        .min(new_messages.len());
+    let new_end = render_end
+        .saturating_sub(old_messages.len())
+        .min(new_messages.len());
+
+    let date_of =
+        |m: &data::Message| m.server_time.with_timezone(&Local).date_naive();
+
+    let old_last_date = old_start
+        .checked_sub(1)
+        .and_then(|i| old_messages.get(i))
+        .map(|m| date_of(m));
+
+    let new_last_date = new_start
+        .checked_sub(1)
+        .and_then(|i| new_messages.get(i))
+        .map(|m| date_of(m))
+        .or_else(|| old_messages.last().map(|m| date_of(m)));
+
+    let old = message_rows(old_last_date, &old_messages[old_start..old_end]);
+    let new = message_rows(new_last_date, &new_messages[new_start..new_end]);
+
+    let top_spacer = (render_start > 0).then(|| {
+        let h: f32 = old_messages[..old_start]
+            .iter()
+            .chain(&new_messages[..new_start])
+            .map(&msg_height)
+            .sum();
+        space::vertical().height(h)
+    });
+    let bottom_spacer = (render_end < total).then(|| {
+        let h: f32 = old_messages[old_end..]
+            .iter()
+            .chain(&new_messages[new_end..])
+            .map(&msg_height)
+            .sum();
+        space::vertical().height(h)
+    });
 
     let show_backlog_divier = if old.is_empty() {
         // If all newer messages in viewport, only show backlog divider at the top
@@ -524,12 +622,14 @@ pub fn view<'a>(
     let content = on_resize(
         column![
             top_row,
-            column(old).spacing(config.buffer.line_spacing),
+            top_spacer,
+            column(old).spacing(line_spacing),
             keyed(keyed::Key::Divider, divider),
-            column(new).spacing(config.buffer.line_spacing),
-            space::vertical().height(config.buffer.line_spacing),
+            column(new).spacing(line_spacing),
+            bottom_spacer,
+            space::vertical().height(line_spacing),
         ]
-        .spacing(config.buffer.line_spacing),
+        .spacing(line_spacing),
         Message::ContentResized,
     );
 
@@ -562,7 +662,10 @@ pub struct State {
     content_size: Size,
     limit: Limit,
     status: Status,
+    last_scroll_offset: f32,
+    height_cache: HashMap<message::Hash, f32>,
     pending_scroll_to: Option<keyed::Key>,
+    is_scrolling_to: bool,
     visible_url_messages: HashMap<message::Hash, Vec<url::Url>>,
     hovered_preview: Option<(message::Hash, usize)>,
 }
@@ -577,7 +680,10 @@ impl State {
             content_size: Size::default(), // Will get set initially via `on_resize`
             limit: Limit::Bottom(step_messages),
             status: Status::default(),
+            last_scroll_offset: 0.0,
+            height_cache: HashMap::new(),
             pending_scroll_to: None,
+            is_scrolling_to: false,
             visible_url_messages: HashMap::new(),
             hovered_preview: None,
         }
@@ -601,11 +707,12 @@ impl State {
                 status: old_status,
                 viewport,
             } => {
+                self.last_scroll_offset = viewport.absolute_offset().y;
+
                 let relative_offset = viewport.relative_offset().y;
                 let absolute_offset = viewport.absolute_offset().y;
                 let height = self.pane_size.height;
 
-                let mut tasks = vec![];
                 let mut event = None;
 
                 match old_status {
@@ -617,8 +724,11 @@ impl State {
                     ) && has_more_newer_messages =>
                     {
                         self.status = Status::Unlocked;
-                        self.limit =
-                            Limit::Top(count + step_messages(height, config));
+                        let n = count + step_messages(height, config);
+                        self.limit = match self.limit {
+                            Limit::Around(_, hash) => Limit::Around(n, hash),
+                            _ => Limit::Top(n),
+                        };
                     }
                     // Hit bottom, anchor it
                     _ if old_status.is_bottom(relative_offset) => {
@@ -659,23 +769,27 @@ impl State {
                     ) && has_more_older_messages =>
                     {
                         self.status = Status::Unlocked;
-                        self.limit = Limit::Bottom(
-                            count + step_messages(height, config),
-                        );
+                        let n = count + step_messages(height, config);
 
-                        // Get new oldest message w/ new limit and use that w/ Since
-                        if let Some(history::View {
-                            old_messages,
-                            new_messages,
-                            ..
-                        }) = history.get_messages(
-                            &kind.into(),
-                            Some(self.limit),
-                            &config.buffer,
-                        ) && let Some(oldest) =
-                            old_messages.iter().chain(&new_messages).next()
-                        {
-                            self.limit = Limit::Since(oldest.server_time);
+                        if let Limit::Around(_, hash) = self.limit {
+                            self.limit = Limit::Around(n, hash);
+                        } else {
+                            self.limit = Limit::Bottom(n);
+
+                            // Get new oldest message w/ new limit and use that w/ Since
+                            if let Some(history::View {
+                                old_messages,
+                                new_messages,
+                                ..
+                            }) = history.get_messages(
+                                &kind.into(),
+                                Some(self.limit),
+                                &config.buffer,
+                            ) && let Some(oldest) =
+                                old_messages.iter().chain(&new_messages).next()
+                            {
+                                self.limit = Limit::Since(oldest.server_time);
+                            }
                         }
                     }
                     // Hit top
@@ -707,6 +821,9 @@ impl State {
                                         count + step_messages(height, config),
                                     );
                                 }
+                            } else if matches!(self.limit, Limit::Around(_, _))
+                            {
+                                self.limit = Limit::Since(oldest);
                             } else {
                                 self.limit = Limit::Top(step_messages(
                                     2.0 * height,
@@ -726,7 +843,10 @@ impl State {
                     _ => {
                         self.status = Status::Unlocked;
 
-                        if !matches!(self.limit, Limit::Top(_)) {
+                        if !matches!(
+                            self.limit,
+                            Limit::Top(_) | Limit::Around(_, _)
+                        ) {
                             self.limit = Limit::Since(oldest);
                         }
                     }
@@ -737,13 +857,22 @@ impl State {
                 if let Some(new_offset) =
                     self.status.flipped(old_status, viewport)
                 {
-                    tasks.push(correct_viewport::scroll_to(
+                    self.last_scroll_offset = new_offset.y;
+                    let scroll_to = correct_viewport::scroll_to(
                         self.scrollable.clone(),
                         new_offset,
-                    ));
+                    );
+                    let collect =
+                        keyed::collect_heights(self.scrollable.clone())
+                            .map(Message::HeightsCollected);
+
+                    return (Task::batch([scroll_to, collect]), event);
                 }
 
-                return (Task::batch(tasks), event);
+                let collect = keyed::collect_heights(self.scrollable.clone())
+                    .map(Message::HeightsCollected);
+
+                return (collect, event);
             }
             Message::ContextMenu(message) => {
                 return (
@@ -795,24 +924,23 @@ impl State {
                 );
             }
             Message::ScrollTo(keyed::Hit {
+                key: _,
                 hit_bounds,
                 scrollable,
-                prev_bounds,
-                ..
             }) => {
+                self.is_scrolling_to = false;
+
                 let max_offset = scrollable.max_vertical_offset();
 
-                // If a prev element exists, put scrollable halfway over prev
-                // element so it's obvious user can scroll up
-                let offset = if let Some(bounds) = prev_bounds {
-                    (bounds.y - scrollable.content.y) + bounds.height / 2.0
-                } else {
-                    hit_bounds.y - scrollable.content.y
-                }
-                .min(max_offset);
+                let top_inset = theme::resolve_line_height(&config.font) * 0.5;
 
-                // Did this cause us to hit the bottom? If so, anchor it
-                if (offset - max_offset).abs() <= f32::EPSILON {
+                let offset = (hit_bounds.y - scrollable.content.y - top_inset)
+                    .max(0.0)
+                    .min(max_offset);
+
+                if (offset - max_offset).abs() <= f32::EPSILON
+                    && !matches!(self.limit, Limit::Around(_, _))
+                {
                     self.status = Status::Bottom;
 
                     if !matches!(self.limit, Limit::Bottom(_)) {
@@ -904,14 +1032,6 @@ impl State {
             }
             Message::ContentResized(size) => {
                 self.content_size = size;
-
-                if let Some(key) = &self.pending_scroll_to {
-                    let scroll_to = keyed::find(self.scrollable.clone(), *key)
-                        .map(Message::ScrollTo);
-
-                    self.pending_scroll_to = None;
-                    return (scroll_to, None);
-                }
             }
             Message::ImagePreview(path, url) => {
                 return (Task::none(), Some(Event::ImagePreview(path, url)));
@@ -922,6 +1042,23 @@ impl State {
                         .map(Message::ScrollTo);
 
                     self.pending_scroll_to = None;
+                    self.is_scrolling_to = true;
+
+                    return (scroll_to, None);
+                }
+            }
+            Message::HeightsCollected(heights) => {
+                for (hash, height) in heights {
+                    self.height_cache.insert(hash, height);
+                }
+
+                if let Some(key) = &self.pending_scroll_to {
+                    let scroll_to = keyed::find(self.scrollable.clone(), *key)
+                        .map(Message::ScrollTo);
+
+                    self.pending_scroll_to = None;
+                    self.is_scrolling_to = true;
+
                     return (scroll_to, None);
                 }
             }
@@ -940,10 +1077,14 @@ impl State {
             Limit::Bottom(x) if x < step_messages => {
                 self.limit = Limit::Bottom(step_messages);
             }
+            Limit::Around(x, hash) if x < step_messages => {
+                self.limit = Limit::Around(step_messages, hash);
+            }
             _ => {}
         }
 
         self.pane_size = pane_size;
+        self.height_cache.clear();
     }
 
     pub fn scroll_up_page(&mut self) -> Task<Message> {
@@ -1000,7 +1141,6 @@ impl State {
         config: &Config,
     ) -> Task<Message> {
         let Some(history::View {
-            total,
             old_messages,
             new_messages,
             ..
@@ -1013,20 +1153,17 @@ impl State {
             return Task::none();
         };
 
-        let Some(pos) = old_messages
+        let Some(target) = old_messages
             .iter()
             .chain(&new_messages)
-            .position(|m| m.hash == message)
+            .find(|m| m.hash == message)
         else {
             return Task::none();
         };
 
-        // Get all messages from bottom until 1 before message
-        let offset = total - pos + 1;
-
-        self.limit = Limit::Bottom(
-            offset.max(step_messages(2.0 * self.pane_size.height, config)),
-        );
+        // Load a window of messages centered on the target.
+        let around_count = step_messages(4.0 * self.pane_size.height, config);
+        self.limit = Limit::Around(around_count, target.hash);
 
         self.pending_scroll_to = Some(keyed::Key::Message(message));
 
@@ -1048,20 +1185,29 @@ impl State {
         }
 
         let Some(history::View {
-            total,
             old_messages,
+            new_messages,
             ..
         }) = history.get_messages(&kind.into(), None, &config.buffer)
         else {
             return Task::none();
         };
 
-        // Get all messages from bottom until 1 before backlog
-        let offset = total - old_messages.len() + 1;
+        if new_messages.is_empty() {
+            return self.scroll_to_end(config);
+        }
 
-        self.limit = Limit::Bottom(
-            offset.max(step_messages(2.0 * self.pane_size.height, config)),
-        );
+        // Use the message at the divider boundary as anchor
+        let Some(target) = old_messages
+            .iter()
+            .chain(&new_messages)
+            .nth(old_messages.len().saturating_sub(1))
+        else {
+            return Task::none();
+        };
+
+        let around_count = step_messages(4.0 * self.pane_size.height, config);
+        self.limit = Limit::Around(around_count, target.hash);
 
         self.pending_scroll_to = Some(keyed::Key::Divider);
 
@@ -1074,49 +1220,55 @@ impl State {
         self.pending_scroll_to.is_some()
     }
 
-    pub fn set_scroll_limit_for_pending_scroll_to(
+    pub fn prepare_for_pending_scroll_to(
         &mut self,
         kind: Kind,
         history: &history::Manager,
         config: &Config,
-    ) {
+    ) -> Task<Message> {
         let Some(key) = self.pending_scroll_to else {
-            return;
+            return Task::none();
         };
 
         let Some(history::View {
-            total,
             old_messages,
             new_messages,
             ..
         }) = history.get_messages(&kind.into(), None, &config.buffer)
         else {
-            return;
+            return Task::none();
         };
 
-        let offset = match key {
-            keyed::Key::Message(message) => {
-                let Some(pos) = old_messages
+        let around_count = step_messages(4.0 * self.pane_size.height, config);
+
+        match key {
+            keyed::Key::Message(message) | keyed::Key::Preview(message, _) => {
+                let Some(target) = old_messages
                     .iter()
                     .chain(&new_messages)
-                    .position(|m| m.hash == message)
+                    .find(|m| m.hash == message)
                 else {
-                    return;
+                    return Task::none();
                 };
 
-                // Get all messages from bottom until 1 before message
-                total - pos + 1
+                // Load a window of messages centered on the target
+                self.limit = Limit::Around(around_count, target.hash);
             }
             keyed::Key::Divider => {
-                // Get all messages from bottom until 1 before backlog
-                total - old_messages.len() + 1
+                let Some(target) = old_messages
+                    .iter()
+                    .chain(&new_messages)
+                    .nth(old_messages.len().saturating_sub(1))
+                else {
+                    return Task::none();
+                };
+
+                self.limit = Limit::Around(around_count, target.hash);
             }
-            keyed::Key::Preview(_, _) => return,
         };
 
-        self.limit = Limit::Bottom(
-            offset.max(step_messages(2.0 * self.pane_size.height, config)),
-        );
+        keyed::collect_heights(self.scrollable.clone())
+            .map(Message::HeightsCollected)
     }
 
     pub fn visible_urls(&self) -> impl Iterator<Item = &url::Url> {
@@ -1251,7 +1403,6 @@ mod keyed {
     pub struct Hit {
         pub key: Key,
         pub hit_bounds: Rectangle,
-        pub prev_bounds: Option<Rectangle>,
         pub scrollable: Scrollable,
     }
 
@@ -1294,7 +1445,6 @@ mod keyed {
             key,
             scrollable: None,
             hit_bounds: None,
-            prev_bounds: None,
         })
     }
 
@@ -1305,7 +1455,6 @@ mod keyed {
         pub scrollable_id: widget::Id,
         pub scrollable: Option<Scrollable>,
         pub hit_bounds: Option<Rectangle>,
-        pub prev_bounds: Option<Rectangle>,
     }
 
     impl Operation<Hit> for Find {
@@ -1317,7 +1466,7 @@ mod keyed {
             translation: Vector,
             _state: &mut dyn widget::operation::Scrollable,
         ) {
-            if id == Some(&self.scrollable_id.clone()) {
+            if id.is_some_and(|id| *id == self.scrollable_id) {
                 self.scrollable = Some(Scrollable {
                     viewport: bounds,
                     content: content_bounds,
@@ -1349,12 +1498,9 @@ mod keyed {
         ) {
             if self.active
                 && let Some(key) = state.downcast_ref::<Key>()
+                && self.key == *key
             {
-                if self.key == *key {
-                    self.hit_bounds = Some(bounds);
-                } else if self.hit_bounds.is_none() {
-                    self.prev_bounds = Some(bounds);
-                }
+                self.hit_bounds = Some(bounds);
             }
         }
 
@@ -1364,7 +1510,6 @@ mod keyed {
                     key: self.key,
                     scrollable,
                     hit_bounds,
-                    prev_bounds: self.prev_bounds,
                 },
             ) {
                 Some(hit) => widget::operation::Outcome::Some(hit),
@@ -1390,7 +1535,7 @@ mod keyed {
             translation: Vector,
             _state: &mut dyn widget::operation::Scrollable,
         ) {
-            if id == Some(&self.scrollable_id.clone()) {
+            if id.is_some_and(|id| *id == self.scrollable_id) {
                 self.scrollable = Some(Scrollable {
                     viewport: bounds,
                     content: content_bounds,
@@ -1443,13 +1588,75 @@ mod keyed {
                     key,
                     scrollable,
                     hit_bounds,
-                    prev_bounds: None,
                 },
             ) {
                 Some(hit) => widget::operation::Outcome::Some(hit),
                 None => widget::operation::Outcome::None,
             }
         }
+    }
+
+    pub struct CollectHeights {
+        active: bool,
+        scrollable_id: widget::Id,
+        heights: Vec<(message::Hash, f32)>,
+    }
+
+    impl Operation<Vec<(message::Hash, f32)>> for CollectHeights {
+        fn scrollable(
+            &mut self,
+            id: Option<&widget::Id>,
+            _bounds: Rectangle,
+            _content_bounds: Rectangle,
+            _translation: Vector,
+            _state: &mut dyn widget::operation::Scrollable,
+        ) {
+            self.active = id == Some(&self.scrollable_id);
+        }
+
+        fn container(&mut self, _id: Option<&widget::Id>, _bounds: Rectangle) {}
+
+        fn traverse(
+            &mut self,
+            operate: &mut dyn FnMut(
+                &mut dyn Operation<Vec<(message::Hash, f32)>>,
+            ),
+        ) {
+            operate(self);
+        }
+
+        fn custom(
+            &mut self,
+            _id: Option<&widget::Id>,
+            bounds: Rectangle,
+            state: &mut dyn std::any::Any,
+        ) {
+            if self.active
+                && let Some(Key::Message(hash)) = state.downcast_ref::<Key>()
+            {
+                self.heights.push((*hash, bounds.height));
+            }
+        }
+
+        fn finish(
+            &self,
+        ) -> widget::operation::Outcome<Vec<(message::Hash, f32)>> {
+            if self.heights.is_empty() {
+                widget::operation::Outcome::None
+            } else {
+                widget::operation::Outcome::Some(self.heights.clone())
+            }
+        }
+    }
+
+    pub fn collect_heights(
+        scrollable: widget::Id,
+    ) -> Task<Vec<(message::Hash, f32)>> {
+        widget::operate(CollectHeights {
+            active: false,
+            scrollable_id: scrollable,
+            heights: vec![],
+        })
     }
 }
 
@@ -1715,7 +1922,6 @@ mod correct_viewport {
                                 scrollable_id: scrollable.clone(),
                                 scrollable: None,
                                 hit_bounds: None,
-                                prev_bounds: None,
                             },
                             {
                                 let hit = hit.clone();
@@ -1799,12 +2005,10 @@ mod correct_viewport {
                         }
                     }
 
-                    let is_scrolled = messages
-                        .clone()
-                        .iter()
-                        .any(|message| matches!(message, Message::Scrolled { .. }));
-
+                    let mut is_scrolled = false;
                     for message in messages {
+                        is_scrolled |=
+                            matches!(message, Message::Scrolled { .. });
                         shell.publish(message);
                     }
 
@@ -1851,7 +2055,7 @@ mod correct_viewport {
                     let mut is_scroll_to = false;
 
                     operation.custom(
-                        Some(&scrollable.clone()),
+                        Some(&scrollable),
                         layout.bounds(),
                         &mut is_scroll_to,
                     );
