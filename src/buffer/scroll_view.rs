@@ -351,9 +351,7 @@ pub fn view<'a>(
                         .collect::<Vec<_>>();
 
                     if !urls.is_empty() {
-                        let is_message_visible =
-                            (state.pending_scroll_to.is_some() || state.is_scrolling_to)
-                                || state
+                        let is_message_visible = state
                                     .visible_url_messages
                                     .contains_key(&message.hash);
 
@@ -480,7 +478,7 @@ pub fn view<'a>(
     let row_height =
         theme::resolve_line_height(&config.font) + line_spacing as f32;
     let total = old_messages.len() + new_messages.len();
-    let visible = (state.pane_size.height / row_height).max(1.0_f32) as usize;
+    let visible = (state.pane_size.height / row_height).ceil() as usize;
     let buffer = visible * BUFFER_PAGES;
     let render_budget = visible + 2 * buffer;
 
@@ -492,46 +490,48 @@ pub fn view<'a>(
             .map_or(row_height, |h| h + line_spacing as f32)
     };
 
-    let (render_start, render_end) =
-        if state.pending_scroll_to.is_some() || state.is_scrolling_to {
-            (0, total)
-        } else if total > render_budget {
-            let first_visible = match state.status {
-                Status::Bottom => {
-                    let offset = state.last_scroll_offset;
-                    let mut acc = 0.0_f32;
-                    let mut from_bottom = 0;
-                    for m in old_messages.iter().chain(&new_messages).rev() {
-                        acc += msg_height(m);
-                        if acc > offset {
-                            break;
-                        }
-                        from_bottom += 1;
+    let (render_start, render_end) = if state.pending_scroll_to.is_some()
+        || state.is_scrolling_to
+        || total <= render_budget
+    {
+        (0, total)
+    } else {
+        let first_visible = match state.status {
+            Status::Bottom => {
+                let offset = state.last_scroll_offset;
+                let mut acc = 0.0_f32;
+                let mut from_bottom = 0;
+                for m in old_messages.iter().chain(&new_messages).rev() {
+                    acc += msg_height(m);
+                    if acc > offset {
+                        break;
                     }
-                    total.saturating_sub(from_bottom + visible)
+                    acc += line_spacing as f32;
+                    from_bottom += 1;
                 }
-                Status::Unlocked => {
-                    let offset = state.last_scroll_offset;
-                    let mut acc = 0.0_f32;
-                    let mut idx = 0;
-                    for m in old_messages.iter().chain(&new_messages) {
-                        acc += msg_height(m);
-                        if acc > offset {
-                            break;
-                        }
-                        idx += 1;
+                total.saturating_sub(from_bottom + visible)
+            }
+            Status::Unlocked => {
+                let offset = state.last_scroll_offset;
+                let mut acc = 0.0_f32;
+                let mut idx = 0;
+                for m in old_messages.iter().chain(&new_messages) {
+                    acc += msg_height(m);
+                    if acc > offset {
+                        break;
                     }
-                    idx
+                    acc += line_spacing as f32;
+                    idx += 1;
                 }
-            };
-
-            (
-                first_visible.saturating_sub(buffer),
-                (first_visible + visible + buffer).min(total),
-            )
-        } else {
-            (0, total)
+                idx
+            }
         };
+
+        (
+            first_visible.saturating_sub(buffer),
+            (first_visible + visible + buffer).min(total),
+        )
+    };
 
     let old_start = render_start.min(old_messages.len());
     let old_end = render_end.min(old_messages.len());
