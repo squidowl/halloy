@@ -592,8 +592,14 @@ fn is_multiline_input(input: &str) -> bool {
 fn multiline_lines(input: &str) -> VecDeque<String> {
     input
         .lines()
-        .filter(|line| !line.trim().is_empty())
-        .map(ToOwned::to_owned)
+        .map(|line| {
+            if line.is_empty() {
+                // Send zero-width space to emulate an empty line
+                String::from('\u{200b}')
+            } else {
+                line.to_string()
+            }
+        })
         .collect()
 }
 
