@@ -879,8 +879,41 @@ impl Commands {
                             .saturating_sub(1),
                     )
                 {
-                    let subcmd = (String::from(command.title) + " " + subcmd)
-                        .to_lowercase();
+                    let subcmd = if command.title != "MODE" {
+                        (String::from(command.title) + " " + subcmd)
+                            .to_lowercase()
+                    } else {
+                        let text = if subcmd.starts_with(['+', '-']) {
+                            if let Some(target) = current_target {
+                                match target {
+                                    Target::Channel(_) => "channel",
+                                    Target::Query(_) => "user",
+                                }
+                            } else {
+                                "user"
+                            }
+                        } else {
+                            let chantypes =
+                                isupport::get_chantypes_or_default(isupport);
+
+                            if proto::is_channel(subcmd, chantypes) {
+                                "channel"
+                            } else {
+                                "user"
+                            }
+                        };
+
+                        format!(
+                            "{} {}",
+                            command.title,
+                            Argument {
+                                text,
+                                kind: ArgumentKind::Required,
+                                tooltip: None,
+                            }
+                        )
+                        .to_lowercase()
+                    };
 
                     let subcommand = subcommands.iter().find(|subcommand| {
                         subcommand.title.to_lowercase() == subcmd
