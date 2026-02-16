@@ -375,7 +375,12 @@ pub struct Condensation {
 impl Default for Condensation {
     fn default() -> Self {
         Self {
-            messages: HashSet::new(),
+            messages: HashSet::from([
+                CondensationMessage::ChangeNick,
+                CondensationMessage::Join,
+                CondensationMessage::Part,
+                CondensationMessage::Quit,
+            ]),
             format: CondensationFormat::default(),
             dimmed: Some(Dimmed(None)),
         }
