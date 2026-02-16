@@ -12,6 +12,7 @@ use iced::{Color, Length, alignment};
 use super::context_menu::{self, Context};
 use super::scroll_view::LayoutMessage;
 use crate::buffer::scroll_view::Message;
+use crate::widget::reaction_row::reaction_row;
 use crate::widget::{
     Element, Marker, message_content, message_marker, selectable_text, tooltip,
 };
@@ -358,7 +359,7 @@ impl<'a> ChannelQueryLayout<'a> {
             }
         });
 
-        let message_content = message_content::with_context(
+        let mut message_content = message_content::with_context(
             &message.content,
             self.server,
             self.chantypes,
@@ -391,6 +392,27 @@ impl<'a> ChannelQueryLayout<'a> {
             },
             self.config,
         );
+        if self.config.buffer.channel.message.show_emoji_reacts
+            && !message.reactions.is_empty()
+        {
+            let reactions = reaction_row(
+                message,
+                self.target.our_user().map(|user| user.nickname()),
+                |text| Message::Reacted {
+                    // SAFETY(pounce): our message must have an ID as it has reactions which we are
+                    // tracking
+                    msgid: message.id.as_ref().unwrap().clone(),
+                    text: text.to_owned(),
+                    unreacted: false,
+                },
+                |text| Message::Reacted {
+                    msgid: message.id.as_ref().unwrap().clone(),
+                    text: text.to_owned(),
+                    unreacted: true,
+                },
+            );
+            message_content = column![message_content, reactions].into();
+        }
 
         let content = if not_sent {
             let font_size = 0.85
