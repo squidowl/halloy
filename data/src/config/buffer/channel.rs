@@ -14,10 +14,20 @@ pub struct Channel {
     pub message: Message,
 }
 
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
 pub struct Message {
     pub nickname_color: Color,
+    pub show_emoji_reacts: bool,
+}
+
+impl Default for Message {
+    fn default() -> Self {
+        Self {
+            nickname_color: Color::default(),
+            show_emoji_reacts: true,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]

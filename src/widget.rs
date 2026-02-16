@@ -36,6 +36,7 @@ pub mod modal;
 pub mod notify_visibility;
 pub mod on_resize;
 pub mod pick_list;
+pub mod reaction_row;
 pub mod selectable_rich_text;
 pub mod selectable_text;
 pub mod shortcut;
