@@ -22,6 +22,7 @@ use iced::widget::{
     self, button, column, container, operation, row, rule, text_editor,
 };
 use iced::{Alignment, Length, Task, clipboard, event, keyboard, padding};
+use itertools::Itertools;
 use tokio::time;
 
 use self::completion::Completion;
@@ -33,6 +34,8 @@ use crate::window::Window;
 use crate::{Theme, font, theme, window};
 
 mod completion;
+
+const MAX_LINE_COUNT: usize = 20;
 
 pub enum Event {
     InputSent {
@@ -348,7 +351,8 @@ pub fn view<'a>(
                     iced::keyboard::Key::Named(
                         iced::keyboard::key::Named::Enter,
                     ) if key_press.modifiers.shift() => {
-                        Some(text_editor::Binding::Enter)
+                        (state.input_content.line_count() < MAX_LINE_COUNT)
+                            .then_some(text_editor::Binding::Enter)
                     }
                     // Send
                     iced::keyboard::Key::Named(
@@ -1074,7 +1078,26 @@ impl State {
                 (task, None)
             }
             Message::Action(action) => {
-                self.input_content.perform(action.clone());
+                if let text_editor::Action::Edit(text_editor::Edit::Paste(
+                    clipboard,
+                )) = &action
+                {
+                    let truncated_clipboard = clipboard
+                        .lines()
+                        .take(
+                            MAX_LINE_COUNT.saturating_sub(
+                                self.input_content.line_count(),
+                            ) + 1,
+                        )
+                        .join("\n");
+                    let action =
+                        text_editor::Action::Edit(text_editor::Edit::Paste(
+                            std::sync::Arc::new(truncated_clipboard),
+                        ));
+                    self.input_content.perform(action);
+                } else {
+                    self.input_content.perform(action.clone());
+                }
 
                 match &action {
                     text_editor::Action::Edit(_) => {
