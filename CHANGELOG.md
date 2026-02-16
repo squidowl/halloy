@@ -18,10 +18,11 @@ Fixed:
 
 - Channel mode in pane headers not updating immediately after mode changes
 - Cycle next/previous (unread) buffer shortcuts work from an empty pane
-
-Fixed
-
 - Virtualize message rendering to improve buffer performance
+
+Changed:
+
+- Condensed server messages are now enabled by default for nick changes, joins, parts, and quits
 
 Thanks:
 
