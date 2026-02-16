@@ -56,6 +56,11 @@ pub enum Message {
     ContentResized(Size),
     PendingScrollTo,
     HeightsCollected(Vec<(message::Hash, f32)>),
+    Reacted {
+        msgid: message::Id,
+        text: String,
+        unreacted: bool,
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -1062,6 +1067,11 @@ impl State {
                     return (scroll_to, None);
                 }
             }
+            Message::Reacted {
+                msgid,
+                text,
+                unreacted,
+            } => todo!(),
         }
 
         (Task::none(), None)
