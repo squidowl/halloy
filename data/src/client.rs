@@ -119,7 +119,7 @@ pub enum Message {
 #[derive(Debug)]
 pub enum Event {
     Single(message::Encoded, Nick),
-    PrivOrNotice(message::Encoded, Nick, bool),
+    PrivOrNotice(message::Encoded, Nick, bool, bool),
     Reaction(message::Encoded),
     WithTarget(message::Encoded, Nick, message::Target),
     Broadcast(Broadcast),
@@ -1298,6 +1298,7 @@ impl Client {
                                     message,
                                     self.nickname().to_owned(),
                                     self.notification_blackout.allowed(),
+                                    false,
                                 );
 
                                 return Ok(vec![event]);
@@ -1442,6 +1443,7 @@ impl Client {
                         message.clone(),
                         self.nickname().to_owned(),
                         self.notification_blackout.allowed(),
+                        false,
                     );
 
                     // Event::DirectMessage is currently only used to send a
@@ -3018,6 +3020,7 @@ impl Client {
                             self.nickname().to_owned(),
                             // Don't allow notifications from history
                             false,
+                            true,
                         )]
                     }
                 }
@@ -4018,7 +4021,7 @@ fn continue_chathistory_between(
     let start_message_reference =
         events.first().and_then(|first_event| match first_event {
             Event::Single(message, _)
-            | Event::PrivOrNotice(message, _, _)
+            | Event::PrivOrNotice(message, _, _, _)
             | Event::WithTarget(message, _, _)
             | Event::DirectMessage(message, _, _) => {
                 match end_message_reference {
