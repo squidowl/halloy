@@ -35,10 +35,10 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-c475aeb2.js";
+            window.path_to_searchindex_js = "searchindex-57756f8b.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-72d18ae4.js"></script>
+        <script src="toc-ac22d4e6.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -2361,6 +2361,35 @@ brackets = { left = "[", right = "]" }
 prompt_before_open = true
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div>
+<h1 id="check-for-update-on-launch"><a class="header" href="#check-for-update-on-launch">Check for Update on Launch</a></h1>
+<p>Controls whether Halloy will check the Halloy repository on launch for a new version of Halloy.  When a new version is found a dot indicator will appear on the user menu button and a menu item to open the release webpage will be added to the user menu.</p>
+<p>This can be useful if you would rather rely on a package manager.</p>
+<ul>
+<li><a href="#check-for-update-on-launch">Check for Update on Launch</a>
+<ul>
+<li><a href="#configuration-29">Configuration</a>
+<ul>
+<li><a href="#check_for_update_on_launch">check_for_update_on_launch</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<h2 id="configuration-29"><a class="header" href="#configuration-29">Configuration</a></h2>
+<h3 id="check_for_update_on_launch"><a class="header" href="#check_for_update_on_launch">check_for_update_on_launch</a></h3>
+<blockquote>
+<p>⚠️ <code>check_for_update_on_launch</code> is a root key, so it must be placed before any section.</p>
+</blockquote>
+<blockquote>
+<p>💡 If configured, the <a href="configuration/proxy">default proxy</a> will be used to check for update.</p>
+</blockquote>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: true
+
+check_for_update_on_launch = true
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div>
 <h1 id="commands-2"><a class="header" href="#commands-2">Commands</a></h1>
 <p>Commands in Halloy are prefixed with <code>/</code>.</p>
 <ul>
@@ -2463,7 +2492,7 @@ The argument(s) for a command are shown in <a href="#tooltips">tooltips</a>, and
 <ul>
 <li><a href="#padding-1">Padding</a>
 <ul>
-<li><a href="#configuration-29">Configuration</a>
+<li><a href="#configuration-30">Configuration</a>
 <ul>
 <li><a href="#entry">entry</a></li>
 </ul>
@@ -2471,7 +2500,7 @@ The argument(s) for a command are shown in <a href="#tooltips">tooltips</a>, and
 </ul>
 </li>
 </ul>
-<h2 id="configuration-29"><a class="header" href="#configuration-29">Configuration</a></h2>
+<h2 id="configuration-30"><a class="header" href="#configuration-30">Configuration</a></h2>
 <h3 id="entry"><a class="header" href="#entry">entry</a></h3>
 <p>Controls the padding around each entry in context menus.
 The value is an array where the first value is vertical padding and the second is horizontal padding.</p>
@@ -2489,7 +2518,7 @@ entry = [2, 5]
 <li><a href="#ctcp">CTCP</a>
 <ul>
 <li><a href="#example-6">Example</a></li>
-<li><a href="#configuration-30">Configuration</a>
+<li><a href="#configuration-31">Configuration</a>
 <ul>
 <li><a href="#ping">ping</a></li>
 <li><a href="#source">source</a></li>
@@ -2508,7 +2537,7 @@ entry = [2, 5]
 time = false
 version = false
 </code></pre>
-<h2 id="configuration-30"><a class="header" href="#configuration-30">Configuration</a></h2>
+<h2 id="configuration-31"><a class="header" href="#configuration-31">Configuration</a></h2>
 <h3 id="ping"><a class="header" href="#ping">ping</a></h3>
 <p>Whether Halloy will respond to a <a href="https://modern.ircdocs.horse/ctcp#ping">CTCP PING</a> message.</p>
 <pre><code class="language-toml"># Type: boolean
@@ -2563,7 +2592,7 @@ userinfo = "&lt;nickname&gt; (&lt;realname&gt;)"
 <ul>
 <li><a href="#file-transfer">File Transfer</a>
 <ul>
-<li><a href="#configuration-31">Configuration</a>
+<li><a href="#configuration-32">Configuration</a>
 <ul>
 <li><a href="#enabled-7">enabled</a></li>
 <li><a href="#save_directory">save_directory</a></li>
@@ -2576,7 +2605,7 @@ userinfo = "&lt;nickname&gt; (&lt;realname&gt;)"
 </ul>
 </li>
 </ul>
-<h2 id="configuration-31"><a class="header" href="#configuration-31">Configuration</a></h2>
+<h2 id="configuration-32"><a class="header" href="#configuration-32">Configuration</a></h2>
 <h3 id="enabled-7"><a class="header" href="#enabled-7">enabled</a></h3>
 <p>Control if file transfers are shown in the UI (e.g. file transfer requests are
 shown, file transfer options are presented in menus, etc).</p>
@@ -2630,7 +2659,7 @@ timeout = 300
 <ul>
 <li><a href="#auto-accept-1">Auto Accept</a>
 <ul>
-<li><a href="#configuration-32">Configuration</a>
+<li><a href="#configuration-33">Configuration</a>
 <ul>
 <li><a href="#enabled-8">enabled</a></li>
 <li><a href="#nicks">nicks</a></li>
@@ -2640,7 +2669,7 @@ timeout = 300
 </ul>
 </li>
 </ul>
-<h2 id="configuration-32"><a class="header" href="#configuration-32">Configuration</a></h2>
+<h2 id="configuration-33"><a class="header" href="#configuration-33">Configuration</a></h2>
 <h3 id="enabled-8"><a class="header" href="#enabled-8">enabled</a></h3>
 <p>If true, automatically accept incoming file transfers. Requires <code>save_directory</code> to be set.</p>
 <pre><code class="language-toml"># Type: boolean
@@ -2684,7 +2713,7 @@ operate as the “server”, who the other user connects with to establish a con
 <ul>
 <li><a href="#server-1">Server</a>
 <ul>
-<li><a href="#configuration-33">Configuration</a>
+<li><a href="#configuration-34">Configuration</a>
 <ul>
 <li><a href="#public_address">public_address</a></li>
 <li><a href="#bind_address">bind_address</a></li>
@@ -2695,7 +2724,7 @@ operate as the “server”, who the other user connects with to establish a con
 </ul>
 </li>
 </ul>
-<h2 id="configuration-33"><a class="header" href="#configuration-33">Configuration</a></h2>
+<h2 id="configuration-34"><a class="header" href="#configuration-34">Configuration</a></h2>
 <h3 id="public_address"><a class="header" href="#public_address">public_address</a></h3>
 <p>Address advertised to the remote user to connect to.</p>
 <pre><code class="language-toml"># Type: string
@@ -2738,7 +2767,7 @@ bind_port_last = 5000
 <ul>
 <li><a href="#font">Font</a>
 <ul>
-<li><a href="#configuration-34">Configuration</a>
+<li><a href="#configuration-35">Configuration</a>
 <ul>
 <li><a href="#family">family</a></li>
 <li><a href="#size">size</a></li>
@@ -2757,7 +2786,7 @@ bind_port_last = 5000
 <blockquote>
 <p>💡  If Halloy is unable to load the specified font &amp; weight, an fallback font may be used.  If the font looks wrong, double-check the family name and that the font family has the specified weight.</p>
 </blockquote>
-<h2 id="configuration-34"><a class="header" href="#configuration-34">Configuration</a></h2>
+<h2 id="configuration-35"><a class="header" href="#configuration-35">Configuration</a></h2>
 <h3 id="family"><a class="header" href="#family">family</a></h3>
 <p>Monospaced font family to use.</p>
 <blockquote>
@@ -2839,7 +2868,7 @@ only_emojis_size = 18
 <li><a href="#matches-1">Matches</a>
 <ul>
 <li><a href="#example-7">Example</a></li>
-<li><a href="#configuration-35">Configuration</a>
+<li><a href="#configuration-36">Configuration</a>
 <ul>
 <li><a href="#words">words</a></li>
 <li><a href="#case_insensitive">case_insensitive</a></li>
@@ -2864,7 +2893,7 @@ sound = "bonk"
 regex = '''(?i)\bcasper\b'''
 exclude = ["#noisy-channel"]
 </code></pre>
-<h2 id="configuration-35"><a class="header" href="#configuration-35">Configuration</a></h2>
+<h2 id="configuration-36"><a class="header" href="#configuration-36">Configuration</a></h2>
 <h3 id="words"><a class="header" href="#words">words</a></h3>
 <p>You can set words to be highlighted when they are written.</p>
 <p>Example shows word matches, which will trigger on <code>"word1"</code>, <code>"word2"</code> or <code>"word3"</code> in any channel.</p>
@@ -2951,7 +2980,7 @@ sound = "sing"
 <li><a href="#nickname-5">Nickname</a>
 <ul>
 <li><a href="#example-8">Example</a></li>
-<li><a href="#configuration-36">Configuration</a>
+<li><a href="#configuration-37">Configuration</a>
 <ul>
 <li><a href="#exclude-2">exclude</a></li>
 <li><a href="#include-2">include</a></li>
@@ -2967,7 +2996,7 @@ sound = "sing"
 exclude = ["*"]
 include = ["#halloy"]
 </code></pre>
-<h2 id="configuration-36"><a class="header" href="#configuration-36">Configuration</a></h2>
+<h2 id="configuration-37"><a class="header" href="#configuration-37">Configuration</a></h2>
 <h3 id="exclude-2"><a class="header" href="#exclude-2">exclude</a></h3>
 <p>Channels in which you won’t be highlighted.
 If you pass <code>["#halloy"]</code>, you won’t be highlighted in that channel. You can also exclude all channels by using a wildcard: <code>["*"]</code>.</p>
@@ -3067,7 +3096,7 @@ Each shortcut accepts either a single keybind string or an array of keybind stri
 <ul>
 <li><a href="#logs">Logs</a>
 <ul>
-<li><a href="#configuration-37">Configuration</a>
+<li><a href="#configuration-38">Configuration</a>
 <ul>
 <li><a href="#file_level">file_level</a></li>
 <li><a href="#pane_level">pane_level</a></li>
@@ -3076,7 +3105,7 @@ Each shortcut accepts either a single keybind string or an array of keybind stri
 </ul>
 </li>
 </ul>
-<h2 id="configuration-37"><a class="header" href="#configuration-37">Configuration</a></h2>
+<h2 id="configuration-38"><a class="header" href="#configuration-38">Configuration</a></h2>
 <h3 id="file_level"><a class="header" href="#file_level">file_level</a></h3>
 <p>The least urgent (most verbose) log level to record to the log file.
 E.g. a <code>file_level</code> setting of <code>"debug"</code> will record all <code>ERROR</code>, <code>WARN</code>, <code>INFO</code>, and <code>DEBUG</code> messages to the log file.
@@ -3116,7 +3145,7 @@ pane_level = "info"
 <li><a href="#example-10">Example</a></li>
 <li><a href="#types-4">Types</a></li>
 <li><a href="#built-in-sounds">Built-in Sounds</a></li>
-<li><a href="#configuration-38">Configuration</a>
+<li><a href="#configuration-39">Configuration</a>
 <ul>
 <li><a href="#sound-1">sound</a></li>
 <li><a href="#show_toast">show_toast</a></li>
@@ -3186,7 +3215,7 @@ show_toast = true
 </tbody>
 </table>
 </div>
-<h2 id="configuration-38"><a class="header" href="#configuration-38">Configuration</a></h2>
+<h2 id="configuration-39"><a class="header" href="#configuration-39">Configuration</a></h2>
 <h3 id="sound-1"><a class="header" href="#sound-1">sound</a></h3>
 <p>Notification sound. Supports both built-in sounds, and external sound files
 (<code>mp3</code>, <code>ogg</code>, <code>flac</code> or <code>wav</code> placed inside the <code>sounds</code> folder within the
@@ -3279,7 +3308,7 @@ include = { users = ["HalloyUser1", "#halloy"] }
 <ul>
 <li><a href="#pane">Pane</a>
 <ul>
-<li><a href="#configuration-39">Configuration</a>
+<li><a href="#configuration-40">Configuration</a>
 <ul>
 <li><a href="#restore_on_launch">restore_on_launch</a></li>
 <li><a href="#scrollbar">scrollbar</a></li>
@@ -3292,7 +3321,7 @@ include = { users = ["HalloyUser1", "#halloy"] }
 </ul>
 </li>
 </ul>
-<h2 id="configuration-39"><a class="header" href="#configuration-39">Configuration</a></h2>
+<h2 id="configuration-40"><a class="header" href="#configuration-40">Configuration</a></h2>
 <h3 id="restore_on_launch"><a class="header" href="#restore_on_launch">restore_on_launch</a></h3>
 <p>Restore the panes that were open when Halloy was last closed when launching the application.</p>
 <pre><code class="language-toml"># Type: boolean
@@ -3340,7 +3369,7 @@ split_axis = "vertical"
 <li><a href="#gap-1">Gap</a>
 <ul>
 <li><a href="#example-11">Example</a></li>
-<li><a href="#configuration-40">Configuration</a>
+<li><a href="#configuration-41">Configuration</a>
 <ul>
 <li><a href="#inner">inner</a></li>
 <li><a href="#outer">outer</a></li>
@@ -3354,7 +3383,7 @@ split_axis = "vertical"
 inner = 4
 outer = 4
 </code></pre>
-<h2 id="configuration-40"><a class="header" href="#configuration-40">Configuration</a></h2>
+<h2 id="configuration-41"><a class="header" href="#configuration-41">Configuration</a></h2>
 <h3 id="inner"><a class="header" href="#inner">inner</a></h3>
 <p>Controls the spacing between panes in a pane grid.</p>
 <pre><code class="language-toml"># Type: integer
@@ -3397,7 +3426,7 @@ outer = 8
 <ul>
 <li><a href="#linux-2">Linux</a>
 <ul>
-<li><a href="#configuration-41">Configuration</a>
+<li><a href="#configuration-42">Configuration</a>
 <ul>
 <li><a href="#decorations">decorations</a></li>
 </ul>
@@ -3405,7 +3434,7 @@ outer = 8
 </ul>
 </li>
 </ul>
-<h2 id="configuration-41"><a class="header" href="#configuration-41">Configuration</a></h2>
+<h2 id="configuration-42"><a class="header" href="#configuration-42">Configuration</a></h2>
 <h3 id="decorations"><a class="header" href="#decorations">decorations</a></h3>
 <p>Whether the window should have a border, a title bar, etc. or not.</p>
 <blockquote>
@@ -3424,7 +3453,7 @@ linux.decorations = false
 <ul>
 <li><a href="#macos-2">macOS</a>
 <ul>
-<li><a href="#configuration-42">Configuration</a>
+<li><a href="#configuration-43">Configuration</a>
 <ul>
 <li><a href="#content_padding">content_padding</a></li>
 <li><a href="#sidebar_padding">sidebar_padding</a></li>
@@ -3434,7 +3463,7 @@ linux.decorations = false
 </ul>
 </li>
 </ul>
-<h2 id="configuration-42"><a class="header" href="#configuration-42">Configuration</a></h2>
+<h2 id="configuration-43"><a class="header" href="#configuration-43">Configuration</a></h2>
 <h3 id="content_padding"><a class="header" href="#content_padding">content_padding</a></h3>
 <p>Controls if the content (panes) are rendered inside the the titlebar content view, or padded just below it.</p>
 <pre><code class="language-toml"># Type: string
@@ -3471,7 +3500,7 @@ macos.decorations = false
 <ul>
 <li><a href="#windows-2">Windows</a>
 <ul>
-<li><a href="#configuration-43">Configuration</a>
+<li><a href="#configuration-44">Configuration</a>
 <ul>
 <li><a href="#decorations-2">decorations</a></li>
 </ul>
@@ -3479,7 +3508,7 @@ macos.decorations = false
 </ul>
 </li>
 </ul>
-<h2 id="configuration-43"><a class="header" href="#configuration-43">Configuration</a></h2>
+<h2 id="configuration-44"><a class="header" href="#configuration-44">Configuration</a></h2>
 <h3 id="decorations-2"><a class="header" href="#decorations-2">decorations</a></h3>
 <p>Whether the window should have a border, a title bar, etc. or not.</p>
 <blockquote>
@@ -3498,7 +3527,7 @@ windows.decorations = false
 <ul>
 <li><a href="#preview">Preview</a>
 <ul>
-<li><a href="#configuration-44">Configuration</a>
+<li><a href="#configuration-45">Configuration</a>
 <ul>
 <li><a href="#enabled-9">enabled</a></li>
 <li><a href="#exclude-4">exclude</a></li>
@@ -3510,7 +3539,7 @@ windows.decorations = false
 </ul>
 </li>
 </ul>
-<h2 id="configuration-44"><a class="header" href="#configuration-44">Configuration</a></h2>
+<h2 id="configuration-45"><a class="header" href="#configuration-45">Configuration</a></h2>
 <h3 id="enabled-9"><a class="header" href="#enabled-9">enabled</a></h3>
 <p>Enable or disable previews globally with a boolean, or selectively enable them for URLs matching specific regex patterns.</p>
 <pre><code class="language-toml"># Type: boolean or array of strings
@@ -3564,7 +3593,7 @@ exclude = [
 <li><a href="#card-1">Card</a>
 <ul>
 <li><a href="#example-12">Example</a></li>
-<li><a href="#configuration-45">Configuration</a>
+<li><a href="#configuration-46">Configuration</a>
 <ul>
 <li><a href="#show_image">show_image</a></li>
 <li><a href="#round_image_corners">round_image_corners</a></li>
@@ -3583,7 +3612,7 @@ exclude = [
 exclude = "*" # hide card previews in all channels
 include = { channels = ["#halloy"] } # show card previews in #halloy
 </code></pre>
-<h2 id="configuration-45"><a class="header" href="#configuration-45">Configuration</a></h2>
+<h2 id="configuration-46"><a class="header" href="#configuration-46">Configuration</a></h2>
 <h3 id="show_image"><a class="header" href="#show_image">show_image</a></h3>
 <p>Show image for card previews.</p>
 <pre><code class="language-toml"># Type: boolean
@@ -3659,7 +3688,7 @@ include = { users = ["BridgeBot"] }
 <li><a href="#image-1">Image</a>
 <ul>
 <li><a href="#example-13">Example</a></li>
-<li><a href="#configuration-46">Configuration</a>
+<li><a href="#configuration-47">Configuration</a>
 <ul>
 <li><a href="#action">action</a></li>
 <li><a href="#round_corners">round_corners</a></li>
@@ -3677,7 +3706,7 @@ include = { users = ["BridgeBot"] }
 exclude = "*" # hide image previews in all channels
 include = { channels = ["#halloy"] } # show image previews in #halloy
 </code></pre>
-<h2 id="configuration-46"><a class="header" href="#configuration-46">Configuration</a></h2>
+<h2 id="configuration-47"><a class="header" href="#configuration-47">Configuration</a></h2>
 <h3 id="action"><a class="header" href="#action">action</a></h3>
 <p>Action when clicking on a image. <code>open-url</code> will open the image in the browser, and <code>preview</code> will display a larger version of the image in-app.</p>
 <pre><code class="language-toml"># Type: string
@@ -3743,7 +3772,7 @@ include = { users = ["BridgeBot"] }
 <ul>
 <li><a href="#request-1">Request</a>
 <ul>
-<li><a href="#configuration-47">Configuration</a>
+<li><a href="#configuration-48">Configuration</a>
 <ul>
 <li><a href="#user_agent">user_agent</a></li>
 <li><a href="#timeout_ms">timeout_ms</a></li>
@@ -3756,7 +3785,7 @@ include = { users = ["BridgeBot"] }
 </ul>
 </li>
 </ul>
-<h2 id="configuration-47"><a class="header" href="#configuration-47">Configuration</a></h2>
+<h2 id="configuration-48"><a class="header" href="#configuration-48">Configuration</a></h2>
 <h3 id="user_agent"><a class="header" href="#user_agent">user_agent</a></h3>
 <p>Some servers will only send opengraph metadata to browser-like user agents. We default to <code>WhatsApp/2</code> for wide compatibility.</p>
 <pre><code class="language-toml"># Type: string
@@ -3839,7 +3868,7 @@ delay_ms = 500
 <li><a href="#http-1">HTTP</a>
 <ul>
 <li><a href="#example-14">Example</a></li>
-<li><a href="#configuration-48">Configuration</a>
+<li><a href="#configuration-49">Configuration</a>
 <ul>
 <li><a href="#host">host</a></li>
 <li><a href="#port">port</a></li>
@@ -3857,7 +3886,7 @@ port = 1080
 username = "username"
 password = "password"
 </code></pre>
-<h2 id="configuration-48"><a class="header" href="#configuration-48">Configuration</a></h2>
+<h2 id="configuration-49"><a class="header" href="#configuration-49">Configuration</a></h2>
 <h3 id="host"><a class="header" href="#host">host</a></h3>
 <p>Proxy host to connect to.</p>
 <pre><code class="language-toml"># Type: string
@@ -3909,7 +3938,7 @@ password = "password"
 <li><a href="#socks5-1">SOCKS5</a>
 <ul>
 <li><a href="#example-15">Example</a></li>
-<li><a href="#configuration-49">Configuration</a>
+<li><a href="#configuration-50">Configuration</a>
 <ul>
 <li><a href="#host-1">host</a></li>
 <li><a href="#port-1">port</a></li>
@@ -3927,7 +3956,7 @@ port = 1080
 username = "username"
 password = "password"
 </code></pre>
-<h2 id="configuration-49"><a class="header" href="#configuration-49">Configuration</a></h2>
+<h2 id="configuration-50"><a class="header" href="#configuration-50">Configuration</a></h2>
 <h3 id="host-1"><a class="header" href="#host-1">host</a></h3>
 <p>Proxy host to connect to.</p>
 <pre><code class="language-toml"># Type: string
@@ -3998,7 +4027,7 @@ password = "password"
 <ul>
 <li><a href="#scale-factor">Scale Factor</a>
 <ul>
-<li><a href="#configuration-50">Configuration</a>
+<li><a href="#configuration-51">Configuration</a>
 <ul>
 <li><a href="#scale_factor">scale_factor</a></li>
 </ul>
@@ -4006,7 +4035,7 @@ password = "password"
 </ul>
 </li>
 </ul>
-<h2 id="configuration-50"><a class="header" href="#configuration-50">Configuration</a></h2>
+<h2 id="configuration-51"><a class="header" href="#configuration-51">Configuration</a></h2>
 <h3 id="scale_factor"><a class="header" href="#scale_factor">scale_factor</a></h3>
 <blockquote>
 <p>⚠️ <code>scale_factor</code> is a root key, so it must be placed before any section.</p>
@@ -4024,7 +4053,7 @@ scale_factor = 1.0
 <li><a href="#servers">Servers</a>
 <ul>
 <li><a href="#examples-2">Examples</a></li>
-<li><a href="#configuration-51">Configuration</a>
+<li><a href="#configuration-52">Configuration</a>
 <ul>
 <li><a href="#nickname-6">nickname</a></li>
 <li><a href="#nick_password">nick_password</a></li>
@@ -4077,7 +4106,7 @@ scale_factor = 1.0
 <li><a href="#connect-with-soju">Connect with soju</a></li>
 <li><a href="#connect-with-znc">Connect with ZNC</a></li>
 </ul>
-<h2 id="configuration-51"><a class="header" href="#configuration-51">Configuration</a></h2>
+<h2 id="configuration-52"><a class="header" href="#configuration-52">Configuration</a></h2>
 <h3 id="nickname-6"><a class="header" href="#nickname-6">nickname</a></h3>
 <p>The client’s nickname.</p>
 <pre><code class="language-toml"># Type: string
@@ -4423,7 +4452,7 @@ password = "password"
 <ul>
 <li><a href="#filters-1">Filters</a>
 <ul>
-<li><a href="#configuration-52">Configuration</a>
+<li><a href="#configuration-53">Configuration</a>
 <ul>
 <li><a href="#ignore-1">ignore</a></li>
 <li><a href="#regex-1">regex</a></li>
@@ -4432,7 +4461,7 @@ password = "password"
 </ul>
 </li>
 </ul>
-<h2 id="configuration-52"><a class="header" href="#configuration-52">Configuration</a></h2>
+<h2 id="configuration-53"><a class="header" href="#configuration-53">Configuration</a></h2>
 <h3 id="ignore-1"><a class="header" href="#ignore-1">ignore</a></h3>
 <p>A list of users to ignore. Users may be identified in any of these four ways:</p>
 <ul>
@@ -4471,7 +4500,7 @@ regex = [
 <ul>
 <li><a href="#sasl-external-1">SASL External</a>
 <ul>
-<li><a href="#configuration-53">Configuration</a>
+<li><a href="#configuration-54">Configuration</a>
 <ul>
 <li><a href="#cert">cert</a></li>
 <li><a href="#key">key</a></li>
@@ -4481,7 +4510,7 @@ regex = [
 </ul>
 </li>
 </ul>
-<h2 id="configuration-53"><a class="header" href="#configuration-53">Configuration</a></h2>
+<h2 id="configuration-54"><a class="header" href="#configuration-54">Configuration</a></h2>
 <h3 id="cert"><a class="header" href="#cert">cert</a></h3>
 <p>The path to PEM encoded X509 user certificate for external auth.<sup class="footnote-reference" id="fr-1-1-4"><a href="#footnote-1-4">1</a></sup> <sup class="footnote-reference" id="fr-2-1-3"><a href="#footnote-2-3">2</a></sup></p>
 <pre><code class="language-toml"># Type: string
@@ -4524,7 +4553,7 @@ disconnect_on_failure = false
 <ul>
 <li><a href="#sasl-plain-1">SASL Plain</a>
 <ul>
-<li><a href="#configuration-54">Configuration</a>
+<li><a href="#configuration-55">Configuration</a>
 <ul>
 <li><a href="#username-3">username</a></li>
 <li><a href="#password-3">password</a></li>
@@ -4537,7 +4566,7 @@ disconnect_on_failure = false
 </ul>
 </li>
 </ul>
-<h2 id="configuration-54"><a class="header" href="#configuration-54">Configuration</a></h2>
+<h2 id="configuration-55"><a class="header" href="#configuration-55">Configuration</a></h2>
 <h3 id="username-3"><a class="header" href="#username-3">username</a></h3>
 <p>The account name used for authentication.</p>
 <pre><code class="language-toml"># Type: string
@@ -4607,7 +4636,7 @@ disconnect_on_failure = false
 <ul>
 <li><a href="#confirm-message-delivery-1">Confirm Message Delivery</a>
 <ul>
-<li><a href="#configuration-55">Configuration</a>
+<li><a href="#configuration-56">Configuration</a>
 <ul>
 <li><a href="#enabled-10">enabled</a></li>
 <li><a href="#exclude-7">exclude</a></li>
@@ -4617,7 +4646,7 @@ disconnect_on_failure = false
 </ul>
 </li>
 </ul>
-<h2 id="configuration-55"><a class="header" href="#configuration-55">Configuration</a></h2>
+<h2 id="configuration-56"><a class="header" href="#configuration-56">Configuration</a></h2>
 <h3 id="enabled-10"><a class="header" href="#enabled-10">enabled</a></h3>
 <p>Control if delivery of sent messages is to be confirmed (if the server supports <a href="https://ircv3.net/specs/extensions/echo-message"><code>echo-message</code></a>).</p>
 <pre><code class="language-toml"># Type: boolean
@@ -4657,7 +4686,7 @@ include = { channels = ["#halloy"] }
 <ul>
 <li><a href="#sidebar-2">Sidebar</a>
 <ul>
-<li><a href="#configuration-56">Configuration</a>
+<li><a href="#configuration-57">Configuration</a>
 <ul>
 <li><a href="#server_icon">server_icon</a></li>
 <li><a href="#position-1">position</a></li>
@@ -4673,7 +4702,7 @@ include = { channels = ["#halloy"] }
 </ul>
 </li>
 </ul>
-<h2 id="configuration-56"><a class="header" href="#configuration-56">Configuration</a></h2>
+<h2 id="configuration-57"><a class="header" href="#configuration-57">Configuration</a></h2>
 <h3 id="server_icon"><a class="header" href="#server_icon">server_icon</a></h3>
 <p>Configure the server icon display.</p>
 <pre><code class="language-toml"># Type: integer or string
@@ -4741,7 +4770,7 @@ order_by = "config"
 <ul>
 <li><a href="#scrollbar-2">Scrollbar</a>
 <ul>
-<li><a href="#configuration-57">Configuration</a>
+<li><a href="#configuration-58">Configuration</a>
 <ul>
 <li><a href="#width-2">width</a></li>
 <li><a href="#scroller_width-1">scroller_width</a></li>
@@ -4750,7 +4779,7 @@ order_by = "config"
 </ul>
 </li>
 </ul>
-<h2 id="configuration-57"><a class="header" href="#configuration-57">Configuration</a></h2>
+<h2 id="configuration-58"><a class="header" href="#configuration-58">Configuration</a></h2>
 <h3 id="width-2"><a class="header" href="#width-2">width</a></h3>
 <p>Width of the scrollbar.</p>
 <pre><code class="language-toml"># Type: integer
@@ -4775,7 +4804,7 @@ scroller_width = 5
 <ul>
 <li><a href="#unread-indicator-1">Unread Indicator</a>
 <ul>
-<li><a href="#configuration-58">Configuration</a>
+<li><a href="#configuration-59">Configuration</a>
 <ul>
 <li><a href="#title">title</a></li>
 <li><a href="#icon">icon</a></li>
@@ -4790,7 +4819,7 @@ scroller_width = 5
 </ul>
 </li>
 </ul>
-<h2 id="configuration-58"><a class="header" href="#configuration-58">Configuration</a></h2>
+<h2 id="configuration-59"><a class="header" href="#configuration-59">Configuration</a></h2>
 <h3 id="title"><a class="header" href="#title">title</a></h3>
 <p>Changes buffer title color when unread messages are present</p>
 <pre><code class="language-toml"># Type: boolean
@@ -4877,16 +4906,15 @@ include = { channels = ["#halloy"] }
 <ul>
 <li><a href="#user-menu">User Menu</a>
 <ul>
-<li><a href="#configuration-59">Configuration</a>
+<li><a href="#configuration-60">Configuration</a>
 <ul>
 <li><a href="#enabled-11">enabled</a></li>
-<li><a href="#show_new_version_indicator">show_new_version_indicator</a></li>
 </ul>
 </li>
 </ul>
 </li>
 </ul>
-<h2 id="configuration-59"><a class="header" href="#configuration-59">Configuration</a></h2>
+<h2 id="configuration-60"><a class="header" href="#configuration-60">Configuration</a></h2>
 <h3 id="enabled-11"><a class="header" href="#enabled-11">enabled</a></h3>
 <p>Controls whether the user menu is shown in the sidebar or hidden</p>
 <pre><code class="language-toml"># Type: boolean
@@ -4896,23 +4924,13 @@ include = { channels = ["#halloy"] }
 [sidebar.user_menu]
 enabled = true
 </code></pre>
-<h3 id="show_new_version_indicator"><a class="header" href="#show_new_version_indicator">show_new_version_indicator</a></h3>
-<p>Controls whether to show a dot indicator on the user menu button when a new version of Halloy is available.
-This can be useful if you rather want to rely on a package manager.</p>
-<pre><code class="language-toml"># Type: boolean
-# Values: true, false
-# Default: true
-
-[sidebar.user_menu]
-show_new_version_indicator = true
-</code></pre>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="padding-3"><a class="header" href="#padding-3">Padding</a></h1>
 <p>Adjust padding for sidebar</p>
 <ul>
 <li><a href="#padding-3">Padding</a>
 <ul>
-<li><a href="#configuration-60">Configuration</a>
+<li><a href="#configuration-61">Configuration</a>
 <ul>
 <li><a href="#buffer-4">buffer</a></li>
 </ul>
@@ -4920,7 +4938,7 @@ show_new_version_indicator = true
 </ul>
 </li>
 </ul>
-<h2 id="configuration-60"><a class="header" href="#configuration-60">Configuration</a></h2>
+<h2 id="configuration-61"><a class="header" href="#configuration-61">Configuration</a></h2>
 <h3 id="buffer-4"><a class="header" href="#buffer-4">buffer</a></h3>
 <p>Controls padding for buffer buttons (server, channels, queries) in the sidebar
 The value is an array where the first value is vertical padding and the second is horizontal padding.</p>
@@ -4937,7 +4955,7 @@ buffer = [2, 5]
 <ul>
 <li><a href="#spacing-1">Spacing</a>
 <ul>
-<li><a href="#configuration-61">Configuration</a>
+<li><a href="#configuration-62">Configuration</a>
 <ul>
 <li><a href="#server-3">server</a></li>
 </ul>
@@ -4945,7 +4963,7 @@ buffer = [2, 5]
 </ul>
 </li>
 </ul>
-<h2 id="configuration-61"><a class="header" href="#configuration-61">Configuration</a></h2>
+<h2 id="configuration-62"><a class="header" href="#configuration-62">Configuration</a></h2>
 <h3 id="server-3"><a class="header" href="#server-3">server</a></h3>
 <p>Controls the vertical spacing between servers (i.e. between the last buffer for one server and the server buffer for the next server).</p>
 <pre><code class="language-toml"># Type: number
@@ -4961,7 +4979,7 @@ server = 12
 <li><a href="#themes">Themes</a>
 <ul>
 <li><a href="#example-17">Example</a></li>
-<li><a href="#configuration-62">Configuration</a>
+<li><a href="#configuration-63">Configuration</a>
 <ul>
 <li><a href="#theme">theme</a></li>
 </ul>
@@ -4985,7 +5003,7 @@ theme = { light = "ferra-light", dark = "ferra" }
 # Dynamic multiple (random selection)
 theme = { light = ["ferra-light", "booberry-light"], dark = ["ferra", "booberry"] }
 </code></pre>
-<h2 id="configuration-62"><a class="header" href="#configuration-62">Configuration</a></h2>
+<h2 id="configuration-63"><a class="header" href="#configuration-63">Configuration</a></h2>
 <blockquote>
 <p>⚠️  <code>theme</code> is a root key, so it must be placed before every section.</p>
 </blockquote>
@@ -5137,20 +5155,20 @@ theme = "base16-gruvbox-dark-hard"
 <h1 id="tooltips"><a class="header" href="#tooltips">Tooltips</a></h1>
 <p>Control if tooltips are displayed or not.</p>
 <ul>
-<li><a href="#tooltips">Tooltips</a>
+<li><a href="#Tooltips">Tooltips</a>
 <ul>
-<li><a href="#configuration-63">Configuration</a>
+<li><a href="#configuration-64">Configuration</a>
 <ul>
-<li><a href="#tooltip">tooltip</a></li>
+<li><a href="#tooltips">tooltips</a></li>
 </ul>
 </li>
 </ul>
 </li>
 </ul>
-<h2 id="configuration-63"><a class="header" href="#configuration-63">Configuration</a></h2>
-<h3 id="tooltip"><a class="header" href="#tooltip">tooltip</a></h3>
+<h2 id="configuration-64"><a class="header" href="#configuration-64">Configuration</a></h2>
+<h3 id="tooltips-1"><a class="header" href="#tooltips-1">tooltips</a></h3>
 <blockquote>
-<p>💡 <code>tooltips</code> is a root key, so it must be placed before any section.</p>
+<p>⚠️ <code>tooltips</code> is a root key, so it must be placed before any section.</p>
 </blockquote>
 <pre><code class="language-toml"># Type: boolean
 # Values: true, false
