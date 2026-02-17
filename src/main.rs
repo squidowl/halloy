@@ -1123,6 +1123,7 @@ impl Halloy {
                         self.config.buffer.commands.quit.default_reason.clone(),
                     );
                 }
+
                 if let Screen::Dashboard(dashboard) = &mut self.screen {
                     dashboard.update_filters(
                         &self.servers,

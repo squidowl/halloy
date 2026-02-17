@@ -29,6 +29,27 @@ pub fn run(
     impl Hash for State {
         fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
             self.entry.server.hash(state);
+
+            self.entry.config.server.hash(state);
+            self.entry.config.port.hash(state);
+
+            self.entry.config.use_tls.hash(state);
+            self.entry
+                .config
+                .dangerously_accept_invalid_certs
+                .hash(state);
+            self.entry.config.root_cert_path.hash(state);
+
+            self.proxy.hash(state);
+
+            self.entry.config.username.hash(state);
+
+            self.entry.config.password.hash(state);
+            self.entry.config.password_file.hash(state);
+            self.entry.config.password_file_first_line_only.hash(state);
+            self.entry.config.password_command.hash(state);
+
+            self.entry.config.sasl.hash(state);
         }
     }
 
