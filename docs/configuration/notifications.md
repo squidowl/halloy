@@ -27,6 +27,7 @@ Following notifications are available:
 | `monitored_online`      | Triggered when a user you're monitoring is online  | N/A                               |
 | `monitored_offline`     | Triggered when a user you're monitoring is offline | N/A                               |
 | `reconnected`           | Triggered when a server reconnects                 | N/A                               |
+| `scripts`               | Triggered by script callbacks via `ctx:notification` | Notification body               |
 
 `channel` is an array of tables, with each entry a notification for a single
 channel.  For example, the following shows a toast notification for every
@@ -34,6 +35,13 @@ message in `#halloy`:
 
 ```toml
 [notifications.channel."#halloy"]
+show_toast = true
+```
+
+`scripts` is also an array of tables, with each entry keyed by script name:
+
+```toml
+[notifications.scripts."my_script"]
 show_toast = true
 ```
 
