@@ -3,7 +3,7 @@ use serde::Deserialize;
 use super::NicknameClickAction;
 use crate::buffer::Color;
 use crate::channel::Position;
-use crate::config::buffer::Away;
+use crate::config::buffer::{AccessLevelFormat, Away};
 
 #[derive(Debug, Clone, Default, Deserialize)]
 #[serde(default)]
@@ -29,7 +29,7 @@ pub struct Nicklist {
     pub color: Color,
     pub width: Option<f32>,
     pub alignment: Alignment,
-    pub show_access_levels: bool,
+    pub show_access_levels: AccessLevelFormat,
     pub click: NicknameClickAction,
 }
 
@@ -42,7 +42,7 @@ impl Default for Nicklist {
             color: Color::default(),
             width: None,
             alignment: Alignment::default(),
-            show_access_levels: true,
+            show_access_levels: AccessLevelFormat::default(),
             click: NicknameClickAction::default(),
         }
     }

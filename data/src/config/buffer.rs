@@ -568,6 +568,51 @@ pub enum UsernameFormat {
     Mask,
 }
 
+#[derive(Debug, Copy, Clone, Default)]
+pub enum AccessLevelFormat {
+    All,
+    #[default]
+    Highest,
+    None,
+}
+
+impl<'de> Deserialize<'de> for AccessLevelFormat {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(rename_all = "kebab-case")]
+        pub enum Format {
+            All,
+            Highest,
+            None,
+        }
+
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum Inner {
+            Boolean(bool),
+            Enum(Format),
+        }
+
+        match Inner::deserialize(deserializer)? {
+            Inner::Boolean(b) => {
+                if b {
+                    Ok(AccessLevelFormat::Highest)
+                } else {
+                    Ok(AccessLevelFormat::None)
+                }
+            }
+            Inner::Enum(format) => match format {
+                Format::All => Ok(AccessLevelFormat::All),
+                Format::Highest => Ok(AccessLevelFormat::Highest),
+                Format::None => Ok(AccessLevelFormat::None),
+            },
+        }
+    }
+}
+
 impl Buffer {
     pub fn format_timestamp(
         &self,

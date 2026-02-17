@@ -89,15 +89,15 @@ position = "right"
 
 ### show_access_levels
 
-Show access levels in front of nicknames (`@`, `+`, `~`, etc.).
+Show access level(s) in front of nicknames (`@`, `+`, `~`, etc.).
 
 ```toml
-# Type: boolean
-# Values: true, false
-# Default: true
+# Type: string
+# Values: "all", "highest", or "none"
+# Default: "highest"
 
 [buffer.channel.nicklist]
-show_access_levels = true
+show_access_levels = "all"
 ```
 
 ### width
