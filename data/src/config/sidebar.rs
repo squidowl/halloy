@@ -100,15 +100,11 @@ impl Default for Spacing {
 #[serde(default)]
 pub struct UserMenu {
     pub enabled: bool,
-    pub show_new_version_indicator: bool,
 }
 
 impl Default for UserMenu {
     fn default() -> Self {
-        Self {
-            enabled: true,
-            show_new_version_indicator: true,
-        }
+        Self { enabled: true }
     }
 }
 

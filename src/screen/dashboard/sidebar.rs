@@ -176,21 +176,15 @@ impl Sidebar {
             .padding(5)
             .width(Length::Shrink);
 
-        let menu = Menu::list(
-            config.sidebar.user_menu.show_new_version_indicator
-                && version.is_old(),
-            config.file_transfer.enabled,
-        );
+        let menu = Menu::list(version.is_old(), config.file_transfer.enabled);
 
         let logs_has_unread = history.has_unread(&history::Kind::Logs);
 
         // Show notification dot if theres a new version, if there're transfers,
         // or if the logs have unread messages.
-        let show_notification_dot =
-            (config.sidebar.user_menu.show_new_version_indicator
-                && version.is_old())
-                || (!file_transfers.is_empty() && config.file_transfer.enabled)
-                || logs_has_unread;
+        let show_notification_dot = version.is_old()
+            || (!file_transfers.is_empty() && config.file_transfer.enabled)
+            || logs_has_unread;
 
         if menu.is_empty() {
             base.into()
