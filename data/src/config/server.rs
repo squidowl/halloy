@@ -90,7 +90,7 @@ pub struct Server {
     #[serde(
         deserialize_with = "deserialize_path_buf_with_path_transformations_maybe"
     )]
-    root_cert_path: Option<PathBuf>,
+    pub root_cert_path: Option<PathBuf>,
     /// Sasl authentication
     pub sasl: Option<Sasl>,
     /// Commands which are executed once connected.
@@ -235,7 +235,7 @@ pub enum IdentifySyntax {
     PasswordNick,
 }
 
-#[derive(PartialEq, Eq, Debug, Clone, Deserialize)]
+#[derive(PartialEq, Eq, Debug, Clone, Deserialize, Hash)]
 #[serde(rename_all = "kebab-case")]
 pub enum Sasl {
     Plain {
