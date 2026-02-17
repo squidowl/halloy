@@ -33,4 +33,9 @@ pub enum Notification {
         casemapping: isupport::CaseMap,
         message: String,
     },
+    Script {
+        script: String,
+        title: String,
+        body: String,
+    },
 }
