@@ -126,6 +126,8 @@ pub enum Event {
         window: window::Id,
     },
     EchoEvents(Server, Vec<EchoEvent>),
+    ToggleScript(String),
+    RefreshScripts,
 }
 
 impl Dashboard {
@@ -485,6 +487,9 @@ impl Dashboard {
                                 TokenPriority::User,
                             );
                         }
+                    }
+                    pane::Message::RefreshScripts => {
+                        return (Task::none(), Some(Event::RefreshScripts));
                     }
                     pane::Message::ContentResized(id, size) => {
                         if let Some(state) = self.panes.get_mut(window, id) {
@@ -1826,6 +1831,7 @@ impl Dashboard {
         window: window::Id,
         clients: &'a client::Map,
         version: &'a Version,
+        script_manager: &'a data::scripts::Manager,
         config: &'a Config,
         theme: &'a Theme,
     ) -> Element<'a, Message> {
@@ -1852,6 +1858,7 @@ impl Dashboard {
                         self.typing_animation.as_ref(),
                         clients,
                         &self.file_transfers,
+                        script_manager,
                         &self.history,
                         &self.previews,
                         &self.side_menu,
@@ -1888,6 +1895,7 @@ impl Dashboard {
         &'a self,
         servers: &'a server::Map,
         clients: &'a client::Map,
+        script_manager: &'a data::scripts::Manager,
         version: &'a Version,
         config: &'a Config,
         theme: &'a Theme,
@@ -1912,6 +1920,7 @@ impl Dashboard {
                     self.typing_animation.as_ref(),
                     clients,
                     &self.file_transfers,
+                    script_manager,
                     &self.history,
                     &self.previews,
                     &self.side_menu,
@@ -2780,6 +2789,9 @@ impl Dashboard {
                 }
 
                 return (task, None);
+            }
+            buffer::Event::ToggleScript(name) => {
+                return (Task::none(), Some(Event::ToggleScript(name)));
             }
         }
 
