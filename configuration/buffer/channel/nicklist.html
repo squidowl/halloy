@@ -34,7 +34,7 @@
             const path_to_root = "../../../";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../../../searchindex-57756f8b.js";
+            window.path_to_searchindex_js = "../../../searchindex-a9a406d0.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="../../../toc-ac22d4e6.js"></script>
@@ -253,13 +253,13 @@ enabled = true
 position = "right"
 </code></pre>
 <h3 id="show_access_levels"><a class="header" href="#show_access_levels">show_access_levels</a></h3>
-<p>Show access levels in front of nicknames (<code>@</code>, <code>+</code>, <code>~</code>, etc.).</p>
-<pre><code class="language-toml"># Type: boolean
-# Values: true, false
-# Default: true
+<p>Show access level(s) in front of nicknames (<code>@</code>, <code>+</code>, <code>~</code>, etc.).</p>
+<pre><code class="language-toml"># Type: string
+# Values: "all", "highest", or "none"
+# Default: "highest"
 
 [buffer.channel.nicklist]
-show_access_levels = true
+show_access_levels = "all"
 </code></pre>
 <h3 id="width"><a class="header" href="#width">width</a></h3>
 <p>Overwrite nicklist width in pixels.</p>
