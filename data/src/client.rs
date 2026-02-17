@@ -3446,7 +3446,10 @@ fn continue_chathistory_between(
 ) -> Option<ChatHistorySubcommand> {
     let start_message_reference =
         events.first().and_then(|first_event| match first_event {
-            Event::Single(message, _) | Event::WithTarget(message, _, _) => {
+            Event::Single(message, _)
+            | Event::PrivOrNotice(message, _, _)
+            | Event::WithTarget(message, _, _)
+            | Event::DirectMessage(message, _, _) => {
                 match end_message_reference {
                     MessageReference::MessageId(_) => {
                         message_id(message).map(MessageReference::MessageId)
@@ -3457,7 +3460,20 @@ fn continue_chathistory_between(
                     MessageReference::None => None,
                 }
             }
-            _ => None,
+            Event::Broadcast(_)
+            | Event::FileTransferRequest(_)
+            | Event::UpdateReadMarker(_, _)
+            | Event::JoinedChannel(_, _)
+            | Event::LoggedIn(_)
+            | Event::AddedIsupportParam(_)
+            | Event::ChatHistoryTargetReceived(_, _)
+            | Event::ChatHistoryTargetsReceived(_)
+            | Event::MonitoredOnline(_)
+            | Event::MonitoredOffline(_)
+            | Event::OnConnect(_)
+            | Event::BouncerNetwork(_, _)
+            | Event::AddToSidebar(_)
+            | Event::Disconnect => None,
         });
 
     start_message_reference.map(|start_message_reference| {
