@@ -9,7 +9,7 @@ use itertools::sorted;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::config::buffer::UsernameFormat;
+use crate::config::buffer::{AccessLevelFormat, UsernameFormat};
 use crate::{isupport, mode};
 
 #[derive(Debug, Clone)]
@@ -200,13 +200,26 @@ impl User {
 
     pub fn display(
         &self,
-        with_access_levels: bool,
+        with_access_levels: AccessLevelFormat,
         truncate: Option<u16>,
     ) -> String {
-        let mut nickname = if with_access_levels {
-            format!("{}{}", self.highest_access_level(), self.nickname())
-        } else {
-            self.nickname().to_string()
+        let mut nickname = match with_access_levels {
+            AccessLevelFormat::All => {
+                if self.access_levels.is_empty() {
+                    self.nickname().to_string()
+                } else {
+                    self.access_levels.iter().fold(
+                        self.nickname().to_string(),
+                        |display, access_level| {
+                            format!("{access_level}{display}")
+                        },
+                    )
+                }
+            }
+            AccessLevelFormat::Highest => {
+                format!("{}{}", self.highest_access_level(), self.nickname())
+            }
+            AccessLevelFormat::None => self.nickname().to_string(),
         };
 
         if let Some(len) = truncate {

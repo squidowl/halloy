@@ -1,5 +1,7 @@
 use serde::Deserialize;
 
+use crate::config::buffer::AccessLevelFormat;
+
 #[derive(Debug, Clone, Default, Deserialize)]
 #[serde(default)]
 pub struct TextInput {
@@ -39,14 +41,15 @@ pub enum Visibility {
 #[serde(default)]
 pub struct Nickname {
     pub enabled: bool,
-    pub show_access_level: bool,
+    #[serde(alias = "show_access_level")]
+    pub show_access_levels: AccessLevelFormat,
 }
 
 impl Default for Nickname {
     fn default() -> Self {
         Self {
             enabled: true,
-            show_access_level: true,
+            show_access_levels: AccessLevelFormat::default(),
         }
     }
 }

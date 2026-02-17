@@ -496,7 +496,7 @@ pub fn view<'a>(
             our_user.map(|user| {
                 container(
                     text(user.display(
-                        config.buffer.text_input.nickname.show_access_level,
+                        config.buffer.text_input.nickname.show_access_levels,
                         None,
                     ))
                     .style(move |_| our_user_style)
