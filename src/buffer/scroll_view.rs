@@ -4,11 +4,13 @@ use std::time::Duration;
 
 use chrono::{DateTime, Local, NaiveDate, NaiveTime, Utc};
 use data::buffer::DateSeparators;
+use data::command::Irc;
 use data::config::buffer::nickname::HideConsecutiveEnabled;
 use data::dashboard::BufferAction;
 use data::isupport::ChatHistoryState;
-use data::message::{self, Limit};
+use data::message::{self, Limit, Reaction, ReactionContext};
 use data::preview::{self, Previews};
+use data::rate_limit::TokenPriority;
 use data::server::Server;
 use data::target::{self, Target};
 use data::{Config, Preview, client, history};
@@ -25,7 +27,7 @@ use super::context_menu;
 use crate::widget::{
     Element, notify_visibility, on_resize, selectable_text, tooltip,
 };
-use crate::{Theme, font, icon, theme};
+use crate::{Theme, buffer, font, icon, theme};
 
 const HIDE_BUTTON_WIDTH: f32 = 22.0;
 const SCROLL_TO_TIMEOUT: Duration = Duration::from_millis(200);
@@ -696,8 +698,9 @@ impl State {
         message: Message,
         infinite_scroll: bool,
         kind: Kind,
-        history: &history::Manager,
-        clients: &client::Map,
+        buffer: Option<&buffer::Upstream>,
+        history: &mut history::Manager,
+        clients: &mut client::Map,
         config: &Config,
     ) -> (Task<Message>, Option<Event>) {
         match message {
@@ -1099,9 +1102,10 @@ impl State {
                 msgid,
                 text,
                 unreacted,
-            } => todo!(),
+            } => {
+                send_reaction(clients, buffer, history, msgid, text, unreacted);
+            }
         }
-
         (Task::none(), None)
     }
 
@@ -1317,6 +1321,42 @@ impl State {
     pub fn visible_urls(&self) -> impl Iterator<Item = &url::Url> {
         self.visible_url_messages.values().flatten()
     }
+}
+
+fn send_reaction(
+    clients: &mut client::Map,
+    buffer: Option<&buffer::Upstream>,
+    history: &mut history::Manager,
+    msgid: message::Id,
+    text: String,
+    unreact: bool,
+) -> Option<()> {
+    let buffer: &buffer::Upstream = buffer?;
+
+    let target = buffer.target()?;
+    let encoded = message::Encoded::try_from(Irc::React {
+        target: target.to_string(),
+        msgid: msgid.clone(),
+        text: text.clone(),
+        unreact,
+    })
+    .ok()?;
+    clients.send(buffer, encoded, TokenPriority::User);
+    let nick = clients.nickname(buffer.server())?;
+    let reaction = ReactionContext {
+        inner: Reaction {
+            sender: nick.to_owned(),
+            text,
+            unreact,
+        },
+        target,
+        in_reply_to: msgid,
+    };
+    let supports_echoes = clients.get_server_supports_echoes(buffer.server());
+    if !supports_echoes {
+        history.record_reaction(buffer.server(), reaction);
+    }
+    Some(())
 }
 
 #[derive(Debug, Clone, Copy, Default)]

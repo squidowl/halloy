@@ -834,7 +834,6 @@ impl History {
                 else {
                     return;
                 };
-
                 message.reactions.push(reaction);
 
                 *last_updated_at = Some(Instant::now());
