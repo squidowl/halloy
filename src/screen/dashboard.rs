@@ -4180,11 +4180,11 @@ fn cycle_previous_unread_buffer(
 
 fn preview_client_from_config(config: &Config) -> Option<reqwest::Client> {
     let preview_client = if let Some(proxy) = config.proxy.as_ref() {
-        preview::client_from_proxy(proxy)
+        config::proxy::build_client(proxy)
     } else {
         reqwest::Client::builder()
             .build()
-            .map_err(preview::BuildError::Reqwest)
+            .map_err(config::proxy::BuildError::Reqwest)
     };
 
     match preview_client {
