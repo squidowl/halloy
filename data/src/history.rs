@@ -798,6 +798,35 @@ impl History {
         }
     }
 
+    pub fn add_reaction(
+        &mut self,
+        id: message::Id,
+        reaction: message::Reaction,
+    ) {
+        match self {
+            History::Partial {
+                messages,
+                last_updated_at,
+                ..
+            }
+            | History::Full {
+                messages,
+                last_updated_at,
+                ..
+            } => {
+                let Some(message) =
+                    messages.iter_mut().find(|m| m.id.as_deref() == Some(&*id))
+                else {
+                    return;
+                };
+
+                message.reactions.push(reaction);
+
+                *last_updated_at = Some(Instant::now());
+            }
+        }
+    }
+
     pub fn last_seen(&self) -> HashMap<Nick, DateTime<Utc>> {
         match self {
             History::Partial { last_seen, .. }
