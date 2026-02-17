@@ -45,6 +45,7 @@ impl From<Internal> for Buffer {
 pub enum Internal {
     #[strum(serialize = "File Transfers")]
     FileTransfers,
+    Scripts,
     Logs,
     Highlights,
     #[strum(serialize = "Channel Monitor")]
@@ -127,6 +128,7 @@ impl Upstream {
 impl Internal {
     pub const ALL: &'static [Self] = &[
         Self::FileTransfers,
+        Self::Scripts,
         Self::Logs,
         Self::Highlights,
         Self::ChannelMonitor,
@@ -137,6 +139,7 @@ impl Internal {
     pub fn key(&self) -> String {
         match self {
             Internal::FileTransfers => "file-transfers",
+            Internal::Scripts => "scripts",
             Internal::Logs => "logs",
             Internal::Highlights => "highlights",
             Internal::ChannelMonitor => "channel-monitor",

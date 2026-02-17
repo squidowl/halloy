@@ -33,6 +33,7 @@ const guidesItems = [
   { text: "Portable Mode", link: "/guides/portable-mode" },
   { text: "Pronunciation", link: "/guides/pronunciation" },
   { text: "Reduce Noise", link: "/guides/reduce-noise" },
+  { text: "Scripts", link: "/guides/scripts" },
   { text: "Single Pane", link: "/guides/single-pane" },
   {
     text: "Storing Passwords in a File",
@@ -108,6 +109,7 @@ const configurationItems = [
   },
   { text: "Runtime", link: "/configuration/runtime" },
   { text: "Scale factor", link: "/configuration/scale-factor" },
+  { text: "Scripts", link: "/configuration/scripts" },
   {
     text: "Servers",
     link: "/configuration/servers",

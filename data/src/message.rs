@@ -317,6 +317,16 @@ impl Target {
             | Target::ChannelMonitor { .. } => None,
         }
     }
+
+    pub fn as_str(&self) -> Option<&str> {
+        match self {
+            Target::Server { .. } | Target::Logs { .. } => None,
+            Target::Channel { channel, .. } => Some(channel.as_str()),
+            Target::Query { query, .. } => Some(query.as_str()),
+            Target::Highlights { channel, .. }
+            | Target::ChannelMonitor { channel, .. } => Some(channel.as_str()),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
