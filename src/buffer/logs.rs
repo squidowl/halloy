@@ -129,8 +129,8 @@ impl Logs {
     pub fn update(
         &mut self,
         message: Message,
-        history: &history::Manager,
-        clients: &client::Map,
+        history: &mut history::Manager,
+        clients: &mut client::Map,
         config: &Config,
     ) -> (Task<Message>, Option<Event>) {
         match message {
@@ -139,6 +139,7 @@ impl Logs {
                     message,
                     false,
                     scroll_view::Kind::Logs,
+                    None,
                     history,
                     clients,
                     config,

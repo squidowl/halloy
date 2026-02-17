@@ -219,6 +219,7 @@ impl Server {
                     message,
                     false,
                     scroll_view::Kind::Server(&self.server),
+                    Some(&self.buffer),
                     history,
                     clients,
                     config,
