@@ -5,7 +5,7 @@ Customize nickname left of text input
 - [Nickname](#nickname)
   - [Configuration](#configuration)
     - [enabled](#enabled)
-    - [show\_access\_level](#show_access_level)
+    - [show\_access\_levels](#show_access_levels)
 
 ## Configuration
 
@@ -22,16 +22,15 @@ Display own nickname next to text input field
 enabled = true
 ```
 
-### show_access_level
+### show_access_levels
 
-Show access levels in front of nickname (`@`, `+`, `~`, etc.).
+Show access level(s) in front of nickname (`@`, `+`, `~`, etc.).
 
 ```toml
-# Type: boolean
-# Values: true, false
-# Default: true
+# Type: string
+# Values: "all", "highest", or "none"
+# Default: "highest"
 
 [buffer.text_input.nickname]
-show_access_level = true
+show_access_level = "highest"
 ```
-
