@@ -13,6 +13,7 @@ Added:
   - `new_horizontal_buffer` (not bound by default)
   - `new_vertical_buffer` (not bound by default)
   - `quit_application` (defaults to `Ctrl+Q` on linux, not bound on Windows/MacOS)
+- Expand show_access_levels to allow all access levels (in addition to highest or no access levels) in buffer/nicklist/input
 
 Fixed:
 
@@ -29,7 +30,7 @@ Changed:
 Thanks:
 
 - Contributions: @Hummer12007, @chamlis
-- Feature requests: @megumintyan
+- Feature requests: @megumintyan, @4e554c4c
 - Bug reports: @someone2037492034
 
 # 2026.2 (2026-02-01)
