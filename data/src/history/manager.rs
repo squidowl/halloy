@@ -342,6 +342,17 @@ impl Manager {
         )
     }
 
+    pub fn record_reaction(
+        &mut self,
+        server: &Server,
+        reaction: message::ReactionContext,
+    ) {
+        let kind =
+            history::Kind::from_target(server.clone(), reaction.target.clone());
+        self.data
+            .add_reaction(&kind, reaction.in_reply_to, reaction.inner);
+    }
+
     pub fn block_and_record_message(
         &mut self,
         server: &Server,
@@ -1530,6 +1541,17 @@ impl Data {
     ) {
         if let Some(history) = self.map.get_mut(kind) {
             history.show_preview(message, url);
+        }
+    }
+    
+    fn add_reaction(
+        &mut self,
+        kind: &history::Kind,
+        in_reply_to: message::Id,
+        reaction: message::Reaction,
+    ) {
+        if let Some(history) = self.map.get_mut(kind) {
+            history.add_reaction(in_reply_to, reaction);
         }
     }
 }

@@ -27,7 +27,7 @@ use crate::server::Server;
 use crate::target::join_targets;
 use crate::time::Posix;
 use crate::user::{ChannelUsers, Nick, NickRef};
-use crate::{Config, User, command, ctcp, isupport, target};
+use crate::{Config, User, command, ctcp, isupport, message, target};
 
 // References:
 // - https://datatracker.ietf.org/doc/html/rfc1738#section-5
@@ -97,6 +97,24 @@ impl Encoded {
             }
             _ => None,
         }
+    }
+
+    pub fn message_id(&self) -> Option<Id> {
+        self.tags.get("msgid").map(|val| Id::from(&**val))
+    }
+
+    pub fn in_reply_to(&self) -> Option<Id> {
+        self.tags
+            .get("+reply")
+            .or_else(|| self.tags.get("+draft/reply"))
+            .map(|val| Id::from(&**val))
+    }
+
+    pub fn server_time(&self) -> DateTime<Utc> {
+        self.tags
+            .get("time")
+            .and_then(|rfc3339| DateTime::parse_from_rfc3339(rfc3339).ok())
+            .map_or_else(Utc::now, |dt| dt.with_timezone(&Utc))
     }
 }
 
@@ -200,7 +218,7 @@ pub struct Message {
     pub direction: Direction,
     pub target: Target,
     pub content: Content,
-    pub id: Option<String>,
+    pub id: Option<Id>,
     pub hash: Hash,
     pub hidden_urls: HashSet<Url>,
     pub is_echo: bool, // Only relevant if direction == Direction::Received
@@ -208,6 +226,7 @@ pub struct Message {
     pub condensed: Option<Arc<Message>>,
     pub expanded: bool, // Only relevant if can_condense
     pub command: Option<command::Irc>, // Only relevant if direction == Direction::Sent
+    pub reactions: Vec<Reaction>,
 }
 
 impl Message {
@@ -305,8 +324,8 @@ impl Message {
         casemapping: isupport::CaseMap,
         prefix: &[isupport::PrefixMap],
     ) -> Option<Message> {
-        let server_time = server_time(&encoded);
-        let id = message_id(&encoded);
+        let server_time = encoded.server_time();
+        let id = encoded.message_id();
         let is_echo = encoded
             .user(casemapping)
             .is_some_and(|user| user.nickname() == our_nick);
@@ -347,6 +366,7 @@ impl Message {
             condensed: None,
             expanded: false,
             command: None,
+            reactions: vec![],
         })
     }
 
@@ -362,8 +382,8 @@ impl Message {
         casemapping: isupport::CaseMap,
         prefix: &[isupport::PrefixMap],
     ) -> Option<(Message, Option<Highlight>)> {
-        let server_time = server_time(&encoded);
-        let id = message_id(&encoded);
+        let server_time = encoded.server_time();
+        let id = encoded.message_id();
         let is_echo = encoded
             .user(casemapping)
             .is_some_and(|user| user.nickname() == our_nick);
@@ -404,6 +424,7 @@ impl Message {
             condensed: None,
             expanded: false,
             command: None,
+            reactions: vec![],
         };
 
         let highlight = highlight.and_then(|kind| {
@@ -470,6 +491,7 @@ impl Message {
             condensed: None,
             expanded: false,
             command,
+            reactions: vec![],
         }
     }
 
@@ -503,6 +525,7 @@ impl Message {
             condensed: None,
             expanded: false,
             command: None,
+            reactions: vec![],
         }
     }
 
@@ -534,6 +557,7 @@ impl Message {
             condensed: None,
             expanded: false,
             command: None,
+            reactions: vec![],
         }
     }
 
@@ -576,6 +600,7 @@ impl Message {
             condensed: None,
             expanded: false,
             command: None,
+            reactions: vec![],
         }
     }
 
@@ -614,13 +639,15 @@ impl Serialize for Message {
             direction: &'a Direction,
             target: &'a Target,
             content: &'a Content,
-            id: &'a Option<String>,
+            id: &'a Option<Id>,
             // Old field before we had fragments,
             // added for downgrade compatibility
             text: Cow<'a, str>,
             hidden_urls: &'a HashSet<url::Url>,
             is_echo: &'a bool,
             command: &'a Option<command::Irc>,
+            #[serde(skip_serializing_if = "<[_]>::is_empty")]
+            reactions: &'a [Reaction],
         }
 
         Data {
@@ -634,6 +661,7 @@ impl Serialize for Message {
             hidden_urls: &self.hidden_urls,
             is_echo: &self.is_echo,
             command: &self.command,
+            reactions: &self.reactions,
         }
         .serialize(serializer)
     }
@@ -655,7 +683,7 @@ impl<'de> Deserialize<'de> for Message {
             content: Option<Content>,
             // Old field before we had fragments
             text: Option<String>,
-            id: Option<String>,
+            id: Option<Id>,
             #[serde(default)]
             hidden_urls: HashSet<url::Url>,
             // New field, optional for upgrade compatibility
@@ -663,6 +691,8 @@ impl<'de> Deserialize<'de> for Message {
             is_echo: Option<bool>,
             #[serde(default, deserialize_with = "fail_as_none")]
             command: Option<command::Irc>,
+            #[serde(default)]
+            reactions: Vec<Reaction>,
         }
 
         let Data {
@@ -676,6 +706,7 @@ impl<'de> Deserialize<'de> for Message {
             hidden_urls,
             is_echo,
             command,
+            reactions,
         } = Data::deserialize(deserializer)?;
 
         let content = if let Some(content) = content {
@@ -706,6 +737,7 @@ impl<'de> Deserialize<'de> for Message {
             condensed: None,
             expanded: false,
             command,
+            reactions,
         })
     }
 }
@@ -896,9 +928,65 @@ pub fn condense(
             condensed: None,
             expanded: false,
             command: None,
+            reactions: vec![],
         }))
     } else {
         None
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct Reaction {
+    pub sender: Nick,
+    pub text: String,
+    pub unreact: bool,
+}
+
+#[derive(Debug)]
+pub struct ReactionContext {
+    pub inner: Reaction,
+    pub target: target::Target,
+    pub in_reply_to: Id,
+}
+
+impl Reaction {
+    pub fn received(
+        message: Encoded,
+        chantypes: &[char],
+        statusmsg: &[char],
+        casemapping: isupport::CaseMap,
+    ) -> Option<ReactionContext> {
+        let user = message.user(casemapping)?;
+        let (text, unreact) = match (
+            message.tags.get("+draft/react"),
+            message.tags.get("+draft/unreact"),
+        ) {
+            (Some(s), None) => (s.clone(), false),
+            (None, Some(s)) => (s.clone(), true),
+            _ => return None,
+        };
+        let in_reply_to = message.in_reply_to()?;
+
+        let (Command::PRIVMSG(target, _) | Command::TAGMSG(target)) =
+            message.0.command
+        else {
+            return None;
+        };
+
+        Some(ReactionContext {
+            inner: Reaction {
+                sender: Nick::from(user),
+                text,
+                unreact,
+            },
+            in_reply_to,
+            target: target::Target::parse(
+                &target,
+                chantypes,
+                statusmsg,
+                casemapping,
+            ),
+        })
     }
 }
 
@@ -2199,17 +2287,7 @@ fn target(
     }
 }
 
-pub fn message_id(message: &Encoded) -> Option<String> {
-    message.tags.get("msgid").cloned()
-}
-
-pub fn server_time(message: &Encoded) -> DateTime<Utc> {
-    message
-        .tags
-        .get("time")
-        .and_then(|rfc3339| DateTime::parse_from_rfc3339(rfc3339).ok())
-        .map_or_else(Utc::now, |dt| dt.with_timezone(&Utc))
-}
+pub type Id = Arc<str>;
 
 fn content<'a>(
     message: &Encoded,
@@ -3051,7 +3129,7 @@ impl Link {
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct MessageReferences {
     pub timestamp: DateTime<Utc>,
-    pub id: Option<String>,
+    pub id: Option<message::Id>,
 }
 
 impl MessageReferences {

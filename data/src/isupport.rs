@@ -7,8 +7,8 @@ use chrono::format::SecondsFormat;
 use chrono::{DateTime, Utc};
 use irc::proto;
 
-use crate::Message;
 use crate::target::Target;
+use crate::{Message, message};
 
 // Utilized ISUPPORT parameters should have an associated Kind enum variant
 // returned by Operation::kind() and Parameter::kind()
@@ -920,7 +920,7 @@ pub struct CommandTargetLimit {
 #[derive(Clone, Debug, PartialEq)]
 pub enum MessageReference {
     Timestamp(DateTime<Utc>),
-    MessageId(String),
+    MessageId(message::Id),
     None,
 }
 
@@ -944,9 +944,7 @@ impl PartialEq<Message> for MessageReference {
             MessageReference::Timestamp(server_time) => {
                 other.server_time == *server_time
             }
-            MessageReference::MessageId(id) => {
-                other.id.as_deref() == Some(id.as_str())
-            }
+            MessageReference::MessageId(id) => other.id.as_deref() == Some(id),
             MessageReference::None => false,
         }
     }

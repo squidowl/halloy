@@ -2834,6 +2834,14 @@ impl Dashboard {
         }
     }
 
+    pub fn record_reaction(
+        &mut self,
+        server: &Server,
+        reaction: message::ReactionContext,
+    ) {
+        self.history.record_reaction(server, reaction);
+    }
+
     pub fn block_and_record_message(
         &mut self,
         server: &Server,
