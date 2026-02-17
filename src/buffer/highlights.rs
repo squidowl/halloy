@@ -302,8 +302,8 @@ impl Highlights {
     pub fn update(
         &mut self,
         message: Message,
-        history: &history::Manager,
-        clients: &data::client::Map,
+        history: &mut history::Manager,
+        clients: &mut data::client::Map,
         config: &Config,
     ) -> (Task<Message>, Option<Event>) {
         match message {
@@ -312,6 +312,7 @@ impl Highlights {
                     message,
                     false,
                     scroll_view::Kind::Highlights,
+                    None,
                     history,
                     clients,
                     config,
