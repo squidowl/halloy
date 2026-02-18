@@ -1,5 +1,6 @@
-use crate::config::buffer::AccessLevelFormat;
 use serde::Deserialize;
+
+use crate::config::buffer::AccessLevelFormat;
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
