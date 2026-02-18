@@ -25,6 +25,7 @@ Fixed:
 Changed:
 
 - Condensed server messages are now enabled by default for nick changes, joins, parts, and quits
+- The default condensed server message icon is now `"none"`
 - `sidebar.user_menu.show_new_version_indicator` setting has been changed to `check_for_update_on_launch` to clarify that it prevents the check for an update
 
 Thanks:
