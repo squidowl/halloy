@@ -19,7 +19,7 @@ mod url;
 mod widget;
 mod window;
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -36,6 +36,7 @@ use data::{
     Notification, Server, Url, User, client, environment, history, server,
     version,
 };
+use futures::channel::mpsc;
 use iced::widget::{column, container};
 use iced::{Length, Subscription, Task, padding};
 use screen::{dashboard, help, welcome};
@@ -176,6 +177,7 @@ struct Halloy {
     config: Config,
     clients: data::client::Map,
     servers: server::Map,
+    controllers: HashMap<Server, mpsc::Sender<stream::Control>>,
     modal: Option<Modal>,
     main_window: Window,
     pending_logs: Vec<data::log::Record>,
@@ -248,6 +250,7 @@ impl Halloy {
                 theme: current_mode.theme(&config.appearance.selected).into(),
                 clients: data::client::Map::default(),
                 servers,
+                controllers: HashMap::new(),
                 config,
                 modal: None,
                 main_window,
@@ -708,6 +711,11 @@ impl Halloy {
                         }
                         _ => Task::none(),
                     }
+                }
+                stream::Update::Controller { server, controller } => {
+                    self.controllers.insert(server, controller);
+
+                    Task::none()
                 }
             },
             Message::Event(window, event) => {
@@ -1172,6 +1180,7 @@ impl Halloy {
                 &self.config,
                 &mut self.notifications,
                 &mut self.servers,
+                &mut self.controllers,
                 &self.main_window,
             );
         }
@@ -1189,6 +1198,7 @@ fn handle_client_event(
     config: &Config,
     notifications: &mut Notifications,
     servers: &mut server::Map,
+    controllers: &mut HashMap<Server, mpsc::Sender<stream::Control>>,
     main_window: &Window,
 ) {
     use data::client::Event;
@@ -1357,8 +1367,16 @@ fn handle_client_event(
         Event::AddToSidebar(query) => {
             dashboard.add_to_sidebar(server.clone(), query);
         }
-        Event::Disconnect => {
-            clients.disconnected(server.clone());
+        Event::Disconnect {
+            error,
+            disable_autoreconnect,
+        } => {
+            if let Some(controller) = controllers.get_mut(server) {
+                let _ = controller.try_send(stream::Control::Disconnect {
+                    error,
+                    disable_autoreconnect,
+                });
+            }
         }
     }
 }

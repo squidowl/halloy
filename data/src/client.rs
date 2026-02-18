@@ -129,7 +129,10 @@ pub enum Event {
     OnConnect(on_connect::Stream),
     BouncerNetwork(Server, config::Server),
     AddToSidebar(target::Query),
-    Disconnect,
+    Disconnect {
+        error: Option<String>,
+        disable_autoreconnect: bool,
+    },
 }
 
 struct ChatHistoryRequest {
@@ -2657,7 +2660,10 @@ impl Client {
                         self.server
                     );
 
-                    return Ok(vec![Event::Disconnect]);
+                    return Ok(vec![Event::Disconnect {
+                        error: Some("SASL authentication failure".to_string()),
+                        disable_autoreconnect: true,
+                    }]);
                 }
 
                 self.registration_step = RegistrationStep::End;
@@ -3489,7 +3495,7 @@ fn continue_chathistory_between(
             | Event::OnConnect(_)
             | Event::BouncerNetwork(_, _)
             | Event::AddToSidebar(_)
-            | Event::Disconnect => None,
+            | Event::Disconnect { .. } => None,
         });
 
     start_message_reference.map(|start_message_reference| {
