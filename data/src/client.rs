@@ -2103,6 +2103,8 @@ impl Client {
                     let target_channel = channel.clone();
 
                     if let Some(channel) = self.chanmap.get_mut(&channel) {
+                        let mut channel_mode_changed = false;
+
                         for mode in modes {
                             if let Some((op, lookup)) =
                                 mode.operation().zip(mode.arg().map(|nick| {
@@ -2116,15 +2118,20 @@ impl Client {
                             {
                                 user.update_access_level(op, *mode.value());
                                 channel.users.insert(user);
+                            } else {
+                                channel_mode_changed = true;
                             }
                         }
 
-                        // Send MODE reply to ensure the pane header is updated.
-                        self.send(
-                            None,
-                            command!("MODE", target_channel.to_string()).into(),
-                            TokenPriority::Low,
-                        );
+                        // Request MODE to update the channel.
+                        if channel_mode_changed {
+                            self.send(
+                                None,
+                                command!("MODE", target_channel.to_string())
+                                    .into(),
+                                TokenPriority::Low,
+                            );
+                        }
                     }
                 } else {
                     // Only check for being logged in via mode if account-notify is not available,
