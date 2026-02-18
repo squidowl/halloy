@@ -368,6 +368,7 @@ impl ServerMessages {
 pub struct Condensation {
     pub messages: HashSet<CondensationMessage>,
     pub format: CondensationFormat,
+    pub icon: CondensationIcon,
     #[serde(deserialize_with = "deserialize_dimmed_maybe")]
     pub dimmed: Option<Dimmed>,
 }
@@ -382,6 +383,7 @@ impl Default for Condensation {
                 CondensationMessage::Quit,
             ]),
             format: CondensationFormat::default(),
+            icon: CondensationIcon::default(),
             dimmed: Some(Dimmed(None)),
         }
     }
@@ -441,6 +443,15 @@ pub enum CondensationFormat {
     Brief,
     Detailed,
     Full,
+}
+
+#[derive(Debug, Default, Clone, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum CondensationIcon {
+    #[default]
+    None,
+    Chevron,
+    Dot,
 }
 
 #[derive(Debug, Default, Clone, Deserialize)]

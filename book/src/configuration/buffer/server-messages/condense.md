@@ -7,6 +7,7 @@ Condense multiple consecutive server messages into a single abbreviated message.
     - [messages](#messages)
     - [dimmed](#dimmed)
     - [format](#format)
+    - [icon](#icon)
 
 ## Configuration
 
@@ -62,4 +63,17 @@ How to format condensed messages:
 
 [buffer.server_messages.condense]
 format = "full"
+```
+
+### icon
+
+Marker style for condensed server messages.
+
+```toml
+# Type: string
+# Values: "none", "chevron", "dot"
+# Default: "none"
+
+[buffer.server_messages.condense]
+icon = "chevron"
 ```
