@@ -25,7 +25,6 @@ where
 {
     let emoji_size = (font_size - 1.0).max(10.0);
     let count_size = (font_size - 1.0).max(10.0);
-    let button_height = (emoji_size + 8.0).max(22.0);
 
     // we need a container with deterministic order, so that the UI elements don't move around.
     let mut m: BTreeMap<&'a str, BTreeMap<&'a str, i16>> = BTreeMap::new();
@@ -86,7 +85,6 @@ where
 
         let content: Element<'a, M> = button(button_content)
             .padding([2, 6])
-            .height(button_height)
             .on_press_maybe(on_press)
             .style(move |theme, status| {
                 theme::button::secondary(theme, status, selected)
