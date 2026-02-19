@@ -1,6 +1,6 @@
 use chrono::{TimeDelta, Utc};
-use data::config::buffer::Dimmed;
 use data::config::buffer::nickname::ShownStatus;
+use data::config::buffer::{CondensationIcon, Dimmed};
 use data::isupport::{CaseMap, PrefixMap};
 use data::server::Server;
 use data::user::ChannelUsers;
@@ -67,6 +67,34 @@ pub struct ChannelQueryLayout<'a> {
 }
 
 impl<'a> ChannelQueryLayout<'a> {
+    fn condensation_marker(
+        &self,
+        expanded: bool,
+        has_condensed: bool,
+    ) -> Marker {
+        let marker = if expanded {
+            if has_condensed {
+                Marker::Contract
+            } else {
+                Marker::None
+            }
+        } else if has_condensed {
+            Marker::Expand
+        } else {
+            Marker::Dot
+        };
+
+        if !has_condensed {
+            return marker;
+        }
+
+        match self.config.buffer.server_messages.condense.icon {
+            CondensationIcon::None => Marker::None,
+            CondensationIcon::Chevron => marker,
+            CondensationIcon::Dot => Marker::Dot,
+        }
+    }
+
     fn format_timestamp(
         &self,
         message: &'a data::Message,
@@ -411,15 +439,10 @@ impl<'a> ChannelQueryLayout<'a> {
         };
 
         let marker = message_marker(
-            if message.expanded {
-                if message.condensed.is_some() {
-                    Marker::Contract
-                } else {
-                    Marker::None
-                }
-            } else {
-                Marker::Dot
-            },
+            self.condensation_marker(
+                message.expanded,
+                message.condensed.is_some(),
+            ),
             right_aligned_width,
             self.config,
             marker_style,
@@ -510,7 +533,7 @@ impl<'a> ChannelQueryLayout<'a> {
         let moved_link = link.clone();
 
         let marker = message_marker(
-            Marker::Expand,
+            self.condensation_marker(false, true),
             right_aligned_width,
             self.config,
             theme::selectable_text::condensed_marker,
