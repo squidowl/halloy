@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-4b557278.js";
+            window.path_to_searchindex_js = "searchindex-4b55c6a8.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-ac22d4e6.js"></script>
@@ -2304,6 +2304,7 @@ show_access_level = "highest"
 <li><a href="#context_menu_format">context_menu_format</a></li>
 <li><a href="#copy_format">copy_format</a></li>
 <li><a href="#brackets-2">brackets</a></li>
+<li><a href="#locale">locale</a></li>
 </ul>
 </li>
 </ul>
@@ -2345,6 +2346,15 @@ copy_format = "%Y-%m-%d %H:%M:%S"
 
 [buffer.timestamp]
 brackets = { left = "[", right = "]" }
+</code></pre>
+<h3 id="locale"><a class="header" href="#locale">locale</a></h3>
+<p>Locale used when formatting timestamps, for strftime formats that produce locale-specific output (e.g. <code>%x</code>, <code>%X</code>, <code>%a</code>, etc).  If not specified, then the locale will be set automatically, falling back to the POSIX locale if the system locale cannot be determined.  Supported locales are determined by <a href="https://docs.rs/pure-rust-locales/latest/pure_rust_locales/enum.Locale.html"><code>enum Locale</code> in the <code>pure-rust-locales</code> crate</a>.</p>
+<pre><code class="language-toml"># Type: string
+# Values: IETF BCP 47 language tags
+# Default: not set
+
+[buffer.timestamp]
+locale = "POSIX"
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="url-1"><a class="header" href="#url-1">Url</a></h1>
