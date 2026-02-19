@@ -718,6 +718,8 @@ impl Menu {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 enum Entry {
+    Context,
+    HorizontalRule,
     Connect,
     Close(window::Id, pane_grid::Pane),
     CloseAllQueries,
@@ -746,12 +748,14 @@ impl Entry {
 
         itertools::chain!(
             match buffer {
-                buffer::Upstream::Server(_) =>
-                    if connected {
-                        vec![CloseAllQueries, MarkServerAsRead]
-                    } else {
-                        vec![Connect, Remove]
-                    },
+                buffer::Upstream::Server(_) => if connected {
+                    vec![CloseAllQueries, MarkServerAsRead]
+                } else {
+                    vec![Connect, Remove]
+                }
+                .into_iter()
+                .chain(vec![Context, HorizontalRule])
+                .collect_vec(),
                 buffer::Upstream::Channel(_, _) => vec![],
                 buffer::Upstream::Query(_, _) => vec![],
             },
@@ -1143,6 +1147,43 @@ fn upstream_buffer_button<'a>(
                         "Remove server from sidebar",
                         Some(Message::Remove(buffer.server().clone())),
                     ),
+                    Entry::Context => {
+                        return container(
+                            text(match &buffer {
+                                buffer::Upstream::Server(server) => {
+                                    if let Some(network) = &server.network {
+                                        format!("{}: {server}", network.name)
+                                    } else {
+                                        format!("{server}")
+                                    }
+                                }
+                                buffer::Upstream::Channel(server, channel) => {
+                                    format!("{server}: {channel}")
+                                }
+                                buffer::Upstream::Query(server, query) => {
+                                    format!("{server}: {query}")
+                                }
+                            })
+                            .width(length)
+                            .style(theme::text::secondary)
+                            .font_maybe(
+                                theme::font_style::secondary(theme)
+                                    .map(font::get),
+                            ),
+                        )
+                        .padding(config.context_menu.padding.entry)
+                        .into();
+                    }
+                    Entry::HorizontalRule => match length {
+                        Length::Fill => {
+                            return container(rule::horizontal(1))
+                                .padding([0, 6])
+                                .into();
+                        }
+                        _ => {
+                            return Space::new().width(length).height(1).into();
+                        }
+                    },
                 };
 
                 button(text(content))
