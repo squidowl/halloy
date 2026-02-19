@@ -34,7 +34,7 @@
             const path_to_root = "../../";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../../searchindex-4b55c6a8.js";
+            window.path_to_searchindex_js = "../../searchindex-a5725912.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="../../toc-ac22d4e6.js"></script>
@@ -188,6 +188,8 @@
 <li><a href="#configuration">Configuration</a>
 <ul>
 <li><a href="#buffer">buffer</a></li>
+<li><a href="#channel">channel</a></li>
+<li><a href="#query">query</a></li>
 <li><a href="#focused_buffer">focused_buffer</a></li>
 </ul>
 </li>
@@ -200,6 +202,8 @@
 
 [actions.sidebar]
 buffer = "new-pane"
+channel = "replace-pane"
+query = "new-window"
 focused_buffer = "close-pane"
 </code></pre>
 <h2 id="configuration"><a class="header" href="#configuration">Configuration</a></h2>
@@ -211,6 +215,24 @@ focused_buffer = "close-pane"
 
 [actions.sidebar]
 buffer = "replace-pane"
+</code></pre>
+<h3 id="channel"><a class="header" href="#channel">channel</a></h3>
+<p>Action when clicking a channel buffer in the sidebar. If unset, it falls back to the value of <code>buffer</code>.</p>
+<pre><code class="language-toml"># Type: string
+# Values: "new-pane", "replace-pane", "new-window"
+# Default: not set (falls back to `buffer`)
+
+[actions.sidebar]
+channel = "replace-pane"
+</code></pre>
+<h3 id="query"><a class="header" href="#query">query</a></h3>
+<p>Action when clicking a user/query buffer in the sidebar. If unset, it falls back to the value of <code>buffer</code>.</p>
+<pre><code class="language-toml"># Type: string
+# Values: "new-pane", "replace-pane", "new-window"
+# Default: not set (falls back to `buffer`)
+
+[actions.sidebar]
+query = "new-window"
 </code></pre>
 <h3 id="focused_buffer"><a class="header" href="#focused_buffer">focused_buffer</a></h3>
 <p>Action when clicking a focused buffer in the sidebar. <code>"close-pane"</code> will close the focused pane.</p>
