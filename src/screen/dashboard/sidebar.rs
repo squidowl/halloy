@@ -996,16 +996,16 @@ fn upstream_buffer_button<'a>(
                             Message::Focus(window, pane)
                         } else {
                             let action = match &buffer {
-                                buffer::Upstream::Channel(_, _) => config
-                                    .actions
-                                    .sidebar
-                                    .channel
-                                    .unwrap_or(config.actions.sidebar.buffer),
-                                buffer::Upstream::Query(_, _) => config
-                                    .actions
-                                    .sidebar
-                                    .query
-                                    .unwrap_or(config.actions.sidebar.buffer),
+                                buffer::Upstream::Channel(_, _) => {
+                                    config.actions.sidebar.channel.unwrap_or(
+                                        config.actions.sidebar.buffer,
+                                    )
+                                }
+                                buffer::Upstream::Query(_, _) => {
+                                    config.actions.sidebar.query.unwrap_or(
+                                        config.actions.sidebar.buffer,
+                                    )
+                                }
                                 _ => config.actions.sidebar.buffer,
                             };
 
