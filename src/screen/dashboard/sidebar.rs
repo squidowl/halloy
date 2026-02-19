@@ -748,7 +748,7 @@ impl Entry {
             match buffer {
                 buffer::Upstream::Server(_) =>
                     if connected {
-                        vec![CloseAllQueries, MarkServerAsRead, Remove]
+                        vec![CloseAllQueries, MarkServerAsRead]
                     } else {
                         vec![Connect, Remove]
                     },
@@ -1127,7 +1127,9 @@ fn upstream_buffer_button<'a>(
                     ),
                     Entry::Leave => (
                         match &buffer {
-                            buffer::Upstream::Server(_) => "Leave server",
+                            buffer::Upstream::Server(_) => {
+                                "Disconnect from server"
+                            }
                             buffer::Upstream::Channel(_, _) => "Leave channel",
                             buffer::Upstream::Query(_, _) => "Close query",
                         },
@@ -1138,7 +1140,7 @@ fn upstream_buffer_button<'a>(
                         Some(Message::Connect(buffer.server().clone())),
                     ),
                     Entry::Remove => (
-                        "Remove server",
+                        "Remove server from sidebar",
                         Some(Message::Remove(buffer.server().clone())),
                     ),
                 };
