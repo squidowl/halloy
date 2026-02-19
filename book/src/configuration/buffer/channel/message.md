@@ -20,3 +20,16 @@ Nickname colors in the message. `"unique"` generates colors by randomizing the h
 [buffer.channel.message]
 nickname_color = "unique"
 ```
+
+### show_emoji_reacts
+
+Whether to display emoji reactions on messages.
+
+```toml
+# Type: boolean
+# Values: "true", "false"
+# Default: "true"
+
+[buffer.channel.message]
+show_emoji_reacts = true
+```

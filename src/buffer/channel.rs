@@ -230,6 +230,7 @@ impl Channel {
                     message,
                     config.buffer.chathistory.infinite_scroll,
                     scroll_view::Kind::Channel(&self.server, &self.target),
+                    Some(&self.buffer),
                     history,
                     clients,
                     config,

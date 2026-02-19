@@ -17,7 +17,7 @@ use data::rate_limit::TokenPriority;
 use data::target::{self, Target};
 use data::{
     Config, Notification, Server, User, Version, client, command, config,
-    environment, file_transfer, history, preview, server,
+    environment, file_transfer, history, preview, reaction, server,
 };
 use iced::widget::pane_grid::{self, PaneGrid};
 use iced::widget::{Space, column, container, row};
@@ -2758,6 +2758,14 @@ impl Dashboard {
         } else {
             Task::none()
         }
+    }
+
+    pub fn record_reaction(
+        &mut self,
+        server: &Server,
+        reaction: reaction::Context,
+    ) {
+        self.history.record_reaction(server, reaction);
     }
 
     pub fn block_and_record_message(

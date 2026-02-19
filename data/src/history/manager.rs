@@ -10,6 +10,7 @@ use super::filter::{Filter, FilterChain};
 use crate::history::{self, History, MessageReferences, ReadMarker};
 use crate::message::broadcast::{self, Broadcast};
 use crate::message::{self, Limit};
+use crate::reaction::{self, Reaction};
 use crate::target::{self, Target};
 use crate::user::Nick;
 use crate::{Config, Server, buffer, client, config, input, isupport, server};
@@ -340,6 +341,17 @@ impl Manager {
                 future
             },
         )
+    }
+
+    pub fn record_reaction(
+        &mut self,
+        server: &Server,
+        reaction: reaction::Context,
+    ) {
+        let kind =
+            history::Kind::from_target(server.clone(), reaction.target.clone());
+        self.data
+            .add_reaction(&kind, reaction.in_reply_to, reaction.inner);
     }
 
     pub fn block_and_record_message(
@@ -1510,6 +1522,17 @@ impl Data {
     ) {
         if let Some(history) = self.map.get_mut(kind) {
             history.hide_preview(message, url);
+        }
+    }
+
+    fn add_reaction(
+        &mut self,
+        kind: &history::Kind,
+        in_reply_to: message::Id,
+        reaction: Reaction,
+    ) {
+        if let Some(history) = self.map.get_mut(kind) {
+            history.add_reaction(in_reply_to, reaction);
         }
     }
 }

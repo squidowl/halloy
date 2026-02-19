@@ -14,6 +14,7 @@ Added:
   - `new_vertical_buffer` (not bound by default)
   - `quit_application` (defaults to `Ctrl+Q` on linux, not bound on Windows/MacOS)
 - Expand show_access_levels to allow all access levels (in addition to highest or no access levels) in buffer/nicklist/input
+- Support for the IRCv3 [`react`](https://ircv3.net/specs/client-tags/react.html) client tag.
 
 Fixed:
 
@@ -30,7 +31,7 @@ Changed:
 
 Thanks:
 
-- Contributions: @Hummer12007, @chamlis
+- Contributions: @Hummer12007, @chamlis, @4e554c4c
 - Feature requests: @megumintyan, @4e554c4c
 - Bug reports: @someone2037492034
 

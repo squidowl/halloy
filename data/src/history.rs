@@ -13,6 +13,7 @@ use tokio::time::Instant;
 pub use self::manager::{Manager, Resource};
 pub use self::metadata::{Metadata, ReadMarker};
 use crate::message::{self, MessageReferences, Source};
+use crate::reaction::Reaction;
 use crate::target::{self, Target};
 use crate::user::Nick;
 use crate::{
@@ -795,6 +796,30 @@ impl History {
             message.hidden_urls.insert(url);
 
             *last_updated_at = Some(Instant::now());
+        }
+    }
+
+    pub fn add_reaction(&mut self, id: message::Id, reaction: Reaction) {
+        match self {
+            History::Partial {
+                messages,
+                last_updated_at,
+                ..
+            }
+            | History::Full {
+                messages,
+                last_updated_at,
+                ..
+            } => {
+                let Some(message) =
+                    messages.iter_mut().find(|m| m.id.as_deref() == Some(&*id))
+                else {
+                    return;
+                };
+                message.reactions.push(reaction);
+
+                *last_updated_at = Some(Instant::now());
+            }
         }
     }
 
