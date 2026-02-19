@@ -10,7 +10,7 @@ use chrono::{DateTime, Utc};
 use futures::channel::mpsc;
 use futures::{Future, FutureExt};
 use indexmap::IndexMap;
-use irc::proto::{self, Command, command, tags};
+use irc::proto::{self, Command, command};
 use itertools::{Either, Itertools};
 use tokio::fs;
 
@@ -402,7 +402,7 @@ impl Client {
                 self.labels.insert(label.clone(), context);
 
                 // IRC: Encode tags
-                message.tags = tags!["label" => label];
+                message.tags.insert("label".to_string(), label);
             }
 
             self.reroute_responses_to =
