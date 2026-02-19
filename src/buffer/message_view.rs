@@ -395,21 +395,26 @@ impl<'a> ChannelQueryLayout<'a> {
         if self.config.buffer.channel.message.show_emoji_reacts
             && !message.reactions.is_empty()
         {
+            let mut on_react = None;
+            let mut on_unreact = None;
+            if let Some(msgid) = message.id.as_ref() {
+                on_react = Some(|text: &'a str| Message::Reacted {
+                    msgid: msgid.clone(),
+                    text: text.to_owned(),
+                    unreacted: false,
+                });
+                on_unreact = Some(|text: &'a str| Message::Reacted {
+                    msgid: msgid.clone(),
+                    text: text.to_owned(),
+                    unreacted: true,
+                });
+            }
+
             let reactions = reaction_row(
                 message,
                 self.target.our_user().map(|user| user.nickname()),
-                |text| Message::Reacted {
-                    // SAFETY(pounce): our message must have an ID as it has reactions which we are
-                    // tracking
-                    msgid: message.id.as_ref().unwrap().clone(),
-                    text: text.to_owned(),
-                    unreacted: false,
-                },
-                |text| Message::Reacted {
-                    msgid: message.id.as_ref().unwrap().clone(),
-                    text: text.to_owned(),
-                    unreacted: true,
-                },
+                on_react,
+                on_unreact,
             );
             message_content = column![message_content, reactions].into();
         }
