@@ -8,6 +8,7 @@ Customize how timestamps are displayed within a buffer.
     - [context\_menu\_format](#context_menu_format)
     - [copy\_format](#copy_format)
     - [brackets](#brackets)
+    - [locale](#locale)
 
 ## Configuration
 
@@ -61,4 +62,17 @@ Brackets around timestamps.
 
 [buffer.timestamp]
 brackets = { left = "[", right = "]" }
+```
+
+### locale
+
+Locale used when formatting timestamps, for strftime formats that produce locale-specific output (e.g. `%x`, `%X`, `%a`, etc).  If not specified, then the locale will be set automatically, falling back to the POSIX locale if the system locale cannot be determined.  Supported locales are determined by [`enum Locale` in the `pure-rust-locales` crate](https://docs.rs/pure-rust-locales/latest/pure_rust_locales/enum.Locale.html).
+
+```toml
+# Type: string
+# Values: IETF BCP 47 language tags
+# Default: not set
+
+[buffer.timestamp]
+locale = "POSIX"
 ```
