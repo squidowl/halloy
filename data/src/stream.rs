@@ -1,3 +1,4 @@
+use std::collections::{BTreeMap, HashSet};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -29,6 +30,10 @@ pub enum Update {
         server: Server,
         controller: mpsc::Sender<Control>,
     },
+    Connecting {
+        server: Server,
+        sent_time: DateTime<Utc>,
+    },
     Connected {
         server: Server,
         client: Client,
@@ -47,7 +52,7 @@ pub enum Update {
         sent_time: DateTime<Utc>,
     },
     MessagesReceived(Server, Vec<message::Encoded>),
-    Quit(Server, Option<String>),
+    Remove(Server),
 }
 
 enum State {
@@ -60,7 +65,7 @@ enum State {
         batch: Batch,
         ping_time: Interval,
         ping_timeout: Option<Interval>,
-        quit_requested: Option<(Instant, Option<String>)>,
+        quit_requested: Option<Instant>,
     },
     End,
 }
@@ -71,16 +76,13 @@ enum Input {
     Send(proto::Message),
     Ping,
     PingTimeout,
-    Quit(Option<String>),
     Control(Control),
 }
 
 pub enum Control {
-    Disconnect {
-        error: Option<String>,
-        disable_autoreconnect: bool,
-    },
+    Disconnect(Option<String>),
     Connect,
+    End(Option<String>),
 }
 
 struct Stream {
@@ -120,7 +122,7 @@ async fn _run(
 
     let mut is_initial = true;
     let mut state = State::Disconnected {
-        autoconnect: true,
+        autoconnect: config.autoconnect,
         retry: time::interval(reconnect_delay),
     };
 
@@ -153,15 +155,15 @@ async fn _run(
                 };
 
                 match selection {
-                    Some(Control::Disconnect {
-                        disable_autoreconnect,
-                        ..
-                    }) => {
-                        if disable_autoreconnect {
-                            *autoconnect = false;
-                        }
+                    Some(Control::Disconnect(_)) => {
+                        *autoconnect = false;
                     }
                     Some(Control::Connect) => {
+                        let _ = sender.unbounded_send(Update::Connecting {
+                            server: server.clone(),
+                            sent_time: Utc::now(),
+                        });
+
                         match connect(
                             server.clone(),
                             config.clone(),
@@ -217,7 +219,12 @@ async fn _run(
                             }
                         }
                     }
-                    None => (),
+                    Some(Control::End(_)) => {
+                        state = State::End;
+                    }
+                    None => {
+                        println!("here?");
+                    }
                 }
             }
             State::Connected {
@@ -250,13 +257,13 @@ async fn _run(
                         );
                     }
 
-                    if let Some((requested_at, reason)) = quit_requested {
+                    if let Some(requested_at) = quit_requested {
                         select.push(
                             time::sleep_until(
                                 *requested_at + QUIT_REQUEST_TIMEOUT,
                             )
                             .into_stream()
-                            .map(|()| Input::Quit(reason.clone()))
+                            .map(|()| Input::Control(Control::Disconnect(None)))
                             .boxed(),
                         );
                     }
@@ -280,19 +287,26 @@ async fn _run(
                             *ping_timeout = None;
                         }
                         proto::Command::ERROR(error) => {
-                            if let Some(reason) = quit_requested
-                                .as_ref()
-                                .map(|(_, reason)| reason)
-                            {
+                            if quit_requested.is_some() {
+                                let _ = sender.unbounded_send(
+                                    Update::Disconnected {
+                                        server: server.clone(),
+                                        is_initial,
+                                        error: None,
+                                        sent_time: Utc::now(),
+                                    },
+                                );
+
                                 // If QUIT was requested, then ERROR is
                                 // a valid acknowledgement
                                 // https://modern.ircdocs.horse/#quit-message
-                                let _ = sender.unbounded_send(Update::Quit(
-                                    server.clone(),
-                                    reason.clone(),
-                                ));
-
-                                state = State::End;
+                                state = State::Disconnected {
+                                    autoconnect: false,
+                                    retry: time::interval_at(
+                                        Instant::now() + reconnect_delay,
+                                        reconnect_delay,
+                                    ),
+                                };
                             } else {
                                 log::info!("[{server}] disconnected: {error}");
                                 let _ = sender.unbounded_send(
@@ -345,14 +359,12 @@ async fn _run(
                             "[{server}] Sending message => {message:?}"
                         );
 
-                        if let Command::QUIT(reason) = &message.command {
-                            let reason = reason.clone();
-
+                        if let Command::QUIT(_) = &message.command {
                             let _ = stream.connection.send(message).await;
 
                             log::info!("[{server}] quit");
 
-                            *quit_requested = Some((Instant::now(), reason));
+                            *quit_requested = Some(Instant::now());
                         } else {
                             let _ = stream.connection.send(message).await;
                         }
@@ -386,20 +398,9 @@ async fn _run(
                             ),
                         };
                     }
-                    Input::Quit(reason) => {
-                        let _ = sender.unbounded_send(Update::Quit(
-                            server.clone(),
-                            reason,
-                        ));
-
-                        state = State::End;
-                    }
                     Input::Control(control) => match control {
                         Control::Connect => (),
-                        Control::Disconnect {
-                            error,
-                            disable_autoreconnect,
-                        } => {
+                        Control::Disconnect(error) => {
                             let _ =
                                 sender.unbounded_send(Update::Disconnected {
                                     server: server.clone(),
@@ -408,17 +409,27 @@ async fn _run(
                                     sent_time: Utc::now(),
                                 });
                             state = State::Disconnected {
-                                autoconnect: !disable_autoreconnect,
+                                autoconnect: false,
                                 retry: time::interval_at(
                                     Instant::now() + reconnect_delay,
                                     reconnect_delay,
                                 ),
                             };
                         }
+                        Control::End(reason) => {
+                            let _ = stream
+                                .connection
+                                .send(Command::QUIT(reason).into())
+                                .await;
+
+                            state = State::End;
+                        }
                     },
                 }
             }
             State::End => {
+                let _ = sender.unbounded_send(Update::Remove(server.clone()));
+
                 // Wait forever until this stream is dropped by the frontend
                 future::pending::<()>().await;
             }
@@ -505,4 +516,49 @@ fn ping_timeout_interval(secs: u64) -> Interval {
         Instant::now() + Duration::from_secs(secs),
         Duration::from_secs(secs),
     )
+}
+
+#[derive(Debug, Default)]
+pub struct Map(BTreeMap<Server, mpsc::Sender<Control>>);
+
+impl Map {
+    pub fn insert(
+        &mut self,
+        server: Server,
+        controller: mpsc::Sender<Control>,
+    ) {
+        self.0.insert(server, controller);
+    }
+
+    pub fn disconnect(&mut self, server: &Server, error: Option<String>) {
+        if let Some(controller) = self.0.get_mut(server) {
+            let _ = controller.try_send(Control::Disconnect(error));
+        }
+    }
+
+    pub fn connect(&mut self, server: &Server) {
+        if let Some(controller) = self.0.get_mut(server) {
+            let _ = controller.try_send(Control::Connect);
+        }
+    }
+
+    pub fn remove(&mut self, server: &Server) {
+        self.0.remove(server);
+    }
+
+    pub fn end(&mut self, server: &Server, reason: &Option<String>) {
+        if let Some(controller) = self.0.get_mut(server) {
+            let _ = controller.try_send(Control::End(reason.clone()));
+        }
+
+        self.0.remove(server);
+    }
+
+    pub fn exit(&mut self, reason: &Option<String>) -> HashSet<Server> {
+        for controller in self.0.values_mut() {
+            let _ = controller.try_send(Control::End(reason.clone()));
+        }
+
+        self.0.keys().cloned().collect()
+    }
 }

@@ -129,10 +129,7 @@ pub enum Event {
     OnConnect(on_connect::Stream),
     BouncerNetwork(Server, config::Server),
     AddToSidebar(target::Query),
-    Disconnect {
-        error: Option<String>,
-        disable_autoreconnect: bool,
-    },
+    Disconnect(Option<String>),
 }
 
 struct ChatHistoryRequest {
@@ -2660,10 +2657,9 @@ impl Client {
                         self.server
                     );
 
-                    return Ok(vec![Event::Disconnect {
-                        error: Some("SASL authentication failure".to_string()),
-                        disable_autoreconnect: true,
-                    }]);
+                    return Ok(vec![Event::Disconnect(Some(
+                        "SASL authentication failure".to_string(),
+                    ))]);
                 }
 
                 self.registration_step = RegistrationStep::End;
@@ -3495,7 +3491,7 @@ fn continue_chathistory_between(
             | Event::OnConnect(_)
             | Event::BouncerNetwork(_, _)
             | Event::AddToSidebar(_)
-            | Event::Disconnect { .. } => None,
+            | Event::Disconnect(_) => None,
         });
 
     start_message_reference.map(|start_message_reference| {
@@ -3655,20 +3651,6 @@ impl Map {
         if let Some(client) = self.client_mut(server) {
             client.quit(reason);
         }
-    }
-
-    pub fn exit(&mut self) -> HashSet<Server> {
-        self.0
-            .iter_mut()
-            .filter_map(|(server, state)| {
-                if let State::Ready(client) = state {
-                    client.quit(None);
-                    Some(server.clone())
-                } else {
-                    None
-                }
-            })
-            .collect()
     }
 
     pub fn resolve_user_attributes<'a>(
