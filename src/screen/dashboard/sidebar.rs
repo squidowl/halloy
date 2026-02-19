@@ -995,7 +995,21 @@ fn upstream_buffer_button<'a>(
                         if let Some((window, pane)) = open {
                             Message::Focus(window, pane)
                         } else {
-                            match config.actions.sidebar.buffer {
+                            let action = match &buffer {
+                                buffer::Upstream::Channel(_, _) => config
+                                    .actions
+                                    .sidebar
+                                    .channel
+                                    .unwrap_or(config.actions.sidebar.buffer),
+                                buffer::Upstream::Query(_, _) => config
+                                    .actions
+                                    .sidebar
+                                    .query
+                                    .unwrap_or(config.actions.sidebar.buffer),
+                                _ => config.actions.sidebar.buffer,
+                            };
+
+                            match action {
                                 BufferAction::NewPane => {
                                     Message::New(buffer.clone())
                                 }
