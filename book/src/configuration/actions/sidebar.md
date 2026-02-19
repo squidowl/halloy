@@ -6,6 +6,8 @@ How sidebar actions should be enacted.
   - [Example](#example)
   - [Configuration](#configuration)
     - [buffer](#buffer)
+    - [channel](#channel)
+    - [query](#query)
     - [focused\_buffer](#focused_buffer)
 
 ## Example
@@ -16,6 +18,8 @@ How sidebar actions should be enacted.
 
 [actions.sidebar]
 buffer = "new-pane"
+channel = "replace-pane"
+query = "new-window"
 focused_buffer = "close-pane"
 ```
 
@@ -32,6 +36,32 @@ Action when clicking buffers in the sidebar. `"new-pane"` opens a new pane each 
 
 [actions.sidebar]
 buffer = "replace-pane"
+```
+
+### channel
+
+Action when clicking a channel buffer in the sidebar. If unset, it falls back to the value of `buffer`.
+
+```toml
+# Type: string
+# Values: "new-pane", "replace-pane", "new-window"
+# Default: not set (falls back to `buffer`)
+
+[actions.sidebar]
+channel = "replace-pane"
+```
+
+### query
+
+Action when clicking a user/query buffer in the sidebar. If unset, it falls back to the value of `buffer`.
+
+```toml
+# Type: string
+# Values: "new-pane", "replace-pane", "new-window"
+# Default: not set (falls back to `buffer`)
+
+[actions.sidebar]
+query = "new-window"
 ```
 
 ### focused_buffer

@@ -25,5 +25,7 @@ pub struct Buffer {
 #[serde(default)]
 pub struct Sidebar {
     pub buffer: BufferAction,
+    pub channel: Option<BufferAction>,
+    pub query: Option<BufferAction>,
     pub focused_buffer: Option<BufferFocusedAction>,
 }
