@@ -1,6 +1,8 @@
 use core::fmt;
+use std::str::FromStr;
 
-use serde::{Deserialize, Serialize};
+use chrono::Locale;
+use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::serde::{
     deserialize_strftime_date, deserialize_strftime_date_maybe,
@@ -157,6 +159,8 @@ pub struct Timestamp {
     pub context_menu_format: String,
     #[serde(deserialize_with = "deserialize_strftime_date_maybe")]
     pub copy_format: Option<String>,
+    #[serde(deserialize_with = "deserialize_locale")]
+    pub locale: Locale,
 }
 
 impl Default for Timestamp {
@@ -166,6 +170,7 @@ impl Default for Timestamp {
             brackets: Brackets::default(),
             context_menu_format: "%x".to_string(),
             copy_format: None,
+            locale: Locale::default(),
         }
     }
 }
@@ -328,5 +333,30 @@ impl From<SkinTone> for emojis::SkinTone {
             SkinTone::MediumDark => emojis::SkinTone::MediumDark,
             SkinTone::Dark => emojis::SkinTone::Dark,
         }
+    }
+}
+
+pub fn deserialize_locale<'de, D>(deserializer: D) -> Result<Locale, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let locale_string_maybe: Option<String> =
+        Deserialize::deserialize(deserializer)?;
+
+    if let Some(locale_string) = &locale_string_maybe {
+        if let Ok(locale) = Locale::from_str(&locale_string.replace("-", "_")) {
+            Ok(locale)
+        } else {
+            Err(serde::de::Error::invalid_value(
+                serde::de::Unexpected::Str(locale_string),
+                &"IETF BCP 47 language tag",
+            ))
+        }
+    } else {
+        Ok(sys_locale::get_locale()
+            .and_then(|locale_string| {
+                Locale::from_str(&locale_string.replace("-", "_")).ok()
+            })
+            .unwrap_or_default())
     }
 }

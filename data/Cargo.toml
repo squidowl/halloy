@@ -64,6 +64,7 @@ derive_more = { version = "2.0.1", features = ["full"] }
 image = "0.25.5"
 html-escape = "0.2.13"
 display-info = "0.5.7"
+sys-locale = "0.3"
 
 [dev-dependencies]
 serde_test = "1.0"
