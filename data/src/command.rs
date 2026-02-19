@@ -258,7 +258,40 @@ pub fn parse(
     match cmd.parse::<Kind>() {
         Ok(kind) => match kind {
             Kind::Join => {
-                validated::<1, 1, false>(args, |[chanlist], [chankeys]| {
+                validated::<0, 2, false>(args, |[], [chanlist, chankeys]| {
+                    let (chanlist, chankeys) = if let Some(chanlist) = chanlist
+                    {
+                        let chantypes =
+                            isupport::get_chantypes_or_default(isupport);
+
+                        if !chanlist.contains(',')
+                            && !proto::is_channel(&chanlist, chantypes)
+                            && chankeys.is_none()
+                            && let Some(channel) = buffer
+                                .and_then(Upstream::target)
+                                .and_then(Target::to_channel)
+                        {
+                            (channel.to_string(), Some(chanlist))
+                        } else {
+                            (chanlist, chankeys)
+                        }
+                    } else {
+                        let Some(channel) = buffer
+                            .and_then(Upstream::target)
+                            .and_then(Target::to_channel)
+                        else {
+                            // If not in a channel then the chanlist argument is
+                            // required
+                            return Err(Error::IncorrectArgCount {
+                                min: 1,
+                                max: 2,
+                                actual: 0,
+                            });
+                        };
+
+                        (channel.to_string(), None)
+                    };
+
                     let chan_limits =
                         if let Some(isupport::Parameter::CHANLIMIT(limits)) =
                             isupport.get(&isupport::Kind::CHANLIMIT)
