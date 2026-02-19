@@ -62,6 +62,7 @@ impl Completion {
             self.commands.process(
                 input,
                 our_nickname,
+                channels,
                 current_target,
                 supports_detach,
                 isupport,
@@ -283,6 +284,7 @@ impl Commands {
         &mut self,
         input: &str,
         our_nickname: Option<NickRef>,
+        channels: &[target::Channel],
         current_target: Option<&Target>,
         supports_detach: bool,
         isupport: &HashMap<isupport::Kind, isupport::Parameter>,
@@ -361,7 +363,18 @@ impl Commands {
                         _ => None,
                     };
 
-                    join_command(channel_len, channel_limits, key_len)
+                    let default = current_target
+                        .and_then(|target| target.as_channel())
+                        .and_then(|target| {
+                            if channels.iter().any(|channel| channel == target)
+                            {
+                                None
+                            } else {
+                                Some(target.to_string())
+                            }
+                        });
+
+                    join_command(default, channel_len, channel_limits, key_len)
                 }
             },
             // KICK
@@ -797,6 +810,19 @@ impl Commands {
                         && let Some(nick) = command.args.get_mut(0)
                     {
                         nick.kind.skip();
+                    }
+                }
+                "JOIN" => {
+                    if let Some(channel) = rest.split_ascii_whitespace().nth(1)
+                    {
+                        let chantypes =
+                            isupport::get_chantypes_or_default(isupport);
+
+                        if !proto::is_channel(channel, chantypes)
+                            && let Some(channel) = command.args.get_mut(0)
+                        {
+                            channel.kind.skip();
+                        }
                     }
                 }
                 "KICK" => {
@@ -1884,6 +1910,7 @@ fn detach_command(
 }
 
 fn join_command(
+    default: Option<String>,
     channel_len: Option<u16>,
     channel_limits: Option<&Vec<isupport::ChannelLimit>>,
     key_len: Option<u16>,
@@ -1893,6 +1920,12 @@ fn join_command(
     if let Some(channel_len) = channel_len {
         channels_tooltip.push_str(
             format!("\nmaximum length of each: {channel_len}").as_str(),
+        );
+    }
+
+    if let Some(default) = &default {
+        channels_tooltip.push_str(
+            format!("\nmay be skipped (default: {default})").as_str(),
         );
     }
 
@@ -1930,7 +1963,11 @@ fn join_command(
         args: vec![
             Argument {
                 text: "channels",
-                kind: ArgumentKind::Required,
+                kind: if default.is_some() {
+                    ArgumentKind::Optional { skipped: false }
+                } else {
+                    ArgumentKind::Required
+                },
                 tooltip: Some(channels_tooltip),
             },
             Argument {
