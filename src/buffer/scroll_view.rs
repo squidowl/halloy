@@ -364,7 +364,7 @@ pub fn view<'a>(
                                     .visible_url_messages
                                     .contains_key(&message.hash);
 
-                        let mut column = column![element];
+                        let mut column = column![element].spacing(2);
 
                         for (idx, url) in urls.iter().enumerate() {
                             if message.hidden_urls.contains(url) {

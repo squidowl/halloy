@@ -411,10 +411,12 @@ impl<'a> ChannelQueryLayout<'a> {
             let reactions = reaction_row(
                 message,
                 self.target.our_user().map(|user| user.nickname()),
+                self.config.font.size.map_or(theme::TEXT_SIZE, f32::from),
                 on_react,
                 on_unreact,
             );
-            message_content = column![message_content, reactions].into();
+            message_content =
+                column![message_content, reactions].spacing(2).into();
         }
 
         let content = if not_sent {
