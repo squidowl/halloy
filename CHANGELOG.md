@@ -9,6 +9,7 @@ Added:
 - Added ability to disconnect on SASL authentication failure
 - Setting to configure font line height (`font.line_height`)
 - Ability to add multiple keybinds for a single shortcut
+- Sidebar actions can now be configured separately for channel and query buffers (`actions.sidebar.channel`, `actions.sidebar.query`)
 - New shortcuts:
   - `new_horizontal_buffer` (not bound by default)
   - `new_vertical_buffer` (not bound by default)
@@ -33,7 +34,7 @@ Changed:
 Thanks:
 
 - Contributions: @Hummer12007, @chamlis
-- Feature requests: @megumintyan, @4e554c4c
+- Feature requests: @megumintyan, @4e554c4c, @RoboDanjal
 - Bug reports: @someone2037492034, @deepspaceaxolotl
 
 # 2026.2 (2026-02-01)
