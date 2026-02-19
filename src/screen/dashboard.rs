@@ -1768,6 +1768,35 @@ impl Dashboard {
                             config.buffer.url.prompt_before_open,
                         ))
                     }
+                    buffer::context_menu::Event::HidePreview(hash, url) => {
+                        let kind = pane
+                            .buffer
+                            .data()
+                            .and_then(history::Kind::from_buffer);
+                        let parsed = url::Url::parse(&url).ok();
+
+                        if let (Some(kind), Some(url)) = (kind, parsed) {
+                            self.history.hide_preview(kind, hash, url);
+                        }
+
+                        None
+                    }
+                    buffer::context_menu::Event::ShowPreview(hash, url) => {
+                        let kind = pane
+                            .buffer
+                            .data()
+                            .and_then(history::Kind::from_buffer);
+                        let parsed = url::Url::parse(&url).ok();
+
+                        if let (Some(kind), Some(url)) = (kind, parsed) {
+                            self.history.show_preview(kind, hash, &url);
+                            tasks.push(
+                                self.reload_visible_previews(clients, config),
+                            );
+                        }
+
+                        None
+                    }
                     buffer::context_menu::Event::ToggleAccessLevel(
                         server,
                         channel,

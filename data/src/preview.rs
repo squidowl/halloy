@@ -29,11 +29,14 @@ pub mod image;
 
 // Prevent us from rate limiting ourselves
 static RATE_LIMIT: OnceLock<Semaphore> = OnceLock::new();
-static OPENGRAPH_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+static META_TAG_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r#"(?is)<meta\b[^>]*?>"#).expect("valid meta tag regex")
+});
+static META_ATTR_REGEX: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(
-        r#"(?m)<meta[^>]+(name|property|content)=("[^"]+"|'[^']+')[^>]+(name|property|content)=("[^"]+"|'[^']+')[^>]*\/?>"#,
+        r#"(?is)\b([a-zA-Z_:][-a-zA-Z0-9_:.]*)\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)"#,
     )
-    .expect("valid opengraph regex")
+    .expect("valid meta attribute regex")
 });
 
 #[derive(Clone, Copy)]
@@ -201,49 +204,73 @@ async fn load_uncached(
             let mut title = None;
             let mut description = None;
 
-            for captures in OPENGRAPH_REGEX
-                .captures_iter(&String::from_utf8_lossy(&bytes))
+            for meta_tag in META_TAG_REGEX
+                .find_iter(&String::from_utf8_lossy(&bytes))
                 .filter_map(Result::ok)
             {
-                let Some((((key_1, value_1), key_2), value_2)) = captures
-                    .get(1)
-                    .map(|r| r.as_str())
-                    .zip(captures.get(2).map(|r| r.as_str()))
-                    .zip(captures.get(3).map(|r| r.as_str()))
-                    .zip(captures.get(4).map(|r| r.as_str()))
+                let meta_tag = meta_tag.as_str();
+                let mut property = None;
+                let mut content = None;
+
+                for captures in META_ATTR_REGEX
+                    .captures_iter(meta_tag)
+                    .filter_map(Result::ok)
+                {
+                    let Some((key, value)) = captures
+                        .get(1)
+                        .map(|r| r.as_str())
+                        .zip(captures.get(2).map(|r| r.as_str()))
+                    else {
+                        continue;
+                    };
+
+                    let key = key.trim().to_ascii_lowercase();
+                    let value = decode_html_string(
+                        value
+                            .trim_start_matches(['\'', '"'])
+                            .trim_end_matches(['\'', '"']),
+                    )
+                    .trim()
+                    .to_string();
+
+                    match key.as_str() {
+                        "property" => property = Some(value),
+                        "name" => {
+                            if property.is_none() {
+                                property = Some(value);
+                            }
+                        }
+                        "content" => content = Some(value),
+                        _ => {}
+                    }
+                }
+
+                let (Some(property), Some(content)) = (property, content)
                 else {
                     continue;
                 };
 
-                let value_1 = decode_html_string(
-                    value_1
-                        .trim_start_matches(['\'', '"'])
-                        .trim_end_matches(['\'', '"']),
-                );
-                let value_2 = decode_html_string(
-                    value_2
-                        .trim_start_matches(['\'', '"'])
-                        .trim_end_matches(['\'', '"']),
-                );
-
-                let (property, content) = if (key_1 == "property"
-                    || key_1 == "name")
-                    && key_2 == "content"
-                {
-                    (value_1, value_2)
-                } else if key_1 == "content"
-                    && (key_2 == "property" || key_2 == "name")
-                {
-                    (value_2, value_1)
-                } else {
-                    continue;
-                };
-
-                match property.as_str() {
-                    "og:url" => canonical_url = Some(content.parse()?),
-                    "og:image" => image_url = Some(content.parse()?),
-                    "og:title" => title = Some(content),
-                    "og:description" => description = Some(content),
+                match property.trim().to_ascii_lowercase().as_str() {
+                    "og:url" => {
+                        if canonical_url.is_none() {
+                            canonical_url = Some(content.parse()?);
+                        }
+                    }
+                    "og:image" | "og:image:url" | "og:image:secure_url" => {
+                        if image_url.is_none() {
+                            image_url = Some(content.parse()?);
+                        }
+                    }
+                    "og:title" => {
+                        if title.is_none() {
+                            title = Some(content);
+                        }
+                    }
+                    "og:description" => {
+                        if description.is_none() {
+                            description = Some(content);
+                        }
+                    }
                     _ => {}
                 }
             }

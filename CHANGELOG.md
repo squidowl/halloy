@@ -10,6 +10,7 @@ Added:
 - Setting to configure font line height (`font.line_height`)
 - Ability to add multiple keybinds for a single shortcut
 - Sidebar actions can now be configured separately for channel and query buffers (`actions.sidebar.channel`, `actions.sidebar.query`)
+- URL context menu now supports `Hide Preview` / `Show Preview`
 - New shortcuts:
   - `new_horizontal_buffer` (not bound by default)
   - `new_vertical_buffer` (not bound by default)

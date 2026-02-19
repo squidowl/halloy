@@ -608,6 +608,15 @@ impl Manager {
         self.data.hide_preview(&kind.into(), message, url);
     }
 
+    pub fn show_preview(
+        &mut self,
+        kind: impl Into<history::Kind>,
+        message: message::Hash,
+        url: &url::Url,
+    ) {
+        self.data.show_preview(&kind.into(), message, url);
+    }
+
     pub fn block_message(
         &self,
         message: &mut crate::Message,
@@ -1510,6 +1519,17 @@ impl Data {
     ) {
         if let Some(history) = self.map.get_mut(kind) {
             history.hide_preview(message, url);
+        }
+    }
+
+    fn show_preview(
+        &mut self,
+        kind: &history::Kind,
+        message: message::Hash,
+        url: &url::Url,
+    ) {
+        if let Some(history) = self.map.get_mut(kind) {
+            history.show_preview(message, url);
         }
     }
 }
