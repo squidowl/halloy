@@ -3489,6 +3489,7 @@ fn continue_chathistory_between(
             | Event::MonitoredOffline(_)
             | Event::OnConnect(_)
             | Event::BouncerNetwork(_, _)
+            | Event::Reaction(_)
             | Event::AddToSidebar(_)
             | Event::Disconnect => None,
         });

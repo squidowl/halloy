@@ -22,6 +22,7 @@ pub use self::source::server::{Change, Kind, StandardReply};
 use crate::config::buffer::{CondensationFormat, UsernameFormat};
 use crate::config::{self, Highlights};
 use crate::log::Level;
+use crate::reaction::Reaction;
 use crate::serde::fail_as_none;
 use crate::server::Server;
 use crate::target::join_targets;
@@ -85,7 +86,7 @@ pub mod highlight;
 pub mod source;
 
 #[derive(Debug, Clone)]
-pub struct Encoded(proto::Message);
+pub struct Encoded(pub(crate) proto::Message);
 
 impl Encoded {
     pub fn user(&self, casemapping: isupport::CaseMap) -> Option<User> {
@@ -932,61 +933,6 @@ pub fn condense(
         }))
     } else {
         None
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct Reaction {
-    pub sender: Nick,
-    pub text: String,
-    pub unreact: bool,
-}
-
-#[derive(Debug)]
-pub struct ReactionContext {
-    pub inner: Reaction,
-    pub target: target::Target,
-    pub in_reply_to: Id,
-}
-
-impl Reaction {
-    pub fn received(
-        message: Encoded,
-        chantypes: &[char],
-        statusmsg: &[char],
-        casemapping: isupport::CaseMap,
-    ) -> Option<ReactionContext> {
-        let user = message.user(casemapping)?;
-        let (text, unreact) = match (
-            message.tags.get("+draft/react"),
-            message.tags.get("+draft/unreact"),
-        ) {
-            (Some(s), None) => (s.clone(), false),
-            (None, Some(s)) => (s.clone(), true),
-            _ => return None,
-        };
-        let in_reply_to = message.in_reply_to()?;
-
-        let (Command::PRIVMSG(target, _) | Command::TAGMSG(target)) =
-            message.0.command
-        else {
-            return None;
-        };
-
-        Some(ReactionContext {
-            inner: Reaction {
-                sender: Nick::from(user),
-                text,
-                unreact,
-            },
-            in_reply_to,
-            target: target::Target::parse(
-                &target,
-                chantypes,
-                statusmsg,
-                casemapping,
-            ),
-        })
     }
 }
 
