@@ -44,6 +44,7 @@ pub mod notification;
 pub mod pane;
 pub mod preview;
 pub mod rate_limit;
+pub mod scripts;
 pub mod serde;
 pub mod server;
 pub mod shortcut;
