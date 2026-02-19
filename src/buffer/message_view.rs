@@ -67,7 +67,27 @@ pub struct ChannelQueryLayout<'a> {
 }
 
 impl<'a> ChannelQueryLayout<'a> {
-    fn condensation_marker(&self, marker: Marker) -> Marker {
+    fn condensation_marker(
+        &self,
+        expanded: bool,
+        has_condensed: bool,
+    ) -> Marker {
+        let marker = if expanded {
+            if has_condensed {
+                Marker::Contract
+            } else {
+                Marker::None
+            }
+        } else if has_condensed {
+            Marker::Expand
+        } else {
+            Marker::Dot
+        };
+
+        if !has_condensed {
+            return marker;
+        }
+
         match self.config.buffer.server_messages.condense.icon {
             CondensationIcon::None => Marker::None,
             CondensationIcon::Chevron => marker,
@@ -419,15 +439,10 @@ impl<'a> ChannelQueryLayout<'a> {
         };
 
         let marker = message_marker(
-            if message.expanded {
-                if message.condensed.is_some() {
-                    self.condensation_marker(Marker::Contract)
-                } else {
-                    Marker::None
-                }
-            } else {
-                Marker::Dot
-            },
+            self.condensation_marker(
+                message.expanded,
+                message.condensed.is_some(),
+            ),
             right_aligned_width,
             self.config,
             marker_style,
@@ -518,7 +533,7 @@ impl<'a> ChannelQueryLayout<'a> {
         let moved_link = link.clone();
 
         let marker = message_marker(
-            self.condensation_marker(Marker::Expand),
+            self.condensation_marker(false, true),
             right_aligned_width,
             self.config,
             theme::selectable_text::condensed_marker,
