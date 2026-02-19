@@ -40,6 +40,8 @@ pub enum Message {
     MarkAsRead(buffer::Upstream),
     MarkServerAsRead(Server),
     QuitApplication,
+    Connect(Server),
+    Remove(Server),
 }
 
 #[derive(Debug, Clone)]
@@ -63,6 +65,8 @@ pub enum Event {
     MarkAsRead(buffer::Upstream),
     MarkServerAsRead(Server),
     QuitApplication,
+    Connect(Server),
+    Remove(Server),
 }
 
 #[derive(Clone)]
@@ -159,6 +163,12 @@ impl Sidebar {
             }
             Message::OpenConfigFile => {
                 (Task::none(), Some(Event::OpenConfigFile))
+            }
+            Message::Connect(server) => {
+                (Task::none(), Some(Event::Connect(server)))
+            }
+            Message::Remove(server) => {
+                (Task::none(), Some(Event::Remove(server)))
             }
         }
     }
@@ -708,16 +718,18 @@ impl Menu {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 enum Entry {
+    Connect,
     Close(window::Id, pane_grid::Pane),
     CloseAllQueries,
-    Detach,
-    Leave,
     MarkAsRead,
     MarkServerAsRead,
     NewPane,
     Popout,
     Replace,
     Swap(window::Id, pane_grid::Pane),
+    Detach,
+    Leave,
+    Remove,
 }
 
 impl Entry {
@@ -726,6 +738,7 @@ impl Entry {
         num_panes: usize,
         open: Option<(window::Id, pane_grid::Pane)>,
         focus: Focus,
+        connected: bool,
         supports_detach: bool,
     ) -> Vec<Self> {
         use Entry::*;
@@ -734,7 +747,11 @@ impl Entry {
         itertools::chain!(
             match buffer {
                 buffer::Upstream::Server(_) =>
-                    vec![CloseAllQueries, MarkServerAsRead],
+                    if connected {
+                        vec![CloseAllQueries, MarkServerAsRead, Remove]
+                    } else {
+                        vec![Connect, Remove]
+                    },
                 buffer::Upstream::Channel(_, _) => vec![],
                 buffer::Upstream::Query(_, _) => vec![],
             },
@@ -756,7 +773,7 @@ impl Entry {
                     )
                     .collect_vec(),
             },
-            vec![Leave]
+            if connected { vec![Leave] } else { vec![] },
         )
         .sorted()
         .collect_vec()
@@ -1025,10 +1042,16 @@ fn upstream_buffer_button<'a>(
                 }
             });
 
-    let entries =
-        Entry::list(&buffer, panes.len(), open, focus, supports_detach);
+    let entries = Entry::list(
+        &buffer,
+        panes.len(),
+        open,
+        focus,
+        connected,
+        supports_detach,
+    );
 
-    if entries.is_empty() || !connected {
+    if entries.is_empty() {
         base.into()
     } else {
         context_menu(
@@ -1109,6 +1132,14 @@ fn upstream_buffer_button<'a>(
                             buffer::Upstream::Query(_, _) => "Close query",
                         },
                         Some(Message::Leave(buffer.clone())),
+                    ),
+                    Entry::Connect => (
+                        "Connect to server",
+                        Some(Message::Connect(buffer.server().clone())),
+                    ),
+                    Entry::Remove => (
+                        "Remove server",
+                        Some(Message::Remove(buffer.server().clone())),
                     ),
                 };
 

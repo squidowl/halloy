@@ -19,14 +19,13 @@ mod url;
 mod widget;
 mod window;
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use std::{env, mem};
 
 use appearance::{Theme, theme};
-use chrono::Utc;
 use data::config::{self, Config};
 use data::history::filter::FilterChain;
 use data::message::{self, Broadcast};
@@ -36,7 +35,6 @@ use data::{
     Notification, Server, Url, User, client, environment, history, server,
     version,
 };
-use futures::channel::mpsc;
 use iced::widget::{column, container};
 use iced::{Length, Subscription, Task, padding};
 use screen::{dashboard, help, welcome};
@@ -177,7 +175,7 @@ struct Halloy {
     config: Config,
     clients: data::client::Map,
     servers: server::Map,
-    controllers: HashMap<Server, mpsc::Sender<stream::Control>>,
+    controllers: stream::Map,
     modal: Option<Modal>,
     main_window: Window,
     pending_logs: Vec<data::log::Record>,
@@ -250,7 +248,7 @@ impl Halloy {
                 theme: current_mode.theme(&config.appearance.selected).into(),
                 clients: data::client::Map::default(),
                 servers,
-                controllers: HashMap::new(),
+                controllers: stream::Map::default(),
                 config,
                 modal: None,
                 main_window,
@@ -407,6 +405,7 @@ impl Halloy {
                 let (command, event) = dashboard.update(
                     message,
                     &mut self.clients,
+                    &mut self.controllers,
                     &mut self.theme,
                     &self.version,
                     &self.config,
@@ -445,7 +444,9 @@ impl Halloy {
                         Task::none()
                     }
                     Some(dashboard::Event::Exit) => {
-                        let pending_exit = self.clients.exit();
+                        let pending_exit = self.controllers.exit(
+                            &self.config.buffer.commands.quit.default_reason,
+                        );
 
                         if pending_exit.is_empty() {
                             iced::exit()
@@ -494,6 +495,9 @@ impl Halloy {
                             window: id,
                         });
                         Task::none()
+                    }
+                    Some(dashboard::Event::Remove(server)) => {
+                        self.remove(server)
                     }
                     None => Task::none(),
                 };
@@ -552,16 +556,7 @@ impl Halloy {
                     };
 
                     if is_initial {
-                        // Initial is sent when first trying to connect
-                        dashboard
-                            .broadcast(
-                                &server,
-                                self.clients.get_casemapping(&server),
-                                &self.config,
-                                sent_time,
-                                Broadcast::Connecting,
-                            )
-                            .map(Message::Dashboard)
+                        Task::none()
                     } else {
                         let request_attention = if !self.main_window.focused {
                             self.notifications.notify(
@@ -594,6 +589,22 @@ impl Halloy {
 
                         Task::batch(tasks)
                     }
+                }
+                stream::Update::Connecting { server, sent_time } => {
+                    let Screen::Dashboard(dashboard) = &mut self.screen else {
+                        return Task::none();
+                    };
+
+                    // Initial is sent when first trying to connect
+                    dashboard
+                        .broadcast(
+                            &server,
+                            self.clients.get_casemapping(&server),
+                            &self.config,
+                            sent_time,
+                            Broadcast::Connecting,
+                        )
+                        .map(Message::Dashboard)
                 }
                 stream::Update::Connected {
                     server,
@@ -669,49 +680,7 @@ impl Halloy {
                 stream::Update::MessagesReceived(server, messages) => {
                     self.handle_messages_received(server, messages)
                 }
-                stream::Update::Quit(server, reason) => {
-                    match &mut self.screen {
-                        Screen::Dashboard(dashboard) => {
-                            self.servers.remove(&server);
-
-                            if let Some(client) = self.clients.remove(&server) {
-                                let casemapping = client.casemapping();
-
-                                let user = client.nickname().to_owned().into();
-
-                                let channels =
-                                    client.channels().cloned().collect();
-
-                                dashboard
-                                    .broadcast(
-                                        &server,
-                                        casemapping,
-                                        &self.config,
-                                        Utc::now(),
-                                        Broadcast::Quit {
-                                            user,
-                                            comment: reason,
-                                            user_channels: channels,
-                                            casemapping,
-                                        },
-                                    )
-                                    .map(Message::Dashboard)
-                            } else {
-                                Task::none()
-                            }
-                        }
-                        Screen::Exit { pending_exit } => {
-                            pending_exit.remove(&server);
-
-                            if pending_exit.is_empty() {
-                                iced::exit()
-                            } else {
-                                Task::none()
-                            }
-                        }
-                        _ => Task::none(),
-                    }
-                }
+                stream::Update::Remove(server) => self.remove(server),
                 stream::Update::Controller { server, controller } => {
                     self.controllers.insert(server, controller);
 
@@ -1187,6 +1156,33 @@ impl Halloy {
 
         Task::batch(commands)
     }
+
+    fn remove(&mut self, server: Server) -> Task<Message> {
+        match &mut self.screen {
+            Screen::Dashboard(_) => {
+                self.controllers.end(
+                    &server,
+                    &self.config.buffer.commands.quit.default_reason,
+                );
+
+                self.servers.remove(&server);
+
+                self.clients.remove(&server);
+
+                Task::none()
+            }
+            Screen::Exit { pending_exit } => {
+                pending_exit.remove(&server);
+
+                if pending_exit.is_empty() {
+                    iced::exit()
+                } else {
+                    Task::none()
+                }
+            }
+            _ => Task::none(),
+        }
+    }
 }
 
 fn handle_client_event(
@@ -1198,7 +1194,7 @@ fn handle_client_event(
     config: &Config,
     notifications: &mut Notifications,
     servers: &mut server::Map,
-    controllers: &mut HashMap<Server, mpsc::Sender<stream::Control>>,
+    controllers: &mut stream::Map,
     main_window: &Window,
 ) {
     use data::client::Event;
@@ -1367,16 +1363,8 @@ fn handle_client_event(
         Event::AddToSidebar(query) => {
             dashboard.add_to_sidebar(server.clone(), query);
         }
-        Event::Disconnect {
-            error,
-            disable_autoreconnect,
-        } => {
-            if let Some(controller) = controllers.get_mut(server) {
-                let _ = controller.try_send(stream::Control::Disconnect {
-                    error,
-                    disable_autoreconnect,
-                });
-            }
+        Event::Disconnect(error) => {
+            controllers.disconnect(server, error);
         }
     }
 }

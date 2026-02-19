@@ -109,6 +109,7 @@ pub struct Server {
     pub order: u16,
     pub proxy: Option<config::Proxy>,
     pub confirm_message_delivery: ConfirmMessageDelivery,
+    pub autoconnect: bool,
 }
 
 impl Server {
@@ -224,6 +225,7 @@ impl Default for Server {
             order: 0,
             proxy: None,
             confirm_message_delivery: ConfirmMessageDelivery::default(),
+            autoconnect: true,
         }
     }
 }
