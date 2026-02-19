@@ -1797,18 +1797,10 @@ fn handle_direct_message(
     let blocked = FilterChain::borrow(dashboard.get_filters())
         .filter_query(&query, server);
     let kind = history::Kind::Query(server.clone(), query);
-    let has_unread = dashboard.history().has_unread(&kind);
-    // If show_content isn't enabled then there's no new information that would
-    // be shown by notifications past the first.
-    let notification_enabled =
-        !has_unread || config.notifications.direct_message.show_content;
 
     let message_window = dashboard.find_window_with_history(&kind);
 
-    if !blocked
-        && notification_enabled
-        && (message_window.is_none() || !main_window.focused)
-    {
+    if !blocked && (message_window.is_none() || !main_window.focused) {
         let request_attention = notifications.notify(
             &config.notifications,
             &Notification::DirectMessage {
