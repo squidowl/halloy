@@ -622,13 +622,12 @@ impl Buffer {
             return None;
         }
 
-        Some(
-            self.timestamp.brackets.format(
-                date_time
-                    .with_timezone(&Local)
-                    .format(&self.timestamp.format),
+        Some(self.timestamp.brackets.format(
+            date_time.with_timezone(&Local).format_localized(
+                &self.timestamp.format,
+                self.timestamp.locale,
             ),
-        )
+        ))
     }
 
     pub fn format_range_timestamp(
@@ -647,9 +646,10 @@ impl Buffer {
                 .brackets
                 .format(format!(
                     "{}",
-                    start_date_time
-                        .with_timezone(&Local)
-                        .format(&self.timestamp.format)
+                    start_date_time.with_timezone(&Local).format_localized(
+                        &self.timestamp.format,
+                        self.timestamp.locale
+                    )
                 ))
                 .to_string(),
             " \u{2013} ".to_string(),
@@ -657,9 +657,10 @@ impl Buffer {
                 .brackets
                 .format(format!(
                     "{}",
-                    end_date_time
-                        .with_timezone(&Local)
-                        .format(&self.timestamp.format)
+                    end_date_time.with_timezone(&Local).format_localized(
+                        &self.timestamp.format,
+                        self.timestamp.locale
+                    )
                 ))
                 .to_string(),
         ))
