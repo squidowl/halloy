@@ -1,5 +1,9 @@
 # Unreleased
 
+Added:
+
+- Support for the IRCv3 [`react`](https://ircv3.net/specs/client-tags/react.html) client tag.
+
 Fixed:
 
 - Window state is saved even if altered shortly before quitting
@@ -8,7 +12,7 @@ Fixed:
 
 Thanks:
 
-- Contributions: @melocene
+- Contributions: @melocene, @4e554c4c
 
 # 2026.3 (2026-02-24)
 
