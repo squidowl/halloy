@@ -8,14 +8,16 @@ use iced::widget::{Space, button, container, row, text};
 use super::{Column, Element, Row};
 use crate::theme;
 
-pub fn reaction_row<'a, M>(
+pub fn reaction_row<'a, M, F1, F2>(
     message: &'a data::Message,
     our_nick: Option<NickRef<'a>>,
-    on_press: impl Fn(&'a str) -> M + 'a,
-    on_unreact: impl Fn(&'a str) -> M + 'a,
+    on_press: Option<F1>,
+    on_unreact: Option<F2>,
 ) -> Element<'a, M>
 where
     M: 'a + Clone,
+    F1: Fn(&'a str) -> M + 'a,
+    F2: Fn(&'a str) -> M + 'a,
 {
     // we need a container with deterministic order, so that the UI elements don't move around.
     let mut m: BTreeMap<&'a str, BTreeMap<&'a str, i16>> = BTreeMap::new();
@@ -54,9 +56,9 @@ where
         let selected =
             our_nick.is_some_and(|nick| nicks.contains(&nick.as_str()));
         let on_press = if selected {
-            Some(on_unreact(reaction_text))
+            on_unreact.as_ref().map(|f| f(reaction_text))
         } else {
-            Some(on_press(reaction_text))
+            on_press.as_ref().map(|f| f(reaction_text))
         };
         let react_count = nicks.len();
         let mut button_content: Element<'a, M> = text(*reaction_text)
