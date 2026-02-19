@@ -26,7 +26,7 @@ edition = "2024"
 tokio = { version = "1.44.0" }
 futures = "0.3.30"
 thiserror = "2.0.12"
-chrono = { version = "0.4.40", features = ['serde'] }
+chrono = { version = "0.4.40", features = ['serde', 'unstable-locales'] }
 bytes = "1.10.1"
 strum = { version = "0.27.1", features = ["derive"] }
 anyhow = "1.0.97"
