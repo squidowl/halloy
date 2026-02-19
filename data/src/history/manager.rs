@@ -10,6 +10,7 @@ use super::filter::{Filter, FilterChain};
 use crate::history::{self, History, MessageReferences, ReadMarker};
 use crate::message::broadcast::{self, Broadcast};
 use crate::message::{self, Limit};
+use crate::reaction::{self, Reaction};
 use crate::target::{self, Target};
 use crate::user::Nick;
 use crate::{Config, Server, buffer, client, config, input, isupport, server};
@@ -345,7 +346,7 @@ impl Manager {
     pub fn record_reaction(
         &mut self,
         server: &Server,
-        reaction: message::ReactionContext,
+        reaction: reaction::Context,
     ) {
         let kind =
             history::Kind::from_target(server.clone(), reaction.target.clone());
@@ -1548,7 +1549,7 @@ impl Data {
         &mut self,
         kind: &history::Kind,
         in_reply_to: message::Id,
-        reaction: message::Reaction,
+        reaction: Reaction,
     ) {
         if let Some(history) = self.map.get_mut(kind) {
             history.add_reaction(in_reply_to, reaction);

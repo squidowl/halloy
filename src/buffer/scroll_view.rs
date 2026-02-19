@@ -8,12 +8,13 @@ use data::command::Irc;
 use data::config::buffer::nickname::HideConsecutiveEnabled;
 use data::dashboard::BufferAction;
 use data::isupport::ChatHistoryState;
-use data::message::{self, Limit, Reaction, ReactionContext};
+use data::message::{self, Limit};
 use data::preview::{self, Previews};
 use data::rate_limit::TokenPriority;
+use data::reaction::Reaction;
 use data::server::Server;
 use data::target::{self, Target};
-use data::{Config, Preview, client, history};
+use data::{Config, Preview, client, history, reaction};
 use iced::widget::{
     self, Scrollable, button, center, column, container, image, mouse_area,
     right, row, rule, scrollable, space, stack, text,
@@ -1343,7 +1344,7 @@ fn send_reaction(
     .ok()?;
     clients.send(buffer, encoded, TokenPriority::User);
     let nick = clients.nickname(buffer.server())?;
-    let reaction = ReactionContext {
+    let reaction = reaction::Context {
         inner: Reaction {
             sender: nick.to_owned(),
             text,

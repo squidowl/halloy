@@ -28,7 +28,8 @@ use std::{env, mem};
 use appearance::{Theme, theme};
 use data::config::{self, Config};
 use data::history::filter::FilterChain;
-use data::message::{self, Broadcast, Reaction};
+use data::message::{self, Broadcast};
+use data::reaction::Reaction;
 use data::target::{self, Target};
 use data::version::Version;
 use data::{
