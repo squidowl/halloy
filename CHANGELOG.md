@@ -17,6 +17,10 @@ Added:
 - Expand show_access_levels to allow all access levels (in addition to highest or no access levels) in buffer/nicklist/input
 - Configuration setting to allow locale specification used when formatting timestamps
 - Configuration setting to include chantypes / prefixes when sorting channels in the sidebar
+- When leaving a server (via context menu on sidebar entry or `/quit`), the server will not be automatically removed from the sidebar
+- Manual disconnection from a server will disable auto-reconnect
+- Disconnected servers can be connected to via the "Connect to server" entry in the context menu for its sidebar entry
+- Servers can be prevented from connecting on launch (or configuration reload) with the `servers.<name>.autoconnect` setting
 
 Fixed:
 
@@ -25,6 +29,7 @@ Fixed:
 - Virtualize message rendering to improve buffer performance
 - Default proxy used when checking for an update
 - Detect system locale when formatting timestamps with locale-specific stftime formats
+- When changing connection details for server (e.g. address, port, SASL authentication, etc) the connection details will be properly updated and the connection re-initiated
 
 Changed:
 
