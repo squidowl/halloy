@@ -62,7 +62,10 @@ pub enum Message {
     Reacted {
         msgid: message::Id,
         text: String,
-        unreacted: bool,
+    },
+    Unreacted {
+        msgid: message::Id,
+        text: String,
     },
 }
 
@@ -1099,12 +1102,11 @@ impl State {
                     return (Task::none(), Some(event));
                 }
             }
-            Message::Reacted {
-                msgid,
-                text,
-                unreacted,
-            } => {
-                send_reaction(clients, buffer, history, msgid, text, unreacted);
+            Message::Reacted { msgid, text } => {
+                send_reaction(clients, buffer, history, msgid, text, false);
+            }
+            Message::Unreacted { msgid, text } => {
+                send_reaction(clients, buffer, history, msgid, text, true);
             }
         }
         (Task::none(), None)
@@ -1335,13 +1337,20 @@ fn send_reaction(
     let buffer: &buffer::Upstream = buffer?;
 
     let target = buffer.target()?;
-    let encoded = message::Encoded::try_from(Irc::React {
-        target: target.to_string(),
-        msgid: msgid.clone(),
-        text: text.clone(),
-        unreact,
-    })
-    .ok()?;
+    let command = if unreact {
+        Irc::Unreact {
+            target: target.to_string(),
+            msgid: msgid.clone(),
+            text: text.clone(),
+        }
+    } else {
+        Irc::React {
+            target: target.to_string(),
+            msgid: msgid.clone(),
+            text: text.clone(),
+        }
+    };
+    let encoded = message::Encoded::try_from(command).ok()?;
     clients.send(buffer, encoded, TokenPriority::User);
     let nick = clients.nickname(buffer.server())?;
     let reaction = reaction::Context {
