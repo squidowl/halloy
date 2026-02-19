@@ -48,7 +48,11 @@ pub enum Irc {
         target: String,
         msgid: message::Id,
         text: String,
-        unreact: bool,
+    },
+    Unreact {
+        target: String,
+        msgid: message::Id,
+        text: String,
     },
     Me(String, String),
     Whois(Option<String>, String),
@@ -1201,6 +1205,7 @@ impl TryFrom<Irc> for proto::Command {
             Irc::Quit(comment) => proto::Command::QUIT(comment),
             Irc::Msg(target, msg) => proto::Command::PRIVMSG(target, msg),
             Irc::React { target, .. } => proto::Command::TAGMSG(target),
+            Irc::Unreact { target, .. } => proto::Command::TAGMSG(target),
             Irc::Me(target, text) => {
                 ctcp::query_command(&ctcp::Command::Action, target, Some(text))
             }
@@ -1235,24 +1240,16 @@ impl TryFrom<Irc> for proto::Message {
 
     fn try_from(command: Irc) -> Result<Self, Self::Error> {
         let tags = match &command {
-            Irc::React {
-                msgid,
-                text,
-                unreact,
-                ..
-            } => {
-                let mut tags = tags![
+            Irc::React { msgid, text, .. } => tags![
                 "+reply" => msgid.to_string(),
                 "+draft/reply" => msgid.to_string(),
-                ];
-                if *unreact {
-                    tags.insert("+draft/unreact".to_string(), text.to_string());
-                } else {
-                    tags.insert("+draft/react".to_string(), text.to_string());
-                }
-
-                tags
-            }
+                "+draft/react" => text,
+            ],
+            Irc::Unreact { msgid, text, .. } => tags![
+                "+reply" => msgid.to_string(),
+                "+draft/reply" => msgid.to_string(),
+                "+draft/unreact" => text,
+            ],
             _ => tags![],
         };
         let mut msg = proto::Message::from(proto::Command::try_from(command)?);

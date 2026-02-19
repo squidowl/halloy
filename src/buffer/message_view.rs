@@ -401,12 +401,10 @@ impl<'a> ChannelQueryLayout<'a> {
                 on_react = Some(|text: &'a str| Message::Reacted {
                     msgid: msgid.clone(),
                     text: text.to_owned(),
-                    unreacted: false,
                 });
-                on_unreact = Some(|text: &'a str| Message::Reacted {
+                on_unreact = Some(|text: &'a str| Message::Unreacted {
                     msgid: msgid.clone(),
                     text: text.to_owned(),
-                    unreacted: true,
                 });
             }
 
