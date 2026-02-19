@@ -938,9 +938,7 @@ impl State {
                     .max(0.0)
                     .min(max_offset);
 
-                if (offset - max_offset).abs() <= f32::EPSILON
-                    && !matches!(self.limit, Limit::Around(_, _))
-                {
+                if (offset - max_offset).abs() <= f32::EPSILON {
                     self.status = Status::Bottom;
 
                     if !matches!(self.limit, Limit::Bottom(_)) {
