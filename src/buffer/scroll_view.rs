@@ -1334,38 +1334,41 @@ fn send_reaction(
     text: String,
     unreact: bool,
 ) -> Option<()> {
-    let buffer: &buffer::Upstream = buffer?;
-
+    let buffer = buffer?;
+    let server = buffer.server();
     let target = buffer.target()?;
-    let command = if unreact {
-        Irc::Unreact {
+    let command = match unreact {
+        true => Irc::Unreact {
             target: target.to_string(),
             msgid: msgid.clone(),
             text: text.clone(),
-        }
-    } else {
-        Irc::React {
+        },
+        false => Irc::React {
             target: target.to_string(),
             msgid: msgid.clone(),
             text: text.clone(),
-        }
+        },
     };
+
     let encoded = message::Encoded::try_from(command).ok()?;
     clients.send(buffer, encoded, TokenPriority::User);
-    let nick = clients.nickname(buffer.server())?;
-    let reaction = reaction::Context {
-        inner: Reaction {
-            sender: nick.to_owned(),
-            text,
-            unreact,
-        },
-        target,
-        in_reply_to: msgid,
-    };
-    let supports_echoes = clients.get_server_supports_echoes(buffer.server());
-    if !supports_echoes {
-        history.record_reaction(buffer.server(), reaction);
+
+    if !clients.get_server_supports_echoes(server) {
+        let nick = clients.nickname(server)?;
+        history.record_reaction(
+            server,
+            reaction::Context {
+                inner: Reaction {
+                    sender: nick.to_owned(),
+                    text,
+                    unreact,
+                },
+                target,
+                in_reply_to: msgid,
+            },
+        );
     }
+
     Some(())
 }
 
