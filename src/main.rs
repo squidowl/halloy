@@ -406,6 +406,7 @@ impl Halloy {
                     message,
                     &mut self.clients,
                     &mut self.controllers,
+                    &self.servers,
                     &mut self.theme,
                     &self.version,
                     &self.config,
@@ -436,7 +437,18 @@ impl Halloy {
                         })
                     }
                     Some(dashboard::Event::QuitServer(server, reason)) => {
+                        for bouncer_network in self.servers.keys() {
+                            if bouncer_network
+                                .parent()
+                                .is_some_and(|parent| parent == server)
+                            {
+                                self.clients
+                                    .quit(bouncer_network, reason.clone());
+                            }
+                        }
+
                         self.clients.quit(&server, reason);
+
                         Task::none()
                     }
                     Some(dashboard::Event::IrcError(e)) => {
@@ -1364,6 +1376,15 @@ fn handle_client_event(
             dashboard.add_to_sidebar(server.clone(), query);
         }
         Event::Disconnect(error) => {
+            for bouncer_network in servers.keys() {
+                if bouncer_network
+                    .parent()
+                    .is_some_and(|parent| parent == *server)
+                {
+                    controllers.disconnect(bouncer_network, error.clone());
+                }
+            }
+
             controllers.disconnect(server, error);
         }
     }
