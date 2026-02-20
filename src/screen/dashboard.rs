@@ -1512,10 +1512,11 @@ impl Dashboard {
         theme: &'a Theme,
     ) -> Element<'a, Message> {
         if let Some(state) = self.panes.popout.get(&window) {
-            let padding =
-                Padding::new(config.pane.gap.outer.into())
-                    .top(platform_specific::popped_out_window_padding(config)
-                        as f32);
+            let pane_gap = config.pane.gap.outer;
+            let top_padding =
+                platform_specific::popped_out_window_padding(config)
+                    + u32::from(pane_gap);
+            let padding = Padding::new(pane_gap.into()).top(top_padding as f32);
 
             let content = container(
                 PaneGrid::new(state, |id, pane, _maximized| {
