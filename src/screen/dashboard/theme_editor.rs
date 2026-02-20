@@ -8,7 +8,7 @@ use iced::Length::*;
 use iced::alignment::Vertical;
 use iced::widget::text::LineHeight;
 use iced::widget::{button, center, column, container, row, text_input};
-use iced::{Color, Length, Task, Vector, alignment, clipboard};
+use iced::{Color, Length, Padding, Task, Vector, alignment, clipboard};
 use strum::IntoEnumIterator;
 use tokio::time;
 
@@ -347,10 +347,16 @@ impl ThemeEditor {
         ]
         .spacing(8);
 
+        let padding = if cfg!(target_os = "macos") {
+            Padding::new(8.0).top(30.0)
+        } else {
+            Padding::new(8.0)
+        };
+
         container(content)
             .width(Length::Fill)
             .height(Length::Fill)
-            .padding(8)
+            .padding(padding)
             .style(theme::container::general)
             .into()
     }
