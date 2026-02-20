@@ -506,7 +506,6 @@ pub fn view<'a>(
                     if acc > offset {
                         break;
                     }
-                    acc += line_spacing as f32;
                     from_bottom += 1;
                 }
                 total.saturating_sub(from_bottom + visible)
@@ -520,7 +519,6 @@ pub fn view<'a>(
                     if acc > offset {
                         break;
                     }
-                    acc += line_spacing as f32;
                     idx += 1;
                 }
                 idx
