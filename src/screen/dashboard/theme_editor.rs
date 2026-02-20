@@ -7,7 +7,7 @@ use futures::TryFutureExt;
 use iced::Length::*;
 use iced::alignment::Vertical;
 use iced::widget::text::LineHeight;
-use iced::widget::{Space, button, center, column, container, row, text_input};
+use iced::widget::{button, center, column, container, row, text_input};
 use iced::{Color, Length, Padding, Task, Vector, alignment, clipboard};
 use strum::IntoEnumIterator;
 use tokio::time;
