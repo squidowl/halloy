@@ -27,6 +27,8 @@ use crate::widget::{
 };
 use crate::{Theme, font, icon, theme};
 
+const HIDDEN_TEXT_BACKLOG_DIVIDER_VERTICAL_PADDING: u16 = 2;
+const BACKLOG_DIVIDER_PADDING: u16 = 2;
 const HIDE_BUTTON_WIDTH: f32 = 22.0;
 const SCROLL_TO_TIMEOUT: Duration = Duration::from_millis(200);
 /// Pages of off-screen messages to keep rendered above and below the viewport
@@ -475,8 +477,10 @@ pub fn view<'a>(
 
     // Only create widgets for messages near the viewport, use height
     // spacers for the rest so we doesn't lay out thousands of children
-    let row_height =
-        theme::resolve_line_height(&config.font) + line_spacing as f32;
+    let row_height = theme::resolve_line_height(
+        &config.font,
+        config.font.size.map(f32::from),
+    ) + line_spacing as f32;
     let total = old_messages.len() + new_messages.len();
     let visible = (state.pane_size.height / row_height).ceil() as usize;
     let buffer = visible * BUFFER_PAGES;
@@ -557,24 +561,7 @@ pub fn view<'a>(
     let old = message_rows(old_last_date, &old_messages[old_start..old_end]);
     let new = message_rows(new_last_date, &new_messages[new_start..new_end]);
 
-    let top_spacer = (render_start > 0).then(|| {
-        let h: f32 = old_messages[..old_start]
-            .iter()
-            .chain(&new_messages[..new_start])
-            .map(&msg_height)
-            .sum();
-        space::vertical().height(h)
-    });
-    let bottom_spacer = (render_end < total).then(|| {
-        let h: f32 = old_messages[old_end..]
-            .iter()
-            .chain(&new_messages[new_end..])
-            .map(&msg_height)
-            .sum();
-        space::vertical().height(h)
-    });
-
-    let show_backlog_divier = if old.is_empty() {
+    let show_backlog_divider = if old.is_empty() {
         // If all newer messages in viewport, only show backlog divider at the top
         // if we don't have any older messages at all (we're scrolled all the way up)
         !has_more_older_messages
@@ -587,11 +574,11 @@ pub fn view<'a>(
         }
     };
 
-    let divider = if show_backlog_divier {
+    let divider = if show_backlog_divider {
         match &config.buffer.backlog_separator.text {
             data::buffer::BacklogText::Hidden => row![
                 container(rule::horizontal(1).style(theme::rule::backlog))
-                    .padding([2, 0])
+                    .padding([HIDDEN_TEXT_BACKLOG_DIVIDER_VERTICAL_PADDING, 0])
                     .width(Length::Fill)
             ]
             .padding(2)
@@ -616,6 +603,48 @@ pub fn view<'a>(
     } else {
         row![]
     };
+
+    let backlog_divider_height = if show_backlog_divider {
+        match &config.buffer.backlog_separator.text {
+            data::buffer::BacklogText::Hidden => f32::from(
+                1 + 2 * HIDDEN_TEXT_BACKLOG_DIVIDER_VERTICAL_PADDING
+                    + 2 * BACKLOG_DIVIDER_PADDING,
+            ),
+            data::buffer::BacklogText::Text(_) => {
+                theme::resolve_line_height(
+                    &config.font,
+                    Some(divider_font_size),
+                )
+                .max(1.0)
+                    + f32::from(2 * BACKLOG_DIVIDER_PADDING)
+            }
+        }
+    } else {
+        0.0
+    };
+
+    let top_spacer = (render_start > 0).then(|| {
+        let mut h: f32 = old_messages[..old_start]
+            .iter()
+            .chain(&new_messages[..new_start])
+            .map(&msg_height)
+            .sum();
+        if new_start > 0 {
+            h += backlog_divider_height;
+        }
+        space::vertical().height(h)
+    });
+    let bottom_spacer = (render_end < total).then(|| {
+        let mut h: f32 = old_messages[old_end..]
+            .iter()
+            .chain(&new_messages[new_end..])
+            .map(&msg_height)
+            .sum();
+        if old_end < old_messages.len() {
+            h += backlog_divider_height;
+        }
+        space::vertical().height(h)
+    });
 
     let content = on_resize(
         column![
@@ -930,7 +959,10 @@ impl State {
 
                 let max_offset = scrollable.max_vertical_offset();
 
-                let top_inset = theme::resolve_line_height(&config.font) * 0.5;
+                let top_inset = theme::resolve_line_height(
+                    &config.font,
+                    config.font.size.map(f32::from),
+                ) * 0.5;
 
                 let offset = (hit_bounds.y - scrollable.content.y - top_inset)
                     .max(0.0)
@@ -1349,7 +1381,10 @@ impl Status {
 }
 
 fn step_messages(height: f32, config: &Config) -> usize {
-    let line_height = theme::resolve_line_height(&config.font);
+    let line_height = theme::resolve_line_height(
+        &config.font,
+        config.font.size.map(f32::from),
+    );
 
     (height / line_height).max(8.0) as usize
 }
