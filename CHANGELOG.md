@@ -16,6 +16,7 @@ Added:
   - `quit_application` (defaults to `Ctrl+Q` on linux, not bound on Windows/MacOS)
 - Expand show_access_levels to allow all access levels (in addition to highest or no access levels) in buffer/nicklist/input
 - Configuration setting to allow locale specification used when formatting timestamps
+- Multi-line send support
 
 Fixed:
 
