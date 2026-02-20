@@ -1149,27 +1149,53 @@ fn upstream_buffer_button<'a>(
                     ),
                     Entry::Context => {
                         return container(
-                            text(match &buffer {
-                                buffer::Upstream::Server(server) => {
-                                    if let Some(network) = &server.network {
-                                        format!("{}: {server}", network.name)
-                                    } else {
-                                        format!("{server}")
+                            row![
+                                text(match &buffer {
+                                    buffer::Upstream::Server(server) => {
+                                        if let Some(network) = &server.network {
+                                            network.name.to_string()
+                                        } else {
+                                            format!("{server}")
+                                        }
+                                    }
+                                    buffer::Upstream::Channel(_, channel) => {
+                                        format!("{channel}")
+                                    }
+                                    buffer::Upstream::Query(_, query) => {
+                                        format!("{query}")
+                                    }
+                                })
+                                .style(theme::text::primary)
+                                .font_maybe(
+                                    theme::font_style::primary(theme)
+                                        .map(font::get),
+                                ),
+                                Space::new().width(6),
+                                match &buffer {
+                                    buffer::Upstream::Server(server) => {
+                                        if server.network.is_some() {
+                                            Some(server.name.to_string())
+                                        } else {
+                                            None
+                                        }
+                                    }
+                                    buffer::Upstream::Channel(server, _) => {
+                                        Some(format!("{server}"))
+                                    }
+                                    buffer::Upstream::Query(server, _) => {
+                                        Some(format!("{server}"))
                                     }
                                 }
-                                buffer::Upstream::Channel(server, channel) => {
-                                    format!("{server}: {channel}")
-                                }
-                                buffer::Upstream::Query(server, query) => {
-                                    format!("{server}: {query}")
-                                }
-                            })
-                            .width(length)
-                            .style(theme::text::secondary)
-                            .font_maybe(
-                                theme::font_style::secondary(theme)
-                                    .map(font::get),
-                            ),
+                                .map(
+                                    |secondary_name| text(secondary_name)
+                                        .style(theme::text::secondary)
+                                        .font_maybe(
+                                            theme::font_style::secondary(theme)
+                                                .map(font::get)
+                                        ),
+                                )
+                            ]
+                            .width(length),
                         )
                         .padding(config.context_menu.padding.entry)
                         .into();
