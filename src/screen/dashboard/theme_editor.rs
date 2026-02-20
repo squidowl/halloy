@@ -335,8 +335,11 @@ impl ThemeEditor {
             })
         });
 
-        let platform_specific_padding =
-            platform_specific::popped_out_window_padding(config);
+        let default_padding: u16 = 8;
+        let top_padding = platform_specific::popped_out_window_padding(config)
+            + u32::from(default_padding);
+        let padding =
+            Padding::new(default_padding.into()).top(top_padding as f32);
 
         let content = column![
             row![
@@ -357,7 +360,7 @@ impl ThemeEditor {
         container(content)
             .width(Length::Fill)
             .height(Length::Fill)
-            .padding(Padding::new(8.0).top(platform_specific_padding as f32))
+            .padding(padding)
             .style(theme::container::general)
             .into()
     }
