@@ -698,6 +698,39 @@ impl Halloy {
 
                     Task::none()
                 }
+                stream::Update::UpdateConfiguration {
+                    server,
+                    updated_config,
+                } => {
+                    let events = self.clients.update_config(
+                        &server,
+                        updated_config,
+                        false,
+                    );
+
+                    if let Screen::Dashboard(dashboard) = &mut self.screen {
+                        let mut commands = vec![];
+
+                        for event in events {
+                            handle_client_event(
+                                &server,
+                                event,
+                                dashboard,
+                                &mut commands,
+                                &mut self.clients,
+                                &self.config,
+                                &mut self.notifications,
+                                &mut self.servers,
+                                &mut self.controllers,
+                                &self.main_window,
+                            );
+                        }
+
+                        return Task::batch(commands);
+                    }
+
+                    Task::none()
+                }
             },
             Message::Event(window, event) => {
                 if let Screen::Dashboard(dashboard) = &mut self.screen {
@@ -754,29 +787,36 @@ impl Halloy {
 
                                 // If server already exists, we only want to join the new channels
                                 if let Some(entry) = existing_entry {
-                                    let chantypes =
-                                        self.clients.get_chantypes(&server);
-                                    let statusmsg =
-                                        self.clients.get_statusmsg(&server);
-                                    let casemapping =
-                                        self.clients.get_casemapping(&server);
-
-                                    self.clients.join(
+                                    let events = self.clients.update_config(
                                         &entry.server,
-                                        &config
-                                            .channels
-                                            .iter()
-                                            .filter_map(|channel| {
-                                                target::Channel::parse(
-                                                    channel,
-                                                    chantypes,
-                                                    statusmsg,
-                                                    casemapping,
-                                                )
-                                                .ok()
-                                            })
-                                            .collect::<Vec<_>>(),
+                                        Arc::new(config),
+                                        true,
                                     );
+
+                                    if let Screen::Dashboard(dashboard) =
+                                        &mut self.screen
+                                    {
+                                        let mut commands = vec![];
+
+                                        for event in events {
+                                            handle_client_event(
+                                                &server,
+                                                event,
+                                                dashboard,
+                                                &mut commands,
+                                                &mut self.clients,
+                                                &self.config,
+                                                &mut self.notifications,
+                                                &mut self.servers,
+                                                &mut self.controllers,
+                                                &self.main_window,
+                                            );
+                                        }
+
+                                        return command
+                                            .map(Message::Modal)
+                                            .chain(Task::batch(commands));
+                                    }
                                 } else {
                                     self.servers
                                         .insert(server, Arc::new(config));
@@ -1038,15 +1078,12 @@ impl Halloy {
     fn subscription(&self) -> Subscription<Message> {
         let tick = iced::time::every(Duration::from_secs(1)).map(Message::Tick);
 
-        let streams =
-            Subscription::batch(self.servers.entries().map(|entry| {
-                let proxy = match entry.config.proxy {
-                    Some(ref proxy) => Some(proxy.clone()),
-                    None => self.config.proxy.clone(),
-                };
-                stream::run(entry, proxy)
-            }))
-            .map(Message::Stream);
+        let streams = Subscription::batch(
+            self.servers
+                .entries()
+                .map(|entry| stream::run(entry, self.config.proxy.clone())),
+        )
+        .map(Message::Stream);
 
         let mut subscriptions = vec![
             url::listen().map(Message::RouteReceived),
@@ -1087,8 +1124,15 @@ impl Halloy {
 
                 for (server, config) in updated.servers.iter() {
                     let server = server.clone().into();
-                    if let Some(server) = self.servers.get_mut(&server) {
-                        *server = config.clone();
+
+                    if let Some(existing) = self.servers.get_mut(&server) {
+                        *existing = config.clone();
+
+                        self.controllers.update_config(
+                            &server,
+                            config.clone(),
+                            updated.proxy.clone(),
+                        );
                     } else {
                         self.servers.insert(server, config.clone());
                     }

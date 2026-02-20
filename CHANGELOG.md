@@ -30,6 +30,7 @@ Fixed:
 - Default proxy used when checking for an update
 - Detect system locale when formatting timestamps with locale-specific stftime formats
 - When changing connection details for server (e.g. address, port, SASL authentication, etc) the connection details will be properly updated and the connection re-initiated
+- Server configurations are properly updated when reloading configuration file
 
 Changed:
 
@@ -41,7 +42,7 @@ Thanks:
 
 - Contributions: @Hummer12007, @chamlis, @englut
 - Feature requests: @megumintyan, @4e554c4c, @RoboDanjal, @stacyharper, @zZzUP3RzZz
-- Bug reports: @someone2037492034, @deepspaceaxolotl, @whitequark
+- Bug reports: @someone2037492034, @deepspaceaxolotl, @whitequark, @sebbu2
 
 # 2026.2 (2026-02-01)
 
