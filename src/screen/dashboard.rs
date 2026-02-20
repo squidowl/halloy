@@ -21,7 +21,7 @@ use data::{
 };
 use iced::widget::pane_grid::{self, PaneGrid};
 use iced::widget::{Space, column, container, row};
-use iced::{Length, Size, Task, Vector, advanced, clipboard};
+use iced::{Length, Padding, Size, Task, Vector, advanced, clipboard};
 use irc::proto;
 
 use self::command_bar::CommandBar;
@@ -34,7 +34,9 @@ use crate::widget::{
     shortcut,
 };
 use crate::window::Window;
-use crate::{Theme, event, notification, open_url, theme, window};
+use crate::{
+    Theme, event, notification, open_url, platform_specific, theme, window,
+};
 
 mod command_bar;
 pub mod pane;
@@ -1510,6 +1512,11 @@ impl Dashboard {
         theme: &'a Theme,
     ) -> Element<'a, Message> {
         if let Some(state) = self.panes.popout.get(&window) {
+            let padding =
+                Padding::new(config.pane.gap.outer.into())
+                    .top(platform_specific::popped_out_window_padding(config)
+                        as f32);
+
             let content = container(
                 PaneGrid::new(state, |id, pane, _maximized| {
                     let is_focused = self.focus == Focus { window, pane: id };
@@ -1539,14 +1546,14 @@ impl Dashboard {
             )
             .width(Length::Fill)
             .height(Length::Fill)
-            .padding(config.pane.gap.outer);
+            .padding(padding);
 
             return Element::new(content)
                 .map(move |message| Message::Pane(window, message));
         } else if let Some(editor) = self.theme_editor.as_ref()
             && editor.window == window
         {
-            return editor.view(theme).map(Message::ThemeEditor);
+            return editor.view(config, theme).map(Message::ThemeEditor);
         }
 
         column![].into()
