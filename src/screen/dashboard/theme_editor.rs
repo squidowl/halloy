@@ -7,7 +7,7 @@ use futures::TryFutureExt;
 use iced::Length::*;
 use iced::alignment::Vertical;
 use iced::widget::text::LineHeight;
-use iced::widget::{button, center, column, container, row, text_input};
+use iced::widget::{Space, button, center, column, container, row, text_input};
 use iced::{Color, Length, Padding, Task, Vector, alignment, clipboard};
 use strum::IntoEnumIterator;
 use tokio::time;
@@ -17,7 +17,7 @@ use crate::widget::{
     Element, color_picker, combo_box, font_style_pick_list, tooltip,
 };
 use crate::window::{self, Window};
-use crate::{icon, open_url, widget};
+use crate::{icon, open_url, platform_specific, widget};
 
 #[derive(Debug, Clone)]
 pub enum Event {
@@ -256,7 +256,11 @@ impl ThemeEditor {
         (Task::none(), None)
     }
 
-    pub fn view<'a>(&'a self, theme: &'a Theme) -> Element<'a, Message> {
+    pub fn view<'a>(
+        &'a self,
+        config: &'a Config,
+        theme: &'a Theme,
+    ) -> Element<'a, Message> {
         let color = self
             .component
             .color(theme.styles())
@@ -331,6 +335,9 @@ impl ThemeEditor {
             })
         });
 
+        let platform_specific_padding =
+            platform_specific::popped_out_window_padding(config);
+
         let content = column![
             row![
                 container(component).width(Fill),
@@ -347,16 +354,10 @@ impl ThemeEditor {
         ]
         .spacing(8);
 
-        let padding = if cfg!(target_os = "macos") {
-            Padding::new(8.0).top(30.0)
-        } else {
-            Padding::new(8.0)
-        };
-
         container(content)
             .width(Length::Fill)
             .height(Length::Fill)
-            .padding(padding)
+            .padding(Padding::new(8.0).top(platform_specific_padding as f32))
             .style(theme::container::general)
             .into()
     }
