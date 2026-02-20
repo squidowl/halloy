@@ -53,6 +53,10 @@ pub enum Update {
     },
     MessagesReceived(Server, Vec<message::Encoded>),
     Remove(Server),
+    UpdateConfiguration {
+        server: Server,
+        updated_config: Arc<config::Server>,
+    },
 }
 
 enum State {
@@ -83,6 +87,7 @@ pub enum Control {
     Disconnect(Option<String>),
     Connect,
     End(Option<String>),
+    UpdateConfiguration(Arc<config::Server>, Option<config::Proxy>),
 }
 
 struct Stream {
@@ -106,10 +111,10 @@ pub fn run(
 
 async fn _run(
     server: server::Entry,
-    proxy: Option<config::Proxy>,
+    mut default_proxy: Option<config::Proxy>,
     sender: mpsc::UnboundedSender<Update>,
 ) -> Never {
-    let server::Entry { server, config } = server;
+    let server::Entry { server, mut config } = server;
 
     let (controller, mut control) = mpsc::channel(20);
 
@@ -118,12 +123,10 @@ async fn _run(
         controller,
     });
 
-    let reconnect_delay = Duration::from_secs(config.reconnect_delay);
-
     let mut is_initial = true;
     let mut state = State::Disconnected {
         autoconnect: config.autoconnect,
-        retry: time::interval(reconnect_delay),
+        retry: time::interval(config.reconnect_delay),
     };
 
     // Notify app of initial disconnected state
@@ -155,6 +158,18 @@ async fn _run(
                 };
 
                 match selection {
+                    Some(Control::UpdateConfiguration(
+                        updated_config,
+                        updated_default_proxy,
+                    )) => {
+                        config = updated_config;
+                        default_proxy = updated_default_proxy;
+
+                        state = State::Disconnected {
+                            autoconnect: config.autoconnect,
+                            retry: time::interval(config.reconnect_delay),
+                        };
+                    }
                     Some(Control::Disconnect(_)) => {
                         *autoconnect = false;
                     }
@@ -167,7 +182,11 @@ async fn _run(
                         match connect(
                             server.clone(),
                             config.clone(),
-                            proxy.clone(),
+                            config
+                                .proxy
+                                .as_ref()
+                                .or(default_proxy.as_ref())
+                                .cloned(),
                         )
                         .await
                         {
@@ -222,9 +241,7 @@ async fn _run(
                     Some(Control::End(_)) => {
                         state = State::End;
                     }
-                    None => {
-                        println!("here?");
-                    }
+                    None => (),
                 }
             }
             State::Connected {
@@ -303,8 +320,8 @@ async fn _run(
                                 state = State::Disconnected {
                                     autoconnect: false,
                                     retry: time::interval_at(
-                                        Instant::now() + reconnect_delay,
-                                        reconnect_delay,
+                                        Instant::now() + config.reconnect_delay,
+                                        config.reconnect_delay,
                                     ),
                                 };
                             } else {
@@ -320,8 +337,8 @@ async fn _run(
                                 state = State::Disconnected {
                                     autoconnect: true,
                                     retry: time::interval_at(
-                                        Instant::now() + reconnect_delay,
-                                        reconnect_delay,
+                                        Instant::now() + config.reconnect_delay,
+                                        config.reconnect_delay,
                                     ),
                                 };
                             }
@@ -344,8 +361,8 @@ async fn _run(
                         state = State::Disconnected {
                             autoconnect: true,
                             retry: time::interval_at(
-                                Instant::now() + reconnect_delay,
-                                reconnect_delay,
+                                Instant::now() + config.reconnect_delay,
+                                config.reconnect_delay,
                             ),
                         };
                     }
@@ -393,12 +410,70 @@ async fn _run(
                         state = State::Disconnected {
                             autoconnect: true,
                             retry: time::interval_at(
-                                Instant::now() + reconnect_delay,
-                                reconnect_delay,
+                                Instant::now() + config.reconnect_delay,
+                                config.reconnect_delay,
                             ),
                         };
                     }
                     Input::Control(control) => match control {
+                        Control::UpdateConfiguration(
+                            updated_config,
+                            updated_default_proxy,
+                        ) => {
+                            // If connection detail(s) change, then disconnect
+                            if config.server != updated_config.server
+                                || config.port != updated_config.port
+                                || config.use_tls != updated_config.use_tls
+                                || config.dangerously_accept_invalid_certs
+                                    != updated_config
+                                        .dangerously_accept_invalid_certs
+                                || config.root_cert_path
+                                    != updated_config.root_cert_path
+                                || config
+                                    .proxy
+                                    .as_ref()
+                                    .or(default_proxy.as_ref())
+                                    != updated_config
+                                        .proxy
+                                        .as_ref()
+                                        .or(updated_default_proxy.as_ref())
+                                || config.username != updated_config.username
+                                || config.password != updated_config.password
+                                || config.password_file
+                                    != updated_config.password_file
+                                || config.password_file_first_line_only
+                                    != updated_config
+                                        .password_file_first_line_only
+                                || config.password_command
+                                    != updated_config.password_command
+                                || config.sasl != updated_config.sasl
+                            {
+                                let _ = sender.unbounded_send(
+                                    Update::Disconnected {
+                                        server: server.clone(),
+                                        is_initial,
+                                        error: None,
+                                        sent_time: Utc::now(),
+                                    },
+                                );
+                                state = State::Disconnected {
+                                    autoconnect: updated_config.autoconnect,
+                                    retry: time::interval(
+                                        config.reconnect_delay,
+                                    ),
+                                };
+                            } else {
+                                let _ = sender.unbounded_send(
+                                    Update::UpdateConfiguration {
+                                        server: server.clone(),
+                                        updated_config: updated_config.clone(),
+                                    },
+                                );
+                            }
+
+                            config = updated_config;
+                            default_proxy = updated_default_proxy;
+                        }
                         Control::Connect => (),
                         Control::Disconnect(error) => {
                             let _ =
@@ -411,8 +486,8 @@ async fn _run(
                             state = State::Disconnected {
                                 autoconnect: false,
                                 retry: time::interval_at(
-                                    Instant::now() + reconnect_delay,
-                                    reconnect_delay,
+                                    Instant::now() + config.reconnect_delay,
+                                    config.reconnect_delay,
                                 ),
                             };
                         }
@@ -528,6 +603,18 @@ impl Map {
         controller: mpsc::Sender<Control>,
     ) {
         self.0.insert(server, controller);
+    }
+
+    pub fn update_config(
+        &mut self,
+        server: &Server,
+        config: Arc<config::Server>,
+        default_proxy: Option<config::Proxy>,
+    ) {
+        if let Some(controller) = self.0.get_mut(server) {
+            let _ = controller
+                .try_send(Control::UpdateConfiguration(config, default_proxy));
+        }
     }
 
     pub fn disconnect(&mut self, server: &Server, error: Option<String>) {

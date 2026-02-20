@@ -2,7 +2,7 @@ use std::fmt;
 
 use serde::Deserialize;
 
-#[derive(Debug, Clone, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum Proxy {
     Http {

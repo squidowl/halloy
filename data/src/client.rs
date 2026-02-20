@@ -288,6 +288,111 @@ impl Client {
         Ok(())
     }
 
+    pub fn update_config(
+        &mut self,
+        config: Arc<config::Server>,
+        from_modal: bool,
+    ) -> Vec<Event> {
+        if self.registration_step == RegistrationStep::Complete {
+            self.join(
+                &config
+                    .channels
+                    .iter()
+                    .filter_map(|channel| {
+                        target::Channel::parse(
+                            channel,
+                            self.chantypes(),
+                            self.statusmsg(),
+                            self.casemapping(),
+                        )
+                        .ok()
+                    })
+                    .filter(|channel| !self.chanmap.contains_key(channel))
+                    .collect::<Vec<_>>(),
+            );
+
+            if !config.monitor.is_empty()
+                && config.monitor != self.config.monitor
+            {
+                if let Some(isupport::Parameter::MONITOR(monitor_limit)) =
+                    self.isupport.get(&isupport::Kind::MONITOR)
+                {
+                    if let Err(e) =
+                        self.handle.try_send(command!("MONITOR", "C"))
+                    {
+                        log::warn!(
+                            "[{}] Error clearing monitor: {e}",
+                            self.server
+                        );
+                    }
+
+                    let messages = group_monitors(
+                        &config.monitor,
+                        *monitor_limit,
+                        find_target_limit(&self.isupport, "MONITOR"),
+                        &self.server,
+                    );
+
+                    for message in messages {
+                        if let Err(e) = self.handle.try_send(message) {
+                            log::warn!(
+                                "[{}] Error sending monitor: {e}",
+                                self.server
+                            );
+                        }
+                    }
+                } else {
+                    log::warn!(
+                        "[{}] Monitor list configured for, but is not supported by the server",
+                        self.server,
+                    );
+                }
+            }
+        }
+
+        let events = config
+            .queries
+            .iter()
+            .filter_map(|query| {
+                target::Query::parse(
+                    query,
+                    self.chantypes(),
+                    self.statusmsg(),
+                    self.casemapping(),
+                )
+                .ok()
+                .map(Event::AddToSidebar)
+            })
+            .collect::<Vec<_>>();
+
+        if from_modal {
+            return events;
+        }
+
+        if self.config.who_poll_enabled != config.who_poll_enabled {
+            if config.who_poll_enabled {
+                for channel in self.chanmap.keys() {
+                    self.who_polls.push_back(WhoPoll {
+                        channel: channel.clone(),
+                        status: WhoStatus::Joined,
+                    });
+                }
+            } else {
+                self.who_polls.retain(|who_poll| {
+                    matches!(
+                        who_poll.status,
+                        WhoStatus::Requested(_, _, _)
+                            | WhoStatus::Receiving(_, _)
+                    )
+                });
+            }
+        }
+
+        self.config = config;
+
+        events
+    }
+
     fn quit(&mut self, reason: Option<String>) {
         self.who_polls.retain(|who_poll| {
             matches!(
@@ -1811,7 +1916,7 @@ impl Client {
                         {
                             who_poll.status =
                                 WhoStatus::Receiving(source.clone(), None);
-                            log::debug!(
+                            log::trace!(
                                 "[{}] {channel} - WHO receiving...",
                                 self.server
                             );
@@ -1869,7 +1974,7 @@ impl Client {
                                         source.clone(),
                                         Some(*request_token),
                                     );
-                                    log::debug!(
+                                    log::trace!(
                                         "[{}] {channel} - WHO receiving...",
                                         self.server
                                     );
@@ -1885,7 +1990,7 @@ impl Client {
                                     Some(*request_token),
                                 );
 
-                                log::debug!(
+                                log::trace!(
                                     "[{}] {channel} - WHO receiving...",
                                     self.server
                                 );
@@ -1994,7 +2099,7 @@ impl Client {
                         }
                     }
 
-                    log::debug!("[{}] {mask} - WHO done", self.server);
+                    log::trace!("[{}] {mask} - WHO done", self.server);
 
                     if let Some(client_channel) =
                         self.chanmap.get_mut(&target_channel)
@@ -3302,7 +3407,7 @@ impl Client {
             };
 
             if let Some(request) = request {
-                log::debug!(
+                log::trace!(
                     "[{}] {} - WHO {}",
                     self.server,
                     who_poll.channel,
@@ -3572,6 +3677,19 @@ impl Map {
 
     pub fn ready(&mut self, server: Server, client: Client) {
         self.0.insert(server, State::Ready(client));
+    }
+
+    pub fn update_config(
+        &mut self,
+        server: &Server,
+        config: Arc<config::Server>,
+        from_modal: bool,
+    ) -> Vec<Event> {
+        if let Some(State::Ready(client)) = self.0.get_mut(server) {
+            client.update_config(config, from_modal)
+        } else {
+            vec![]
+        }
     }
 
     pub fn is_empty(&self) -> bool {
