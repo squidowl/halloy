@@ -28,9 +28,8 @@ use crate::target::{self, Target};
 use crate::time::Posix;
 use crate::user::{ChannelUsers, Nick, NickRef};
 use crate::{
-    Server, User, buffer, channel_discovery, compression, config,
-    config::sidebar::OrderChannelsBy, ctcp, dcc, environment, file_transfer,
-    history, isupport, message, mode, server,
+    Server, User, buffer, channel_discovery, compression, config, ctcp, dcc,
+    environment, file_transfer, history, isupport, message, mode, server,
 };
 
 pub mod on_connect;
@@ -1693,8 +1692,8 @@ impl Client {
                 ));
 
                 let include_prefix = match config.sidebar.order_channels_by {
-                    OrderChannelsBy::Name => false,
-                    OrderChannelsBy::NameAndPrefix => true,
+                    config::sidebar::OrderChannelsBy::Name => false,
+                    config::sidebar::OrderChannelsBy::NameAndPrefix => true,
                 };
 
                 if user.nickname() == self.nickname() {
