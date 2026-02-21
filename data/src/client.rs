@@ -3418,8 +3418,8 @@ impl Client {
     }
 }
 
-// If `include_chantypes` is false, this will sort channels together which have similar names when
-// the chantype prefix (sometimes multiplied) is removed.
+// If config.sidebar.order_channels_by is `name-and-prefix` this will sort channels together which
+// have similar names when the chantype prefix (sometimes multiplied) is removed.
 // e.g., '#chat', '##chat-offtopic' and '&chat-local' all get sorted together instead of in
 // wildly different places.
 fn compare_channels(
