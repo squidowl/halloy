@@ -1699,6 +1699,7 @@ impl Client {
                         |c1, _, c2, _| {
                             compare_channels(
                                 &chantypes,
+                                config.sidebar.order_channels_by,
                                 c1.as_normalized_str(),
                                 c2.as_normalized_str(),
                             )
@@ -3417,12 +3418,21 @@ impl Client {
     }
 }
 
-// TODO allow configuring the "sorting method"
-// this function sorts channels together which have similar names when the chantype prefix
-// (sometimes multiplied) is removed
-// e.g. '#chat', '##chat-offtopic' and '&chat-local' all get sorted together instead of in
+// If config.sidebar.order_channels_by is `name-and-prefix` this will sort channels together which
+// have similar names when the chantype prefix (sometimes multiplied) is removed.
+// e.g., '#chat', '##chat-offtopic' and '&chat-local' all get sorted together instead of in
 // wildly different places.
-fn compare_channels(chantypes: &[char], a: &str, b: &str) -> Ordering {
+fn compare_channels(
+    chantypes: &[char],
+    order_channels_by: config::sidebar::OrderChannelsBy,
+    a: &str,
+    b: &str,
+) -> Ordering {
+    match order_channels_by {
+        config::sidebar::OrderChannelsBy::NameAndPrefix => return a.cmp(b),
+        config::sidebar::OrderChannelsBy::Name => {}
+    }
+
     let (Some(a_chantype), Some(b_chantype)) =
         (a.chars().next(), b.chars().next())
     else {
