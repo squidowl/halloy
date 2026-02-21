@@ -24,6 +24,7 @@ pub struct Sidebar {
     pub user_menu: UserMenu,
     pub padding: Padding,
     pub spacing: Spacing,
+    pub channels_sort_include_prefix: bool,
 }
 
 #[derive(Debug, Clone, Deserialize)]
