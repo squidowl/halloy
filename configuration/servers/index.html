@@ -34,7 +34,7 @@
             const path_to_root = "../../";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../../searchindex-bf9c1a89.js";
+            window.path_to_searchindex_js = "../../searchindex-c0072de3.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="../../toc-ac22d4e6.js"></script>
@@ -221,6 +221,7 @@
 <li><a href="#monitor">monitor</a></li>
 <li><a href="#chathistory">chathistory</a></li>
 <li><a href="#proxy">proxy</a></li>
+<li><a href="#autoconnect">autoconnect</a></li>
 </ul>
 </li>
 <li><a href="#filters">Filters</a></li>
@@ -560,6 +561,15 @@ host = "192.168.1.100"
 port = 1080
 username = "username"
 password = "password"
+</code></pre>
+<h3 id="autoconnect"><a class="header" href="#autoconnect">autoconnect</a></h3>
+<p>Whether or not to connect to the server when launching Halloy or when changing the connection details in the server configuration.</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: true
+
+[servers.&lt;name&gt;]
+autoconnect = true
 </code></pre>
 <h2 id="filters"><a class="header" href="#filters"><a href="filters.html">Filters</a></a></h2>
 <p>Filter messages based on various criteria</p>
