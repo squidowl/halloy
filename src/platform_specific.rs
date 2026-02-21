@@ -21,6 +21,17 @@ pub fn content_padding(config: &Config) -> u32 {
     }
 }
 
+pub fn popped_out_window_padding(config: &Config) -> u32 {
+    if cfg!(target_os = "macos") {
+        match config.platform_specific.macos.content_padding {
+            platform_specific::TitlebarPadding::EmbeddedContent => 30,
+            platform_specific::TitlebarPadding::PaddedContent => 0,
+        }
+    } else {
+        0
+    }
+}
+
 /// Returns the sidebar padding based on platform and configuration..
 pub fn sidebar_padding(config: &Config) -> u32 {
     if cfg!(target_os = "macos") {

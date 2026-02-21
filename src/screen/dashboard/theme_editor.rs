@@ -8,7 +8,7 @@ use iced::Length::*;
 use iced::alignment::Vertical;
 use iced::widget::text::LineHeight;
 use iced::widget::{button, center, column, container, row, text_input};
-use iced::{Color, Length, Task, Vector, alignment, clipboard};
+use iced::{Color, Length, Padding, Task, Vector, alignment, clipboard};
 use strum::IntoEnumIterator;
 use tokio::time;
 
@@ -17,7 +17,7 @@ use crate::widget::{
     Element, color_picker, combo_box, font_style_pick_list, tooltip,
 };
 use crate::window::{self, Window};
-use crate::{icon, open_url, widget};
+use crate::{icon, open_url, platform_specific, widget};
 
 #[derive(Debug, Clone)]
 pub enum Event {
@@ -256,7 +256,11 @@ impl ThemeEditor {
         (Task::none(), None)
     }
 
-    pub fn view<'a>(&'a self, theme: &'a Theme) -> Element<'a, Message> {
+    pub fn view<'a>(
+        &'a self,
+        config: &'a Config,
+        theme: &'a Theme,
+    ) -> Element<'a, Message> {
         let color = self
             .component
             .color(theme.styles())
@@ -331,6 +335,12 @@ impl ThemeEditor {
             })
         });
 
+        let default_padding: u16 = 8;
+        let top_padding = platform_specific::popped_out_window_padding(config)
+            + u32::from(default_padding);
+        let padding =
+            Padding::new(default_padding.into()).top(top_padding as f32);
+
         let content = column![
             row![
                 container(component).width(Fill),
@@ -350,7 +360,7 @@ impl ThemeEditor {
         container(content)
             .width(Length::Fill)
             .height(Length::Fill)
-            .padding(8)
+            .padding(padding)
             .style(theme::container::general)
             .into()
     }
