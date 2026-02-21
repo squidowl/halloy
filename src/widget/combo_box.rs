@@ -742,6 +742,7 @@ where
                 menu,
                 &filtered_options.options,
                 hovered_option,
+                &T::to_string,
                 |x| (self.on_selected)(x),
                 self.on_option_hovered.as_deref(),
                 &self.menu_class,
