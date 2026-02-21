@@ -33,7 +33,6 @@ tokio-rustls = { version = "0.26.0", default-features = false, features = [
 ] }
 tokio-util = { version = "0.7", features = ["codec"] }
 rustls-native-certs = "0.8.1"
-rustls-pemfile = "2.1.1"
 xz2 = { version = "0.1.7", features = ["static"] }
 
 [dependencies.proto]
