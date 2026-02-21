@@ -15,7 +15,6 @@ path = "src/bin.rs"
 required-features = ["message_tests"]
 
 [features]
-dev = []
 tor = ["irc/tor"]
 message_tests = ["iced/tokio"]
 

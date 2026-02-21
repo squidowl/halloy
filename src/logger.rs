@@ -36,7 +36,7 @@ pub fn setup(
         ));
     });
 
-    if is_debug || cfg!(feature = "dev") {
+    if is_debug {
         io_sink = io_sink.chain(std::io::stdout());
     } else {
         let log_file = data::log::file()?;
