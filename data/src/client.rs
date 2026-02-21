@@ -2359,7 +2359,7 @@ impl Client {
                     ));
                 }
                 // Exclude topic message from history to prevent spam during dev
-                #[cfg(feature = "dev")]
+                #[cfg(debug_assertions)]
                 return Ok(vec![]);
             }
             Command::Numeric(RPL_TOPICWHOTIME, args) => {
@@ -2386,7 +2386,7 @@ impl Client {
                         })?);
                 }
                 // Exclude topic message from history to prevent spam during dev
-                #[cfg(feature = "dev")]
+                #[cfg(debug_assertions)]
                 return Ok(vec![]);
             }
             Command::Numeric(RPL_NOTOPIC, args) => {
