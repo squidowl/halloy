@@ -1691,22 +1691,22 @@ impl Client {
                     casemapping,
                 ));
 
-                let include_prefix = match config.sidebar.order_channels_by {
-                    config::sidebar::OrderChannelsBy::Name => false,
-                    config::sidebar::OrderChannelsBy::NameAndPrefix => true,
-                };
-
                 if user.nickname() == self.nickname() {
                     let chantypes = self.chantypes().to_vec();
+                    let include_chantypes = match config.sidebar.order_channels_by
+                    {
+                        config::sidebar::OrderChannelsBy::Name => false,
+                        config::sidebar::OrderChannelsBy::NameAndPrefix => true,
+                    };
                     let _ = self.chanmap.insert_sorted_by(
                         target_channel.clone(),
                         Channel::default(),
                         |c1, _, c2, _| {
                             compare_channels(
                                 &chantypes,
+                                include_chantypes,
                                 c1.as_normalized_str(),
                                 c2.as_normalized_str(),
-                                include_prefix,
                             )
                         },
                     );
@@ -3423,17 +3423,17 @@ impl Client {
     }
 }
 
-// If `include_prefix` is false, this will sort channels together which have similar names when the
-// chantype prefix (sometimes multiplied) is removed.
+// If `include_chantypes` is false, this will sort channels together which have similar names when
+// the chantype prefix (sometimes multiplied) is removed.
 // e.g., '#chat', '##chat-offtopic' and '&chat-local' all get sorted together instead of in
 // wildly different places.
 fn compare_channels(
     chantypes: &[char],
+    include_chantypes: bool,
     a: &str,
     b: &str,
-    include_prefix: bool,
 ) -> Ordering {
-    if include_prefix {
+    if include_chantypes {
         return a.cmp(b);
     }
 
