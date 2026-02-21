@@ -6,8 +6,8 @@ use tokio::fs;
 use tokio_rustls::TlsConnector;
 use tokio_rustls::client::TlsStream;
 use tokio_rustls::rustls::client::danger::{self, ServerCertVerifier};
-use tokio_rustls::rustls::{self, pki_types};
 use tokio_rustls::rustls::pki_types::pem::PemObject;
+use tokio_rustls::rustls::{self, pki_types};
 
 use super::IrcStream;
 
