@@ -34,7 +34,7 @@ Changed:
 
 Thanks:
 
-- Contributions: @Hummer12007, @chamlis
+- Contributions: @Hummer12007, @chamlis, @englut
 - Feature requests: @megumintyan, @4e554c4c, @RoboDanjal
 - Bug reports: @someone2037492034, @deepspaceaxolotl
 
