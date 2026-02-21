@@ -32,6 +32,7 @@ fn default(theme: &Theme, status: Status) -> Style {
                     theme.styles().buttons.secondary.background_selected
                 }
             }
+            Status::Disabled => theme.styles().buttons.secondary.background,
         }),
         border: Border {
             radius: 4.0.into(),

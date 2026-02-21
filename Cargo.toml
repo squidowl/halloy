@@ -22,7 +22,7 @@ edition = "2024"
 
 [workspace.dependencies]
 tokio = { version = "1.44.0" }
-futures = "0.3.30"
+futures = "0.3.32"
 thiserror = "2.0.12"
 chrono = { version = "0.4.40", features = ['serde', 'unstable-locales'] }
 bytes = "1.10.1"
@@ -148,9 +148,9 @@ embed-resource = "3.0.2"
 windows_exe_info = "0.4"
 
 [patch.crates-io]
-iced = { git = "https://github.com/squidowl/iced", rev = "19f12c509614465cb93f078d33581f48ead78fdd" }
-iced_core = { git = "https://github.com/squidowl/iced", rev = "19f12c509614465cb93f078d33581f48ead78fdd" }
-iced_wgpu = { git = "https://github.com/squidowl/iced", rev = "19f12c509614465cb93f078d33581f48ead78fdd" }
+iced = { git = "https://github.com/squidowl/iced", rev = "af28bbe8de1dfafa2ebe7a3ac96ebcc87ae05538" }
+iced_core = { git = "https://github.com/squidowl/iced", rev = "af28bbe8de1dfafa2ebe7a3ac96ebcc87ae05538" }
+iced_wgpu = { git = "https://github.com/squidowl/iced", rev = "af28bbe8de1dfafa2ebe7a3ac96ebcc87ae05538" }
 
 [profile.ci]
 inherits = "dev"
