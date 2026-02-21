@@ -40,6 +40,8 @@ pub enum Message {
     MarkAsRead(buffer::Upstream),
     MarkServerAsRead(Server),
     QuitApplication,
+    Connect(Server),
+    Remove(Server),
 }
 
 #[derive(Debug, Clone)]
@@ -63,6 +65,8 @@ pub enum Event {
     MarkAsRead(buffer::Upstream),
     MarkServerAsRead(Server),
     QuitApplication,
+    Connect(Server),
+    Remove(Server),
 }
 
 #[derive(Clone)]
@@ -159,6 +163,12 @@ impl Sidebar {
             }
             Message::OpenConfigFile => {
                 (Task::none(), Some(Event::OpenConfigFile))
+            }
+            Message::Connect(server) => {
+                (Task::none(), Some(Event::Connect(server)))
+            }
+            Message::Remove(server) => {
+                (Task::none(), Some(Event::Remove(server)))
             }
         }
     }
@@ -708,16 +718,20 @@ impl Menu {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 enum Entry {
+    Context,
+    HorizontalRule,
+    Connect,
     Close(window::Id, pane_grid::Pane),
     CloseAllQueries,
-    Detach,
-    Leave,
     MarkAsRead,
     MarkServerAsRead,
     NewPane,
     Popout,
     Replace,
     Swap(window::Id, pane_grid::Pane),
+    Detach,
+    Leave,
+    Remove,
 }
 
 impl Entry {
@@ -726,6 +740,7 @@ impl Entry {
         num_panes: usize,
         open: Option<(window::Id, pane_grid::Pane)>,
         focus: Focus,
+        connected: bool,
         supports_detach: bool,
     ) -> Vec<Self> {
         use Entry::*;
@@ -733,8 +748,14 @@ impl Entry {
 
         itertools::chain!(
             match buffer {
-                buffer::Upstream::Server(_) =>
-                    vec![CloseAllQueries, MarkServerAsRead],
+                buffer::Upstream::Server(_) => if connected {
+                    vec![CloseAllQueries, MarkServerAsRead]
+                } else {
+                    vec![Connect, Remove]
+                }
+                .into_iter()
+                .chain(vec![Context, HorizontalRule])
+                .collect_vec(),
                 buffer::Upstream::Channel(_, _) => vec![],
                 buffer::Upstream::Query(_, _) => vec![],
             },
@@ -756,7 +777,7 @@ impl Entry {
                     )
                     .collect_vec(),
             },
-            vec![Leave]
+            if connected { vec![Leave] } else { vec![] },
         )
         .sorted()
         .collect_vec()
@@ -1025,10 +1046,16 @@ fn upstream_buffer_button<'a>(
                 }
             });
 
-    let entries =
-        Entry::list(&buffer, panes.len(), open, focus, supports_detach);
+    let entries = Entry::list(
+        &buffer,
+        panes.len(),
+        open,
+        focus,
+        connected,
+        supports_detach,
+    );
 
-    if entries.is_empty() || !connected {
+    if entries.is_empty() {
         base.into()
     } else {
         context_menu(
@@ -1104,12 +1131,85 @@ fn upstream_buffer_button<'a>(
                     ),
                     Entry::Leave => (
                         match &buffer {
-                            buffer::Upstream::Server(_) => "Leave server",
+                            buffer::Upstream::Server(_) => {
+                                "Disconnect from server"
+                            }
                             buffer::Upstream::Channel(_, _) => "Leave channel",
                             buffer::Upstream::Query(_, _) => "Close query",
                         },
                         Some(Message::Leave(buffer.clone())),
                     ),
+                    Entry::Connect => (
+                        "Connect to server",
+                        Some(Message::Connect(buffer.server().clone())),
+                    ),
+                    Entry::Remove => (
+                        "Remove server from sidebar",
+                        Some(Message::Remove(buffer.server().clone())),
+                    ),
+                    Entry::Context => {
+                        return container(
+                            row![
+                                text(match &buffer {
+                                    buffer::Upstream::Server(server) => {
+                                        if let Some(network) = &server.network {
+                                            network.name.to_string()
+                                        } else {
+                                            format!("{server}")
+                                        }
+                                    }
+                                    buffer::Upstream::Channel(_, channel) => {
+                                        format!("{channel}")
+                                    }
+                                    buffer::Upstream::Query(_, query) => {
+                                        format!("{query}")
+                                    }
+                                })
+                                .style(theme::text::primary)
+                                .font_maybe(
+                                    theme::font_style::primary(theme)
+                                        .map(font::get),
+                                ),
+                                Space::new().width(6),
+                                match &buffer {
+                                    buffer::Upstream::Server(server) => {
+                                        if server.network.is_some() {
+                                            Some(server.name.to_string())
+                                        } else {
+                                            None
+                                        }
+                                    }
+                                    buffer::Upstream::Channel(server, _) => {
+                                        Some(format!("{server}"))
+                                    }
+                                    buffer::Upstream::Query(server, _) => {
+                                        Some(format!("{server}"))
+                                    }
+                                }
+                                .map(
+                                    |secondary_name| text(secondary_name)
+                                        .style(theme::text::secondary)
+                                        .font_maybe(
+                                            theme::font_style::secondary(theme)
+                                                .map(font::get)
+                                        ),
+                                )
+                            ]
+                            .width(length),
+                        )
+                        .padding(config.context_menu.padding.entry)
+                        .into();
+                    }
+                    Entry::HorizontalRule => match length {
+                        Length::Fill => {
+                            return container(rule::horizontal(1))
+                                .padding([0, 6])
+                                .into();
+                        }
+                        _ => {
+                            return Space::new().width(length).height(1).into();
+                        }
+                    },
                 };
 
                 button(text(content))

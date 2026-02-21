@@ -39,6 +39,7 @@ You can define multiple server sections in the configuration file. Each server s
     - [monitor](#monitor)
     - [chathistory](#chathistory)
     - [proxy](#proxy)
+    - [autoconnect](#autoconnect)
   - [Filters](#filters)
   - [SASL Plain](#sasl-plain)
   - [SASL External](#sasl-external)
@@ -513,6 +514,19 @@ host = "192.168.1.100"
 port = 1080
 username = "username"
 password = "password"
+```
+
+### autoconnect
+
+Whether or not to connect to the server when launching Halloy or when changing the connection details in the server configuration.
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: true
+
+[servers.<name>]
+autoconnect = true
 ```
 
 ## [Filters](filters.md)
