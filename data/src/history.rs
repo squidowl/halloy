@@ -23,10 +23,7 @@ pub mod filter;
 pub mod manager;
 pub mod metadata;
 
-// TODO: Make this configurable?
-/// Max # messages to persist
-const MAX_MESSAGES: usize = 10_000;
-/// # messages to truncate after hitting [`MAX_MESSAGES`]
+/// Messages to truncate after hitting max messages limit
 const TRUNC_COUNT: usize = 500;
 /// Duration to wait after receiving last message before flushing
 const FLUSH_AFTER_LAST_RECEIVED: Duration = Duration::from_secs(5);
@@ -214,12 +211,17 @@ pub async fn overwrite(
     kind: &Kind,
     messages: &[Message],
     read_marker: Option<ReadMarker>,
+    max_messages: usize,
 ) -> Result<(), Error> {
+    if max_messages == 0 {
+        return Ok(());
+    }
+
     if messages.is_empty() {
         return metadata::save(kind, messages, read_marker).await;
     }
 
-    let latest = &messages[messages.len().saturating_sub(MAX_MESSAGES)..];
+    let latest = &messages[messages.len().saturating_sub(max_messages)..];
 
     let path = path(kind).await?;
     let compressed = compression::compress(&latest)?;
@@ -236,7 +238,12 @@ pub async fn append(
     seed: Option<Seed>,
     messages: Vec<Message>,
     read_marker: Option<ReadMarker>,
+    max_messages: usize,
 ) -> Result<(), Error> {
+    if max_messages == 0 {
+        return Ok(());
+    }
+
     let loaded = load(kind.clone(), seed).await?;
 
     let mut all_messages = loaded.messages;
@@ -244,7 +251,7 @@ pub async fn append(
         insert_message(&mut all_messages, message);
     });
 
-    overwrite(kind, &all_messages, read_marker).await
+    overwrite(kind, &all_messages, read_marker, max_messages).await
 }
 
 pub async fn delete(kind: &Kind) -> Result<(), Error> {
@@ -550,7 +557,12 @@ impl History {
         &mut self,
         now: Option<Instant>,
         seed: Option<Seed>,
+        max_messages: usize,
     ) -> Option<BoxFuture<'static, Result<(), Error>>> {
+        if max_messages == 0 {
+            return None;
+        }
+
         match self {
             History::Partial {
                 kind,
@@ -573,7 +585,14 @@ impl History {
 
                     return Some(
                         async move {
-                            append(&kind, seed, messages, read_marker).await
+                            append(
+                                &kind,
+                                seed,
+                                messages,
+                                read_marker,
+                                max_messages,
+                            )
+                            .await
                         }
                         .boxed(),
                     );
@@ -599,17 +618,27 @@ impl History {
                     let read_marker = *read_marker;
                     *last_updated_at = None;
 
-                    if messages.len() > MAX_MESSAGES {
-                        messages.drain(
-                            0..messages.len() - (MAX_MESSAGES - TRUNC_COUNT),
-                        );
+                    if messages.len() > max_messages {
+                        let keep = if max_messages > TRUNC_COUNT * 2 {
+                            max_messages - TRUNC_COUNT
+                        } else {
+                            max_messages / 2
+                        }
+                        .max(1);
+                        messages.drain(0..messages.len() - keep);
                     }
 
                     let messages = messages.clone();
 
                     return Some(
                         async move {
-                            overwrite(&kind, &messages, read_marker).await
+                            overwrite(
+                                &kind,
+                                &messages,
+                                read_marker,
+                                max_messages,
+                            )
+                            .await
                         }
                         .boxed(),
                     );
@@ -622,6 +651,7 @@ impl History {
 
     fn make_partial(
         &mut self,
+        max_messages: usize,
     ) -> Option<impl Future<Output = Result<(), Error>> + use<>> {
         match self {
             History::Partial { .. } => None,
@@ -654,27 +684,39 @@ impl History {
                     last_seen: last_seen.clone(),
                 };
 
-                Some(
-                    async move { overwrite(&kind, &messages, read_marker).await },
-                )
+                if max_messages == 0 {
+                    return None;
+                }
+
+                Some(async move {
+                    overwrite(&kind, &messages, read_marker, max_messages).await
+                })
             }
         }
     }
 
-    async fn close(self, seed: Option<Seed>) -> Result<(), Error> {
+    async fn close(
+        self,
+        seed: Option<Seed>,
+        max_messages: usize,
+    ) -> Result<(), Error> {
+        if max_messages == 0 {
+            return Ok(());
+        }
+
         match self {
             History::Partial {
                 kind,
                 messages,
                 read_marker,
                 ..
-            } => append(&kind, seed, messages, read_marker).await,
+            } => append(&kind, seed, messages, read_marker, max_messages).await,
             History::Full {
                 kind,
                 messages,
                 read_marker,
                 ..
-            } => overwrite(&kind, &messages, read_marker).await,
+            } => overwrite(&kind, &messages, read_marker, max_messages).await,
         }
     }
 
