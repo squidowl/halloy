@@ -1,3 +1,4 @@
+use std::collections::{BTreeMap, HashSet};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -25,6 +26,14 @@ pub enum Error {
 
 #[derive(Debug)]
 pub enum Update {
+    Controller {
+        server: Server,
+        controller: mpsc::Sender<Control>,
+    },
+    Connecting {
+        server: Server,
+        sent_time: DateTime<Utc>,
+    },
     Connected {
         server: Server,
         client: Client,
@@ -43,21 +52,26 @@ pub enum Update {
         sent_time: DateTime<Utc>,
     },
     MessagesReceived(Server, Vec<message::Encoded>),
-    Quit(Server, Option<String>),
+    Remove(Server),
+    UpdateConfiguration {
+        server: Server,
+        updated_config: Arc<config::Server>,
+    },
 }
 
 enum State {
     Disconnected {
-        last_retry: Option<Instant>,
+        autoconnect: bool,
+        retry: Interval,
     },
     Connected {
         stream: Stream,
         batch: Batch,
         ping_time: Interval,
         ping_timeout: Option<Interval>,
-        quit_requested: Option<(Instant, Option<String>)>,
+        quit_requested: Option<Instant>,
     },
-    Quit,
+    End,
 }
 
 enum Input {
@@ -66,7 +80,14 @@ enum Input {
     Send(proto::Message),
     Ping,
     PingTimeout,
-    Quit(Option<String>),
+    Control(Control),
+}
+
+pub enum Control {
+    Disconnect(Option<String>),
+    Connect,
+    End(Option<String>),
+    UpdateConfiguration(Arc<config::Server>, Option<config::Proxy>),
 }
 
 struct Stream {
@@ -90,15 +111,23 @@ pub fn run(
 
 async fn _run(
     server: server::Entry,
-    proxy: Option<config::Proxy>,
+    mut default_proxy: Option<config::Proxy>,
     sender: mpsc::UnboundedSender<Update>,
 ) -> Never {
-    let server::Entry { server, config } = server;
+    let server::Entry { server, mut config } = server;
 
-    let reconnect_delay = Duration::from_secs(config.reconnect_delay);
+    let (controller, mut control) = mpsc::channel(20);
+
+    let _ = sender.unbounded_send(Update::Controller {
+        server: server.clone(),
+        controller,
+    });
 
     let mut is_initial = true;
-    let mut state = State::Disconnected { last_retry: None };
+    let mut state = State::Disconnected {
+        autoconnect: config.autoconnect,
+        retry: time::interval(config.reconnect_delay),
+    };
 
     // Notify app of initial disconnected state
     let _ = sender.unbounded_send(Update::Disconnected {
@@ -110,59 +139,109 @@ async fn _run(
 
     loop {
         match &mut state {
-            State::Disconnected { last_retry } => {
-                if let Some(last_retry) = last_retry.as_ref() {
-                    let remaining =
-                        reconnect_delay.saturating_sub(last_retry.elapsed());
-
-                    if !remaining.is_zero() {
-                        time::sleep(remaining).await;
+            State::Disconnected { autoconnect, retry } => {
+                let selection = {
+                    if *autoconnect {
+                        stream::select(
+                            (&mut control).boxed(),
+                            retry
+                                .tick()
+                                .into_stream()
+                                .map(|_| Control::Connect)
+                                .boxed(),
+                        )
+                        .next()
+                        .await
+                    } else {
+                        control.next().await
                     }
-                }
+                };
 
-                match connect(server.clone(), config.clone(), proxy.clone())
-                    .await
-                {
-                    Ok((stream, client)) => {
-                        log::info!("[{server}] connected");
+                match selection {
+                    Some(Control::UpdateConfiguration(
+                        updated_config,
+                        updated_default_proxy,
+                    )) => {
+                        config = updated_config;
+                        default_proxy = updated_default_proxy;
 
-                        let _ = sender.unbounded_send(Update::Connected {
+                        state = State::Disconnected {
+                            autoconnect: config.autoconnect,
+                            retry: time::interval(config.reconnect_delay),
+                        };
+                    }
+                    Some(Control::Disconnect(_)) => {
+                        *autoconnect = false;
+                    }
+                    Some(Control::Connect) => {
+                        let _ = sender.unbounded_send(Update::Connecting {
                             server: server.clone(),
-                            client,
-                            is_initial,
                             sent_time: Utc::now(),
                         });
 
-                        is_initial = false;
+                        match connect(
+                            server.clone(),
+                            config.clone(),
+                            config
+                                .proxy
+                                .as_ref()
+                                .or(default_proxy.as_ref())
+                                .cloned(),
+                        )
+                        .await
+                        {
+                            Ok((stream, client)) => {
+                                log::info!("[{server}] connected");
 
-                        state = State::Connected {
-                            stream,
-                            batch: Batch::new(),
-                            ping_timeout: None,
-                            ping_time: ping_time_interval(config.ping_time),
-                            quit_requested: None,
-                        };
-                    }
-                    Err(e) => {
-                        let error = match e {
-                            // unwrap Tls-specific error enums to access more error info
-                            connection::Error::Tls(e) => {
-                                format!("a TLS error occurred: {e}")
+                                let _ =
+                                    sender.unbounded_send(Update::Connected {
+                                        server: server.clone(),
+                                        client,
+                                        is_initial,
+                                        sent_time: Utc::now(),
+                                    });
+
+                                is_initial = false;
+
+                                state = State::Connected {
+                                    stream,
+                                    batch: Batch::new(),
+                                    ping_timeout: None,
+                                    ping_time: ping_time_interval(
+                                        config.ping_time,
+                                    ),
+                                    quit_requested: None,
+                                };
                             }
-                            _ => e.to_string(),
-                        };
+                            Err(e) => {
+                                let error = match e {
+                                    // unwrap Tls-specific error enums to access more error info
+                                    connection::Error::Tls(e) => {
+                                        format!("a TLS error occurred: {e}")
+                                    }
+                                    _ => e.to_string(),
+                                };
 
-                        log::info!("[{server}] connection failed: {error}");
+                                log::info!(
+                                    "[{server}] connection failed: {error}"
+                                );
 
-                        let _ =
-                            sender.unbounded_send(Update::ConnectionFailed {
-                                server: server.clone(),
-                                error,
-                                sent_time: Utc::now(),
-                            });
+                                let _ = sender.unbounded_send(
+                                    Update::ConnectionFailed {
+                                        server: server.clone(),
+                                        error,
+                                        sent_time: Utc::now(),
+                                    },
+                                );
 
-                        *last_retry = Some(Instant::now());
+                                retry.reset();
+                            }
+                        }
                     }
+                    Some(Control::End(_)) => {
+                        state = State::End;
+                    }
+                    None => (),
                 }
             }
             State::Connected {
@@ -182,6 +261,7 @@ async fn _run(
                             .map(|_| Input::Ping)
                             .boxed(),
                         batch.map(Input::Batch).boxed(),
+                        (&mut control).map(Input::Control).boxed(),
                     ]);
 
                     if let Some(timeout) = ping_timeout.as_mut() {
@@ -194,18 +274,18 @@ async fn _run(
                         );
                     }
 
-                    if let Some((requested_at, reason)) = quit_requested {
+                    if let Some(requested_at) = quit_requested {
                         select.push(
                             time::sleep_until(
                                 *requested_at + QUIT_REQUEST_TIMEOUT,
                             )
                             .into_stream()
-                            .map(|()| Input::Quit(reason.clone()))
+                            .map(|()| Input::Control(Control::Disconnect(None)))
                             .boxed(),
                         );
                     }
 
-                    select.next().await.expect("stream input")
+                    select.next().await.expect("Connected select")
                 };
 
                 match input {
@@ -224,19 +304,26 @@ async fn _run(
                             *ping_timeout = None;
                         }
                         proto::Command::ERROR(error) => {
-                            if let Some(reason) = quit_requested
-                                .as_ref()
-                                .map(|(_, reason)| reason)
-                            {
+                            if quit_requested.is_some() {
+                                let _ = sender.unbounded_send(
+                                    Update::Disconnected {
+                                        server: server.clone(),
+                                        is_initial,
+                                        error: None,
+                                        sent_time: Utc::now(),
+                                    },
+                                );
+
                                 // If QUIT was requested, then ERROR is
                                 // a valid acknowledgement
                                 // https://modern.ircdocs.horse/#quit-message
-                                let _ = sender.unbounded_send(Update::Quit(
-                                    server.clone(),
-                                    reason.clone(),
-                                ));
-
-                                state = State::Quit;
+                                state = State::Disconnected {
+                                    autoconnect: false,
+                                    retry: time::interval_at(
+                                        Instant::now() + config.reconnect_delay,
+                                        config.reconnect_delay,
+                                    ),
+                                };
                             } else {
                                 log::info!("[{server}] disconnected: {error}");
                                 let _ = sender.unbounded_send(
@@ -248,7 +335,11 @@ async fn _run(
                                     },
                                 );
                                 state = State::Disconnected {
-                                    last_retry: Some(Instant::now()),
+                                    autoconnect: true,
+                                    retry: time::interval_at(
+                                        Instant::now() + config.reconnect_delay,
+                                        config.reconnect_delay,
+                                    ),
                                 };
                             }
                         }
@@ -268,7 +359,11 @@ async fn _run(
                             sent_time: Utc::now(),
                         });
                         state = State::Disconnected {
-                            last_retry: Some(Instant::now()),
+                            autoconnect: true,
+                            retry: time::interval_at(
+                                Instant::now() + config.reconnect_delay,
+                                config.reconnect_delay,
+                            ),
                         };
                     }
                     Input::Batch(messages) => {
@@ -281,14 +376,12 @@ async fn _run(
                             "[{server}] Sending message => {message:?}"
                         );
 
-                        if let Command::QUIT(reason) = &message.command {
-                            let reason = reason.clone();
-
+                        if let Command::QUIT(_) = &message.command {
                             let _ = stream.connection.send(message).await;
 
                             log::info!("[{server}] quit");
 
-                            *quit_requested = Some((Instant::now(), reason));
+                            *quit_requested = Some(Instant::now());
                         } else {
                             let _ = stream.connection.send(message).await;
                         }
@@ -315,20 +408,104 @@ async fn _run(
                             sent_time: Utc::now(),
                         });
                         state = State::Disconnected {
-                            last_retry: Some(Instant::now()),
+                            autoconnect: true,
+                            retry: time::interval_at(
+                                Instant::now() + config.reconnect_delay,
+                                config.reconnect_delay,
+                            ),
                         };
                     }
-                    Input::Quit(reason) => {
-                        let _ = sender.unbounded_send(Update::Quit(
-                            server.clone(),
-                            reason,
-                        ));
+                    Input::Control(control) => match control {
+                        Control::UpdateConfiguration(
+                            updated_config,
+                            updated_default_proxy,
+                        ) => {
+                            // If connection detail(s) change, then disconnect
+                            if config.server != updated_config.server
+                                || config.port != updated_config.port
+                                || config.use_tls != updated_config.use_tls
+                                || config.dangerously_accept_invalid_certs
+                                    != updated_config
+                                        .dangerously_accept_invalid_certs
+                                || config.root_cert_path
+                                    != updated_config.root_cert_path
+                                || config
+                                    .proxy
+                                    .as_ref()
+                                    .or(default_proxy.as_ref())
+                                    != updated_config
+                                        .proxy
+                                        .as_ref()
+                                        .or(updated_default_proxy.as_ref())
+                                || config.username != updated_config.username
+                                || config.password != updated_config.password
+                                || config.password_file
+                                    != updated_config.password_file
+                                || config.password_file_first_line_only
+                                    != updated_config
+                                        .password_file_first_line_only
+                                || config.password_command
+                                    != updated_config.password_command
+                                || config.sasl != updated_config.sasl
+                            {
+                                let _ = sender.unbounded_send(
+                                    Update::Disconnected {
+                                        server: server.clone(),
+                                        is_initial,
+                                        error: None,
+                                        sent_time: Utc::now(),
+                                    },
+                                );
+                                state = State::Disconnected {
+                                    autoconnect: updated_config.autoconnect,
+                                    retry: time::interval_at(
+                                        Instant::now() + Duration::from_secs(1),
+                                        config.reconnect_delay,
+                                    ),
+                                };
+                            } else {
+                                let _ = sender.unbounded_send(
+                                    Update::UpdateConfiguration {
+                                        server: server.clone(),
+                                        updated_config: updated_config.clone(),
+                                    },
+                                );
+                            }
 
-                        state = State::Quit;
-                    }
+                            config = updated_config;
+                            default_proxy = updated_default_proxy;
+                        }
+                        Control::Connect => (),
+                        Control::Disconnect(error) => {
+                            let _ =
+                                sender.unbounded_send(Update::Disconnected {
+                                    server: server.clone(),
+                                    is_initial,
+                                    error,
+                                    sent_time: Utc::now(),
+                                });
+                            state = State::Disconnected {
+                                autoconnect: false,
+                                retry: time::interval_at(
+                                    Instant::now() + config.reconnect_delay,
+                                    config.reconnect_delay,
+                                ),
+                            };
+                        }
+                        Control::End(reason) => {
+                            let _ = stream
+                                .connection
+                                .send(Command::QUIT(reason).into())
+                                .await;
+
+                            state = State::End;
+                        }
+                    },
                 }
             }
-            State::Quit => {
+            State::End => {
+                let _ = sender.unbounded_send(Update::Remove(server.clone()));
+
                 // Wait forever until this stream is dropped by the frontend
                 future::pending::<()>().await;
             }
@@ -415,4 +592,61 @@ fn ping_timeout_interval(secs: u64) -> Interval {
         Instant::now() + Duration::from_secs(secs),
         Duration::from_secs(secs),
     )
+}
+
+#[derive(Debug, Default)]
+pub struct Map(BTreeMap<Server, mpsc::Sender<Control>>);
+
+impl Map {
+    pub fn insert(
+        &mut self,
+        server: Server,
+        controller: mpsc::Sender<Control>,
+    ) {
+        self.0.insert(server, controller);
+    }
+
+    pub fn update_config(
+        &mut self,
+        server: &Server,
+        config: Arc<config::Server>,
+        default_proxy: Option<config::Proxy>,
+    ) {
+        if let Some(controller) = self.0.get_mut(server) {
+            let _ = controller
+                .try_send(Control::UpdateConfiguration(config, default_proxy));
+        }
+    }
+
+    pub fn disconnect(&mut self, server: &Server, error: Option<String>) {
+        if let Some(controller) = self.0.get_mut(server) {
+            let _ = controller.try_send(Control::Disconnect(error));
+        }
+    }
+
+    pub fn connect(&mut self, server: &Server) {
+        if let Some(controller) = self.0.get_mut(server) {
+            let _ = controller.try_send(Control::Connect);
+        }
+    }
+
+    pub fn remove(&mut self, server: &Server) {
+        self.0.remove(server);
+    }
+
+    pub fn end(&mut self, server: &Server, reason: &Option<String>) {
+        if let Some(controller) = self.0.get_mut(server) {
+            let _ = controller.try_send(Control::End(reason.clone()));
+        }
+
+        self.0.remove(server);
+    }
+
+    pub fn exit(&mut self, reason: &Option<String>) -> HashSet<Server> {
+        for controller in self.0.values_mut() {
+            let _ = controller.try_send(Control::End(reason.clone()));
+        }
+
+        self.0.keys().cloned().collect()
+    }
 }

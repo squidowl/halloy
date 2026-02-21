@@ -70,7 +70,8 @@ pub struct Server {
     /// The amount of time in seconds for a client to reconnect due to no ping response.
     pub ping_timeout: u64,
     /// The amount of time in seconds before attempting to reconnect to the server when disconnected.
-    pub reconnect_delay: u64,
+    #[serde(deserialize_with = "deserialize_duration_from_secs")]
+    pub reconnect_delay: Duration,
     /// Whether the client should use NickServ GHOST to reclaim its primary nickname if it is in
     /// use. This has no effect if `nick_password` is not set.
     pub should_ghost: bool,
@@ -90,7 +91,7 @@ pub struct Server {
     #[serde(
         deserialize_with = "deserialize_path_buf_with_path_transformations_maybe"
     )]
-    root_cert_path: Option<PathBuf>,
+    pub root_cert_path: Option<PathBuf>,
     /// Sasl authentication
     pub sasl: Option<Sasl>,
     /// Commands which are executed once connected.
@@ -109,6 +110,7 @@ pub struct Server {
     pub order: u16,
     pub proxy: Option<config::Proxy>,
     pub confirm_message_delivery: ConfirmMessageDelivery,
+    pub autoconnect: bool,
 }
 
 impl Server {
@@ -207,7 +209,7 @@ impl Default for Server {
             queries: Vec::default(),
             ping_time: 180,
             ping_timeout: 20,
-            reconnect_delay: 10,
+            reconnect_delay: Duration::from_secs(10),
             should_ghost: Default::default(),
             ghost_sequence: vec!["REGAIN".into()],
             umodes: Option::default(),
@@ -224,6 +226,7 @@ impl Default for Server {
             order: 0,
             proxy: None,
             confirm_message_delivery: ConfirmMessageDelivery::default(),
+            autoconnect: true,
         }
     }
 }
@@ -549,4 +552,15 @@ where
     } else {
         Ok(Duration::from_secs(seconds))
     }
+}
+
+fn deserialize_duration_from_secs<'de, D>(
+    deserializer: D,
+) -> Result<Duration, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let seconds: u64 = Deserialize::deserialize(deserializer)?;
+
+    Ok(Duration::from_secs(seconds))
 }

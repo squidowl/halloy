@@ -17,7 +17,7 @@ use data::rate_limit::TokenPriority;
 use data::target::{self, Target};
 use data::{
     Config, Notification, Server, User, Version, client, command, config,
-    environment, file_transfer, history, preview, server,
+    environment, file_transfer, history, preview, server, stream,
 };
 use iced::widget::pane_grid::{self, PaneGrid};
 use iced::widget::{Space, column, container, row};
@@ -92,6 +92,7 @@ pub enum Event {
     OpenServer(String),
     ImagePreview(PathBuf, url::Url),
     ToggleFullscreen,
+    Remove(Server),
 }
 
 impl Dashboard {
@@ -265,6 +266,8 @@ impl Dashboard {
         &mut self,
         message: Message,
         clients: &mut client::Map,
+        controllers: &mut stream::Map,
+        servers: &server::Map,
         theme: &mut Theme,
         version: &Version,
         config: &Config,
@@ -548,6 +551,27 @@ impl Dashboard {
                     sidebar::Event::OpenConfigFile => {
                         let _ = open_url::open(Config::path());
                         (Task::none(), None)
+                    }
+                    sidebar::Event::Connect(server) => {
+                        if let Some(parent) = server.parent() {
+                            controllers.connect(&parent);
+                        }
+
+                        controllers.connect(&server);
+
+                        for bouncer_network in servers.keys() {
+                            if bouncer_network
+                                .parent()
+                                .is_some_and(|parent| parent == server)
+                            {
+                                controllers.connect(bouncer_network);
+                            }
+                        }
+
+                        (Task::none(), None)
+                    }
+                    sidebar::Event::Remove(server) => {
+                        (Task::none(), Some(Event::Remove(server)))
                     }
                 };
 
