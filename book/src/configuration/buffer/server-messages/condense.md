@@ -29,7 +29,7 @@ The color and font style of the symbols is taken from the theme setting for that
 ```toml
 # Type: array of strings
 # Values: ["change-host", "change-nick", "join", "kick", "part", "quit"]
-# Default: []
+# Default: ["change-host", "change-nick", "join", "part", "quit"]
 
 [buffer.server_messages.condense]
 messages = ["change-nick", "join", "part", "quit"]
