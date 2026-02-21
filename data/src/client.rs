@@ -3422,7 +3422,12 @@ impl Client {
 // chantype prefix (sometimes multiplied) is removed.
 // e.g., '#chat', '##chat-offtopic' and '&chat-local' all get sorted together instead of in
 // wildly different places.
-fn compare_channels(chantypes: &[char], a: &str, b: &str, include_prefix: bool) -> Ordering {
+fn compare_channels(
+    chantypes: &[char],
+    a: &str,
+    b: &str,
+    include_prefix: bool,
+) -> Ordering {
     if include_prefix {
         return a.cmp(b);
     }
