@@ -16,6 +16,7 @@ Added:
   - `quit_application` (defaults to `Ctrl+Q` on linux, not bound on Windows/MacOS)
 - Expand show_access_levels to allow all access levels (in addition to highest or no access levels) in buffer/nicklist/input
 - Configuration setting to allow locale specification used when formatting timestamps
+- Configuration setting to include chantypes / prefixes when sorting channels in the sidebar
 
 Fixed:
 
@@ -33,7 +34,7 @@ Changed:
 
 Thanks:
 
-- Contributions: @Hummer12007, @chamlis
+- Contributions: @Hummer12007, @chamlis, @englut
 - Feature requests: @megumintyan, @4e554c4c, @RoboDanjal
 - Bug reports: @someone2037492034, @deepspaceaxolotl
 
