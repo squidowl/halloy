@@ -42,7 +42,7 @@ Thanks:
 
 - Contributions: @Hummer12007, @chamlis, @englut
 - Feature requests: @megumintyan, @4e554c4c, @RoboDanjal, @stacyharper, @zZzUP3RzZz
-- Bug reports: @someone2037492034, @deepspaceaxolotl, @whitequark, @sebbu2
+- Bug reports: @someone2037492034, @deepspaceaxolotl, @whitequark, @sebbu2, @esden, @Porkepix
 
 # 2026.2 (2026-02-01)
 
