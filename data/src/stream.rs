@@ -458,7 +458,8 @@ async fn _run(
                                 );
                                 state = State::Disconnected {
                                     autoconnect: updated_config.autoconnect,
-                                    retry: time::interval(
+                                    retry: time::interval_at(
+                                        Instant::now() + Duration::from_secs(1),
                                         config.reconnect_delay,
                                     ),
                                 };
