@@ -1701,6 +1701,7 @@ impl Client {
                                 &chantypes,
                                 c1.as_normalized_str(),
                                 c2.as_normalized_str(),
+                                config.sidebar.channels_sort_include_prefix,
                             )
                         },
                     );
@@ -3417,12 +3418,15 @@ impl Client {
     }
 }
 
-// TODO allow configuring the "sorting method"
-// this function sorts channels together which have similar names when the chantype prefix
-// (sometimes multiplied) is removed
-// e.g. '#chat', '##chat-offtopic' and '&chat-local' all get sorted together instead of in
+// If `include_prefix` is false, this will sort channels together which have similar names when the
+// chantype prefix (sometimes multiplied) is removed.
+// e.g., '#chat', '##chat-offtopic' and '&chat-local' all get sorted together instead of in
 // wildly different places.
-fn compare_channels(chantypes: &[char], a: &str, b: &str) -> Ordering {
+fn compare_channels(chantypes: &[char], a: &str, b: &str, include_prefix: bool) -> Ordering {
+    if include_prefix {
+        return a.cmp(b);
+    }
+
     let (Some(a_chantype), Some(b_chantype)) =
         (a.chars().next(), b.chars().next())
     else {
