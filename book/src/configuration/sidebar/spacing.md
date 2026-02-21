@@ -14,8 +14,8 @@ Adjust spacing for sidebar
 Controls the vertical spacing between servers (i.e. between the last buffer for one server and the server buffer for the next server).
 
 ```toml
-# Type: number
-# Values: positive number
+# Type: integer
+# Values: any non-negative integer
 # Default: 4
 
 [sidebar.spacing]
