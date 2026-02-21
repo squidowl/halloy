@@ -78,7 +78,7 @@ enabled = true
 
 ### order_by
 
-Ordering that servers are listed in the sidebar uses to select from matching users.
+Ordering that servers are listed in the sidebar.
 
 - `"config"`: The same order they are specified in the configuration file.
 - `"alpha"`: Case-insensitive alphabetical ordering.
