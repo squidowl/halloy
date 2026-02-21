@@ -1693,18 +1693,13 @@ impl Client {
 
                 if user.nickname() == self.nickname() {
                     let chantypes = self.chantypes().to_vec();
-                    let include_chantypes = match config.sidebar.order_channels_by
-                    {
-                        config::sidebar::OrderChannelsBy::Name => false,
-                        config::sidebar::OrderChannelsBy::NameAndPrefix => true,
-                    };
                     let _ = self.chanmap.insert_sorted_by(
                         target_channel.clone(),
                         Channel::default(),
                         |c1, _, c2, _| {
                             compare_channels(
                                 &chantypes,
-                                include_chantypes,
+                                config.sidebar.order_channels_by,
                                 c1.as_normalized_str(),
                                 c2.as_normalized_str(),
                             )
@@ -3429,12 +3424,13 @@ impl Client {
 // wildly different places.
 fn compare_channels(
     chantypes: &[char],
-    include_chantypes: bool,
+    order_channels_by: config::sidebar::OrderChannelsBy,
     a: &str,
     b: &str,
 ) -> Ordering {
-    if include_chantypes {
-        return a.cmp(b);
+    match order_channels_by {
+        config::sidebar::OrderChannelsBy::NameAndPrefix => return a.cmp(b),
+        config::sidebar::OrderChannelsBy::Name => {}
     }
 
     let (Some(a_chantype), Some(b_chantype)) =
