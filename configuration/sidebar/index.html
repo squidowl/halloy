@@ -34,7 +34,7 @@
             const path_to_root = "../../";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../../searchindex-a5725912.js";
+            window.path_to_searchindex_js = "../../searchindex-bf9c1a89.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="../../toc-ac22d4e6.js"></script>
@@ -191,6 +191,7 @@
 <li><a href="#max_width">max_width</a></li>
 <li><a href="#show_menu_button">show_menu_button</a></li>
 <li><a href="#order_by">order_by</a></li>
+<li><a href="#order_channels_by">order_channels_by</a></li>
 </ul>
 </li>
 <li><a href="#scrollbar">Scrollbar</a></li>
@@ -253,6 +254,19 @@ show_menu_button = true
 
 [sidebar]
 order_by = "config"
+</code></pre>
+<h3 id="order_channels_by"><a class="header" href="#order_channels_by">order_channels_by</a></h3>
+<p>Include chantypes (channel prefixes, e.g., <code>#</code> and <code>##</code>) when sorting channels in the sidebar.</p>
+<ul>
+<li><code>"name"</code>: Sort channels by name only, ignoring chantypes.</li>
+<li><code>"name-and-prefix"</code>: Sort channels by name including their chantypes.</li>
+</ul>
+<pre><code class="language-toml"># Type: bool
+# Values: "name", "name-and-prefix"
+# Default: "name"
+
+[sidebar]
+order_channels_by = "name-and-prefix"
 </code></pre>
 <h2 id="scrollbar"><a class="header" href="#scrollbar"><a href="scrollbar.html">Scrollbar</a></a></h2>
 <p>Scrollbar in sidebar</p>
