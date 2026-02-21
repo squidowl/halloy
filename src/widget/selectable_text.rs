@@ -164,6 +164,7 @@ where
                 align_y: self.format.align_y,
                 shaping: self.format.shaping,
                 wrapping: self.format.wrapping,
+                ellipsis: text::Ellipsis::default(),
                 hint_factor: renderer.scale_factor(),
             });
 
