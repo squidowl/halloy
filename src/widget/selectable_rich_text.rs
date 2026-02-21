@@ -460,6 +460,7 @@ where
                     align_y: self.align_y,
                     shaping: Shaping::Advanced,
                     wrapping: text::Wrapping::WordOrGlyph,
+                    ellipsis: text::Ellipsis::default(),
                     hint_factor: renderer.scale_factor(),
                 };
 
@@ -870,6 +871,7 @@ where
             align_y,
             shaping: Shaping::Advanced,
             wrapping: text::Wrapping::WordOrGlyph,
+            ellipsis: text::Ellipsis::default(),
             hint_factor: renderer.scale_factor(),
         };
 
@@ -898,6 +900,7 @@ where
                 align_y,
                 shaping: Shaping::Advanced,
                 wrapping: text::Wrapping::WordOrGlyph,
+                ellipsis: text::Ellipsis::default(),
                 hint_factor: renderer.scale_factor(),
             }) {
                 text::Difference::None => {}

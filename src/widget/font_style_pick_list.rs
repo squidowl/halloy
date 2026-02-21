@@ -42,7 +42,10 @@ pub fn font_style_pick_list<'a, Message: 'a + Clone>(
         FontStylePick(Some(FontStyle::ItalicBold)),
     ];
 
-    pick_list(picks, Some(FontStylePick::from(font_style)), on_selected)
+    pick_list(Some(FontStylePick::from(font_style)), picks, |pick| {
+        pick.to_string()
+    })
+        .on_select(on_selected)
         .placeholder("Font style")
         .into()
 }
