@@ -28,8 +28,9 @@ use crate::target::{self, Target};
 use crate::time::Posix;
 use crate::user::{ChannelUsers, Nick, NickRef};
 use crate::{
-    Server, User, buffer, channel_discovery, compression, config, ctcp, dcc,
-    environment, file_transfer, history, isupport, message, mode, server,
+    Server, User, buffer, channel_discovery, compression, config,
+    config::sidebar::OrderChannelsBy, ctcp, dcc, environment, file_transfer,
+    history, isupport, message, mode, server,
 };
 
 pub mod on_connect;
@@ -1691,6 +1692,11 @@ impl Client {
                     casemapping,
                 ));
 
+                let include_prefix = match config.sidebar.order_channels_by {
+                    OrderChannelsBy::Name => false,
+                    OrderChannelsBy::NameAndPrefix => true,
+                };
+
                 if user.nickname() == self.nickname() {
                     let chantypes = self.chantypes().to_vec();
                     let _ = self.chanmap.insert_sorted_by(
@@ -1701,7 +1707,7 @@ impl Client {
                                 &chantypes,
                                 c1.as_normalized_str(),
                                 c2.as_normalized_str(),
-                                config.sidebar.channels_sort_include_prefix,
+                                include_prefix,
                             )
                         },
                     );

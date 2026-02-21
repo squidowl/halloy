@@ -24,7 +24,7 @@ pub struct Sidebar {
     pub user_menu: UserMenu,
     pub padding: Padding,
     pub spacing: Spacing,
-    pub channels_sort_include_prefix: bool,
+    pub order_channels_by: OrderChannelsBy,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -241,4 +241,12 @@ pub enum OrderBy {
     #[default]
     Alpha,
     Config,
+}
+
+#[derive(Debug, Copy, Clone, Deserialize, Default)]
+#[serde(rename_all = "kebab-case")]
+pub enum OrderChannelsBy {
+    #[default]
+    Name,
+    NameAndPrefix,
 }
