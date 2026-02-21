@@ -9,7 +9,7 @@ Sidebar settings for Halloy.
     - [max\_width](#max_width)
     - [show\_menu\_button](#show_menu_button)
     - [order\_by](#order_by)
-    - [channel\_sort\_include\_prefix](#channel_sort_include_prefix)
+    - [channels\_sort\_include\_prefix](#channels_sort_include_prefix)
   - [Scrollbar](#scrollbar)
   - [Unread Indicator](#unread-indicator)
   - [Padding](#padding)
@@ -92,7 +92,7 @@ Ordering that servers are listed in the sidebar uses to select from matching use
 order_by = "config"
 ```
 
-### channel_sort_include_prefix
+### channels_sort_include_prefix
 
 Include chantypes (channel prefixes, e.g., `#` and `##`) when sorting channels in the sidebar.
 
@@ -102,7 +102,7 @@ Include chantypes (channel prefixes, e.g., `#` and `##`) when sorting channels i
 # Default: false
 
 [sidebar]
-channel_sort_include_prefix = true
+channels_sort_include_prefix = true
 ```
 
 ## [Scrollbar](scrollbar.md)
