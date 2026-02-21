@@ -54,7 +54,7 @@ enabled = false
 
 ### enabled
 
-Control if internal message type is enabled.
+Control if server message type is enabled.
 
 ```toml
 # Type: boolean
