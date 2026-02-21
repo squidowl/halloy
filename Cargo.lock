@@ -1274,9 +1274,9 @@ dependencies = [
 
 [[package]]
 name = "cosmic-text"
-version = "0.16.0"
+version = "0.18.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c4cadaea21e24c49c0c82116f2b465ae6a49d63c90e428b0f8d9ae1f638ac91f"
+checksum = "bbe782a9e7520cc7de2232c957a47f99d3a35e855552677d07a557bc1a3b66ed"
 dependencies = [
  "bitflags 2.10.0",
  "fontdb",
@@ -1284,10 +1284,10 @@ dependencies = [
  "linebender_resource_handle",
  "log",
  "rangemap",
- "rustc-hash 1.1.0",
+ "rustc-hash 2.1.1",
  "self_cell",
- "skrifa 0.39.0",
- "smol_str",
+ "skrifa 0.40.0",
+ "smol_str 0.3.5",
  "swash",
  "sys-locale",
  "unicode-bidi",
@@ -1426,7 +1426,7 @@ checksum = "460fbee9c2c2f33933d720630a6a0bac33ba7053db5344fac858d4b8952d77d5"
 [[package]]
 name = "cryoglyph"
 version = "0.1.0"
-source = "git+https://github.com/iced-rs/cryoglyph.git?rev=3836ca7a17f410d30871c2254dcc0f2400876636#3836ca7a17f410d30871c2254dcc0f2400876636"
+source = "git+https://github.com/iced-rs/cryoglyph.git?rev=1d68895e9c4c9b73739f826e81c2e3012c155cce#1d68895e9c4c9b73739f826e81c2e3012c155cce"
 dependencies = [
  "cosmic-text",
  "etagere",
@@ -2408,6 +2408,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "font-types"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b1e4d2d0cf79d38430cc9dc9aadec84774bff2e1ba30ae2bf6c16cfce9385a23"
+dependencies = [
+ "bytemuck",
+]
+
+[[package]]
 name = "fontconfig-parser"
 version = "0.5.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2514,9 +2523,9 @@ checksum = "e6d5a32815ae3f33302d95fdcb2ce17862f8c65363dcfd29360480ba1001fc9c"
 
 [[package]]
 name = "futures"
-version = "0.3.31"
+version = "0.3.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "65bc07b1a8bc7c85c5f2e110c476c7389b4554ba72af57d8445ea63a576b0876"
+checksum = "8b147ee9d1f6d097cef9ce628cd2ee62288d963e16fb287bd9286455b241382d"
 dependencies = [
  "futures-channel",
  "futures-core",
@@ -2529,9 +2538,9 @@ dependencies = [
 
 [[package]]
 name = "futures-channel"
-version = "0.3.31"
+version = "0.3.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2dff15bf788c671c1934e366d07e30c1814a8ef514e1af724a602e8a2fbe1b10"
+checksum = "07bbe89c50d7a535e539b8c17bc0b49bdb77747034daa8087407d655f3f7cc1d"
 dependencies = [
  "futures-core",
  "futures-sink",
@@ -2539,15 +2548,15 @@ dependencies = [
 
 [[package]]
 name = "futures-core"
-version = "0.3.31"
+version = "0.3.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "05f29059c0c2090612e8d742178b0580d2dc940c837851ad723096f87af6663e"
+checksum = "7e3450815272ef58cec6d564423f6e755e25379b217b0bc688e295ba24df6b1d"
 
 [[package]]
 name = "futures-executor"
-version = "0.3.31"
+version = "0.3.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1e28d1d997f585e54aebc3f97d39e72338912123a67330d723fdbb564d646c9f"
+checksum = "baf29c38818342a3b26b5b923639e7b1f4a61fc5e76102d4b1981c6dc7a7579d"
 dependencies = [
  "futures-core",
  "futures-task",
@@ -2556,9 +2565,9 @@ dependencies = [
 
 [[package]]
 name = "futures-io"
-version = "0.3.31"
+version = "0.3.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9e5c1b78ca4aae1ac06c48a526a655760685149f0d465d21f37abfe57ce075c6"
+checksum = "cecba35d7ad927e23624b22ad55235f2239cfa44fd10428eecbeba6d6a717718"
 
 [[package]]
 name = "futures-lite"
@@ -2575,9 +2584,9 @@ dependencies = [
 
 [[package]]
 name = "futures-macro"
-version = "0.3.31"
+version = "0.3.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "162ee34ebcb7c64a8abebc059ce0fee27c2262618d7b60ed8faf72fef13c3650"
+checksum = "e835b70203e41293343137df5c0664546da5745f82ec9b84d40be8336958447b"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2597,21 +2606,21 @@ dependencies = [
 
 [[package]]
 name = "futures-sink"
-version = "0.3.31"
+version = "0.3.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e575fab7d1e0dcb8d0c7bcf9a63ee213816ab51902e6d244a95819acacf1d4f7"
+checksum = "c39754e157331b013978ec91992bde1ac089843443c49cbc7f46150b0fad0893"
 
 [[package]]
 name = "futures-task"
-version = "0.3.31"
+version = "0.3.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f90f7dce0722e95104fcb095585910c0977252f286e354b5e3bd38902cd99988"
+checksum = "037711b3d59c33004d3856fbdc83b99d4ff37a24768fa1be9ce3538a1cde4393"
 
 [[package]]
 name = "futures-util"
-version = "0.3.31"
+version = "0.3.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9fa08315bb612088cc391249efdc3bc77536f16c91f6cf495e6fbe85b20a4a81"
+checksum = "389ca41296e6190b48053de0321d02a77f32f8a5d2461dd38762c0593805c6d6"
 dependencies = [
  "futures-channel",
  "futures-core",
@@ -2621,7 +2630,6 @@ dependencies = [
  "futures-task",
  "memchr",
  "pin-project-lite",
- "pin-utils",
  "slab",
 ]
 
@@ -2905,14 +2913,14 @@ dependencies = [
 
 [[package]]
 name = "harfrust"
-version = "0.4.1"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e0caaee032384c10dd597af4579c67dee16650d862a9ccbe1233ff1a379abc07"
+checksum = "4f9f40651a03bc0f7316bd75267ff5767e93017ef3cfffe76c6aa7252cc5a31c"
 dependencies = [
  "bitflags 2.10.0",
  "bytemuck",
  "core_maths",
- "read-fonts 0.36.0",
+ "read-fonts 0.37.0",
  "smallvec",
 ]
 
@@ -3181,7 +3189,7 @@ dependencies = [
 [[package]]
 name = "iced"
 version = "0.15.0-dev"
-source = "git+https://github.com/squidowl/iced?rev=19f12c509614465cb93f078d33581f48ead78fdd#19f12c509614465cb93f078d33581f48ead78fdd"
+source = "git+https://github.com/squidowl/iced?rev=af28bbe8de1dfafa2ebe7a3ac96ebcc87ae05538#af28bbe8de1dfafa2ebe7a3ac96ebcc87ae05538"
 dependencies = [
  "iced_core",
  "iced_debug",
@@ -3198,7 +3206,7 @@ dependencies = [
 [[package]]
 name = "iced_beacon"
 version = "0.15.0-dev"
-source = "git+https://github.com/squidowl/iced?rev=19f12c509614465cb93f078d33581f48ead78fdd#19f12c509614465cb93f078d33581f48ead78fdd"
+source = "git+https://github.com/squidowl/iced?rev=af28bbe8de1dfafa2ebe7a3ac96ebcc87ae05538#af28bbe8de1dfafa2ebe7a3ac96ebcc87ae05538"
 dependencies = [
  "bincode 1.3.3",
  "futures",
@@ -3213,7 +3221,7 @@ dependencies = [
 [[package]]
 name = "iced_core"
 version = "0.15.0-dev"
-source = "git+https://github.com/squidowl/iced?rev=19f12c509614465cb93f078d33581f48ead78fdd#19f12c509614465cb93f078d33581f48ead78fdd"
+source = "git+https://github.com/squidowl/iced?rev=af28bbe8de1dfafa2ebe7a3ac96ebcc87ae05538#af28bbe8de1dfafa2ebe7a3ac96ebcc87ae05538"
 dependencies = [
  "bitflags 2.10.0",
  "bytes",
@@ -3223,7 +3231,7 @@ dependencies = [
  "num-traits",
  "rustc-hash 2.1.1",
  "serde",
- "smol_str",
+ "smol_str 0.2.2",
  "thiserror 2.0.18",
  "web-time",
 ]
@@ -3231,7 +3239,7 @@ dependencies = [
 [[package]]
 name = "iced_debug"
 version = "0.15.0-dev"
-source = "git+https://github.com/squidowl/iced?rev=19f12c509614465cb93f078d33581f48ead78fdd#19f12c509614465cb93f078d33581f48ead78fdd"
+source = "git+https://github.com/squidowl/iced?rev=af28bbe8de1dfafa2ebe7a3ac96ebcc87ae05538#af28bbe8de1dfafa2ebe7a3ac96ebcc87ae05538"
 dependencies = [
  "iced_beacon",
  "iced_core",
@@ -3242,7 +3250,7 @@ dependencies = [
 [[package]]
 name = "iced_devtools"
 version = "0.15.0-dev"
-source = "git+https://github.com/squidowl/iced?rev=19f12c509614465cb93f078d33581f48ead78fdd#19f12c509614465cb93f078d33581f48ead78fdd"
+source = "git+https://github.com/squidowl/iced?rev=af28bbe8de1dfafa2ebe7a3ac96ebcc87ae05538#af28bbe8de1dfafa2ebe7a3ac96ebcc87ae05538"
 dependencies = [
  "iced_debug",
  "iced_program",
@@ -3253,7 +3261,7 @@ dependencies = [
 [[package]]
 name = "iced_futures"
 version = "0.15.0-dev"
-source = "git+https://github.com/squidowl/iced?rev=19f12c509614465cb93f078d33581f48ead78fdd#19f12c509614465cb93f078d33581f48ead78fdd"
+source = "git+https://github.com/squidowl/iced?rev=af28bbe8de1dfafa2ebe7a3ac96ebcc87ae05538#af28bbe8de1dfafa2ebe7a3ac96ebcc87ae05538"
 dependencies = [
  "futures",
  "iced_core",
@@ -3267,7 +3275,7 @@ dependencies = [
 [[package]]
 name = "iced_graphics"
 version = "0.15.0-dev"
-source = "git+https://github.com/squidowl/iced?rev=19f12c509614465cb93f078d33581f48ead78fdd#19f12c509614465cb93f078d33581f48ead78fdd"
+source = "git+https://github.com/squidowl/iced?rev=af28bbe8de1dfafa2ebe7a3ac96ebcc87ae05538#af28bbe8de1dfafa2ebe7a3ac96ebcc87ae05538"
 dependencies = [
  "bitflags 2.10.0",
  "bytemuck",
@@ -3287,7 +3295,7 @@ dependencies = [
 [[package]]
 name = "iced_program"
 version = "0.15.0-dev"
-source = "git+https://github.com/squidowl/iced?rev=19f12c509614465cb93f078d33581f48ead78fdd#19f12c509614465cb93f078d33581f48ead78fdd"
+source = "git+https://github.com/squidowl/iced?rev=af28bbe8de1dfafa2ebe7a3ac96ebcc87ae05538#af28bbe8de1dfafa2ebe7a3ac96ebcc87ae05538"
 dependencies = [
  "iced_graphics",
  "iced_runtime",
@@ -3296,7 +3304,7 @@ dependencies = [
 [[package]]
 name = "iced_renderer"
 version = "0.15.0-dev"
-source = "git+https://github.com/squidowl/iced?rev=19f12c509614465cb93f078d33581f48ead78fdd#19f12c509614465cb93f078d33581f48ead78fdd"
+source = "git+https://github.com/squidowl/iced?rev=af28bbe8de1dfafa2ebe7a3ac96ebcc87ae05538#af28bbe8de1dfafa2ebe7a3ac96ebcc87ae05538"
 dependencies = [
  "iced_graphics",
  "iced_tiny_skia",
@@ -3308,7 +3316,7 @@ dependencies = [
 [[package]]
 name = "iced_runtime"
 version = "0.15.0-dev"
-source = "git+https://github.com/squidowl/iced?rev=19f12c509614465cb93f078d33581f48ead78fdd#19f12c509614465cb93f078d33581f48ead78fdd"
+source = "git+https://github.com/squidowl/iced?rev=af28bbe8de1dfafa2ebe7a3ac96ebcc87ae05538#af28bbe8de1dfafa2ebe7a3ac96ebcc87ae05538"
 dependencies = [
  "bytes",
  "iced_core",
@@ -3320,7 +3328,7 @@ dependencies = [
 [[package]]
 name = "iced_tiny_skia"
 version = "0.15.0-dev"
-source = "git+https://github.com/squidowl/iced?rev=19f12c509614465cb93f078d33581f48ead78fdd#19f12c509614465cb93f078d33581f48ead78fdd"
+source = "git+https://github.com/squidowl/iced?rev=af28bbe8de1dfafa2ebe7a3ac96ebcc87ae05538#af28bbe8de1dfafa2ebe7a3ac96ebcc87ae05538"
 dependencies = [
  "bytemuck",
  "cosmic-text",
@@ -3337,7 +3345,7 @@ dependencies = [
 [[package]]
 name = "iced_wgpu"
 version = "0.15.0-dev"
-source = "git+https://github.com/squidowl/iced?rev=19f12c509614465cb93f078d33581f48ead78fdd#19f12c509614465cb93f078d33581f48ead78fdd"
+source = "git+https://github.com/squidowl/iced?rev=af28bbe8de1dfafa2ebe7a3ac96ebcc87ae05538#af28bbe8de1dfafa2ebe7a3ac96ebcc87ae05538"
 dependencies = [
  "bitflags 2.10.0",
  "bytemuck",
@@ -3357,7 +3365,7 @@ dependencies = [
 [[package]]
 name = "iced_widget"
 version = "0.15.0-dev"
-source = "git+https://github.com/squidowl/iced?rev=19f12c509614465cb93f078d33581f48ead78fdd#19f12c509614465cb93f078d33581f48ead78fdd"
+source = "git+https://github.com/squidowl/iced?rev=af28bbe8de1dfafa2ebe7a3ac96ebcc87ae05538#af28bbe8de1dfafa2ebe7a3ac96ebcc87ae05538"
 dependencies = [
  "iced_renderer",
  "log",
@@ -3371,7 +3379,7 @@ dependencies = [
 [[package]]
 name = "iced_winit"
 version = "0.15.0-dev"
-source = "git+https://github.com/squidowl/iced?rev=19f12c509614465cb93f078d33581f48ead78fdd#19f12c509614465cb93f078d33581f48ead78fdd"
+source = "git+https://github.com/squidowl/iced?rev=af28bbe8de1dfafa2ebe7a3ac96ebcc87ae05538#af28bbe8de1dfafa2ebe7a3ac96ebcc87ae05538"
 dependencies = [
  "iced_debug",
  "iced_program",
@@ -5897,18 +5905,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6717cf23b488adf64b9d711329542ba34de147df262370221940dfabc2c91358"
 dependencies = [
  "bytemuck",
- "font-types",
+ "font-types 0.10.1",
 ]
 
 [[package]]
 name = "read-fonts"
-version = "0.36.0"
+version = "0.37.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5eaa2941a4c05443ee3a7b26ab076a553c343ad5995230cc2b1d3e993bdc6345"
+checksum = "7b634fabf032fab15307ffd272149b622260f55974d9fad689292a5d33df02e5"
 dependencies = [
  "bytemuck",
  "core_maths",
- "font-types",
+ "font-types 0.11.0",
 ]
 
 [[package]]
@@ -6778,12 +6786,12 @@ dependencies = [
 
 [[package]]
 name = "skrifa"
-version = "0.39.0"
+version = "0.40.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9c9eb0b904a04d09bd68c65d946617b8ff733009999050f3b851c32fb3cfb60e"
+checksum = "7fbdfe3d2475fbd7ddd1f3e5cf8288a30eb3e5f95832829570cd88115a7434ac"
 dependencies = [
  "bytemuck",
- "read-fonts 0.36.0",
+ "read-fonts 0.37.0",
 ]
 
 [[package]]
@@ -6892,6 +6900,12 @@ checksum = "dd538fb6910ac1099850255cf94a94df6551fbdd602454387d0adb2d1ca6dead"
 dependencies = [
  "serde",
 ]
+
+[[package]]
+name = "smol_str"
+version = "0.3.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0f7a918bd2a9951d18ee6e48f076843e8e73a9a5d22cf05bcd4b7a81bdd04e17"
 
 [[package]]
 name = "socket2"
@@ -10302,7 +10316,7 @@ dependencies = [
  "rustix 0.38.44",
  "sctk-adwaita",
  "smithay-client-toolkit 0.19.2",
- "smol_str",
+ "smol_str 0.2.2",
  "tracing",
  "unicode-segmentation",
  "wasm-bindgen",
