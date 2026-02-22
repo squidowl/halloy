@@ -15,6 +15,7 @@ Buffer settings for Halloy.
   - [Internal Messages](#internal-messages)
   - [Mark as Read](#mark-as-read)
   - [Nickname](#nickname)
+  - [Private Messages](#private-messages)
   - [Server Messages](#server-messages)
   - [Status message prefix](#status-message-prefix)
   - [Text Input](#text-input)
@@ -84,6 +85,10 @@ When to mark a buffer as read
 ## [Nickname](nickname/)
 
 Customize how nicknames are displayed within a buffer.
+
+## [Private Messages](private-messages/)
+
+Configure private-message-specific buffer behavior.
 
 ## [Server Messages](server-messages/)
 
