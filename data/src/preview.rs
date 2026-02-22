@@ -470,11 +470,11 @@ mod tests {
         let meta = parse_meta_tag_properties(html).expect("should parse");
 
         assert_eq!(
-            meta.canonical_url.as_ref().map(|u| u.as_str()),
+            meta.canonical_url.as_ref().map(url::Url::as_str),
             Some("https://example.com/page")
         );
         assert_eq!(
-            meta.image_url.as_ref().map(|u| u.as_str()),
+            meta.image_url.as_ref().map(url::Url::as_str),
             Some("https://cdn.example.com/a.png")
         );
         assert_eq!(meta.title.as_deref(), Some("Title"));
@@ -492,12 +492,12 @@ mod tests {
         let meta = parse_meta_tag_properties(html).expect("should parse");
 
         assert_eq!(
-            meta.image_url.as_ref().map(|u| u.as_str()),
+            meta.image_url.as_ref().map(url::Url::as_str),
             Some("https://img.example.com/secure.jpg")
         );
         assert_eq!(meta.title.as_deref(), Some("From name attr"));
         assert_eq!(
-            meta.canonical_url.as_ref().map(|u| u.as_str()),
+            meta.canonical_url.as_ref().map(url::Url::as_str),
             Some("https://example.com/post")
         );
     }
@@ -517,11 +517,11 @@ mod tests {
 
         assert_eq!(meta.title.as_deref(), Some("First"));
         assert_eq!(
-            meta.canonical_url.as_ref().map(|u| u.as_str()),
+            meta.canonical_url.as_ref().map(url::Url::as_str),
             Some("https://example.com/one")
         );
         assert_eq!(
-            meta.image_url.as_ref().map(|u| u.as_str()),
+            meta.image_url.as_ref().map(url::Url::as_str),
             Some("https://example.com/img1.png")
         );
     }
@@ -535,7 +535,7 @@ mod tests {
         let meta = parse_meta_tag_properties(html).expect("should parse");
 
         assert_eq!(
-            meta.image_url.as_ref().map(|u| u.as_str()),
+            meta.image_url.as_ref().map(url::Url::as_str),
             Some("https://example.com/og.png")
         );
     }
