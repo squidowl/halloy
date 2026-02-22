@@ -1,4 +1,3 @@
-use std::io::Cursor;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -7,6 +6,7 @@ use tokio::fs;
 use tokio_rustls::TlsConnector;
 use tokio_rustls::client::TlsStream;
 use tokio_rustls::rustls::client::danger::{self, ServerCertVerifier};
+use tokio_rustls::rustls::pki_types::pem::PemObject;
 use tokio_rustls::rustls::{self, pki_types};
 
 use super::IrcStream;
@@ -32,7 +32,7 @@ pub async fn connect<'a>(
 
         if let Some(cert_path) = root_cert_path {
             let cert_bytes = fs::read(&cert_path).await?;
-            let certs = rustls_pemfile::certs(&mut Cursor::new(&cert_bytes))
+            let certs = pki_types::CertificateDer::pem_slice_iter(&cert_bytes)
                 .collect::<Result<Vec<_>, _>>()?;
             roots.add_parsable_certificates(certs);
         }
@@ -49,10 +49,10 @@ pub async fn connect<'a>(
             cert_bytes.clone()
         };
 
-        let certs = rustls_pemfile::certs(&mut Cursor::new(&cert_bytes))
+        let certs = pki_types::CertificateDer::pem_slice_iter(&cert_bytes)
             .collect::<Result<Vec<_>, _>>()?;
-        let key = rustls_pemfile::private_key(&mut Cursor::new(&key_bytes))?
-            .ok_or(Error::BadPrivateKey)?;
+        let key = pki_types::PrivateKeyDer::from_pem_slice(&key_bytes)
+            .map_err(|_| Error::BadPrivateKey)?;
 
         builder.with_client_auth_cert(certs, key)?
     } else {
@@ -126,6 +126,8 @@ pub enum Error {
     Io(#[from] std::io::Error),
     #[error("invalid DNS name: {0}")]
     Dns(#[from] pki_types::InvalidDnsNameError),
+    #[error("PEM parse error: {0}")]
+    Pem(#[from] pki_types::pem::Error),
     #[error("missing or invalid private key")]
     BadPrivateKey,
 }
