@@ -1759,6 +1759,35 @@ fn preview_row<'a>(
         ),
     };
 
+    let url_string = url.to_string();
+    let content: Element<'a, Message> =
+        crate::widget::context_menu::context_menu(
+            crate::widget::context_menu::MouseButton::Right,
+            crate::widget::context_menu::Anchor::Cursor,
+            crate::widget::context_menu::ToggleBehavior::KeepOpen,
+            content,
+            context_menu::Entry::url_list(
+                config
+                    .preview
+                    .is_enabled(url.as_str())
+                    .then_some(message.hidden_urls.contains(url)),
+            ),
+            move |entry, length| {
+                entry
+                    .view(
+                        Some(context_menu::Context::Url {
+                            url: url_string.as_str(),
+                            message: Some(message.hash),
+                        }),
+                        length,
+                        config,
+                        theme,
+                    )
+                    .map(Message::ContextMenu)
+            },
+        )
+        .into();
+
     let timestamp_gap = config
         .buffer
         .format_timestamp(&message.server_time)
