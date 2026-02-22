@@ -242,6 +242,15 @@ pub fn view<'a>(
                             )
                         };
 
+                        let rerouted_private =
+                            data::message::is_rerouted_private_message(
+                                message,
+                                config.servers.get(&state.server).as_ref().map(
+                                    |config| &config.reroute.private_messages,
+                                ),
+                                &state.server,
+                            );
+
                         let content = message_content(
                             &message.content,
                             &state.server,
@@ -250,7 +259,13 @@ pub fn view<'a>(
                             theme,
                             scroll_view::Message::Link,
                             None,
-                            theme::selectable_text::default,
+                            move |theme| {
+                                if rerouted_private {
+                                    theme::selectable_text::tertiary(theme)
+                                } else {
+                                    theme::selectable_text::default(theme)
+                                }
+                            },
                             theme::font_style::primary,
                             Option::<fn(Color) -> Color>::None,
                             config,
