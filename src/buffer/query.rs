@@ -87,6 +87,7 @@ pub fn view<'a>(
         connected,
         server,
         theme,
+        previews,
         target: TargetInfo::Query,
     };
 

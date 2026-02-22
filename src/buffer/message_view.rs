@@ -2,6 +2,7 @@ use chrono::{TimeDelta, Utc};
 use data::config::buffer::nickname::ShownStatus;
 use data::config::buffer::{CondensationIcon, Dimmed};
 use data::isupport::{CaseMap, PrefixMap};
+use data::preview::{self, Previews};
 use data::server::Server;
 use data::user::ChannelUsers;
 use data::{Config, User, message, target};
@@ -63,10 +64,48 @@ pub struct ChannelQueryLayout<'a> {
     pub connected: bool,
     pub server: &'a Server,
     pub theme: &'a Theme,
+    pub previews: Option<Previews<'a>>,
     pub target: TargetInfo<'a>,
 }
 
 impl<'a> ChannelQueryLayout<'a> {
+    fn preview_hidden_for_url(
+        &self,
+        message: &data::Message,
+        url: &str,
+    ) -> Option<bool> {
+        if !self.config.preview.is_enabled(url) {
+            return None;
+        }
+
+        let parsed = url::Url::parse(url).ok()?;
+
+        // Only offer hide/show when we actually have a loaded preview
+        // for this URL in current context.
+        let is_loaded = self
+            .previews
+            .and_then(|previews| previews.get(&parsed))
+            .is_some_and(|state| matches!(state, preview::State::Loaded(_)));
+        if !is_loaded {
+            return None;
+        }
+
+        Some(message.hidden_urls.contains(&parsed))
+    }
+
+    fn url_entries(
+        &self,
+        message: &data::Message,
+        link: &message::Link,
+    ) -> Vec<context_menu::Entry> {
+        match link {
+            message::Link::Url(url) => context_menu::Entry::url_list(
+                self.preview_hidden_for_url(message, url),
+            ),
+            _ => vec![],
+        }
+    }
+
     fn condensation_marker(
         &self,
         expanded: bool,
@@ -337,13 +376,13 @@ impl<'a> ChannelQueryLayout<'a> {
                     formatter.target.our_user(),
                     formatter.config.file_transfer.enabled,
                 ),
-                message::Link::Url(_) => context_menu::Entry::url_list(),
+                message::Link::Url(_) => formatter.url_entries(message, link),
                 _ => vec![],
             },
             move |link, entry, length| {
                 entry
                     .view(
-                        formatter.link_context(link),
+                        formatter.link_context(message, link),
                         length,
                         formatter.config,
                         formatter.theme,
@@ -485,13 +524,13 @@ impl<'a> ChannelQueryLayout<'a> {
                         formatter.config.file_transfer.enabled,
                     )
                 }
-                message::Link::Url(_) => context_menu::Entry::url_list(),
+                message::Link::Url(_) => formatter.url_entries(message, link),
                 _ => vec![],
             },
             move |link, entry, length| {
                 entry
                     .view(
-                        formatter.link_context(link),
+                        formatter.link_context(message, link),
                         length,
                         formatter.config,
                         formatter.theme,
@@ -576,13 +615,13 @@ impl<'a> ChannelQueryLayout<'a> {
                         formatter.config.file_transfer.enabled,
                     )
                 }
-                message::Link::Url(_) => context_menu::Entry::url_list(),
+                message::Link::Url(_) => formatter.url_entries(message, link),
                 _ => vec![],
             },
             move |link, entry, length| {
                 entry
                     .view(
-                        formatter.link_context(link),
+                        formatter.link_context(message, link),
                         length,
                         formatter.config,
                         formatter.theme,
@@ -609,6 +648,7 @@ impl<'a> ChannelQueryLayout<'a> {
 
     fn link_context<'b>(
         &'b self,
+        message: &'b data::Message,
         link: &'b message::Link,
     ) -> Option<Context<'b>> {
         if let Some(user) = link.user() {
@@ -623,7 +663,10 @@ impl<'a> ChannelQueryLayout<'a> {
                 current_user,
             })
         } else {
-            link.url().map(Context::Url)
+            link.url().map(|url| Context::Url {
+                url,
+                message: Some(message.hash),
+            })
         }
     }
 }
@@ -699,14 +742,14 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
                                 )
                             }
                             message::Link::Url(_) => {
-                                context_menu::Entry::url_list()
+                                formatter.url_entries(message, link)
                             }
                             _ => vec![],
                         },
                         move |link, entry, length| {
                             entry
                                 .view(
-                                    formatter.link_context(link),
+                                    formatter.link_context(message, link),
                                     length,
                                     formatter.config,
                                     formatter.theme,
