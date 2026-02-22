@@ -798,6 +798,21 @@ impl History {
         }
     }
 
+    pub fn show_preview(&mut self, message: message::Hash, url: &url::Url) {
+        if let Self::Full {
+            messages,
+            last_updated_at,
+            ..
+        } = self
+            && let Some(message) =
+                messages.iter_mut().find(|m| m.hash == message)
+        {
+            message.hidden_urls.remove(url);
+
+            *last_updated_at = Some(Instant::now());
+        }
+    }
+
     pub fn last_seen(&self) -> HashMap<Nick, DateTime<Utc>> {
         match self {
             History::Partial { last_seen, .. }

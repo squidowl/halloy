@@ -269,14 +269,17 @@ fn channel_list_view<'a>(
                             Option::<fn(Color) -> Color>::None,
                             move |link| match link {
                                 message::Link::Url(_) => {
-                                    context_menu::Entry::url_list()
+                                    context_menu::Entry::url_list(None)
                                 }
                                 _ => vec![],
                             },
                             move |link, entry, length| {
                                 entry
                                     .view(
-                                        link.url().map(Context::Url),
+                                        link.url().map(|url| Context::Url {
+                                            url,
+                                            message: None,
+                                        }),
                                         length,
                                         config,
                                         theme,
