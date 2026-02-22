@@ -209,9 +209,9 @@ mod transfer_row {
 
                     let remaining_bytes =
                         transfer.size.saturating_sub(*transferred);
-                    let remaining_time = if bytes_per_second > 0 {
-                        let estimated_seconds =
-                            remaining_bytes / bytes_per_second;
+                    let remaining_time = if let Some(estimated_seconds) =
+                        remaining_bytes.checked_div(bytes_per_second)
+                    {
                         let readable_time_left = humantime::format_duration(
                             Duration::from_secs(estimated_seconds),
                         )
