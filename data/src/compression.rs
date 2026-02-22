@@ -7,20 +7,14 @@ use flate2::write::GzEncoder;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 
-pub fn compress<T: Serialize>(value: &T) -> Result<Vec<u8>, Error> {
-    let bytes = serde_json::to_vec(&value).map_err(Error::Encode)?;
-    let mut encoder = GzEncoder::new(Vec::new(), Compression::fast());
-    encoder.write_all(&bytes).map_err(Error::Compression)?;
-    encoder.finish().map_err(Error::Compression)
+pub fn compress<W: Write, T: Serialize>(w: W, value: &T) -> Result<(), Error> {
+    let encoder = GzEncoder::new(w, Compression::fast());
+    serde_json::to_writer(encoder, &value).map_err(Error::Encode)
 }
 
-pub fn decompress<T: DeserializeOwned>(data: &[u8]) -> Result<T, Error> {
-    let mut bytes = vec![];
-    let mut encoder = GzDecoder::new(data);
-    encoder
-        .read_to_end(&mut bytes)
-        .map_err(Error::Decompression)?;
-    serde_json::from_slice(&bytes).map_err(Error::Decode)
+pub fn decompress<R: Read, T: DeserializeOwned>(rdr: R) -> Result<T, Error> {
+    let decoder = GzDecoder::new(rdr);
+    serde_json::from_reader(decoder).map_err(Error::Decode)
 }
 
 #[derive(Debug, thiserror::Error)]
