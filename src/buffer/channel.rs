@@ -100,6 +100,7 @@ pub fn view<'a>(
         connected,
         server,
         theme,
+        previews,
         target: TargetInfo::Channel {
             users,
             channel,

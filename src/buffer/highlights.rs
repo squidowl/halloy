@@ -177,7 +177,7 @@ pub fn view<'a>(
                                 )
                             }
                             message::Link::Url(_) => {
-                                context_menu::Entry::url_list()
+                                context_menu::Entry::url_list(None)
                             }
                             _ => vec![],
                         },
@@ -191,7 +191,10 @@ pub fn view<'a>(
                                     current_user,
                                 })
                             } else {
-                                link.url().map(Context::Url)
+                                link.url().map(|url| Context::Url {
+                                    url,
+                                    message: None,
+                                })
                             };
 
                             entry
