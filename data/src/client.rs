@@ -1295,6 +1295,7 @@ impl Client {
                         }
                     }
 
+                    let user_query = target::Query::from(&user);
                     let direct_message = self
                         .message_query_target(&message.command)
                         .as_ref()
@@ -1302,17 +1303,28 @@ impl Client {
                             query.as_normalized_str()
                                 == self.nickname().as_normalized_str()
                         });
+                    let rerouted_private = direct_message
+                        && config
+                            .buffer
+                            .private_messages
+                            .channel_for_query(
+                                &user_query,
+                                self.chantypes(),
+                                self.statusmsg(),
+                                self.casemapping(),
+                            )
+                            .is_some();
 
                     if let Some(channel) =
                         self.message_channel_target(&message.command)
                     {
                         self.clear_channel_typing(&channel, user.nickname());
                     } else if direct_message {
-                        self.clear_query_typing(&target::Query::from(&user));
+                        self.clear_query_typing(&user_query);
                     }
 
                     if direct_message {
-                        self.record_query(&target::Query::from(&user));
+                        self.record_query(&user_query);
                     }
 
                     let event = Event::PrivOrNotice(
@@ -1324,7 +1336,10 @@ impl Client {
                     // Event::DirectMessage is currently only used to send a
                     // notification, so only return the event it notifications
                     // are allowed.
-                    if direct_message && self.notification_blackout.allowed() {
+                    if direct_message
+                        && self.notification_blackout.allowed()
+                        && !rerouted_private
+                    {
                         return Ok(vec![
                             event,
                             Event::DirectMessage(
