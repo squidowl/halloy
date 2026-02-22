@@ -438,9 +438,6 @@ impl<'a> ChannelQueryLayout<'a> {
                 column![message_content, reactions].spacing(2).into();
         }
 
-        let message_content: Element<'a, Message> =
-            Element::from(message_content);
-
         let content = if not_sent {
             let font_size = 0.85
                 * self.config.font.size.map_or(theme::TEXT_SIZE, f32::from);
@@ -478,7 +475,7 @@ impl<'a> ChannelQueryLayout<'a> {
                 .map(Message::ContextMenu)
             ])
         } else {
-            message_content
+            Element::from(message_content)
         };
 
         (nick_element, content)
