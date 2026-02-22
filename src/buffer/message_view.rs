@@ -350,11 +350,20 @@ impl<'a> ChannelQueryLayout<'a> {
             nick
         };
 
+        let rerouted_private = data::message::is_rerouted_private_message(
+            message,
+            &self.config.buffer.private_messages,
+        );
+
         let formatter = *self;
 
         let message_style = move |message_theme: &Theme| {
             theme::selectable_text::dimmed(
-                theme::selectable_text::default(message_theme),
+                if rerouted_private {
+                    theme::selectable_text::tertiary(message_theme)
+                } else {
+                    theme::selectable_text::default(message_theme)
+                },
                 message_theme,
                 dimmed_background_tuple,
             )
@@ -429,6 +438,9 @@ impl<'a> ChannelQueryLayout<'a> {
                 column![message_content, reactions].spacing(2).into();
         }
 
+        let message_content: Element<'a, Message> =
+            Element::from(message_content);
+
         let content = if not_sent {
             let font_size = 0.85
                 * self.config.font.size.map_or(theme::TEXT_SIZE, f32::from);
@@ -466,7 +478,7 @@ impl<'a> ChannelQueryLayout<'a> {
                 .map(Message::ContextMenu)
             ])
         } else {
-            Element::from(message_content)
+            message_content
         };
 
         (nick_element, content)
