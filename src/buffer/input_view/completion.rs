@@ -41,7 +41,7 @@ impl Completion {
     }
 
     /// Process input and update the completion state
-    pub fn process(
+    pub fn process<'a>(
         &mut self,
         input: &str,
         cursor_position: usize,
@@ -49,7 +49,7 @@ impl Completion {
         users: Option<&ChannelUsers>,
         filters: FilterChain,
         last_seen: &HashMap<Nick, DateTime<Utc>>,
-        channels: &[target::Channel],
+        channels: impl IntoIterator<Item = &'a target::Channel>,
         current_target: Option<&Target>,
         server: &Server,
         supports_detach: bool,
@@ -1294,7 +1294,7 @@ struct Text {
 }
 
 impl Text {
-    fn process(
+    fn process<'a>(
         &mut self,
         input: &str,
         cursor_position: usize,
@@ -1302,7 +1302,7 @@ impl Text {
         users: Option<&ChannelUsers>,
         filters: FilterChain,
         last_seen: &HashMap<Nick, DateTime<Utc>>,
-        channels: &[target::Channel],
+        channels: impl IntoIterator<Item = &'a target::Channel>,
         current_target: Option<&Target>,
         server: &Server,
         chantypes: &[char],
@@ -1394,11 +1394,11 @@ impl Text {
             .collect();
     }
 
-    fn process_channels(
+    fn process_channels<'a>(
         &mut self,
         input: &str,
         cursor_position: usize,
-        channels: &[target::Channel],
+        channels: impl IntoIterator<Item = &'a target::Channel>,
         current_channel: Option<&target::Channel>,
         chantypes: &[char],
         config: &Config,
@@ -1411,7 +1411,7 @@ impl Text {
             self.selected = None;
             self.prompt = input_channel.to_string();
             self.filtered = channels
-                .iter()
+                .into_iter()
                 .sorted_by(|a, b: &&target::Channel| {
                     if let Some(current_channel) = current_channel {
                         let a_is_current_channel = a.as_normalized_str()
