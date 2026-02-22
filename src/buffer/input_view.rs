@@ -1194,10 +1194,6 @@ impl State {
                     });
                     let last_seen = history.get_last_seen(buffer);
                     let filters = FilterChain::borrow(history.get_filters());
-                    let channels = clients
-                        .get_channels(buffer.server())
-                        .cloned()
-                        .collect::<Vec<_>>();
                     let supports_detach =
                         clients.get_server_supports_detach(buffer.server());
                     let isupport = clients.get_isupport(buffer.server());
@@ -1209,7 +1205,7 @@ impl State {
                         users,
                         filters,
                         &last_seen,
-                        &channels,
+                        clients.get_channels(buffer.server()),
                         current_target.as_ref(),
                         buffer.server(),
                         supports_detach,
@@ -1248,10 +1244,6 @@ impl State {
                         let last_seen = history.get_last_seen(buffer);
                         let filters =
                             FilterChain::borrow(history.get_filters());
-                        let channels = clients
-                            .get_channels(buffer.server())
-                            .cloned()
-                            .collect::<Vec<_>>();
                         let supports_detach =
                             clients.get_server_supports_detach(buffer.server());
                         let isupport = clients.get_isupport(buffer.server());
@@ -1263,7 +1255,7 @@ impl State {
                             users,
                             filters,
                             &last_seen,
-                            &channels,
+                            clients.get_channels(buffer.server()),
                             current_target.as_ref(),
                             buffer.server(),
                             supports_detach,
@@ -1467,11 +1459,6 @@ impl State {
                         let last_seen = history.get_last_seen(buffer);
                         let filters =
                             FilterChain::borrow(history.get_filters());
-                        // TODO(pounce) eliminate clones
-                        let channels = clients
-                            .get_channels(buffer.server())
-                            .cloned()
-                            .collect::<Vec<_>>();
                         let supports_detach =
                             clients.get_server_supports_detach(buffer.server());
                         let isupport = clients.get_isupport(buffer.server());
@@ -1483,7 +1470,7 @@ impl State {
                             users,
                             filters,
                             &last_seen,
-                            &channels,
+                            clients.get_channels(buffer.server()),
                             current_target.as_ref(),
                             buffer.server(),
                             supports_detach,
@@ -1567,11 +1554,6 @@ impl State {
                         let last_seen = history.get_last_seen(buffer);
                         let filters =
                             FilterChain::borrow(history.get_filters());
-                        // TODO(pounce) eliminate clones
-                        let channels = clients
-                            .get_channels(buffer.server())
-                            .cloned()
-                            .collect::<Vec<_>>();
                         let supports_detach =
                             clients.get_server_supports_detach(buffer.server());
                         let isupport = clients.get_isupport(buffer.server());
@@ -1583,7 +1565,7 @@ impl State {
                             users,
                             filters,
                             &last_seen,
-                            &channels,
+                            clients.get_channels(buffer.server()),
                             current_target.as_ref(),
                             buffer.server(),
                             supports_detach,
