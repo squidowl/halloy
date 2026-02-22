@@ -363,12 +363,15 @@ impl Commands {
                     let key_len = match isupport.get(&isupport::Kind::KEYLEN) {
                         Some(isupport::Parameter::KEYLEN(len)) => Some(*len),
                         _ => None,
-                        };
+                    };
 
                     let default = current_target
                         .and_then(|target| target.as_channel())
                         .and_then(|target| {
-                            if channels.iter().copied().any(|channel| channel == target)
+                            if channels
+                                .iter()
+                                .copied()
+                                .any(|channel| channel == target)
                             {
                                 None
                             } else {
