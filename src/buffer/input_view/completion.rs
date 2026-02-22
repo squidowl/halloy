@@ -56,13 +56,14 @@ impl Completion {
         isupport: &HashMap<isupport::Kind, isupport::Parameter>,
         config: &Config,
     ) {
+        let channels: Vec<_> = channels.into_iter().collect();
         let is_command = input.starts_with('/');
 
         if is_command {
             self.commands.process(
                 input,
                 our_nickname,
-                channels,
+                channels.iter().copied(),
                 current_target,
                 supports_detach,
                 isupport,
@@ -102,7 +103,7 @@ impl Completion {
                 users,
                 filters,
                 last_seen,
-                channels,
+                channels.iter().copied(),
                 current_target,
                 server,
                 chantypes,
@@ -280,15 +281,16 @@ enum Commands {
 }
 
 impl Commands {
-    fn process(
+    fn process<'a>(
         &mut self,
         input: &str,
         our_nickname: Option<NickRef>,
-        channels: &[target::Channel],
+        channels: impl IntoIterator<Item = &'a target::Channel>,
         current_target: Option<&Target>,
         supports_detach: bool,
         isupport: &HashMap<isupport::Kind, isupport::Parameter>,
     ) {
+        let channels: Vec<_> = channels.into_iter().collect();
         let Some((head, rest)) = input.split_once('/') else {
             *self = Self::Idle;
             return;
@@ -361,12 +363,12 @@ impl Commands {
                     let key_len = match isupport.get(&isupport::Kind::KEYLEN) {
                         Some(isupport::Parameter::KEYLEN(len)) => Some(*len),
                         _ => None,
-                    };
+                        };
 
                     let default = current_target
                         .and_then(|target| target.as_channel())
                         .and_then(|target| {
-                            if channels.iter().any(|channel| channel == target)
+                            if channels.iter().copied().any(|channel| channel == target)
                             {
                                 None
                             } else {
