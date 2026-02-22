@@ -199,81 +199,12 @@ async fn load_uncached(
     match fetch(url.clone(), client.clone(), config).await? {
         Fetched::Image(image) => Ok(Preview::Image(image)),
         Fetched::Other(bytes) => {
-            let mut canonical_url = None;
-            let mut image_url = None;
-            let mut title = None;
-            let mut description = None;
-
-            for meta_tag in META_TAG_REGEX
-                .find_iter(&String::from_utf8_lossy(&bytes))
-                .filter_map(Result::ok)
-            {
-                let meta_tag = meta_tag.as_str();
-                let mut property = None;
-                let mut content = None;
-
-                for captures in META_ATTR_REGEX
-                    .captures_iter(meta_tag)
-                    .filter_map(Result::ok)
-                {
-                    let Some((key, value)) = captures
-                        .get(1)
-                        .map(|r| r.as_str())
-                        .zip(captures.get(2).map(|r| r.as_str()))
-                    else {
-                        continue;
-                    };
-
-                    let key = key.trim().to_ascii_lowercase();
-                    let value = decode_html_string(
-                        value
-                            .trim_start_matches(['\'', '"'])
-                            .trim_end_matches(['\'', '"']),
-                    )
-                    .trim()
-                    .to_string();
-
-                    match key.as_str() {
-                        "property" => property = Some(value),
-                        "name" => {
-                            if property.is_none() {
-                                property = Some(value);
-                            }
-                        }
-                        "content" => content = Some(value),
-                        _ => {}
-                    }
-                }
-
-                let (Some(property), Some(content)) = (property, content)
-                else {
-                    continue;
-                };
-
-                match property.trim().to_ascii_lowercase().as_str() {
-                    "og:url" => {
-                        if canonical_url.is_none() {
-                            canonical_url = Some(content.parse()?);
-                        }
-                    }
-                    "og:image" | "og:image:url" | "og:image:secure_url" => {
-                        if image_url.is_none() {
-                            image_url = Some(content.parse()?);
-                        }
-                    }
-                    "og:title" => {
-                        if title.is_none() {
-                            title = Some(content);
-                        }
-                    }
-                    "og:description" => {
-                        if description.is_none() {
-                            description = Some(content);
-                        }
-                    }
-                    _ => {}
-                }
-            }
+            let MetaTagProperties {
+                canonical_url,
+                image_url,
+                title,
+                description,
+            } = parse_meta_tag_properties(&bytes)?;
 
             let image_url =
                 image_url.ok_or(LoadError::MissingProperty("image"))?;
@@ -398,6 +329,92 @@ fn decode_html_string(s: &str) -> String {
     html_escape::decode_html_entities(s).to_string()
 }
 
+#[derive(Debug, Default)]
+struct MetaTagProperties {
+    canonical_url: Option<Url>,
+    image_url: Option<Url>,
+    title: Option<String>,
+    description: Option<String>,
+}
+
+fn parse_meta_tag_properties(
+    bytes: &[u8],
+) -> Result<MetaTagProperties, LoadError> {
+    let mut meta = MetaTagProperties::default();
+
+    for meta_tag in META_TAG_REGEX
+        .find_iter(&String::from_utf8_lossy(bytes))
+        .filter_map(Result::ok)
+    {
+        let meta_tag = meta_tag.as_str();
+        let mut property = None;
+        let mut content = None;
+
+        for captures in META_ATTR_REGEX
+            .captures_iter(meta_tag)
+            .filter_map(Result::ok)
+        {
+            let Some((key, value)) = captures
+                .get(1)
+                .map(|r| r.as_str())
+                .zip(captures.get(2).map(|r| r.as_str()))
+            else {
+                continue;
+            };
+
+            let key = key.trim().to_ascii_lowercase();
+            let value = decode_html_string(
+                value
+                    .trim_start_matches(['\'', '"'])
+                    .trim_end_matches(['\'', '"']),
+            )
+            .trim()
+            .to_string();
+
+            match key.as_str() {
+                "property" => property = Some(value),
+                "name" => {
+                    if property.is_none() {
+                        property = Some(value);
+                    }
+                }
+                "content" => content = Some(value),
+                _ => {}
+            }
+        }
+
+        let (Some(property), Some(content)) = (property, content) else {
+            continue;
+        };
+
+        match property.trim().to_ascii_lowercase().as_str() {
+            "og:url" => {
+                if meta.canonical_url.is_none() {
+                    meta.canonical_url = Some(content.parse()?);
+                }
+            }
+            "og:image" | "og:image:url" | "og:image:secure_url" => {
+                if meta.image_url.is_none() {
+                    meta.image_url = Some(content.parse()?);
+                }
+            }
+            "og:title" => {
+                if meta.title.is_none() {
+                    meta.title = Some(content);
+                }
+            }
+            "og:description" => {
+                if meta.description.is_none() {
+                    meta.description = Some(content);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    Ok(meta)
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum LoadError {
     #[error("preview disabled in config")]
@@ -433,4 +450,93 @@ pub enum LoadError {
         padded_image_data_size: u64,
         max_buffer_size: u64,
     },
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_meta_tag_properties;
+
+    #[test]
+    fn parses_mixed_attribute_order_and_quotes() {
+        let html = br#"
+            <html><head>
+                <meta content="https://example.com/page" property="og:url">
+                <meta property='og:image' content='https://cdn.example.com/a.png'>
+                <meta content="Title" property="og:title">
+                <meta property="og:description" content="  Hello &amp; goodbye  ">
+            </head></html>
+        "#;
+
+        let meta = parse_meta_tag_properties(html).expect("should parse");
+
+        assert_eq!(
+            meta.canonical_url.as_ref().map(|u| u.as_str()),
+            Some("https://example.com/page")
+        );
+        assert_eq!(
+            meta.image_url.as_ref().map(|u| u.as_str()),
+            Some("https://cdn.example.com/a.png")
+        );
+        assert_eq!(meta.title.as_deref(), Some("Title"));
+        assert_eq!(meta.description.as_deref(), Some("Hello & goodbye"));
+    }
+
+    #[test]
+    fn parses_name_attr_and_secure_image_variant() {
+        let html = br#"
+            <meta name="og:image:secure_url" content="https://img.example.com/secure.jpg">
+            <meta name="og:title" content="From name attr">
+            <meta name="og:url" content="https://example.com/post">
+        "#;
+
+        let meta = parse_meta_tag_properties(html).expect("should parse");
+
+        assert_eq!(
+            meta.image_url.as_ref().map(|u| u.as_str()),
+            Some("https://img.example.com/secure.jpg")
+        );
+        assert_eq!(meta.title.as_deref(), Some("From name attr"));
+        assert_eq!(
+            meta.canonical_url.as_ref().map(|u| u.as_str()),
+            Some("https://example.com/post")
+        );
+    }
+
+    #[test]
+    fn first_value_wins_for_duplicates() {
+        let html = br#"
+            <meta property="og:title" content="First">
+            <meta property="og:title" content="Second">
+            <meta property="og:url" content="https://example.com/one">
+            <meta property="og:url" content="https://example.com/two">
+            <meta property="og:image" content="https://example.com/img1.png">
+            <meta property="og:image" content="https://example.com/img2.png">
+        "#;
+
+        let meta = parse_meta_tag_properties(html).expect("should parse");
+
+        assert_eq!(meta.title.as_deref(), Some("First"));
+        assert_eq!(
+            meta.canonical_url.as_ref().map(|u| u.as_str()),
+            Some("https://example.com/one")
+        );
+        assert_eq!(
+            meta.image_url.as_ref().map(|u| u.as_str()),
+            Some("https://example.com/img1.png")
+        );
+    }
+
+    #[test]
+    fn property_attribute_takes_precedence_over_name_on_same_meta_tag() {
+        let html = br#"
+            <meta property="og:image" name="twitter:image" content="https://example.com/og.png">
+        "#;
+
+        let meta = parse_meta_tag_properties(html).expect("should parse");
+
+        assert_eq!(
+            meta.image_url.as_ref().map(|u| u.as_str()),
+            Some("https://example.com/og.png")
+        );
+    }
 }
