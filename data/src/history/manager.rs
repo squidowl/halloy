@@ -1050,6 +1050,7 @@ impl Data {
                     last_updated_at,
                     read_marker: partial_read_marker,
                     last_seen,
+                    pending_reactions,
                     ..
                 } => {
                     let read_marker =
@@ -1058,14 +1059,21 @@ impl Data {
                     let last_updated_at = *last_updated_at;
 
                     let mut last_seen = last_seen.clone();
+                    let mut reactions = std::mem::take(pending_reactions);
 
-                    std::mem::take(new_messages).into_iter().for_each(
-                        |message| {
-                            history::update_last_seen(&mut last_seen, &message);
+                    for mut message in std::mem::take(new_messages) {
+                        history::update_last_seen(&mut last_seen, &message);
 
-                            history::insert_message(&mut messages, message);
-                        },
-                    );
+                        if let Some(ref mut reacts) = message
+                            .id
+                            .as_ref()
+                            .and_then(|id| reactions.remove(id))
+                        {
+                            message.reactions.append(reacts);
+                        }
+
+                        history::insert_message(&mut messages, message);
+                    }
 
                     entry.insert(History::Full {
                         kind,

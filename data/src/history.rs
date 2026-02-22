@@ -237,10 +237,21 @@ pub async fn append(
     seed: Option<Seed>,
     messages: Vec<Message>,
     read_marker: Option<ReadMarker>,
+    mut pending_reactions: HashMap<message::Id, Vec<Reaction>>,
 ) -> Result<(), Error> {
     let loaded = load(kind.clone(), seed).await?;
 
     let mut all_messages = loaded.messages;
+    // pending reactions should only exist for unloaded history entries
+    for message in all_messages.iter_mut() {
+        if let Some(ref mut reacts) = message
+            .id
+            .as_ref()
+            .and_then(|id| pending_reactions.remove(id))
+        {
+            message.reactions.append(reacts);
+        }
+    }
     messages.into_iter().for_each(|message| {
         insert_message(&mut all_messages, message);
     });
@@ -304,6 +315,7 @@ pub enum History {
         read_marker: Option<ReadMarker>,
         chathistory_references: Option<MessageReferences>,
         last_seen: HashMap<Nick, DateTime<Utc>>,
+        pending_reactions: HashMap<message::Id, Vec<Reaction>>,
     },
     Full {
         kind: Kind,
@@ -326,6 +338,7 @@ impl History {
             read_marker: None,
             chathistory_references: None,
             last_seen: HashMap::new(),
+            pending_reactions: HashMap::new(),
         }
     }
 
@@ -558,6 +571,7 @@ impl History {
                 messages,
                 last_updated_at,
                 read_marker,
+                pending_reactions,
                 ..
             } => {
                 if let Some(last_received) = *last_updated_at
@@ -569,12 +583,20 @@ impl History {
                     let kind = kind.clone();
                     let messages = std::mem::take(messages);
                     let read_marker = *read_marker;
+                    let pending_reactions = std::mem::take(pending_reactions);
 
                     *last_updated_at = None;
 
                     return Some(
                         async move {
-                            append(&kind, seed, messages, read_marker).await
+                            append(
+                                &kind,
+                                seed,
+                                messages,
+                                read_marker,
+                                pending_reactions,
+                            )
+                            .await
                         }
                         .boxed(),
                     );
@@ -653,6 +675,7 @@ impl History {
                     max_triggers_highlight,
                     chathistory_references,
                     last_seen: last_seen.clone(),
+                    pending_reactions: HashMap::new(),
                 };
 
                 Some(
@@ -668,8 +691,12 @@ impl History {
                 kind,
                 messages,
                 read_marker,
+                pending_reactions,
                 ..
-            } => append(&kind, seed, messages, read_marker).await,
+            } => {
+                append(&kind, seed, messages, read_marker, pending_reactions)
+                    .await
+            }
             History::Full {
                 kind,
                 messages,
@@ -819,9 +846,19 @@ impl History {
             History::Partial {
                 messages,
                 last_updated_at,
+                pending_reactions,
                 ..
+            } => {
+                if let Some(message) =
+                    messages.iter_mut().find(|m| m.id.as_deref() == Some(&*id))
+                {
+                    message.reactions.push(reaction);
+                } else {
+                    pending_reactions.entry(id).or_default().push(reaction);
+                }
+                *last_updated_at = Some(Instant::now());
             }
-            | History::Full {
+            History::Full {
                 messages,
                 last_updated_at,
                 ..
