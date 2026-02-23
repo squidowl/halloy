@@ -8,6 +8,7 @@ Added:
 Changed:
 
 - Notification toasts can now use a subtitle on supported operating systems
+- New about screen accessible from the user menu in the sidebar
 
 Fixed:
 
