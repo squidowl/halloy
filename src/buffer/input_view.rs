@@ -520,13 +520,7 @@ pub fn view<'a>(
                 .align_y(Alignment::Center)
         )
         .max_height(
-            (7.55
-                * theme::resolve_line_height(
-                    &config.font,
-                    config.font.size.map(f32::from)
-                )
-                .ceil())
-            .ceil(),
+            (7.55 * theme::resolve_line_height(&config.font).ceil()).ceil(),
         )
         .padding(8)
         .style(theme::container::buffer_text_input)
