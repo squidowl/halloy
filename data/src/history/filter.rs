@@ -48,58 +48,83 @@ impl Filter {
                     filters
                         .ignore
                         .iter()
-                        .map(|ignore| match &ignore {
-                            // Use from_str_with_server for backwards compatibility
-                            Ignore::User(user) => Filter::from_str_with_server(
-                                &entry.server,
-                                chantypes,
-                                casemapping,
-                                user,
-                            ),
-                            Ignore::UserInChannel { user, channel } => {
-                                let channel = Channel::from_str(
-                                    channel,
-                                    chantypes,
-                                    casemapping,
-                                );
-
-                                let target = FilterTarget::from_nick(
-                                    Nick::from_str(user, casemapping),
-                                );
-
-                                Self {
-                                    class: FilterClass::Channel(
-                                        entry.server.clone(),
-                                        channel,
-                                    ),
-                                    target,
+                        .map(|ignore| {
+                            let filter = match &ignore {
+                                // Use from_str_with_server for backwards compatibility
+                                Ignore::User(user) => {
+                                    Filter::from_str_with_server(
+                                        &entry.server,
+                                        chantypes,
+                                        casemapping,
+                                        user,
+                                    )
                                 }
-                            }
-                            Ignore::Regex { regex } => Self {
-                                class: FilterClass::Server(
-                                    entry.server.clone(),
-                                ),
-                                target: FilterTarget::UserRegex(
-                                    regex.clone().into(),
-                                ),
-                            },
-                            Ignore::RegexInChannel { regex, channel } => {
-                                let channel = Channel::from_str(
-                                    channel,
-                                    chantypes,
-                                    casemapping,
-                                );
-
-                                Self {
-                                    class: FilterClass::Channel(
-                                        entry.server.clone(),
+                                Ignore::UserInChannel { user, channel } => {
+                                    let channel = Channel::from_str(
                                         channel,
+                                        chantypes,
+                                        casemapping,
+                                    );
+
+                                    let target = FilterTarget::from_nick(
+                                        Nick::from_str(user, casemapping),
+                                    );
+
+                                    Self {
+                                        class: FilterClass::Channel(
+                                            entry.server.clone(),
+                                            channel,
+                                        ),
+                                        target,
+                                    }
+                                }
+                                Ignore::Regex { regex } => Self {
+                                    class: FilterClass::Server(
+                                        entry.server.clone(),
                                     ),
                                     target: FilterTarget::UserRegex(
                                         regex.clone().into(),
                                     ),
+                                },
+                                Ignore::RegexInChannel { regex, channel } => {
+                                    let channel = Channel::from_str(
+                                        channel,
+                                        chantypes,
+                                        casemapping,
+                                    );
+
+                                    Self {
+                                        class: FilterClass::Channel(
+                                            entry.server.clone(),
+                                            channel,
+                                        ),
+                                        target: FilterTarget::UserRegex(
+                                            regex.clone().into(),
+                                        ),
+                                    }
+                                }
+                            };
+
+                            if let FilterTarget::User(filter_user) = &filter.target {
+                                match &filter.class {
+                                    FilterClass::Server(server) => {
+                                        log::debug!(
+                                            "[{server}] loaded ignore user filter raw={:?} normalized={:?} scope=server",
+                                            filter_user.as_str(),
+                                            filter_user.as_normalized_str(),
+                                        );
+                                    }
+                                    FilterClass::Channel(server, channel) => {
+                                        log::debug!(
+                                            "[{server}] loaded ignore user filter raw={:?} normalized={:?} scope=channel:{channel}",
+                                            filter_user.as_str(),
+                                            filter_user.as_normalized_str(),
+                                        );
+                                    }
                                 }
                             }
+
+                            filter
                         })
                         .chain(filters.regex.iter().map(|regex| Self {
                             class: FilterClass::Server(entry.server.clone()),
@@ -188,17 +213,42 @@ impl Filter {
         match &self.target {
             FilterTarget::User(user) => match &message.target.source() {
                 Source::Action(Some(msg_user)) | Source::User(msg_user) => {
-                    msg_user.nickname() == user.nickname()
+                    let matched = msg_user.nickname() == user.nickname();
+
+                    log::debug!(
+                        "filter match_message user-compare filter_raw={:?} filter_norm={:?} msg_raw={:?} msg_norm={:?} matched={} source={:?}",
+                        user.nickname().as_str(),
+                        user.nickname().as_normalized_str(),
+                        msg_user.nickname().as_str(),
+                        msg_user.nickname().as_normalized_str(),
+                        matched,
+                        message.target.source(),
+                    );
+
+                    matched
                 }
                 Source::Server(Some(server)) => {
                     // Match server messages from the filtered user, except for
                     // nick change messages in order to alert the Halloy user
                     // that the filtered user has a new nickname.
-                    server.nick().is_some_and(|nick| user.nickname() == *nick)
+                    let matched = server
+                        .nick()
+                        .is_some_and(|nick| user.nickname() == *nick)
                         && !matches!(
                             server.kind(),
                             source::server::Kind::ChangeNick
-                        )
+                        );
+
+                    log::debug!(
+                        "filter match_message server-user-compare filter_raw={:?} filter_norm={:?} server_nick={:?} matched={} kind={:?}",
+                        user.nickname().as_str(),
+                        user.nickname().as_normalized_str(),
+                        server.nick().map(|nick| nick.as_str()),
+                        matched,
+                        server.kind(),
+                    );
+
+                    matched
                 }
                 _ => false,
             },
