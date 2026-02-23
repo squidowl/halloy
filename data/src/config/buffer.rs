@@ -377,6 +377,7 @@ impl Default for Condensation {
     fn default() -> Self {
         Self {
             messages: HashSet::from([
+                CondensationMessage::ChangeHost,
                 CondensationMessage::ChangeNick,
                 CondensationMessage::Join,
                 CondensationMessage::Part,

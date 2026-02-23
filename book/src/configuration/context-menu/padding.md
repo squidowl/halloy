@@ -16,7 +16,7 @@ The value is an array where the first value is vertical padding and the second i
 ```toml
 # Type: array
 # Values: array
-# Default: [5, 5]
+# Default: [4, 4]
 
 [context_menu.padding]
 entry = [2, 5]
