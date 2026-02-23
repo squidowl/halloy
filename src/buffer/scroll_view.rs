@@ -1062,7 +1062,10 @@ impl State {
                     for hash in self.pending_preview_exits.drain() {
                         if rendered_hashes.contains(&hash) {
                             still_pending.insert(hash);
-                        } else if self.visible_url_messages.remove(&hash).is_some()
+                        } else if self
+                            .visible_url_messages
+                            .remove(&hash)
+                            .is_some()
                         {
                             preview_changed = true;
                         }
@@ -1941,7 +1944,8 @@ mod correct_viewport {
                         iced::Event::Window(iced::window::Event::RedrawRequested(_))
                     );
 
-                    // Check if top-of-viewport element has shifted since we last scrolled and adjust
+                    // Check if top-of-viewport element has shifted since we
+                    // last scrolled and adjust
                     if let (true, true, Some(old)) = (enabled, is_redraw, &state) {
                         let hit = Arc::new(Mutex::new(None));
 
@@ -2014,7 +2018,8 @@ mod correct_viewport {
                         viewport,
                     );
 
-                    // Merge shell (we can't use Shell::merge as we'd lose access to messages)
+                    // Merge shell (we can't use Shell::merge as we'd lose
+                    // access to messages)
                     {
                         match local_shell.redraw_request() {
                             iced::window::RedrawRequest::NextFrame => shell.request_redraw(),
