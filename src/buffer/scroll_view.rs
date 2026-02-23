@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -327,9 +327,7 @@ pub fn view<'a>(
                         range_timestamp_excess_width,
                         hide_nickname,
                     )
-                    .map(|element| {
-                        (message, keyed(keyed::Key::message(message), element))
-                    }))
+                    .map(|element| (message, element)))
             })
             .flatten()
             .scan(last_date, |last_date, (message, element)| {
@@ -419,56 +417,55 @@ pub fn view<'a>(
                     element
                 };
 
-                if is_new_day && config.buffer.date_separators.show {
-                    Some(
-                        column![
-                            row![
-                                container(rule::horizontal(1))
-                                    .width(Length::Fill)
-                                    .padding(padding::right(6)),
-                                text(
-                                    date.and_time(
-                                        NaiveTime::from_hms_opt(0, 0, 0)
-                                            .expect("midnight is valid")
-                                    )
-                                    .and_local_timezone(Local)
-                                    .single()
-                                    .map_or(
-                                        // in the event of timezone weirdness,
-                                        // revert to default format
-                                        date.format(
-                                            &DateSeparators::default().format
-                                        ),
-                                        |datetime| {
-                                            datetime.format(
-                                                &config
-                                                    .buffer
-                                                    .date_separators
-                                                    .format,
-                                            )
-                                        }
-                                    )
-                                    .to_string()
+                let content = if is_new_day && config.buffer.date_separators.show
+                {
+                    column![
+                        row![
+                            container(rule::horizontal(1))
+                                .width(Length::Fill)
+                                .padding(padding::right(6)),
+                            text(
+                                date.and_time(
+                                    NaiveTime::from_hms_opt(0, 0, 0)
+                                        .expect("midnight is valid")
                                 )
-                                .size(divider_font_size)
-                                .style(theme::text::secondary)
-                                .font_maybe(
-                                    theme::font_style::secondary(theme)
-                                        .map(font::get)
-                                ),
-                                container(rule::horizontal(1))
-                                    .width(Length::Fill)
-                                    .padding(padding::left(6))
-                            ]
-                            .padding(2)
-                            .align_y(iced::Alignment::Center),
-                            content
+                                .and_local_timezone(Local)
+                                .single()
+                                .map_or(
+                                    // in the event of timezone weirdness,
+                                    // revert to default format
+                                    date.format(&DateSeparators::default().format),
+                                    |datetime| {
+                                        datetime.format(
+                                            &config
+                                                .buffer
+                                                .date_separators
+                                                .format,
+                                        )
+                                    }
+                                )
+                                .to_string()
+                            )
+                            .size(divider_font_size)
+                            .style(theme::text::secondary)
+                            .font_maybe(
+                                theme::font_style::secondary(theme)
+                                    .map(font::get)
+                            ),
+                            container(rule::horizontal(1))
+                                .width(Length::Fill)
+                                .padding(padding::left(6))
                         ]
-                        .into(),
-                    )
+                        .padding(2)
+                        .align_y(iced::Alignment::Center),
+                        content
+                    ]
+                    .into()
                 } else {
-                    Some(content)
-                }
+                    content
+                };
+
+                Some(keyed(keyed::Key::message(message), content))
             })
             .collect::<Vec<_>>()
     };
@@ -560,6 +557,7 @@ pub fn view<'a>(
 
     let old = message_rows(old_last_date, &old_messages[old_start..old_end]);
     let new = message_rows(new_last_date, &new_messages[new_start..new_end]);
+    let divider_index = old_messages.len();
 
     let show_backlog_divider = if old.is_empty() {
         // If all newer messages in viewport, only show backlog divider at the top
@@ -574,7 +572,10 @@ pub fn view<'a>(
         }
     };
 
-    let divider = if show_backlog_divider {
+    let divider_in_render_window =
+        render_start <= divider_index && render_end >= divider_index;
+
+    let divider = if show_backlog_divider && divider_in_render_window {
         match &config.buffer.backlog_separator.text {
             data::buffer::BacklogText::Hidden => row![
                 container(rule::horizontal(1).style(theme::rule::backlog))
@@ -629,7 +630,7 @@ pub fn view<'a>(
             .chain(&new_messages[..new_start])
             .map(&msg_height)
             .sum();
-        if new_start > 0 {
+        if show_backlog_divider && render_start > divider_index {
             h += backlog_divider_height;
         }
         space::vertical().height(h)
@@ -640,7 +641,7 @@ pub fn view<'a>(
             .chain(&new_messages[new_end..])
             .map(&msg_height)
             .sum();
-        if old_end < old_messages.len() {
+        if show_backlog_divider && render_end < divider_index {
             h += backlog_divider_height;
         }
         space::vertical().height(h)
@@ -694,6 +695,7 @@ pub struct State {
     pending_scroll_to: Option<keyed::Key>,
     is_scrolling_to: bool,
     visible_url_messages: HashMap<message::Hash, Vec<url::Url>>,
+    pending_preview_exits: HashSet<message::Hash>,
     hovered_preview: Option<(message::Hash, usize)>,
 }
 
@@ -712,6 +714,7 @@ impl State {
             pending_scroll_to: None,
             is_scrolling_to: false,
             visible_url_messages: HashMap::new(),
+            pending_preview_exits: HashSet::new(),
             hovered_preview: None,
         }
     }
@@ -1030,12 +1033,15 @@ impl State {
                 }
             }
             Message::EnteringViewport(hash, urls) => {
+                self.pending_preview_exits.remove(&hash);
                 self.visible_url_messages.insert(hash, urls);
                 return (Task::none(), Some(Event::PreviewChanged));
             }
             Message::ExitingViewport(hash) => {
-                self.visible_url_messages.remove(&hash);
-                return (Task::none(), Some(Event::PreviewChanged));
+                if self.visible_url_messages.contains_key(&hash) {
+                    self.pending_preview_exits.insert(hash);
+                }
+                return (Task::none(), None);
             }
             Message::PreviewHovered(hash, idx) => {
                 self.hovered_preview = Some((hash, idx));
@@ -1076,9 +1082,32 @@ impl State {
                 }
             }
             Message::HeightsCollected(heights) => {
-                for (hash, height) in heights {
-                    self.height_cache.insert(hash, height);
+                for (hash, height) in &heights {
+                    self.height_cache.insert(*hash, *height);
                 }
+
+                let mut preview_changed = false;
+
+                if !self.pending_preview_exits.is_empty() {
+                    let rendered_hashes = heights
+                        .iter()
+                        .map(|(hash, _)| *hash)
+                        .collect::<HashSet<_>>();
+                    let mut still_pending = HashSet::new();
+
+                    for hash in self.pending_preview_exits.drain() {
+                        if rendered_hashes.contains(&hash) {
+                            still_pending.insert(hash);
+                        } else if self.visible_url_messages.remove(&hash).is_some()
+                        {
+                            preview_changed = true;
+                        }
+                    }
+
+                    self.pending_preview_exits = still_pending;
+                }
+
+                let event = preview_changed.then_some(Event::PreviewChanged);
 
                 if let Some(key) = &self.pending_scroll_to {
                     let scroll_to = keyed::find(self.scrollable.clone(), *key)
@@ -1087,7 +1116,11 @@ impl State {
                     self.pending_scroll_to = None;
                     self.is_scrolling_to = true;
 
-                    return (scroll_to, None);
+                    return (scroll_to, event);
+                }
+
+                if let Some(event) = event {
+                    return (Task::none(), Some(event));
                 }
             }
         }
@@ -1111,8 +1144,13 @@ impl State {
             _ => {}
         }
 
+        let width_changed = self.pane_size.width != pane_size.width;
+
         self.pane_size = pane_size;
-        self.height_cache.clear();
+
+        if width_changed {
+            self.height_cache.clear();
+        }
     }
 
     pub fn scroll_up_page(&mut self) -> Task<Message> {
@@ -1919,6 +1957,27 @@ mod correct_viewport {
     use super::{Message, keyed};
     use crate::widget::{Element, Renderer, decorate};
 
+    #[derive(Debug, Default)]
+    struct State {
+        anchor: Option<keyed::Hit>,
+        last_correction_attempt: Option<CorrectionAttempt>,
+    }
+
+    #[derive(Debug, Clone, Copy)]
+    struct CorrectionAttempt {
+        key: keyed::Key,
+        current_offset_y: f32,
+        target_offset_y: f32,
+    }
+
+    impl CorrectionAttempt {
+        fn is_same_retry(self, other: Self) -> bool {
+            self.key == other.key
+                && self.current_offset_y == other.current_offset_y
+                && self.target_offset_y == other.target_offset_y
+        }
+    }
+
     pub fn correct_viewport<'a>(
         inner: impl Into<Element<'a, Message>>,
         scrollable: iced::widget::Id,
@@ -1927,7 +1986,7 @@ mod correct_viewport {
         decorate(inner)
             .update({
                 let scrollable = scrollable.clone();
-                move |state: &mut Option<keyed::Hit>,
+                move |state: &mut State,
                       inner: &mut Element<'a, Message>,
                       tree: &mut advanced::widget::Tree,
                       event: &iced::Event,
@@ -1943,7 +2002,9 @@ mod correct_viewport {
                     );
 
                     // Check if top-of-viewport element has shifted since we last scrolled and adjust
-                    if let (true, true, Some(old)) = (enabled, is_redraw, &state) {
+                    if let (true, true, Some(old)) =
+                        (enabled, is_redraw, &state.anchor)
+                    {
                         let hit = Arc::new(Mutex::new(None));
 
                         let mut operation = widget::operation::map(
@@ -1985,18 +2046,34 @@ mod correct_viewport {
                                         - new.scrollable.viewport.y,
                                     new.scrollable.content.height - new.scrollable.viewport.height,
                                 );
+                                let attempt = CorrectionAttempt {
+                                    key: old.key,
+                                    current_offset_y: new.scrollable.offset.y,
+                                    target_offset_y: new_offset,
+                                };
 
-                                let mut operation = scrollable::scroll_to(
-                                    scrollable.clone(),
-                                    scrollable::AbsoluteOffset {
-                                        x: None,
-                                        y: Some(new_offset),
-                                    },
-                                );
-                                inner
-                                    .as_widget_mut()
-                                    .operate(tree, layout, renderer, &mut operation);
-                                operation.finish();
+                                if !state
+                                    .last_correction_attempt
+                                    .is_some_and(|prev| prev.is_same_retry(attempt))
+                                {
+                                    state.last_correction_attempt =
+                                        Some(attempt);
+
+                                    let mut operation = scrollable::scroll_to(
+                                        scrollable.clone(),
+                                        scrollable::AbsoluteOffset {
+                                            x: None,
+                                            y: Some(new_offset),
+                                        },
+                                    );
+                                    inner.as_widget_mut().operate(
+                                        tree,
+                                        layout,
+                                        renderer,
+                                        &mut operation,
+                                    );
+                                    operation.finish();
+                                }
                             }
                         }
                     }
@@ -2068,14 +2145,15 @@ mod correct_viewport {
                         operation.finish();
                         drop(operation);
 
-                        *state = Arc::into_inner(hit)
+                        state.anchor = Arc::into_inner(hit)
                             .and_then(|m| m.into_inner().ok())
                             .flatten();
+                        state.last_correction_attempt = None;
                     }
                 }
             })
             .operate(
-                move |state: &mut Option<keyed::Hit>,
+                move |state: &mut State,
                       inner: &mut Element<'a, Message>,
                       tree: &mut advanced::widget::Tree,
                       layout: advanced::Layout<'_>,
@@ -2115,9 +2193,10 @@ mod correct_viewport {
                         operation.finish();
                         drop(operation);
 
-                        *state = Arc::into_inner(hit)
+                        state.anchor = Arc::into_inner(hit)
                             .and_then(|m| m.into_inner().ok())
                             .flatten();
+                        state.last_correction_attempt = None;
                     }
                 },
             )
