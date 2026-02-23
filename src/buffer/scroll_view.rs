@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -325,9 +325,7 @@ pub fn view<'a>(
                         range_timestamp_excess_width,
                         hide_nickname,
                     )
-                    .map(|element| {
-                        (message, keyed(keyed::Key::message(message), element))
-                    }))
+                    .map(|element| (message, element)))
             })
             .flatten()
             .scan(last_date, |last_date, (message, element)| {
@@ -417,56 +415,55 @@ pub fn view<'a>(
                     element
                 };
 
-                if is_new_day && config.buffer.date_separators.show {
-                    Some(
-                        column![
-                            row![
-                                container(rule::horizontal(1))
-                                    .width(Length::Fill)
-                                    .padding(padding::right(6)),
-                                text(
-                                    date.and_time(
-                                        NaiveTime::from_hms_opt(0, 0, 0)
-                                            .expect("midnight is valid")
-                                    )
-                                    .and_local_timezone(Local)
-                                    .single()
-                                    .map_or(
-                                        // in the event of timezone weirdness,
-                                        // revert to default format
-                                        date.format(
-                                            &DateSeparators::default().format
-                                        ),
-                                        |datetime| {
-                                            datetime.format(
-                                                &config
-                                                    .buffer
-                                                    .date_separators
-                                                    .format,
-                                            )
-                                        }
-                                    )
-                                    .to_string()
+                let content = if is_new_day && config.buffer.date_separators.show
+                {
+                    column![
+                        row![
+                            container(rule::horizontal(1))
+                                .width(Length::Fill)
+                                .padding(padding::right(6)),
+                            text(
+                                date.and_time(
+                                    NaiveTime::from_hms_opt(0, 0, 0)
+                                        .expect("midnight is valid")
                                 )
-                                .size(divider_font_size)
-                                .style(theme::text::secondary)
-                                .font_maybe(
-                                    theme::font_style::secondary(theme)
-                                        .map(font::get)
-                                ),
-                                container(rule::horizontal(1))
-                                    .width(Length::Fill)
-                                    .padding(padding::left(6))
-                            ]
-                            .padding(2)
-                            .align_y(iced::Alignment::Center),
-                            content
+                                .and_local_timezone(Local)
+                                .single()
+                                .map_or(
+                                    // in the event of timezone weirdness,
+                                    // revert to default format
+                                    date.format(&DateSeparators::default().format),
+                                    |datetime| {
+                                        datetime.format(
+                                            &config
+                                                .buffer
+                                                .date_separators
+                                                .format,
+                                        )
+                                    }
+                                )
+                                .to_string()
+                            )
+                            .size(divider_font_size)
+                            .style(theme::text::secondary)
+                            .font_maybe(
+                                theme::font_style::secondary(theme)
+                                    .map(font::get)
+                            ),
+                            container(rule::horizontal(1))
+                                .width(Length::Fill)
+                                .padding(padding::left(6))
                         ]
-                        .into(),
-                    )
+                        .padding(2)
+                        .align_y(iced::Alignment::Center),
+                        content
+                    ]
+                    .into()
                 } else {
-                    Some(content)
-                }
+                    content
+                };
+
+                Some(keyed(keyed::Key::message(message), content))
             })
             .collect::<Vec<_>>()
     };
@@ -506,7 +503,6 @@ pub fn view<'a>(
                     if acc > offset {
                         break;
                     }
-                    acc += line_spacing as f32;
                     from_bottom += 1;
                 }
                 total.saturating_sub(from_bottom + visible)
@@ -520,7 +516,6 @@ pub fn view<'a>(
                     if acc > offset {
                         break;
                     }
-                    acc += line_spacing as f32;
                     idx += 1;
                 }
                 idx
@@ -667,6 +662,7 @@ pub struct State {
     pending_scroll_to: Option<keyed::Key>,
     is_scrolling_to: bool,
     visible_url_messages: HashMap<message::Hash, Vec<url::Url>>,
+    pending_preview_exits: HashSet<message::Hash>,
     hovered_preview: Option<(message::Hash, usize)>,
 }
 
@@ -685,6 +681,7 @@ impl State {
             pending_scroll_to: None,
             is_scrolling_to: false,
             visible_url_messages: HashMap::new(),
+            pending_preview_exits: HashSet::new(),
             hovered_preview: None,
         }
     }
@@ -1000,12 +997,15 @@ impl State {
                 }
             }
             Message::EnteringViewport(hash, urls) => {
+                self.pending_preview_exits.remove(&hash);
                 self.visible_url_messages.insert(hash, urls);
                 return (Task::none(), Some(Event::PreviewChanged));
             }
             Message::ExitingViewport(hash) => {
-                self.visible_url_messages.remove(&hash);
-                return (Task::none(), Some(Event::PreviewChanged));
+                if self.visible_url_messages.contains_key(&hash) {
+                    self.pending_preview_exits.insert(hash);
+                }
+                return (Task::none(), None);
             }
             Message::PreviewHovered(hash, idx) => {
                 self.hovered_preview = Some((hash, idx));
@@ -1046,9 +1046,35 @@ impl State {
                 }
             }
             Message::HeightsCollected(heights) => {
-                for (hash, height) in heights {
-                    self.height_cache.insert(hash, height);
+                for (hash, height) in &heights {
+                    self.height_cache.insert(*hash, *height);
                 }
+
+                let mut preview_changed = false;
+
+                if !self.pending_preview_exits.is_empty() {
+                    let rendered_hashes = heights
+                        .iter()
+                        .map(|(hash, _)| *hash)
+                        .collect::<HashSet<_>>();
+                    let mut still_pending = HashSet::new();
+
+                    for hash in self.pending_preview_exits.drain() {
+                        if rendered_hashes.contains(&hash) {
+                            still_pending.insert(hash);
+                        } else if self
+                            .visible_url_messages
+                            .remove(&hash)
+                            .is_some()
+                        {
+                            preview_changed = true;
+                        }
+                    }
+
+                    self.pending_preview_exits = still_pending;
+                }
+
+                let event = preview_changed.then_some(Event::PreviewChanged);
 
                 if let Some(key) = &self.pending_scroll_to {
                     let scroll_to = keyed::find(self.scrollable.clone(), *key)
@@ -1057,7 +1083,11 @@ impl State {
                     self.pending_scroll_to = None;
                     self.is_scrolling_to = true;
 
-                    return (scroll_to, None);
+                    return (scroll_to, event);
+                }
+
+                if let Some(event) = event {
+                    return (Task::none(), Some(event));
                 }
             }
         }
@@ -1081,8 +1111,13 @@ impl State {
             _ => {}
         }
 
+        let width_changed = self.pane_size.width != pane_size.width;
+
         self.pane_size = pane_size;
-        self.height_cache.clear();
+
+        if width_changed {
+            self.height_cache.clear();
+        }
     }
 
     pub fn scroll_up_page(&mut self) -> Task<Message> {
@@ -1938,7 +1973,8 @@ mod correct_viewport {
                         iced::Event::Window(iced::window::Event::RedrawRequested(_))
                     );
 
-                    // Check if top-of-viewport element has shifted since we last scrolled and adjust
+                    // Check if top-of-viewport element has shifted since we
+                    // last scrolled and adjust
                     if let (true, true, Some(old)) = (enabled, is_redraw, &state) {
                         let hit = Arc::new(Mutex::new(None));
 
@@ -2011,7 +2047,8 @@ mod correct_viewport {
                         viewport,
                     );
 
-                    // Merge shell (we can't use Shell::merge as we'd lose access to messages)
+                    // Merge shell (we can't use Shell::merge as we'd lose
+                    // access to messages)
                     {
                         match local_shell.redraw_request() {
                             iced::window::RedrawRequest::NextFrame => shell.request_redraw(),
