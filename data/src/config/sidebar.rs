@@ -81,7 +81,7 @@ pub struct Padding {
 
 impl Default for Padding {
     fn default() -> Self {
-        Self { buffer: [5, 5] }
+        Self { buffer: [4, 4] }
     }
 }
 
@@ -93,7 +93,7 @@ pub struct Spacing {
 
 impl Default for Spacing {
     fn default() -> Self {
-        Self { server: 12 }
+        Self { server: 6 }
     }
 }
 
