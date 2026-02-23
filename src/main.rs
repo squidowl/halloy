@@ -1426,8 +1426,10 @@ fn handle_client_events(
                     server, param, dashboard, clients, config,
                 );
             }
-            Event::BouncerNetwork(server, config) => {
-                servers.insert(server, config.into());
+            Event::BouncerNetwork(server, server_config) => {
+                servers.insert(server, server_config.into());
+
+                dashboard.update_filters(servers, clients, &config.buffer);
             }
             Event::AddToSidebar(query) => {
                 dashboard.add_to_sidebar(server.clone(), query);
