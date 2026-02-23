@@ -498,6 +498,20 @@ impl Halloy {
 
                         Task::none()
                     }
+                    Some(dashboard::Event::OpenAbout {
+                        version,
+                        commit,
+                        system_information,
+                    }) => {
+                        self.modal =
+                            Some(Modal::About(modal::about::About::new(
+                                version,
+                                commit,
+                                system_information,
+                            )));
+
+                        Task::none()
+                    }
                     Some(dashboard::Event::OpenServer(server)) => {
                         if let Ok(url) = Url::from_str(&server)
                             && matches!(url, Url::ServerConnect { .. })
