@@ -1918,27 +1918,6 @@ mod correct_viewport {
     use super::{Message, keyed};
     use crate::widget::{Element, Renderer, decorate};
 
-    #[derive(Debug, Default)]
-    struct State {
-        anchor: Option<keyed::Hit>,
-        last_correction_attempt: Option<CorrectionAttempt>,
-    }
-
-    #[derive(Debug, Clone, Copy)]
-    struct CorrectionAttempt {
-        key: keyed::Key,
-        current_offset_y: f32,
-        target_offset_y: f32,
-    }
-
-    impl CorrectionAttempt {
-        fn is_same_retry(self, other: Self) -> bool {
-            self.key == other.key
-                && self.current_offset_y == other.current_offset_y
-                && self.target_offset_y == other.target_offset_y
-        }
-    }
-
     pub fn correct_viewport<'a>(
         inner: impl Into<Element<'a, Message>>,
         scrollable: iced::widget::Id,
@@ -1947,7 +1926,7 @@ mod correct_viewport {
         decorate(inner)
             .update({
                 let scrollable = scrollable.clone();
-                move |state: &mut State,
+                move |state: &mut Option<keyed::Hit>,
                       inner: &mut Element<'a, Message>,
                       tree: &mut advanced::widget::Tree,
                       event: &iced::Event,
@@ -1963,9 +1942,7 @@ mod correct_viewport {
                     );
 
                     // Check if top-of-viewport element has shifted since we last scrolled and adjust
-                    if let (true, true, Some(old)) =
-                        (enabled, is_redraw, &state.anchor)
-                    {
+                    if let (true, true, Some(old)) = (enabled, is_redraw, &state) {
                         let hit = Arc::new(Mutex::new(None));
 
                         let mut operation = widget::operation::map(
@@ -2007,34 +1984,18 @@ mod correct_viewport {
                                         - new.scrollable.viewport.y,
                                     new.scrollable.content.height - new.scrollable.viewport.height,
                                 );
-                                let attempt = CorrectionAttempt {
-                                    key: old.key,
-                                    current_offset_y: new.scrollable.offset.y,
-                                    target_offset_y: new_offset,
-                                };
 
-                                if !state
-                                    .last_correction_attempt
-                                    .is_some_and(|prev| prev.is_same_retry(attempt))
-                                {
-                                    state.last_correction_attempt =
-                                        Some(attempt);
-
-                                    let mut operation = scrollable::scroll_to(
-                                        scrollable.clone(),
-                                        scrollable::AbsoluteOffset {
-                                            x: None,
-                                            y: Some(new_offset),
-                                        },
-                                    );
-                                    inner.as_widget_mut().operate(
-                                        tree,
-                                        layout,
-                                        renderer,
-                                        &mut operation,
-                                    );
-                                    operation.finish();
-                                }
+                                let mut operation = scrollable::scroll_to(
+                                    scrollable.clone(),
+                                    scrollable::AbsoluteOffset {
+                                        x: None,
+                                        y: Some(new_offset),
+                                    },
+                                );
+                                inner
+                                    .as_widget_mut()
+                                    .operate(tree, layout, renderer, &mut operation);
+                                operation.finish();
                             }
                         }
                     }
@@ -2106,15 +2067,14 @@ mod correct_viewport {
                         operation.finish();
                         drop(operation);
 
-                        state.anchor = Arc::into_inner(hit)
+                        *state = Arc::into_inner(hit)
                             .and_then(|m| m.into_inner().ok())
                             .flatten();
-                        state.last_correction_attempt = None;
                     }
                 }
             })
             .operate(
-                move |state: &mut State,
+                move |state: &mut Option<keyed::Hit>,
                       inner: &mut Element<'a, Message>,
                       tree: &mut advanced::widget::Tree,
                       layout: advanced::Layout<'_>,
@@ -2154,10 +2114,9 @@ mod correct_viewport {
                         operation.finish();
                         drop(operation);
 
-                        state.anchor = Arc::into_inner(hit)
+                        *state = Arc::into_inner(hit)
                             .and_then(|m| m.into_inner().ok())
                             .flatten();
-                        state.last_correction_attempt = None;
                     }
                 },
             )
