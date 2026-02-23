@@ -34,7 +34,7 @@
             const path_to_root = "../../";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../../searchindex-c0072de3.js";
+            window.path_to_searchindex_js = "../../searchindex-efa70d75.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="../../toc-ac22d4e6.js"></script>
@@ -205,7 +205,7 @@
 enabled = false
 </code></pre>
 <h3 id="nicks"><a class="header" href="#nicks">nicks</a></h3>
-<p>If true, automatically accept incoming file transfers from these nicks.
+<p>Automatically accept incoming file transfers from these nicks.
 Note <code>auto_accept</code> has to be enabled.</p>
 <pre><code class="language-toml"># Type: array of strings
 # Values: array of any strings
@@ -215,9 +215,9 @@ Note <code>auto_accept</code> has to be enabled.</p>
 nicks = ["nick1", "nick2"]
 </code></pre>
 <h3 id="masks"><a class="header" href="#masks">masks</a></h3>
-<p>If true, automatically accept incoming file transfers from these nicks. Matches are made against the full nickname (i.e. nickname, username, and hostname in the format <code>nickname!username@hostname</code>). Note <code>auto_accept</code> has to be enabled.</p>
+<p>Automatically accept incoming file transfers matching these masks. Matches are made against the full nickname (i.e. nickname, username, and hostname in the format <code>nickname!username@hostname</code>). Note <code>auto_accept</code> has to be enabled.</p>
 <blockquote>
-<p>💡 Use toml multi-line literal strings <code>'''\bfoo'd\b'''</code> when writing a regex. This &gt; allows you to write write the regex without
+<p>💡 Use toml multi-line literal strings <code>'''\bfoo'd\b'''</code> when writing a regex. This allows you to write the regex without
 escaping. You can also use a literal string <code>'\bfoo\b'</code>, but then you can’t use <code>'</code> inside the string.</p>
 <p>Without literal strings, you’d have to write the above as <code>"\\bfoo'd\\b"</code></p>
 </blockquote>

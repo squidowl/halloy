@@ -34,7 +34,7 @@
             const path_to_root = "../../";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../../searchindex-c0072de3.js";
+            window.path_to_searchindex_js = "../../searchindex-efa70d75.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="../../toc-ac22d4e6.js"></script>
@@ -189,7 +189,7 @@
 <li><a href="#server_icon">server_icon</a></li>
 <li><a href="#position">position</a></li>
 <li><a href="#max_width">max_width</a></li>
-<li><a href="#show_menu_button">show_menu_button</a></li>
+<li><a href="#user_menu">user_menu</a></li>
 <li><a href="#order_by">order_by</a></li>
 <li><a href="#order_channels_by">order_channels_by</a></li>
 </ul>
@@ -233,17 +233,17 @@ position = "left"
 [sidebar]
 max_width = 200
 </code></pre>
-<h3 id="show_menu_button"><a class="header" href="#show_menu_button">show_menu_button</a></h3>
+<h3 id="user_menu"><a class="header" href="#user_menu">user_menu</a></h3>
 <p>Show or hide the user menu button in the sidebar.</p>
 <pre><code class="language-toml"># Type: bool
 # Values: true, false
 # Default: true
 
-[sidebar]
-show_menu_button = true
+[sidebar.user_menu]
+enabled = true
 </code></pre>
 <h3 id="order_by"><a class="header" href="#order_by">order_by</a></h3>
-<p>Ordering that servers are listed in the sidebar uses to select from matching users.</p>
+<p>Ordering that servers are listed in the sidebar.</p>
 <ul>
 <li><code>"config"</code>: The same order they are specified in the configuration file.</li>
 <li><code>"alpha"</code>: Case-insensitive alphabetical ordering.</li>
@@ -261,7 +261,7 @@ order_by = "config"
 <li><code>"name"</code>: Sort channels by name only, ignoring chantypes.</li>
 <li><code>"name-and-prefix"</code>: Sort channels by name including their chantypes.</li>
 </ul>
-<pre><code class="language-toml"># Type: bool
+<pre><code class="language-toml"># Type: string
 # Values: "name", "name-and-prefix"
 # Default: "name"
 
