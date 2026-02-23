@@ -16,7 +16,7 @@ Controls the vertical spacing between servers (i.e. between the last buffer for 
 ```toml
 # Type: integer
 # Values: any non-negative integer
-# Default: 8
+# Default: 6
 
 [sidebar.spacing]
 server = 4
