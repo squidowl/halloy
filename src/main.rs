@@ -864,14 +864,13 @@ impl Halloy {
                             if let Screen::Dashboard(dashboard) =
                                 &mut self.screen
                             {
-                                return Task::batch(vec![
-                                    save,
+                                return save.chain(
                                     dashboard
                                         .exit(&mut self.clients, &self.config)
                                         .map(Message::Dashboard),
-                                ]);
+                                );
                             } else {
-                                return Task::batch(vec![save, iced::exit()]);
+                                return save.chain(iced::exit());
                             }
                         }
                     }
