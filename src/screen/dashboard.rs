@@ -2863,6 +2863,34 @@ impl Dashboard {
         }
     }
 
+    pub fn mark_as_read_if_focused_and_at_bottom(
+        &mut self,
+        kind: &history::Kind,
+        clients: &mut client::Map,
+        focused_window: Option<window::Id>,
+    ) {
+        let should_mark =
+            self.get_focused().is_some_and(|(window, _, pane)| {
+                let is_focused_window = focused_window == Some(window);
+                let is_at_bottom =
+                    pane.buffer.is_scrolled_to_bottom() == Some(true);
+                let focused_kind =
+                    pane.buffer.data().and_then(history::Kind::from_buffer);
+                let is_same_buffer = focused_kind.as_ref() == Some(kind);
+
+                is_focused_window && is_at_bottom && is_same_buffer
+            });
+
+        if should_mark {
+            mark_as_read(
+                kind.clone(),
+                &mut self.history,
+                clients,
+                TokenPriority::User,
+            );
+        }
+    }
+
     pub fn block_and_record_message(
         &mut self,
         server: &Server,
