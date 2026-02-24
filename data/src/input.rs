@@ -50,12 +50,6 @@ pub fn parse(
         }
         Ok(Command::Irc(command)) => Content::Command(command),
         Err(command::Error::MissingSlash) => {
-            if !is_connected {
-                return Err(Error::Command(command::Error::Disconnected));
-            } else if in_channel.is_some_and(|in_channel| !in_channel) {
-                return Err(Error::Command(command::Error::NotInChannel));
-            }
-
             let text = match auto_format {
                 AutoFormat::Disabled => input.to_string(),
                 AutoFormat::Markdown => formatting::encode(input, true),
@@ -73,6 +67,12 @@ pub fn parse(
         && message_bytes > format::BYTE_LIMIT
     {
         return Err(Error::ExceedsByteLimit { message_bytes });
+    }
+
+    if !is_connected {
+        return Err(Error::Command(command::Error::Disconnected));
+    } else if in_channel.is_some_and(|in_channel| !in_channel) {
+        return Err(Error::Command(command::Error::NotInChannel));
     }
 
     Ok(Parsed::Input(Input { buffer, content }))
