@@ -34,10 +34,10 @@
             const path_to_root = "../../";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../../searchindex-72573ae3.js";
+            window.path_to_searchindex_js = "../../searchindex-6b73487e.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="../../toc-72d18ae4.js"></script>
+        <script src="../../toc-ac22d4e6.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -204,6 +204,7 @@
 <li><a href="#password_command">password_command</a></li>
 <li><a href="#channels">channels</a></li>
 <li><a href="#channel_keys">channel_keys</a></li>
+<li><a href="#queries">queries</a></li>
 <li><a href="#ping_time">ping_time</a></li>
 <li><a href="#ping_timeout">ping_timeout</a></li>
 <li><a href="#reconnect_delay">reconnect_delay</a></li>
@@ -220,6 +221,7 @@
 <li><a href="#monitor">monitor</a></li>
 <li><a href="#chathistory">chathistory</a></li>
 <li><a href="#proxy">proxy</a></li>
+<li><a href="#autoconnect">autoconnect</a></li>
 </ul>
 </li>
 <li><a href="#filters">Filters</a></li>
@@ -391,6 +393,15 @@ channels = ["#foo", "#bar"]
 [servers.&lt;name&gt;]
 channel_keys = { "#foo" = "password" }
 </code></pre>
+<h3 id="queries"><a class="header" href="#queries">queries</a></h3>
+<p>A list of queries to add to the sidebar on connection.</p>
+<pre><code class="language-toml"># Type: array of strings
+# Values: array of any strings
+# Default: not set
+
+[servers.&lt;name&gt;]
+queries = ["alice", "bob"]
+</code></pre>
 <h3 id="ping_time"><a class="header" href="#ping_time">ping_time</a></h3>
 <p>The amount of inactivity in seconds before the client will ping the server.</p>
 <pre><code class="language-toml"># Type: integer
@@ -550,6 +561,15 @@ host = "192.168.1.100"
 port = 1080
 username = "username"
 password = "password"
+</code></pre>
+<h3 id="autoconnect"><a class="header" href="#autoconnect">autoconnect</a></h3>
+<p>Whether or not to connect to the server when launching Halloy or when changing the connection details in the server configuration.</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: true
+
+[servers.&lt;name&gt;]
+autoconnect = true
 </code></pre>
 <h2 id="filters"><a class="header" href="#filters"><a href="filters.html">Filters</a></a></h2>
 <p>Filter messages based on various criteria</p>

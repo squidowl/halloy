@@ -34,10 +34,10 @@
             const path_to_root = "../../../";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../../../searchindex-72573ae3.js";
+            window.path_to_searchindex_js = "../../../searchindex-6b73487e.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="../../../toc-72d18ae4.js"></script>
+        <script src="../../../toc-ac22d4e6.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -258,13 +258,13 @@ offline = "solid"
 offline = "none"
 </code></pre>
 <h3 id="show_access_levels"><a class="header" href="#show_access_levels">show_access_levels</a></h3>
-<p>Show access levels in front of nicknames (<code>@</code>, <code>+</code>, <code>~</code>, etc.).</p>
-<pre><code class="language-toml"># Type: boolean
-# Values: true, false
-# Default: true
+<p>Show access level(s) in front of nicknames (<code>@</code>, <code>+</code>, <code>~</code>, etc.).</p>
+<pre><code class="language-toml"># Type: string
+# Values: "all", "highest", or "none"
+# Default: "highest"
 
 [buffer.nickname]
-show_access_levels = true
+show_access_levels = "none"
 </code></pre>
 <h3 id="shown_status"><a class="header" href="#shown_status">shown_status</a></h3>
 <p>What status should be indicated (by either <code>away</code> or <code>offline</code> settings), the user’s current status (<code>"current"</code>) or their status at the time of sending the message (<code>"historical"</code>).</p>

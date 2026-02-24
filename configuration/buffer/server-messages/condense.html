@@ -34,10 +34,10 @@
             const path_to_root = "../../../";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../../../searchindex-72573ae3.js";
+            window.path_to_searchindex_js = "../../../searchindex-6b73487e.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="../../../toc-72d18ae4.js"></script>
+        <script src="../../../toc-ac22d4e6.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -189,6 +189,7 @@
 <li><a href="#messages">messages</a></li>
 <li><a href="#dimmed">dimmed</a></li>
 <li><a href="#format">format</a></li>
+<li><a href="#icon">icon</a></li>
 </ul>
 </li>
 </ul>
@@ -215,7 +216,7 @@
 <p>The color and font style of the symbols is taken from the theme setting for that event type.</p>
 <pre><code class="language-toml"># Type: array of strings
 # Values: ["change-host", "change-nick", "join", "kick", "part", "quit"]
-# Default: []
+# Default: ["change-host", "change-nick", "join", "part", "quit"]
 
 [buffer.server_messages.condense]
 messages = ["change-nick", "join", "part", "quit"]
@@ -234,7 +235,7 @@ dimmed = true
 <ul>
 <li><code>"brief"</code>:  Only show changes to channel state.  If a user joins then leaves, then do not show any message.  If a user joins, leaves, then joins again, then show that they joined the channel (<code>+</code>).</li>
 <li><code>"detailed"</code>: Include messages that do not change channel state, but do not show repeated events.  If a user joins then leaves, show a condensed message with both events (<code>+-</code>).  But, if a user joins and leaves many times in a row, only indicate that they left and re-joined (i.e. still <code>+-</code>).</li>
-<li><code>"full</code>“:  Include all messages in the condensed message.  If a user joins and leaves three times, then show a symbol for each event (<code>+-+-+-</code>).</li>
+<li><code>"full"</code>:  Include all messages in the condensed message.  If a user joins and leaves three times, then show a symbol for each event (<code>+-+-+-</code>).</li>
 </ul>
 <pre><code class="language-toml"># Type: string
 # Values: "brief", "detailed", "full"
@@ -242,6 +243,15 @@ dimmed = true
 
 [buffer.server_messages.condense]
 format = "full"
+</code></pre>
+<h3 id="icon"><a class="header" href="#icon">icon</a></h3>
+<p>Marker style for condensed server messages.</p>
+<pre><code class="language-toml"># Type: string
+# Values: "none", "chevron", "dot"
+# Default: "none"
+
+[buffer.server_messages.condense]
+icon = "chevron"
 </code></pre>
 
                     </main>

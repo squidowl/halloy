@@ -34,10 +34,10 @@
             const path_to_root = "../../";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../../searchindex-72573ae3.js";
+            window.path_to_searchindex_js = "../../searchindex-6b73487e.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="../../toc-72d18ae4.js"></script>
+        <script src="../../toc-ac22d4e6.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -188,6 +188,7 @@
 <ul>
 <li><a href="#cert">cert</a></li>
 <li><a href="#key">key</a></li>
+<li><a href="#disconnect_on_failure">disconnect_on_failure</a></li>
 </ul>
 </li>
 </ul>
@@ -211,6 +212,15 @@ cert = "/path/to/your/certificate.pem"
 
 [servers.&lt;name&gt;.sasl.external]
 key = "/path/to/your/private_key.pem"
+</code></pre>
+<h3 id="disconnect_on_failure"><a class="header" href="#disconnect_on_failure">disconnect_on_failure</a></h3>
+<p>Disconnect from the server if SASL authentication fails. This is useful on servers which apply a hostname cloak after identifying, such as Libera.Chat. Without this option, a failed SASL authentication would result in connecting with your real IP/hostname exposed.</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: true
+
+[servers.&lt;name&gt;.sasl.external]
+disconnect_on_failure = false
 </code></pre>
 <hr>
 <ol class="footnote-definition">

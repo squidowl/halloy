@@ -35,10 +35,10 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-72573ae3.js";
+            window.path_to_searchindex_js = "searchindex-6b73487e.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-72d18ae4.js"></script>
+        <script src="toc-ac22d4e6.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -1026,6 +1026,8 @@ join_channel = "replace-pane"
 <li><a href="#configuration-3">Configuration</a>
 <ul>
 <li><a href="#buffer-2">buffer</a></li>
+<li><a href="#channel">channel</a></li>
+<li><a href="#query">query</a></li>
 <li><a href="#focused_buffer">focused_buffer</a></li>
 </ul>
 </li>
@@ -1038,6 +1040,8 @@ join_channel = "replace-pane"
 
 [actions.sidebar]
 buffer = "new-pane"
+channel = "replace-pane"
+query = "new-window"
 focused_buffer = "close-pane"
 </code></pre>
 <h2 id="configuration-3"><a class="header" href="#configuration-3">Configuration</a></h2>
@@ -1049,6 +1053,24 @@ focused_buffer = "close-pane"
 
 [actions.sidebar]
 buffer = "replace-pane"
+</code></pre>
+<h3 id="channel"><a class="header" href="#channel">channel</a></h3>
+<p>Action when clicking a channel buffer in the sidebar. If unset, it falls back to the value of <code>buffer</code>.</p>
+<pre><code class="language-toml"># Type: string
+# Values: "new-pane", "replace-pane", "new-window"
+# Default: not set (falls back to `buffer`)
+
+[actions.sidebar]
+channel = "replace-pane"
+</code></pre>
+<h3 id="query"><a class="header" href="#query">query</a></h3>
+<p>Action when clicking a user/query buffer in the sidebar. If unset, it falls back to the value of <code>buffer</code>.</p>
+<pre><code class="language-toml"># Type: string
+# Values: "new-pane", "replace-pane", "new-window"
+# Default: not set (falls back to `buffer`)
+
+[actions.sidebar]
+query = "new-window"
 </code></pre>
 <h3 id="focused_buffer"><a class="header" href="#focused_buffer">focused_buffer</a></h3>
 <p>Action when clicking a focused buffer in the sidebar. <code>"close-pane"</code> will close the focused pane.</p>
@@ -1071,7 +1093,7 @@ focused_buffer = "close-pane"
 <li><a href="#scroll_position_on_open">scroll_position_on_open</a></li>
 </ul>
 </li>
-<li><a href="#channel">Channel</a></li>
+<li><a href="#channel-1">Channel</a></li>
 <li><a href="#chat-history">Chat History</a></li>
 <li><a href="#commands">Commands</a></li>
 <li><a href="#backlog-separator">Backlog Separator</a></li>
@@ -1107,7 +1129,7 @@ line_spacing = 4
 [buffer]
 scroll_position_on_open = "newest"
 </code></pre>
-<h2 id="channel"><a class="header" href="#channel"><a href="configuration/buffer/channel">Channel</a></a></h2>
+<h2 id="channel-1"><a class="header" href="#channel-1"><a href="configuration/buffer/channel">Channel</a></a></h2>
 <p>Channel specific settings</p>
 <h2 id="chat-history"><a class="header" href="#chat-history"><a href="configuration/buffer/chat-history">Chat History</a></a></h2>
 <p>IRCv3 Chat History extension settings</p>
@@ -1170,10 +1192,10 @@ hide_when_all_read = true
 text = false
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div>
-<h1 id="channel-1"><a class="header" href="#channel-1">Channel</a></h1>
+<h1 id="channel-2"><a class="header" href="#channel-2">Channel</a></h1>
 <p>Channel specific settings</p>
 <ul>
-<li><a href="#channel-1">Channel</a>
+<li><a href="#channel-2">Channel</a>
 <ul>
 <li><a href="#message">Message</a></li>
 <li><a href="#nicklist">Nicklist</a></li>
@@ -1286,13 +1308,13 @@ enabled = true
 position = "right"
 </code></pre>
 <h3 id="show_access_levels"><a class="header" href="#show_access_levels">show_access_levels</a></h3>
-<p>Show access levels in front of nicknames (<code>@</code>, <code>+</code>, <code>~</code>, etc.).</p>
-<pre><code class="language-toml"># Type: boolean
-# Values: true, false
-# Default: true
+<p>Show access level(s) in front of nicknames (<code>@</code>, <code>+</code>, <code>~</code>, etc.).</p>
+<pre><code class="language-toml"># Type: string
+# Values: "all", "highest", or "none"
+# Default: "highest"
 
 [buffer.channel.nicklist]
-show_access_levels = true
+show_access_levels = "all"
 </code></pre>
 <h3 id="width"><a class="header" href="#width">width</a></h3>
 <p>Overwrite nicklist width in pixels.</p>
@@ -1623,16 +1645,19 @@ characters_to_trigger_picker = 2
 <ul>
 <li><a href="#success">Success</a></li>
 <li><a href="#error">Error</a></li>
+<li><a href="#default">Default</a></li>
 </ul>
 </li>
 </ul>
 <h2 id="success"><a class="header" href="#success"><a href="#success-1">Success</a></a></h2>
-<p>A internal messages which is considered a “success” such as when a connection was restored, or when connected successfully to a server.</p>
+<p>Internal messages which are considered a “success” such as when a connection was restored, or when connected successfully to a server.</p>
 <h2 id="error"><a class="header" href="#error"><a href="#error-1">Error</a></a></h2>
-<p>A internal messages which is considered a “error” such as when a connection was lost, or when connection to server failed.</p>
+<p>Internal messages which are considered an “error” such as when a connection was lost, or when connection to server failed.</p>
+<h2 id="default"><a class="header" href="#default"><a href="configuration/buffer/internal-messages/default.html">Default</a></a></h2>
+<p>Default settings which will be used for all internal messages when a specific value is not provided for the specific internal message type.</p>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="error-1"><a class="header" href="#error-1">Error</a></h1>
-<p>A internal messages which is considered a “error” such as when a connection was lost, or when connection to server failed.</p>
+<p>Internal messages which are considered an “error” such as when a connection was lost, or when connection to server failed.</p>
 <ul>
 <li><a href="#error-1">Error</a>
 <ul>
@@ -1666,7 +1691,7 @@ smart = 180
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="success-1"><a class="header" href="#success-1">Success</a></h1>
-<p>A internal messages which is considered a “success” such as when a connection was restored, or when connected successfully to a server.</p>
+<p>Internal messages which are considered a “success” such as when a connection was restored, or when connected successfully to a server.</p>
 <ul>
 <li><a href="#success-1">Success</a>
 <ul>
@@ -1832,13 +1857,13 @@ offline = "solid"
 offline = "none"
 </code></pre>
 <h3 id="show_access_levels-1"><a class="header" href="#show_access_levels-1">show_access_levels</a></h3>
-<p>Show access levels in front of nicknames (<code>@</code>, <code>+</code>, <code>~</code>, etc.).</p>
-<pre><code class="language-toml"># Type: boolean
-# Values: true, false
-# Default: true
+<p>Show access level(s) in front of nicknames (<code>@</code>, <code>+</code>, <code>~</code>, etc.).</p>
+<pre><code class="language-toml"># Type: string
+# Values: "all", "highest", or "none"
+# Default: "highest"
 
 [buffer.nickname]
-show_access_levels = true
+show_access_levels = "none"
 </code></pre>
 <h3 id="shown_status"><a class="header" href="#shown_status">shown_status</a></h3>
 <p>What status should be indicated (by either <code>away</code> or <code>offline</code> settings), the user’s current status (<code>"current"</code>) or their status at the time of sending the message (<code>"historical"</code>).</p>
@@ -1970,12 +1995,13 @@ enabled = false
 <tr><td><code>standard_reply_warn</code></td><td>Message is sent when there is feedback about a command/function or session</td></tr>
 <tr><td><code>topic</code></td><td>Message is sent when the client joins a channel to inform them of the topic (does not include message sent when topic changes)</td></tr>
 <tr><td><code>wallops</code></td><td>Message is sent by operators to all users with mode +w on the network</td></tr>
+<tr><td><code>default</code></td><td>Pseudo-type to provide fallback settings for when a specific event type has not been configured</td></tr>
 </tbody>
 </table>
 </div>
 <h2 id="configuration-21"><a class="header" href="#configuration-21">Configuration</a></h2>
 <h3 id="enabled-5"><a class="header" href="#enabled-5">enabled</a></h3>
-<p>Control if internal message type is enabled.</p>
+<p>Control if server message type is enabled.</p>
 <pre><code class="language-toml"># Type: boolean
 # Values: true, false
 # Default: true
@@ -2049,6 +2075,7 @@ username_format = "full"
 <li><a href="#messages">messages</a></li>
 <li><a href="#dimmed-1">dimmed</a></li>
 <li><a href="#format-2">format</a></li>
+<li><a href="#icon">icon</a></li>
 </ul>
 </li>
 </ul>
@@ -2075,7 +2102,7 @@ username_format = "full"
 <p>The color and font style of the symbols is taken from the theme setting for that event type.</p>
 <pre><code class="language-toml"># Type: array of strings
 # Values: ["change-host", "change-nick", "join", "kick", "part", "quit"]
-# Default: []
+# Default: ["change-host", "change-nick", "join", "part", "quit"]
 
 [buffer.server_messages.condense]
 messages = ["change-nick", "join", "part", "quit"]
@@ -2094,7 +2121,7 @@ dimmed = true
 <ul>
 <li><code>"brief"</code>:  Only show changes to channel state.  If a user joins then leaves, then do not show any message.  If a user joins, leaves, then joins again, then show that they joined the channel (<code>+</code>).</li>
 <li><code>"detailed"</code>: Include messages that do not change channel state, but do not show repeated events.  If a user joins then leaves, show a condensed message with both events (<code>+-</code>).  But, if a user joins and leaves many times in a row, only indicate that they left and re-joined (i.e. still <code>+-</code>).</li>
-<li><code>"full</code>“:  Include all messages in the condensed message.  If a user joins and leaves three times, then show a symbol for each event (<code>+-+-+-</code>).</li>
+<li><code>"full"</code>:  Include all messages in the condensed message.  If a user joins and leaves three times, then show a symbol for each event (<code>+-+-+-</code>).</li>
 </ul>
 <pre><code class="language-toml"># Type: string
 # Values: "brief", "detailed", "full"
@@ -2102,6 +2129,15 @@ dimmed = true
 
 [buffer.server_messages.condense]
 format = "full"
+</code></pre>
+<h3 id="icon"><a class="header" href="#icon">icon</a></h3>
+<p>Marker style for condensed server messages.</p>
+<pre><code class="language-toml"># Type: string
+# Values: "none", "chevron", "dot"
+# Default: "none"
+
+[buffer.server_messages.condense]
+icon = "chevron"
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="status-message-prefix-1"><a class="header" href="#status-message-prefix-1">Status Message Prefix</a></h1>
@@ -2253,7 +2289,7 @@ completion_suffixes = [": ", " "]
 <li><a href="#configuration-26">Configuration</a>
 <ul>
 <li><a href="#enabled-6">enabled</a></li>
-<li><a href="#show_access_level">show_access_level</a></li>
+<li><a href="#show_access_levels-2">show_access_levels</a></li>
 </ul>
 </li>
 </ul>
@@ -2269,14 +2305,14 @@ completion_suffixes = [": ", " "]
 [buffer.text_input.nickname]
 enabled = true
 </code></pre>
-<h3 id="show_access_level"><a class="header" href="#show_access_level">show_access_level</a></h3>
-<p>Show access levels in front of nickname (<code>@</code>, <code>+</code>, <code>~</code>, etc.).</p>
-<pre><code class="language-toml"># Type: boolean
-# Values: true, false
-# Default: true
+<h3 id="show_access_levels-2"><a class="header" href="#show_access_levels-2">show_access_levels</a></h3>
+<p>Show access level(s) in front of nickname (<code>@</code>, <code>+</code>, <code>~</code>, etc.).</p>
+<pre><code class="language-toml"># Type: string
+# Values: "all", "highest", or "none"
+# Default: "highest"
 
 [buffer.text_input.nickname]
-show_access_level = true
+show_access_level = "highest"
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="timestamp-1"><a class="header" href="#timestamp-1">Timestamp</a></h1>
@@ -2290,6 +2326,7 @@ show_access_level = true
 <li><a href="#context_menu_format">context_menu_format</a></li>
 <li><a href="#copy_format">copy_format</a></li>
 <li><a href="#brackets-2">brackets</a></li>
+<li><a href="#locale">locale</a></li>
 </ul>
 </li>
 </ul>
@@ -2332,6 +2369,15 @@ copy_format = "%Y-%m-%d %H:%M:%S"
 [buffer.timestamp]
 brackets = { left = "[", right = "]" }
 </code></pre>
+<h3 id="locale"><a class="header" href="#locale">locale</a></h3>
+<p>Locale used when formatting timestamps, for strftime formats that produce locale-specific output (e.g. <code>%x</code>, <code>%X</code>, <code>%a</code>, etc).  If not specified, then the locale will be set automatically, falling back to the POSIX locale if the system locale cannot be determined.  Supported locales are determined by <a href="https://docs.rs/pure-rust-locales/latest/pure_rust_locales/enum.Locale.html"><code>enum Locale</code> in the <code>pure-rust-locales</code> crate</a>.</p>
+<pre><code class="language-toml"># Type: string
+# Values: IETF BCP 47 language tags
+# Default: not set
+
+[buffer.timestamp]
+locale = "POSIX"
+</code></pre>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="url-1"><a class="header" href="#url-1">Url</a></h1>
 <p>Customize how urls behave in buffers</p>
@@ -2355,6 +2401,35 @@ brackets = { left = "[", right = "]" }
 
 [buffer.url]
 prompt_before_open = true
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="check-for-update-on-launch"><a class="header" href="#check-for-update-on-launch">Check for Update on Launch</a></h1>
+<p>Controls whether Halloy will check the Halloy repository on launch for a new version of Halloy.  When a new version is found a dot indicator will appear on the user menu button and a menu item to open the release webpage will be added to the user menu.</p>
+<p>This can be useful if you would rather rely on a package manager.</p>
+<ul>
+<li><a href="#check-for-update-on-launch">Check for Update on Launch</a>
+<ul>
+<li><a href="#configuration-29">Configuration</a>
+<ul>
+<li><a href="#check_for_update_on_launch">check_for_update_on_launch</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<h2 id="configuration-29"><a class="header" href="#configuration-29">Configuration</a></h2>
+<h3 id="check_for_update_on_launch"><a class="header" href="#check_for_update_on_launch">check_for_update_on_launch</a></h3>
+<blockquote>
+<p>⚠️ <code>check_for_update_on_launch</code> is a root key, so it must be placed before any section.</p>
+</blockquote>
+<blockquote>
+<p>💡 If configured, the <a href="configuration/proxy">default proxy</a> will be used to check for update.</p>
+</blockquote>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: true
+
+check_for_update_on_launch = true
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="commands-2"><a class="header" href="#commands-2">Commands</a></h1>
@@ -2383,27 +2458,28 @@ The argument(s) for a command are shown in <a href="#tooltips">tooltips</a>, and
 <tr><td><code>chathistory</code></td><td></td><td>Retrieve message history<sup class="footnote-reference" id="fr-5-1"><a href="#footnote-5">1</a></sup></td></tr>
 <tr><td><code>clear</code></td><td></td><td>Clear the message history in the current buffer</td></tr>
 <tr><td><code>cleartopic</code></td><td><code>ct</code></td><td>Clear the topic of a channel<sup class="footnote-reference" id="fr-1-1-1"><a href="#footnote-1-1">2</a></sup></td></tr>
-<tr><td><code>connect</code></td><td></td><td>Connect to a server (specified by URL)<sup class="footnote-reference" id="fr-8-1"><a href="#footnote-8">3</a></sup></td></tr>
+<tr><td><code>connect</code></td><td></td><td>Connect to a server, specified by URL or current server if disconnected<sup class="footnote-reference" id="fr-8-1"><a href="#footnote-8">3</a></sup></td></tr>
 <tr><td><code>ctcp</code></td><td></td><td>Client-To-Client requests<sup class="footnote-reference" id="fr-2-1-1"><a href="#footnote-2-1">4</a></sup></td></tr>
 <tr><td><code>delay</code></td><td></td><td>Delay the specified number of seconds<sup class="footnote-reference" id="fr-7-1"><a href="#footnote-7">5</a></sup></td></tr>
 <tr><td><code>detach</code></td><td></td><td>Hide the channel, but leave the bouncer’s connection to the channel active<sup class="footnote-reference" id="fr-5-2"><a href="#footnote-5">1</a></sup> <sup class="footnote-reference" id="fr-6-1"><a href="#footnote-6">6</a></sup></td></tr>
 <tr><td><code>format</code></td><td><code>f</code></td><td>Format text with markdown and colors</td></tr>
 <tr><td><code>hop</code></td><td><code>rejoin</code></td><td>Part the current channel and join a new one</td></tr>
-<tr><td><code>join</code></td><td><code>j</code></td><td>Join channel(s) with optional key(s)<sup class="footnote-reference" id="fr-9-1"><a href="#footnote-9">7</a></sup></td></tr>
+<tr><td><code>join</code></td><td><code>j</code></td><td>Join channel(s) with optional key(s)<sup class="footnote-reference" id="fr-9-1"><a href="#footnote-9">7</a></sup> <sup class="footnote-reference" id="fr-10-1"><a href="#footnote-10">8</a></sup></td></tr>
 <tr><td><code>kick</code></td><td></td><td>Kick a user from a channel<sup class="footnote-reference" id="fr-1-2"><a href="#footnote-1-1">2</a></sup></td></tr>
 <tr><td><code>knock</code></td><td></td><td>Request an invite from an invitation-only channel<sup class="footnote-reference" id="fr-5-3"><a href="#footnote-5">1</a></sup></td></tr>
 <tr><td><code>list</code></td><td></td><td>List channel(s) on the server<sup class="footnote-reference" id="fr-5-4"><a href="#footnote-5">1</a></sup></td></tr>
 <tr><td><code>me</code></td><td><code>describe</code></td><td>Send an action message to the channel</td></tr>
-<tr><td><code>mode</code></td><td><code>m</code></td><td>Set mode(s) on a channel or retrieve the current mode(s) set<sup class="footnote-reference" id="fr-3-1"><a href="#footnote-3">8</a></sup></td></tr>
+<tr><td><code>mode</code></td><td><code>m</code></td><td>Set mode(s) on a channel or retrieve the current mode(s) set<sup class="footnote-reference" id="fr-3-1"><a href="#footnote-3">9</a></sup></td></tr>
 <tr><td><code>monitor</code></td><td></td><td>System to notify when users become online/offline<sup class="footnote-reference" id="fr-5-5"><a href="#footnote-5">1</a></sup></td></tr>
 <tr><td><code>motd</code></td><td></td><td>Request the message of the day</td></tr>
 <tr><td><code>msg</code></td><td><code>query</code></td><td>Open a query with a nickname and send an optional message</td></tr>
 <tr><td><code>nick</code></td><td></td><td>Change your nickname on the current server</td></tr>
 <tr><td><code>notice</code></td><td></td><td>Send a notice message to a target</td></tr>
-<tr><td><code>part</code></td><td><code>leave</code></td><td>Leave and close channel(s)/quer(ies) with an optional reason <sup class="footnote-reference" id="fr-4-1"><a href="#footnote-4">9</a></sup></td></tr>
+<tr><td><code>part</code></td><td><code>leave</code></td><td>Leave and close channel(s)/quer(ies) with an optional reason <sup class="footnote-reference" id="fr-4-1"><a href="#footnote-4">10</a></sup></td></tr>
 <tr><td><code>plain</code></td><td><code>p</code></td><td>Send text with markdown and colors disabled</td></tr>
-<tr><td><code>quit</code></td><td></td><td>Disconnect from the server with an optional reason</td></tr>
+<tr><td><code>quit</code></td><td><code>disconnect</code></td><td>Disconnect from the server with an optional reason</td></tr>
 <tr><td><code>raw</code></td><td></td><td>Send data to the server without modifying it</td></tr>
+<tr><td><code>reconnect</code></td><td></td><td>Reconnect to a current server if disconnected</td></tr>
 <tr><td><code>setname</code></td><td></td><td>Change your realname<sup class="footnote-reference" id="fr-5-6"><a href="#footnote-5">1</a></sup></td></tr>
 <tr><td><code>sysinfo</code></td><td></td><td>Send system information (OS, CPU, memory, GPU, uptime)</td></tr>
 <tr><td><code>topic</code></td><td><code>t</code></td><td>Retrieve the topic of a channel or set a new topic<sup class="footnote-reference" id="fr-1-3"><a href="#footnote-1-1">2</a></sup></td></tr>
@@ -2434,6 +2510,9 @@ The argument(s) for a command are shown in <a href="#tooltips">tooltips</a>, and
 <li id="footnote-9">
 <p>Channels joined will not be remembered after quitting Halloy (i.e. when next starting Halloy it will not re-join the channels).  Add the channel information to the <a href="configuration/servers#channels">channels setting for the server</a> in the configuration file. <a href="#fr-9-1">↩</a></p>
 </li>
+<li id="footnote-10">
+<p>If not joined to the channel in the buffer, then the <code>chanlist</code> argument can be skipped to target the channel in the buffer. <a href="#fr-10-1">↩</a></p>
+</li>
 <li id="footnote-3">
 <p>The <code>target</code> argument can be skipped; in a channel buffer it will target the channel in the buffer, in a query buffer it will target the other user in the buffer, and in a server buffer it will target your user. <a href="#fr-3-1">↩</a></p>
 </li>
@@ -2459,7 +2538,7 @@ The argument(s) for a command are shown in <a href="#tooltips">tooltips</a>, and
 <ul>
 <li><a href="#padding-1">Padding</a>
 <ul>
-<li><a href="#configuration-29">Configuration</a>
+<li><a href="#configuration-30">Configuration</a>
 <ul>
 <li><a href="#entry">entry</a></li>
 </ul>
@@ -2467,13 +2546,13 @@ The argument(s) for a command are shown in <a href="#tooltips">tooltips</a>, and
 </ul>
 </li>
 </ul>
-<h2 id="configuration-29"><a class="header" href="#configuration-29">Configuration</a></h2>
+<h2 id="configuration-30"><a class="header" href="#configuration-30">Configuration</a></h2>
 <h3 id="entry"><a class="header" href="#entry">entry</a></h3>
 <p>Controls the padding around each entry in context menus.
 The value is an array where the first value is vertical padding and the second is horizontal padding.</p>
 <pre><code class="language-toml"># Type: array
 # Values: array
-# Default: [5, 5]
+# Default: [4, 4]
 
 [context_menu.padding]
 entry = [2, 5]
@@ -2485,7 +2564,7 @@ entry = [2, 5]
 <li><a href="#ctcp">CTCP</a>
 <ul>
 <li><a href="#example-6">Example</a></li>
-<li><a href="#configuration-30">Configuration</a>
+<li><a href="#configuration-31">Configuration</a>
 <ul>
 <li><a href="#ping">ping</a></li>
 <li><a href="#source">source</a></li>
@@ -2504,7 +2583,7 @@ entry = [2, 5]
 time = false
 version = false
 </code></pre>
-<h2 id="configuration-30"><a class="header" href="#configuration-30">Configuration</a></h2>
+<h2 id="configuration-31"><a class="header" href="#configuration-31">Configuration</a></h2>
 <h3 id="ping"><a class="header" href="#ping">ping</a></h3>
 <p>Whether Halloy will respond to a <a href="https://modern.ircdocs.horse/ctcp#ping">CTCP PING</a> message.</p>
 <pre><code class="language-toml"># Type: boolean
@@ -2559,7 +2638,7 @@ userinfo = "&lt;nickname&gt; (&lt;realname&gt;)"
 <ul>
 <li><a href="#file-transfer">File Transfer</a>
 <ul>
-<li><a href="#configuration-31">Configuration</a>
+<li><a href="#configuration-32">Configuration</a>
 <ul>
 <li><a href="#enabled-7">enabled</a></li>
 <li><a href="#save_directory">save_directory</a></li>
@@ -2572,7 +2651,7 @@ userinfo = "&lt;nickname&gt; (&lt;realname&gt;)"
 </ul>
 </li>
 </ul>
-<h2 id="configuration-31"><a class="header" href="#configuration-31">Configuration</a></h2>
+<h2 id="configuration-32"><a class="header" href="#configuration-32">Configuration</a></h2>
 <h3 id="enabled-7"><a class="header" href="#enabled-7">enabled</a></h3>
 <p>Control if file transfers are shown in the UI (e.g. file transfer requests are
 shown, file transfer options are presented in menus, etc).</p>
@@ -2626,7 +2705,7 @@ timeout = 300
 <ul>
 <li><a href="#auto-accept-1">Auto Accept</a>
 <ul>
-<li><a href="#configuration-32">Configuration</a>
+<li><a href="#configuration-33">Configuration</a>
 <ul>
 <li><a href="#enabled-8">enabled</a></li>
 <li><a href="#nicks">nicks</a></li>
@@ -2636,7 +2715,7 @@ timeout = 300
 </ul>
 </li>
 </ul>
-<h2 id="configuration-32"><a class="header" href="#configuration-32">Configuration</a></h2>
+<h2 id="configuration-33"><a class="header" href="#configuration-33">Configuration</a></h2>
 <h3 id="enabled-8"><a class="header" href="#enabled-8">enabled</a></h3>
 <p>If true, automatically accept incoming file transfers. Requires <code>save_directory</code> to be set.</p>
 <pre><code class="language-toml"># Type: boolean
@@ -2647,7 +2726,7 @@ timeout = 300
 enabled = false
 </code></pre>
 <h3 id="nicks"><a class="header" href="#nicks">nicks</a></h3>
-<p>If true, automatically accept incoming file transfers from these nicks.
+<p>Automatically accept incoming file transfers from these nicks.
 Note <code>auto_accept</code> has to be enabled.</p>
 <pre><code class="language-toml"># Type: array of strings
 # Values: array of any strings
@@ -2657,9 +2736,9 @@ Note <code>auto_accept</code> has to be enabled.</p>
 nicks = ["nick1", "nick2"]
 </code></pre>
 <h3 id="masks"><a class="header" href="#masks">masks</a></h3>
-<p>If true, automatically accept incoming file transfers from these nicks. Matches are made against the full nickname (i.e. nickname, username, and hostname in the format <code>nickname!username@hostname</code>). Note <code>auto_accept</code> has to be enabled.</p>
+<p>Automatically accept incoming file transfers matching these masks. Matches are made against the full nickname (i.e. nickname, username, and hostname in the format <code>nickname!username@hostname</code>). Note <code>auto_accept</code> has to be enabled.</p>
 <blockquote>
-<p>💡 Use toml multi-line literal strings <code>'''\bfoo'd\b'''</code> when writing a regex. This &gt; allows you to write write the regex without
+<p>💡 Use toml multi-line literal strings <code>'''\bfoo'd\b'''</code> when writing a regex. This allows you to write the regex without
 escaping. You can also use a literal string <code>'\bfoo\b'</code>, but then you can’t use <code>'</code> inside the string.</p>
 <p>Without literal strings, you’d have to write the above as <code>"\\bfoo'd\\b"</code></p>
 </blockquote>
@@ -2680,7 +2759,7 @@ operate as the “server”, who the other user connects with to establish a con
 <ul>
 <li><a href="#server-1">Server</a>
 <ul>
-<li><a href="#configuration-33">Configuration</a>
+<li><a href="#configuration-34">Configuration</a>
 <ul>
 <li><a href="#public_address">public_address</a></li>
 <li><a href="#bind_address">bind_address</a></li>
@@ -2691,7 +2770,7 @@ operate as the “server”, who the other user connects with to establish a con
 </ul>
 </li>
 </ul>
-<h2 id="configuration-33"><a class="header" href="#configuration-33">Configuration</a></h2>
+<h2 id="configuration-34"><a class="header" href="#configuration-34">Configuration</a></h2>
 <h3 id="public_address"><a class="header" href="#public_address">public_address</a></h3>
 <p>Address advertised to the remote user to connect to.</p>
 <pre><code class="language-toml"># Type: string
@@ -2734,10 +2813,11 @@ bind_port_last = 5000
 <ul>
 <li><a href="#font">Font</a>
 <ul>
-<li><a href="#configuration-34">Configuration</a>
+<li><a href="#configuration-35">Configuration</a>
 <ul>
 <li><a href="#family">family</a></li>
 <li><a href="#size">size</a></li>
+<li><a href="#line_height">line_height</a></li>
 <li><a href="#weight">weight</a></li>
 <li><a href="#bold_weight">bold_weight</a></li>
 <li><a href="#only_emojis_size">only_emojis_size</a></li>
@@ -2752,7 +2832,7 @@ bind_port_last = 5000
 <blockquote>
 <p>💡  If Halloy is unable to load the specified font &amp; weight, an fallback font may be used.  If the font looks wrong, double-check the family name and that the font family has the specified weight.</p>
 </blockquote>
-<h2 id="configuration-34"><a class="header" href="#configuration-34">Configuration</a></h2>
+<h2 id="configuration-35"><a class="header" href="#configuration-35">Configuration</a></h2>
 <h3 id="family"><a class="header" href="#family">family</a></h3>
 <p>Monospaced font family to use.</p>
 <blockquote>
@@ -2775,6 +2855,15 @@ family = "Comic Mono"
 
 [font]
 size = 13
+</code></pre>
+<h3 id="line_height"><a class="header" href="#line_height">line_height</a></h3>
+<p>Line height (relative to the font size). Changing this also requires a restart to take effect.</p>
+<pre><code class="language-toml"># Type: number
+# Values: any positive float
+# Default: 1.3
+
+[font]
+line_height = 1.1
 </code></pre>
 <h3 id="weight"><a class="header" href="#weight">weight</a></h3>
 <p>Font weight.</p>
@@ -2825,7 +2914,7 @@ only_emojis_size = 18
 <li><a href="#matches-1">Matches</a>
 <ul>
 <li><a href="#example-7">Example</a></li>
-<li><a href="#configuration-35">Configuration</a>
+<li><a href="#configuration-36">Configuration</a>
 <ul>
 <li><a href="#words">words</a></li>
 <li><a href="#case_insensitive">case_insensitive</a></li>
@@ -2850,7 +2939,7 @@ sound = "bonk"
 regex = '''(?i)\bcasper\b'''
 exclude = ["#noisy-channel"]
 </code></pre>
-<h2 id="configuration-35"><a class="header" href="#configuration-35">Configuration</a></h2>
+<h2 id="configuration-36"><a class="header" href="#configuration-36">Configuration</a></h2>
 <h3 id="words"><a class="header" href="#words">words</a></h3>
 <p>You can set words to be highlighted when they are written.</p>
 <p>Example shows word matches, which will trigger on <code>"word1"</code>, <code>"word2"</code> or <code>"word3"</code> in any channel.</p>
@@ -2937,7 +3026,7 @@ sound = "sing"
 <li><a href="#nickname-5">Nickname</a>
 <ul>
 <li><a href="#example-8">Example</a></li>
-<li><a href="#configuration-36">Configuration</a>
+<li><a href="#configuration-37">Configuration</a>
 <ul>
 <li><a href="#exclude-2">exclude</a></li>
 <li><a href="#include-2">include</a></li>
@@ -2953,7 +3042,7 @@ sound = "sing"
 exclude = ["*"]
 include = ["#halloy"]
 </code></pre>
-<h2 id="configuration-36"><a class="header" href="#configuration-36">Configuration</a></h2>
+<h2 id="configuration-37"><a class="header" href="#configuration-37">Configuration</a></h2>
 <h3 id="exclude-2"><a class="header" href="#exclude-2">exclude</a></h3>
 <p>Channels in which you won’t be highlighted.
 If you pass <code>["#halloy"]</code>, you won’t be highlighted in that channel. You can also exclude all channels by using a wildcard: <code>["*"]</code>.</p>
@@ -3002,10 +3091,11 @@ move_up = "alt+k"
 move_down = "alt+j"
 move_left = "alt+h"
 move_right = "alt+l"
+quit_application = ["alt+q", "ctrl+q"]
 command_bar = "noop" # &lt;- use noop or none to disable key bind.
-quit_application = "ctrl+q"
 </code></pre>
-<p>Note you can disable a key bind by setting it to <code>"noop"</code> or <code>"none"</code>.</p>
+<p>Note you can disable a key bind by setting it to <code>"noop"</code> or <code>"none"</code>.
+Each shortcut accepts either a single keybind string or an array of keybind strings.</p>
 <h2 id="types-3"><a class="header" href="#types-3">Types</a></h2>
 <div class="table-wrapper">
 <table>
@@ -3017,6 +3107,8 @@ quit_application = "ctrl+q"
 <tr><td><code>move_down</code></td><td>Moves focus down</td><td><kbd>⌘</kbd> + <kbd>⌥</kbd> + <kbd>↓</kbd></td><td><kbd>ctrl</kbd> + <kbd>alt</kbd> + <kbd>↓</kbd></td></tr>
 <tr><td><code>move_left</code></td><td>Moves focus left</td><td><kbd>⌘</kbd> + <kbd>⌥</kbd> + <kbd>←</kbd></td><td><kbd>ctrl</kbd> + <kbd>alt</kbd> + <kbd>←</kbd></td></tr>
 <tr><td><code>move_right</code></td><td>Moves focus right</td><td><kbd>⌘</kbd> + <kbd>⌥</kbd> + <kbd>→</kbd></td><td><kbd>ctrl</kbd> + <kbd>alt</kbd> + <kbd>→</kbd></td></tr>
+<tr><td><code>new_horizontal_buffer</code></td><td>New horizontal buffer</td><td>None</td><td>None</td></tr>
+<tr><td><code>new_vertical_buffer</code></td><td>New vertical buffer</td><td>None</td><td>None</td></tr>
 <tr><td><code>close_buffer</code></td><td>Close focused buffer</td><td><kbd>⌘</kbd> + <kbd>w</kbd></td><td><kbd>ctrl</kbd> + <kbd>w</kbd></td></tr>
 <tr><td><code>maximize_buffer</code></td><td>Maximize focused buffer</td><td><kbd>⌘</kbd> + <kbd>shift</kbd> + <kbd>↑</kbd></td><td><kbd>ctrl</kbd> + <kbd>shift</kbd> + <kbd>↑</kbd></td></tr>
 <tr><td><code>restore_buffer</code></td><td>Restore focused buffer</td><td><kbd>⌘</kbd> + <kbd>shift</kbd> + <kbd>↓</kbd></td><td><kbd>ctrl</kbd> + <kbd>shift</kbd> + <kbd>↓</kbd></td></tr>
@@ -3050,7 +3142,7 @@ quit_application = "ctrl+q"
 <ul>
 <li><a href="#logs">Logs</a>
 <ul>
-<li><a href="#configuration-37">Configuration</a>
+<li><a href="#configuration-38">Configuration</a>
 <ul>
 <li><a href="#file_level">file_level</a></li>
 <li><a href="#pane_level">pane_level</a></li>
@@ -3059,7 +3151,7 @@ quit_application = "ctrl+q"
 </ul>
 </li>
 </ul>
-<h2 id="configuration-37"><a class="header" href="#configuration-37">Configuration</a></h2>
+<h2 id="configuration-38"><a class="header" href="#configuration-38">Configuration</a></h2>
 <h3 id="file_level"><a class="header" href="#file_level">file_level</a></h3>
 <p>The least urgent (most verbose) log level to record to the log file.
 E.g. a <code>file_level</code> setting of <code>"debug"</code> will record all <code>ERROR</code>, <code>WARN</code>, <code>INFO</code>, and <code>DEBUG</code> messages to the log file.
@@ -3099,10 +3191,11 @@ pane_level = "info"
 <li><a href="#example-10">Example</a></li>
 <li><a href="#types-4">Types</a></li>
 <li><a href="#built-in-sounds">Built-in Sounds</a></li>
-<li><a href="#configuration-38">Configuration</a>
+<li><a href="#configuration-39">Configuration</a>
 <ul>
 <li><a href="#sound-1">sound</a></li>
 <li><a href="#show_toast">show_toast</a></li>
+<li><a href="#request_attention">request_attention</a></li>
 <li><a href="#show_content">show_content</a></li>
 <li><a href="#delay">delay</a></li>
 <li><a href="#exclude-3">exclude</a></li>
@@ -3168,7 +3261,7 @@ show_toast = true
 </tbody>
 </table>
 </div>
-<h2 id="configuration-38"><a class="header" href="#configuration-38">Configuration</a></h2>
+<h2 id="configuration-39"><a class="header" href="#configuration-39">Configuration</a></h2>
 <h3 id="sound-1"><a class="header" href="#sound-1">sound</a></h3>
 <p>Notification sound. Supports both built-in sounds, and external sound files
 (<code>mp3</code>, <code>ogg</code>, <code>flac</code> or <code>wav</code> placed inside the <code>sounds</code> folder within the
@@ -3188,6 +3281,21 @@ sound = "zone"
 
 [notifications.&lt;notification&gt;]
 show_toast = true
+</code></pre>
+<h3 id="request_attention"><a class="header" href="#request_attention">request_attention</a></h3>
+<p>Notification should request user attention for its window (aka urgency).  Exact
+behavior is platform specific:</p>
+<ul>
+<li>macOS: Bounces the dock icon once.</li>
+<li>Windows: Flashes the taskbar button until the application is in focus.</li>
+<li>Linux: Depends on the desktop environment.</li>
+</ul>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: false
+
+[notifications.&lt;notification&gt;]
+request_attention = true
 </code></pre>
 <h3 id="show_content"><a class="header" href="#show_content">show_content</a></h3>
 <p>Notification should show the content of the trigger (as described in the <a href="#types-4">table above</a>)).</p>
@@ -3246,7 +3354,7 @@ include = { users = ["HalloyUser1", "#halloy"] }
 <ul>
 <li><a href="#pane">Pane</a>
 <ul>
-<li><a href="#configuration-39">Configuration</a>
+<li><a href="#configuration-40">Configuration</a>
 <ul>
 <li><a href="#restore_on_launch">restore_on_launch</a></li>
 <li><a href="#scrollbar">scrollbar</a></li>
@@ -3259,7 +3367,7 @@ include = { users = ["HalloyUser1", "#halloy"] }
 </ul>
 </li>
 </ul>
-<h2 id="configuration-39"><a class="header" href="#configuration-39">Configuration</a></h2>
+<h2 id="configuration-40"><a class="header" href="#configuration-40">Configuration</a></h2>
 <h3 id="restore_on_launch"><a class="header" href="#restore_on_launch">restore_on_launch</a></h3>
 <p>Restore the panes that were open when Halloy was last closed when launching the application.</p>
 <pre><code class="language-toml"># Type: boolean
@@ -3307,7 +3415,7 @@ split_axis = "vertical"
 <li><a href="#gap-1">Gap</a>
 <ul>
 <li><a href="#example-11">Example</a></li>
-<li><a href="#configuration-40">Configuration</a>
+<li><a href="#configuration-41">Configuration</a>
 <ul>
 <li><a href="#inner">inner</a></li>
 <li><a href="#outer">outer</a></li>
@@ -3317,11 +3425,11 @@ split_axis = "vertical"
 </li>
 </ul>
 <h2 id="example-11"><a class="header" href="#example-11">Example</a></h2>
-<pre><code class="language-toml">[pane]
+<pre><code class="language-toml">[pane.gap]
 inner = 4
 outer = 4
 </code></pre>
-<h2 id="configuration-40"><a class="header" href="#configuration-40">Configuration</a></h2>
+<h2 id="configuration-41"><a class="header" href="#configuration-41">Configuration</a></h2>
 <h3 id="inner"><a class="header" href="#inner">inner</a></h3>
 <p>Controls the spacing between panes in a pane grid.</p>
 <pre><code class="language-toml"># Type: integer
@@ -3364,7 +3472,7 @@ outer = 8
 <ul>
 <li><a href="#linux-2">Linux</a>
 <ul>
-<li><a href="#configuration-41">Configuration</a>
+<li><a href="#configuration-42">Configuration</a>
 <ul>
 <li><a href="#decorations">decorations</a></li>
 </ul>
@@ -3372,7 +3480,7 @@ outer = 8
 </ul>
 </li>
 </ul>
-<h2 id="configuration-41"><a class="header" href="#configuration-41">Configuration</a></h2>
+<h2 id="configuration-42"><a class="header" href="#configuration-42">Configuration</a></h2>
 <h3 id="decorations"><a class="header" href="#decorations">decorations</a></h3>
 <p>Whether the window should have a border, a title bar, etc. or not.</p>
 <blockquote>
@@ -3391,7 +3499,7 @@ linux.decorations = false
 <ul>
 <li><a href="#macos-2">macOS</a>
 <ul>
-<li><a href="#configuration-42">Configuration</a>
+<li><a href="#configuration-43">Configuration</a>
 <ul>
 <li><a href="#content_padding">content_padding</a></li>
 <li><a href="#sidebar_padding">sidebar_padding</a></li>
@@ -3401,7 +3509,7 @@ linux.decorations = false
 </ul>
 </li>
 </ul>
-<h2 id="configuration-42"><a class="header" href="#configuration-42">Configuration</a></h2>
+<h2 id="configuration-43"><a class="header" href="#configuration-43">Configuration</a></h2>
 <h3 id="content_padding"><a class="header" href="#content_padding">content_padding</a></h3>
 <p>Controls if the content (panes) are rendered inside the the titlebar content view, or padded just below it.</p>
 <pre><code class="language-toml"># Type: string
@@ -3438,7 +3546,7 @@ macos.decorations = false
 <ul>
 <li><a href="#windows-2">Windows</a>
 <ul>
-<li><a href="#configuration-43">Configuration</a>
+<li><a href="#configuration-44">Configuration</a>
 <ul>
 <li><a href="#decorations-2">decorations</a></li>
 </ul>
@@ -3446,7 +3554,7 @@ macos.decorations = false
 </ul>
 </li>
 </ul>
-<h2 id="configuration-43"><a class="header" href="#configuration-43">Configuration</a></h2>
+<h2 id="configuration-44"><a class="header" href="#configuration-44">Configuration</a></h2>
 <h3 id="decorations-2"><a class="header" href="#decorations-2">decorations</a></h3>
 <p>Whether the window should have a border, a title bar, etc. or not.</p>
 <blockquote>
@@ -3465,7 +3573,7 @@ windows.decorations = false
 <ul>
 <li><a href="#preview">Preview</a>
 <ul>
-<li><a href="#configuration-44">Configuration</a>
+<li><a href="#configuration-45">Configuration</a>
 <ul>
 <li><a href="#enabled-9">enabled</a></li>
 <li><a href="#exclude-4">exclude</a></li>
@@ -3477,7 +3585,7 @@ windows.decorations = false
 </ul>
 </li>
 </ul>
-<h2 id="configuration-44"><a class="header" href="#configuration-44">Configuration</a></h2>
+<h2 id="configuration-45"><a class="header" href="#configuration-45">Configuration</a></h2>
 <h3 id="enabled-9"><a class="header" href="#enabled-9">enabled</a></h3>
 <p>Enable or disable previews globally with a boolean, or selectively enable them for URLs matching specific regex patterns.</p>
 <pre><code class="language-toml"># Type: boolean or array of strings
@@ -3531,7 +3639,7 @@ exclude = [
 <li><a href="#card-1">Card</a>
 <ul>
 <li><a href="#example-12">Example</a></li>
-<li><a href="#configuration-45">Configuration</a>
+<li><a href="#configuration-46">Configuration</a>
 <ul>
 <li><a href="#show_image">show_image</a></li>
 <li><a href="#round_image_corners">round_image_corners</a></li>
@@ -3550,7 +3658,7 @@ exclude = [
 exclude = "*" # hide card previews in all channels
 include = { channels = ["#halloy"] } # show card previews in #halloy
 </code></pre>
-<h2 id="configuration-45"><a class="header" href="#configuration-45">Configuration</a></h2>
+<h2 id="configuration-46"><a class="header" href="#configuration-46">Configuration</a></h2>
 <h3 id="show_image"><a class="header" href="#show_image">show_image</a></h3>
 <p>Show image for card previews.</p>
 <pre><code class="language-toml"># Type: boolean
@@ -3626,7 +3734,7 @@ include = { users = ["BridgeBot"] }
 <li><a href="#image-1">Image</a>
 <ul>
 <li><a href="#example-13">Example</a></li>
-<li><a href="#configuration-46">Configuration</a>
+<li><a href="#configuration-47">Configuration</a>
 <ul>
 <li><a href="#action">action</a></li>
 <li><a href="#round_corners">round_corners</a></li>
@@ -3644,7 +3752,7 @@ include = { users = ["BridgeBot"] }
 exclude = "*" # hide image previews in all channels
 include = { channels = ["#halloy"] } # show image previews in #halloy
 </code></pre>
-<h2 id="configuration-46"><a class="header" href="#configuration-46">Configuration</a></h2>
+<h2 id="configuration-47"><a class="header" href="#configuration-47">Configuration</a></h2>
 <h3 id="action"><a class="header" href="#action">action</a></h3>
 <p>Action when clicking on a image. <code>open-url</code> will open the image in the browser, and <code>preview</code> will display a larger version of the image in-app.</p>
 <pre><code class="language-toml"># Type: string
@@ -3710,7 +3818,7 @@ include = { users = ["BridgeBot"] }
 <ul>
 <li><a href="#request-1">Request</a>
 <ul>
-<li><a href="#configuration-47">Configuration</a>
+<li><a href="#configuration-48">Configuration</a>
 <ul>
 <li><a href="#user_agent">user_agent</a></li>
 <li><a href="#timeout_ms">timeout_ms</a></li>
@@ -3723,7 +3831,7 @@ include = { users = ["BridgeBot"] }
 </ul>
 </li>
 </ul>
-<h2 id="configuration-47"><a class="header" href="#configuration-47">Configuration</a></h2>
+<h2 id="configuration-48"><a class="header" href="#configuration-48">Configuration</a></h2>
 <h3 id="user_agent"><a class="header" href="#user_agent">user_agent</a></h3>
 <p>Some servers will only send opengraph metadata to browser-like user agents. We default to <code>WhatsApp/2</code> for wide compatibility.</p>
 <pre><code class="language-toml"># Type: string
@@ -3806,7 +3914,7 @@ delay_ms = 500
 <li><a href="#http-1">HTTP</a>
 <ul>
 <li><a href="#example-14">Example</a></li>
-<li><a href="#configuration-48">Configuration</a>
+<li><a href="#configuration-49">Configuration</a>
 <ul>
 <li><a href="#host">host</a></li>
 <li><a href="#port">port</a></li>
@@ -3824,7 +3932,7 @@ port = 1080
 username = "username"
 password = "password"
 </code></pre>
-<h2 id="configuration-48"><a class="header" href="#configuration-48">Configuration</a></h2>
+<h2 id="configuration-49"><a class="header" href="#configuration-49">Configuration</a></h2>
 <h3 id="host"><a class="header" href="#host">host</a></h3>
 <p>Proxy host to connect to.</p>
 <pre><code class="language-toml"># Type: string
@@ -3876,7 +3984,7 @@ password = "password"
 <li><a href="#socks5-1">SOCKS5</a>
 <ul>
 <li><a href="#example-15">Example</a></li>
-<li><a href="#configuration-49">Configuration</a>
+<li><a href="#configuration-50">Configuration</a>
 <ul>
 <li><a href="#host-1">host</a></li>
 <li><a href="#port-1">port</a></li>
@@ -3894,7 +4002,7 @@ port = 1080
 username = "username"
 password = "password"
 </code></pre>
-<h2 id="configuration-49"><a class="header" href="#configuration-49">Configuration</a></h2>
+<h2 id="configuration-50"><a class="header" href="#configuration-50">Configuration</a></h2>
 <h3 id="host-1"><a class="header" href="#host-1">host</a></h3>
 <p>Proxy host to connect to.</p>
 <pre><code class="language-toml"># Type: string
@@ -3965,7 +4073,7 @@ password = "password"
 <ul>
 <li><a href="#scale-factor">Scale Factor</a>
 <ul>
-<li><a href="#configuration-50">Configuration</a>
+<li><a href="#configuration-51">Configuration</a>
 <ul>
 <li><a href="#scale_factor">scale_factor</a></li>
 </ul>
@@ -3973,7 +4081,7 @@ password = "password"
 </ul>
 </li>
 </ul>
-<h2 id="configuration-50"><a class="header" href="#configuration-50">Configuration</a></h2>
+<h2 id="configuration-51"><a class="header" href="#configuration-51">Configuration</a></h2>
 <h3 id="scale_factor"><a class="header" href="#scale_factor">scale_factor</a></h3>
 <blockquote>
 <p>⚠️ <code>scale_factor</code> is a root key, so it must be placed before any section.</p>
@@ -3991,7 +4099,7 @@ scale_factor = 1.0
 <li><a href="#servers">Servers</a>
 <ul>
 <li><a href="#examples-2">Examples</a></li>
-<li><a href="#configuration-51">Configuration</a>
+<li><a href="#configuration-52">Configuration</a>
 <ul>
 <li><a href="#nickname-6">nickname</a></li>
 <li><a href="#nick_password">nick_password</a></li>
@@ -4010,6 +4118,7 @@ scale_factor = 1.0
 <li><a href="#password_command">password_command</a></li>
 <li><a href="#channels">channels</a></li>
 <li><a href="#channel_keys">channel_keys</a></li>
+<li><a href="#queries">queries</a></li>
 <li><a href="#ping_time">ping_time</a></li>
 <li><a href="#ping_timeout">ping_timeout</a></li>
 <li><a href="#reconnect_delay">reconnect_delay</a></li>
@@ -4026,6 +4135,7 @@ scale_factor = 1.0
 <li><a href="#monitor">monitor</a></li>
 <li><a href="#chathistory">chathistory</a></li>
 <li><a href="#proxy-1">proxy</a></li>
+<li><a href="#autoconnect">autoconnect</a></li>
 </ul>
 </li>
 <li><a href="#filters">Filters</a></li>
@@ -4043,7 +4153,7 @@ scale_factor = 1.0
 <li><a href="#connect-with-soju">Connect with soju</a></li>
 <li><a href="#connect-with-znc">Connect with ZNC</a></li>
 </ul>
-<h2 id="configuration-51"><a class="header" href="#configuration-51">Configuration</a></h2>
+<h2 id="configuration-52"><a class="header" href="#configuration-52">Configuration</a></h2>
 <h3 id="nickname-6"><a class="header" href="#nickname-6">nickname</a></h3>
 <p>The client’s nickname.</p>
 <pre><code class="language-toml"># Type: string
@@ -4196,6 +4306,15 @@ channels = ["#foo", "#bar"]
 
 [servers.&lt;name&gt;]
 channel_keys = { "#foo" = "password" }
+</code></pre>
+<h3 id="queries"><a class="header" href="#queries">queries</a></h3>
+<p>A list of queries to add to the sidebar on connection.</p>
+<pre><code class="language-toml"># Type: array of strings
+# Values: array of any strings
+# Default: not set
+
+[servers.&lt;name&gt;]
+queries = ["alice", "bob"]
 </code></pre>
 <h3 id="ping_time"><a class="header" href="#ping_time">ping_time</a></h3>
 <p>The amount of inactivity in seconds before the client will ping the server.</p>
@@ -4357,6 +4476,15 @@ port = 1080
 username = "username"
 password = "password"
 </code></pre>
+<h3 id="autoconnect"><a class="header" href="#autoconnect">autoconnect</a></h3>
+<p>Whether or not to connect to the server when launching Halloy or when changing the connection details in the server configuration.</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: true
+
+[servers.&lt;name&gt;]
+autoconnect = true
+</code></pre>
 <h2 id="filters"><a class="header" href="#filters"><a href="#filters-1">Filters</a></a></h2>
 <p>Filter messages based on various criteria</p>
 <h2 id="sasl-plain"><a class="header" href="#sasl-plain"><a href="#sasl-plain-1">SASL Plain</a></a></h2>
@@ -4380,7 +4508,7 @@ password = "password"
 <ul>
 <li><a href="#filters-1">Filters</a>
 <ul>
-<li><a href="#configuration-52">Configuration</a>
+<li><a href="#configuration-53">Configuration</a>
 <ul>
 <li><a href="#ignore-1">ignore</a></li>
 <li><a href="#regex-1">regex</a></li>
@@ -4389,7 +4517,7 @@ password = "password"
 </ul>
 </li>
 </ul>
-<h2 id="configuration-52"><a class="header" href="#configuration-52">Configuration</a></h2>
+<h2 id="configuration-53"><a class="header" href="#configuration-53">Configuration</a></h2>
 <h3 id="ignore-1"><a class="header" href="#ignore-1">ignore</a></h3>
 <p>A list of users to ignore. Users may be identified in any of these four ways:</p>
 <ul>
@@ -4428,16 +4556,17 @@ regex = [
 <ul>
 <li><a href="#sasl-external-1">SASL External</a>
 <ul>
-<li><a href="#configuration-53">Configuration</a>
+<li><a href="#configuration-54">Configuration</a>
 <ul>
 <li><a href="#cert">cert</a></li>
 <li><a href="#key">key</a></li>
+<li><a href="#disconnect_on_failure">disconnect_on_failure</a></li>
 </ul>
 </li>
 </ul>
 </li>
 </ul>
-<h2 id="configuration-53"><a class="header" href="#configuration-53">Configuration</a></h2>
+<h2 id="configuration-54"><a class="header" href="#configuration-54">Configuration</a></h2>
 <h3 id="cert"><a class="header" href="#cert">cert</a></h3>
 <p>The path to PEM encoded X509 user certificate for external auth.<sup class="footnote-reference" id="fr-1-1-4"><a href="#footnote-1-4">1</a></sup> <sup class="footnote-reference" id="fr-2-1-3"><a href="#footnote-2-3">2</a></sup></p>
 <pre><code class="language-toml"># Type: string
@@ -4456,6 +4585,15 @@ cert = "/path/to/your/certificate.pem"
 [servers.&lt;name&gt;.sasl.external]
 key = "/path/to/your/private_key.pem"
 </code></pre>
+<h3 id="disconnect_on_failure"><a class="header" href="#disconnect_on_failure">disconnect_on_failure</a></h3>
+<p>Disconnect from the server if SASL authentication fails. This is useful on servers which apply a hostname cloak after identifying, such as Libera.Chat. Without this option, a failed SASL authentication would result in connecting with your real IP/hostname exposed.</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: true
+
+[servers.&lt;name&gt;.sasl.external]
+disconnect_on_failure = false
+</code></pre>
 <hr>
 <ol class="footnote-definition">
 <li id="footnote-1-4">
@@ -4471,19 +4609,20 @@ key = "/path/to/your/private_key.pem"
 <ul>
 <li><a href="#sasl-plain-1">SASL Plain</a>
 <ul>
-<li><a href="#configuration-54">Configuration</a>
+<li><a href="#configuration-55">Configuration</a>
 <ul>
 <li><a href="#username-3">username</a></li>
 <li><a href="#password-3">password</a></li>
 <li><a href="#password_file-1">password_file</a></li>
 <li><a href="#password_file_first_line_only-1">password_file_first_line_only</a></li>
 <li><a href="#password_command-1">password_command</a></li>
+<li><a href="#disconnect_on_failure-1">disconnect_on_failure</a></li>
 </ul>
 </li>
 </ul>
 </li>
 </ul>
-<h2 id="configuration-54"><a class="header" href="#configuration-54">Configuration</a></h2>
+<h2 id="configuration-55"><a class="header" href="#configuration-55">Configuration</a></h2>
 <h3 id="username-3"><a class="header" href="#username-3">username</a></h3>
 <p>The account name used for authentication.</p>
 <pre><code class="language-toml"># Type: string
@@ -4529,6 +4668,15 @@ password_file_first_line_only = true
 [servers.&lt;name&gt;.sasl.plain]
 password_command = ""
 </code></pre>
+<h3 id="disconnect_on_failure-1"><a class="header" href="#disconnect_on_failure-1">disconnect_on_failure</a></h3>
+<p>Disconnect from the server if SASL authentication fails. This is useful on servers which apply a hostname cloak after identifying, such as Libera.Chat. Without this option, a failed SASL authentication would result in connecting with your real IP/hostname exposed.</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: true
+
+[servers.&lt;name&gt;.sasl.plain]
+disconnect_on_failure = false
+</code></pre>
 <hr>
 <ol class="footnote-definition">
 <li id="footnote-1-5">
@@ -4544,7 +4692,7 @@ password_command = ""
 <ul>
 <li><a href="#confirm-message-delivery-1">Confirm Message Delivery</a>
 <ul>
-<li><a href="#configuration-55">Configuration</a>
+<li><a href="#configuration-56">Configuration</a>
 <ul>
 <li><a href="#enabled-10">enabled</a></li>
 <li><a href="#exclude-7">exclude</a></li>
@@ -4554,7 +4702,7 @@ password_command = ""
 </ul>
 </li>
 </ul>
-<h2 id="configuration-55"><a class="header" href="#configuration-55">Configuration</a></h2>
+<h2 id="configuration-56"><a class="header" href="#configuration-56">Configuration</a></h2>
 <h3 id="enabled-10"><a class="header" href="#enabled-10">enabled</a></h3>
 <p>Control if delivery of sent messages is to be confirmed (if the server supports <a href="https://ircv3.net/specs/extensions/echo-message"><code>echo-message</code></a>).</p>
 <pre><code class="language-toml"># Type: boolean
@@ -4594,13 +4742,14 @@ include = { channels = ["#halloy"] }
 <ul>
 <li><a href="#sidebar-2">Sidebar</a>
 <ul>
-<li><a href="#configuration-56">Configuration</a>
+<li><a href="#configuration-57">Configuration</a>
 <ul>
 <li><a href="#server_icon">server_icon</a></li>
 <li><a href="#position-1">position</a></li>
 <li><a href="#max_width-2">max_width</a></li>
-<li><a href="#show_menu_button">show_menu_button</a></li>
+<li><a href="#user_menu">user_menu</a></li>
 <li><a href="#order_by-1">order_by</a></li>
+<li><a href="#order_channels_by">order_channels_by</a></li>
 </ul>
 </li>
 <li><a href="#scrollbar-1">Scrollbar</a></li>
@@ -4610,7 +4759,7 @@ include = { channels = ["#halloy"] }
 </ul>
 </li>
 </ul>
-<h2 id="configuration-56"><a class="header" href="#configuration-56">Configuration</a></h2>
+<h2 id="configuration-57"><a class="header" href="#configuration-57">Configuration</a></h2>
 <h3 id="server_icon"><a class="header" href="#server_icon">server_icon</a></h3>
 <p>Configure the server icon display.</p>
 <pre><code class="language-toml"># Type: integer or string
@@ -4642,17 +4791,17 @@ position = "left"
 [sidebar]
 max_width = 200
 </code></pre>
-<h3 id="show_menu_button"><a class="header" href="#show_menu_button">show_menu_button</a></h3>
+<h3 id="user_menu"><a class="header" href="#user_menu">user_menu</a></h3>
 <p>Show or hide the user menu button in the sidebar.</p>
 <pre><code class="language-toml"># Type: bool
 # Values: true, false
 # Default: true
 
-[sidebar]
-show_menu_button = true
+[sidebar.user_menu]
+enabled = true
 </code></pre>
 <h3 id="order_by-1"><a class="header" href="#order_by-1">order_by</a></h3>
-<p>Ordering that servers are listed in the sidebar uses to select from matching users.</p>
+<p>Ordering that servers are listed in the sidebar.</p>
 <ul>
 <li><code>"config"</code>: The same order they are specified in the configuration file.</li>
 <li><code>"alpha"</code>: Case-insensitive alphabetical ordering.</li>
@@ -4663,6 +4812,19 @@ show_menu_button = true
 
 [sidebar]
 order_by = "config"
+</code></pre>
+<h3 id="order_channels_by"><a class="header" href="#order_channels_by">order_channels_by</a></h3>
+<p>Include chantypes (channel prefixes, e.g., <code>#</code> and <code>##</code>) when sorting channels in the sidebar.</p>
+<ul>
+<li><code>"name"</code>: Sort channels by name only, ignoring chantypes.</li>
+<li><code>"name-and-prefix"</code>: Sort channels by name including their chantypes.</li>
+</ul>
+<pre><code class="language-toml"># Type: string
+# Values: "name", "name-and-prefix"
+# Default: "name"
+
+[sidebar]
+order_channels_by = "name-and-prefix"
 </code></pre>
 <h2 id="scrollbar-1"><a class="header" href="#scrollbar-1"><a href="#scrollbar-2">Scrollbar</a></a></h2>
 <p>Scrollbar in sidebar</p>
@@ -4678,7 +4840,7 @@ order_by = "config"
 <ul>
 <li><a href="#scrollbar-2">Scrollbar</a>
 <ul>
-<li><a href="#configuration-57">Configuration</a>
+<li><a href="#configuration-58">Configuration</a>
 <ul>
 <li><a href="#width-2">width</a></li>
 <li><a href="#scroller_width-1">scroller_width</a></li>
@@ -4687,7 +4849,7 @@ order_by = "config"
 </ul>
 </li>
 </ul>
-<h2 id="configuration-57"><a class="header" href="#configuration-57">Configuration</a></h2>
+<h2 id="configuration-58"><a class="header" href="#configuration-58">Configuration</a></h2>
 <h3 id="width-2"><a class="header" href="#width-2">width</a></h3>
 <p>Width of the scrollbar.</p>
 <pre><code class="language-toml"># Type: integer
@@ -4712,10 +4874,10 @@ scroller_width = 5
 <ul>
 <li><a href="#unread-indicator-1">Unread Indicator</a>
 <ul>
-<li><a href="#configuration-58">Configuration</a>
+<li><a href="#configuration-59">Configuration</a>
 <ul>
 <li><a href="#title">title</a></li>
-<li><a href="#icon">icon</a></li>
+<li><a href="#icon-1">icon</a></li>
 <li><a href="#highlight_icon">highlight_icon</a></li>
 <li><a href="#icon_size">icon_size</a></li>
 <li><a href="#highlight_icon_size">highlight_icon_size</a></li>
@@ -4727,7 +4889,7 @@ scroller_width = 5
 </ul>
 </li>
 </ul>
-<h2 id="configuration-58"><a class="header" href="#configuration-58">Configuration</a></h2>
+<h2 id="configuration-59"><a class="header" href="#configuration-59">Configuration</a></h2>
 <h3 id="title"><a class="header" href="#title">title</a></h3>
 <p>Changes buffer title color when unread messages are present</p>
 <pre><code class="language-toml"># Type: boolean
@@ -4737,7 +4899,7 @@ scroller_width = 5
 [sidebar.unread_indicator]
 title = false
 </code></pre>
-<h3 id="icon"><a class="header" href="#icon">icon</a></h3>
+<h3 id="icon-1"><a class="header" href="#icon-1">icon</a></h3>
 <p>Changes the icon which appears when unread messages are present. To disable use <code>"none"</code>.</p>
 <pre><code class="language-toml"># Type: string
 # Values: "dot", "circle-empty", "dot-circled", "certificate", "asterisk", "speaker", "lightbulb", "star", "none"
@@ -4814,16 +4976,15 @@ include = { channels = ["#halloy"] }
 <ul>
 <li><a href="#user-menu">User Menu</a>
 <ul>
-<li><a href="#configuration-59">Configuration</a>
+<li><a href="#configuration-60">Configuration</a>
 <ul>
 <li><a href="#enabled-11">enabled</a></li>
-<li><a href="#show_new_version_indicator">show_new_version_indicator</a></li>
 </ul>
 </li>
 </ul>
 </li>
 </ul>
-<h2 id="configuration-59"><a class="header" href="#configuration-59">Configuration</a></h2>
+<h2 id="configuration-60"><a class="header" href="#configuration-60">Configuration</a></h2>
 <h3 id="enabled-11"><a class="header" href="#enabled-11">enabled</a></h3>
 <p>Controls whether the user menu is shown in the sidebar or hidden</p>
 <pre><code class="language-toml"># Type: boolean
@@ -4833,23 +4994,13 @@ include = { channels = ["#halloy"] }
 [sidebar.user_menu]
 enabled = true
 </code></pre>
-<h3 id="show_new_version_indicator"><a class="header" href="#show_new_version_indicator">show_new_version_indicator</a></h3>
-<p>Controls whether to show a dot indicator on the user menu button when a new version of Halloy is available.
-This can be useful if you rather want to rely on a package manager.</p>
-<pre><code class="language-toml"># Type: boolean
-# Values: true, false
-# Default: true
-
-[sidebar.user_menu]
-show_new_version_indicator = true
-</code></pre>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="padding-3"><a class="header" href="#padding-3">Padding</a></h1>
 <p>Adjust padding for sidebar</p>
 <ul>
 <li><a href="#padding-3">Padding</a>
 <ul>
-<li><a href="#configuration-60">Configuration</a>
+<li><a href="#configuration-61">Configuration</a>
 <ul>
 <li><a href="#buffer-4">buffer</a></li>
 </ul>
@@ -4857,13 +5008,13 @@ show_new_version_indicator = true
 </ul>
 </li>
 </ul>
-<h2 id="configuration-60"><a class="header" href="#configuration-60">Configuration</a></h2>
+<h2 id="configuration-61"><a class="header" href="#configuration-61">Configuration</a></h2>
 <h3 id="buffer-4"><a class="header" href="#buffer-4">buffer</a></h3>
 <p>Controls padding for buffer buttons (server, channels, queries) in the sidebar
 The value is an array where the first value is vertical padding and the second is horizontal padding.</p>
 <pre><code class="language-toml"># Type: array
 # Values: array
-# Default: [5, 5]
+# Default: [2, 2]
 
 [sidebar.padding]
 buffer = [2, 5]
@@ -4874,7 +5025,7 @@ buffer = [2, 5]
 <ul>
 <li><a href="#spacing-1">Spacing</a>
 <ul>
-<li><a href="#configuration-61">Configuration</a>
+<li><a href="#configuration-62">Configuration</a>
 <ul>
 <li><a href="#server-3">server</a></li>
 </ul>
@@ -4882,15 +5033,15 @@ buffer = [2, 5]
 </ul>
 </li>
 </ul>
-<h2 id="configuration-61"><a class="header" href="#configuration-61">Configuration</a></h2>
+<h2 id="configuration-62"><a class="header" href="#configuration-62">Configuration</a></h2>
 <h3 id="server-3"><a class="header" href="#server-3">server</a></h3>
 <p>Controls the vertical spacing between servers (i.e. between the last buffer for one server and the server buffer for the next server).</p>
-<pre><code class="language-toml"># Type: number
-# Values: positive number
-# Default: 12
+<pre><code class="language-toml"># Type: integer
+# Values: any non-negative integer
+# Default: 6
 
 [sidebar.spacing]
-server = 12
+server = 4
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="themes"><a class="header" href="#themes">Themes</a></h1>
@@ -4898,7 +5049,7 @@ server = 12
 <li><a href="#themes">Themes</a>
 <ul>
 <li><a href="#example-17">Example</a></li>
-<li><a href="#configuration-62">Configuration</a>
+<li><a href="#configuration-63">Configuration</a>
 <ul>
 <li><a href="#theme">theme</a></li>
 </ul>
@@ -4922,7 +5073,7 @@ theme = { light = "ferra-light", dark = "ferra" }
 # Dynamic multiple (random selection)
 theme = { light = ["ferra-light", "booberry-light"], dark = ["ferra", "booberry"] }
 </code></pre>
-<h2 id="configuration-62"><a class="header" href="#configuration-62">Configuration</a></h2>
+<h2 id="configuration-63"><a class="header" href="#configuration-63">Configuration</a></h2>
 <blockquote>
 <p>⚠️  <code>theme</code> is a root key, so it must be placed before every section.</p>
 </blockquote>
@@ -5074,20 +5225,20 @@ theme = "base16-gruvbox-dark-hard"
 <h1 id="tooltips"><a class="header" href="#tooltips">Tooltips</a></h1>
 <p>Control if tooltips are displayed or not.</p>
 <ul>
-<li><a href="#tooltips">Tooltips</a>
+<li><a href="#Tooltips">Tooltips</a>
 <ul>
-<li><a href="#configuration-63">Configuration</a>
+<li><a href="#configuration-64">Configuration</a>
 <ul>
-<li><a href="#tooltip">tooltip</a></li>
+<li><a href="#tooltips">tooltips</a></li>
 </ul>
 </li>
 </ul>
 </li>
 </ul>
-<h2 id="configuration-63"><a class="header" href="#configuration-63">Configuration</a></h2>
-<h3 id="tooltip"><a class="header" href="#tooltip">tooltip</a></h3>
+<h2 id="configuration-64"><a class="header" href="#configuration-64">Configuration</a></h2>
+<h3 id="tooltips-1"><a class="header" href="#tooltips-1">tooltips</a></h3>
 <blockquote>
-<p>💡 <code>tooltips</code> is a root key, so it must be placed before any section.</p>
+<p>⚠️ <code>tooltips</code> is a root key, so it must be placed before any section.</p>
 </blockquote>
 <pre><code class="language-toml"># Type: boolean
 # Values: true, false

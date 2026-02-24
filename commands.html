@@ -34,10 +34,10 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-72573ae3.js";
+            window.path_to_searchindex_js = "searchindex-6b73487e.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-72d18ae4.js"></script>
+        <script src="toc-ac22d4e6.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -205,27 +205,28 @@ The argument(s) for a command are shown in <a href="configuration/tooltips.html"
 <tr><td><code>chathistory</code></td><td></td><td>Retrieve message history<sup class="footnote-reference" id="fr-5-1"><a href="#footnote-5">1</a></sup></td></tr>
 <tr><td><code>clear</code></td><td></td><td>Clear the message history in the current buffer</td></tr>
 <tr><td><code>cleartopic</code></td><td><code>ct</code></td><td>Clear the topic of a channel<sup class="footnote-reference" id="fr-1-1"><a href="#footnote-1">2</a></sup></td></tr>
-<tr><td><code>connect</code></td><td></td><td>Connect to a server (specified by URL)<sup class="footnote-reference" id="fr-8-1"><a href="#footnote-8">3</a></sup></td></tr>
+<tr><td><code>connect</code></td><td></td><td>Connect to a server, specified by URL or current server if disconnected<sup class="footnote-reference" id="fr-8-1"><a href="#footnote-8">3</a></sup></td></tr>
 <tr><td><code>ctcp</code></td><td></td><td>Client-To-Client requests<sup class="footnote-reference" id="fr-2-1"><a href="#footnote-2">4</a></sup></td></tr>
 <tr><td><code>delay</code></td><td></td><td>Delay the specified number of seconds<sup class="footnote-reference" id="fr-7-1"><a href="#footnote-7">5</a></sup></td></tr>
 <tr><td><code>detach</code></td><td></td><td>Hide the channel, but leave the bouncer’s connection to the channel active<sup class="footnote-reference" id="fr-5-2"><a href="#footnote-5">1</a></sup> <sup class="footnote-reference" id="fr-6-1"><a href="#footnote-6">6</a></sup></td></tr>
 <tr><td><code>format</code></td><td><code>f</code></td><td>Format text with markdown and colors</td></tr>
 <tr><td><code>hop</code></td><td><code>rejoin</code></td><td>Part the current channel and join a new one</td></tr>
-<tr><td><code>join</code></td><td><code>j</code></td><td>Join channel(s) with optional key(s)<sup class="footnote-reference" id="fr-9-1"><a href="#footnote-9">7</a></sup></td></tr>
+<tr><td><code>join</code></td><td><code>j</code></td><td>Join channel(s) with optional key(s)<sup class="footnote-reference" id="fr-9-1"><a href="#footnote-9">7</a></sup> <sup class="footnote-reference" id="fr-10-1"><a href="#footnote-10">8</a></sup></td></tr>
 <tr><td><code>kick</code></td><td></td><td>Kick a user from a channel<sup class="footnote-reference" id="fr-1-2"><a href="#footnote-1">2</a></sup></td></tr>
 <tr><td><code>knock</code></td><td></td><td>Request an invite from an invitation-only channel<sup class="footnote-reference" id="fr-5-3"><a href="#footnote-5">1</a></sup></td></tr>
 <tr><td><code>list</code></td><td></td><td>List channel(s) on the server<sup class="footnote-reference" id="fr-5-4"><a href="#footnote-5">1</a></sup></td></tr>
 <tr><td><code>me</code></td><td><code>describe</code></td><td>Send an action message to the channel</td></tr>
-<tr><td><code>mode</code></td><td><code>m</code></td><td>Set mode(s) on a channel or retrieve the current mode(s) set<sup class="footnote-reference" id="fr-3-1"><a href="#footnote-3">8</a></sup></td></tr>
+<tr><td><code>mode</code></td><td><code>m</code></td><td>Set mode(s) on a channel or retrieve the current mode(s) set<sup class="footnote-reference" id="fr-3-1"><a href="#footnote-3">9</a></sup></td></tr>
 <tr><td><code>monitor</code></td><td></td><td>System to notify when users become online/offline<sup class="footnote-reference" id="fr-5-5"><a href="#footnote-5">1</a></sup></td></tr>
 <tr><td><code>motd</code></td><td></td><td>Request the message of the day</td></tr>
 <tr><td><code>msg</code></td><td><code>query</code></td><td>Open a query with a nickname and send an optional message</td></tr>
 <tr><td><code>nick</code></td><td></td><td>Change your nickname on the current server</td></tr>
 <tr><td><code>notice</code></td><td></td><td>Send a notice message to a target</td></tr>
-<tr><td><code>part</code></td><td><code>leave</code></td><td>Leave and close channel(s)/quer(ies) with an optional reason <sup class="footnote-reference" id="fr-4-1"><a href="#footnote-4">9</a></sup></td></tr>
+<tr><td><code>part</code></td><td><code>leave</code></td><td>Leave and close channel(s)/quer(ies) with an optional reason <sup class="footnote-reference" id="fr-4-1"><a href="#footnote-4">10</a></sup></td></tr>
 <tr><td><code>plain</code></td><td><code>p</code></td><td>Send text with markdown and colors disabled</td></tr>
-<tr><td><code>quit</code></td><td></td><td>Disconnect from the server with an optional reason</td></tr>
+<tr><td><code>quit</code></td><td><code>disconnect</code></td><td>Disconnect from the server with an optional reason</td></tr>
 <tr><td><code>raw</code></td><td></td><td>Send data to the server without modifying it</td></tr>
+<tr><td><code>reconnect</code></td><td></td><td>Reconnect to a current server if disconnected</td></tr>
 <tr><td><code>setname</code></td><td></td><td>Change your realname<sup class="footnote-reference" id="fr-5-6"><a href="#footnote-5">1</a></sup></td></tr>
 <tr><td><code>sysinfo</code></td><td></td><td>Send system information (OS, CPU, memory, GPU, uptime)</td></tr>
 <tr><td><code>topic</code></td><td><code>t</code></td><td>Retrieve the topic of a channel or set a new topic<sup class="footnote-reference" id="fr-1-3"><a href="#footnote-1">2</a></sup></td></tr>
@@ -256,6 +257,9 @@ The argument(s) for a command are shown in <a href="configuration/tooltips.html"
 <li id="footnote-9">
 <p>Channels joined will not be remembered after quitting Halloy (i.e. when next starting Halloy it will not re-join the channels).  Add the channel information to the <a href="configuration/servers/#channels">channels setting for the server</a> in the configuration file. <a href="#fr-9-1">↩</a></p>
 </li>
+<li id="footnote-10">
+<p>If not joined to the channel in the buffer, then the <code>chanlist</code> argument can be skipped to target the channel in the buffer. <a href="#fr-10-1">↩</a></p>
+</li>
 <li id="footnote-3">
 <p>The <code>target</code> argument can be skipped; in a channel buffer it will target the channel in the buffer, in a query buffer it will target the other user in the buffer, and in a server buffer it will target your user. <a href="#fr-3-1">↩</a></p>
 </li>
@@ -268,7 +272,7 @@ The argument(s) for a command are shown in <a href="configuration/tooltips.html"
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="configuration/buffer/url/index.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="configuration/check-for-update-on-launch.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
@@ -282,7 +286,7 @@ The argument(s) for a command are shown in <a href="configuration/tooltips.html"
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="configuration/buffer/url/index.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="configuration/check-for-update-on-launch.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 
