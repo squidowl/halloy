@@ -22,6 +22,8 @@ Added:
 - Manual disconnection from a server will disable auto-reconnect
 - Disconnected servers can be connected to via the "Connect to server" entry in the context menu for its sidebar entry
 - Servers can be prevented from connecting on launch (or configuration reload) with the `servers.<name>.autoconnect` setting
+- `/connect` (without an argument) and `/reconnect` can be used in open buffers for disconnected servers to (re-)connect to the server
+- `/join` (without an argument) can be used in channel buffers where the channel is not joined in order to (re-)join the channel
 
 Fixed:
 
@@ -38,16 +40,21 @@ Changed:
 - Condensed server messages are now enabled by default for nick changes, joins, parts, and quits
 - The default condensed server message icon is now `"none"`
 - `sidebar.user_menu.show_new_version_indicator` setting has been changed to `check_for_update_on_launch` to clarify that it prevents the check for an update
-- Defaults settings:
+- Default settings:
   - `buffer.server_messages.condense.messages`: `[]` → `["change-host", "change-nick", "join", "part", "quit"]`
   - `sidebar.padding.buffer`: `[5,5]` → `[4,4]`
   - `sidebar.spacing.server`: `12` → `6`
 
+Fixed:
+
+- When joining a channel fails (for example, invite-only or channel full), we now show the
+  failure reason
+
 Thanks:
 
 - Contributions: @Hummer12007, @chamlis, @englut
-- Feature requests: @megumintyan, @4e554c4c, @RoboDanjal, @stacyharper, @zZzUP3RzZz
-- Bug reports: @someone2037492034, @deepspaceaxolotl, @whitequark, @sebbu2, @esden, @Porkepix
+- Feature requests: @megumintyan, @4e554c4c, @RoboDanjal, @stacyharper, @zZzUP3RzZz, @Porkepix, @vidje
+- Bug reports: @someone2037492034, @deepspaceaxolotl, @whitequark, @sebbu2, @esden, @Porkepix, @someone2037492034, @Hexorg, @sulrich, @Erroneuz
 
 # 2026.2 (2026-02-01)
 

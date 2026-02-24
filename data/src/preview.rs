@@ -6,7 +6,7 @@ use std::time::Duration;
 use ::image::image_dimensions;
 use fancy_regex::Regex;
 use iced_wgpu::wgpu;
-use log::debug;
+use log;
 use reqwest::header::{self, HeaderValue};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -194,7 +194,7 @@ async fn load_uncached(
     client: Arc<reqwest::Client>,
     config: &config::Preview,
 ) -> Result<Preview, LoadError> {
-    debug!("Loading preview for {url}");
+    log::trace!("Loading preview for {url}");
 
     match fetch(url.clone(), client.clone(), config).await? {
         Fetched::Image(image) => Ok(Preview::Image(image)),

@@ -46,8 +46,15 @@ pub fn on_connect(
         .on_connect
         .iter()
         .filter_map(|command| {
-            command::parse(command, None, Some(our_nickname), isupport, config)
-                .ok()
+            command::parse(
+                command,
+                None,
+                Some(our_nickname),
+                true,
+                isupport,
+                config,
+            )
+            .ok()
         })
         .collect::<Vec<_>>();
 
@@ -90,13 +97,14 @@ pub fn on_connect(
                                 None
                             }
                             // We don't handle hop, clear-buffer, sysinfo,
-                            // channel_discovery, or connect when called on
-                            // connection.
+                            // channel_discovery, connect, or reconnect when
+                            // called on connection.
                             command::Internal::ClearBuffer
                             | command::Internal::ChannelDiscovery
                             | command::Internal::Connect(_)
                             | command::Internal::Hop(_, _)
-                            | command::Internal::SysInfo => None,
+                            | command::Internal::SysInfo
+                            | command::Internal::Reconnect => None,
                         },
                     }
                 }

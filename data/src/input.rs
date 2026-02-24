@@ -19,6 +19,8 @@ pub fn parse(
     auto_format: AutoFormat,
     input: &str,
     our_nickname: Option<NickRef>,
+    in_channel: Option<bool>,
+    is_connected: bool,
     isupport: &HashMap<isupport::Kind, isupport::Parameter>,
     config: &Config,
 ) -> Result<Parsed, Error> {
@@ -26,11 +28,25 @@ pub fn parse(
         input,
         Some(&buffer),
         our_nickname,
+        is_connected,
         isupport,
         config,
     ) {
         Ok(Command::Internal(command)) => {
-            return Ok(Parsed::Internal(command));
+            if is_connected {
+                if matches!(command, command::Internal::Reconnect) {
+                    return Err(Error::Command(command::Error::Connected));
+                } else {
+                    return Ok(Parsed::Internal(command));
+                }
+            } else if matches!(
+                command,
+                command::Internal::Reconnect | command::Internal::Connect(_)
+            ) {
+                return Ok(Parsed::Internal(command));
+            } else {
+                return Err(Error::Command(command::Error::Disconnected));
+            }
         }
         Ok(Command::Irc(command)) => Content::Command(command),
         Err(command::Error::MissingSlash) => {
@@ -51,6 +67,12 @@ pub fn parse(
         && message_bytes > format::BYTE_LIMIT
     {
         return Err(Error::ExceedsByteLimit { message_bytes });
+    }
+
+    if !is_connected {
+        return Err(Error::Command(command::Error::Disconnected));
+    } else if in_channel.is_some_and(|in_channel| !in_channel) {
+        return Err(Error::Command(command::Error::NotInChannel));
     }
 
     Ok(Parsed::Input(Input { buffer, content }))

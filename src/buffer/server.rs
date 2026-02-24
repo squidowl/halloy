@@ -24,6 +24,7 @@ pub enum Event {
     OpenBuffers(data::server::Server, Vec<(Target, BufferAction)>),
     OpenInternalBuffer(buffer::Internal),
     OpenServer(String),
+    Reconnect(data::server::Server),
     LeaveBuffers(Vec<Target>, Option<String>),
     History(Task<history::manager::Message>),
     MarkAsRead(history::Kind),
@@ -45,7 +46,6 @@ pub fn view<'a>(
     theme: &'a Theme,
     is_focused: bool,
 ) -> Element<'a, Message> {
-    let status = clients.status(&state.server);
     let chantypes = clients.get_chantypes(&state.server);
     let casemapping = clients.get_casemapping(&state.server);
     let our_nick: Option<data::user::NickRef<'_>> =
@@ -166,7 +166,7 @@ pub fn view<'a>(
             input_view::view(
                 &state.input_view,
                 our_user.as_ref(),
-                !status.connected(),
+                &state.server,
                 config,
                 theme,
             )
@@ -309,6 +309,9 @@ impl Server {
                     }
                     Some(input_view::Event::OpenServer(server)) => {
                         (command, Some(Event::OpenServer(server)))
+                    }
+                    Some(input_view::Event::Reconnect(server)) => {
+                        (command, Some(Event::Reconnect(server)))
                     }
                     None => (command, None),
                 }

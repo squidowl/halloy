@@ -31,6 +31,7 @@ pub enum Event {
     OpenBuffers(Server, Vec<(Target, BufferAction)>),
     OpenInternalBuffer(buffer::Internal),
     OpenServer(String),
+    Reconnect(Server),
     LeaveBuffers(Vec<Target>, Option<String>),
     History(Task<history::manager::Message>),
     RequestOlderChatHistory,
@@ -148,14 +149,11 @@ pub fn view<'a>(
         data::config::buffer::text_input::Visibility::Always => true,
     };
 
-    let mut channels = clients.get_channels(&state.server);
-    let is_connected_to_channel = channels.any(|c| c == &state.target);
-
     let text_input = show_text_input.then(move || {
         input_view::view(
             &state.input_view,
             our_user,
-            !is_connected_to_channel,
+            &state.server,
             config,
             theme,
         )
@@ -331,6 +329,9 @@ impl Channel {
                     }
                     Some(input_view::Event::OpenServer(server)) => {
                         (command, Some(Event::OpenServer(server)))
+                    }
+                    Some(input_view::Event::Reconnect(server)) => {
+                        (command, Some(Event::Reconnect(server)))
                     }
                     None => (command, None),
                 }

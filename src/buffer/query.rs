@@ -26,6 +26,7 @@ pub enum Event {
     OpenBuffers(Server, Vec<(Target, BufferAction)>),
     OpenInternalBuffer(buffer::Internal),
     OpenServer(String),
+    Reconnect(Server),
     LeaveBuffers(Vec<Target>, Option<String>),
     History(Task<history::manager::Message>),
     RequestOlderChatHistory,
@@ -63,7 +64,6 @@ pub fn view<'a>(
                 .confirm_message_delivery
                 .is_target_query_included(query, server, casemapping)
         });
-    let status = clients.status(server);
     let our_nick = clients.nickname(server);
     let our_user = our_nick.map(|our_nick| User::from(Nick::from(our_nick)));
 
@@ -118,7 +118,7 @@ pub fn view<'a>(
             input_view::view(
                 &state.input_view,
                 our_user.as_ref(),
-                !status.connected(),
+                &state.server,
                 config,
                 theme,
             )
@@ -279,6 +279,9 @@ impl Query {
                     }
                     Some(input_view::Event::OpenServer(server)) => {
                         (command, Some(Event::OpenServer(server)))
+                    }
+                    Some(input_view::Event::Reconnect(server)) => {
+                        (command, Some(Event::Reconnect(server)))
                     }
                     None => (command, None),
                 }
