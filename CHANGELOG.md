@@ -38,7 +38,7 @@ Changed:
 - Condensed server messages are now enabled by default for nick changes, joins, parts, and quits
 - The default condensed server message icon is now `"none"`
 - `sidebar.user_menu.show_new_version_indicator` setting has been changed to `check_for_update_on_launch` to clarify that it prevents the check for an update
-- Defaults settings:
+- Default settings:
   - `buffer.server_messages.condense.messages`: `[]` → `["change-host", "change-nick", "join", "part", "quit"]`
   - `sidebar.padding.buffer`: `[5,5]` → `[4,4]`
   - `sidebar.spacing.server`: `12` → `6`
@@ -51,8 +51,8 @@ Fixed:
 Thanks:
 
 - Contributions: @Hummer12007, @chamlis, @englut
-- Feature requests: @megumintyan, @4e554c4c, @RoboDanjal, @stacyharper, @zZzUP3RzZz
-- Bug reports: @someone2037492034, @deepspaceaxolotl, @whitequark, @sebbu2, @esden, @Porkepix, @someone2037492034
+- Feature requests: @megumintyan, @4e554c4c, @RoboDanjal, @stacyharper, @zZzUP3RzZz, @Porkepix
+- Bug reports: @someone2037492034, @deepspaceaxolotl, @whitequark, @sebbu2, @esden, @Porkepix, @someone2037492034, @Hexorg, @sulrich
 
 # 2026.2 (2026-02-01)
 
