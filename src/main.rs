@@ -1446,7 +1446,11 @@ fn handle_client_event(
                 clients.get_statusmsg(server),
                 clients.get_casemapping(server),
             ) {
-                dashboard.record_reaction(server, reaction);
+                commands.push(
+                    dashboard
+                        .record_reaction(server, reaction)
+                        .map(Message::Dashboard),
+                );
             }
         }
     }
