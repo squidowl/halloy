@@ -8,6 +8,7 @@ When to mark a buffer as read
     - [on\_buffer\_close](#on_buffer_close)
     - [on\_scroll\_to\_bottom](#on_scroll_to_bottom)
     - [on\_message\_sent](#on_message_sent)
+    - [on\_message](#on_message)
 
 ## Configuration
 
@@ -61,4 +62,17 @@ When sending a message to the buffer.
 
 [buffer.mark_as_read]
 on_message_sent = true
+```
+
+### on_message
+
+Marks as read when a new message arrives in the focused buffer and you are at the bottom.
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: true
+
+[buffer.mark_as_read]
+on_message = true
 ```
