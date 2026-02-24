@@ -2838,8 +2838,12 @@ impl Dashboard {
         &mut self,
         server: &Server,
         reaction: reaction::Context,
-    ) {
-        self.history.record_reaction(server, reaction);
+    ) -> Task<Message> {
+        if let Some(task) = self.history.record_reaction(server, reaction) {
+            Task::perform(task, Message::History)
+        } else {
+            Task::none()
+        }
     }
 
     pub fn block_and_record_message(

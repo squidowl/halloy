@@ -347,11 +347,11 @@ impl Manager {
         &mut self,
         server: &Server,
         reaction: reaction::Context,
-    ) {
+    ) -> Option<impl Future<Output = Message> + use<>> {
         let kind =
             history::Kind::from_target(server.clone(), reaction.target.clone());
         self.data
-            .add_reaction(&kind, reaction.in_reply_to, reaction.inner);
+            .add_reaction(kind, reaction.in_reply_to, reaction.inner)
     }
 
     pub fn block_and_record_message(
@@ -1059,18 +1059,20 @@ impl Data {
                     let last_updated_at = *last_updated_at;
 
                     let mut last_seen = last_seen.clone();
-                    let mut reactions = std::mem::take(pending_reactions);
 
-                    for mut message in std::mem::take(new_messages) {
-                        history::update_last_seen(&mut last_seen, &message);
-
+                    // pending reactions should only exist for unloaded history entries
+                    for message in messages.iter_mut() {
                         if let Some(ref mut reacts) = message
                             .id
                             .as_ref()
-                            .and_then(|id| reactions.remove(id))
+                            .and_then(|id| pending_reactions.remove(id))
                         {
                             message.reactions.append(reacts);
                         }
+                    }
+
+                    for message in std::mem::take(new_messages) {
+                        history::update_last_seen(&mut last_seen, &message);
 
                         history::insert_message(&mut messages, message);
                     }
@@ -1555,12 +1557,30 @@ impl Data {
     
     fn add_reaction(
         &mut self,
-        kind: &history::Kind,
+        kind: history::Kind,
         in_reply_to: message::Id,
         reaction: Reaction,
-    ) {
-        if let Some(history) = self.map.get_mut(kind) {
-            history.add_reaction(in_reply_to, reaction);
+    ) -> Option<impl Future<Output = Message> + use<>> {
+        match self.map.entry(kind.clone()) {
+            hash_map::Entry::Occupied(mut entry) => {
+                entry.get_mut().add_reaction(in_reply_to, reaction);
+
+                None
+            }
+            hash_map::Entry::Vacant(entry) => {
+                entry
+                    .insert(History::partial(kind.clone()))
+                    .add_reaction(in_reply_to, reaction);
+
+                Some(
+                    async move {
+                        let loaded =
+                            history::metadata::load(kind.clone()).await;
+                        Message::UpdatePartial(kind, loaded)
+                    }
+                    .boxed(),
+                )
+            }
         }
     }
 }
