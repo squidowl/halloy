@@ -1504,7 +1504,7 @@ impl Dashboard {
                 }
             },
             Message::LoadPreview((url, Ok(preview))) => {
-                log::debug!("Preview loaded for {url}");
+                log::trace!("Preview loaded for {url}");
                 if let hash_map::Entry::Occupied(mut entry) =
                     self.previews.entry(url)
                 {
@@ -1512,7 +1512,11 @@ impl Dashboard {
                 }
             }
             Message::LoadPreview((url, Err(error))) => {
-                log::info!("Failed to load preview for {url}: {error}");
+                if matches!(error, preview::LoadError::Disabled) {
+                    log::trace!("Failed to load preview for {url}: {error}");
+                } else {
+                    log::debug!("Failed to load preview for {url}: {error}");
+                }
                 if self.previews.contains_key(&url) {
                     self.previews.insert(url, preview::State::Error(error));
                 }
