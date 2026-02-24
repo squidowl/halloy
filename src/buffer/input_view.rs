@@ -51,6 +51,7 @@ pub enum Event {
     Cleared {
         history_task: Task<history::manager::Message>,
     },
+    Reconnect(Server),
 }
 
 #[derive(Debug, Clone)]
@@ -274,7 +275,7 @@ fn platform_specific_key_bindings(
 pub fn view<'a>(
     state: &'a State,
     our_user: Option<&User>,
-    disabled: bool,
+    server: &'a Server,
     config: &'a Config,
     theme: &'a Theme,
 ) -> Element<'a, Message> {
@@ -284,96 +285,92 @@ pub fn view<'a>(
         theme::text_editor::primary
     };
 
-    let mut text_input = text_editor(&state.input_content)
+    let key_bindings = config.buffer.text_input.key_bindings.clone();
+
+    let text_input = text_editor(&state.input_content)
         .id(state.input_id.clone())
         .placeholder("Send message...")
         .padding([2, 4])
         .wrapping(Wrapping::WordOrGlyph)
         .height(Length::Shrink)
         .line_height(theme::line_height(&config.font))
-        .style(style);
+        .style(style)
+        .on_action(Message::Action)
+        .key_binding(move |key_press| {
+            if !matches!(
+                key_press.status,
+                iced::widget::text_editor::Status::Focused { .. }
+            ) {
+                return None;
+            }
 
-    if !disabled {
-        let key_bindings = config.buffer.text_input.key_bindings.clone();
+            // Try emacs bindings first if enabled
+            if matches!(key_bindings, KeyBindings::Emacs)
+                && let Some(binding) = emacs_key_binding(key_press.clone())
+            {
+                return Some(binding);
+            }
 
-        text_input = text_input.on_action(Message::Action).key_binding(
-            move |key_press| {
-                if !matches!(
-                    key_press.status,
-                    iced::widget::text_editor::Status::Focused { .. }
+            // Platform specific key bindings
+            if let Some(binding) = platform_specific_key_bindings(
+                key_press.clone(),
+                state.input_content.selection().as_deref(),
+            ) {
+                return Some(binding);
+            }
+
+            // Handling for numpad keys: treat a numpad enter the same as
+            // a normal enter; treat numpad keys as character keys when
+            // numlock is on (i.e. text.is_some())
+            let key = if key_press.physical_key
+                == iced::keyboard::key::Physical::Code(
+                    iced::keyboard::key::Code::NumpadEnter,
                 ) {
-                    return None;
-                }
+                Cow::Owned(iced::keyboard::Key::Named(
+                    iced::keyboard::key::Named::Enter,
+                ))
+            } else if is_numpad(&key_press.physical_key)
+                && let Some(text) = &key_press.text
+            {
+                Cow::Owned(keyboard::Key::Character(text.clone()))
+            } else {
+                Cow::Borrowed(&key_press.key)
+            };
 
-                // Try emacs bindings first if enabled
-                if matches!(key_bindings, KeyBindings::Emacs)
-                    && let Some(binding) = emacs_key_binding(key_press.clone())
-                {
-                    return Some(binding);
-                }
-
-                // Platform specific key bindings
-                if let Some(binding) = platform_specific_key_bindings(
-                    key_press.clone(),
-                    state.input_content.selection().as_deref(),
-                ) {
-                    return Some(binding);
-                }
-
-                // Handling for numpad keys: treat a numpad enter the same as
-                // a normal enter; treat numpad keys as character keys when
-                // numlock is on (i.e. text.is_some())
-                let key = if key_press.physical_key
-                    == iced::keyboard::key::Physical::Code(
-                        iced::keyboard::key::Code::NumpadEnter,
-                    ) {
-                    Cow::Owned(iced::keyboard::Key::Named(
-                        iced::keyboard::key::Named::Enter,
-                    ))
-                } else if is_numpad(&key_press.physical_key)
-                    && let Some(text) = &key_press.text
-                {
-                    Cow::Owned(keyboard::Key::Character(text.clone()))
-                } else {
-                    Cow::Borrowed(&key_press.key)
-                };
-
-                match *key {
-                    // New line
-                    // TODO: Add shift+enter binding
-                    // iced::keyboard::Key::Named(
-                    //     iced::keyboard::key::Named::Enter,
-                    // ) if key_press.modifiers.shift() => {
-                    //     Some(text_editor::Binding::Enter)
-                    // }
-                    //
-                    // Send
-                    iced::keyboard::Key::Named(
-                        iced::keyboard::key::Named::Enter,
-                    ) => Some(text_editor::Binding::Custom(Message::Send)),
-                    // Tab
-                    iced::keyboard::Key::Named(
-                        iced::keyboard::key::Named::Tab,
-                    ) => Some(text_editor::Binding::Custom(Message::Tab(
+            match *key {
+                // New line
+                // TODO: Add shift+enter binding
+                // iced::keyboard::Key::Named(
+                //     iced::keyboard::key::Named::Enter,
+                // ) if key_press.modifiers.shift() => {
+                //     Some(text_editor::Binding::Enter)
+                // }
+                //
+                // Send
+                iced::keyboard::Key::Named(
+                    iced::keyboard::key::Named::Enter,
+                ) => Some(text_editor::Binding::Custom(Message::Send)),
+                // Tab
+                iced::keyboard::Key::Named(iced::keyboard::key::Named::Tab) => {
+                    Some(text_editor::Binding::Custom(Message::Tab(
                         key_press.modifiers.shift(),
-                    ))),
-                    // Up
-                    iced::keyboard::Key::Named(
-                        iced::keyboard::key::Named::ArrowUp,
-                    ) => Some(text_editor::Binding::Custom(Message::Up)),
-                    // Down
-                    iced::keyboard::Key::Named(
-                        iced::keyboard::key::Named::ArrowDown,
-                    ) => Some(text_editor::Binding::Custom(Message::Down)),
-                    // Escape
-                    iced::keyboard::Key::Named(
-                        iced::keyboard::key::Named::Escape,
-                    ) => Some(text_editor::Binding::Custom(Message::Escape)),
-                    _ => text_editor::Binding::from_key_press(key_press),
+                    )))
                 }
-            },
-        );
-    }
+                // Up
+                iced::keyboard::Key::Named(
+                    iced::keyboard::key::Named::ArrowUp,
+                ) => Some(text_editor::Binding::Custom(Message::Up)),
+                // Down
+                iced::keyboard::Key::Named(
+                    iced::keyboard::key::Named::ArrowDown,
+                ) => Some(text_editor::Binding::Custom(Message::Down)),
+                // Escape
+                iced::keyboard::Key::Named(
+                    iced::keyboard::key::Named::Escape,
+                ) => Some(text_editor::Binding::Custom(Message::Escape)),
+                _ => text_editor::Binding::from_key_press(key_press),
+            }
+        });
 
     let text_input = decorate(text_input).update(
         move |_state: &mut State,
@@ -491,8 +488,12 @@ pub fn view<'a>(
         theme::text::nickname(theme, seed, is_user_away, false)
     };
 
-    let maybe_our_user =
-        config.buffer.text_input.nickname.enabled.then(move || {
+    let maybe_our_user = config
+        .buffer
+        .text_input
+        .nickname
+        .enabled
+        .then(move || {
             our_user.map(|user| {
                 container(
                     text(user.display(
@@ -507,7 +508,8 @@ pub fn view<'a>(
                 )
                 .padding(padding::right(4))
             })
-        });
+        })
+        .flatten();
 
     let maybe_vertical_rule =
         maybe_our_user.is_some().then(move || rule::vertical(1.0));
@@ -531,6 +533,7 @@ pub fn view<'a>(
     let overlay = column![
         state.completion.view(
             state.input_content.text().as_str(),
+            server,
             config,
             theme
         ),
@@ -667,6 +670,12 @@ impl State {
                     config.buffer.text_input.auto_format,
                     message.as_str(),
                     clients.nickname(buffer.server()),
+                    buffer.channel().map(|target| {
+                        clients
+                            .get_channels(buffer.server())
+                            .any(|channel| target == channel)
+                    }),
+                    clients.get_server_is_connected(buffer.server()),
                     &clients.get_isupport(buffer.server()),
                     config,
                 ) {
@@ -766,6 +775,12 @@ impl State {
                         config.buffer.text_input.auto_format,
                         raw_input.as_str(),
                         clients.nickname(buffer.server()),
+                        buffer.channel().map(|target| {
+                            clients
+                                .get_channels(buffer.server())
+                                .any(|channel| target == channel)
+                        }),
+                        clients.get_server_is_connected(buffer.server()),
                         &clients.get_isupport(buffer.server()),
                         config,
                     ) {
@@ -1003,6 +1018,17 @@ impl State {
                                         Some(Event::OpenServer(server)),
                                     );
                                 }
+                                command::Internal::Reconnect => {
+                                    self.input_content =
+                                        text_editor::Content::new();
+
+                                    return (
+                                        Task::none(),
+                                        Some(Event::Reconnect(
+                                            buffer.server().clone(),
+                                        )),
+                                    );
+                                }
                             }
                         }
                         Ok(input::Parsed::Input(input)) => input,
@@ -1194,6 +1220,8 @@ impl State {
                     });
                     let last_seen = history.get_last_seen(buffer);
                     let filters = FilterChain::borrow(history.get_filters());
+                    let is_connected =
+                        clients.get_server_is_connected(buffer.server());
                     let supports_detach =
                         clients.get_server_supports_detach(buffer.server());
                     let isupport = clients.get_isupport(buffer.server());
@@ -1208,6 +1236,7 @@ impl State {
                         clients.get_channels(buffer.server()),
                         current_target.as_ref(),
                         buffer.server(),
+                        is_connected,
                         supports_detach,
                         &isupport,
                         config,
@@ -1244,6 +1273,8 @@ impl State {
                         let last_seen = history.get_last_seen(buffer);
                         let filters =
                             FilterChain::borrow(history.get_filters());
+                        let is_connected =
+                            clients.get_server_is_connected(buffer.server());
                         let supports_detach =
                             clients.get_server_supports_detach(buffer.server());
                         let isupport = clients.get_isupport(buffer.server());
@@ -1258,6 +1289,7 @@ impl State {
                             clients.get_channels(buffer.server()),
                             current_target.as_ref(),
                             buffer.server(),
+                            is_connected,
                             supports_detach,
                             &isupport,
                             config,
@@ -1459,6 +1491,8 @@ impl State {
                         let last_seen = history.get_last_seen(buffer);
                         let filters =
                             FilterChain::borrow(history.get_filters());
+                        let is_connected =
+                            clients.get_server_is_connected(buffer.server());
                         let supports_detach =
                             clients.get_server_supports_detach(buffer.server());
                         let isupport = clients.get_isupport(buffer.server());
@@ -1473,6 +1507,7 @@ impl State {
                             clients.get_channels(buffer.server()),
                             current_target.as_ref(),
                             buffer.server(),
+                            is_connected,
                             supports_detach,
                             &isupport,
                             config,
@@ -1493,10 +1528,24 @@ impl State {
                             config.buffer.text_input.auto_format,
                             &input,
                             clients.nickname(buffer.server()),
+                            buffer.channel().map(|target| {
+                                clients
+                                    .get_channels(buffer.server())
+                                    .any(|channel| target == channel)
+                            }),
+                            is_connected,
                             &clients.get_isupport(buffer.server()),
                             config,
                         ) && match error {
-                            input::Error::ExceedsByteLimit { .. } => true,
+                            input::Error::ExceedsByteLimit { .. }
+                            | input::Error::Command(
+                                command::Error::InvalidModeString
+                                | command::Error::ArgTooLong { .. }
+                                | command::Error::TooManyTargets { .. }
+                                | command::Error::NotPositiveInteger
+                                | command::Error::InvalidChannelName { .. }
+                                | command::Error::InvalidServerUrl,
+                            ) => true,
                             input::Error::Command(
                                 command::Error::IncorrectArgCount {
                                     actual,
@@ -1505,32 +1554,13 @@ impl State {
                                 },
                             ) => actual > max,
                             input::Error::Command(
-                                command::Error::MissingSlash,
+                                command::Error::MissingSlash
+                                | command::Error::MissingCommand
+                                | command::Error::NoModeString
+                                | command::Error::Connected
+                                | command::Error::Disconnected
+                                | command::Error::NotInChannel,
                             ) => false,
-                            input::Error::Command(
-                                command::Error::MissingCommand,
-                            ) => false,
-                            input::Error::Command(
-                                command::Error::NoModeString,
-                            ) => false,
-                            input::Error::Command(
-                                command::Error::InvalidModeString,
-                            ) => true,
-                            input::Error::Command(
-                                command::Error::ArgTooLong { .. },
-                            ) => true,
-                            input::Error::Command(
-                                command::Error::TooManyTargets { .. },
-                            ) => true,
-                            input::Error::Command(
-                                command::Error::NotPositiveInteger,
-                            ) => true,
-                            input::Error::Command(
-                                command::Error::InvalidChannelName { .. },
-                            ) => true,
-                            input::Error::Command(
-                                command::Error::InvalidServerUrl,
-                            ) => true,
                         } {
                             self.error = Some(error.to_string());
                         }
@@ -1554,6 +1584,8 @@ impl State {
                         let last_seen = history.get_last_seen(buffer);
                         let filters =
                             FilterChain::borrow(history.get_filters());
+                        let is_connected =
+                            clients.get_server_is_connected(buffer.server());
                         let supports_detach =
                             clients.get_server_supports_detach(buffer.server());
                         let isupport = clients.get_isupport(buffer.server());
@@ -1568,6 +1600,7 @@ impl State {
                             clients.get_channels(buffer.server()),
                             current_target.as_ref(),
                             buffer.server(),
+                            is_connected,
                             supports_detach,
                             &isupport,
                             config,

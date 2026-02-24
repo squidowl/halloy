@@ -62,6 +62,7 @@ pub enum Event {
     OpenBuffers(data::Server, Vec<(Target, BufferAction)>),
     OpenInternalBuffer(buffer::Internal),
     OpenServer(String),
+    Reconnect(data::Server),
     LeaveBuffers(Vec<Target>, Option<String>),
     SelectedServer(data::Server),
     GoToMessage(data::Server, target::Channel, message::Hash),
@@ -235,6 +236,9 @@ impl Buffer {
                     channel::Event::OpenServer(server) => {
                         Event::OpenServer(server)
                     }
+                    channel::Event::Reconnect(server) => {
+                        Event::Reconnect(server)
+                    }
                     channel::Event::LeaveBuffers(targets, reason) => {
                         Event::LeaveBuffers(targets, reason)
                     }
@@ -289,6 +293,9 @@ impl Buffer {
                     server::Event::OpenServer(server) => {
                         Event::OpenServer(server)
                     }
+                    server::Event::Reconnect(server) => {
+                        Event::Reconnect(server)
+                    }
                     server::Event::OpenBuffers(server, targets) => {
                         Event::OpenBuffers(server, targets)
                     }
@@ -342,6 +349,7 @@ impl Buffer {
                     query::Event::OpenServer(server) => {
                         Event::OpenServer(server)
                     }
+                    query::Event::Reconnect(server) => Event::Reconnect(server),
                     query::Event::LeaveBuffers(targets, reason) => {
                         Event::LeaveBuffers(targets, reason)
                     }

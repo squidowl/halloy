@@ -333,7 +333,12 @@ impl Dashboard {
 
                             let (buffer_task, buffer_event) = self
                                 .handle_buffer_event(
-                                    window, id, event, clients, config,
+                                    window,
+                                    id,
+                                    event,
+                                    clients,
+                                    controllers,
+                                    config,
                                 );
 
                             return (
@@ -1504,7 +1509,7 @@ impl Dashboard {
                 }
             },
             Message::LoadPreview((url, Ok(preview))) => {
-                log::debug!("Preview loaded for {url}");
+                log::trace!("Preview loaded for {url}");
                 if let hash_map::Entry::Occupied(mut entry) =
                     self.previews.entry(url)
                 {
@@ -1512,7 +1517,11 @@ impl Dashboard {
                 }
             }
             Message::LoadPreview((url, Err(error))) => {
-                log::info!("Failed to load preview for {url}: {error}");
+                if matches!(error, preview::LoadError::Disabled) {
+                    log::trace!("Failed to load preview for {url}: {error}");
+                } else {
+                    log::debug!("Failed to load preview for {url}: {error}");
+                }
                 if self.previews.contains_key(&url) {
                     self.previews.insert(url, preview::State::Error(error));
                 }
@@ -1724,6 +1733,7 @@ impl Dashboard {
         id: pane_grid::Pane,
         event: buffer::Event,
         clients: &mut data::client::Map,
+        controllers: &mut stream::Map,
         config: &Config,
     ) -> (Task<Message>, Option<Event>) {
         let Some(pane) = self.panes.get_mut(window, id) else {
@@ -2336,6 +2346,9 @@ impl Dashboard {
             }
             buffer::Event::OpenServer(server) => {
                 return (Task::none(), Some(Event::OpenServer(server)));
+            }
+            buffer::Event::Reconnect(server) => {
+                controllers.connect(&server);
             }
         }
 
