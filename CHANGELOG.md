@@ -1,12 +1,14 @@
 # Unreleased
 
+# 2026.3 (2026-02-24)
+
 Added:
 
 - Support requesting window attention (setting urgency) for notifications (`notifications.<type>.request_attention`)
 - Default server message pseudo-type, allowing the default values for server message types to be user-specified
 - Default internal message pseudo-type, allowing the default values for internal message types to be user-specified
 - Add setting to specify queries to be added to the sidebar after connecting to a server
-- Added ability to disconnect on SASL authentication failure
+- Added ability to disconnect on SASL authentication failure (defaults to true)
 - Setting to configure font line height (`font.line_height`)
 - Ability to add multiple keybinds for a single shortcut
 - Sidebar actions can now be configured separately for channel and query buffers (`actions.sidebar.channel`, `actions.sidebar.query`)
@@ -15,12 +17,11 @@ Added:
   - `new_horizontal_buffer` (not bound by default)
   - `new_vertical_buffer` (not bound by default)
   - `quit_application` (defaults to `Ctrl+Q` on linux, not bound on Windows/MacOS)
-- Expand show_access_levels to allow all access levels (in addition to highest or no access levels) in buffer/nicklist/input
-- Configuration setting to allow locale specification used when formatting timestamps
-- Configuration setting to include chantypes / prefixes when sorting channels in the sidebar
-- When leaving a server (via context menu on sidebar entry or `/quit`), the server will not be automatically removed from the sidebar
+- Expand `show_access_levels` to allow all access levels (in addition to highest or no access levels) in buffer/nicklist/input
+- Setting to allow locale specification used when formatting timestamps
+- Setting to include chantypes / prefixes when sorting channels in the sidebar
 - Manual disconnection from a server will disable auto-reconnect
-- Disconnected servers can be connected to via the "Connect to server" entry in the context menu for its sidebar entry
+- Disconnected servers can be connected to via the `Connect to server` entry in the context menu for its sidebar entry
 - Servers can be prevented from connecting on launch (or configuration reload) with the `servers.<name>.autoconnect` setting
 - `/connect` (without an argument) and `/reconnect` can be used in open buffers for disconnected servers to (re-)connect to the server
 - `/join` (without an argument) can be used in channel buffers where the channel is not joined in order to (re-)join the channel
@@ -37,6 +38,7 @@ Fixed:
 
 Changed:
 
+- When leaving a server (via context menu on sidebar entry or `/quit`), the server will not be automatically removed from the sidebar
 - Condensed server messages are now enabled by default for nick changes, joins, parts, and quits
 - The default condensed server message icon is now `"none"`
 - `sidebar.user_menu.show_new_version_indicator` setting has been changed to `check_for_update_on_launch` to clarify that it prevents the check for an update
