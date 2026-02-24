@@ -33,6 +33,7 @@ pub enum Internal {
     SysInfo,
     Detach(Vec<target::Channel>),
     Connect(String),
+    Reconnect,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
@@ -185,6 +186,7 @@ enum Kind {
     SysInfo,
     Detach,
     Connect,
+    Reconnect,
     Raw,
 }
 
@@ -196,7 +198,7 @@ impl FromStr for Kind {
             "join" | "j" => Ok(Kind::Join),
             "motd" => Ok(Kind::Motd),
             "nick" => Ok(Kind::Nick),
-            "quit" => Ok(Kind::Quit),
+            "quit" | "disconnect" => Ok(Kind::Quit),
             "msg" | "query" => Ok(Kind::Msg),
             "me" | "describe" => Ok(Kind::Me),
             "whois" => Ok(Kind::Whois),
@@ -219,6 +221,7 @@ impl FromStr for Kind {
             "sysinfo" => Ok(Kind::SysInfo),
             "detach" => Ok(Kind::Detach),
             "connect" => Ok(Kind::Connect),
+            "reconnect" => Ok(Kind::Reconnect),
             _ => Err(()),
         }
     }
@@ -228,6 +231,7 @@ pub fn parse(
     s: &str,
     buffer: Option<&buffer::Upstream>,
     our_nickname: Option<NickRef>,
+    is_connected: bool,
     isupport: &HashMap<isupport::Kind, isupport::Parameter>,
     config: &Config,
 ) -> Result<Command, Error> {
@@ -1084,14 +1088,28 @@ pub fn parse(
                     Err(Error::NotPositiveInteger)
                 }
             }),
-            Kind::Connect => validated::<1, 0, false>(args, |[server], _| {
-                if let Ok(url) = Url::from_str(&server)
-                    && matches!(url, Url::ServerConnect { .. })
-                {
-                    Ok(Command::Internal(Internal::Connect(server)))
+            Kind::Connect => validated::<0, 1, false>(args, |_, [server]| {
+                if let Some(server) = server {
+                    if let Ok(url) = Url::from_str(&server)
+                        && matches!(url, Url::ServerConnect { .. })
+                    {
+                        Ok(Command::Internal(Internal::Connect(server)))
+                    } else {
+                        Err(Error::InvalidServerUrl)
+                    }
+                } else if is_connected {
+                    // If not connected then a server is required
+                    Err(Error::IncorrectArgCount {
+                        min: 1,
+                        max: 1,
+                        actual: 0,
+                    })
                 } else {
-                    Err(Error::InvalidServerUrl)
+                    Ok(Command::Internal(Internal::Reconnect))
                 }
+            }),
+            Kind::Reconnect => validated::<0, 0, false>(args, |_, _| {
+                Ok(Command::Internal(Internal::Reconnect))
             }),
         },
         Err(()) => Ok(unknown()),
@@ -1250,6 +1268,12 @@ pub enum Error {
     InvalidChannelName { requirements: String },
     #[error("invalid server url")]
     InvalidServerUrl,
+    #[error("not connected to server")]
+    Disconnected,
+    #[error("already connected to server")]
+    Connected,
+    #[error("not in channel")]
+    NotInChannel,
 }
 
 fn fmt_incorrect_arg_count(min: usize, max: usize, actual: usize) -> String {

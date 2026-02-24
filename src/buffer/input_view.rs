@@ -51,6 +51,7 @@ pub enum Event {
     Cleared {
         history_task: Task<history::manager::Message>,
     },
+    Reconnect(Server),
 }
 
 #[derive(Debug, Clone)]
@@ -274,6 +275,7 @@ fn platform_specific_key_bindings(
 pub fn view<'a>(
     state: &'a State,
     our_user: Option<&User>,
+    server: &'a Server,
     config: &'a Config,
     theme: &'a Theme,
 ) -> Element<'a, Message> {
@@ -531,6 +533,7 @@ pub fn view<'a>(
     let overlay = column![
         state.completion.view(
             state.input_content.text().as_str(),
+            server,
             config,
             theme
         ),
@@ -667,6 +670,12 @@ impl State {
                     config.buffer.text_input.auto_format,
                     message.as_str(),
                     clients.nickname(buffer.server()),
+                    buffer.channel().map(|target| {
+                        clients
+                            .get_channels(buffer.server())
+                            .any(|channel| target == channel)
+                    }),
+                    clients.get_server_is_connected(buffer.server()),
                     &clients.get_isupport(buffer.server()),
                     config,
                 ) {
@@ -766,6 +775,12 @@ impl State {
                         config.buffer.text_input.auto_format,
                         raw_input.as_str(),
                         clients.nickname(buffer.server()),
+                        buffer.channel().map(|target| {
+                            clients
+                                .get_channels(buffer.server())
+                                .any(|channel| target == channel)
+                        }),
+                        clients.get_server_is_connected(buffer.server()),
                         &clients.get_isupport(buffer.server()),
                         config,
                     ) {
@@ -1003,6 +1018,17 @@ impl State {
                                         Some(Event::OpenServer(server)),
                                     );
                                 }
+                                command::Internal::Reconnect => {
+                                    self.input_content =
+                                        text_editor::Content::new();
+
+                                    return (
+                                        Task::none(),
+                                        Some(Event::Reconnect(
+                                            buffer.server().clone(),
+                                        )),
+                                    );
+                                }
                             }
                         }
                         Ok(input::Parsed::Input(input)) => input,
@@ -1194,6 +1220,8 @@ impl State {
                     });
                     let last_seen = history.get_last_seen(buffer);
                     let filters = FilterChain::borrow(history.get_filters());
+                    let is_connected =
+                        clients.get_server_is_connected(buffer.server());
                     let supports_detach =
                         clients.get_server_supports_detach(buffer.server());
                     let isupport = clients.get_isupport(buffer.server());
@@ -1208,6 +1236,7 @@ impl State {
                         clients.get_channels(buffer.server()),
                         current_target.as_ref(),
                         buffer.server(),
+                        is_connected,
                         supports_detach,
                         &isupport,
                         config,
@@ -1244,6 +1273,8 @@ impl State {
                         let last_seen = history.get_last_seen(buffer);
                         let filters =
                             FilterChain::borrow(history.get_filters());
+                        let is_connected =
+                            clients.get_server_is_connected(buffer.server());
                         let supports_detach =
                             clients.get_server_supports_detach(buffer.server());
                         let isupport = clients.get_isupport(buffer.server());
@@ -1258,6 +1289,7 @@ impl State {
                             clients.get_channels(buffer.server()),
                             current_target.as_ref(),
                             buffer.server(),
+                            is_connected,
                             supports_detach,
                             &isupport,
                             config,
@@ -1459,6 +1491,8 @@ impl State {
                         let last_seen = history.get_last_seen(buffer);
                         let filters =
                             FilterChain::borrow(history.get_filters());
+                        let is_connected =
+                            clients.get_server_is_connected(buffer.server());
                         let supports_detach =
                             clients.get_server_supports_detach(buffer.server());
                         let isupport = clients.get_isupport(buffer.server());
@@ -1473,6 +1507,7 @@ impl State {
                             clients.get_channels(buffer.server()),
                             current_target.as_ref(),
                             buffer.server(),
+                            is_connected,
                             supports_detach,
                             &isupport,
                             config,
@@ -1493,10 +1528,24 @@ impl State {
                             config.buffer.text_input.auto_format,
                             &input,
                             clients.nickname(buffer.server()),
+                            buffer.channel().map(|target| {
+                                clients
+                                    .get_channels(buffer.server())
+                                    .any(|channel| target == channel)
+                            }),
+                            is_connected,
                             &clients.get_isupport(buffer.server()),
                             config,
                         ) && match error {
-                            input::Error::ExceedsByteLimit { .. } => true,
+                            input::Error::ExceedsByteLimit { .. }
+                            | input::Error::Command(
+                                command::Error::InvalidModeString
+                                | command::Error::ArgTooLong { .. }
+                                | command::Error::TooManyTargets { .. }
+                                | command::Error::NotPositiveInteger
+                                | command::Error::InvalidChannelName { .. }
+                                | command::Error::InvalidServerUrl,
+                            ) => true,
                             input::Error::Command(
                                 command::Error::IncorrectArgCount {
                                     actual,
@@ -1505,32 +1554,13 @@ impl State {
                                 },
                             ) => actual > max,
                             input::Error::Command(
-                                command::Error::MissingSlash,
+                                command::Error::MissingSlash
+                                | command::Error::MissingCommand
+                                | command::Error::NoModeString
+                                | command::Error::Connected
+                                | command::Error::Disconnected
+                                | command::Error::NotInChannel,
                             ) => false,
-                            input::Error::Command(
-                                command::Error::MissingCommand,
-                            ) => false,
-                            input::Error::Command(
-                                command::Error::NoModeString,
-                            ) => false,
-                            input::Error::Command(
-                                command::Error::InvalidModeString,
-                            ) => true,
-                            input::Error::Command(
-                                command::Error::ArgTooLong { .. },
-                            ) => true,
-                            input::Error::Command(
-                                command::Error::TooManyTargets { .. },
-                            ) => true,
-                            input::Error::Command(
-                                command::Error::NotPositiveInteger,
-                            ) => true,
-                            input::Error::Command(
-                                command::Error::InvalidChannelName { .. },
-                            ) => true,
-                            input::Error::Command(
-                                command::Error::InvalidServerUrl,
-                            ) => true,
                         } {
                             self.error = Some(error.to_string());
                         }
@@ -1554,6 +1584,8 @@ impl State {
                         let last_seen = history.get_last_seen(buffer);
                         let filters =
                             FilterChain::borrow(history.get_filters());
+                        let is_connected =
+                            clients.get_server_is_connected(buffer.server());
                         let supports_detach =
                             clients.get_server_supports_detach(buffer.server());
                         let isupport = clients.get_isupport(buffer.server());
@@ -1568,6 +1600,7 @@ impl State {
                             clients.get_channels(buffer.server()),
                             current_target.as_ref(),
                             buffer.server(),
+                            is_connected,
                             supports_detach,
                             &isupport,
                             config,
