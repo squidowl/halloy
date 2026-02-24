@@ -333,7 +333,12 @@ impl Dashboard {
 
                             let (buffer_task, buffer_event) = self
                                 .handle_buffer_event(
-                                    window, id, event, clients, config,
+                                    window,
+                                    id,
+                                    event,
+                                    clients,
+                                    controllers,
+                                    config,
                                 );
 
                             return (
@@ -1728,6 +1733,7 @@ impl Dashboard {
         id: pane_grid::Pane,
         event: buffer::Event,
         clients: &mut data::client::Map,
+        controllers: &mut stream::Map,
         config: &Config,
     ) -> (Task<Message>, Option<Event>) {
         let Some(pane) = self.panes.get_mut(window, id) else {
@@ -2340,6 +2346,9 @@ impl Dashboard {
             }
             buffer::Event::OpenServer(server) => {
                 return (Task::none(), Some(Event::OpenServer(server)));
+            }
+            buffer::Event::Reconnect(server) => {
+                controllers.connect(&server);
             }
         }
 

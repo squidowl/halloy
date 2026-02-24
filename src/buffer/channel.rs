@@ -31,6 +31,7 @@ pub enum Event {
     OpenBuffers(Server, Vec<(Target, BufferAction)>),
     OpenInternalBuffer(buffer::Internal),
     OpenServer(String),
+    Reconnect(Server),
     LeaveBuffers(Vec<Target>, Option<String>),
     History(Task<history::manager::Message>),
     RequestOlderChatHistory,
@@ -149,8 +150,14 @@ pub fn view<'a>(
     };
 
     let text_input = show_text_input.then(move || {
-        input_view::view(&state.input_view, our_user, config, theme)
-            .map(Message::InputView)
+        input_view::view(
+            &state.input_view,
+            our_user,
+            &state.server,
+            config,
+            theme,
+        )
+        .map(Message::InputView)
     });
 
     let content = column![topic, messages];
@@ -322,6 +329,9 @@ impl Channel {
                     }
                     Some(input_view::Event::OpenServer(server)) => {
                         (command, Some(Event::OpenServer(server)))
+                    }
+                    Some(input_view::Event::Reconnect(server)) => {
+                        (command, Some(Event::Reconnect(server)))
                     }
                     None => (command, None),
                 }

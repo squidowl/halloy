@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::ops::RangeInclusive;
@@ -52,6 +53,7 @@ impl Completion {
         channels: impl IntoIterator<Item = &'a target::Channel>,
         current_target: Option<&Target>,
         server: &Server,
+        is_connected: bool,
         supports_detach: bool,
         isupport: &HashMap<isupport::Kind, isupport::Parameter>,
         config: &Config,
@@ -65,6 +67,8 @@ impl Completion {
                 our_nickname,
                 channels.iter().copied(),
                 current_target,
+                server,
+                is_connected,
                 supports_detach,
                 isupport,
             );
@@ -182,10 +186,11 @@ impl Completion {
     pub fn view<'a, Message: 'a>(
         &self,
         input: &str,
+        server: &Server,
         config: &Config,
         theme: &'a Theme,
     ) -> Option<Element<'a, Message>> {
-        let command_view = self.commands.view(input, config, theme);
+        let command_view = self.commands.view(input, server, config, theme);
         let emojis_view = self.emojis.view(config);
 
         if command_view.is_some() || emojis_view.is_some() {
@@ -272,7 +277,7 @@ enum Commands {
     Idle,
     Selecting {
         highlighted: Option<usize>,
-        filtered: Vec<Command>,
+        filtered: Vec<(String, Command)>,
     },
     Selected {
         command: Command,
@@ -287,10 +292,11 @@ impl Commands {
         our_nickname: Option<NickRef>,
         channels: impl IntoIterator<Item = &'a target::Channel>,
         current_target: Option<&Target>,
+        server: &Server,
+        is_connected: bool,
         supports_detach: bool,
         isupport: &HashMap<isupport::Kind, isupport::Parameter>,
     ) {
-        let channels: Vec<_> = channels.into_iter().collect();
         let Some((head, rest)) = input.split_once('/') else {
             *self = Self::Idle;
             return;
@@ -308,467 +314,67 @@ impl Commands {
             (rest, false)
         };
 
-        let mut command_list = vec![
-            // MOTD
-            {
-                Command {
-                    title: "MOTD",
-                    args: vec![Argument {
-                        text: "server",
-                        kind: ArgumentKind::Optional { skipped: false },
-                        tooltip: None,
-                    }],
-                    subcommands: None,
-                }
-            },
-            // QUIT
-            {
-                Command {
-                    title: "QUIT",
-                    args: vec![Argument {
-                        text: "reason",
-                        kind: ArgumentKind::Optional { skipped: false },
-                        tooltip: None,
-                    }],
-                    subcommands: None,
-                }
-            },
-            // Away
-            {
-                let max_len = match isupport.get(&isupport::Kind::AWAYLEN) {
-                    Some(isupport::Parameter::AWAYLEN(len)) => Some(*len),
-                    _ => None,
-                };
-
-                away_command(max_len)
-            },
-            // JOIN
-            {
-                {
-                    let channel_len =
-                        match isupport.get(&isupport::Kind::CHANNELLEN) {
-                            Some(isupport::Parameter::CHANNELLEN(len)) => {
-                                Some(*len)
-                            }
-                            _ => None,
-                        };
-
-                    let channel_limits = match isupport
-                        .get(&isupport::Kind::CHANLIMIT)
-                    {
-                        Some(isupport::Parameter::CHANLIMIT(len)) => Some(len),
-                        _ => None,
-                    };
-
-                    let key_len = match isupport.get(&isupport::Kind::KEYLEN) {
-                        Some(isupport::Parameter::KEYLEN(len)) => Some(*len),
-                        _ => None,
-                    };
-
-                    let default = current_target
-                        .and_then(|target| target.as_channel())
-                        .and_then(|target| {
-                            if channels
-                                .iter()
-                                .copied()
-                                .any(|channel| channel == target)
-                            {
-                                None
-                            } else {
-                                Some(target.to_string())
-                            }
-                        });
-
-                    join_command(default, channel_len, channel_limits, key_len)
-                }
-            },
-            // KICK
-            {
-                let default = current_target
-                    .and_then(|target| target.as_channel())
-                    .map(target::Channel::to_string);
-
-                let kick_len = match isupport.get(&isupport::Kind::KICKLEN) {
-                    Some(isupport::Parameter::KICKLEN(len)) => Some(*len),
-                    _ => None,
-                };
-
-                let target_limit = find_target_limit(isupport, "KICK");
-
-                kick_command(default, target_limit, kick_len)
-            },
-            // MSG
-            {
-                let channel_membership_prefixes: &[char] =
-                    match isupport.get(&isupport::Kind::STATUSMSG) {
-                        Some(isupport::Parameter::STATUSMSG(len)) => len,
-                        _ => &[],
-                    };
-
-                let target_limit = find_target_limit(isupport, "PRIVMSG");
-
-                msg_command(channel_membership_prefixes, target_limit)
-            },
-            // NAMES
-            {
-                let target_limit = find_target_limit(isupport, "NAMES");
-
-                names_command(target_limit)
-            },
-            // NICK
-            {
-                let nick_len = match isupport.get(&isupport::Kind::NICKLEN) {
-                    Some(isupport::Parameter::NICKLEN(len)) => Some(*len),
-                    _ => None,
-                };
-
-                nick_command(nick_len)
-            },
-            // NOTICE
-            {
-                let channel_membership_prefixes: &[char] =
-                    match isupport.get(&isupport::Kind::STATUSMSG) {
-                        Some(isupport::Parameter::STATUSMSG(len)) => len,
-                        _ => &[],
-                    };
-
-                let target_limit = find_target_limit(isupport, "NOTICE");
-
-                notice_command(channel_membership_prefixes, target_limit)
-            },
-            // PART
-            {
-                let default = current_target.map(Target::to_string);
-
-                let channel_len = match isupport
-                    .get(&isupport::Kind::CHANNELLEN)
-                {
-                    Some(isupport::Parameter::CHANNELLEN(len)) => Some(*len),
-                    _ => None,
-                };
-
-                part_command(default, channel_len)
-            },
-            // TOPIC
-            {
-                let default = current_target
-                    .and_then(|target| target.as_channel())
-                    .map(target::Channel::to_string);
-
-                let max_len = match isupport.get(&isupport::Kind::TOPICLEN) {
-                    Some(isupport::Parameter::TOPICLEN(len)) => Some(*len),
-                    _ => None,
-                };
-
-                topic_command(default, max_len)
-            },
-            // WHO -- WHOX
-            {
-                if isupport.get(&isupport::Kind::WHOX).is_some() {
-                    whox_command()
-                } else {
-                    who_command()
-                }
-            },
-            // WHOIS
-            {
-                let target_limit = find_target_limit(isupport, "WHOIS");
-                whois_command(target_limit)
-            },
-            // WHOWAS
-            {
-                Command {
-                    title: "WHOWAS",
-                    args: vec![
-                        Argument {
-                            text: "nick",
-                            kind: ArgumentKind::Required,
-                            tooltip: None,
-                        },
-                        Argument {
-                            text: "count",
-                            kind: ArgumentKind::Optional { skipped: false },
-                            tooltip: Some(String::from(
-                                "maximum number of nickname history entries returned, or all if omitted",
-                            )),
-                        },
-                    ],
-                    subcommands: None,
-                }
-            },
-            // ME
-            {
-                Command {
-                    title: "ME",
-                    args: vec![Argument {
-                        text: "action",
-                        kind: ArgumentKind::Required,
-                        tooltip: None,
-                    }],
-                    subcommands: None,
-                }
-            },
-            // MODE
-            {
-                let chanmodes = isupport::get_chanmodes_or_default(isupport);
-                let prefix = isupport::get_prefix_or_default(isupport);
-                let mode_limit = isupport::get_mode_limit_or_default(isupport);
-
-                let default = current_target
-                    .map(Target::to_string)
-                    .or(our_nickname.map(|nickname| nickname.to_string()));
-
-                let mut tooltip = String::from("a channel or user");
-
-                if let Some(ref default) = default {
-                    tooltip.push_str(
-                        format!("\nmay be skipped (default: {default})")
-                            .as_str(),
-                    );
-                }
-
-                Command {
-                    title: "MODE",
-                    args: vec![Argument {
-                        text: "target",
-                        kind: if default.is_some() {
-                            ArgumentKind::Optional { skipped: false }
-                        } else {
-                            ArgumentKind::Required
-                        },
-                        tooltip: Some(tooltip),
-                    }],
-                    subcommands: Some(vec![
-                        mode_channel_command(chanmodes, prefix, mode_limit),
-                        mode_user_command(mode_limit),
-                    ]),
-                }
-            },
-            // RAW
-            {
-                Command {
-                    title: "RAW",
-                    args: vec![
-                        Argument {
-                            text: "command",
-                            kind: ArgumentKind::Required,
-                            tooltip: None,
-                        },
-                        Argument {
-                            text: "args",
-                            kind: ArgumentKind::Optional { skipped: false },
-                            tooltip: None,
-                        },
-                    ],
-                    subcommands: None,
-                }
-            },
-            // FORMAT
-            {
-                Command {
-                    title: "FORMAT",
-                    args: vec![Argument {
-                        text: "text",
-                        kind: ArgumentKind::Required,
-                        tooltip: Some(
-                            include_str!("./format_tooltip.txt").to_string(),
-                        ),
-                    }],
-                    subcommands: None,
-                }
-            },
-            // PLAIN
-            {
-                Command {
-                    title: "PLAIN",
-                    args: vec![Argument {
-                        text: "text",
-                        kind: ArgumentKind::Required,
-                        tooltip: None,
-                    }],
-                    subcommands: None,
-                }
-            },
-            // HOP
-            {
-                Command {
-                    title: "HOP",
-                    args: vec![
-                        Argument {
-                            text: "channel",
-                            kind: ArgumentKind::Optional { skipped: false },
-                            tooltip: Some(String::from("the channel to join")),
-                        },
-                        Argument {
-                            text: "message",
-                            kind: ArgumentKind::Optional { skipped: false },
-                            tooltip: Some(String::from(
-                                "the part message to be sent",
-                            )),
-                        },
-                    ],
-                    subcommands: None,
-                }
-            },
-            // SYSINFO
-            {
-                Command {
-                    title: "SYSINFO",
-                    args: vec![],
-                    subcommands: None,
-                }
-            },
-            // CLEAR
-            {
-                Command {
-                    title: "CLEAR",
-                    args: vec![],
-                    subcommands: None,
-                }
-            },
-            // CLEARTOPIC
-            {
-                let default = current_target
-                    .and_then(|target| target.as_channel())
-                    .map(target::Channel::to_string);
-
-                Command {
-                    title: "CLEARTOPIC",
-                    args: vec![Argument {
-                        text: "channel",
-                        kind: if default.is_some() {
-                            ArgumentKind::Optional { skipped: false }
-                        } else {
-                            ArgumentKind::Required
-                        },
-                        tooltip: default.map(|default| {
-                            format!("may be omitted (default: {default})")
-                        }),
-                    }],
-                    subcommands: None,
-                }
-            },
-            // CTCP
-            {
-                let default = current_target
-                    .and_then(|target| target.as_query())
-                    .map(target::Query::to_string);
-
-                Command {
-                title: "CTCP",
-                args: vec![
-                    Argument {
-                        text: "nick",
-                        kind: if default.is_some() {
-                            ArgumentKind::Optional { skipped: false }
-                        } else {
-                            ArgumentKind::Required
-                        },
-                        tooltip: default.map(|default| {
-                            format!("may be skipped (default: {default})")
-                        }),
-                    },
-                    Argument {
-                        text: "command",
-                        kind: ArgumentKind::Required,
-                        tooltip: Some(
-                            "    ACTION: Display <text> as a third-person action or emote\
-                           \nCLIENTINFO: Request a list of the CTCP messages <nick> supports\
-                           \n      PING: Request a reply containing the same <info> that was sent\
-                           \n    SOURCE: Request a URL where the source code for <nick>'s IRC client can be found\
-                           \n      TIME: Request the <nick>'s local time in a human-readable format\
-                           \n  USERINFO: Request miscellaneous information about the user\
-                           \n   VERSION: Request the name and version of <nick>'s IRC client".to_string(),
-                        ),
-                    },
-                ],
-                subcommands: Some(vec![
-                        ctcp_action_command(),
-                        ctcp_clientinfo_command(),
-                        ctcp_userinfo_command(),
-                        ctcp_ping_command(),
-                        ctcp_source_command(),
-                        ctcp_time_command(),
-                        ctcp_version_command()
-                    ]),
-            }
-            },
-            // LIST
-            {
-                Command {
-                    title: "LIST",
-                    args: vec![],
-                    subcommands: None,
-                }
-            },
-            // CONNECT
-            {
-                Command {
-                    title: "CONNECT",
-                    args: vec![Argument {
-                        text: "server",
-                        kind: ArgumentKind::Required,
-                        tooltip: Some(
-                            "URL of the format (irc|ircs)://(server):(port)/"
-                                .to_string(),
-                        ),
-                    }],
-                    subcommands: None,
-                }
-            },
-        ];
-
-        if supports_detach {
-            let default = current_target
-                .and_then(|target| target.as_channel())
-                .map(target::Channel::to_string);
-
-            let channel_len = match isupport.get(&isupport::Kind::CHANNELLEN) {
-                Some(isupport::Parameter::CHANNELLEN(len)) => Some(*len),
-                _ => None,
-            };
-
-            command_list.push(detach_command(default, channel_len));
-        }
-
-        let isupport_commands = isupport
-            .iter()
-            .filter_map(|(_, isupport_parameter)| match isupport_parameter {
-                isupport::Parameter::CHATHISTORY(maximum_limit) => {
-                    Some(chathistory_command(maximum_limit))
-                }
-                isupport::Parameter::MONITOR(target_limit) => {
-                    Some(monitor_command(target_limit))
-                }
-                isupport::Parameter::NAMELEN(max_len) => {
-                    Some(setname_command(max_len))
-                }
-                _ => isupport_parameter_to_command(isupport_parameter),
-            })
-            .collect::<Vec<Command>>();
-
-        command_list.extend(isupport_commands);
+        let command_list = if is_connected {
+            connected_command_list(
+                our_nickname,
+                channels,
+                current_target,
+                supports_detach,
+                isupport,
+            )
+        } else {
+            disconnected_command_list(server)
+        };
 
         match self {
             // Command not fully typed, show filtered entries
             _ if !has_space => {
                 if let Some(command) = command_list.iter().find(|command| {
                     command.title.to_lowercase() == cmd.to_lowercase()
+                        || command.alias().iter().any(|alias| {
+                            !command
+                                .title
+                                .to_lowercase()
+                                .starts_with(&alias.to_lowercase())
+                                && alias.to_lowercase() == cmd.to_lowercase()
+                        })
                 }) {
                     *self = Self::Selected {
                         command: command.clone(),
                         subcommand: None,
                     };
                 } else {
-                    let filtered = command_list
-                        .into_iter()
-                        .filter(|command| {
-                            command
-                                .title
-                                .to_lowercase()
+                    let mut filtered = command_list
+                        .iter()
+                        .filter_map(|command| {
+                            let title = command.title.to_lowercase();
+
+                            title
                                 .starts_with(&cmd.to_lowercase())
+                                .then_some((title, command.clone()))
                         })
-                        .collect();
+                        .collect::<Vec<_>>();
+
+                    filtered.extend(command_list.into_iter().flat_map(
+                        |command| {
+                            command
+                                .alias()
+                                .iter()
+                                .filter_map({
+                                    let alias_command = command.clone();
+                                    move |alias| {
+                                        alias
+                                            .to_lowercase()
+                                            .starts_with(&cmd.to_lowercase())
+                                            .then_some((
+                                                alias.to_string(),
+                                                alias_command.clone(),
+                                            ))
+                                    }
+                                })
+                                .collect::<Vec<_>>()
+                        },
+                    ));
 
                     *self = Self::Selecting {
                         highlighted: Some(0),
@@ -942,7 +548,8 @@ impl Commands {
             highlighted: Some(index),
             filtered,
         } = self
-            && let Some(command) = filtered.get(*index).cloned()
+            && let Some(command) =
+                filtered.get(*index).map(|(_, command)| command.clone())
         {
             *self = Self::Selected {
                 command: command.clone(),
@@ -972,6 +579,7 @@ impl Commands {
     fn view<'a, Message: 'a>(
         &self,
         input: &str,
+        server: &Server,
         config: &Config,
         theme: &'a Theme,
     ) -> Option<Element<'a, Message>> {
@@ -1000,10 +608,9 @@ impl Commands {
                     .collect::<Vec<_>>();
 
                 let content = |width| {
-                    column(entries.iter().map(|(index, command)| {
+                    column(entries.iter().map(|(index, (title, _))| {
                         let selected = Some(*index) == *highlighted;
-                        let content =
-                            text(format!("/{}", command.title.to_lowercase()));
+                        let content = text(format!("/{title}"));
 
                         Element::from(
                             container(content)
@@ -1035,13 +642,493 @@ impl Commands {
                 subcommand,
             } => {
                 if config.buffer.commands.show_description {
-                    Some(command.view(input, subcommand.as_ref(), theme))
+                    Some(command.view(
+                        input,
+                        subcommand.as_ref(),
+                        server,
+                        theme,
+                    ))
                 } else {
                     None
                 }
             }
         }
     }
+}
+
+fn connected_command_list<'a>(
+    our_nickname: Option<NickRef>,
+    channels: impl IntoIterator<Item = &'a target::Channel>,
+    current_target: Option<&Target>,
+    supports_detach: bool,
+    isupport: &HashMap<isupport::Kind, isupport::Parameter>,
+) -> Vec<Command> {
+    let channels: Vec<_> = channels.into_iter().collect();
+    let mut command_list = vec![
+        // MOTD
+        {
+            Command {
+                title: "MOTD",
+                args: vec![Argument {
+                    text: "server",
+                    kind: ArgumentKind::Optional { skipped: false },
+                    tooltip: None,
+                }],
+                subcommands: None,
+            }
+        },
+        // QUIT
+        {
+            Command {
+                title: "QUIT",
+                args: vec![Argument {
+                    text: "reason",
+                    kind: ArgumentKind::Optional { skipped: false },
+                    tooltip: None,
+                }],
+                subcommands: None,
+            }
+        },
+        // Away
+        {
+            let max_len = match isupport.get(&isupport::Kind::AWAYLEN) {
+                Some(isupport::Parameter::AWAYLEN(len)) => Some(*len),
+                _ => None,
+            };
+
+            away_command(max_len)
+        },
+        // JOIN
+        {
+            {
+                let channel_len = match isupport
+                    .get(&isupport::Kind::CHANNELLEN)
+                {
+                    Some(isupport::Parameter::CHANNELLEN(len)) => Some(*len),
+                    _ => None,
+                };
+
+                let channel_limits =
+                    match isupport.get(&isupport::Kind::CHANLIMIT) {
+                        Some(isupport::Parameter::CHANLIMIT(len)) => Some(len),
+                        _ => None,
+                    };
+
+                let key_len = match isupport.get(&isupport::Kind::KEYLEN) {
+                    Some(isupport::Parameter::KEYLEN(len)) => Some(*len),
+                    _ => None,
+                };
+
+                let default = current_target
+                    .and_then(|target| target.as_channel())
+                    .and_then(|target| {
+                        if channels
+                            .iter()
+                            .copied()
+                            .any(|channel| channel == target)
+                        {
+                            None
+                        } else {
+                            Some(target.to_string())
+                        }
+                    });
+
+                join_command(default, channel_len, channel_limits, key_len)
+            }
+        },
+        // KICK
+        {
+            let default = current_target
+                .and_then(|target| target.as_channel())
+                .map(target::Channel::to_string);
+
+            let kick_len = match isupport.get(&isupport::Kind::KICKLEN) {
+                Some(isupport::Parameter::KICKLEN(len)) => Some(*len),
+                _ => None,
+            };
+
+            let target_limit = find_target_limit(isupport, "KICK");
+
+            kick_command(default, target_limit, kick_len)
+        },
+        // MSG
+        {
+            let channel_membership_prefixes: &[char] =
+                match isupport.get(&isupport::Kind::STATUSMSG) {
+                    Some(isupport::Parameter::STATUSMSG(len)) => len,
+                    _ => &[],
+                };
+
+            let target_limit = find_target_limit(isupport, "PRIVMSG");
+
+            msg_command(channel_membership_prefixes, target_limit)
+        },
+        // NAMES
+        {
+            let target_limit = find_target_limit(isupport, "NAMES");
+
+            names_command(target_limit)
+        },
+        // NICK
+        {
+            let nick_len = match isupport.get(&isupport::Kind::NICKLEN) {
+                Some(isupport::Parameter::NICKLEN(len)) => Some(*len),
+                _ => None,
+            };
+
+            nick_command(nick_len)
+        },
+        // NOTICE
+        {
+            let channel_membership_prefixes: &[char] =
+                match isupport.get(&isupport::Kind::STATUSMSG) {
+                    Some(isupport::Parameter::STATUSMSG(len)) => len,
+                    _ => &[],
+                };
+
+            let target_limit = find_target_limit(isupport, "NOTICE");
+
+            notice_command(channel_membership_prefixes, target_limit)
+        },
+        // PART
+        {
+            let default = current_target.map(Target::to_string);
+
+            let channel_len = match isupport.get(&isupport::Kind::CHANNELLEN) {
+                Some(isupport::Parameter::CHANNELLEN(len)) => Some(*len),
+                _ => None,
+            };
+
+            part_command(default, channel_len)
+        },
+        // TOPIC
+        {
+            let default = current_target
+                .and_then(|target| target.as_channel())
+                .map(target::Channel::to_string);
+
+            let max_len = match isupport.get(&isupport::Kind::TOPICLEN) {
+                Some(isupport::Parameter::TOPICLEN(len)) => Some(*len),
+                _ => None,
+            };
+
+            topic_command(default, max_len)
+        },
+        // WHO -- WHOX
+        {
+            if isupport.get(&isupport::Kind::WHOX).is_some() {
+                whox_command()
+            } else {
+                who_command()
+            }
+        },
+        // WHOIS
+        {
+            let target_limit = find_target_limit(isupport, "WHOIS");
+            whois_command(target_limit)
+        },
+        // WHOWAS
+        {
+            Command {
+                title: "WHOWAS",
+                args: vec![
+                    Argument {
+                        text: "nick",
+                        kind: ArgumentKind::Required,
+                        tooltip: None,
+                    },
+                    Argument {
+                        text: "count",
+                        kind: ArgumentKind::Optional { skipped: false },
+                        tooltip: Some(String::from(
+                            "maximum number of nickname history entries returned, or all if omitted",
+                        )),
+                    },
+                ],
+                subcommands: None,
+            }
+        },
+        // ME
+        {
+            Command {
+                title: "ME",
+                args: vec![Argument {
+                    text: "action",
+                    kind: ArgumentKind::Required,
+                    tooltip: None,
+                }],
+                subcommands: None,
+            }
+        },
+        // MODE
+        {
+            let chanmodes = isupport::get_chanmodes_or_default(isupport);
+            let prefix = isupport::get_prefix_or_default(isupport);
+            let mode_limit = isupport::get_mode_limit_or_default(isupport);
+
+            let default = current_target
+                .map(Target::to_string)
+                .or(our_nickname.map(|nickname| nickname.to_string()));
+
+            let mut tooltip = String::from("a channel or user");
+
+            if let Some(ref default) = default {
+                tooltip.push_str(
+                    format!("\nmay be skipped (default: {default})").as_str(),
+                );
+            }
+
+            Command {
+                title: "MODE",
+                args: vec![Argument {
+                    text: "target",
+                    kind: if default.is_some() {
+                        ArgumentKind::Optional { skipped: false }
+                    } else {
+                        ArgumentKind::Required
+                    },
+                    tooltip: Some(tooltip),
+                }],
+                subcommands: Some(vec![
+                    mode_channel_command(chanmodes, prefix, mode_limit),
+                    mode_user_command(mode_limit),
+                ]),
+            }
+        },
+        // RAW
+        {
+            Command {
+                title: "RAW",
+                args: vec![
+                    Argument {
+                        text: "command",
+                        kind: ArgumentKind::Required,
+                        tooltip: None,
+                    },
+                    Argument {
+                        text: "args",
+                        kind: ArgumentKind::Optional { skipped: false },
+                        tooltip: None,
+                    },
+                ],
+                subcommands: None,
+            }
+        },
+        // FORMAT
+        {
+            Command {
+                title: "FORMAT",
+                args: vec![Argument {
+                    text: "text",
+                    kind: ArgumentKind::Required,
+                    tooltip: Some(
+                        include_str!("./format_tooltip.txt").to_string(),
+                    ),
+                }],
+                subcommands: None,
+            }
+        },
+        // PLAIN
+        {
+            Command {
+                title: "PLAIN",
+                args: vec![Argument {
+                    text: "text",
+                    kind: ArgumentKind::Required,
+                    tooltip: None,
+                }],
+                subcommands: None,
+            }
+        },
+        // HOP
+        {
+            Command {
+                title: "HOP",
+                args: vec![
+                    Argument {
+                        text: "channel",
+                        kind: ArgumentKind::Optional { skipped: false },
+                        tooltip: Some(String::from("the channel to join")),
+                    },
+                    Argument {
+                        text: "message",
+                        kind: ArgumentKind::Optional { skipped: false },
+                        tooltip: Some(String::from(
+                            "the part message to be sent",
+                        )),
+                    },
+                ],
+                subcommands: None,
+            }
+        },
+        // SYSINFO
+        {
+            Command {
+                title: "SYSINFO",
+                args: vec![],
+                subcommands: None,
+            }
+        },
+        // CLEAR
+        {
+            Command {
+                title: "CLEAR",
+                args: vec![],
+                subcommands: None,
+            }
+        },
+        // CLEARTOPIC
+        {
+            let default = current_target
+                .and_then(|target| target.as_channel())
+                .map(target::Channel::to_string);
+
+            Command {
+                title: "CLEARTOPIC",
+                args: vec![Argument {
+                    text: "channel",
+                    kind: if default.is_some() {
+                        ArgumentKind::Optional { skipped: false }
+                    } else {
+                        ArgumentKind::Required
+                    },
+                    tooltip: default.map(|default| {
+                        format!("may be omitted (default: {default})")
+                    }),
+                }],
+                subcommands: None,
+            }
+        },
+        // CTCP
+        {
+            let default = current_target
+                .and_then(|target| target.as_query())
+                .map(target::Query::to_string);
+
+            Command {
+                title: "CTCP",
+                args: vec![
+                    Argument {
+                        text: "nick",
+                        kind: if default.is_some() {
+                            ArgumentKind::Optional { skipped: false }
+                        } else {
+                            ArgumentKind::Required
+                        },
+                        tooltip: default.map(|default| {
+                            format!("may be skipped (default: {default})")
+                        }),
+                    },
+                    Argument {
+                        text: "command",
+                        kind: ArgumentKind::Required,
+                        tooltip: Some(
+                            "    ACTION: Display <text> as a third-person action or emote\
+                           \nCLIENTINFO: Request a list of the CTCP messages <nick> supports\
+                           \n      PING: Request a reply containing the same <info> that was sent\
+                           \n    SOURCE: Request a URL where the source code for <nick>'s IRC client can be found\
+                           \n      TIME: Request the <nick>'s local time in a human-readable format\
+                           \n  USERINFO: Request miscellaneous information about the user\
+                           \n   VERSION: Request the name and version of <nick>'s IRC client".to_string(),
+                        ),
+                    },
+                ],
+                subcommands: Some(vec![
+                        ctcp_action_command(),
+                        ctcp_clientinfo_command(),
+                        ctcp_userinfo_command(),
+                        ctcp_ping_command(),
+                        ctcp_source_command(),
+                        ctcp_time_command(),
+                        ctcp_version_command()
+                    ]),
+            }
+        },
+        // LIST
+        {
+            Command {
+                title: "LIST",
+                args: vec![],
+                subcommands: None,
+            }
+        },
+        // CONNECT
+        {
+            Command {
+                title: "CONNECT",
+                args: vec![Argument {
+                    text: "server",
+                    kind: ArgumentKind::Required,
+                    tooltip: Some(
+                        "URL of the format (irc|ircs)://(server):(port)/"
+                            .to_string(),
+                    ),
+                }],
+                subcommands: None,
+            }
+        },
+    ];
+
+    if supports_detach {
+        let default = current_target
+            .and_then(|target| target.as_channel())
+            .map(target::Channel::to_string);
+
+        let channel_len = match isupport.get(&isupport::Kind::CHANNELLEN) {
+            Some(isupport::Parameter::CHANNELLEN(len)) => Some(*len),
+            _ => None,
+        };
+
+        command_list.push(detach_command(default, channel_len));
+    }
+
+    let isupport_commands = isupport
+        .iter()
+        .filter_map(|(_, isupport_parameter)| match isupport_parameter {
+            isupport::Parameter::CHATHISTORY(maximum_limit) => {
+                Some(chathistory_command(maximum_limit))
+            }
+            isupport::Parameter::MONITOR(target_limit) => {
+                Some(monitor_command(target_limit))
+            }
+            isupport::Parameter::NAMELEN(max_len) => {
+                Some(setname_command(max_len))
+            }
+            _ => isupport_parameter_to_command(isupport_parameter),
+        })
+        .collect::<Vec<Command>>();
+
+    command_list.extend(isupport_commands);
+
+    command_list
+}
+
+fn disconnected_command_list(server: &Server) -> Vec<Command> {
+    vec![
+        // CONNECT
+        {
+            Command {
+                title: "CONNECT",
+                args: vec![Argument {
+                    text: "server",
+                    kind: ArgumentKind::Optional { skipped: false },
+                    tooltip: Some(format!(
+                        "URL of the format (irc|ircs)://(server):(port)/\
+                       \nmay be skipped (default: reconnect to {server})"
+                    )),
+                }],
+                subcommands: None,
+            }
+        },
+        // RECONNECT
+        {
+            Command {
+                title: "RECONNECT",
+                args: vec![],
+                subcommands: None,
+            }
+        },
+    ]
 }
 
 #[derive(Debug, Clone)]
@@ -1057,61 +1144,91 @@ const MODE_USER_PATTERN: &str =
     concatcp!("mode ", REQUIRED_ARG_PREFIX, "user", REQUIRED_ARG_SUFFIX);
 
 impl Command {
-    fn description(&self) -> Option<&'static str> {
+    fn description(&self, server: &Server) -> Option<Cow<'static, str>> {
         Some(match self.title.to_lowercase().as_str() {
-            "away" => {
-                "Mark yourself as away. If already away, the status is removed"
+            "away" => Cow::Borrowed(
+                "Mark yourself as away. If already away, the status is removed",
+            ),
+            "join" => Cow::Borrowed("Join channel(s) with optional key(s)"),
+            "me" => Cow::Borrowed("Send an action message to the channel"),
+            "mode" => Cow::Borrowed("Set or retrieve target's mode(s)"),
+            MODE_CHANNEL_PATTERN => {
+                Cow::Borrowed("Set or retrieve channel's mode(s)")
             }
-            "join" => "Join channel(s) with optional key(s)",
-            "me" => "Send an action message to the channel",
-            "mode" => "Set or retrieve target's mode(s)",
-            MODE_CHANNEL_PATTERN => "Set or retrieve channel's mode(s)",
-            MODE_USER_PATTERN => "Set or retrieve user's mode(s)",
-            "monitor" => "System to notify when users become online/offline",
-            "monitor +" => "Add user(s) to list being monitored",
-            "monitor -" => "Remove user(s) from list being monitored",
-            "monitor c" => "Clear the list of users being monitored",
-            "monitor l" => "Get list of users being monitored",
-            "monitor s" => {
-                "For each user in the list being monitored, get the current status"
+            MODE_USER_PATTERN => {
+                Cow::Borrowed("Set or retrieve user's mode(s)")
             }
-            "msg" => {
-                "Open a query with a nickname and send an optional message"
+            "monitor" => Cow::Borrowed(
+                "System to notify when users become online/offline",
+            ),
+            "monitor +" => Cow::Borrowed("Add user(s) to list being monitored"),
+            "monitor -" => {
+                Cow::Borrowed("Remove user(s) from list being monitored")
             }
-            "nick" => "Change your nickname on the current server",
-            "part" => "Leave channel(s) with an optional reason",
-            "quit" => "Disconnect from the server with an optional reason",
-            "raw" => "Send data to the server without modifying it",
-            "topic" => "Retrieve the topic of a channel or set a new topic",
-            "whois" => "Retrieve information about user(s)",
-            "whowas" => "Retrieve information about no longer present user(s)",
-            "format" => "Format text using markdown or $ sequences",
-            "plain" => "Send text with automatic formatting disabled",
-            "ctcp" => "Send Client-To-Client requests",
-            "ctcp action" => "Display <text> as a third-person action or emote",
-            "ctcp clientinfo" => {
-                "Request a list of the CTCP messages <nick> supports"
+            "monitor c" => {
+                Cow::Borrowed("Clear the list of users being monitored")
             }
-            "ctcp ping" => {
-                "Request a reply containing the same <info> that was sent"
+            "monitor l" => Cow::Borrowed("Get list of users being monitored"),
+            "monitor s" => Cow::Borrowed(
+                "For each user in the list being monitored, get the current status",
+            ),
+            "msg" => Cow::Borrowed(
+                "Open a query with a nickname and send an optional message",
+            ),
+            "nick" => Cow::Owned(format!("Change your nickname on {server}")),
+            "part" => Cow::Borrowed("Leave channel(s) with an optional reason"),
+            "quit" => Cow::Owned(format!(
+                "Disconnect from {server} with an optional reason"
+            )),
+            "raw" => Cow::Owned(format!(
+                "Send data to {server} without modifying it"
+            )),
+            "topic" => Cow::Borrowed(
+                "Retrieve the topic of a channel or set a new topic",
+            ),
+            "whois" => Cow::Borrowed("Retrieve information about user(s)"),
+            "whowas" => Cow::Borrowed(
+                "Retrieve information about no longer present user(s)",
+            ),
+            "format" => {
+                Cow::Borrowed("Format text using markdown or $ sequences")
             }
-            "ctcp source" => {
-                "Request a URL where the source code for <nick>'s IRC client can be found"
+            "plain" => {
+                Cow::Borrowed("Send text with automatic formatting disabled")
             }
-            "ctcp time" => {
-                "Request the <nick>'s local time in a human-readable format"
+            "ctcp" => Cow::Borrowed("Send Client-To-Client requests"),
+            "ctcp action" => Cow::Borrowed(
+                "Display <text> as a third-person action or emote",
+            ),
+            "ctcp clientinfo" => Cow::Borrowed(
+                "Request a list of the CTCP messages <nick> supports",
+            ),
+            "ctcp ping" => Cow::Borrowed(
+                "Request a reply containing the same <info> that was sent",
+            ),
+            "ctcp source" => Cow::Borrowed(
+                "Request a URL where the source code for <nick>'s IRC client can be found",
+            ),
+            "ctcp time" => Cow::Borrowed(
+                "Request the <nick>'s local time in a human-readable format",
+            ),
+            "ctcp version" => Cow::Borrowed(
+                "Request the name and version of <nick>'s IRC client",
+            ),
+            "hop" => {
+                Cow::Borrowed("Parts the current channel and joins a new one")
             }
-            "ctcp version" => {
-                "Request the name and version of <nick>'s IRC client"
+            "clear" => Cow::Borrowed("Clears the buffer"),
+            "cleartopic" => Cow::Borrowed("Clear the topic of a channel"),
+            "sysinfo" => Cow::Borrowed("Send system information"),
+            "detach" => Cow::Borrowed(
+                "Hide the channel, leaving the bouncer's connection to the channel active",
+            ),
+            "list" => {
+                Cow::Owned(format!("Open Channel Discovery for {server}"))
             }
-            "hop" => "Parts the current channel and joins a new one",
-            "clear" => "Clears the buffer",
-            "cleartopic" => "Clear the topic of a channel",
-            "sysinfo" => "Send system information",
-            "detach" => {
-                "Hide the channel, leaving the bouncer's connection to the channel active"
-            }
-            "list" => "Open Channel Discovery for the current server",
+            "connect" => Cow::Borrowed("Connect to server"),
+            "reconnect" => Cow::Owned(format!("Reconnect to {server}")),
             _ => return None,
         })
     }
@@ -1125,7 +1242,7 @@ impl Command {
             "msg" => vec!["query"],
             "nick" => vec![],
             "part" => vec!["leave"],
-            "quit" => vec![""],
+            "quit" => vec!["disconnect"],
             "raw" => vec![],
             "topic" => vec!["t"],
             "whois" => vec![],
@@ -1142,6 +1259,7 @@ impl Command {
         &self,
         input: &str,
         subcommand: Option<&Command>,
+        server: &Server,
         theme: &'a Theme,
     ) -> Element<'a, Message> {
         let command_prefix = format!("/{}", self.title.to_lowercase());
@@ -1285,8 +1403,8 @@ impl Command {
 
         container(column![
             subcommand
-                .map_or(self.description(), |subcommand| {
-                    subcommand.description()
+                .map_or(self.description(server), |subcommand| {
+                    subcommand.description(server)
                 })
                 .map(|description| {
                     text(description).style(theme::text::secondary).font_maybe(
