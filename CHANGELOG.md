@@ -22,6 +22,8 @@ Added:
 - Manual disconnection from a server will disable auto-reconnect
 - Disconnected servers can be connected to via the "Connect to server" entry in the context menu for its sidebar entry
 - Servers can be prevented from connecting on launch (or configuration reload) with the `servers.<name>.autoconnect` setting
+- `/connect` (without an argument) and `/reconnect` can be used in open buffers for disconnected servers to (re-)connect to the server
+- `/join` (without an argument) can be used in channel buffers where the channel is not joined in order to (re-)join the channel
 
 Fixed:
 
