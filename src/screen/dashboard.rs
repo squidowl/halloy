@@ -126,6 +126,10 @@ impl Dashboard {
             buffer_settings: dashboard::BufferSettings::default(),
         };
 
+        dashboard
+            .history
+            .set_max_messages(config.buffer.chathistory.max_messages);
+
         let command = dashboard.track(None);
 
         (dashboard, command)
@@ -179,6 +183,9 @@ impl Dashboard {
         clients: &client::Map,
         buffer_config: &config::Buffer,
     ) {
+        self.history
+            .set_max_messages(buffer_config.chathistory.max_messages);
+
         self.init_filters(servers, clients);
 
         self.reprocess_history(clients, buffer_config);
@@ -3635,6 +3642,10 @@ impl Dashboard {
             preview_client: preview_client_from_config(config).map(Arc::new),
             buffer_settings: data.buffer_settings.clone(),
         };
+
+        dashboard
+            .history
+            .set_max_messages(config.buffer.chathistory.max_messages);
 
         let mut tasks = vec![];
 

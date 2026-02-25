@@ -61,16 +61,22 @@ pub struct Manager {
     resources: HashSet<Resource>,
     filters: Vec<Filter>,
     data: Data,
+    max_messages: usize,
 }
 
 impl Manager {
+    pub fn set_max_messages(&mut self, max_messages: usize) {
+        self.max_messages = max_messages;
+    }
+
     pub fn clear_messages(
         &mut self,
         kind: history::Kind,
         clients: &client::Map,
     ) -> Option<BoxFuture<'static, Message>> {
         if let Some(history) = self.data.map.get_mut(&kind) {
-            let task = history.flush(None, clients.get_seed(&kind));
+            let task =
+                history.flush(None, clients.get_seed(&kind), self.max_messages);
 
             match history {
                 History::Full {
@@ -103,6 +109,8 @@ impl Manager {
         let added = new_resources.difference(&self.resources).cloned();
         let removed = self.resources.difference(&new_resources).cloned();
 
+        let max_messages = self.max_messages;
+
         let added = added.into_iter().map(|resource| {
             let seed =
                 clients.and_then(|clients| clients.get_seed(&resource.kind));
@@ -116,7 +124,7 @@ impl Manager {
         });
 
         let removed = removed.into_iter().filter_map(|resource| {
-            self.data.untrack(&resource.kind).map(|task| {
+            self.data.untrack(&resource.kind, max_messages).map(|task| {
                 task.map(|result| Message::Closed(resource.kind, result))
                     .boxed()
             })
@@ -222,7 +230,7 @@ impl Manager {
         now: Instant,
         clients: &client::Map,
     ) -> Vec<BoxFuture<'static, Message>> {
-        self.data.flush_all(now, clients)
+        self.data.flush_all(now, clients, self.max_messages)
     }
 
     pub fn close(
@@ -231,10 +239,11 @@ impl Manager {
         clients: &client::Map,
     ) -> Option<impl Future<Output = Message> + use<>> {
         let history = self.data.map.remove(&kind)?;
+        let max_messages = self.max_messages;
 
         Some(
             history
-                .close(clients.get_seed(&kind))
+                .close(clients.get_seed(&kind), max_messages)
                 .map(|result| Message::Closed(kind, result)),
         )
     }
@@ -254,10 +263,13 @@ impl Manager {
         let seeds: Vec<Option<history::Seed>> =
             map.keys().map(|kind| clients.get_seed(kind)).collect();
         let seeded_map = map.into_iter().zip(seeds);
+        let max_messages = self.max_messages;
 
         async move {
             let tasks = seeded_map.into_iter().map(|((kind, state), seed)| {
-                state.close(seed).map(move |result| (kind, result))
+                state
+                    .close(seed, max_messages)
+                    .map(move |result| (kind, result))
             });
 
             Message::Exited(future::join_all(tasks).await)
@@ -419,7 +431,8 @@ impl Manager {
         kind: T,
         read_marker: history::ReadMarker,
     ) -> Option<impl Future<Output = Message> + use<T>> {
-        self.data.update_read_marker(kind, read_marker)
+        self.data
+            .update_read_marker(kind, read_marker, self.max_messages)
     }
 
     pub fn load_metadata(
@@ -1401,6 +1414,7 @@ impl Data {
         &mut self,
         kind: T,
         read_marker: history::ReadMarker,
+        max_messages: usize,
     ) -> Option<impl Future<Output = Message> + use<T>> {
         use std::collections::hash_map;
 
@@ -1412,6 +1426,7 @@ impl Data {
 
                 None
             }
+            hash_map::Entry::Vacant(_) if max_messages == 0 => None,
             hash_map::Entry::Vacant(_) => Some(
                 async move {
                     let updated =
@@ -1487,26 +1502,30 @@ impl Data {
     fn untrack(
         &mut self,
         kind: &history::Kind,
+        max_messages: usize,
     ) -> Option<impl Future<Output = Result<(), history::Error>> + use<>> {
-        self.map.get_mut(kind).and_then(History::make_partial)
+        self.map
+            .get_mut(kind)
+            .and_then(|h| h.make_partial(max_messages))
     }
 
     fn flush_all(
         &mut self,
         now: Instant,
         clients: &client::Map,
+        max_messages: usize,
     ) -> Vec<BoxFuture<'static, Message>> {
         self.map
             .iter_mut()
             .filter_map(|(kind, state)| {
                 let kind = kind.clone();
 
-                state.flush(Some(now), clients.get_seed(&kind)).map(
-                    move |task| {
+                state
+                    .flush(Some(now), clients.get_seed(&kind), max_messages)
+                    .map(move |task| {
                         task.map(move |result| Message::Flushed(kind, result))
                             .boxed()
-                    },
-                )
+                    })
             })
             .collect()
     }
