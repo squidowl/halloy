@@ -856,14 +856,21 @@ impl Halloy {
                             self.main_window.opened(position, size);
                         }
                         window::Event::CloseRequested => {
+                            let save = Task::perform(
+                                data::Window::from(self.main_window).save(),
+                                Message::WindowSettingsSaved,
+                            );
+
                             if let Screen::Dashboard(dashboard) =
                                 &mut self.screen
                             {
-                                return dashboard
-                                    .exit(&mut self.clients, &self.config)
-                                    .map(Message::Dashboard);
+                                return save.chain(
+                                    dashboard
+                                        .exit(&mut self.clients, &self.config)
+                                        .map(Message::Dashboard),
+                                );
                             } else {
-                                return iced::exit();
+                                return save.chain(iced::exit());
                             }
                         }
                     }
