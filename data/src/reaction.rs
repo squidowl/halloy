@@ -1,3 +1,4 @@
+use chrono::{DateTime, Utc};
 use irc::proto::Command;
 use serde::{Deserialize, Serialize};
 
@@ -18,6 +19,7 @@ pub struct Context {
     pub inner: Reaction,
     pub target: Target,
     pub in_reply_to: Id,
+    pub server_time: DateTime<Utc>,
 }
 
 impl Reaction {
@@ -37,6 +39,7 @@ impl Reaction {
             _ => return None,
         };
         let in_reply_to = message.in_reply_to()?;
+        let server_time = message.server_time();
 
         let (Command::PRIVMSG(target, _) | Command::TAGMSG(target)) =
             message.0.command
@@ -52,6 +55,22 @@ impl Reaction {
             },
             in_reply_to,
             target: Target::parse(&target, chantypes, statusmsg, casemapping),
+            server_time,
         })
+    }
+}
+
+#[derive(Debug)]
+pub struct Pending {
+    pub reactions: Vec<Reaction>,
+    pub server_time: DateTime<Utc>,
+}
+
+impl Pending {
+    pub fn new(server_time: DateTime<Utc>) -> Self {
+        Self {
+            reactions: vec![],
+            server_time,
+        }
     }
 }
