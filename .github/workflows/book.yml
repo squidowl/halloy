@@ -27,14 +27,14 @@ jobs:
         id: lychee-interal
         uses: lycheeverse/lychee-action@v2
         with:
-          args: --config ./.config/lychee-internal.toml './book/**/*.md'
+          args: --config ./.config/lychee-internal.toml --root-dir='./book' './book/**/*.md'
           fail: true
 
       - name: Check external links
         id: lychee-external
         uses: lycheeverse/lychee-action@v2
         with:
-          args: --config ./.config/lychee-external.toml './book/**/*.md'
+          args: --config ./.config/lychee-external.toml --root-dir='./book' './book/**/*.md'
           fail: true
         continue-on-error: true
 
