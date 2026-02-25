@@ -350,8 +350,12 @@ impl Manager {
     ) -> Option<impl Future<Output = Message> + use<>> {
         let kind =
             history::Kind::from_target(server.clone(), reaction.target.clone());
-        self.data
-            .add_reaction(kind, reaction.in_reply_to, reaction.inner)
+        self.data.add_reaction(
+            kind,
+            reaction.in_reply_to,
+            reaction.inner,
+            reaction.server_time,
+        )
     }
 
     pub fn block_and_record_message(
@@ -1060,14 +1064,13 @@ impl Data {
 
                     let mut last_seen = last_seen.clone();
 
-                    // pending reactions should only exist for unloaded history entries
-                    for message in messages.iter_mut() {
-                        if let Some(ref mut reacts) = message
-                            .id
-                            .as_ref()
-                            .and_then(|id| pending_reactions.remove(id))
-                        {
-                            message.reactions.append(reacts);
+                    for (id, pending) in pending_reactions.iter_mut() {
+                        if let Some(message) = history::find_reaction_target(
+                            &mut messages,
+                            id,
+                            &pending.server_time,
+                        ) {
+                            message.reactions.append(&mut pending.reactions);
                         }
                     }
 
@@ -1560,17 +1563,24 @@ impl Data {
         kind: history::Kind,
         in_reply_to: message::Id,
         reaction: Reaction,
+        server_time: DateTime<Utc>,
     ) -> Option<impl Future<Output = Message> + use<>> {
         match self.map.entry(kind.clone()) {
             hash_map::Entry::Occupied(mut entry) => {
-                entry.get_mut().add_reaction(in_reply_to, reaction);
+                entry.get_mut().add_reaction(
+                    in_reply_to,
+                    reaction,
+                    server_time,
+                );
 
                 None
             }
             hash_map::Entry::Vacant(entry) => {
-                entry
-                    .insert(History::partial(kind.clone()))
-                    .add_reaction(in_reply_to, reaction);
+                entry.insert(History::partial(kind.clone())).add_reaction(
+                    in_reply_to,
+                    reaction,
+                    server_time,
+                );
 
                 Some(
                     async move {

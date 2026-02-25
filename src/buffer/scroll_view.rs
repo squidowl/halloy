@@ -1365,6 +1365,7 @@ fn send_reaction(
                 },
                 target,
                 in_reply_to: msgid,
+                server_time: Utc::now(),
             },
         );
     }

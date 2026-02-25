@@ -13,7 +13,7 @@ use tokio::time::Instant;
 pub use self::manager::{Manager, Resource};
 pub use self::metadata::{Metadata, ReadMarker};
 use crate::message::{self, MessageReferences, Source};
-use crate::reaction::Reaction;
+use crate::reaction::{self, Reaction};
 use crate::target::{self, Target};
 use crate::user::Nick;
 use crate::{
@@ -235,21 +235,19 @@ pub async fn overwrite(
 pub async fn append(
     kind: &Kind,
     seed: Option<Seed>,
-    messages: Vec<Message>,
+    mut messages: Vec<Message>,
     read_marker: Option<ReadMarker>,
-    mut pending_reactions: HashMap<message::Id, Vec<Reaction>>,
+    pending_reactions: HashMap<message::Id, reaction::Pending>,
 ) -> Result<(), Error> {
     let loaded = load(kind.clone(), seed).await?;
 
     let mut all_messages = loaded.messages;
     // pending reactions should only exist for unloaded history entries
-    for message in all_messages.iter_mut() {
-        if let Some(ref mut reacts) = message
-            .id
-            .as_ref()
-            .and_then(|id| pending_reactions.remove(id))
+    for (id, mut pending) in pending_reactions.into_iter() {
+        if let Some(message) =
+            find_reaction_target(&mut messages, &id, &pending.server_time)
         {
-            message.reactions.append(reacts);
+            message.reactions.append(&mut pending.reactions);
         }
     }
     messages.into_iter().for_each(|message| {
@@ -315,7 +313,7 @@ pub enum History {
         read_marker: Option<ReadMarker>,
         chathistory_references: Option<MessageReferences>,
         last_seen: HashMap<Nick, DateTime<Utc>>,
-        pending_reactions: HashMap<message::Id, Vec<Reaction>>,
+        pending_reactions: HashMap<message::Id, reaction::Pending>,
     },
     Full {
         kind: Kind,
@@ -841,7 +839,12 @@ impl History {
         }
     }
 
-    pub fn add_reaction(&mut self, id: message::Id, reaction: Reaction) {
+    pub fn add_reaction(
+        &mut self,
+        id: message::Id,
+        reaction: Reaction,
+        server_time: DateTime<Utc>,
+    ) {
         match self {
             History::Partial {
                 messages,
@@ -849,12 +852,20 @@ impl History {
                 pending_reactions,
                 ..
             } => {
-                if let Some(message) =
-                    messages.iter_mut().find(|m| m.id.as_deref() == Some(&*id))
+                if let Some(message) = messages
+                    .iter_mut()
+                    .rev()
+                    .find(|m| m.id.as_deref() == Some(&*id))
                 {
                     message.reactions.push(reaction);
                 } else {
-                    pending_reactions.entry(id).or_default().push(reaction);
+                    let pending = pending_reactions
+                        .entry(id)
+                        .or_insert(reaction::Pending::new(server_time));
+
+                    pending.server_time =
+                        (pending.server_time).min(server_time);
+                    pending.reactions.push(reaction);
                 }
                 *last_updated_at = Some(Instant::now());
             }
@@ -864,7 +875,7 @@ impl History {
                 ..
             } => {
                 let Some(message) =
-                    messages.iter_mut().find(|m| m.id.as_deref() == Some(&*id))
+                    find_reaction_target(messages, &id, &server_time)
                 else {
                     return;
                 };
@@ -1065,6 +1076,43 @@ pub fn get_last_seen(messages: &[Message]) -> HashMap<Nick, DateTime<Utc>> {
     });
 
     last_seen
+}
+
+pub fn find_reaction_target<'a>(
+    messages: &'a mut [Message],
+    id: &message::Id,
+    server_time: &DateTime<Utc>,
+) -> Option<&'a mut Message> {
+    if messages.is_empty() {
+        return None;
+    }
+
+    let start = *server_time + chrono::Duration::seconds(1);
+
+    let start_index = match messages
+        .binary_search_by(|stored| stored.server_time.cmp(&start))
+    {
+        Ok(match_index) => match_index,
+        Err(sorted_insert_index) => sorted_insert_index,
+    };
+
+    // Look for the message at/before the earliest server_time for a react, then
+    // check for the unlikely scenario where the message where the message's
+    // server_time is after a react
+    let position = messages
+        .iter()
+        .take(start_index + 1)
+        .rev()
+        .position(|m| m.id.as_deref() == Some(id))
+        .map(|position| start_index - position)
+        .or(messages
+            .iter()
+            .skip(start_index + 1)
+            .rev()
+            .position(|m| m.id.as_deref() == Some(id))
+            .map(|position| messages.len() - position));
+
+    position.and_then(|position| messages.get_mut(position))
 }
 
 #[derive(Debug)]
