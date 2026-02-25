@@ -1076,7 +1076,9 @@ impl Client {
                         requested.push("batch");
 
                         // We require batch for our chathistory support
-                        if contains("draft/chathistory") {
+                        if contains("draft/chathistory")
+                            && self.config.chathistory
+                        {
                             requested.push("draft/chathistory");
 
                             if contains("draft/event-playback") {
@@ -1240,10 +1242,13 @@ impl Client {
                     }
 
                     // We require batch for our chathistory support
-                    if newly_contains("draft/chathistory")
+                    if (contains("draft/chathistory")
+                        || newly_contains("draft/chathistory"))
                         && self.config.chathistory
                     {
-                        requested.push("draft/chathistory");
+                        if newly_contains("draft/chathistory") {
+                            requested.push("draft/chathistory");
+                        }
 
                         if newly_contains("draft/event-playback") {
                             requested.push("draft/event-playback");
