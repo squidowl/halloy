@@ -23,6 +23,7 @@ pub struct Window {
     /// If fullscreen, stores the windowed size to restore on exit.
     #[serde(with = "serde_option_size")]
     pub fullscreen: Option<Size>,
+    pub maximized: bool,
 }
 
 impl Default for Window {
@@ -34,6 +35,7 @@ impl Default for Window {
                 height: 768.0,
             },
             fullscreen: None,
+            maximized: false,
         }
     }
 }
@@ -46,6 +48,7 @@ impl Window {
             position,
             size,
             fullscreen,
+            maximized,
         } = serde_json::from_slice(&bytes)?;
 
         let size = size.max(MIN_SIZE);
@@ -57,6 +60,7 @@ impl Window {
             position,
             size,
             fullscreen,
+            maximized,
         })
     }
 

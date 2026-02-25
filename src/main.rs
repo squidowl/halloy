@@ -284,6 +284,7 @@ pub enum Message {
     AppearanceChange(appearance::Mode),
     Window(window::Id, window::Event),
     WindowSettingsSaved(Result<(), window::Error>),
+    WindowMaximizeChecked(bool),
     Logging(Vec<logger::Record>),
     OnConnect(Server, client::on_connect::Event),
     UnixSignal(i32),
@@ -302,9 +303,8 @@ impl Halloy {
             size,
             position,
             fullscreen,
+            maximized,
         } = window_load.unwrap_or_default();
-        let position =
-            position.map(window::Position::Specific).unwrap_or_default();
 
         let default_config = Config::default();
         let config = config_load.as_ref().unwrap_or(&default_config);
@@ -313,7 +313,9 @@ impl Halloy {
 
         let (main_window, open_main_window) = window::open(window::Settings {
             size: fullscreen.unwrap_or(size),
-            position,
+            position: position
+                .map(window::Position::Specific)
+                .unwrap_or_default(),
             min_size: Some(window::MIN_SIZE),
             exit_on_close_request: false,
             fullscreen: fullscreen.is_some(),
@@ -323,8 +325,19 @@ impl Halloy {
         let (mut halloy, command) =
             Halloy::load_from_state(main_window, config_load, current_mode);
 
+        halloy.main_window.fullscreen = fullscreen;
+        halloy.main_window.maximized = maximized;
+        halloy.main_window.windowed_position = position;
+        halloy.main_window.windowed_size = size;
+
+        let open_task = if maximized {
+            open_main_window.then(move |_| window::maximize(main_window, true))
+        } else {
+            open_main_window.then(|_| Task::none())
+        };
+
         let mut commands = vec![
-            open_main_window.then(|_| Task::none()),
+            open_task,
             command,
             Task::stream(log_stream).map(Message::Logging),
         ];
@@ -390,11 +403,13 @@ impl Halloy {
                 Task::none()
             }
             Message::ScreenConfigReloaded(updated) => {
-                let (halloy, command) = Halloy::load_from_state(
+                let saved_window = self.main_window;
+                let (mut halloy, command) = Halloy::load_from_state(
                     self.main_window.id,
                     updated,
                     self.current_mode,
                 );
+                halloy.main_window = saved_window;
                 *self = halloy;
                 command
             }
@@ -901,10 +916,10 @@ impl Halloy {
                         }
                     }
 
-                    let mut tasks = vec![Task::perform(
-                        data::Window::from(self.main_window).save(),
-                        Message::WindowSettingsSaved,
-                    )];
+                    let mut tasks = vec![
+                        iced::window::is_maximized(self.main_window.id)
+                            .map(Message::WindowMaximizeChecked),
+                    ];
 
                     if let Some(Screen::Dashboard(dashboard)) =
                         matches!(event, window::Event::Focused)
@@ -925,6 +940,13 @@ impl Halloy {
                 } else {
                     Task::none()
                 }
+            }
+            Message::WindowMaximizeChecked(is_maximized) => {
+                self.main_window.update_maximize(is_maximized);
+                Task::perform(
+                    data::Window::from(self.main_window).save(),
+                    Message::WindowSettingsSaved,
+                )
             }
             Message::WindowSettingsSaved(result) => {
                 if let Err(err) = result {
