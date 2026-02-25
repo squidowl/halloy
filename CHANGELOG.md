@@ -1,5 +1,13 @@
 # Unreleased
 
+Fixed:
+
+- Window state is saved even if altered shortly before quitting
+
+Thanks:
+
+- Contributions: @melocene
+
 # 2026.3 (2026-02-24)
 
 Added:
