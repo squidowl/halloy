@@ -10,6 +10,16 @@ server = "znc.example.com"
 password = "<your-password>"
 ```
 
+
+ZNC 1.10.0 and newer allow sasl plain authentication if the `saslplainauth` module is loaded in ZNC.
+
+```toml
+[servers.libera.sasl.plain]
+username = "<znc-user>/<znc-network>"
+password = "<your-password>"
+```
+
+
 Depending on your ZNC setup you may need to apply these extra settings:
 
 Does your znc use a self-signed or expired certificate? See:
