@@ -438,7 +438,7 @@ where
             Some(menu) => state.menu_tree.diff(&*menu),
             None => {
                 let _menu = build_menu(entries, entry);
-                state.menu_tree = widget::Tree::new(&_menu);
+                state.menu_tree.diff(&_menu);
                 *menu = Some(_menu);
             }
         },
