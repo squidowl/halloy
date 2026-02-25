@@ -1557,7 +1557,7 @@ impl Data {
             history.show_preview(message, url);
         }
     }
-    
+
     fn add_reaction(
         &mut self,
         kind: history::Kind,
