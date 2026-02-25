@@ -23,7 +23,7 @@ password = "<your-password>"
 Depending on your ZNC setup you may need to apply these extra settings:
 
 Does your znc use a self-signed or expired certificate? See:
-[`servers.<name>.dangerously_accept_invalid_certs`](/configuration/servers.html#dangerously_accept_invalid_certs)
+[`servers.<name>.dangerously_accept_invalid_certs`](/configuration/servers/#dangerously_accept_invalid_certs)
 
 Does your znc listen on a different port? See:
-[`servers.<name>.port`](/configuration/servers.html#port)
+[`servers.<name>.port`](/configuration/servers/#port)
