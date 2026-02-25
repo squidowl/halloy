@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-6b73487e.js";
+            window.path_to_searchindex_js = "searchindex-6089be0a.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-ac22d4e6.js"></script>
@@ -575,11 +575,16 @@ nickname = "&lt;znc-user&gt;/&lt;znc-network&gt;"
 server = "znc.example.com"
 password = "&lt;your-password&gt;"
 </code></pre>
+<p>ZNC 1.10.0 and newer allow sasl plain authentication if the <code>saslplainauth</code> module is loaded in ZNC.</p>
+<pre><code class="language-toml">[servers.libera.sasl.plain]
+username = "&lt;znc-user&gt;/&lt;znc-network&gt;"
+password = "&lt;your-password&gt;"
+</code></pre>
 <p>Depending on your ZNC setup you may need to apply these extra settings:</p>
 <p>Does your znc use a self-signed or expired certificate? See:
-<a href="/configuration/servers.html#dangerously_accept_invalid_certs"><code>servers.&lt;name&gt;.dangerously_accept_invalid_certs</code></a></p>
+<a href="/configuration/servers#dangerously_accept_invalid_certs"><code>servers.&lt;name&gt;.dangerously_accept_invalid_certs</code></a></p>
 <p>Does your znc listen on a different port? See:
-<a href="/configuration/servers.html#port"><code>servers.&lt;name&gt;.port</code></a></p>
+<a href="/configuration/servers#port"><code>servers.&lt;name&gt;.port</code></a></p>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="example-server-configurations"><a class="header" href="#example-server-configurations">Example Server Configurations</a></h1>
 <h2 id="libera"><a class="header" href="#libera"><a href="https://libera.chat/">Libera</a></a></h2>
