@@ -13,9 +13,11 @@ use crate::user::NickRef;
 use crate::{Server, isupport, target};
 
 pub mod channel;
+pub mod hide_consecutive;
 pub mod nickname;
 pub mod text_input;
 
+pub use self::hide_consecutive::{HideConsecutive, HideConsecutiveEnabled};
 use crate::buffer::{
     BacklogSeparator, DateSeparators, SkinTone, StatusMessagePrefix, Timestamp,
 };
