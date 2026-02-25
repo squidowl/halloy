@@ -5,5 +5,5 @@ index_files = ["README.md"]
 
 include_fragments = true
 
-exclude-all-private = true
+exclude_all_private = true
 exclude = [ '^http://.*', '^https://.*', '^irc://.*', '^ircs://.*' ]
