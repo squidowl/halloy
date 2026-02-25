@@ -3,6 +3,7 @@
 Fixed:
 
 - Window state is saved even if altered shortly before quitting
+- Default dimmed value for server messages no longer overrides `dimmed = false` set for individual server message kinds
 
 Thanks:
 

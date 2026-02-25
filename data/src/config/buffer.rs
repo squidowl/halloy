@@ -232,13 +232,19 @@ impl<'de> Deserialize<'de> for Away {
         let repr = AppearanceRepr::deserialize(deserializer)?;
         match repr {
             AppearanceRepr::String(s) => match s.as_str() {
-                "dimmed" => Ok(Away::Dimmed(Dimmed(None))),
+                "dimmed" => Ok(Away::Dimmed(Dimmed {
+                    enabled: true,
+                    alpha: None,
+                })),
                 "solid" | "none" => Ok(Away::None),
                 _ => Err(serde::de::Error::custom(format!(
                     "unknown appearance: {s}",
                 ))),
             },
-            AppearanceRepr::Struct(s) => Ok(Away::Dimmed(Dimmed(s.dimmed))),
+            AppearanceRepr::Struct(s) => Ok(Away::Dimmed(Dimmed {
+                enabled: true,
+                alpha: s.dimmed,
+            })),
         }
     }
 }
@@ -385,7 +391,7 @@ impl Default for Condensation {
             ]),
             format: CondensationFormat::default(),
             icon: CondensationIcon::default(),
-            dimmed: Some(Dimmed(None)),
+            dimmed: Some(Dimmed::default()),
         }
     }
 }
@@ -487,7 +493,7 @@ impl Default for ServerMessageDefault {
             username_format: UsernameFormat::default(),
             exclude: None,
             include: None,
-            dimmed: Some(Dimmed(None)),
+            dimmed: Some(Dimmed::default()),
         }
     }
 }
@@ -679,20 +685,39 @@ impl Buffer {
     }
 }
 
-#[derive(Debug, Default, Clone, Copy, Deserialize)]
-pub struct Dimmed(Option<f32>);
+#[derive(Debug, Clone, Copy, Deserialize)]
+pub struct Dimmed {
+    enabled: bool,
+    alpha: Option<f32>,
+}
+
+impl Default for Dimmed {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            alpha: None,
+        }
+    }
+}
 
 impl Dimmed {
     pub fn new(alpha: Option<f32>) -> Self {
-        Dimmed(alpha)
+        Dimmed {
+            enabled: true,
+            alpha,
+        }
     }
 
     pub fn transform_color(&self, color: Color, background: Color) -> Color {
-        match self.0 {
-            // Calculate alpha based on background and foreground.
-            None => alpha_color_calculate(0.20, 0.61, background, color),
-            // Calculate alpha based on user defined alpha value.
-            Some(a) => alpha_color(color, a),
+        if self.enabled {
+            match self.alpha {
+                // Calculate alpha based on background and foreground.
+                None => alpha_color_calculate(0.20, 0.61, background, color),
+                // Calculate alpha based on user defined alpha value.
+                Some(a) => alpha_color(color, a),
+            }
+        } else {
+            color
         }
     }
 }
@@ -712,8 +737,14 @@ where
 
     let dimmed_maybe: Option<Data> = Deserialize::deserialize(deserializer)?;
 
-    Ok(dimmed_maybe.and_then(|dimmed| match dimmed {
-        Data::Boolean(dim) => dim.then_some(Dimmed(None)),
-        Data::Float(dim) => Some(Dimmed(Some(dim))),
+    Ok(dimmed_maybe.map(|dimmed| match dimmed {
+        Data::Boolean(dim) => Dimmed {
+            enabled: dim,
+            alpha: None,
+        },
+        Data::Float(dim) => Dimmed {
+            enabled: true,
+            alpha: Some(dim),
+        },
     }))
 }
