@@ -790,6 +790,8 @@ impl State {
                                 raw_input.to_owned(),
                             );
 
+                            self.input_content = text_editor::Content::new();
+
                             match command {
                                 command::Internal::OpenBuffers(targets) => {
                                     return (
@@ -970,8 +972,6 @@ impl State {
                                     return (delayed_join_task, event);
                                 }
                                 command::Internal::ChannelDiscovery => {
-                                    self.input_content =
-                                        text_editor::Content::new();
                                     return (
                                         Task::none(),
                                         Some(Event::OpenInternalBuffer(
@@ -1000,9 +1000,6 @@ impl State {
                                     return (Task::none(), event);
                                 }
                                 command::Internal::SysInfo => {
-                                    self.input_content =
-                                        text_editor::Content::new();
-
                                     return (
                                         iced::system::information()
                                             .map(Message::SysInfoReceived),
@@ -1010,18 +1007,12 @@ impl State {
                                     );
                                 }
                                 command::Internal::Connect(server) => {
-                                    self.input_content =
-                                        text_editor::Content::new();
-
                                     return (
                                         Task::none(),
                                         Some(Event::OpenServer(server)),
                                     );
                                 }
                                 command::Internal::Reconnect => {
-                                    self.input_content =
-                                        text_editor::Content::new();
-
                                     return (
                                         Task::none(),
                                         Some(Event::Reconnect(
