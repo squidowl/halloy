@@ -96,6 +96,7 @@ impl Notifications {
                     &config.connected,
                     notification,
                     "Connected",
+                    None,
                     &server.to_string(),
                     None,
                 );
@@ -107,6 +108,7 @@ impl Notifications {
                     &config.disconnected,
                     notification,
                     "Disconnected",
+                    None,
                     &server.to_string(),
                     None,
                 );
@@ -118,6 +120,7 @@ impl Notifications {
                     &config.reconnected,
                     notification,
                     "Reconnected",
+                    None,
                     &server.to_string(),
                     None,
                 );
@@ -133,6 +136,7 @@ impl Notifications {
                     } else {
                         "Monitored users are online"
                     },
+                    None,
                     &join_targets(targets.iter().map(User::as_str).collect()),
                     None,
                 );
@@ -148,6 +152,7 @@ impl Notifications {
                     } else {
                         "Monitored users are offline"
                     },
+                    None,
                     &join_targets(targets.iter().map(Nick::as_str).collect()),
                     None,
                 );
@@ -165,18 +170,20 @@ impl Notifications {
                     server,
                     *casemapping,
                 ) {
-                    let (title, body) = if config
+                    let (title, subtitle, body) = if config
                         .file_transfer_request
                         .show_content
                     {
                         (
-                            &format!("File transfer from {nick} on {server}"),
-                            filename,
+                            &format!("{nick}"),
+                            Some(format!("{server}")),
+                            &format!("Sent you a file: {filename}"),
                         )
                     } else {
                         (
                             &format!("File transfer from {nick}"),
-                            &format!("{server}"),
+                            None,
+                            &format!("Sent you a file in {server}"),
                         )
                     };
 
@@ -184,6 +191,7 @@ impl Notifications {
                         &config.file_transfer_request,
                         notification,
                         title,
+                        subtitle.as_deref(),
                         body,
                         None,
                     );
@@ -204,21 +212,17 @@ impl Notifications {
                     server,
                     *casemapping,
                 ) {
-                    let (title, body) = if config.direct_message.show_content {
+                    let (title, subtitle, body) = if config.direct_message.show_content {
                         (
-                            &format!(
-                                "{} sent you a direct message on {server}",
-                                user.nickname()
-                            ),
+                            &format!("{}", user.nickname()),
+                            Some(format!("{server}")),
                             message,
                         )
                     } else {
                         (
-                            &format!(
-                                "{} sent you a direct message",
-                                user.nickname()
-                            ),
-                            &format!("{server}"),
+                            &format!("{}", user.nickname()),
+                            None,
+                            &format!("Sent you a direct message in {server}"),
                         )
                     };
 
@@ -226,6 +230,7 @@ impl Notifications {
                         &config.direct_message,
                         notification,
                         title,
+                        subtitle.as_deref(),
                         body,
                         None,
                     );
@@ -256,9 +261,10 @@ impl Notifications {
                             &config.highlight,
                             notification,
                             &format!(
-                                "{} {description} in {channel} on {server}",
+                                "{} {description}",
                                 user.nickname()
                             ),
+                            Some(format!("{channel}, {server}")).as_deref(),
                             message,
                             sound.as_deref(),
                         );
@@ -268,11 +274,9 @@ impl Notifications {
                         self.execute(
                             &config.highlight,
                             notification,
-                            &format!(
-                                "{} {description} in {channel}",
-                                user.nickname()
-                            ),
-                            &server.name,
+                            user.nickname().as_str(),
+                            None,
+                            &format!("{description} in {channel} ({server})"),
                             sound.as_deref(),
                         );
 
@@ -301,10 +305,8 @@ impl Notifications {
                         self.execute(
                             notification_config,
                             notification,
-                            &format!(
-                                "{} sent a message in {channel} on {server}",
-                                user.nickname()
-                            ),
+                            user.nickname().as_str(),
+                            Some(format!("{channel}, {server}")).as_deref(),
                             message,
                             None,
                         );
@@ -314,11 +316,9 @@ impl Notifications {
                         self.execute(
                             notification_config,
                             notification,
-                            &format!(
-                                "{} sent a message in {channel}",
-                                user.nickname()
-                            ),
-                            &server.name,
+                            user.nickname().as_str(),
+                            None,
+                            &format!("Sent a message in {channel} ({server})"),
                             None,
                         );
 
@@ -345,6 +345,7 @@ impl Notifications {
         config: &notification::Notification,
         notification: &Notification,
         title: &str,
+        subtitle: Option<&str>,
         body: &str,
         sound_name: Option<&str>,
     ) {
@@ -365,7 +366,7 @@ impl Notifications {
         self.recent_notifications.insert(delay_key, now);
 
         if config.show_toast {
-            toast::show(title, body);
+            toast::show(title, subtitle, body);
         }
 
         if let Some(sound) = sound_name
