@@ -14,6 +14,7 @@ use tokio::time::Instant;
 pub use self::manager::{Manager, Resource};
 pub use self::metadata::{Metadata, ReadMarker};
 use crate::message::{self, MessageReferences, Source};
+use crate::reaction::{self, Reaction};
 use crate::target::{self, Target};
 use crate::user::Nick;
 use crate::{
@@ -236,12 +237,21 @@ pub async fn overwrite(
 pub async fn append(
     kind: &Kind,
     seed: Option<Seed>,
-    messages: Vec<Message>,
+    mut messages: Vec<Message>,
     read_marker: Option<ReadMarker>,
+    pending_reactions: HashMap<message::Id, reaction::Pending>,
 ) -> Result<(), Error> {
     let loaded = load(kind.clone(), seed).await?;
 
     let mut all_messages = loaded.messages;
+    // pending reactions should only exist for unloaded history entries
+    for (id, mut pending) in pending_reactions.into_iter() {
+        if let Some(message) =
+            find_reaction_target(&mut messages, &id, &pending.server_time)
+        {
+            message.reactions.append(&mut pending.reactions);
+        }
+    }
     messages.into_iter().for_each(|message| {
         insert_message(&mut all_messages, message);
     });
@@ -308,6 +318,7 @@ pub enum History {
         read_marker: Option<ReadMarker>,
         chathistory_references: Option<MessageReferences>,
         last_seen: HashMap<Nick, DateTime<Utc>>,
+        pending_reactions: HashMap<message::Id, reaction::Pending>,
     },
     Full {
         kind: Kind,
@@ -330,6 +341,7 @@ impl History {
             read_marker: None,
             chathistory_references: None,
             last_seen: HashMap::new(),
+            pending_reactions: HashMap::new(),
         }
     }
 
@@ -562,6 +574,7 @@ impl History {
                 messages,
                 last_updated_at,
                 read_marker,
+                pending_reactions,
                 ..
             } => {
                 if let Some(last_received) = *last_updated_at
@@ -573,12 +586,20 @@ impl History {
                     let kind = kind.clone();
                     let messages = std::mem::take(messages);
                     let read_marker = *read_marker;
+                    let pending_reactions = std::mem::take(pending_reactions);
 
                     *last_updated_at = None;
 
                     return Some(
                         async move {
-                            append(&kind, seed, messages, read_marker).await
+                            append(
+                                &kind,
+                                seed,
+                                messages,
+                                read_marker,
+                                pending_reactions,
+                            )
+                            .await
                         }
                         .boxed(),
                     );
@@ -657,6 +678,7 @@ impl History {
                     max_triggers_highlight,
                     chathistory_references,
                     last_seen: last_seen.clone(),
+                    pending_reactions: HashMap::new(),
                 };
 
                 Some(
@@ -672,8 +694,12 @@ impl History {
                 kind,
                 messages,
                 read_marker,
+                pending_reactions,
                 ..
-            } => append(&kind, seed, messages, read_marker).await,
+            } => {
+                append(&kind, seed, messages, read_marker, pending_reactions)
+                    .await
+            }
             History::Full {
                 kind,
                 messages,
@@ -815,6 +841,53 @@ impl History {
             message.hidden_urls.remove(url);
 
             *last_updated_at = Some(Instant::now());
+        }
+    }
+
+    pub fn add_reaction(
+        &mut self,
+        id: message::Id,
+        reaction: Reaction,
+        server_time: DateTime<Utc>,
+    ) {
+        match self {
+            History::Partial {
+                messages,
+                last_updated_at,
+                pending_reactions,
+                ..
+            } => {
+                if let Some(message) = messages
+                    .iter_mut()
+                    .rev()
+                    .find(|m| m.id.as_deref() == Some(&*id))
+                {
+                    message.reactions.push(reaction);
+                } else {
+                    let pending = pending_reactions
+                        .entry(id)
+                        .or_insert(reaction::Pending::new(server_time));
+
+                    pending.server_time =
+                        (pending.server_time).min(server_time);
+                    pending.reactions.push(reaction);
+                }
+                *last_updated_at = Some(Instant::now());
+            }
+            History::Full {
+                messages,
+                last_updated_at,
+                ..
+            } => {
+                let Some(message) =
+                    find_reaction_target(messages, &id, &server_time)
+                else {
+                    return;
+                };
+                message.reactions.push(reaction);
+
+                *last_updated_at = Some(Instant::now());
+            }
         }
     }
 
@@ -1008,6 +1081,43 @@ pub fn get_last_seen(messages: &[Message]) -> HashMap<Nick, DateTime<Utc>> {
     });
 
     last_seen
+}
+
+pub fn find_reaction_target<'a>(
+    messages: &'a mut [Message],
+    id: &message::Id,
+    server_time: &DateTime<Utc>,
+) -> Option<&'a mut Message> {
+    if messages.is_empty() {
+        return None;
+    }
+
+    let start = *server_time + chrono::Duration::seconds(1);
+
+    let start_index = match messages
+        .binary_search_by(|stored| stored.server_time.cmp(&start))
+    {
+        Ok(match_index) => match_index,
+        Err(sorted_insert_index) => sorted_insert_index,
+    };
+
+    // Look for the message at/before the earliest server_time for a react, then
+    // check for the unlikely scenario where the message where the message's
+    // server_time is after a react
+    let position = messages
+        .iter()
+        .take(start_index)
+        .rev()
+        .position(|m| m.id.as_deref() == Some(id))
+        .map(|position| start_index - 1 - position)
+        .or(messages
+            .iter()
+            .skip(start_index)
+            .rev()
+            .position(|m| m.id.as_deref() == Some(id))
+            .map(|position| messages.len() - 1 - position));
+
+    position.and_then(|position| messages.get_mut(position))
 }
 
 #[derive(Debug)]

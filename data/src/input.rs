@@ -184,8 +184,7 @@ impl Content {
 
     fn proto(&self, buffer: &buffer::Upstream) -> Option<proto::Message> {
         self.command(buffer)
-            .and_then(|command| proto::Command::try_from(command).ok())
-            .map(proto::Message::from)
+            .and_then(|command| proto::Message::try_from(command).ok())
     }
 }
 

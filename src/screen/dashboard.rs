@@ -17,7 +17,7 @@ use data::rate_limit::TokenPriority;
 use data::target::{self, Target};
 use data::{
     Config, Notification, Server, User, Version, client, command, config,
-    environment, file_transfer, history, preview, server, stream,
+    environment, file_transfer, history, preview, reaction, server, stream,
 };
 use iced::widget::pane_grid::{self, PaneGrid};
 use iced::widget::{Space, column, container, row};
@@ -2828,6 +2828,18 @@ impl Dashboard {
         if let Some(task) =
             self.history.record_message(server, message, buffer_config)
         {
+            Task::perform(task, Message::History)
+        } else {
+            Task::none()
+        }
+    }
+
+    pub fn record_reaction(
+        &mut self,
+        server: &Server,
+        reaction: reaction::Context,
+    ) -> Task<Message> {
+        if let Some(task) = self.history.record_reaction(server, reaction) {
             Task::perform(task, Message::History)
         } else {
             Task::none()

@@ -8,7 +8,6 @@ use data::dashboard::BufferAction;
 use data::history::filter::FilterChain;
 use data::history::{self, ReadMarker};
 use data::input::{self, RawInput};
-use data::message::server_time;
 use data::rate_limit::TokenPriority;
 use data::server::Server;
 use data::target::Target;
@@ -1042,7 +1041,7 @@ impl State {
                     self.input_content = text_editor::Content::new();
 
                     if let Some(encoded) = input.encoded() {
-                        let sent_time = server_time(&encoded);
+                        let sent_time = encoded.server_time();
 
                         clients.send(buffer, encoded, TokenPriority::User);
 
