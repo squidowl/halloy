@@ -27,7 +27,10 @@ pub fn message(input: &str) -> Result<Message, Error> {
             command,
         )),
         // Discard addtl. \r or \n if it exists, allow whitespace before
-        preceded(many0(char(' ')), alt((preceded(one_of("\r\n"), crlf), crlf))),
+        preceded(
+            many0(char(' ')),
+            alt((preceded(one_of("\r\n"), crlf), crlf)),
+        ),
     ));
 
     message(input)
