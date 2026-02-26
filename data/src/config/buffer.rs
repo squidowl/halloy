@@ -438,7 +438,9 @@ pub enum CondensationMessage {
     Join,
     Part,
     Quit,
+    #[serde(alias = "change_nick")]
     ChangeNick,
+    #[serde(alias = "change_host")]
     ChangeHost,
     Kick,
 }
