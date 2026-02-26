@@ -564,13 +564,10 @@ impl Dashboard {
 
                         controllers.connect(&server);
 
-                        for bouncer_network in servers.keys() {
-                            if bouncer_network
-                                .parent()
-                                .is_some_and(|parent| parent == server)
-                            {
-                                controllers.connect(bouncer_network);
-                            }
+                        for bouncer_network in
+                            servers.get_bouncer_networks(&server)
+                        {
+                            controllers.connect(bouncer_network);
                         }
 
                         (Task::none(), None)
