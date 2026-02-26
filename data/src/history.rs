@@ -1101,16 +1101,16 @@ pub fn find_reaction_target<'a>(
     // server_time is after a react
     let position = messages
         .iter()
-        .take(start_index + 1)
+        .take(start_index)
         .rev()
         .position(|m| m.id.as_deref() == Some(id))
-        .map(|position| start_index - position)
+        .map(|position| start_index - 1 - position)
         .or(messages
             .iter()
-            .skip(start_index + 1)
+            .skip(start_index)
             .rev()
             .position(|m| m.id.as_deref() == Some(id))
-            .map(|position| messages.len() - position));
+            .map(|position| messages.len() - 1 - position));
 
     position.and_then(|position| messages.get_mut(position))
 }

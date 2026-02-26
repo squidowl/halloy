@@ -651,9 +651,6 @@ impl Client {
         }
 
         match &message.command {
-            _ if is_reaction(&message) => {
-                return Ok(vec![Event::Reaction(message)]);
-            }
             Command::BATCH(batch, params) => {
                 let mut chars = batch.chars();
                 let symbol = ok!(chars.next());
@@ -808,6 +805,9 @@ impl Client {
                         vec![]
                     } else {
                         match &message.command {
+                            _ if is_reaction(&message) => {
+                                vec![Event::Reaction(message)]
+                            }
                             Command::NICK(_) => batch_target
                                 .as_channel()
                                 .map(|channel| {
@@ -967,6 +967,9 @@ impl Client {
                         source,
                     )]);
                 }
+            }
+            _ if is_reaction(&message) => {
+                return Ok(vec![Event::Reaction(message)]);
             }
             // Reroute whois, whowas, and user mode responses
             Command::Numeric(
