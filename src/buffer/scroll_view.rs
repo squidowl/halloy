@@ -4,14 +4,17 @@ use std::time::Duration;
 
 use chrono::{DateTime, Local, NaiveDate, NaiveTime, Utc};
 use data::buffer::DateSeparators;
+use data::command::Irc;
 use data::config::buffer::nickname::HideConsecutiveEnabled;
 use data::dashboard::BufferAction;
 use data::isupport::ChatHistoryState;
 use data::message::{self, Limit};
 use data::preview::{self, Previews};
+use data::rate_limit::TokenPriority;
+use data::reaction::Reaction;
 use data::server::Server;
 use data::target::{self, Target};
-use data::{Config, Preview, client, history};
+use data::{Config, Preview, client, history, reaction};
 use iced::widget::{
     self, Scrollable, button, center, column, container, image, mouse_area,
     right, row, rule, scrollable, space, stack, text,
@@ -25,7 +28,7 @@ use super::context_menu;
 use crate::widget::{
     Element, notify_visibility, on_resize, selectable_text, tooltip,
 };
-use crate::{Theme, font, icon, theme};
+use crate::{Theme, buffer, font, icon, theme};
 
 const HIDE_BUTTON_WIDTH: f32 = 22.0;
 const SCROLL_TO_TIMEOUT: Duration = Duration::from_millis(200);
@@ -56,6 +59,14 @@ pub enum Message {
     ContentResized(Size),
     PendingScrollTo,
     HeightsCollected(Vec<(message::Hash, f32)>),
+    Reacted {
+        msgid: message::Id,
+        text: String,
+    },
+    Unreacted {
+        msgid: message::Id,
+        text: String,
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -353,7 +364,7 @@ pub fn view<'a>(
                                     .visible_url_messages
                                     .contains_key(&message.hash);
 
-                        let mut column = column![element];
+                        let mut column = column![element].spacing(2);
 
                         for (idx, url) in urls.iter().enumerate() {
                             if message.hidden_urls.contains(url) {
@@ -691,8 +702,9 @@ impl State {
         message: Message,
         infinite_scroll: bool,
         kind: Kind,
-        history: &history::Manager,
-        clients: &client::Map,
+        buffer: Option<&buffer::Upstream>,
+        history: &mut history::Manager,
+        clients: &mut client::Map,
         config: &Config,
     ) -> (Task<Message>, Option<Event>) {
         match message {
@@ -1090,8 +1102,13 @@ impl State {
                     return (Task::none(), Some(event));
                 }
             }
+            Message::Reacted { msgid, text } => {
+                send_reaction(clients, buffer, history, msgid, text, false);
+            }
+            Message::Unreacted { msgid, text } => {
+                send_reaction(clients, buffer, history, msgid, text, true);
+            }
         }
-
         (Task::none(), None)
     }
 
@@ -1307,6 +1324,53 @@ impl State {
     pub fn visible_urls(&self) -> impl Iterator<Item = &url::Url> {
         self.visible_url_messages.values().flatten()
     }
+}
+
+fn send_reaction(
+    clients: &mut client::Map,
+    buffer: Option<&buffer::Upstream>,
+    history: &mut history::Manager,
+    msgid: message::Id,
+    text: String,
+    unreact: bool,
+) -> Option<()> {
+    let buffer = buffer?;
+    let server = buffer.server();
+    let target = buffer.target()?;
+    let command = match unreact {
+        true => Irc::Unreact {
+            target: target.to_string(),
+            msgid: msgid.clone(),
+            text: text.clone(),
+        },
+        false => Irc::React {
+            target: target.to_string(),
+            msgid: msgid.clone(),
+            text: text.clone(),
+        },
+    };
+
+    let encoded = message::Encoded::try_from(command).ok()?;
+    clients.send(buffer, encoded, TokenPriority::User);
+
+    if !clients.get_server_supports_echoes(server) {
+        let nick = clients.nickname(server)?;
+        history.record_reaction(
+            server,
+            reaction::Context {
+                inner: Reaction {
+                    sender: nick.to_owned(),
+                    text,
+                    unreact,
+                },
+                target,
+                in_reply_to: msgid,
+                server_time: Utc::now(),
+            },
+        );
+    }
+
+    Some(())
 }
 
 #[derive(Debug, Clone, Copy, Default)]

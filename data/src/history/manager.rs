@@ -10,6 +10,7 @@ use super::filter::{Filter, FilterChain};
 use crate::history::{self, History, MessageReferences, ReadMarker};
 use crate::message::broadcast::{self, Broadcast};
 use crate::message::{self, Limit};
+use crate::reaction::{self, Reaction};
 use crate::target::{self, Target};
 use crate::user::Nick;
 use crate::{Config, Server, buffer, client, config, input, isupport, server};
@@ -339,6 +340,21 @@ impl Manager {
 
                 future
             },
+        )
+    }
+
+    pub fn record_reaction(
+        &mut self,
+        server: &Server,
+        reaction: reaction::Context,
+    ) -> Option<impl Future<Output = Message> + use<>> {
+        let kind =
+            history::Kind::from_target(server.clone(), reaction.target.clone());
+        self.data.add_reaction(
+            kind,
+            reaction.in_reply_to,
+            reaction.inner,
+            reaction.server_time,
         )
     }
 
@@ -1038,6 +1054,7 @@ impl Data {
                     last_updated_at,
                     read_marker: partial_read_marker,
                     last_seen,
+                    pending_reactions,
                     ..
                 } => {
                     let read_marker =
@@ -1047,13 +1064,21 @@ impl Data {
 
                     let mut last_seen = last_seen.clone();
 
-                    std::mem::take(new_messages).into_iter().for_each(
-                        |message| {
-                            history::update_last_seen(&mut last_seen, &message);
+                    for (id, pending) in pending_reactions.iter_mut() {
+                        if let Some(message) = history::find_reaction_target(
+                            &mut messages,
+                            id,
+                            &pending.server_time,
+                        ) {
+                            message.reactions.append(&mut pending.reactions);
+                        }
+                    }
 
-                            history::insert_message(&mut messages, message);
-                        },
-                    );
+                    for message in std::mem::take(new_messages) {
+                        history::update_last_seen(&mut last_seen, &message);
+
+                        history::insert_message(&mut messages, message);
+                    }
 
                     entry.insert(History::Full {
                         kind,
@@ -1530,6 +1555,42 @@ impl Data {
     ) {
         if let Some(history) = self.map.get_mut(kind) {
             history.show_preview(message, url);
+        }
+    }
+
+    fn add_reaction(
+        &mut self,
+        kind: history::Kind,
+        in_reply_to: message::Id,
+        reaction: Reaction,
+        server_time: DateTime<Utc>,
+    ) -> Option<impl Future<Output = Message> + use<>> {
+        match self.map.entry(kind.clone()) {
+            hash_map::Entry::Occupied(mut entry) => {
+                entry.get_mut().add_reaction(
+                    in_reply_to,
+                    reaction,
+                    server_time,
+                );
+
+                None
+            }
+            hash_map::Entry::Vacant(entry) => {
+                entry.insert(History::partial(kind.clone())).add_reaction(
+                    in_reply_to,
+                    reaction,
+                    server_time,
+                );
+
+                Some(
+                    async move {
+                        let loaded =
+                            history::metadata::load(kind.clone()).await;
+                        Message::UpdatePartial(kind, loaded)
+                    }
+                    .boxed(),
+                )
+            }
         }
     }
 }

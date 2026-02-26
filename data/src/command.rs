@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::str::FromStr;
 
 use fancy_regex::Regex;
-use irc::proto;
+use irc::proto::{self, tags};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
@@ -44,6 +44,16 @@ pub enum Irc {
     Nick(String),
     Quit(Option<String>),
     Msg(String, String),
+    React {
+        target: String,
+        msgid: message::Id,
+        text: String,
+    },
+    Unreact {
+        target: String,
+        msgid: message::Id,
+        text: String,
+    },
     Me(String, String),
     Whois(Option<String>, String),
     Whowas(String, Option<String>),
@@ -1194,6 +1204,8 @@ impl TryFrom<Irc> for proto::Command {
             Irc::Nick(nick) => proto::Command::NICK(nick),
             Irc::Quit(comment) => proto::Command::QUIT(comment),
             Irc::Msg(target, msg) => proto::Command::PRIVMSG(target, msg),
+            Irc::React { target, .. } => proto::Command::TAGMSG(target),
+            Irc::Unreact { target, .. } => proto::Command::TAGMSG(target),
             Irc::Me(target, text) => {
                 ctcp::query_command(&ctcp::Command::Action, target, Some(text))
             }
@@ -1223,14 +1235,33 @@ impl TryFrom<Irc> for proto::Command {
         })
     }
 }
+impl TryFrom<Irc> for proto::Message {
+    type Error = ();
 
+    fn try_from(command: Irc) -> Result<Self, Self::Error> {
+        let tags = match &command {
+            Irc::React { msgid, text, .. } => tags![
+                "+reply" => msgid.to_string(),
+                "+draft/reply" => msgid.to_string(),
+                "+draft/react" => text,
+            ],
+            Irc::Unreact { msgid, text, .. } => tags![
+                "+reply" => msgid.to_string(),
+                "+draft/reply" => msgid.to_string(),
+                "+draft/unreact" => text,
+            ],
+            _ => tags![],
+        };
+        let mut msg = proto::Message::from(proto::Command::try_from(command)?);
+        msg.tags.extend(tags);
+        Ok(msg)
+    }
+}
 impl TryFrom<Irc> for message::Encoded {
     type Error = ();
 
     fn try_from(command: Irc) -> Result<Self, Self::Error> {
-        Ok(message::Encoded::from(proto::Message::from(
-            proto::Command::try_from(command)?,
-        )))
+        Ok(message::Encoded::from(proto::Message::try_from(command)?))
     }
 }
 
