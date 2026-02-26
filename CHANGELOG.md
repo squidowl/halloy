@@ -10,11 +10,12 @@ Fixed:
 - Default dimmed value for server messages no longer overrides `dimmed = false` set for individual server message kinds
 - Issue where context menu items would not respond to clicks
 - Filters are loaded on first connection to server via bouncer-networks and updated on config file reload
+- Compatibility with ZNC's backlog service
 
 Thanks:
 
-- Contributions: @melocene, @4e554c4c
-- Bug reports: @barretgoat
+- Contributions: @melocene, @4e554c4c, @TheOneric
+- Bug reports: @barretgoat, @TheOneric
 
 # 2026.3 (2026-02-24)
 
