@@ -379,6 +379,15 @@ impl Map {
         self.0.get_mut(server)
     }
 
+    pub fn get_bouncer_networks(
+        &self,
+        server: &Server,
+    ) -> impl Iterator<Item = &Server> {
+        self.0
+            .keys()
+            .filter(|key| key.parent().is_some_and(|parent| parent == *server))
+    }
+
     pub fn keys(&self) -> impl Iterator<Item = &Server> {
         self.0.keys()
     }
