@@ -9,10 +9,12 @@ Fixed:
 - Window state is saved even if altered shortly before quitting
 - Default dimmed value for server messages no longer overrides `dimmed = false` set for individual server message kinds
 - Issue where context menu items would not respond to clicks
+- Filters are loaded on first connection to server via bouncer-networks
 
 Thanks:
 
 - Contributions: @melocene, @4e554c4c
+- Bug reports: @barretgoat
 
 # 2026.3 (2026-02-24)
 
