@@ -438,14 +438,10 @@ impl Halloy {
                         })
                     }
                     Some(dashboard::Event::QuitServer(server, reason)) => {
-                        for bouncer_network in self.servers.keys() {
-                            if bouncer_network
-                                .parent()
-                                .is_some_and(|parent| parent == server)
-                            {
-                                self.clients
-                                    .quit(bouncer_network, reason.clone());
-                            }
+                        for bouncer_network in
+                            self.servers.get_bouncer_networks(&server)
+                        {
+                            self.clients.quit(bouncer_network, reason.clone());
                         }
 
                         self.clients.quit(&server, reason);
@@ -705,12 +701,27 @@ impl Halloy {
                 } => {
                     let events = self.clients.update_config(
                         &server,
-                        updated_config,
+                        updated_config.clone(),
                         false,
                     );
 
+                    let mut bouncer_network_events = vec![];
+
+                    for bouncer_network in
+                        self.servers.get_bouncer_networks(&server)
+                    {
+                        bouncer_network_events.push((
+                            bouncer_network.clone(),
+                            self.clients.update_config(
+                                bouncer_network,
+                                updated_config.bouncer_config().into(),
+                                false,
+                            ),
+                        ));
+                    }
+
                     if let Screen::Dashboard(dashboard) = &mut self.screen {
-                        return handle_client_events(
+                        let commands = handle_client_events(
                             &server,
                             events,
                             dashboard,
@@ -721,6 +732,32 @@ impl Halloy {
                             &mut self.controllers,
                             &self.main_window,
                         );
+
+                        if bouncer_network_events.is_empty() {
+                            return commands;
+                        }
+
+                        let mut bouncer_network_commands = vec![];
+
+                        for (bouncer_network, events) in bouncer_network_events
+                        {
+                            bouncer_network_commands.push(
+                                handle_client_events(
+                                    &bouncer_network,
+                                    events,
+                                    dashboard,
+                                    &mut self.clients,
+                                    &self.config,
+                                    &mut self.notifications,
+                                    &mut self.servers,
+                                    &mut self.controllers,
+                                    &self.main_window,
+                                ),
+                            );
+                        }
+
+                        return commands
+                            .chain(Task::batch(bouncer_network_commands));
                     }
 
                     Task::none()
@@ -1124,6 +1161,21 @@ impl Halloy {
                     if let Some(existing) = self.servers.get_mut(&server) {
                         *existing = config.clone();
 
+                        let bouncer_networks = self
+                            .servers
+                            .get_bouncer_networks(&server)
+                            .cloned()
+                            .collect::<Vec<_>>();
+
+                        for bouncer_network in bouncer_networks {
+                            if let Some(bouncer_network) =
+                                self.servers.get_mut(&bouncer_network)
+                            {
+                                *bouncer_network =
+                                    config.bouncer_config().into();
+                            }
+                        }
+
                         self.controllers.update_config(
                             &server,
                             config.clone(),
@@ -1426,20 +1478,17 @@ fn handle_client_events(
                     server, param, dashboard, clients, config,
                 );
             }
-            Event::BouncerNetwork(server, config) => {
-                servers.insert(server, config.into());
+            Event::BouncerNetwork(server, server_config) => {
+                servers.insert(server, server_config.into());
+
+                dashboard.update_filters(servers, clients, &config.buffer);
             }
             Event::AddToSidebar(query) => {
                 dashboard.add_to_sidebar(server.clone(), query);
             }
             Event::Disconnect(error) => {
-                for bouncer_network in servers.keys() {
-                    if bouncer_network
-                        .parent()
-                        .is_some_and(|parent| parent == *server)
-                    {
-                        controllers.disconnect(bouncer_network, error.clone());
-                    }
+                for bouncer_network in servers.get_bouncer_networks(server) {
+                    controllers.disconnect(bouncer_network, error.clone());
                 }
 
                 controllers.disconnect(server, error);
