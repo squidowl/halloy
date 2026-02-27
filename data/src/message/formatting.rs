@@ -10,7 +10,69 @@ use crate::appearance::theme;
 
 pub mod encode;
 
-pub fn parse(
+pub fn parse_code_fragments(text: &str) -> Vec<Fragment> {
+    let mut modifiers = HashSet::new();
+
+    let mut fragments = vec![];
+
+    let mut current_text = String::new();
+
+    let iter = text.chars().peekable();
+
+    for c in iter {
+        if let Ok(modifier) = Modifier::try_from(c) {
+            if !current_text.is_empty() {
+                let text = mem::take(&mut current_text);
+
+                if modifiers.is_empty() {
+                    fragments.push(Fragment::Unformatted(text));
+                } else {
+                    fragments.push(Fragment::Formatted(
+                        text,
+                        Formatting::new(&modifiers, None, None),
+                    ));
+                }
+            }
+
+            match modifier {
+                Modifier::Reset => {
+                    modifiers.clear();
+                }
+                Modifier::Monospace => {
+                    if modifiers.contains(&Modifier::Monospace) {
+                        modifiers.remove(&Modifier::Monospace);
+                    } else {
+                        modifiers.insert(Modifier::Monospace);
+                    }
+                }
+                _ => {
+                    if !modifiers.contains(&Modifier::Monospace) {
+                        current_text.push(c);
+                    }
+                }
+            }
+        } else {
+            current_text.push(c);
+        }
+    }
+
+    if !current_text.is_empty() {
+        let text = mem::take(&mut current_text);
+
+        if modifiers.is_empty() {
+            fragments.push(Fragment::Unformatted(text));
+        } else {
+            fragments.push(Fragment::Formatted(
+                text,
+                Formatting::new(&modifiers, None, None),
+            ));
+        }
+    }
+
+    fragments
+}
+
+pub fn parse_fragments(
     text: &str,
     modifiers: &mut HashSet<Modifier>,
     fg: &mut Option<Color>,
