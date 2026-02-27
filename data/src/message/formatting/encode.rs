@@ -237,14 +237,14 @@ fn markdown<'a>(
             pair(
                 tag("` "),
                 many_till(
-                    move |input| token(source, input, markdown_only),
+                    move |input| map(anychar, Token::Plain)(input),
                     tag(" `"),
                 ),
             ),
             pair(
                 tag("`"),
                 many_till(
-                    move |input| token(source, input, markdown_only),
+                    move |input| map(anychar, Token::Plain)(input),
                     tag("`"),
                 ),
             ),
@@ -253,12 +253,12 @@ fn markdown<'a>(
     );
 
     alt((
+        map(code, Markdown::Code),
         map(italic_bold, Markdown::ItalicBold),
         map(bold, Markdown::Bold),
         map(italic, Markdown::Italic),
         map(strikethrough, Markdown::Strikethrough),
         map(spoiler, Markdown::Spoiler),
-        map(code, Markdown::Code),
     ))
 }
 
