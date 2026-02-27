@@ -716,6 +716,10 @@ impl State {
                 status: old_status,
                 viewport,
             } => {
+                if self.pending_scroll_to.is_some() || self.is_scrolling_to {
+                    return (Task::none(), None);
+                }
+
                 self.last_scroll_offset = viewport.absolute_offset().y;
 
                 let relative_offset = viewport.relative_offset().y;
