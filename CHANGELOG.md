@@ -6,6 +6,7 @@ Added:
 
 Fixed:
 
+- High CPU usage when opening very large buffers
 - Window state is saved even if altered shortly before quitting
 - Default dimmed value for server messages no longer overrides `dimmed = false` set for individual server message kinds
 - Issue where context menu items would not respond to clicks
@@ -15,7 +16,7 @@ Fixed:
 Thanks:
 
 - Contributions: @melocene, @4e554c4c, @TheOneric
-- Bug reports: @barretgoat, @TheOneric
+- Bug reports: @barretgoat, @TheOneric, @Erroneuz
 
 # 2026.3 (2026-02-24)
 
