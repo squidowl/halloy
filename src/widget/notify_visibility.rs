@@ -1,5 +1,3 @@
-use std::cell::RefCell;
-
 use iced::advanced::{Clipboard, Layout, Shell, widget};
 use iced::{Event, Padding, Rectangle, mouse, window};
 
@@ -21,11 +19,10 @@ where
     Message: 'a + Clone,
 {
     let margin = margin.into();
-    let sent = RefCell::new(false);
 
     decorate(content)
         .update(
-            move |_state: &mut (),
+            move |sent: &mut bool,
                   inner: &mut Element<'a, Message>,
                   tree: &mut widget::Tree,
                   event: &Event,
@@ -37,8 +34,6 @@ where
                   viewport: &Rectangle| {
                 if let Event::Window(window::Event::RedrawRequested(_)) = &event
                 {
-                    let mut sent = sent.borrow_mut();
-
                     let is_visible =
                         viewport.expand(margin).intersects(&layout.bounds());
 
