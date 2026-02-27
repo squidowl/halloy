@@ -1682,71 +1682,90 @@ fn parse_fragments_inner<'a>(
     let mut fg = None;
     let mut bg = None;
 
-    parse_regex_fragments(&URL_REGEX, text, |url| {
-        let url = if url.starts_with("www") {
-            format!("https://{url}")
-        } else {
-            url.to_string()
-        };
+    formatting::parse_code_fragments(&text)
+        .into_iter()
+        .map(Fragment::from)
+        .flat_map(|fragment| {
+            if let Fragment::Text(text) = &fragment {
+                return Either::Left(
+                    parse_regex_fragments(&URL_REGEX, text, |url| {
+                        let url = if url.starts_with("www") {
+                            format!("https://{url}")
+                        } else {
+                            url.to_string()
+                        };
 
-        Url::parse(&url).ok().map(Fragment::Url)
-    })
-    .into_iter()
-    .flat_map(|fragment| {
-        if let Fragment::Text(text) = &fragment {
-            return Either::Left(
-                parse_regex_fragments(&CHANNEL_REGEX, text, |channel| {
-                    Some(Fragment::Channel(channel.to_owned()))
-                })
-                .into_iter(),
-            );
-        }
-
-        Either::Right(iter::once(fragment))
-    })
-    .flat_map(move |fragment| {
-        if let Fragment::Text(text) = &fragment {
-            if let Some(fragments) =
-                formatting::parse(text, &mut modifiers, &mut fg, &mut bg)
-            {
-                if fragments.is_empty() {
-                    return Either::Right(Either::Left(iter::empty()));
-                }
-
-                if fragments.iter().any(|fragment| {
-                    matches!(fragment, formatting::Fragment::Formatted(_, _))
-                }) {
-                    return Either::Left(
-                        fragments.into_iter().map(Fragment::from),
-                    );
-                // If there are no Formatted fragments,
-                // then fragments should contain a single Unformatted fragment
-                } else if let Some(text) = fragments
-                    .into_iter()
-                    .next()
-                    .and_then(|fragment| match fragment {
-                        formatting::Fragment::Unformatted(text) => Some(text),
-                        formatting::Fragment::Formatted(_, _) => None,
+                        Url::parse(&url).ok().map(Fragment::Url)
                     })
-                {
-                    // Even if the fragment is Unformatted there may have been formatting
-                    // characters in the text input into formatting::parse. They are
-                    // stripped from the text contained in the fragment.
+                    .into_iter(),
+                );
+            }
+
+            Either::Right(iter::once(fragment))
+        })
+        .flat_map(|fragment| {
+            if let Fragment::Text(text) = &fragment {
+                return Either::Left(
+                    parse_regex_fragments(&CHANNEL_REGEX, text, |channel| {
+                        Some(Fragment::Channel(channel.to_owned()))
+                    })
+                    .into_iter(),
+                );
+            }
+
+            Either::Right(iter::once(fragment))
+        })
+        .flat_map(move |fragment| {
+            if let Fragment::Text(text) = &fragment {
+                if let Some(fragments) = formatting::parse_fragments(
+                    text,
+                    &mut modifiers,
+                    &mut fg,
+                    &mut bg,
+                ) {
+                    if fragments.is_empty() {
+                        return Either::Right(Either::Left(iter::empty()));
+                    }
+
+                    if fragments.iter().any(|fragment| {
+                        matches!(
+                            fragment,
+                            formatting::Fragment::Formatted(_, _)
+                        )
+                    }) {
+                        return Either::Left(
+                            fragments.into_iter().map(Fragment::from),
+                        );
+                    // If there are no Formatted fragments,
+                    // then fragments should contain a single Unformatted fragment
+                    } else if let Some(text) = fragments
+                        .into_iter()
+                        .next()
+                        .and_then(|fragment| match fragment {
+                            formatting::Fragment::Unformatted(text) => {
+                                Some(text)
+                            }
+                            formatting::Fragment::Formatted(_, _) => None,
+                        })
+                    {
+                        // Even if the fragment is Unformatted there may have been formatting
+                        // characters in the text input into formatting::parse. They are
+                        // stripped from the text contained in the fragment.
+                        return Either::Right(Either::Right(iter::once(
+                            Fragment::Text(text),
+                        )));
+                    }
+                } else if text.is_empty() {
+                    return Either::Right(Either::Left(iter::empty()));
+                } else {
                     return Either::Right(Either::Right(iter::once(
-                        Fragment::Text(text),
+                        Fragment::Text(text.clone()),
                     )));
                 }
-            } else if text.is_empty() {
-                return Either::Right(Either::Left(iter::empty()));
-            } else {
-                return Either::Right(Either::Right(iter::once(
-                    Fragment::Text(text.clone()),
-                )));
             }
-        }
 
-        Either::Right(Either::Right(iter::once(fragment)))
-    })
+            Either::Right(Either::Right(iter::once(fragment)))
+        })
 }
 
 fn parse_regex_fragments<'a>(
