@@ -97,6 +97,8 @@ impl Keyboard {
         push(&self.move_down, MoveDown);
         push(&self.move_left, MoveLeft);
         push(&self.move_right, MoveRight);
+        push(&self.new_horizontal_buffer, NewHorizontalBuffer);
+        push(&self.new_vertical_buffer, NewVerticalBuffer);
         push(&self.close_buffer, CloseBuffer);
         push(&self.maximize_buffer, MaximizeBuffer);
         push(&self.restore_buffer, RestoreBuffer);
