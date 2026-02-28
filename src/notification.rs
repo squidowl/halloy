@@ -265,10 +265,7 @@ impl Notifications {
                         self.execute(
                             &config.highlight,
                             notification,
-                            &format!(
-                                "{} {description}",
-                                user.nickname()
-                            ),
+                            &format!("{} {description}", user.nickname()),
                             Some(if cfg!(target_os = "linux") {
                             	format!("{channel}, {server}")
                             } else {
