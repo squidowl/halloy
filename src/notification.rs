@@ -184,7 +184,7 @@ impl Notifications {
                         (
                             format!("File transfer from {nick}"),
                             None,
-                            format!("Sent you a file in {server}"),
+                            format!("Sent you a file on {server}"),
                         )
                     };
 
@@ -227,7 +227,7 @@ impl Notifications {
                         (
                             user.nickname().as_str().to_owned(),
                             None,
-                            format!("Sent you a direct message in {server}"),
+                            format!("Sent you a direct message on {server}"),
                         )
                     };
 
@@ -266,7 +266,7 @@ impl Notifications {
                             &config.highlight,
                             notification,
                             &format!("{} {description}", user.nickname()),
-                            Some(format!("{channel}, {server}")).as_deref(),
+                            Some(format!("{channel} ({server})")).as_deref(),
                             message,
                             sound.as_deref(),
                         );
@@ -308,7 +308,7 @@ impl Notifications {
                             notification_config,
                             notification,
                             user.nickname().as_str(),
-                            Some(format!("{channel}, {server}")).as_deref(),
+                            Some(format!("{channel} ({server})")).as_deref(),
                             message,
                             None,
                         );

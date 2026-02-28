@@ -26,10 +26,10 @@ pub fn show(title: &str, subtitle: Option<&str>, body: &str) {
     #[cfg(target_os = "linux")]
     {
         if let Some(subtitle) = subtitle {
-			notification.summary(&format!("{title} ({subtitle})"));
-		} else {
-			notification.summary(title);
-		}
+            notification.summary(&format!("{title} ({subtitle})"));
+        } else {
+            notification.summary(title);
+        }
         notification.appname("Halloy");
         notification.icon(data::environment::APPLICATION_ID);
     }
