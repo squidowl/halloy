@@ -4,6 +4,10 @@ Added:
 
 - Support for the IRCv3 [`react`](https://ircv3.net/specs/client-tags/react.html) client tag.
 
+Changed:
+
+- Notification toasts can now use a subtitle on supported operating systems
+
 Fixed:
 
 - High CPU usage when opening very large buffers
