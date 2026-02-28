@@ -265,8 +265,15 @@ impl Notifications {
                         self.execute(
                             &config.highlight,
                             notification,
-                            &format!("{} {description}", user.nickname()),
-                            Some(format!("{channel} ({server})")).as_deref(),
+                            &format!(
+                                "{} {description}",
+                                user.nickname()
+                            ),
+                            Some(if cfg!(target_os = "linux") {
+                            	format!("{channel}, {server}")
+                            } else {
+                            	format!("{channel} ({server})")
+                            }).as_deref(),
                             message,
                             sound.as_deref(),
                         );
@@ -308,7 +315,11 @@ impl Notifications {
                             notification_config,
                             notification,
                             user.nickname().as_str(),
-                            Some(format!("{channel} ({server})")).as_deref(),
+                            Some(if cfg!(target_os = "linux") {
+                            	format!("{channel}, {server}")
+							} else {
+								format!("{channel} ({server})")
+                            }).as_deref(),
                             message,
                             None,
                         );
