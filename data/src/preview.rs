@@ -315,6 +315,11 @@ async fn fetch(
                 }
 
                 fs::rename(&temp_path, &image_path).await?;
+                cache::maybe_trim_image_cache(
+                    config.request.image_cache_max_size_bytes(),
+                    config.request.image_cache_trim_interval,
+                    image_path.clone(),
+                );
 
                 Ok::<Image, LoadError>(Image::new(format, url, digest))
             }
