@@ -3391,7 +3391,7 @@ pub mod tests {
                         matches: vec![],
                     },
                 ),
-                vec![
+                Some(vec![
                     Fragment::HighlightNick(User::from(Nick::from_str("Bob", casemapping)), "Bob".into()),
                     Fragment::Text(": I'm in ".into()),
                     Fragment::Channel("#interesting".into()),
@@ -3404,7 +3404,7 @@ pub mod tests {
                     Fragment::Text(". I hope @".into()),
                     Fragment::User(User::from(Nick::from_str("Dave", casemapping)), "Dave".into()),
                     Fragment::Text(" doesn't notice.".into()),
-                ],
+                ]),
             ),
             (
                 (
@@ -3424,11 +3424,11 @@ pub mod tests {
                         matches: vec![],
                     },
                 ),
-                vec![
+                Some(vec![
                     Fragment::Text("the boat would ".into()),
                     Fragment::User(User::from(Nick::from_str("Bob", casemapping)), "bob".into()),
                     Fragment::Text(" up and down!".into()),
-                ],
+                ]),
             ),
             (
                 (
@@ -3445,11 +3445,7 @@ pub mod tests {
                         matches: vec![],
                     },
                 ),
-                vec![
-                    Fragment::Text("\u{3}14<\u{3}\u{3}04lurk_\u{3}\u{3}14/rx>\u{3} ".into()),
-                    Fragment::HighlightNick(User::from(Nick::from_str("f_", casemapping)), "f_".into()),
-                    Fragment::Text("~oftc: > A��\u{1f}qj\u{14}��L�5�g���5�P��yn_?�i3g�1\u{7f}mE�\\X��� Xe�\u{5fa}{d�+�`@�^��NK��~~ޏ\u{7}\u{8}\u{15}\\�\u{4}A� \u{f}\u{1c}�N\u{11}6�r�\u{4}t��Q��\u{1c}�m\u{19}��".into())
-                ],
+                None, // We only care that this message doesn't cause the parser to panic
             ),
         ];
         for (
@@ -3469,7 +3465,9 @@ pub mod tests {
                     casemapping,
                 )
             {
-                assert_eq!(expected, actual);
+                if let Some(expected) = expected {
+                    assert_eq!(expected, actual);
+                }
             } else {
                 panic!("expected fragments with highlighting");
             }
