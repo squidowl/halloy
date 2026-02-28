@@ -7,9 +7,8 @@ use iced::{Length, Task, alignment, clipboard};
 use tokio::time;
 
 use super::Message as ModalMessage;
-use crate::icon;
 use crate::widget::Element;
-use crate::{Theme, font, theme};
+use crate::{Theme, font, icon, theme};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Field {
