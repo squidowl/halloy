@@ -271,6 +271,13 @@ async fn fetch(
     // (<32 bytes)
     let fetched = match image::format(&first_chunk) {
         Some(format) => {
+            if exceeds_image_size(
+                resp.content_length(),
+                config.request.max_image_size,
+            ) {
+                return Err(LoadError::ImageTooLarge);
+            }
+
             // Store image to disk, we don't want to explode memory
             let temp_path = cache::download_path(&url);
 
@@ -348,6 +355,13 @@ async fn fetch(
 
 async fn remove_download_file(path: &std::path::Path) {
     let _ = fs::remove_file(path).await;
+}
+
+fn exceeds_image_size(
+    content_length: Option<u64>,
+    max_image_size: usize,
+) -> bool {
+    content_length.is_some_and(|len| len > max_image_size as u64)
 }
 
 fn decode_html_string(s: &str) -> String {
@@ -479,7 +493,9 @@ pub enum LoadError {
 
 #[cfg(test)]
 mod tests {
-    use super::{canonical_preview_url, parse_meta_tag_properties};
+    use super::{
+        canonical_preview_url, exceeds_image_size, parse_meta_tag_properties,
+    };
 
     #[test]
     fn canonical_preview_url_strips_fragment_but_keeps_query() {
@@ -494,6 +510,18 @@ mod tests {
             canonical_preview_url(&first),
             canonical_preview_url(&second)
         );
+    }
+
+    #[test]
+    fn exceeds_image_size_is_true_when_content_length_is_over_limit() {
+        assert!(exceeds_image_size(Some(11), 10));
+    }
+
+    #[test]
+    fn exceeds_image_size_is_false_when_content_length_is_missing_or_in_limit()
+    {
+        assert!(!exceeds_image_size(None, 10));
+        assert!(!exceeds_image_size(Some(10), 10));
     }
 
     #[test]
