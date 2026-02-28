@@ -131,30 +131,34 @@ pub async fn load(
     client: Arc<reqwest::Client>,
     config: config::Preview,
 ) -> Result<Preview, LoadError> {
+    let cache_key_url = canonical_preview_url(&url);
+
     if !config.is_enabled(url.as_str()) {
         return Err(LoadError::Disabled);
     }
 
-    let result =
-        if let Some(state) = cache::load(&url, client.clone(), &config).await {
-            match state {
-                cache::State::Ok(preview) => Ok(preview),
-                cache::State::Error => Err(LoadError::CachedFailed),
-            }
-        } else {
-            match load_uncached(url.clone(), client, &config).await {
-                Ok(preview) => {
-                    cache::save(&url, cache::State::Ok(preview.clone())).await;
+    let result = if let Some(state) =
+        cache::load(&cache_key_url, client.clone(), &config).await
+    {
+        match state {
+            cache::State::Ok(preview) => Ok(preview),
+            cache::State::Error => Err(LoadError::CachedFailed),
+        }
+    } else {
+        match load_uncached(url.clone(), client, &config).await {
+            Ok(preview) => {
+                cache::save(&cache_key_url, cache::State::Ok(preview.clone()))
+                    .await;
 
-                    Ok(preview)
-                }
-                Err(error) => {
-                    cache::save(&url, cache::State::Error).await;
-
-                    Err(error)
-                }
+                Ok(preview)
             }
-        };
+            Err(error) => {
+                cache::save(&cache_key_url, cache::State::Error).await;
+
+                Err(error)
+            }
+        }
+    };
 
     if let Ok(ref preview) = result {
         let image = preview.image();
@@ -187,6 +191,12 @@ pub async fn load(
     } else {
         result
     }
+}
+
+fn canonical_preview_url(url: &Url) -> Url {
+    let mut canonical = url.clone();
+    canonical.set_fragment(None);
+    canonical
 }
 
 async fn load_uncached(
@@ -454,7 +464,22 @@ pub enum LoadError {
 
 #[cfg(test)]
 mod tests {
-    use super::parse_meta_tag_properties;
+    use super::{canonical_preview_url, parse_meta_tag_properties};
+
+    #[test]
+    fn canonical_preview_url_strips_fragment_but_keeps_query() {
+        let first: url::Url = "https://example.com/image.jpg?x=1#a"
+            .parse()
+            .expect("valid URL");
+        let second: url::Url = "https://example.com/image.jpg?x=1#b"
+            .parse()
+            .expect("valid URL");
+
+        assert_eq!(
+            canonical_preview_url(&first),
+            canonical_preview_url(&second)
+        );
+    }
 
     #[test]
     fn parses_mixed_attribute_order_and_quotes() {
