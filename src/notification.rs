@@ -170,29 +170,30 @@ impl Notifications {
                     server,
                     *casemapping,
                 ) {
-                    let (title, subtitle, body) = if config
-                        .file_transfer_request
-                        .show_content
-                    {
+                    let (title, subtitle, body): (
+                        String,
+                        Option<String>,
+                        String,
+                    ) = if config.file_transfer_request.show_content {
                         (
-                            &format!("{nick}"),
+                            nick.as_str().to_owned(),
                             Some(format!("{server}")),
-                            &format!("Sent you a file: {filename}"),
+                            format!("Sent you a file: {filename}"),
                         )
                     } else {
                         (
-                            &format!("File transfer from {nick}"),
+                            format!("File transfer from {nick}"),
                             None,
-                            &format!("Sent you a file in {server}"),
+                            format!("Sent you a file in {server}"),
                         )
                     };
 
                     self.execute(
                         &config.file_transfer_request,
                         notification,
-                        title,
+                        title.as_str(),
                         subtitle.as_deref(),
-                        body,
+                        body.as_str(),
                         None,
                     );
 
@@ -212,26 +213,30 @@ impl Notifications {
                     server,
                     *casemapping,
                 ) {
-                    let (title, subtitle, body) = if config.direct_message.show_content {
+                    let (title, subtitle, body): (
+                        String,
+                        Option<String>,
+                        String,
+                    ) = if config.direct_message.show_content {
                         (
-                            &format!("{}", user.nickname()),
+                            user.nickname().as_str().to_owned(),
                             Some(format!("{server}")),
-                            message,
+                            message.to_owned(),
                         )
                     } else {
                         (
-                            &format!("{}", user.nickname()),
+                            user.nickname().as_str().to_owned(),
                             None,
-                            &format!("Sent you a direct message in {server}"),
+                            format!("Sent you a direct message in {server}"),
                         )
                     };
 
                     self.execute(
                         &config.direct_message,
                         notification,
-                        title,
+                        title.as_str(),
                         subtitle.as_deref(),
-                        body,
+                        body.as_str(),
                         None,
                     );
 
@@ -260,10 +265,7 @@ impl Notifications {
                         self.execute(
                             &config.highlight,
                             notification,
-                            &format!(
-                                "{} {description}",
-                                user.nickname()
-                            ),
+                            &format!("{} {description}", user.nickname()),
                             Some(format!("{channel}, {server}")).as_deref(),
                             message,
                             sound.as_deref(),
