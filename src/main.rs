@@ -771,19 +771,22 @@ impl Halloy {
 
                         let mut bouncer_network_commands = vec![];
 
-                        for (bouncer_network, events) in bouncer_network_events {
-                            bouncer_network_commands.push(handle_client_events(
-                                &bouncer_network,
-                                events,
-                                dashboard,
-                                &mut self.clients,
-                                &self.config,
-                                &mut self.notifications,
-                                &mut self.servers,
-                                &mut self.controllers,
-                                &self.main_window,
-                                self.focused_window,
-                            ));
+                        for (bouncer_network, events) in bouncer_network_events
+                        {
+                            bouncer_network_commands.push(
+                                handle_client_events(
+                                    &bouncer_network,
+                                    events,
+                                    dashboard,
+                                    &mut self.clients,
+                                    &self.config,
+                                    &mut self.notifications,
+                                    &mut self.servers,
+                                    &mut self.controllers,
+                                    &self.main_window,
+                                    self.focused_window,
+                                ),
+                            );
                         }
 
                         return commands
