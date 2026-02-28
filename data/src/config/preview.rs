@@ -146,6 +146,20 @@ pub struct Request {
     /// Number of milliseconds to wait before requesting another preview
     /// when number of requested previews > `concurrency`
     pub delay_ms: u64,
+    /// Maximum image preview cache size in megabytes.
+    ///
+    /// Oldest cached images are evicted when the cache exceeds this size.
+    pub image_cache_max_size: u64,
+    /// Run image cache trimming every N successful image saves.
+    ///
+    /// Set to 0 to disable periodic trimming.
+    pub image_cache_trim_interval: u64,
+}
+
+impl Request {
+    pub fn image_cache_max_size_bytes(&self) -> u64 {
+        self.image_cache_max_size.saturating_mul(1_000_000)
+    }
 }
 
 impl Default for Request {
@@ -157,6 +171,8 @@ impl Default for Request {
             max_scrape_size: 500 * 1024,
             concurrency: 4,
             delay_ms: 500,
+            image_cache_max_size: 500,
+            image_cache_trim_interval: 32,
         }
     }
 }
