@@ -11,14 +11,25 @@ pub fn prepare() {
 #[cfg(not(target_os = "macos"))]
 pub fn prepare() {}
 
-pub fn show(title: &str, body: &str) {
+pub fn show(title: &str, subtitle: Option<&str>, body: &str) {
     let mut notification = notify_rust::Notification::new();
 
-    notification.summary(title);
     notification.body(body);
 
+    #[cfg(not(target_os = "linux"))]
+    {
+        notification.summary(title);
+        if let Some(subtitle) = subtitle {
+            notification.subtitle(subtitle);
+        }
+    }
     #[cfg(target_os = "linux")]
     {
+        if let Some(subtitle) = subtitle {
+            notification.summary(&format!("{title} ({subtitle})"));
+        } else {
+            notification.summary(title);
+        }
         notification.appname("Halloy");
         notification.icon(data::environment::APPLICATION_ID);
     }
