@@ -10,6 +10,8 @@ Request settings for previews.
     - [max\_scrape\_size](#max_scrape_size)
     - [concurrency](#concurrency)
     - [delay\_ms](#delay_ms)
+    - [image\_cache\_max\_size](#image_cache_max_size)
+    - [image\_cache\_trim\_interval](#image_cache_trim_interval)
 
 ## Configuration
 
@@ -89,4 +91,30 @@ Number of milliseconds to wait before requesting another preview when number of 
 
 [preview.request]
 delay_ms = 500
+```
+
+### image_cache_max_size
+
+Maximum size in MB for cached preview images.
+
+```toml
+# Type: integer
+# Values: any non-negative integer
+# Default: 500
+
+[preview.request]
+image_cache_max_size = 500
+```
+
+### image_cache_trim_interval
+
+Run image cache trimming every N successful image saves. Set to `0` to disable periodic trimming (a first-save trim still runs once per app session).
+
+```toml
+# Type: integer
+# Values: any non-negative integer
+# Default: 32
+
+[preview.request]
+image_cache_trim_interval = 32
 ```
