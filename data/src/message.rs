@@ -1682,6 +1682,11 @@ fn parse_fragments_inner<'a>(
     let mut fg = None;
     let mut bg = None;
 
+    // To preserve the integrity of the code block, formatting is
+    // ignored and links not detected within code blocks.  When code
+    // styling is able to encompass multiple Spans we should reconsider
+    // whether we want to permit formatting and/or link detection within
+    // code blocks.
     formatting::parse_code_fragments(&text)
         .into_iter()
         .map(Fragment::from)
