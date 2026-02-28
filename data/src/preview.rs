@@ -278,35 +278,46 @@ async fn fetch(
                 fs::create_dir_all(&parent).await?;
             }
 
-            let mut file = File::create(&temp_path).await?;
-            let mut hasher = Sha256::default();
+            let image_result = async {
+                let mut file = File::create(&temp_path).await?;
+                let mut hasher = Sha256::default();
 
-            file.write_all(&first_chunk).await?;
-            hasher.update(&first_chunk);
+                file.write_all(&first_chunk).await?;
+                hasher.update(&first_chunk);
 
-            let mut written = first_chunk.len();
+                let mut written = first_chunk.len();
 
-            while let Some(chunk) = resp.chunk().await? {
-                if written + chunk.len() > config.request.max_image_size {
-                    return Err(LoadError::ImageTooLarge);
+                while let Some(chunk) = resp.chunk().await? {
+                    if written + chunk.len() > config.request.max_image_size {
+                        return Err(LoadError::ImageTooLarge);
+                    }
+
+                    file.write_all(&chunk).await?;
+                    hasher.update(&chunk);
+
+                    written += chunk.len();
                 }
 
-                file.write_all(&chunk).await?;
-                hasher.update(&chunk);
+                let digest = image::Digest::new(&hasher.finalize());
+                let image_path = cache::image_path(&format, &digest);
 
-                written += chunk.len();
+                if let Some(parent) =
+                    image_path.parent().filter(|p| !p.exists())
+                {
+                    fs::create_dir_all(&parent).await?;
+                }
+
+                fs::rename(&temp_path, &image_path).await?;
+
+                Ok::<Image, LoadError>(Image::new(format, url, digest))
+            }
+            .await;
+
+            if image_result.is_err() {
+                remove_download_file(&temp_path).await;
             }
 
-            let digest = image::Digest::new(&hasher.finalize());
-            let image_path = cache::image_path(&format, &digest);
-
-            if let Some(parent) = image_path.parent().filter(|p| !p.exists()) {
-                fs::create_dir_all(&parent).await?;
-            }
-
-            fs::rename(temp_path, &image_path).await?;
-
-            Fetched::Image(Image::new(format, url, digest))
+            Fetched::Image(image_result?)
         }
         None => {
             let max_scrape_size = config.request.max_scrape_size;
@@ -333,6 +344,10 @@ async fn fetch(
     time::sleep(Duration::from_millis(config.request.delay_ms)).await;
 
     Ok(fetched)
+}
+
+async fn remove_download_file(path: &std::path::Path) {
+    let _ = fs::remove_file(path).await;
 }
 
 fn decode_html_string(s: &str) -> String {
