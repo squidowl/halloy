@@ -3,7 +3,9 @@ pub use data::window::{Error, MIN_SIZE};
 use futures::stream::BoxStream;
 use futures::{Stream, StreamExt};
 use iced::advanced::graphics::futures::subscription;
-pub use iced::window::{Id, Position, Settings, close, gain_focus, open};
+pub use iced::window::{
+    Id, Position, Settings, close, gain_focus, maximize, open,
+};
 use iced::{Point, Size, Subscription, Task};
 
 #[derive(Debug, Clone, Copy)]
@@ -13,6 +15,9 @@ pub struct Window {
     pub size: Size,
     pub focused: bool,
     pub fullscreen: Option<Size>,
+    pub maximized: bool,
+    pub windowed_position: Option<Point>,
+    pub windowed_size: Size,
 }
 
 impl Window {
@@ -23,6 +28,9 @@ impl Window {
             size: Size::default(),
             focused: false,
             fullscreen: None,
+            maximized: false,
+            windowed_position: None,
+            windowed_size: Size::default(),
         }
     }
 
@@ -43,14 +51,28 @@ impl Window {
             None => Some(self.size),
         };
     }
+
+    pub fn update_maximize(&mut self, is_maximized: bool) {
+        self.maximized = is_maximized;
+        if !is_maximized {
+            self.windowed_position = self.position;
+            self.windowed_size = self.size;
+        }
+    }
 }
 
 impl From<Window> for data::Window {
     fn from(window: Window) -> Self {
+        let (position, size) = if window.maximized {
+            (window.windowed_position, window.windowed_size)
+        } else {
+            (window.position, window.size)
+        };
         data::Window {
-            position: window.position,
-            size: window.size,
+            position,
+            size,
             fullscreen: window.fullscreen,
+            maximized: window.maximized,
         }
     }
 }
