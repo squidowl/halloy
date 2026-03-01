@@ -452,6 +452,7 @@ pub fn view<'a>(
                                 column,
                                 2000.0,
                                 notify_visibility::When::NotVisible,
+                                message.hash,
                                 Message::ExitingViewport(message.hash),
                             )
                         } else {
@@ -459,6 +460,7 @@ pub fn view<'a>(
                                 column,
                                 1000.0,
                                 notify_visibility::When::Visible,
+                                message.hash,
                                 Message::EnteringViewport(message.hash, urls),
                             )
                         }
