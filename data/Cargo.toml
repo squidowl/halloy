@@ -65,6 +65,7 @@ image = "0.25.5"
 html-escape = "0.2.13"
 display-info = "0.5.7"
 sys-locale = "0.3"
+mlua = { version = "0.11.4", features = ["lua54", "vendored", "send"] }
 
 [dev-dependencies]
 serde_test = "1.0"

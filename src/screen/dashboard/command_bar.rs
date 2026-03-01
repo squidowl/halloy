@@ -350,6 +350,7 @@ impl std::fmt::Display for Buffer {
                 buffer::Internal::FileTransfers => {
                     write!(f, "Open file transfers")
                 }
+                buffer::Internal::Scripts => write!(f, "Open scripts"),
                 buffer::Internal::Logs => write!(f, "Open logs"),
                 buffer::Internal::Highlights => write!(f, "Open highlights"),
                 buffer::Internal::ChannelDiscovery(_) => {

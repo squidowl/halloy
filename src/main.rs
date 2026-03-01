@@ -33,8 +33,8 @@ use data::reaction::Reaction;
 use data::target::{self, Target};
 use data::version::Version;
 use data::{
-    Notification, Server, Url, User, client, environment, history, server,
-    version,
+    Notification, Server, Url, User, client, environment, history, scripts,
+    server, version,
 };
 use iced::widget::{column, container};
 use iced::{Length, Subscription, Task, padding};
@@ -181,6 +181,7 @@ struct Halloy {
     main_window: Window,
     pending_logs: Vec<data::log::Record>,
     notifications: Notifications,
+    script_manager: scripts::Manager,
 }
 
 impl Halloy {
@@ -255,6 +256,7 @@ impl Halloy {
                 main_window,
                 pending_logs: vec![],
                 notifications,
+                script_manager: scripts::Manager::new(),
             },
             command,
         )
@@ -287,6 +289,9 @@ pub enum Message {
     WindowMaximizeChecked(bool),
     Logging(Vec<logger::Record>),
     OnConnect(Server, client::on_connect::Event),
+    ScriptsParsed(Vec<scripts::Script>),
+    ScriptsRefreshed(Vec<scripts::Script>),
+    Script(scripts::Action),
     UnixSignal(i32),
     ConfigReloaded(Result<Config, config::Error>),
 }
@@ -340,6 +345,7 @@ impl Halloy {
             open_task,
             command,
             Task::stream(log_stream).map(Message::Logging),
+            Task::perform(scripts::parse(), Message::ScriptsParsed),
         ];
 
         if check_for_update_on_launch {
@@ -523,6 +529,23 @@ impl Halloy {
                     Some(dashboard::Event::Remove(server)) => {
                         self.remove(server)
                     }
+                    Some(dashboard::Event::ToggleScript(name)) => {
+                        let is_loaded = self
+                            .script_manager
+                            .is_loaded(&name)
+                            .unwrap_or(false);
+                        if is_loaded {
+                            self.script_manager.unload(&name);
+                        } else if self.script_manager.load(&name) {
+                            self.script_manager.on_start_callback(&name);
+                        }
+
+                        Task::none()
+                    }
+                    Some(dashboard::Event::RefreshScripts) => Task::perform(
+                        scripts::parse(),
+                        Message::ScriptsRefreshed,
+                    ),
                     None => Task::none(),
                 };
 
@@ -676,6 +699,15 @@ impl Halloy {
 
                     let mut tasks = vec![broadcast, refocus_pane];
 
+                    tasks.extend(
+                        scripts::on_connect(
+                            self.script_manager.scripts(),
+                            &server,
+                        )
+                        .into_iter()
+                        .map(|action| Task::done(Message::Script(action))),
+                    );
+
                     if let Some(request_attention) = request_attention {
                         tasks.push(request_attention);
                     }
@@ -741,6 +773,7 @@ impl Halloy {
                             events,
                             dashboard,
                             &mut self.clients,
+                            &self.script_manager,
                             &self.config,
                             &mut self.notifications,
                             &mut self.servers,
@@ -762,6 +795,7 @@ impl Halloy {
                                     events,
                                     dashboard,
                                     &mut self.clients,
+                                    &self.script_manager,
                                     &self.config,
                                     &mut self.notifications,
                                     &mut self.servers,
@@ -847,6 +881,7 @@ impl Halloy {
                                             events,
                                             dashboard,
                                             &mut self.clients,
+                                            &self.script_manager,
                                             &self.config,
                                             &mut self.notifications,
                                             &mut self.servers,
@@ -1042,6 +1077,84 @@ impl Halloy {
                     Task::batch(commands).map(Message::Dashboard)
                 }
             },
+            Message::ScriptsParsed(scripts) => {
+                log::info!("parsed {} script(s)", scripts.len());
+
+                self.script_manager.add(scripts);
+
+                for name in &self.config.scripts.autorun {
+                    if self.script_manager.load(name) {
+                        self.script_manager.on_start_callback(name);
+                    }
+                }
+
+                Task::none()
+            }
+            Message::ScriptsRefreshed(scripts) => {
+                log::info!("refreshed {} script(s)", scripts.len());
+                self.script_manager
+                    .refresh(scripts, &self.config.scripts.autorun);
+                Task::none()
+            }
+            Message::Script(action) => {
+                let mut tasks = vec![];
+
+                match action {
+                    scripts::Action::Command { server, command } => {
+                        let buffer =
+                            data::buffer::Upstream::Server(server.clone());
+                        let Some(irc) = self.parse_script_command(&command)
+                        else {
+                            return Task::none();
+                        };
+
+                        let input =
+                            data::Input::from_command(buffer.clone(), irc);
+
+                        if let Some(encoded) = input.encoded() {
+                            self.clients.send(
+                                &buffer,
+                                encoded,
+                                data::rate_limit::TokenPriority::User,
+                            );
+                        }
+                    }
+                    scripts::Action::Notification {
+                        server,
+                        name,
+                        title,
+                        body,
+                    } => {
+                        let Screen::Dashboard(dashboard) = &mut self.screen
+                        else {
+                            return Task::none();
+                        };
+
+                        let request_attention = if !self.main_window.focused {
+                            self.notifications.notify(
+                                &self.config.notifications,
+                                &Notification::Script {
+                                    script: name,
+                                    title,
+                                    body,
+                                },
+                                &server,
+                                dashboard
+                                    .find_window_with_server(&server)
+                                    .unwrap_or(self.main_window.id),
+                            )
+                        } else {
+                            None
+                        };
+
+                        if let Some(request_attention) = request_attention {
+                            tasks.push(request_attention);
+                        }
+                    }
+                };
+
+                Task::batch(tasks)
+            }
             Message::UnixSignal(signal) => match signal {
                 #[cfg(target_family = "unix")]
                 signal_hook::consts::SIGUSR1 => {
@@ -1063,6 +1176,7 @@ impl Halloy {
                     .view(
                         &self.servers,
                         &self.clients,
+                        &self.script_manager,
                         &self.version,
                         &self.config,
                         &self.theme,
@@ -1102,7 +1216,13 @@ impl Halloy {
         } else if let Screen::Dashboard(dashboard) = &self.screen {
             let content = container(
                 dashboard
-                    .view_window(id, &self.clients, &self.config, &self.theme)
+                    .view_window(
+                        id,
+                        &self.clients,
+                        &self.script_manager,
+                        &self.config,
+                        &self.theme,
+                    )
                     .map(Message::Dashboard),
             )
             .padding(padding::top(platform_specific_padding));
@@ -1269,6 +1389,7 @@ impl Halloy {
             all_events,
             dashboard,
             &mut self.clients,
+            &self.script_manager,
             &self.config,
             &mut self.notifications,
             &mut self.servers,
@@ -1303,6 +1424,19 @@ impl Halloy {
             _ => Task::none(),
         }
     }
+
+    fn parse_script_command(
+        &self,
+        command: &str,
+    ) -> Option<data::command::Irc> {
+        let trimmed = command.trim();
+        if trimmed.is_empty() {
+            return None;
+        }
+
+        let raw = trimmed.strip_prefix('/').unwrap_or(trimmed);
+        Some(data::command::Irc::Raw(raw.to_string()))
+    }
 }
 
 fn handle_client_events(
@@ -1310,6 +1444,7 @@ fn handle_client_events(
     events: Vec<data::client::Event>,
     dashboard: &mut screen::Dashboard,
     clients: &mut data::client::Map,
+    script_manager: &scripts::Manager,
     config: &Config,
     notifications: &mut Notifications,
     servers: &mut server::Map,
@@ -1319,8 +1454,8 @@ fn handle_client_events(
     use data::client::Event;
 
     let casemapping = clients.get_casemapping(server);
-
     let mut commands = vec![];
+    let mut script_actions = vec![];
     let mut reactions = vec![];
 
     for event in events {
@@ -1332,7 +1467,9 @@ fn handle_client_events(
                     our_nick,
                     dashboard,
                     &mut commands,
+                    &mut script_actions,
                     clients,
+                    script_manager,
                     config,
                 );
             }
@@ -1344,7 +1481,9 @@ fn handle_client_events(
                     notification_enabled,
                     dashboard,
                     &mut commands,
+                    &mut script_actions,
                     clients,
+                    script_manager,
                     config,
                     notifications,
                     main_window,
@@ -1532,6 +1671,12 @@ fn handle_client_events(
         }
     }
 
+    commands.extend(
+        script_actions
+            .into_iter()
+            .map(|action| Task::done(Message::Script(action))),
+    );
+
     Task::batch(commands).chain(Task::batch(reactions))
 }
 
@@ -1591,14 +1736,64 @@ fn handle_single_event(
     our_nick: data::user::Nick,
     dashboard: &mut screen::Dashboard,
     commands: &mut Vec<Task<Message>>,
+    script_actions: &mut Vec<scripts::Action>,
     clients: &data::client::Map,
+    script_manager: &scripts::Manager,
     config: &Config,
 ) {
+    let casemapping = clients.get_casemapping(server);
+    let user = encoded.user(casemapping);
+    let join_channel = parse_join_channel(&encoded, clients, server);
+    let part_channel = parse_part_channel(&encoded, clients, server);
+    let mode_event = parse_mode_event(&encoded);
+    let nick_event = parse_nick_event(&encoded);
+
     let Some(message) =
         create_message(server, encoded, our_nick, config, clients)
     else {
         return;
     };
+
+    if let Some(channel) = join_channel {
+        script_actions.extend(scripts::on_join(
+            script_manager.scripts(),
+            server,
+            &channel,
+            user.as_ref(),
+        ));
+    }
+
+    if let Some(channel) = part_channel {
+        script_actions.extend(scripts::on_part(
+            script_manager.scripts(),
+            server,
+            &channel,
+            user.as_ref(),
+        ));
+    }
+
+    if let Some((target, mode, args)) = mode_event {
+        script_actions.extend(scripts::on_mode(
+            script_manager.scripts(),
+            server,
+            &target,
+            &mode,
+            &args,
+            user.as_ref(),
+        ));
+    }
+
+    if let Some(new_nick) = nick_event
+        && let Some(old_user) = user.as_ref()
+    {
+        let old_nick = old_user.nickname().to_string();
+        script_actions.extend(scripts::on_nick(
+            script_manager.scripts(),
+            server,
+            &old_nick,
+            &new_nick,
+        ));
+    }
 
     commands.push(
         dashboard
@@ -1647,18 +1842,34 @@ fn handle_priv_or_notice(
     notification_enabled: bool,
     dashboard: &mut screen::Dashboard,
     commands: &mut Vec<Task<Message>>,
+    script_actions: &mut Vec<scripts::Action>,
     clients: &data::client::Map,
+    script_manager: &scripts::Manager,
     config: &Config,
     notifications: &mut Notifications,
     main_window: &Window,
 ) {
+    let is_notice =
+        matches!(&encoded.command, irc::proto::Command::NOTICE(_, _));
+    let casemapping = clients.get_casemapping(server);
+    let user = encoded.user(casemapping);
+
     let Some((mut msg, highlight)) = create_message_with_highlight(
         server, encoded, our_nick, config, clients,
     ) else {
         return;
     };
 
-    let casemapping = clients.get_casemapping(server);
+    dispatch_script_message_hooks(
+        server,
+        &msg,
+        user.as_ref(),
+        is_notice,
+        notification_enabled,
+        script_manager,
+        script_actions,
+    );
+
     let kind = history::Kind::from_server_message(server.clone(), &msg);
 
     if let Some(kind) = &kind {
@@ -1708,6 +1919,97 @@ fn handle_priv_or_notice(
             .record_message(server, msg, &config.buffer)
             .map(Message::Dashboard),
     );
+}
+
+fn dispatch_script_message_hooks(
+    server: &Server,
+    msg: &message::Message,
+    user: Option<&User>,
+    is_notice: bool,
+    notification_enabled: bool,
+    script_manager: &scripts::Manager,
+    script_actions: &mut Vec<scripts::Action>,
+) {
+    // TODO: i use notification_enabled here as a way to not trigger callbacks on history/playback.
+    if !notification_enabled {
+        return;
+    }
+
+    let text = msg.text();
+    let scripts = script_manager.scripts();
+
+    let (target, is_channel) = match &msg.target {
+        message::Target::Channel { channel, .. }
+        | message::Target::Highlights { channel, .. } => {
+            (channel.as_str(), true)
+        }
+        message::Target::Query { query, .. } => (query.as_str(), false),
+        message::Target::Server { .. } | message::Target::Logs { .. } => return,
+    };
+
+    script_actions.extend(if is_notice {
+        scripts::on_notice_message(scripts, server, target, user, &text)
+    } else if is_channel {
+        scripts::on_channel_message(scripts, server, target, user, &text)
+    } else {
+        scripts::on_private_message(scripts, server, target, user, &text)
+    });
+}
+
+fn parse_join_channel(
+    encoded: &message::Encoded,
+    clients: &data::client::Map,
+    server: &Server,
+) -> Option<String> {
+    match &encoded.command {
+        irc::proto::Command::JOIN(channel, _) => target::Channel::parse(
+            channel,
+            clients.get_chantypes(server),
+            clients.get_statusmsg(server),
+            clients.get_casemapping(server),
+        )
+        .ok()
+        .map(|channel| channel.to_string()),
+        _ => None,
+    }
+}
+
+fn parse_part_channel(
+    encoded: &message::Encoded,
+    clients: &data::client::Map,
+    server: &Server,
+) -> Option<String> {
+    match &encoded.command {
+        irc::proto::Command::PART(channel, _) => target::Channel::parse(
+            channel,
+            clients.get_chantypes(server),
+            clients.get_statusmsg(server),
+            clients.get_casemapping(server),
+        )
+        .ok()
+        .map(|channel| channel.to_string()),
+        _ => None,
+    }
+}
+
+fn parse_mode_event(
+    encoded: &message::Encoded,
+) -> Option<(String, String, Vec<String>)> {
+    match &encoded.command {
+        irc::proto::Command::MODE(target, Some(mode), args) => Some((
+            target.clone(),
+            mode.clone(),
+            args.clone().unwrap_or_default(),
+        )),
+        _ => None,
+    }
+}
+
+fn parse_nick_event(encoded: &message::Encoded) -> Option<String> {
+    match &encoded.command {
+        irc::proto::Command::NICK(new_nick) => Some(new_nick.clone()),
+        _ => None,
+    }
 }
 
 fn handle_highlight(

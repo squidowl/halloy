@@ -199,31 +199,30 @@ mod transfer_row {
                 transferred,
                 elapsed,
             } => {
-                let transfer_speed_and_remaining_time = if elapsed.as_secs()
-                    == 0
-                {
-                    String::default()
-                } else {
-                    let bytes_per_second = *transferred / elapsed.as_secs();
-                    let transfer_speed = ByteSize::b(bytes_per_second);
-
-                    let remaining_bytes =
-                        transfer.size.saturating_sub(*transferred);
-                    let remaining_time = if let Some(estimated_seconds) =
-                        remaining_bytes.checked_div(bytes_per_second)
-                    {
-                        let readable_time_left = humantime::format_duration(
-                            Duration::from_secs(estimated_seconds),
-                        )
-                        .to_string();
-
-                        format!("| {readable_time_left}")
-                    } else {
+                let transfer_speed_and_remaining_time =
+                    if elapsed.as_secs() == 0 {
                         String::default()
-                    };
+                    } else {
+                        let bytes_per_second = *transferred / elapsed.as_secs();
+                        let transfer_speed = ByteSize::b(bytes_per_second);
 
-                    format!("({transfer_speed}/s) {remaining_time}")
-                };
+                        let remaining_bytes =
+                            transfer.size.saturating_sub(*transferred);
+                        let remaining_time = remaining_bytes
+                            .checked_div(bytes_per_second)
+                            .map(|estimated_seconds| {
+                                let readable_time_left =
+                                    humantime::format_duration(
+                                        Duration::from_secs(estimated_seconds),
+                                    )
+                                    .to_string();
+
+                                format!("| {readable_time_left}")
+                            })
+                            .unwrap_or_default();
+
+                        format!("({transfer_speed}/s) {remaining_time}")
+                    };
 
                 let transferred = ByteSize::b(*transferred);
                 let file_size = ByteSize::b(transfer.size);
