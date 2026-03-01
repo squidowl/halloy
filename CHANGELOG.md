@@ -3,6 +3,7 @@
 Added:
 
 - Support for the IRCv3 [`react`](https://ircv3.net/specs/client-tags/react.html) client tag.
+- Correctly record window size if window is maximized
 
 Changed:
 
