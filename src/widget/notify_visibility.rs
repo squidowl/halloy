@@ -9,20 +9,22 @@ pub enum When {
     NotVisible,
 }
 
-pub fn notify_visibility<'a, Message>(
+pub fn notify_visibility<'a, Message, Id>(
     content: impl Into<Element<'a, Message>>,
     margin: impl Into<Padding>,
     when: When,
+    id: Id,
     message: Message,
 ) -> Element<'a, Message>
 where
     Message: 'a + Clone,
+    Id: 'a + Copy + Eq + 'static,
 {
     let margin = margin.into();
 
     decorate(content)
         .update(
-            move |sent: &mut bool,
+            move |state: &mut (Option<Id>, bool),
                   inner: &mut Element<'a, Message>,
                   tree: &mut widget::Tree,
                   event: &Event,
@@ -34,6 +36,11 @@ where
                   viewport: &Rectangle| {
                 if let Event::Window(window::Event::RedrawRequested(_)) = &event
                 {
+                    if state.0 != Some(id) {
+                        state.0 = Some(id);
+                        state.1 = false;
+                    }
+
                     let is_visible =
                         viewport.expand(margin).intersects(&layout.bounds());
 
@@ -42,9 +49,11 @@ where
                         When::NotVisible => !is_visible,
                     };
 
-                    if should_notify && !*sent {
+                    if should_notify && !state.1 {
                         shell.publish(message.clone());
-                        *sent = true;
+                        state.1 = true;
+                    } else if !should_notify {
+                        state.1 = false;
                     }
                 }
 
