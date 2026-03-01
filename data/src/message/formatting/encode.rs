@@ -6,10 +6,11 @@ use nom::branch::alt;
 use nom::bytes::complete::tag;
 use nom::character::complete::{anychar, char, satisfy};
 use nom::combinator::{
-    cond, cut, eof, map, map_opt, not, opt, peek, recognize, value, verify,
+    cond, cut, eof, flat_map, map, map_opt, not, opt, peek, recognize, value,
+    verify,
 };
-use nom::multi::{count, many_m_n, many_till};
-use nom::sequence::{pair, preceded, tuple};
+use nom::multi::{count, many_m_n, many_till, many1};
+use nom::sequence::{pair, preceded, terminated, tuple};
 use nom::{Finish, IResult};
 
 use super::{Color, Modifier};
@@ -54,10 +55,10 @@ fn escaped<'a>(
     markdown_only: bool,
 ) -> impl FnMut(&'a str) -> IResult<&'a str, char> {
     alt((
+        value('\\', tag("\\\\")),
         value('*', tag("\\*")),
         value('_', tag("\\_")),
         value('`', tag("\\`")),
-        value('`', tag("``")),
         value('|', tag("\\|")),
         skip(markdown_only, value('$', tag("\\$"))),
         skip(markdown_only, value('$', tag("$$"))),
@@ -232,33 +233,49 @@ fn markdown<'a>(
     let italic_bold = alt((relaxed_run('*', 3), strict_run('_', 3)));
     let strikethrough = relaxed_run('~', 2);
     let spoiler = relaxed_run('|', 2);
-    let code = map(
-        alt((
-            pair(
-                tag("` "),
-                many_till(
-                    move |input| token(source, input, markdown_only),
-                    tag(" `"),
+    let spaced_code = map(
+        flat_map(pair(many1(char('`')), tag(" ")), |(backticks, _)| {
+            many_till(
+                anychar,
+                pair(
+                    tag(" "),
+                    terminated(
+                        count(char('`'), backticks.len()),
+                        not(char('`')),
+                    ),
                 ),
-            ),
-            pair(
-                tag("`"),
-                many_till(
-                    move |input| token(source, input, markdown_only),
-                    tag("`"),
-                ),
-            ),
-        )),
-        |(_, (tokens, _))| tokens,
+            )
+        }),
+        |(chars, _)| chars.into_iter().map(Token::Plain).collect::<Vec<_>>(),
     );
+    let dense_code = map(
+        flat_map(many1(char('`')), |backticks| {
+            verify(
+                many_till(
+                    anychar,
+                    terminated(
+                        count(char('`'), backticks.len()),
+                        not(char('`')),
+                    ),
+                ),
+                |(chars, _)| chars.last().is_none_or(|c| *c != '`'),
+            )
+        }),
+        |(chars, _)| chars.into_iter().map(Token::Plain).collect::<Vec<_>>(),
+    );
+    let code = alt((spaced_code, dense_code));
+    let plain_code_delimiters = map(many1(char('`')), |backticks| {
+        backticks.into_iter().map(Token::Plain).collect::<Vec<_>>()
+    });
 
     alt((
+        map(code, Markdown::Code),
         map(italic_bold, Markdown::ItalicBold),
         map(bold, Markdown::Bold),
         map(italic, Markdown::Italic),
         map(strikethrough, Markdown::Strikethrough),
         map(spoiler, Markdown::Spoiler),
-        map(code, Markdown::Code),
+        map(plain_code_delimiters, Markdown::Plain),
     ))
 }
 
@@ -381,6 +398,11 @@ impl Token {
                     }
                     out.push(m);
                 }
+                Markdown::Plain(tokens) => {
+                    for token in tokens {
+                        token.encode(out);
+                    }
+                }
             },
             Token::Dollar(dollar) => match dollar {
                 Dollar::Bold => {
@@ -427,6 +449,7 @@ enum Markdown {
     Strikethrough(Vec<Token>),
     Code(Vec<Token>),
     Spoiler(Vec<Token>),
+    Plain(Vec<Token>),
 }
 
 #[derive(Debug)]
@@ -483,6 +506,33 @@ mod test {
             (
                 ("spoiler --> ||super secret||", false),
                 String::from("spoiler --> \u{3}1,1super secret\u{3}"),
+            ),
+            (
+                ("`__length_hint__`", false),
+                String::from("\u{11}__length_hint__\u{11}"),
+            ),
+            (
+                ("These are escaped: \\\\, \\*, \\_, \\`, \\|", false),
+                String::from("These are escaped: \\, *, _, `, |"),
+            ),
+            (
+                (
+                    "Use `` \\` `` to wrap code, but only strip spaces if on` both` sides.",
+                    false,
+                ),
+                String::from(
+                    "Use \u{11}\\`\u{11} to wrap code, but only strip spaces if on\u{11} both\u{11} sides.",
+                ),
+            ),
+            (
+                ("``foo`bar``, ` foo `` bar `, `foo\\`bar`", false),
+                String::from(
+                    "\u{11}foo`bar\u{11}, \u{11}foo `` bar\u{11}, \u{11}foo\\\u{11}bar`",
+                ),
+            ),
+            (
+                ("`foo``bar`` ```bar``", false),
+                String::from("`foo\u{11}bar\u{11} ```bar``"),
             ),
             (
                 (
