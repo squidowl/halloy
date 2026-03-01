@@ -91,6 +91,7 @@ pub struct MarkAsRead {
     pub on_buffer_close: OnBufferClose,
     pub on_scroll_to_bottom: bool,
     pub on_message_sent: bool,
+    pub on_message: bool,
 }
 
 impl Default for MarkAsRead {
@@ -100,6 +101,7 @@ impl Default for MarkAsRead {
             on_buffer_close: OnBufferClose::default(),
             on_scroll_to_bottom: true,
             on_message_sent: true,
+            on_message: true,
         }
     }
 }

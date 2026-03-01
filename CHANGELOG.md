@@ -9,6 +9,7 @@ Changed:
 
 - Notification toasts can now use a subtitle on supported operating systems
 - New about screen accessible from the user menu in the sidebar
+- Added setting to mark focused buffers as read on incoming messages
 
 Fixed:
 
