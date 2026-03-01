@@ -179,6 +179,7 @@ struct Halloy {
     controllers: stream::Map,
     modal: Option<Modal>,
     main_window: Window,
+    focused_window: Option<window::Id>,
     pending_logs: Vec<data::log::Record>,
     notifications: Notifications,
 }
@@ -253,6 +254,7 @@ impl Halloy {
                 config,
                 modal: None,
                 main_window,
+                focused_window: None,
                 pending_logs: vec![],
                 notifications,
             },
@@ -760,6 +762,7 @@ impl Halloy {
                             &mut self.servers,
                             &mut self.controllers,
                             &self.main_window,
+                            self.focused_window,
                         );
 
                         if bouncer_network_events.is_empty() {
@@ -781,6 +784,7 @@ impl Halloy {
                                     &mut self.servers,
                                     &mut self.controllers,
                                     &self.main_window,
+                                    self.focused_window,
                                 ),
                             );
                         }
@@ -866,6 +870,7 @@ impl Halloy {
                                             &mut self.servers,
                                             &mut self.controllers,
                                             &self.main_window,
+                                            self.focused_window,
                                         );
 
                                         return command
@@ -893,6 +898,21 @@ impl Halloy {
                 Task::none()
             }
             Message::Window(id, event) => {
+                match &event {
+                    window::Event::Focused => {
+                        self.focused_window = Some(id);
+                    }
+                    window::Event::Unfocused => {
+                        if self.focused_window == Some(id) {
+                            self.focused_window = None;
+                        }
+                    }
+                    window::Event::Opened { .. }
+                    | window::Event::Moved(_)
+                    | window::Event::Resized(_)
+                    | window::Event::CloseRequested => {}
+                }
+
                 if id == self.main_window.id {
                     match event {
                         window::Event::Moved(position) => {
@@ -1288,6 +1308,7 @@ impl Halloy {
             &mut self.servers,
             &mut self.controllers,
             &self.main_window,
+            self.focused_window,
         )
     }
 
@@ -1329,6 +1350,7 @@ fn handle_client_events(
     servers: &mut server::Map,
     controllers: &mut stream::Map,
     main_window: &Window,
+    focused_window: Option<window::Id>,
 ) -> Task<Message> {
     use data::client::Event;
 
@@ -1362,6 +1384,7 @@ fn handle_client_events(
                     config,
                     notifications,
                     main_window,
+                    focused_window,
                 );
             }
             Event::WithTarget(encoded, our_nick, target) => {
@@ -1661,10 +1684,11 @@ fn handle_priv_or_notice(
     notification_enabled: bool,
     dashboard: &mut screen::Dashboard,
     commands: &mut Vec<Task<Message>>,
-    clients: &data::client::Map,
+    clients: &mut data::client::Map,
     config: &Config,
     notifications: &mut Notifications,
     main_window: &Window,
+    focused_window: Option<window::Id>,
 ) {
     let Some((mut msg, highlight)) = create_message_with_highlight(
         server, encoded, our_nick, config, clients,
@@ -1688,6 +1712,9 @@ fn handle_priv_or_notice(
     let window = kind
         .as_ref()
         .and_then(|kind| dashboard.find_window_with_history(kind));
+    let should_mark_as_read = config.buffer.mark_as_read.on_message
+        && !msg.blocked
+        && msg.triggers_unread();
 
     if let Some(highlight) = highlight {
         handle_highlight(
@@ -1722,6 +1749,14 @@ fn handle_priv_or_notice(
             .record_message(server, msg, &config.buffer)
             .map(Message::Dashboard),
     );
+
+    if should_mark_as_read && let Some(kind) = kind {
+        dashboard.mark_as_read_if_focused_and_at_bottom(
+            &kind,
+            clients,
+            focused_window,
+        );
+    }
 }
 
 fn handle_highlight(
