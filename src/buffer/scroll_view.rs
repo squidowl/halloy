@@ -5,7 +5,7 @@ use std::time::Duration;
 use chrono::{DateTime, Local, NaiveDate, NaiveTime, Utc};
 use data::buffer::DateSeparators;
 use data::command::Irc;
-use data::config::buffer::nickname::HideConsecutiveEnabled;
+use data::config::buffer::HideConsecutiveEnabled;
 use data::dashboard::BufferAction;
 use data::isupport::ChatHistoryState;
 use data::message::{self, Limit};
@@ -127,6 +127,7 @@ pub trait LayoutMessage<'a> {
         right_aligned_width: Option<f32>,
         max_prefix_width: Option<f32>,
         range_timestamp_excess_width: Option<f32>,
+        hide_timestamp: bool,
         hide_nickname: bool,
     ) -> Option<Element<'a, Message>>;
 }
@@ -139,6 +140,7 @@ where
         Option<f32>,
         Option<f32>,
         bool,
+        bool,
     ) -> Option<Element<'a, Message>>,
 {
     fn format(
@@ -147,6 +149,7 @@ where
         right_aligned_width: Option<f32>,
         max_prefix_width: Option<f32>,
         range_timestamp_excess_width: Option<f32>,
+        hide_timestamp: bool,
         hide_nickname: bool,
     ) -> Option<Element<'a, Message>> {
         self(
@@ -154,6 +157,7 @@ where
             right_aligned_width,
             max_prefix_width,
             range_timestamp_excess_width,
+            hide_timestamp,
             hide_nickname,
         )
     }
@@ -201,6 +205,22 @@ fn has_visible_preview(
         );
     }
     false
+}
+
+fn is_consecutive_user_message(
+    message: &data::Message,
+    prev_message: Option<&data::Message>,
+    duration: Option<chrono::TimeDelta>,
+) -> bool {
+    matches!(message.target.source(), message::Source::User(_))
+        && prev_message.is_some_and(|prev_message| {
+            matches!(
+                (message.target.source(), prev_message.target.source()),
+                (message::Source::User(user), message::Source::User(prev_user)) if user == prev_user
+            ) && duration.is_none_or(|duration| {
+                message.server_time - prev_message.server_time < duration
+            })
+        })
 }
 
 pub fn view<'a>(
@@ -274,23 +294,24 @@ pub fn view<'a>(
 
     let right_aligned_width = max_nick_chars.map(|max_nick_chars| {
         let max_nick_width =
-            font::width_from_chars(max_nick_chars, &config.font);
-        let message_marker_width = font::width_of_message_marker(&config.font);
+            font::width_from_chars(max_nick_chars, &config.font) + 1.0;
+        let message_marker_width =
+            font::width_of_message_marker(&config.font) + 1.0;
         let range_timestamp_extra_width = range_timestamp_extra_chars.map_or(
             0.0,
             |range_timestamp_extra_chars| {
                 font::width_from_chars(
                     range_timestamp_extra_chars,
                     &config.font,
-                )
+                ) + 1.0
             },
         );
 
         max_nick_width.max(range_timestamp_extra_width + message_marker_width)
     });
 
-    let max_prefix_width =
-        max_prefix_chars.map(|len| font::width_from_chars(len, &config.font));
+    let max_prefix_width = max_prefix_chars
+        .map(|len| font::width_from_chars(len, &config.font) + 1.0);
 
     let range_timestamp_excess_width = range_timestamp_extra_chars
         .map(|len| font::width_from_chars(len, &config.font));
@@ -300,43 +321,61 @@ pub fn view<'a>(
         messages
             .iter()
             .scan(Option::<&data::Message>::None, |prev_message, message| {
+                let hide_timestamp =
+                    if let HideConsecutiveEnabled::Enabled(duration) =
+                        config.buffer.timestamp.hide_consecutive.enabled
+                    {
+                        is_consecutive_user_message(
+                            message,
+                            *prev_message,
+                            duration,
+                        )
+                    } else {
+                        false
+                    };
+
                 let hide_nickname =
                     if let HideConsecutiveEnabled::Enabled(duration) =
                         config.buffer.nickname.hide_consecutive.enabled
                     {
-                        !config.buffer.nickname.alignment.is_top() &&
-                        matches!(message.target.source(), message::Source::User(_)) &&
+                        !config.buffer.nickname.alignment.is_top()
+                        && is_consecutive_user_message(
+                            message,
+                            *prev_message,
+                            duration,
+                        )
                         // don't hide if prev message has visible preview (when show_after_previews is enabled)
-                        !(config.buffer.nickname.hide_consecutive.show_after_previews
-                                    && prev_message.is_some_and(|prev_msg| {
-                                        has_visible_preview(
-                                            prev_msg,
-                                            state,
-                                            previews,
-                                            &visible_for_source,
-                                        )
-                            })) &&
-                        prev_message.is_some_and(|prev_message| {
-                            matches!(
-                                (message.target.source(), prev_message.target.source()),
-                                (message::Source::User(user), message::Source::User(prev_user)) if user == prev_user
-                            ) && duration.is_none_or(|duration| message.server_time - prev_message.server_time < duration)
-                        })
+                        && !(config
+                            .buffer
+                            .nickname
+                            .hide_consecutive
+                            .show_after_previews
+                            && prev_message.is_some_and(|prev_msg| {
+                                has_visible_preview(
+                                    prev_msg,
+                                    state,
+                                    previews,
+                                    &visible_for_source,
+                                )
+                            }))
                     } else {
                         false
                     };
 
                 *prev_message = Some(message);
 
-                Some(formatter
-                    .format(
-                        message,
-                        right_aligned_width,
-                        max_prefix_width,
-                        range_timestamp_excess_width,
-                        hide_nickname,
-                    )
-                    .map(|element| (message, element)))
+                Some(
+                    formatter
+                        .format(
+                            message,
+                            right_aligned_width,
+                            max_prefix_width,
+                            range_timestamp_excess_width,
+                            hide_timestamp,
+                            hide_nickname,
+                        )
+                        .map(|element| (message, element)),
+                )
             })
             .flatten()
             .scan(last_date, |last_date, (message, element)| {
@@ -349,9 +388,8 @@ pub fn view<'a>(
 
                 let content = if let (
                     message::Content::Fragments(fragments),
-                    Some(previews)
-                ) =
-                    (&message.content, previews)
+                    Some(previews),
+                ) = (&message.content, previews)
                 {
                     let urls = fragments
                         .iter()
@@ -361,8 +399,8 @@ pub fn view<'a>(
 
                     if !urls.is_empty() {
                         let is_message_visible = state
-                                    .visible_url_messages
-                                    .contains_key(&message.hash);
+                            .visible_url_messages
+                            .contains_key(&message.hash);
 
                         let mut column = column![element].spacing(2);
 
@@ -382,8 +420,13 @@ pub fn view<'a>(
                                     );
 
                                 let is_visible_for_source =
-                                    if let Some(visible_for_source) = &visible_for_source {
-                                        visible_for_source(preview, message.target.source())
+                                    if let Some(visible_for_source) =
+                                        &visible_for_source
+                                    {
+                                        visible_for_source(
+                                            preview,
+                                            message.target.source(),
+                                        )
                                     } else {
                                         true
                                     };
@@ -426,53 +469,55 @@ pub fn view<'a>(
                     element
                 };
 
-                let content = if is_new_day && config.buffer.date_separators.show
-                {
-                    column![
-                        row![
-                            container(rule::horizontal(1))
-                                .width(Length::Fill)
-                                .padding(padding::right(6)),
-                            text(
-                                date.and_time(
-                                    NaiveTime::from_hms_opt(0, 0, 0)
-                                        .expect("midnight is valid")
+                let content =
+                    if is_new_day && config.buffer.date_separators.show {
+                        column![
+                            row![
+                                container(rule::horizontal(1))
+                                    .width(Length::Fill)
+                                    .padding(padding::right(6)),
+                                text(
+                                    date.and_time(
+                                        NaiveTime::from_hms_opt(0, 0, 0)
+                                            .expect("midnight is valid")
+                                    )
+                                    .and_local_timezone(Local)
+                                    .single()
+                                    .map_or(
+                                        // in the event of timezone weirdness,
+                                        // revert to default format
+                                        date.format(
+                                            &DateSeparators::default().format
+                                        ),
+                                        |datetime| {
+                                            datetime.format(
+                                                &config
+                                                    .buffer
+                                                    .date_separators
+                                                    .format,
+                                            )
+                                        }
+                                    )
+                                    .to_string()
                                 )
-                                .and_local_timezone(Local)
-                                .single()
-                                .map_or(
-                                    // in the event of timezone weirdness,
-                                    // revert to default format
-                                    date.format(&DateSeparators::default().format),
-                                    |datetime| {
-                                        datetime.format(
-                                            &config
-                                                .buffer
-                                                .date_separators
-                                                .format,
-                                        )
-                                    }
-                                )
-                                .to_string()
-                            )
-                            .size(divider_font_size)
-                            .style(theme::text::secondary)
-                            .font_maybe(
-                                theme::font_style::secondary(theme)
-                                    .map(font::get)
-                            ),
-                            container(rule::horizontal(1))
-                                .width(Length::Fill)
-                                .padding(padding::left(6))
+                                .size(divider_font_size)
+                                .style(theme::text::secondary)
+                                .font_maybe(
+                                    theme::font_style::secondary(theme)
+                                        .map(font::get)
+                                ),
+                                container(rule::horizontal(1))
+                                    .width(Length::Fill)
+                                    .padding(padding::left(6))
+                            ]
+                            .padding(2)
+                            .align_y(iced::Alignment::Center),
+                            content
                         ]
-                        .padding(2)
-                        .align_y(iced::Alignment::Center),
+                        .into()
+                    } else {
                         content
-                    ]
-                    .into()
-                } else {
-                    content
-                };
+                    };
 
                 Some(keyed(keyed::Key::message(message), content))
             })

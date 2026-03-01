@@ -9,6 +9,7 @@ Customize how timestamps are displayed within a buffer.
     - [copy\_format](#copy_format)
     - [brackets](#brackets)
     - [locale](#locale)
+    - [hide\_consecutive](#hide_consecutive)
 
 ## Configuration
 
@@ -75,4 +76,24 @@ Locale used when formatting timestamps, for strftime formats that produce locale
 
 [buffer.timestamp]
 locale = "POSIX"
+```
+
+### hide_consecutive
+
+Hide timestamp for consecutive messages from the same user.
+
+If specified as `{ smart = integer }` then the timestamp is hidden only when
+the previous message is from the same user and sent within `smart` seconds.
+
+```toml
+# Type: boolean
+# Values: true, false, or { smart = integer }
+# Default: false
+
+[buffer.timestamp.hide_consecutive]
+enabled = true
+
+# hide if the previous message was from the same user and sent within 2m of the current message
+[buffer.timestamp.hide_consecutive]
+enabled = { smart = 120 }
 ```
