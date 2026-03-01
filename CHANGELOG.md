@@ -12,6 +12,7 @@ Changed:
 - Added setting to mark focused buffers as read on incoming messages
 - Formatting inside code spans is now ignored in order to prevent breaks in code span styling
 - Links inside code spans are not detected in order to prevent breaks in code span styling
+- Setting to hide consecutive timestamps (`buffer.timestamp.hide_consecutive`)
 
 Fixed:
 

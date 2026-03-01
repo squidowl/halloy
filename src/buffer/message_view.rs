@@ -138,6 +138,7 @@ impl<'a> ChannelQueryLayout<'a> {
     fn format_timestamp(
         &self,
         message: &'a data::Message,
+        hide_timestamp: bool,
     ) -> Option<Element<'a, Message>> {
         if let message::Source::Internal(message::source::Internal::Condensed(
             end_server_time,
@@ -187,6 +188,15 @@ impl<'a> ChannelQueryLayout<'a> {
                 .buffer
                 .format_timestamp(&message.server_time)
                 .map(|timestamp| {
+                    if hide_timestamp {
+                        let width = font::width_from_chars(
+                            timestamp.chars().count(),
+                            &self.config.font,
+                        );
+
+                        return Space::new().width(width).into();
+                    }
+
                     context_menu::timestamp(
                         selectable_text(timestamp)
                             .style(theme::selectable_text::timestamp)
@@ -705,16 +715,17 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
         right_aligned_width: Option<f32>,
         max_prefix_width: Option<f32>,
         range_timestamp_excess_width: Option<f32>,
+        hide_timestamp: bool,
         hide_nickname: bool,
     ) -> Option<Element<'a, Message>> {
-        let timestamp = self.format_timestamp(message);
+        let timestamp = self.format_timestamp(message, hide_timestamp);
         let prefixes = self.format_prefixes(
             message,
             right_aligned_width,
             max_prefix_width,
         );
 
-        let row = row![timestamp, selectable_text(" "), prefixes];
+        let row = row![timestamp, prefixes];
 
         let (middle, content): (Element<'a, Message>, Element<'a, Message>) =
             match message.target.source() {

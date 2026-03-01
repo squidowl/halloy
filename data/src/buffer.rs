@@ -4,9 +4,10 @@ use std::str::FromStr;
 use chrono::Locale;
 use serde::{Deserialize, Deserializer, Serialize};
 
-use crate::serde::{
-    deserialize_strftime_date, deserialize_strftime_date_maybe,
-};
+pub mod timestamp;
+
+pub use self::timestamp::Timestamp;
+use crate::serde::deserialize_strftime_date;
 use crate::target::{self, Target};
 use crate::{Server, channel, config, message};
 
@@ -145,32 +146,6 @@ impl From<config::Buffer> for Settings {
     fn from(config: config::Buffer) -> Self {
         Self {
             channel: channel::Settings::from(config.channel),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Deserialize)]
-#[serde(default)]
-pub struct Timestamp {
-    #[serde(deserialize_with = "deserialize_strftime_date")]
-    pub format: String,
-    pub brackets: Brackets,
-    #[serde(deserialize_with = "deserialize_strftime_date")]
-    pub context_menu_format: String,
-    #[serde(deserialize_with = "deserialize_strftime_date_maybe")]
-    pub copy_format: Option<String>,
-    #[serde(deserialize_with = "deserialize_locale")]
-    pub locale: Locale,
-}
-
-impl Default for Timestamp {
-    fn default() -> Self {
-        Self {
-            format: "%R".to_string(),
-            brackets: Brackets::default(),
-            context_menu_format: "%x".to_string(),
-            copy_format: None,
-            locale: Locale::default(),
         }
     }
 }
