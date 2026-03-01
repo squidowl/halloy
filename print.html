@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-bf7904bf.js";
+            window.path_to_searchindex_js = "searchindex-75697a71.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-ac22d4e6.js"></script>
@@ -1750,6 +1750,7 @@ smart = 180
 <li><a href="#on_buffer_close">on_buffer_close</a></li>
 <li><a href="#on_scroll_to_bottom">on_scroll_to_bottom</a></li>
 <li><a href="#on_message_sent">on_message_sent</a></li>
+<li><a href="#on_message">on_message</a></li>
 </ul>
 </li>
 </ul>
@@ -1791,6 +1792,15 @@ on_scroll_to_bottom = true
 
 [buffer.mark_as_read]
 on_message_sent = true
+</code></pre>
+<h3 id="on_message"><a class="header" href="#on_message">on_message</a></h3>
+<p>Marks as read when a new message arrives in the focused buffer and you are at the bottom.</p>
+<pre><code class="language-toml"># Type: boolean
+# Values: true, false
+# Default: true
+
+[buffer.mark_as_read]
+on_message = true
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="nickname-1"><a class="header" href="#nickname-1">Nickname</a></h1>
