@@ -267,10 +267,11 @@ impl Notifications {
                             notification,
                             &format!("{} {description}", user.nickname()),
                             Some(if cfg!(target_os = "linux") {
-                            	format!("{channel}, {server}")
+                                format!("{channel}, {server}")
                             } else {
-                            	format!("{channel} ({server})")
-                            }).as_deref(),
+                                format!("{channel} ({server})")
+                            })
+                            .as_deref(),
                             message,
                             sound.as_deref(),
                         );
@@ -313,10 +314,11 @@ impl Notifications {
                             notification,
                             user.nickname().as_str(),
                             Some(if cfg!(target_os = "linux") {
-                            	format!("{channel}, {server}")
-							} else {
-								format!("{channel} ({server})")
-                            }).as_deref(),
+                                format!("{channel}, {server}")
+                            } else {
+                                format!("{channel} ({server})")
+                            })
+                            .as_deref(),
                             message,
                             None,
                         );

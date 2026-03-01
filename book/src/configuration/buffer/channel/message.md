@@ -23,7 +23,7 @@ nickname_color = "unique"
 
 ### show_emoji_reacts
 
-Whether to display emoji reactions on messages.
+Whether to display emoji reactions on messages (if [IRCv3 React](https://ircv3.net/specs/client-tags/react) is supported by the server).
 
 ```toml
 # Type: boolean

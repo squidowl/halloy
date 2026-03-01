@@ -19,8 +19,8 @@ Fixed:
 
 Thanks:
 
-- Contributions: @melocene, @4e554c4c, @TheOneric, @bmndc
-- Bug reports: @barretgoat, @TheOneric, @Erroneuz
+- Contributions: @melocene, @4e554c4c, @TheOneric, @bmndc, @RealKindOne, @englut
+- Bug reports: @barretgoat, @TheOneric, @Erroneuz, @BKVad1m. @englut
 
 # 2026.3 (2026-02-24)
 
