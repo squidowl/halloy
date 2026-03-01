@@ -64,7 +64,14 @@ impl Pane {
         let title_bar_text = match &self.buffer {
             Buffer::Empty => String::new(),
             Buffer::Channel(state) => {
-                let channel = state.target.as_str();
+                let casemapping = clients.get_casemapping(&state.server);
+                let raw_channel = state.target.as_str();
+                let display_channel = if config.sidebar.lowercase_channels {
+                    casemapping.normalize(raw_channel)
+                } else {
+                    raw_channel.to_owned()
+                };
+
                 let server = &state.server;
                 if let Some(mode) =
                     clients.get_channel_mode(&state.server, &state.target)
@@ -74,9 +81,11 @@ impl Pane {
                         .map(ChannelUsers::len)
                         .unwrap_or_default();
 
-                    format!("{channel} ({mode}) @ {server} - {users} users")
+                    format!(
+                        "{display_channel} ({mode}) @ {server} - {users} users"
+                    )
                 } else {
-                    format!("{channel} @ {server}")
+                    format!("{display_channel} @ {server}")
                 }
             }
             Buffer::Server(state) => state.server.to_string(),

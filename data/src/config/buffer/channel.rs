@@ -12,6 +12,8 @@ pub struct Channel {
     #[serde(alias = "topic")] // For backwards compatibility
     pub topic_banner: TopicBanner,
     pub message: Message,
+    #[serde(default)]
+    pub lowercase_channel: bool,
 }
 
 #[derive(Debug, Clone, Deserialize)]
