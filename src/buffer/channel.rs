@@ -452,7 +452,7 @@ mod nick_list {
                     .max()
                     .unwrap_or_default();
 
-                font::width_from_chars(max_nick_length, &config.font)
+                font::width_from_chars(max_nick_length, &config.font) + 1.0
             }
         };
 
