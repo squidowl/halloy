@@ -999,7 +999,17 @@ fn upstream_buffer_button<'a>(
                 }
             }
             buffer::Upstream::Channel(_, channel) => {
-                text(channel.to_string())
+                let raw_channel = channel.as_str();
+                let unicode_safe = casemapping == isupport::CaseMap::RFC7613;
+                let display_channel = if config.sidebar.lowercase_channels
+                    && (unicode_safe || raw_channel.is_ascii())
+                {
+                    raw_channel.to_lowercase()
+                } else {
+                    raw_channel.to_owned()
+                };
+
+                text(display_channel)
                     .style(buffer_title_style)
                     .font_maybe(buffer_title_font)
                     .shaping(Shaping::Advanced)
