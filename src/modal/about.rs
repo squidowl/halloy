@@ -16,6 +16,7 @@ pub enum Field {
     Commit,
     GpuBackend,
     GpuAdapter,
+    All,
     Mail,
 }
 
@@ -106,17 +107,21 @@ impl About {
                 ModalMessage::About(Action::Copy(field, value.to_string()));
 
             row![
-                text(label).style(theme::text::secondary).font_maybe(
-                    theme::font_style::secondary(theme).map(font::get)
-                ),
                 button(
-                    text(value)
-                        .style(theme::text::primary)
-                        .font_maybe(
-                            theme::font_style::primary(theme).map(font::get)
-                        )
-                        .width(Length::Fill)
-                        .align_x(iced::widget::text::Alignment::Right)
+                    row![
+                        text(label).style(theme::text::secondary).font_maybe(
+                            theme::font_style::secondary(theme).map(font::get)
+                        ),
+                        text(value)
+                            .style(theme::text::primary)
+                            .font_maybe(
+                                theme::font_style::primary(theme)
+                                    .map(font::get)
+                            )
+                            .width(Length::Fill)
+                            .align_x(iced::widget::text::Alignment::Right)
+                    ]
+                    .width(Length::Fill)
                 )
                 .on_press(message.clone())
                 .style(theme::button::bare),
@@ -134,6 +139,39 @@ impl About {
             .align_y(iced::Alignment::Center)
         };
 
+        let copy_all_payload = format!(
+            "Version: {}\nCommit: {}\nGPU Backend: {}\nGPU Adapter: {}",
+            self.version, self.commit, gpu_backend, gpu_adapter
+        );
+
+        let copy_all_content = if self.copied == Some(Field::All) {
+            container(
+                row![
+                    text("Copied"),
+                    Space::new().width(6),
+                    icon::checkmark().style(theme::text::success)
+                ]
+                .align_y(iced::Alignment::Center),
+            )
+            .align_x(alignment::Horizontal::Center)
+            .width(Length::Fill)
+        } else {
+            container(text("Copy all"))
+                .align_x(alignment::Horizontal::Center)
+                .width(Length::Fill)
+        };
+
+        let copy_all = button(copy_all_content)
+            .padding(5)
+            .width(Length::Fixed(250.0))
+            .style(|theme, status| {
+                theme::button::secondary(theme, status, false)
+            })
+            .on_press(ModalMessage::About(Action::Copy(
+                Field::All,
+                copy_all_payload,
+            )));
+
         let close = button(
             container(text("Close"))
                 .align_x(alignment::Horizontal::Center)
@@ -150,14 +188,16 @@ impl About {
                 column![
                     item("Version", &self.version, Field::Version),
                     item("Commit", &self.commit, Field::Commit),
-                    item("Contact", data::environment::EMAIL, Field::Mail),
+                    item("GPU Backend", gpu_backend, Field::GpuBackend),
+                    item("GPU Adapter", gpu_adapter, Field::GpuAdapter),
                     container(rule::horizontal(1))
                         .padding([6, 0])
                         .width(Length::Fill),
-                    item("GPU Backend", gpu_backend, Field::GpuBackend),
-                    item("GPU Adapter", gpu_adapter, Field::GpuAdapter),
+                    item("Contact", data::environment::EMAIL, Field::Mail),
                 ],
-                close,
+                column![copy_all, close]
+                    .spacing(8)
+                    .align_x(iced::Alignment::Center),
             ]
             .spacing(20)
             .align_x(iced::Alignment::Center),
