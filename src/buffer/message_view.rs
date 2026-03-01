@@ -725,7 +725,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
             max_prefix_width,
         );
 
-        let row = row![timestamp, selectable_text(" "), prefixes];
+        let row = row![timestamp, prefixes];
 
         let (middle, content): (Element<'a, Message>, Element<'a, Message>) =
             match message.target.source() {

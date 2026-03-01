@@ -142,7 +142,6 @@ pub fn width_from_chars(len: usize, config: &config::Font) -> f32 {
         hint_factor: None,
     })
     .min_bounds()
-    .expand(Size::new(1.0, 0.0))
     .width
 }
 
@@ -170,7 +169,6 @@ pub fn width_of_message_marker(config: &config::Font) -> f32 {
         hint_factor: None,
     })
     .min_bounds()
-    .expand(Size::new(1.0, 0.0))
     .width
 }
 

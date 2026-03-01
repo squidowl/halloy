@@ -294,23 +294,24 @@ pub fn view<'a>(
 
     let right_aligned_width = max_nick_chars.map(|max_nick_chars| {
         let max_nick_width =
-            font::width_from_chars(max_nick_chars, &config.font);
-        let message_marker_width = font::width_of_message_marker(&config.font);
+            font::width_from_chars(max_nick_chars, &config.font) + 1.0;
+        let message_marker_width =
+            font::width_of_message_marker(&config.font) + 1.0;
         let range_timestamp_extra_width = range_timestamp_extra_chars.map_or(
             0.0,
             |range_timestamp_extra_chars| {
                 font::width_from_chars(
                     range_timestamp_extra_chars,
                     &config.font,
-                )
+                ) + 1.0
             },
         );
 
         max_nick_width.max(range_timestamp_extra_width + message_marker_width)
     });
 
-    let max_prefix_width =
-        max_prefix_chars.map(|len| font::width_from_chars(len, &config.font));
+    let max_prefix_width = max_prefix_chars
+        .map(|len| font::width_from_chars(len, &config.font) + 1.0);
 
     let range_timestamp_excess_width = range_timestamp_extra_chars
         .map(|len| font::width_from_chars(len, &config.font));
