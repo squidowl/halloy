@@ -89,6 +89,11 @@ pub enum Event {
     IrcError(anyhow::Error),
     Exit,
     OpenUrl(String, bool),
+    OpenAbout {
+        version: String,
+        commit: String,
+        system_information: Option<iced::system::Information>,
+    },
     OpenServer(String),
     ImagePreview(PathBuf, url::Url),
     ToggleFullscreen,
@@ -103,6 +108,8 @@ impl Dashboard {
         let (main_panes, pane) =
             pane_grid::State::new(Pane::new(Buffer::Empty));
 
+        let (sidebar, sidebar_task) = Sidebar::new();
+
         let mut dashboard = Dashboard {
             panes: Panes {
                 main_window: main_window.id,
@@ -114,7 +121,7 @@ impl Dashboard {
                 pane,
             },
             focus_history: VecDeque::new(),
-            side_menu: Sidebar::new(),
+            side_menu: sidebar,
             history: history::Manager::default(),
             last_changed: None,
             command_bar: None,
@@ -127,8 +134,9 @@ impl Dashboard {
         };
 
         let command = dashboard.track(None);
+        let sidebar_task = sidebar_task.map(Message::Sidebar);
 
-        (dashboard, command)
+        (dashboard, Task::batch(vec![command, sidebar_task]))
     }
 
     pub fn restore(
@@ -534,6 +542,18 @@ impl Dashboard {
                         let _ = open_url::open(WIKI_WEBSITE);
                         (Task::none(), None)
                     }
+                    sidebar::Event::OpenAbout {
+                        version,
+                        commit,
+                        system_information,
+                    } => (
+                        Task::none(),
+                        Some(Event::OpenAbout {
+                            version,
+                            commit,
+                            system_information,
+                        }),
+                    ),
                     sidebar::Event::MarkServerAsRead(server) => {
                         mark_server_as_read(server, &mut self.history, clients);
 
@@ -3629,11 +3649,13 @@ impl Dashboard {
                 }
             });
 
+        let (sidebar, sidebar_task) = Sidebar::new();
+
         let mut dashboard = Self {
             panes,
             focus,
             focus_history: VecDeque::from([focus.pane]),
-            side_menu: Sidebar::new(),
+            side_menu: sidebar,
             history: history::Manager::default(),
             last_changed: None,
             command_bar: None,
@@ -3645,7 +3667,7 @@ impl Dashboard {
             buffer_settings: data.buffer_settings.clone(),
         };
 
-        let mut tasks = vec![];
+        let mut tasks = vec![sidebar_task.map(Message::Sidebar)];
 
         for pane in data.popout_panes {
             // Popouts are only a single pane

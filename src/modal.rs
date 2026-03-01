@@ -7,6 +7,7 @@ use iced::Task;
 use crate::widget::Element;
 use crate::{Theme, open_url, window};
 
+pub mod about;
 pub mod connect_to_server;
 pub mod image_preview;
 pub mod prompt_before_open_url;
@@ -20,6 +21,7 @@ pub enum Modal {
         server: Server,
         config: config::Server,
     },
+    About(about::About),
     PromptBeforeOpenUrl {
         url: String,
         window: window::Id,
@@ -38,6 +40,7 @@ pub enum Message {
     OpenURL(String),
     // Modal specific messages
     ServerConnect(ServerConnect),
+    About(about::Action),
     ImagePreview(ImagePreview),
 }
 
@@ -63,6 +66,7 @@ impl Modal {
         match self {
             Modal::ReloadConfigurationError(..) => None,
             Modal::ServerConnect { .. } => None,
+            Modal::About(..) => None,
             Modal::PromptBeforeOpenUrl { url: _, window } => Some(*window),
             Modal::ImagePreview {
                 source: _,
@@ -79,6 +83,13 @@ impl Modal {
     ) -> (Task<Message>, Option<Event>) {
         match message {
             Message::Cancel => (Task::none(), Some(Event::CloseModal)),
+            Message::About(action) => {
+                if let Modal::About(about) = self {
+                    (about.update(action), None)
+                } else {
+                    (Task::none(), None)
+                }
+            }
             Message::ServerConnect(server_connect) => match server_connect {
                 ServerConnect::AcceptNewServer => {
                     (Task::none(), Some(Event::AcceptNewServer))
@@ -147,6 +158,7 @@ impl Modal {
             Modal::ServerConnect {
                 url: raw, config, ..
             } => connect_to_server::view(raw, config, theme),
+            Modal::About(about) => about.view(theme),
             Modal::PromptBeforeOpenUrl { url, window: _ } => {
                 prompt_before_open_url::view(url, theme)
             }
