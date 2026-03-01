@@ -28,7 +28,7 @@ impl Welcome {
         // Create initial config file.
         Config::create_initial_config();
 
-        let logo_bytes = include_bytes!("../../assets/logo.png").to_vec();
+        let logo_bytes = include_bytes!("../../assets/logo-256.png").to_vec();
         let logo = image::Handle::from_bytes(logo_bytes);
 
         Welcome { logo }
@@ -85,7 +85,7 @@ impl Welcome {
 
         let content = column![]
             .spacing(1)
-            .push(image(self.logo.clone()).width(150))
+            .push(image(self.logo.clone()).width(128))
             .push(space::vertical().height(10))
             .push(text("Welcome to Halloy!").font(font::MONO_BOLD.clone()))
             .push(space::vertical().height(4))
