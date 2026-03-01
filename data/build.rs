@@ -4,12 +4,7 @@ use std::process::Command;
 const VERSION: &str = include_str!("../VERSION");
 
 fn main() {
-    let git_hash = Command::new("git")
-        .args(["describe", "--always", "--dirty", "--exclude='*'"])
-        .output()
-        .ok()
-        .filter(|output| output.status.success())
-        .and_then(|x| String::from_utf8(x.stdout).ok());
+    let git_hash = ci_git_hash().or_else(local_git_hash);
 
     println!("cargo:rerun-if-changed=../VERSION");
     println!("cargo:rustc-env=VERSION={VERSION}");
@@ -52,4 +47,23 @@ fn main() {
     if head_ref.exists() {
         println!("cargo:rerun-if-changed={}", head_ref.display());
     }
+}
+
+fn ci_git_hash() -> Option<String> {
+    std::env::var("GITHUB_SHA")
+        .ok()
+        .map(|hash| hash.trim().to_owned())
+        .filter(|hash| !hash.is_empty())
+        .map(|hash| hash.chars().take(8).collect())
+}
+
+fn local_git_hash() -> Option<String> {
+    Command::new("git")
+        .args(["describe", "--always", "--dirty", "--exclude=*"])
+        .output()
+        .ok()
+        .filter(|output| output.status.success())
+        .and_then(|x| String::from_utf8(x.stdout).ok())
+        .map(|hash| hash.trim().to_owned())
+        .filter(|hash| !hash.is_empty())
 }

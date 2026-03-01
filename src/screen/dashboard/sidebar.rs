@@ -34,6 +34,11 @@ pub enum Message {
     ReloadConfigFile,
     ConfigReloaded(Result<Config, config::Error>),
     OpenReleaseWebsite,
+    OpenAbout {
+        version: String,
+        commit: String,
+        system_information: Option<iced::system::Information>,
+    },
     OpenDocumentation,
     OpenConfigFile,
     ReloadComplete,
@@ -42,6 +47,7 @@ pub enum Message {
     QuitApplication,
     Connect(Server),
     Remove(Server),
+    SystemInformation(iced::system::Information),
 }
 
 #[derive(Debug, Clone)]
@@ -59,6 +65,11 @@ pub enum Event {
     ToggleCommandBar,
     ToggleThemeEditor,
     OpenReleaseWebsite,
+    OpenAbout {
+        version: String,
+        commit: String,
+        system_information: Option<iced::system::Information>,
+    },
     OpenDocumentation,
     OpenConfigFile,
     ConfigReloaded(Result<Config, config::Error>),
@@ -73,20 +84,19 @@ pub enum Event {
 pub struct Sidebar {
     pub hidden: bool,
     reloading_config: bool,
-}
-
-impl Default for Sidebar {
-    fn default() -> Self {
-        Self::new()
-    }
+    system_information: Option<iced::system::Information>,
 }
 
 impl Sidebar {
-    pub fn new() -> Self {
-        Self {
-            hidden: false,
-            reloading_config: false,
-        }
+    pub fn new() -> (Self, Task<Message>) {
+        (
+            Self {
+                hidden: false,
+                reloading_config: false,
+                system_information: None,
+            },
+            iced::system::information().map(Message::SystemInformation),
+        )
     }
 
     pub fn toggle_visibility(&mut self) {
@@ -98,6 +108,10 @@ impl Sidebar {
         message: Message,
     ) -> (Task<Message>, Option<Event>) {
         match message {
+            Message::SystemInformation(information) => {
+                self.system_information = Some(information);
+                (Task::none(), None)
+            }
             Message::CloseAllQueries(server, queries) => {
                 (Task::none(), Some(Event::CloseAllQueries(server, queries)))
             }
@@ -170,6 +184,18 @@ impl Sidebar {
             Message::Remove(server) => {
                 (Task::none(), Some(Event::Remove(server)))
             }
+            Message::OpenAbout {
+                version,
+                commit,
+                system_information,
+            } => (
+                Task::none(),
+                Some(Event::OpenAbout {
+                    version,
+                    commit,
+                    system_information,
+                }),
+            ),
         }
     }
 
@@ -195,6 +221,7 @@ impl Sidebar {
         let show_notification_dot = version.is_old()
             || (!file_transfers.is_empty() && config.file_transfer.enabled)
             || logs_has_unread;
+        let system_information = self.system_information.clone();
 
         if menu.is_empty() {
             base.into()
@@ -361,16 +388,23 @@ impl Sidebar {
                                 icon::megaphone().style(theme::text::tertiary),
                                 Message::OpenReleaseWebsite,
                             ),
-                            Menu::Version => container(
-                                text(format!("Halloy ({})", version.current))
-                                    .style(theme::text::secondary)
-                                    .font_maybe(
-                                        theme::font_style::secondary(theme)
-                                            .map(font::get),
-                                    ),
-                            )
-                            .padding(5)
-                            .into(),
+                            Menu::Version => {
+                                context_button(
+                                    text("About Halloy"),
+                                    None,
+                                    icon::documentation(),
+                                    Message::OpenAbout {
+                                        version: version.current.clone(),
+                                        commit: data::environment::GIT_HASH
+                                            .map(str::trim)
+                                            .filter(|hash| !hash.is_empty())
+                                            .unwrap_or("Unknown")
+                                            .to_string(),
+                                        system_information: system_information
+                                            .clone(),
+                                    },
+                                )
+                            }
                             Menu::Documentation => context_button(
                                 text("Documentation"),
                                 None,
