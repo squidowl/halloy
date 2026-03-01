@@ -6,7 +6,8 @@ use nom::branch::alt;
 use nom::bytes::complete::tag;
 use nom::character::complete::{anychar, char, satisfy};
 use nom::combinator::{
-    cond, cut, eof, map, map_opt, not, opt, peek, recognize, value, verify,
+    cond, cut, eof, flat_map, map, map_opt, not, opt, peek, recognize, value,
+    verify,
 };
 use nom::multi::{count, many_m_n, many_till, many1};
 use nom::sequence::{pair, preceded, terminated, tuple};
@@ -233,58 +234,34 @@ fn markdown<'a>(
     let strikethrough = relaxed_run('~', 2);
     let spoiler = relaxed_run('|', 2);
     let spaced_code = map(
-        alt((
-            pair(
-                preceded(tag("``` "), not(char('`'))),
-                many_till(
-                    move |input| map(anychar, Token::Plain)(input),
-                    terminated(tag(" ```"), not(char('`'))),
+        flat_map(pair(many1(char('`')), tag(" ")), |(backticks, _)| {
+            many_till(
+                anychar,
+                pair(
+                    tag(" "),
+                    terminated(
+                        count(char('`'), backticks.len()),
+                        not(char('`')),
+                    ),
                 ),
-            ),
-            pair(
-                preceded(tag("`` "), not(char('`'))),
-                many_till(
-                    move |input| map(anychar, Token::Plain)(input),
-                    terminated(tag(" ``"), not(char('`'))),
-                ),
-            ),
-            pair(
-                preceded(tag("` "), not(char('`'))),
-                many_till(
-                    move |input| map(anychar, Token::Plain)(input),
-                    terminated(tag(" `"), not(char('`'))),
-                ),
-            ),
-        )),
-        |((), (tokens, _))| tokens,
+            )
+        }),
+        |(chars, _)| chars.into_iter().map(Token::Plain).collect::<Vec<_>>(),
     );
     let dense_code = map(
-        alt((
-            pair(
-                preceded(tag("```"), not(char('`'))),
-                verify(
-                    many_till(anychar, terminated(tag("```"), not(char('`')))),
-                    |(chars, _)| chars.last().is_none_or(|c| *c != '`'),
+        flat_map(many1(char('`')), |backticks| {
+            verify(
+                many_till(
+                    anychar,
+                    terminated(
+                        count(char('`'), backticks.len()),
+                        not(char('`')),
+                    ),
                 ),
-            ),
-            pair(
-                preceded(tag("``"), not(char('`'))),
-                verify(
-                    many_till(anychar, terminated(tag("``"), not(char('`')))),
-                    |(chars, _)| chars.last().is_none_or(|c| *c != '`'),
-                ),
-            ),
-            pair(
-                preceded(tag("`"), not(char('`'))),
-                verify(
-                    many_till(anychar, terminated(tag("`"), not(char('`')))),
-                    |(chars, _)| chars.last().is_none_or(|c| *c != '`'),
-                ),
-            ),
-        )),
-        |((), (chars, _))| {
-            chars.into_iter().map(Token::Plain).collect::<Vec<_>>()
-        },
+                |(chars, _)| chars.last().is_none_or(|c| *c != '`'),
+            )
+        }),
+        |(chars, _)| chars.into_iter().map(Token::Plain).collect::<Vec<_>>(),
     );
     let code = alt((spaced_code, dense_code));
     let plain_code_delimiters = map(many1(char('`')), |backticks| {
