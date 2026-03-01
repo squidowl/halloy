@@ -41,7 +41,7 @@ impl About {
         commit: String,
         system_information: Option<iced::system::Information>,
     ) -> Self {
-        let logo_bytes = include_bytes!("../../assets/logo.png").to_vec();
+        let logo_bytes = include_bytes!("../../assets/logo-256.png").to_vec();
         let logo = image::Handle::from_bytes(logo_bytes);
 
         Self {
