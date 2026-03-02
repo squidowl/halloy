@@ -1591,6 +1591,7 @@ impl State {
                             data::message::reroute_private_target(
                                 original_target.clone(),
                                 &config.buffer.private_messages,
+                                buffer.server(),
                                 chantypes,
                                 statusmsg,
                                 casemapping,
@@ -1936,6 +1937,7 @@ impl State {
                     let rerouted_target = data::message::reroute_private_target(
                         original_target.clone(),
                         &config.buffer.private_messages,
+                        buffer.server(),
                         chantypes,
                         statusmsg,
                         casemapping,

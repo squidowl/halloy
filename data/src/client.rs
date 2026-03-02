@@ -1307,13 +1307,13 @@ impl Client {
                         && config
                             .buffer
                             .private_messages
-                            .channel_for_query(
+                            .has_reroute_rule_for_query(
                                 &user_query,
+                                &self.server,
                                 self.chantypes(),
                                 self.statusmsg(),
                                 self.casemapping(),
-                            )
-                            .is_some();
+                            );
 
                     if let Some(channel) =
                         self.message_channel_target(&message.command)
