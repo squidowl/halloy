@@ -10,6 +10,7 @@ Sidebar settings for Halloy.
     - [user\_menu](#user_menu)
     - [order\_by](#order_by)
     - [order\_channels\_by](#order_channels_by)
+    - [lowercase\_channels](#lowercase_channels)
   - [Scrollbar](#scrollbar)
   - [Unread Indicator](#unread-indicator)
   - [Padding](#padding)
@@ -106,6 +107,19 @@ Include chantypes (channel prefixes, e.g., `#` and `##`) when sorting channels i
 
 [sidebar]
 order_channels_by = "name-and-prefix"
+```
+
+### lowercase_channels
+
+Render channel names in lowercase in the sidebar channel entries.
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: false
+
+[sidebar]
+lowercase_channels = true
 ```
 
 ## [Scrollbar](scrollbar.md)
