@@ -5,7 +5,7 @@ use crate::config::inclusivities::{
     Inclusivities, is_source_included, is_target_included,
 };
 use crate::message::Source;
-use crate::serde::deserialize_positive_integer_or_zero_for_unlimited;
+use crate::serde::deserialize_positive_integer_or_none_for_unlimited;
 use crate::{Server, Target, isupport, target};
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -151,7 +151,7 @@ pub struct Request {
     ///
     /// Oldest cached images are evicted when the cache exceeds this size.
     #[serde(
-        deserialize_with = "deserialize_positive_integer_or_zero_for_unlimited"
+        deserialize_with = "deserialize_positive_integer_or_none_for_unlimited"
     )]
     pub image_cache_max_size: Option<u64>,
     /// Option to trim only on when saving first image
