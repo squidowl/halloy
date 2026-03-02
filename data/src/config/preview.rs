@@ -8,14 +8,33 @@ use crate::message::Source;
 use crate::serde::deserialize_positive_integer_or_none_for_unlimited;
 use crate::{Server, Target, isupport, target};
 
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
 pub struct Preview {
     pub enabled: Enabled,
     pub exclude: Exclude,
+    #[serde(default = "default_max_per_message")]
+    pub max_per_message: usize,
     pub request: Request,
     pub card: Card,
     pub image: Image,
+}
+
+impl Default for Preview {
+    fn default() -> Self {
+        Self {
+            enabled: Enabled::default(),
+            exclude: Exclude::default(),
+            max_per_message: default_max_per_message(),
+            request: Request::default(),
+            card: Card::default(),
+            image: Image::default(),
+        }
+    }
+}
+
+fn default_max_per_message() -> usize {
+    1
 }
 
 impl Preview {

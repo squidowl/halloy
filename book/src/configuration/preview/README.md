@@ -6,6 +6,7 @@ URL preview settings for Halloy.
   - [Configuration](#configuration)
     - [enabled](#enabled)
     - [exclude](#exclude)
+    - [max\_per\_message](#max_per_message)
   - [Request](#request)
   - [Image](#image)
   - [Card](#card)
@@ -64,6 +65,19 @@ exclude = [
     '''https?://(www\.)?example\.com/.*''', 
     '''https?://(www\.)?spam-site\.net/.*'''
 ]
+```
+
+### max_per_message
+
+Maximum number of previews to show for a single message.
+
+```toml
+# Type: integer
+# Values: any non-negative integer
+# Default: 1
+
+[preview]
+max_per_message = 1
 ```
 
 ## [Request](request.md)
