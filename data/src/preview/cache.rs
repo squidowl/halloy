@@ -207,7 +207,12 @@ fn collect_cache_files(root: &Path) -> Vec<CacheFile> {
 
     let mut files = Vec::new();
 
-    for entry in WalkDir::new(root).into_iter().filter_map(Result::ok) {
+    for entry in WalkDir::new(root)
+        .follow_root_links(false)
+        .follow_links(false)
+        .into_iter()
+        .filter_map(Result::ok)
+    {
         if !entry.file_type().is_file() {
             continue;
         }
