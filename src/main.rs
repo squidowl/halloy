@@ -314,7 +314,16 @@ impl Halloy {
         let check_for_update_on_launch = config.check_for_update_on_launch;
 
         let (main_window, open_main_window) = window::open(window::Settings {
-            size: fullscreen.unwrap_or(size),
+            size: fullscreen.unwrap_or(iced::Size {
+                width: config
+                    .window
+                    .initial_width
+                    .map_or(size.width, |w| w as f32),
+                height: config
+                    .window
+                    .initial_height
+                    .map_or(size.height, |h| h as f32),
+            }),
             position: position
                 .map(window::Position::Specific)
                 .unwrap_or_default(),
