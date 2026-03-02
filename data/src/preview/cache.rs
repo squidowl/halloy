@@ -14,7 +14,10 @@ use walkdir::WalkDir;
 use super::{Preview, image};
 use crate::{config, environment};
 
+const IMAGE_CACHE_TRIMMED_FRACTION_NUMERATOR: u64 = 3;
+const IMAGE_CACHE_TRIMMED_FRACTION_DENOMINATOR: u64 = 4;
 static IMAGE_CACHE_SAVE_COUNTER: AtomicU64 = AtomicU64::new(0);
+static IMAGE_CACHE_SIZE_ESTIMATE: AtomicU64 = AtomicU64::new(0);
 static IMAGE_CACHE_FIRST_SAVE_SEEN: AtomicBool = AtomicBool::new(false);
 static IMAGE_CACHE_TRIM_IN_PROGRESS: AtomicBool = AtomicBool::new(false);
 
@@ -74,6 +77,7 @@ pub async fn save(url: &Url, state: State) {
 }
 
 pub(super) fn maybe_trim_image_cache(
+    image_size: u64,
     max_image_cache_size: u64,
     image_cache_trim_interval: u64,
     protected_path: PathBuf,
@@ -82,11 +86,16 @@ pub(super) fn maybe_trim_image_cache(
         return;
     }
 
+    let written_size = IMAGE_CACHE_SIZE_ESTIMATE
+        .fetch_add(image_size, Ordering::Relaxed)
+        + image_size;
     let saves = IMAGE_CACHE_SAVE_COUNTER.fetch_add(1, Ordering::Relaxed) + 1;
     let first_save_in_session =
         !IMAGE_CACHE_FIRST_SAVE_SEEN.swap(true, Ordering::Relaxed);
 
     if !should_trim_on_save(
+        written_size,
+        max_image_cache_size,
         saves,
         image_cache_trim_interval,
         first_save_in_session,
@@ -237,7 +246,8 @@ fn find_cached_files(
 
     let mut cached_files = Vec::new();
 
-    let trimmed_size = (3 * max_size).div_ceil(4);
+    let trimmed_size = (IMAGE_CACHE_TRIMMED_FRACTION_NUMERATOR * max_size)
+        .div_ceil(IMAGE_CACHE_TRIMMED_FRACTION_DENOMINATOR);
 
     while total_size > trimmed_size {
         let Some(file) = files.pop() else {
@@ -252,15 +262,20 @@ fn find_cached_files(
         cached_files.push(file);
     }
 
+    IMAGE_CACHE_SIZE_ESTIMATE.store(total_size, Ordering::Release);
+
     cached_files
 }
 
 fn should_trim_on_save(
+    written_size: u64,
+    max_size: u64,
     saves: u64,
     trim_interval: u64,
     first_save_in_session: bool,
 ) -> bool {
     first_save_in_session
+        || (written_size > max_size)
         || (trim_interval != 0 && saves.is_multiple_of(trim_interval))
 }
 
