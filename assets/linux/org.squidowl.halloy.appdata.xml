@@ -23,7 +23,9 @@
             <image>https://raw.githubusercontent.com/squidowl/halloy/7aec18d29ffb1d3605131667c6e11d8cef6ada7b/assets/screenshot.png</image>
         </screenshot>
     </screenshots>
-    <developer_name>The Squidowl Development Team</developer_name>
+    <developer id="org.squidowl.halloy">
+        <name>The Squidowl Development Team</name>
+    </developer>
     <releases>
         <release version="2026.3"
                  date="2026-02-24" />
