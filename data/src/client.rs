@@ -1587,13 +1587,13 @@ impl Client {
                         && config
                             .buffer
                             .private_messages
-                            .channel_for_query(
+                            .has_reroute_rule_for_query(
                                 &target::Query::from(&user),
+                                &self.server,
                                 self.chantypes(),
                                 self.statusmsg(),
                                 self.casemapping(),
-                            )
-                            .is_some();
+                            );
 
                     if direct_message {
                         self.resolved_queries
