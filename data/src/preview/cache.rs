@@ -79,12 +79,13 @@ pub async fn save(url: &Url, state: State) {
 
 pub(super) fn maybe_trim_image_cache(
     image_size: u64,
-    max_image_cache_size: u64,
+    max_image_cache_size: Option<u64>,
+    trim_image_cache_only_once: bool,
     protected_path: PathBuf,
 ) {
-    if max_image_cache_size == 0 {
+    let Some(max_image_cache_size) = max_image_cache_size else {
         return;
-    }
+    };
 
     let written_size = IMAGE_CACHE_SIZE_ESTIMATE
         .fetch_add(image_size, Ordering::Relaxed)
@@ -97,6 +98,7 @@ pub(super) fn maybe_trim_image_cache(
         written_size,
         max_image_cache_size,
         saves,
+        trim_image_cache_only_once,
         first_save_in_session,
     ) {
         return;
@@ -275,11 +277,13 @@ fn should_trim_on_save(
     written_size: u64,
     max_size: u64,
     saves: u64,
+    trim_image_cache_only_once: bool,
     first_save_in_session: bool,
 ) -> bool {
     first_save_in_session
-        || (written_size > max_size)
-        || saves.is_multiple_of(IMAGE_CACHE_TRIM_INTERVAL)
+        || !trim_image_cache_only_once
+            && ((written_size > max_size)
+                || saves.is_multiple_of(IMAGE_CACHE_TRIM_INTERVAL))
 }
 
 #[cfg(test)]
