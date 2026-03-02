@@ -179,7 +179,8 @@ impl<'a> ChannelQueryLayout<'a> {
                             self.config,
                             self.theme,
                         )
-                        .map(Message::ContextMenu)
+                        .map(Message::ContextMenu),
+                        selectable_text(" "),
                     ]
                     .into()
                 })
@@ -190,25 +191,29 @@ impl<'a> ChannelQueryLayout<'a> {
                 .map(|timestamp| {
                     if hide_timestamp {
                         let width = font::width_from_chars(
-                            timestamp.chars().count(),
+                            timestamp.chars().count() + 1,
                             &self.config.font,
                         );
 
                         return Space::new().width(width).into();
                     }
 
-                    context_menu::timestamp(
-                        selectable_text(timestamp)
-                            .style(theme::selectable_text::timestamp)
-                            .font_maybe(
-                                theme::font_style::timestamp(self.theme)
-                                    .map(font::get),
-                            ),
-                        &message.server_time,
-                        self.config,
-                        self.theme,
-                    )
-                    .map(Message::ContextMenu)
+                    row![
+                        context_menu::timestamp(
+                            selectable_text(timestamp)
+                                .style(theme::selectable_text::timestamp)
+                                .font_maybe(
+                                    theme::font_style::timestamp(self.theme)
+                                        .map(font::get),
+                                ),
+                            &message.server_time,
+                            self.config,
+                            self.theme,
+                        )
+                        .map(Message::ContextMenu),
+                        selectable_text(" "),
+                    ]
+                    .into()
                 })
         }
     }
@@ -725,7 +730,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
             max_prefix_width,
         );
 
-        let row = row![timestamp, selectable_text(" "), prefixes];
+        let row = row![timestamp, prefixes];
 
         let (middle, content): (Element<'a, Message>, Element<'a, Message>) =
             match message.target.source() {
