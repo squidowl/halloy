@@ -25,6 +25,7 @@ pub use self::preview::Preview;
 pub use self::proxy::Proxy;
 pub use self::server::Server;
 pub use self::sidebar::Sidebar;
+use self::window::Window as WindowConfig;
 use crate::appearance::theme::Styles;
 use crate::appearance::{self, Appearance};
 use crate::audio::{self};
@@ -50,6 +51,7 @@ pub mod preview;
 pub mod proxy;
 pub mod server;
 pub mod sidebar;
+pub mod window;
 
 const CONFIG_TEMPLATE: &str = include_str!("../../config.toml");
 const DEFAULT_THEME_NAME: &str = "ferra";
@@ -69,6 +71,7 @@ pub struct Config {
     pub notifications: Notifications,
     pub file_transfer: FileTransfer,
     pub tooltips: bool,
+    pub window: WindowConfig,
     pub preview: Preview,
     pub highlights: Highlights,
     pub actions: Actions,
@@ -94,6 +97,7 @@ impl Default for Config {
             notifications: Notifications::default(),
             file_transfer: FileTransfer::default(),
             tooltips: true,
+            window: WindowConfig::default(),
             preview: Preview::default(),
             highlights: Highlights::default(),
             actions: Actions::default(),
@@ -352,6 +356,7 @@ impl Config {
             pub notifications: Notifications,
             pub file_transfer: FileTransfer,
             pub tooltips: bool,
+            pub window: WindowConfig,
             pub preview: Preview,
             pub highlights: Highlights,
             pub actions: Actions,
@@ -377,6 +382,7 @@ impl Config {
                     notifications: Notifications::default(),
                     file_transfer: FileTransfer::default(),
                     tooltips: true,
+                    window: WindowConfig::default(),
                     preview: Preview::default(),
                     highlights: Highlights::default(),
                     actions: Actions::default(),
@@ -411,6 +417,7 @@ impl Config {
             notifications,
             file_transfer,
             tooltips,
+            window,
             preview,
             pane,
             highlights,
@@ -443,6 +450,7 @@ impl Config {
             notifications,
             file_transfer,
             tooltips,
+            window,
             preview,
             pane,
             highlights,
