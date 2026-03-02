@@ -1,6 +1,5 @@
 use std::cmp::Reverse;
-use std::path::Path;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::time::SystemTime;
@@ -235,7 +234,9 @@ fn find_cached_files(
 
     let mut cached_files = Vec::new();
 
-    while total_size > max_size {
+    let trimmed_size = (3 * max_size).div_ceil(4);
+
+    while total_size > trimmed_size {
         let Some(file) = files.pop() else {
             break;
         };
@@ -256,15 +257,16 @@ fn should_trim_on_save(
     trim_interval: u64,
     first_save_in_session: bool,
 ) -> bool {
-    first_save_in_session || (trim_interval != 0 && saves % trim_interval == 0)
+    first_save_in_session
+        || (trim_interval != 0 && saves.is_multiple_of(trim_interval))
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{CacheFile, find_cached_files};
     use std::path::{Path, PathBuf};
     use std::time::{Duration, SystemTime};
 
+    use super::{CacheFile, find_cached_files};
     #[test]
     fn find_cached_files_removes_oldest_until_under_limit() {
         let base = SystemTime::UNIX_EPOCH;
@@ -288,7 +290,7 @@ mod tests {
 
         let cached_files = find_cached_files(&mut files, 10, Path::new("none"));
 
-        assert_eq!(cached_files.len(), 1);
+        assert_eq!(cached_files.len(), 2);
         assert_eq!(cached_files[0].path, PathBuf::from("a"));
     }
 
