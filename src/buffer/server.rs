@@ -5,11 +5,12 @@ use data::dashboard::BufferAction;
 use data::target::Target;
 use data::user::Nick;
 use data::{Config, Preview, User, buffer, history, message};
-use iced::widget::{column, container, row, space};
+use iced::advanced::text;
+use iced::widget::{Space, column, container, row, space};
 use iced::{Color, Length, Size, Task, padding};
 
 use super::{context_menu, input_view, scroll_view};
-use crate::widget::{Element, message_content, selectable_text};
+use crate::widget::{Element, message_content, selectable_text, tooltip};
 use crate::window::Window;
 use crate::{Theme, font, theme};
 
@@ -47,6 +48,7 @@ pub fn view<'a>(
     is_focused: bool,
 ) -> Element<'a, Message> {
     let chantypes = clients.get_chantypes(&state.server);
+    let prefix = clients.get_prefix(&state.server);
     let casemapping = clients.get_casemapping(&state.server);
     let our_nick: Option<data::user::NickRef<'_>> =
         clients.nickname(&state.server);
@@ -62,7 +64,12 @@ pub fn view<'a>(
             None,
             config,
             theme,
-            move |message: &'a data::Message, _, _, _, _, _| {
+            move |message: &'a data::Message,
+                  right_aligned_width,
+                  _,
+                  _,
+                  _,
+                  hide_nickname| {
                 let timestamp = config
                     .buffer
                     .format_timestamp(&message.server_time)
@@ -140,6 +147,102 @@ pub fn view<'a>(
                         Some(
                             container(row![
                                 timestamp,
+                                selectable_text(" "),
+                                message
+                            ])
+                            .into(),
+                        )
+                    }
+                    message::Source::User(user) => {
+                        let truncate = config.buffer.nickname.truncate;
+                        let with_access_levels =
+                            config.buffer.nickname.show_access_levels;
+
+                        let mut nick = selectable_text(
+                            config.buffer.nickname.brackets.format(
+                                user.display(with_access_levels, truncate),
+                            ),
+                        )
+                        .style(move |theme| {
+                            theme::selectable_text::nickname(
+                                theme, config, user, false,
+                            )
+                        })
+                        .font_maybe(
+                            theme::font_style::nickname(theme, false)
+                                .map(font::get),
+                        );
+
+                        if let Some(width) = right_aligned_width {
+                            nick = nick
+                                .width(width)
+                                .align_x(text::Alignment::Right);
+                        }
+
+                        let nick = tooltip(
+                            context_menu::user(
+                                nick,
+                                &state.server,
+                                prefix,
+                                None,
+                                user,
+                                None,
+                                None,
+                                config,
+                                theme,
+                                &config.buffer.nickname.click,
+                            )
+                            .map(scroll_view::Message::ContextMenu),
+                            truncate.map(|_| user.as_str()),
+                            tooltip::Position::Bottom,
+                            theme,
+                        );
+
+                        let nick: Element<_> = if hide_nickname {
+                            let width = match config.buffer.nickname.alignment {
+                                data::buffer::Alignment::Left
+                                | data::buffer::Alignment::Top => 0.0,
+                                data::buffer::Alignment::Right => {
+                                    right_aligned_width.unwrap_or_default()
+                                }
+                            };
+                            Space::new().width(width).into()
+                        } else {
+                            nick
+                        };
+
+                        let rerouted_private =
+                            data::message::is_rerouted_private_message(
+                                message,
+                                &config.buffer.private_messages,
+                                &state.server,
+                            );
+
+                        let message = message_content(
+                            &message.content,
+                            &state.server,
+                            chantypes,
+                            casemapping,
+                            theme,
+                            scroll_view::Message::Link,
+                            None,
+                            move |theme| {
+                                if rerouted_private {
+                                    theme::selectable_text::tertiary(theme)
+                                } else {
+                                    theme::selectable_text::default(theme)
+                                }
+                            },
+                            theme::font_style::primary,
+                            Option::<fn(Color) -> Color>::None,
+                            config,
+                        );
+
+                        Some(
+                            container(row![
+                                timestamp,
+                                selectable_text(" "),
+                                nick,
                                 selectable_text(" "),
                                 message
                             ])
