@@ -181,14 +181,11 @@ pub fn view<'a>(
                         }
 
                         let nick = tooltip(
-                            context_menu::user(
+                            context_menu::rerouted_private_user(
                                 nick,
                                 &state.server,
                                 prefix,
-                                None,
                                 user,
-                                None,
-                                None,
                                 config,
                                 theme,
                                 &config.buffer.nickname.click,

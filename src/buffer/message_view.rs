@@ -323,19 +323,45 @@ impl<'a> ChannelQueryLayout<'a> {
         }
 
         let nick = tooltip(
-            context_menu::user(
-                nick_text,
-                self.server,
-                self.prefix,
-                self.target.channel(),
-                user,
-                user_in_channel,
-                self.target.our_user(),
-                self.config,
-                self.theme,
-                &self.config.buffer.nickname.click,
-            )
-            .map(Message::ContextMenu),
+            {
+                let rerouted_private =
+                    data::message::is_rerouted_private_message(
+                        message,
+                        &self.config.buffer.private_messages,
+                        self.server,
+                    );
+                let is_ourself =
+                    self.target.our_user().is_some_and(|our_user| {
+                        our_user.nickname() == user.nickname()
+                    });
+
+                if rerouted_private && !is_ourself {
+                    context_menu::rerouted_private_user(
+                        nick_text,
+                        self.server,
+                        self.prefix,
+                        user,
+                        self.config,
+                        self.theme,
+                        &self.config.buffer.nickname.click,
+                    )
+                    .map(Message::ContextMenu)
+                } else {
+                    context_menu::user(
+                        nick_text,
+                        self.server,
+                        self.prefix,
+                        self.target.channel(),
+                        user,
+                        user_in_channel,
+                        self.target.our_user(),
+                        self.config,
+                        self.theme,
+                        &self.config.buffer.nickname.click,
+                    )
+                    .map(Message::ContextMenu)
+                }
+            },
             // We show the full nickname in the tooltip if truncation is enabled.
             truncate.map(|_| user.as_str()),
             tooltip::Position::Bottom,
@@ -360,6 +386,10 @@ impl<'a> ChannelQueryLayout<'a> {
             &self.config.buffer.private_messages,
             self.server,
         );
+        let is_ourself = self
+            .target
+            .our_user()
+            .is_some_and(|our_user| our_user.nickname() == user.nickname());
 
         let formatter = *self;
 
@@ -396,12 +426,18 @@ impl<'a> ChannelQueryLayout<'a> {
             theme::font_style::primary,
             color_transformation,
             move |link| match link {
-                message::Link::User(_, _) => context_menu::Entry::user_list(
-                    formatter.target.is_channel(),
-                    user_in_channel,
-                    formatter.target.our_user(),
-                    formatter.config.file_transfer.enabled,
-                ),
+                message::Link::User(_, _) => {
+                    if rerouted_private && !is_ourself {
+                        vec![context_menu::Entry::Whois]
+                    } else {
+                        context_menu::Entry::user_list(
+                            formatter.target.is_channel(),
+                            user_in_channel,
+                            formatter.target.our_user(),
+                            formatter.config.file_transfer.enabled,
+                        )
+                    }
+                }
                 message::Link::Url(_) => formatter.url_entries(message, link),
                 _ => vec![],
             },

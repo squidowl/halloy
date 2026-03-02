@@ -55,7 +55,7 @@ impl PrivateMessages {
                     },
             } => {
                 rule_user.eq_ignore_ascii_case(user)
-                    && rule_server.eq_ignore_ascii_case(&server.name)
+                    && matches_server_label(rule_server, server)
             }
             RerouteRule {
                 target: RerouteTarget::Channel { .. },
@@ -106,10 +106,17 @@ impl PrivateMessages {
                 .map(|_| &rule.target),
                 RerouteTarget::Server {
                     server: rule_server,
-                } => rule_server
-                    .eq_ignore_ascii_case(&server.name)
+                } => matches_server_label(rule_server, server)
                     .then_some(&rule.target),
             }
         })
     }
+}
+
+fn matches_server_label(rule_server: &str, server: &Server) -> bool {
+    rule_server.eq_ignore_ascii_case(&server.name)
+        || server.network.as_ref().is_some_and(|network| {
+            rule_server.eq_ignore_ascii_case(&network.name)
+                || rule_server.eq_ignore_ascii_case(&network.id)
+        })
 }
