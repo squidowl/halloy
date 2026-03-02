@@ -150,10 +150,6 @@ pub struct Request {
     ///
     /// Oldest cached images are evicted when the cache exceeds this size.
     pub image_cache_max_size: u64,
-    /// Run image cache trimming every N successful image saves.
-    ///
-    /// Set to 0 to disable periodic trimming.
-    pub image_cache_trim_interval: u64,
 }
 
 impl Request {
@@ -172,7 +168,6 @@ impl Default for Request {
             concurrency: 4,
             delay_ms: 500,
             image_cache_max_size: 500,
-            image_cache_trim_interval: 32,
         }
     }
 }
