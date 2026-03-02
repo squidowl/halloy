@@ -353,6 +353,7 @@ impl<'a> ChannelQueryLayout<'a> {
         let rerouted_private = data::message::is_rerouted_private_message(
             message,
             &self.config.buffer.private_messages,
+            self.server,
         );
 
         let formatter = *self;

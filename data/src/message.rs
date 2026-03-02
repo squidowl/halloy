@@ -88,19 +88,39 @@ pub mod source;
 pub fn reroute_private_target(
     target: Target,
     reroute_private: &config::buffer::PrivateMessages,
+    server: &Server,
     chantypes: &[char],
     statusmsg: &[char],
     casemapping: isupport::CaseMap,
 ) -> Target {
     match target {
         Target::Query { query, source } => {
-            if let Some(channel) = reroute_private.channel_for_query(
+            if let Some(target) = reroute_private.target_for_query(
                 &query,
+                server,
                 chantypes,
                 statusmsg,
                 casemapping,
             ) {
-                Target::Channel { channel, source }
+                match target {
+                    config::buffer::private_messages::RerouteTarget::Channel {
+                        channel,
+                    } => {
+                        if let Ok(channel) = target::Channel::parse(
+                            channel,
+                            chantypes,
+                            statusmsg,
+                            casemapping,
+                        ) {
+                            Target::Channel { channel, source }
+                        } else {
+                            Target::Query { query, source }
+                        }
+                    }
+                    config::buffer::private_messages::RerouteTarget::Server {
+                        ..
+                    } => Target::Server { source },
+                }
             } else {
                 Target::Query { query, source }
             }
@@ -112,24 +132,38 @@ pub fn reroute_private_target(
 pub fn is_rerouted_private_message(
     message: &Message,
     reroute_private: &config::buffer::PrivateMessages,
+    server: &Server,
 ) -> bool {
-    let (
-        Target::Channel { channel, source },
-        Some(
-            command::Irc::Msg(raw_target, _)
-            | command::Irc::Notice(raw_target, _),
-        ),
-    ) = (&message.target, &message.command)
+    let Some(
+        command::Irc::Msg(raw_target, _) | command::Irc::Notice(raw_target, _),
+    ) = &message.command
     else {
         return false;
     };
 
-    if matches!(message.direction, Direction::Sent) || message.is_echo {
-        reroute_private.has_rule_for(raw_target, channel.as_str())
-    } else if let Source::User(user) = source {
-        reroute_private.has_rule_for(user.as_str(), channel.as_str())
-    } else {
-        false
+    match &message.target {
+        Target::Channel { channel, source } => {
+            if matches!(message.direction, Direction::Sent) || message.is_echo {
+                reroute_private
+                    .has_reroute_rule_for(raw_target, channel.as_str())
+            } else if let Source::User(user) = source {
+                reroute_private
+                    .has_reroute_rule_for(user.as_str(), channel.as_str())
+            } else {
+                false
+            }
+        }
+        Target::Server { source } => {
+            if matches!(message.direction, Direction::Sent) || message.is_echo {
+                reroute_private.has_server_reroute_rule_for(raw_target, server)
+            } else if let Source::User(user) = source {
+                reroute_private
+                    .has_server_reroute_rule_for(user.as_str(), server)
+            } else {
+                false
+            }
+        }
+        _ => false,
     }
 }
 
@@ -408,6 +442,7 @@ impl Message {
             &our_nick,
             config,
             &resolve_attributes,
+            server,
             chantypes,
             statusmsg,
             casemapping,
@@ -468,6 +503,7 @@ impl Message {
             &our_nick,
             config,
             &resolve_attributes,
+            server,
             chantypes,
             statusmsg,
             casemapping,
@@ -1961,6 +1997,7 @@ fn target(
     our_nick: &Nick,
     config: &Config,
     resolve_attributes: &dyn Fn(&User, &target::Channel) -> Option<User>,
+    server: &Server,
     chantypes: &[char],
     statusmsg: &[char],
     casemapping: isupport::CaseMap,
@@ -2198,6 +2235,7 @@ fn target(
                                 source: source(user),
                             },
                             &config.buffer.private_messages,
+                            server,
                             chantypes,
                             statusmsg,
                             casemapping,
