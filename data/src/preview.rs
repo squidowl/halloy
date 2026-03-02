@@ -316,6 +316,7 @@ async fn fetch(
 
                 fs::rename(&temp_path, &image_path).await?;
                 cache::maybe_trim_image_cache(
+                    written as u64,
                     config.request.image_cache_max_size_bytes(),
                     config.request.image_cache_trim_interval,
                     image_path.clone(),
