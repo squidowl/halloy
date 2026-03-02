@@ -14,6 +14,28 @@ use crate::widget::{Element, message_content, selectable_text, tooltip};
 use crate::window::Window;
 use crate::{Theme, font, theme};
 
+fn row_with_timestamp<'a>(
+    timestamp: Option<Element<'a, scroll_view::Message>>,
+    content: Element<'a, scroll_view::Message>,
+) -> Element<'a, scroll_view::Message> {
+    container(row![timestamp, selectable_text(" "), content]).into()
+}
+
+fn row_with_timestamp_and_nick<'a>(
+    timestamp: Option<Element<'a, scroll_view::Message>>,
+    nick: Element<'a, scroll_view::Message>,
+    content: Element<'a, scroll_view::Message>,
+) -> Element<'a, scroll_view::Message> {
+    container(row![
+        timestamp,
+        selectable_text(" "),
+        nick,
+        selectable_text(" "),
+        content
+    ])
+    .into()
+}
+
 #[derive(Debug, Clone)]
 pub enum Message {
     ScrollView(scroll_view::Message),
@@ -115,14 +137,7 @@ pub fn view<'a>(
                             config,
                         );
 
-                        Some(
-                            container(row![
-                                timestamp,
-                                selectable_text(" "),
-                                message
-                            ])
-                            .into(),
-                        )
+                        Some(row_with_timestamp(timestamp, message))
                     }
                     message::Source::Internal(
                         message::source::Internal::Status(status),
@@ -145,14 +160,7 @@ pub fn view<'a>(
                             config,
                         );
 
-                        Some(
-                            container(row![
-                                timestamp,
-                                selectable_text(" "),
-                                message
-                            ])
-                            .into(),
-                        )
+                        Some(row_with_timestamp(timestamp, message))
                     }
                     message::Source::User(user) => {
                         let truncate = config.buffer.nickname.truncate;
@@ -236,16 +244,9 @@ pub fn view<'a>(
                             config,
                         );
 
-                        Some(
-                            container(row![
-                                timestamp,
-                                selectable_text(" "),
-                                nick,
-                                selectable_text(" "),
-                                message
-                            ])
-                            .into(),
-                        )
+                        Some(row_with_timestamp_and_nick(
+                            timestamp, nick, message,
+                        ))
                     }
                     _ => None,
                 }

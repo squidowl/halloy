@@ -290,6 +290,15 @@ impl<'a> ChannelQueryLayout<'a> {
             }
             ShownStatus::Historical => false,
         };
+        let rerouted_private = data::message::is_rerouted_private_message(
+            message,
+            &self.config.buffer.private_messages,
+            self.server,
+        );
+        let is_ourself = self
+            .target
+            .our_user()
+            .is_some_and(|our_user| our_user.nickname() == user.nickname());
 
         let nickname_style = theme::selectable_text::dimmed(
             theme::selectable_text::nickname(
@@ -324,17 +333,6 @@ impl<'a> ChannelQueryLayout<'a> {
 
         let nick = tooltip(
             {
-                let rerouted_private =
-                    data::message::is_rerouted_private_message(
-                        message,
-                        &self.config.buffer.private_messages,
-                        self.server,
-                    );
-                let is_ourself =
-                    self.target.our_user().is_some_and(|our_user| {
-                        our_user.nickname() == user.nickname()
-                    });
-
                 if rerouted_private && !is_ourself {
                     context_menu::rerouted_private_user(
                         nick_text,
@@ -380,16 +378,6 @@ impl<'a> ChannelQueryLayout<'a> {
         } else {
             nick
         };
-
-        let rerouted_private = data::message::is_rerouted_private_message(
-            message,
-            &self.config.buffer.private_messages,
-            self.server,
-        );
-        let is_ourself = self
-            .target
-            .our_user()
-            .is_some_and(|our_user| our_user.nickname() == user.nickname());
 
         let formatter = *self;
 
