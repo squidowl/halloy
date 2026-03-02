@@ -314,7 +314,7 @@ impl Notifications {
                             notification,
                             user.nickname().as_str(),
                             Some(if cfg!(target_os = "macos") {
-                            	format!("{channel} ({server})")
+                                format!("{channel} ({server})")
                             } else {
                                 format!("{channel}, {server}")
                             })
