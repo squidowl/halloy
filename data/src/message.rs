@@ -298,6 +298,16 @@ impl Target {
             Target::Highlights { source, .. } => source,
         }
     }
+
+    pub fn raw(&self) -> Option<&str> {
+        match self {
+            Target::Channel { channel, .. } => Some(channel.as_str()),
+            Target::Query { query, .. } => Some(query.as_str()),
+            Target::Server { .. }
+            | Target::Logs { .. }
+            | Target::Highlights { .. } => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
