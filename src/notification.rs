@@ -266,10 +266,10 @@ impl Notifications {
                             &config.highlight,
                             notification,
                             &format!("{} {description}", user.nickname()),
-                            Some(if cfg!(target_os = "linux") {
-                                format!("{channel}, {server}")
-                            } else {
+                            Some(if cfg!(target_os = "macos") {
                                 format!("{channel} ({server})")
+                            } else {
+                                format!("{channel}, {server}")
                             })
                             .as_deref(),
                             message,
@@ -313,10 +313,10 @@ impl Notifications {
                             notification_config,
                             notification,
                             user.nickname().as_str(),
-                            Some(if cfg!(target_os = "linux") {
-                                format!("{channel}, {server}")
+                            Some(if cfg!(target_os = "macos") {
+                            	format!("{channel} ({server})")
                             } else {
-                                format!("{channel} ({server})")
+                                format!("{channel}, {server}")
                             })
                             .as_deref(),
                             message,

@@ -16,14 +16,14 @@ pub fn show(title: &str, subtitle: Option<&str>, body: &str) {
 
     notification.body(body);
 
-    #[cfg(not(target_os = "linux"))]
+    #[cfg(target_os = "macos")]
     {
         notification.summary(title);
         if let Some(subtitle) = subtitle {
             notification.subtitle(subtitle);
         }
     }
-    #[cfg(target_os = "linux")]
+    #[cfg(not(target_os = "macos"))]
     {
         if let Some(subtitle) = subtitle {
             notification.summary(&format!("{title} ({subtitle})"));
