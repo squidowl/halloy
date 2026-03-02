@@ -525,6 +525,55 @@ pub fn user<'a>(
         config.file_transfer.enabled,
     );
 
+    user_with_entries(
+        content,
+        server,
+        prefix,
+        channel,
+        user,
+        current_user,
+        config,
+        theme,
+        click,
+        entries,
+    )
+}
+
+pub fn rerouted_private_user<'a>(
+    content: impl Into<Element<'a, Message>>,
+    server: &'a Server,
+    prefix: &'a [isupport::PrefixMap],
+    user: &'a User,
+    config: &'a Config,
+    theme: &'a Theme,
+    click: &'a config::buffer::NicknameClickAction,
+) -> Element<'a, Message> {
+    user_with_entries(
+        content,
+        server,
+        prefix,
+        None,
+        user,
+        None,
+        config,
+        theme,
+        click,
+        vec![Entry::Whois],
+    )
+}
+
+fn user_with_entries<'a>(
+    content: impl Into<Element<'a, Message>>,
+    server: &'a Server,
+    prefix: &'a [isupport::PrefixMap],
+    channel: Option<&'a target::Channel>,
+    user: &'a User,
+    current_user: Option<&'a User>,
+    config: &'a Config,
+    theme: &'a Theme,
+    click: &'a config::buffer::NicknameClickAction,
+    entries: Vec<Entry>,
+) -> Element<'a, Message> {
     let message = match click {
         data::config::buffer::NicknameClickAction::OpenQuery => Message::Query(
             server.clone(),
