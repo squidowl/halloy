@@ -37,6 +37,7 @@ pub fn parse_code_fragments(text: &str) -> Vec<Fragment> {
             match modifier {
                 Modifier::Reset => {
                     modifiers.clear();
+                    current_text.push(c);
                 }
                 Modifier::Monospace => {
                     if modifiers.contains(&Modifier::Monospace) {
