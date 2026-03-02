@@ -16,7 +16,6 @@ use crate::{config, environment};
 
 const IMAGE_CACHE_TRIMMED_FRACTION_NUMERATOR: u64 = 3;
 const IMAGE_CACHE_TRIMMED_FRACTION_DENOMINATOR: u64 = 4;
-const IMAGE_CACHE_TRIM_INTERVAL: u64 = 32;
 static IMAGE_CACHE_SAVE_COUNTER: AtomicU64 = AtomicU64::new(0);
 static IMAGE_CACHE_SIZE_ESTIMATE: AtomicU64 = AtomicU64::new(0);
 static IMAGE_CACHE_FIRST_SAVE_SEEN: AtomicBool = AtomicBool::new(false);
@@ -80,7 +79,7 @@ pub async fn save(url: &Url, state: State) {
 pub(super) fn maybe_trim_image_cache(
     image_size: u64,
     max_image_cache_size: Option<u64>,
-    trim_image_cache_only_once: bool,
+    image_cache_trim_interval: u64,
     protected_path: PathBuf,
 ) {
     let Some(max_image_cache_size) = max_image_cache_size else {
@@ -98,7 +97,7 @@ pub(super) fn maybe_trim_image_cache(
         written_size,
         max_image_cache_size,
         saves,
-        trim_image_cache_only_once,
+        image_cache_trim_interval,
         first_save_in_session,
     ) {
         return;
@@ -277,13 +276,13 @@ fn should_trim_on_save(
     written_size: u64,
     max_size: u64,
     saves: u64,
-    trim_image_cache_only_once: bool,
+    trim_interval: u64,
     first_save_in_session: bool,
 ) -> bool {
     first_save_in_session
-        || !trim_image_cache_only_once
+        || (trim_interval != 0
             && ((written_size > max_size)
-                || saves.is_multiple_of(IMAGE_CACHE_TRIM_INTERVAL))
+                || saves.is_multiple_of(trim_interval)))
 }
 
 #[cfg(test)]

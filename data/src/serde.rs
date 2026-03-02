@@ -151,7 +151,7 @@ where
     }
 }
 
-pub fn deserialize_positive_integer_or_none_for_unlimited<'de, D>(
+pub fn deserialize_positive_integer_limit<'de, D>(
     deserializer: D,
 ) -> Result<Option<u64>, D::Error>
 where

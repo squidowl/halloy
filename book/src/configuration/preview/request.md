@@ -10,8 +10,7 @@ Request settings for previews.
     - [max\_scrape\_size](#max_scrape_size)
     - [concurrency](#concurrency)
     - [delay\_ms](#delay_ms)
-    - [image\_cache\_max\_size](#image_cache_max_size)
-    - [trim\_image\_cache\_only_once](#trim_image_cache_only_once)
+  - [Image Cache](#image-cache)
 
 ## Configuration
 
@@ -93,32 +92,6 @@ Number of milliseconds to wait before requesting another preview when number of 
 delay_ms = 500
 ```
 
-### image_cache_max_size
+## [Image Cache](image-cache.md)
 
-Maximum size in MB for cached preview images, or "unlimited" for an uncapped image cache.  The image cache is stored in:
-
-* Windows: `%AppData%\Roaming\Local\halloy\previews\images\`
-* Mac: `~/Library/Caches/halloy/previews/images/` or `$HOME/.cache/halloy/previews/images/`
-* Linux: `$XDG_CACHE_HOME/halloy/previews/images/`, `$HOME/.cache/halloy/previews/images/`, or `$HOME/.var/app/org.squidowl.halloy/cache/halloy/previews/images/` (Flatpak)
-
-```toml
-# Type: integer
-# Values: any non-negative integer or "unlimited"
-# Default: 500
-
-[preview.request]
-image_cache_max_size = 500
-```
-
-### trim_image_cache_only_once
-
-Only trim the image cache when saving the first preview image after launching Halloy.
-
-```toml
-# Type: boolean
-# Values: true, false
-# Default: false
-
-[preview.request]
-trim_image_cache_only_once = true
-```
+Image cache sttings for all requests.
