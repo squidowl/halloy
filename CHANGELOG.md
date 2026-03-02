@@ -27,7 +27,7 @@ Fixed:
 Thanks:
 
 - Contributions: @melocene, @4e554c4c, @TheOneric, @bmndc, @RealKindOne, @englut
-- Bug reports: @barretgoat, @TheOneric, @Erroneuz, @BKVad1m. @englut, @whitequark, petteri
+- Bug reports: @barretgoat, @TheOneric, @Erroneuz, @BKVad1m. @englut, @whitequark, petteri, xtracked
 
 # 2026.3 (2026-02-24)
 
