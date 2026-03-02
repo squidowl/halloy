@@ -350,11 +350,21 @@ impl<'a> ChannelQueryLayout<'a> {
             nick
         };
 
+        let rerouted_private = data::message::is_rerouted_private_message(
+            message,
+            &self.config.buffer.private_messages,
+            self.server,
+        );
+
         let formatter = *self;
 
         let message_style = move |message_theme: &Theme| {
             theme::selectable_text::dimmed(
-                theme::selectable_text::default(message_theme),
+                if rerouted_private {
+                    theme::selectable_text::tertiary(message_theme)
+                } else {
+                    theme::selectable_text::default(message_theme)
+                },
                 message_theme,
                 dimmed_background_tuple,
             )

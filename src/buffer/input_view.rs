@@ -716,6 +716,63 @@ impl State {
                             supports_echoes,
                         ) {
                             for message in messages {
+                                let original_target = message.target.clone();
+                                let rerouted_target =
+                                    data::message::reroute_private_target(
+                                        original_target.clone(),
+                                        &config.buffer.private_messages,
+                                        buffer.server(),
+                                        chantypes,
+                                        statusmsg,
+                                        casemapping,
+                                    );
+                                let rerouted =
+                                    rerouted_target != original_target;
+
+                                let message = {
+                                    let mut message =
+                                        message.with_target(rerouted_target);
+
+                                    if rerouted && message.command.is_none() {
+                                        let original_target_raw =
+                                            match &original_target {
+                                                data::message::Target::Channel {
+                                                    channel,
+                                                    ..
+                                                } => channel.as_str().to_string(),
+                                                data::message::Target::Query {
+                                                    query,
+                                                    ..
+                                                } => query.as_str().to_string(),
+                                                _ => String::new(),
+                                            };
+
+                                        if let Some(command) = input.command() {
+                                            message.command = match command {
+                                                command::Irc::Msg(_, text) => {
+                                                    Some(command::Irc::Msg(
+                                                        original_target_raw
+                                                            .clone(),
+                                                        text.clone(),
+                                                    ))
+                                                }
+                                                command::Irc::Notice(
+                                                    _,
+                                                    text,
+                                                ) => {
+                                                    Some(command::Irc::Notice(
+                                                        original_target_raw,
+                                                        text.clone(),
+                                                    ))
+                                                }
+                                                _ => None,
+                                            };
+                                        }
+                                    }
+
+                                    message
+                                };
+
                                 history_tasks.extend(
                                     history
                                         .record_input_message(
@@ -1104,6 +1161,63 @@ impl State {
                             supports_echoes,
                         ) {
                             for message in messages {
+                                let original_target = message.target.clone();
+                                let rerouted_target =
+                                    data::message::reroute_private_target(
+                                        original_target.clone(),
+                                        &config.buffer.private_messages,
+                                        buffer.server(),
+                                        chantypes,
+                                        statusmsg,
+                                        casemapping,
+                                    );
+                                let rerouted =
+                                    rerouted_target != original_target;
+
+                                let message = {
+                                    let mut message =
+                                        message.with_target(rerouted_target);
+
+                                    if rerouted && message.command.is_none() {
+                                        let original_target_raw =
+                                            match &original_target {
+                                                data::message::Target::Channel {
+                                                    channel,
+                                                    ..
+                                                } => channel.as_str().to_string(),
+                                                data::message::Target::Query {
+                                                    query,
+                                                    ..
+                                                } => query.as_str().to_string(),
+                                                _ => String::new(),
+                                            };
+
+                                        if let Some(command) = input.command() {
+                                            message.command = match command {
+                                                command::Irc::Msg(_, text) => {
+                                                    Some(command::Irc::Msg(
+                                                        original_target_raw
+                                                            .clone(),
+                                                        text.clone(),
+                                                    ))
+                                                }
+                                                command::Irc::Notice(
+                                                    _,
+                                                    text,
+                                                ) => {
+                                                    Some(command::Irc::Notice(
+                                                        original_target_raw,
+                                                        text.clone(),
+                                                    ))
+                                                }
+                                                _ => None,
+                                            };
+                                        }
+                                    }
+
+                                    message
+                                };
+
                                 history_tasks.extend(
                                     history
                                         .record_input_message(
