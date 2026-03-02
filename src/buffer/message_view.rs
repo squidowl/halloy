@@ -284,17 +284,21 @@ impl<'a> ChannelQueryLayout<'a> {
             .into_iter()
             .flatten()
             .find(|current_user| *current_user == user);
-        let is_user_offline = match self.config.buffer.nickname.shown_status {
-            ShownStatus::Current => {
-                self.target.is_channel() && user_in_channel.is_none()
-            }
-            ShownStatus::Historical => false,
-        };
         let rerouted_private = data::message::is_rerouted_private_message(
             message,
             &self.config.buffer.private_messages,
             self.server,
         );
+        let is_user_offline = if rerouted_private {
+            false
+        } else {
+            match self.config.buffer.nickname.shown_status {
+                ShownStatus::Current => {
+                    self.target.is_channel() && user_in_channel.is_none()
+                }
+                ShownStatus::Historical => false,
+            }
+        };
         let is_ourself = self
             .target
             .our_user()
