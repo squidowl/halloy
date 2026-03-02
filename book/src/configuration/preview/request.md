@@ -11,6 +11,7 @@ Request settings for previews.
     - [concurrency](#concurrency)
     - [delay\_ms](#delay_ms)
     - [image\_cache\_max\_size](#image_cache_max_size)
+    - [trim\_image\_cache\_only_once](#trim_image_cache_only_once)
 
 ## Configuration
 
@@ -94,13 +95,26 @@ delay_ms = 500
 
 ### image_cache_max_size
 
-Maximum size in MB for cached preview images.
+Maximum size in MB for cached preview images, or "unlimited" for an uncapped image cache.
 
 ```toml
 # Type: integer
-# Values: any non-negative integer
+# Values: any non-negative integer or "unlimited"
 # Default: 500
 
 [preview.request]
 image_cache_max_size = 500
+```
+
+### trim_image_cache_only_once
+
+Only trim the image cache when saving the first preview image after launching Halloy.
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: false
+
+[preview.request]
+trim_image_cache_only_once = true
 ```

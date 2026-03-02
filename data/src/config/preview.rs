@@ -5,6 +5,7 @@ use crate::config::inclusivities::{
     Inclusivities, is_source_included, is_target_included,
 };
 use crate::message::Source;
+use crate::serde::deserialize_positive_integer_or_zero_for_unlimited;
 use crate::{Server, Target, isupport, target};
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -149,12 +150,18 @@ pub struct Request {
     /// Maximum image preview cache size in megabytes.
     ///
     /// Oldest cached images are evicted when the cache exceeds this size.
-    pub image_cache_max_size: u64,
+    #[serde(
+        deserialize_with = "deserialize_positive_integer_or_zero_for_unlimited"
+    )]
+    pub image_cache_max_size: Option<u64>,
+    /// Option to trim only on when saving first image
+    pub trim_image_cache_only_once: bool,
 }
 
 impl Request {
-    pub fn image_cache_max_size_bytes(&self) -> u64 {
-        self.image_cache_max_size.saturating_mul(1_000_000)
+    pub fn image_cache_max_size_bytes(&self) -> Option<u64> {
+        self.image_cache_max_size
+            .map(|max_size| max_size.saturating_mul(1_000_000))
     }
 }
 
@@ -167,7 +174,8 @@ impl Default for Request {
             max_scrape_size: 500 * 1024,
             concurrency: 4,
             delay_ms: 500,
-            image_cache_max_size: 500,
+            image_cache_max_size: Some(500),
+            trim_image_cache_only_once: false,
         }
     }
 }
