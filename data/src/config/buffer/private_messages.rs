@@ -23,21 +23,12 @@ pub enum RerouteTarget {
 
 impl PrivateMessages {
     pub fn has_reroute_rule_for(&self, user: &str, channel: &str) -> bool {
-        self.reroute.iter().any(|rule| match rule {
-            RerouteRule {
-                user: rule_user,
-                target:
-                    RerouteTarget::Channel {
-                        channel: rule_channel,
-                    },
-            } => {
-                rule_user.eq_ignore_ascii_case(user)
-                    && rule_channel.eq_ignore_ascii_case(channel)
-            }
-            RerouteRule {
-                target: RerouteTarget::Server { .. },
-                ..
-            } => false,
+        self.targets_for_user(user).any(|target| {
+            matches!(
+                target,
+                RerouteTarget::Channel { channel: rule_channel }
+                    if rule_channel.eq_ignore_ascii_case(channel)
+            )
         })
     }
 
@@ -46,21 +37,12 @@ impl PrivateMessages {
         user: &str,
         server: &Server,
     ) -> bool {
-        self.reroute.iter().any(|rule| match rule {
-            RerouteRule {
-                user: rule_user,
-                target:
-                    RerouteTarget::Server {
-                        server: rule_server,
-                    },
-            } => {
-                rule_user.eq_ignore_ascii_case(user)
-                    && matches_server_label(rule_server, server)
-            }
-            RerouteRule {
-                target: RerouteTarget::Channel { .. },
-                ..
-            } => false,
+        self.targets_for_user(user).any(|target| {
+            matches!(
+                target,
+                RerouteTarget::Server { server: rule_server }
+                    if matches_server_label(rule_server, server)
+            )
         })
     }
 
@@ -85,13 +67,13 @@ impl PrivateMessages {
         casemapping: isupport::CaseMap,
     ) -> Option<&RerouteTarget> {
         self.reroute.iter().find_map(|rule| {
-            let user = &rule.user;
-
-            let user_query =
-                target::Query::parse(user, chantypes, statusmsg, casemapping)
-                    .ok()?;
-
-            if user_query.as_normalized_str() != query.as_normalized_str() {
+            if !query_matches_user(
+                query,
+                &rule.user,
+                chantypes,
+                statusmsg,
+                casemapping,
+            ) {
                 return None;
             }
 
@@ -111,6 +93,29 @@ impl PrivateMessages {
             }
         })
     }
+
+    fn targets_for_user<'a>(
+        &'a self,
+        user: &'a str,
+    ) -> impl Iterator<Item = &'a RerouteTarget> + 'a {
+        self.reroute.iter().filter_map(move |rule| {
+            rule.user.eq_ignore_ascii_case(user).then_some(&rule.target)
+        })
+    }
+}
+
+fn query_matches_user(
+    query: &target::Query,
+    user: &str,
+    chantypes: &[char],
+    statusmsg: &[char],
+    casemapping: isupport::CaseMap,
+) -> bool {
+    target::Query::parse(user, chantypes, statusmsg, casemapping)
+        .ok()
+        .is_some_and(|user_query| {
+            user_query.as_normalized_str() == query.as_normalized_str()
+        })
 }
 
 fn matches_server_label(rule_server: &str, server: &Server) -> bool {
