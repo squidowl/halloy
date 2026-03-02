@@ -95,7 +95,11 @@ delay_ms = 500
 
 ### image_cache_max_size
 
-Maximum size in MB for cached preview images, or "unlimited" for an uncapped image cache.
+Maximum size in MB for cached preview images, or "unlimited" for an uncapped image cache.  The image cache is stored in:
+
+* Windows: `%AppData%\Roaming\Local\halloy\previews\images\`
+* Mac: `~/Library/Caches/halloy/previews/images/` or `$HOME/.cache/halloy/previews/images/`
+* Linux: `$XDG_CACHE_HOME/halloy/previews/images/`, `$HOME/.cache/halloy/previews/images/`, or `$HOME/.var/app/org.squidowl.halloy/cache/halloy/previews/images/` (Flatpak)
 
 ```toml
 # Type: integer
