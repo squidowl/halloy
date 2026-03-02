@@ -113,14 +113,10 @@ async fn trim_image_cache_once(
 ) {
     let cache_root = environment::cache_dir().join("previews").join("images");
 
-    let mut files = match tokio::task::spawn_blocking(move || {
-        collect_cache_files(&cache_root)
-    })
-    .await
-    {
-        Ok(Ok(files)) => files,
-        Ok(Err(_)) | Err(_) => return,
-    };
+    let mut files =
+        tokio::task::spawn_blocking(move || collect_cache_files(&cache_root))
+            .await
+            .unwrap_or_default();
 
     let cached_files =
         find_cached_files(&mut files, max_image_cache_size, &protected_path);
@@ -193,12 +189,12 @@ pub(super) fn image_path(
 struct CacheFile {
     path: PathBuf,
     size: u64,
-    modified: SystemTime,
+    system_time: SystemTime,
 }
 
-fn collect_cache_files(root: &Path) -> std::io::Result<Vec<CacheFile>> {
+fn collect_cache_files(root: &Path) -> Vec<CacheFile> {
     if !root.exists() {
-        return Ok(Vec::new());
+        return Vec::new();
     }
 
     let mut files = Vec::new();
@@ -208,15 +204,22 @@ fn collect_cache_files(root: &Path) -> std::io::Result<Vec<CacheFile>> {
             continue;
         }
 
-        let metadata = entry.metadata()?;
-        files.push(CacheFile {
-            path: entry.path().to_path_buf(),
-            size: metadata.len(),
-            modified: metadata.modified().unwrap_or(SystemTime::UNIX_EPOCH),
-        });
+        if let Ok(metadata) = entry.metadata() {
+            let system_time = metadata
+                .accessed()
+                .or(metadata.modified())
+                .or(metadata.created())
+                .unwrap_or(SystemTime::UNIX_EPOCH);
+
+            files.push(CacheFile {
+                path: entry.path().to_path_buf(),
+                size: metadata.len(),
+                system_time,
+            });
+        }
     }
 
-    Ok(files)
+    files
 }
 
 fn find_cached_files(
@@ -230,7 +233,7 @@ fn find_cached_files(
         return Vec::new();
     }
 
-    files.sort_by_key(|file| Reverse(file.modified));
+    files.sort_by_key(|file| Reverse(file.system_time));
 
     let mut cached_files = Vec::new();
 
@@ -267,6 +270,7 @@ mod tests {
     use std::time::{Duration, SystemTime};
 
     use super::{CacheFile, find_cached_files};
+
     #[test]
     fn find_cached_files_removes_oldest_until_under_limit() {
         let base = SystemTime::UNIX_EPOCH;
@@ -274,17 +278,17 @@ mod tests {
             CacheFile {
                 path: PathBuf::from("a"),
                 size: 5,
-                modified: base + Duration::from_secs(1),
+                system_time: base + Duration::from_secs(1),
             },
             CacheFile {
                 path: PathBuf::from("b"),
                 size: 5,
-                modified: base + Duration::from_secs(2),
+                system_time: base + Duration::from_secs(2),
             },
             CacheFile {
                 path: PathBuf::from("c"),
                 size: 5,
-                modified: base + Duration::from_secs(3),
+                system_time: base + Duration::from_secs(3),
             },
         ];
 
@@ -299,7 +303,7 @@ mod tests {
         let mut files = vec![CacheFile {
             path: PathBuf::from("a"),
             size: 5,
-            modified: SystemTime::UNIX_EPOCH,
+            system_time: SystemTime::UNIX_EPOCH,
         }];
 
         let cached_files = find_cached_files(&mut files, 5, Path::new("none"));
