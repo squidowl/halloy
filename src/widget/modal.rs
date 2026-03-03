@@ -5,7 +5,7 @@ use iced::alignment::Alignment;
 use iced::keyboard::key;
 use iced::{
     Color, Element, Event, Length, Point, Rectangle, Size, Vector, keyboard,
-    mouse,
+    mouse, touch,
 };
 
 pub fn modal<'a, Message, Theme, Renderer>(
@@ -87,6 +87,18 @@ where
         shell: &mut Shell<'_, Message>,
         viewport: &Rectangle,
     ) {
+        if matches!(
+            event,
+            Event::Mouse(_)
+                | Event::Keyboard(_)
+                | Event::Touch(touch::Event::FingerPressed { .. })
+                | Event::Touch(touch::Event::FingerMoved { .. })
+                | Event::Touch(touch::Event::FingerLifted { .. })
+                | Event::Touch(touch::Event::FingerLost { .. })
+        ) {
+            return;
+        }
+
         self.base.as_widget_mut().update(
             &mut state.children[0],
             event,
@@ -106,7 +118,7 @@ where
         theme: &Theme,
         style: &renderer::Style,
         layout: Layout<'_>,
-        cursor: mouse::Cursor,
+        _cursor: mouse::Cursor,
         viewport: &Rectangle,
     ) {
         self.base.as_widget().draw(
@@ -115,7 +127,7 @@ where
             theme,
             style,
             layout,
-            cursor,
+            mouse::Cursor::Unavailable,
             viewport,
         );
     }
@@ -140,19 +152,13 @@ where
 
     fn mouse_interaction(
         &self,
-        state: &widget::Tree,
-        layout: Layout<'_>,
-        cursor: mouse::Cursor,
-        viewport: &Rectangle,
-        renderer: &Renderer,
+        _state: &widget::Tree,
+        _layout: Layout<'_>,
+        _cursor: mouse::Cursor,
+        _viewport: &Rectangle,
+        _renderer: &Renderer,
     ) -> mouse::Interaction {
-        self.base.as_widget().mouse_interaction(
-            &state.children[0],
-            layout,
-            cursor,
-            viewport,
-            renderer,
-        )
+        mouse::Interaction::default()
     }
 
     fn operate(
