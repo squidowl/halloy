@@ -31,6 +31,7 @@ tokio-stream = { workspace = true, features = ["time", "fs"] }
 timeago = { workspace = true }
 itertools = { workspace = true }
 emojis = { workspace = true }
+unicode-segmentation = { workspace = true }
 rand = { workspace = true }
 rand_chacha = { workspace = true }
 palette = { workspace = true }
