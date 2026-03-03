@@ -1558,6 +1558,7 @@ fn handle_client_events(
                     clients.get_chantypes(server),
                     clients.get_statusmsg(server),
                     clients.get_casemapping(server),
+                    config.buffer.channel.message.max_reaction_chars,
                 ) {
                     reactions.push(
                         dashboard

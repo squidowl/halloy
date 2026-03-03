@@ -1,6 +1,7 @@
 use chrono::{DateTime, Utc};
 use irc::proto::Command;
 use serde::{Deserialize, Serialize};
+use unicode_segmentation::UnicodeSegmentation;
 
 use crate::isupport;
 use crate::message::{Encoded, Id};
@@ -28,6 +29,7 @@ impl Reaction {
         chantypes: &[char],
         statusmsg: &[char],
         casemapping: isupport::CaseMap,
+        max_reaction_chars: u32,
     ) -> Option<Context> {
         let user = message.user(casemapping)?;
         let (text, unreact) = match (
@@ -38,6 +40,7 @@ impl Reaction {
             (None, Some(s)) => (s.clone(), true),
             _ => return None,
         };
+        let text = truncate_text(&text, max_reaction_chars as usize);
         let in_reply_to = message.in_reply_to()?;
         let server_time = message.server_time();
 
@@ -60,6 +63,16 @@ impl Reaction {
     }
 }
 
+pub fn truncate_text(text: &str, max_chars: usize) -> String {
+    if UnicodeSegmentation::graphemes(text, true).count() <= max_chars {
+        return text.to_string();
+    }
+
+    UnicodeSegmentation::graphemes(text, true)
+        .take(max_chars)
+        .collect()
+}
+
 #[derive(Debug)]
 pub struct Pending {
     pub reactions: Vec<Reaction>,
@@ -72,5 +85,30 @@ impl Pending {
             reactions: vec![],
             server_time,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::truncate_text;
+
+    #[test]
+    fn keeps_short_reaction_text() {
+        assert_eq!(truncate_text("hello", 5), "hello");
+    }
+
+    #[test]
+    fn truncates_ascii_to_limit() {
+        assert_eq!(truncate_text("hello world", 5), "hello");
+    }
+
+    #[test]
+    fn truncates_unicode_graphemes() {
+        assert_eq!(truncate_text("cafe\u{301}", 4), "cafe\u{301}");
+    }
+
+    #[test]
+    fn limit_one_keeps_first_grapheme_when_truncated() {
+        assert_eq!(truncate_text("👍🏽👍🏽", 1), "👍🏽");
     }
 }
