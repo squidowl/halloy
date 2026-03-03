@@ -145,6 +145,8 @@ pub struct Client {
     handle: server::Handle,
     alt_nick: Option<usize>,
     resolved_nick: Option<Nick>,
+    resolved_user: Option<String>,
+    resolved_host: Option<String>,
     configured_nick: Nick,
     chanmap: IndexMap<target::Channel, Channel>,
     resolved_queries: HashSet<target::Query>,
@@ -208,6 +210,8 @@ impl Client {
             server,
             handle: sender,
             resolved_nick: None,
+            resolved_user: None,
+            resolved_host: None,
             configured_nick: Nick::from_str(
                 &config.nickname,
                 isupport::CaseMap::default(),
@@ -1417,6 +1421,15 @@ impl Client {
                 if let Some(user) = message.user(self.casemapping()) {
                     let is_echo = user.nickname() == self.nickname();
 
+                    if is_echo {
+                        if let Some(username) = user.username() {
+                            self.resolved_user = Some(username.to_string());
+                        }
+                        if let Some(hostname) = user.hostname() {
+                            self.resolved_host = Some(hostname.to_string());
+                        }
+                    }
+
                     let dcc_command = dcc::decode(text);
                     let ctcp_query = ctcp::parse_query(text);
 
@@ -2236,6 +2249,8 @@ impl Client {
             Command::Numeric(RPL_NAMREPLY, args) if args.len() > 3 => {
                 let channel = ok!(args.get(2));
 
+                let our_nick = self.nickname().to_owned();
+
                 if let Some(channel) =
                     self.chanmap.get_mut(&context!(target::Channel::parse(
                         channel,
@@ -2244,14 +2259,33 @@ impl Client {
                         self.casemapping(),
                     )))
                 {
+                    let mut our_user = None;
+                    let mut our_host = None;
+
                     let casemapping =
                         isupport::get_casemapping_or_default(&self.isupport);
                     let prefix = isupport::get_prefix(&self.isupport);
                     for user in args[3].split(' ') {
                         if let Ok(user) = User::parse(user, casemapping, prefix)
                         {
+                            if user.nickname() == our_nick {
+                                if let Some(username) = user.username() {
+                                    our_user = Some(username.to_string());
+                                }
+                                if let Some(hostname) = user.hostname() {
+                                    our_host = Some(hostname.to_string());
+                                }
+                            }
+
                             channel.users.insert(user);
                         }
+                    }
+
+                    if our_user.is_some() {
+                        self.resolved_user = our_user;
+                    }
+                    if our_host.is_some() {
+                        self.resolved_host = our_host;
                     }
 
                     // Don't save to history if names list was triggered by JOIN
@@ -2591,6 +2625,11 @@ impl Client {
                 let old_user = ok!(message.user(self.casemapping()));
 
                 let ourself = old_user.nickname() == self.nickname();
+
+                if ourself {
+                    self.resolved_user = Some(new_username.to_string());
+                    self.resolved_host = Some(new_hostname.to_string());
+                }
 
                 self.chanmap.values_mut().for_each(|channel| {
                     if let Some(user) = channel.users.take(&old_user) {
@@ -3585,6 +3624,34 @@ impl Client {
     pub fn is_channel(&self, target: &str) -> bool {
         proto::is_channel(target, self.chantypes())
     }
+
+    // Known bytes or a reasonable, conservative estimate of
+    // ':nick!user@host ' that must be prepended to relay a
+    // PRIVMSG/NOTICE, plus bytes for ':' that some servers will prepend
+    // to a relayed PRIVMSG's text (even if the content does not contain
+    // spaces)
+    pub fn relay_bytes(&self) -> usize {
+        self.nickname().as_str().len()
+            + if let Some(resolved_user) = &self.resolved_user {
+                resolved_user.len()
+            } else if let Some(isupport::Parameter::USERLEN(max_len)) =
+                self.isupport.get(&isupport::Kind::USERLEN)
+            {
+                *max_len as usize
+            } else {
+                32
+            }
+            + if let Some(resolved_host) = &self.resolved_host {
+                resolved_host.len()
+            } else if let Some(isupport::Parameter::HOSTLEN(max_len)) =
+                self.isupport.get(&isupport::Kind::HOSTLEN)
+            {
+                *max_len as usize
+            } else {
+                64
+            }
+            + 5
+    }
 }
 
 // If config.sidebar.order_channels_by is `name-and-prefix` this will sort channels together which
@@ -3992,6 +4059,12 @@ impl Map {
         self.client(server)
             .map(Client::statusmsg)
             .unwrap_or_default()
+    }
+
+    // The default value is chosen to be a reasonable, conservative
+    // estimate when no client is available
+    pub fn get_relay_bytes(&self, server: &Server) -> usize {
+        self.client(server).map_or(144, Client::relay_bytes)
     }
 
     pub fn get_server_supports_echoes(&self, server: &Server) -> bool {
