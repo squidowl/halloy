@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-d02e7c6b.js";
+            window.path_to_searchindex_js = "searchindex-d3b83ed4.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-ac22d4e6.js"></script>
@@ -198,7 +198,6 @@
 <li><a href="https://ircv3.net/specs/extensions/monitor">Monitor</a></li>
 <li><a href="https://ircv3.net/specs/extensions/message-ids">msgid</a></li>
 <li><a href="https://ircv3.net/specs/extensions/multi-prefix">multi-prefix</a></li>
-<li><a href="https://ircv3.net/specs/client-tags/react">react</a></li>
 <li><a href="https://ircv3.net/specs/extensions/read-marker">read-marker</a></li>
 <li><a href="https://ircv3.net/specs/extensions/sasl-3.1">sasl-3.1</a></li>
 <li><a href="https://ircv3.net/specs/extensions/server-time">server-time</a></li>
@@ -3633,6 +3632,7 @@ windows.decorations = false
 <ul>
 <li><a href="#enabled-9">enabled</a></li>
 <li><a href="#exclude-4">exclude</a></li>
+<li><a href="#max_per_message">max_per_message</a></li>
 </ul>
 </li>
 <li><a href="#request">Request</a></li>
@@ -3681,6 +3681,15 @@ exclude = [
     '''https?://(www\.)?example\.com/.*''', 
     '''https?://(www\.)?spam-site\.net/.*'''
 ]
+</code></pre>
+<h3 id="max_per_message"><a class="header" href="#max_per_message">max_per_message</a></h3>
+<p>Maximum number of previews to show for a single message.</p>
+<pre><code class="language-toml"># Type: integer
+# Values: any non-negative integer
+# Default: 1
+
+[preview]
+max_per_message = 1
 </code></pre>
 <h2 id="request"><a class="header" href="#request"><a href="#request-1">Request</a></a></h2>
 <p>Request settings for previews.</p>
@@ -3884,6 +3893,7 @@ include = { users = ["BridgeBot"] }
 <li><a href="#delay_ms">delay_ms</a></li>
 </ul>
 </li>
+<li><a href="#image-cache">Image Cache</a></li>
 </ul>
 </li>
 </ul>
@@ -3942,6 +3952,8 @@ concurrency = 4
 [preview.request]
 delay_ms = 500
 </code></pre>
+<h2 id="image-cache"><a class="header" href="#image-cache"><a href="configuration/preview/image-cache.html">Image Cache</a></a></h2>
+<p>Image cache settings for all requests.</p>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="proxy"><a class="header" href="#proxy">Proxy</a></h1>
 <p>Proxy settings for Halloy.</p>

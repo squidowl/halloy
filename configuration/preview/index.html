@@ -34,7 +34,7 @@
             const path_to_root = "../../";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../../searchindex-d02e7c6b.js";
+            window.path_to_searchindex_js = "../../searchindex-d3b83ed4.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="../../toc-ac22d4e6.js"></script>
@@ -188,6 +188,7 @@
 <ul>
 <li><a href="#enabled">enabled</a></li>
 <li><a href="#exclude">exclude</a></li>
+<li><a href="#max_per_message">max_per_message</a></li>
 </ul>
 </li>
 <li><a href="#request">Request</a></li>
@@ -236,6 +237,15 @@ exclude = [
     '''https?://(www\.)?example\.com/.*''', 
     '''https?://(www\.)?spam-site\.net/.*'''
 ]
+</code></pre>
+<h3 id="max_per_message"><a class="header" href="#max_per_message">max_per_message</a></h3>
+<p>Maximum number of previews to show for a single message.</p>
+<pre><code class="language-toml"># Type: integer
+# Values: any non-negative integer
+# Default: 1
+
+[preview]
+max_per_message = 1
 </code></pre>
 <h2 id="request"><a class="header" href="#request"><a href="request.html">Request</a></a></h2>
 <p>Request settings for previews.</p>
