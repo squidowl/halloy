@@ -131,30 +131,34 @@ pub async fn load(
     client: Arc<reqwest::Client>,
     config: config::Preview,
 ) -> Result<Preview, LoadError> {
+    let cache_key_url = canonical_preview_url(&url);
+
     if !config.is_enabled(url.as_str()) {
         return Err(LoadError::Disabled);
     }
 
-    let result =
-        if let Some(state) = cache::load(&url, client.clone(), &config).await {
-            match state {
-                cache::State::Ok(preview) => Ok(preview),
-                cache::State::Error => Err(LoadError::CachedFailed),
-            }
-        } else {
-            match load_uncached(url.clone(), client, &config).await {
-                Ok(preview) => {
-                    cache::save(&url, cache::State::Ok(preview.clone())).await;
+    let result = if let Some(state) =
+        cache::load(&cache_key_url, client.clone(), &config).await
+    {
+        match state {
+            cache::State::Ok(preview) => Ok(preview),
+            cache::State::Error => Err(LoadError::CachedFailed),
+        }
+    } else {
+        match load_uncached(url.clone(), client, &config).await {
+            Ok(preview) => {
+                cache::save(&cache_key_url, cache::State::Ok(preview.clone()))
+                    .await;
 
-                    Ok(preview)
-                }
-                Err(error) => {
-                    cache::save(&url, cache::State::Error).await;
-
-                    Err(error)
-                }
+                Ok(preview)
             }
-        };
+            Err(error) => {
+                cache::save(&cache_key_url, cache::State::Error).await;
+
+                Err(error)
+            }
+        }
+    };
 
     if let Ok(ref preview) = result {
         let image = preview.image();
@@ -187,6 +191,12 @@ pub async fn load(
     } else {
         result
     }
+}
+
+fn canonical_preview_url(url: &Url) -> Url {
+    let mut canonical = url.clone();
+    canonical.set_fragment(None);
+    canonical
 }
 
 async fn load_uncached(
@@ -261,6 +271,13 @@ async fn fetch(
     // (<32 bytes)
     let fetched = match image::format(&first_chunk) {
         Some(format) => {
+            if exceeds_image_size(
+                resp.content_length(),
+                config.request.max_image_size,
+            ) {
+                return Err(LoadError::ImageTooLarge);
+            }
+
             // Store image to disk, we don't want to explode memory
             let temp_path = cache::download_path(&url);
 
@@ -268,35 +285,52 @@ async fn fetch(
                 fs::create_dir_all(&parent).await?;
             }
 
-            let mut file = File::create(&temp_path).await?;
-            let mut hasher = Sha256::default();
+            let image_result = async {
+                let mut file = File::create(&temp_path).await?;
+                let mut hasher = Sha256::default();
 
-            file.write_all(&first_chunk).await?;
-            hasher.update(&first_chunk);
+                file.write_all(&first_chunk).await?;
+                hasher.update(&first_chunk);
 
-            let mut written = first_chunk.len();
+                let mut written = first_chunk.len();
 
-            while let Some(chunk) = resp.chunk().await? {
-                if written + chunk.len() > config.request.max_image_size {
-                    return Err(LoadError::ImageTooLarge);
+                while let Some(chunk) = resp.chunk().await? {
+                    if written + chunk.len() > config.request.max_image_size {
+                        return Err(LoadError::ImageTooLarge);
+                    }
+
+                    file.write_all(&chunk).await?;
+                    hasher.update(&chunk);
+
+                    written += chunk.len();
                 }
 
-                file.write_all(&chunk).await?;
-                hasher.update(&chunk);
+                let digest = image::Digest::new(&hasher.finalize());
+                let image_path = cache::image_path(&format, &digest);
 
-                written += chunk.len();
+                if let Some(parent) =
+                    image_path.parent().filter(|p| !p.exists())
+                {
+                    fs::create_dir_all(&parent).await?;
+                }
+
+                fs::rename(&temp_path, &image_path).await?;
+                cache::maybe_trim_image_cache(
+                    written as u64,
+                    config.request.image_cache.max_size_bytes(),
+                    config.request.image_cache.trim_interval,
+                    image_path.clone(),
+                );
+
+                Ok::<Image, LoadError>(Image::new(format, url, digest))
+            }
+            .await;
+
+            if image_result.is_err() {
+                remove_download_file(&temp_path).await;
             }
 
-            let digest = image::Digest::new(&hasher.finalize());
-            let image_path = cache::image_path(&format, &digest);
-
-            if let Some(parent) = image_path.parent().filter(|p| !p.exists()) {
-                fs::create_dir_all(&parent).await?;
-            }
-
-            fs::rename(temp_path, &image_path).await?;
-
-            Fetched::Image(Image::new(format, url, digest))
+            Fetched::Image(image_result?)
         }
         None => {
             let max_scrape_size = config.request.max_scrape_size;
@@ -323,6 +357,17 @@ async fn fetch(
     time::sleep(Duration::from_millis(config.request.delay_ms)).await;
 
     Ok(fetched)
+}
+
+async fn remove_download_file(path: &std::path::Path) {
+    let _ = fs::remove_file(path).await;
+}
+
+fn exceeds_image_size(
+    content_length: Option<u64>,
+    max_image_size: usize,
+) -> bool {
+    content_length.is_some_and(|len| len > max_image_size as u64)
 }
 
 fn decode_html_string(s: &str) -> String {
@@ -454,7 +499,36 @@ pub enum LoadError {
 
 #[cfg(test)]
 mod tests {
-    use super::parse_meta_tag_properties;
+    use super::{
+        canonical_preview_url, exceeds_image_size, parse_meta_tag_properties,
+    };
+
+    #[test]
+    fn canonical_preview_url_strips_fragment_but_keeps_query() {
+        let first: url::Url = "https://example.com/image.jpg?x=1#a"
+            .parse()
+            .expect("valid URL");
+        let second: url::Url = "https://example.com/image.jpg?x=1#b"
+            .parse()
+            .expect("valid URL");
+
+        assert_eq!(
+            canonical_preview_url(&first),
+            canonical_preview_url(&second)
+        );
+    }
+
+    #[test]
+    fn exceeds_image_size_is_true_when_content_length_is_over_limit() {
+        assert!(exceeds_image_size(Some(11), 10));
+    }
+
+    #[test]
+    fn exceeds_image_size_is_false_when_content_length_is_missing_or_in_limit()
+    {
+        assert!(!exceeds_image_size(None, 10));
+        assert!(!exceeds_image_size(Some(10), 10));
+    }
 
     #[test]
     fn parses_mixed_attribute_order_and_quotes() {

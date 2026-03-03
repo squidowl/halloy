@@ -5,16 +5,36 @@ use crate::config::inclusivities::{
     Inclusivities, is_source_included, is_target_included,
 };
 use crate::message::Source;
+use crate::serde::deserialize_positive_integer_limit;
 use crate::{Server, Target, isupport, target};
 
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
 pub struct Preview {
     pub enabled: Enabled,
     pub exclude: Exclude,
+    #[serde(default = "default_max_per_message")]
+    pub max_per_message: usize,
     pub request: Request,
     pub card: Card,
     pub image: Image,
+}
+
+impl Default for Preview {
+    fn default() -> Self {
+        Self {
+            enabled: Enabled::default(),
+            exclude: Exclude::default(),
+            max_per_message: default_max_per_message(),
+            request: Request::default(),
+            card: Card::default(),
+            image: Image::default(),
+        }
+    }
+}
+
+fn default_max_per_message() -> usize {
+    1
 }
 
 impl Preview {
@@ -146,6 +166,8 @@ pub struct Request {
     /// Number of milliseconds to wait before requesting another preview
     /// when number of requested previews > `concurrency`
     pub delay_ms: u64,
+    /// Preview image cache controls.
+    pub image_cache: ImageCache,
 }
 
 impl Default for Request {
@@ -157,6 +179,38 @@ impl Default for Request {
             max_scrape_size: 500 * 1024,
             concurrency: 4,
             delay_ms: 500,
+            image_cache: ImageCache::default(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(default)]
+pub struct ImageCache {
+    /// Maximum image preview cache size in megabytes.
+    ///
+    /// Oldest cached images are evicted when the cache exceeds this size.
+    #[serde(deserialize_with = "deserialize_positive_integer_limit")]
+    pub max_size: Option<u64>,
+    /// Run image cache trimming every N successful image saves.
+    ///
+    /// Set to 0 to disable periodic trimming.
+    #[serde(deserialize_with = "deserialize_trim_interval")]
+    pub trim_interval: u64,
+}
+
+impl ImageCache {
+    pub fn max_size_bytes(&self) -> Option<u64> {
+        self.max_size
+            .map(|max_size| max_size.saturating_mul(1_000_000))
+    }
+}
+
+impl Default for ImageCache {
+    fn default() -> Self {
+        Self {
+            max_size: Some(500),
+            trim_interval: 32,
         }
     }
 }
@@ -291,5 +345,42 @@ impl Image {
             server,
             casemapping,
         )
+    }
+}
+
+pub fn deserialize_trim_interval<'de, D>(
+    deserializer: D,
+) -> Result<u64, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum Inner {
+        String(String),
+        PositiveInteger(u64),
+    }
+
+    match Inner::deserialize(deserializer)? {
+        Inner::String(string) => {
+            if string == "first-save-only" {
+                Ok(0)
+            } else {
+                Err(serde::de::Error::invalid_value(
+                    serde::de::Unexpected::Str(&string),
+                    &"first-save-only",
+                ))
+            }
+        }
+        Inner::PositiveInteger(integer) => {
+            if integer == 0 {
+                Err(serde::de::Error::invalid_value(
+                    serde::de::Unexpected::Unsigned(integer),
+                    &"any positive integer",
+                ))
+            } else {
+                Ok(integer)
+            }
+        }
     }
 }

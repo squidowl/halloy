@@ -24,10 +24,15 @@ Fixed:
 - Compatibility with ZNC's backlog service
 - Markdown formatting inside code spans is properly ignored
 
+Security:
+
+- Improve link preview management to mitigate spam-driven resource abuse
+
 Thanks:
 
 - Contributions: @melocene, @4e554c4c, @TheOneric, @bmndc, @RealKindOne, @englut
-- Bug reports: @barretgoat, @TheOneric, @Erroneuz, @BKVad1m. @englut, @whitequark, petteri
+- Feature requests: @deepspaceaxolotl, @RoboDanjal
+- Bug reports: @barretgoat, @TheOneric, @Erroneuz, @BKVad1m. @englut, @whitequark, petteri, xtracked
 
 # 2026.3 (2026-02-24)
 
