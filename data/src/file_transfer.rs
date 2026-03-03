@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use chrono::{DateTime, Utc};
@@ -9,6 +9,39 @@ use crate::{Server, User, dcc, server};
 
 pub mod manager;
 pub mod task;
+
+const FALLBACK_FILENAME: &str = "download";
+
+pub fn sanitize_filename(raw: &str) -> String {
+    let trimmed = raw.trim().trim_matches('"');
+    let candidate = last_path_component(trimmed);
+
+    if matches!(candidate, "" | "." | "..") {
+        return FALLBACK_FILENAME.to_string();
+    }
+
+    replace_control_chars(candidate)
+}
+
+// Keep only the final path component so path traversal segments are ignored.
+fn last_path_component(input: &str) -> &str {
+    input
+        .rsplit(['/', '\\'])
+        .find(|segment| !segment.is_empty())
+        .unwrap_or_default()
+}
+
+// Replace control characters to avoid problematic filenames.
+fn replace_control_chars(input: &str) -> String {
+    input
+        .chars()
+        .map(|c| if c.is_control() { '_' } else { c })
+        .collect()
+}
+
+pub fn receive_save_path(save_directory: &Path, filename: &str) -> PathBuf {
+    save_directory.join(sanitize_filename(filename))
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Id(u16);
@@ -108,4 +141,43 @@ pub struct SendRequest {
     pub path: PathBuf,
     pub server: Server,
     pub server_handle: server::Handle,
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::Path;
+
+    use super::{receive_save_path, sanitize_filename};
+
+    #[test]
+    fn sanitize_filename_strips_traversal_components() {
+        assert_eq!(
+            sanitize_filename("../../.ssh/authorized_keys"),
+            "authorized_keys"
+        );
+        assert_eq!(sanitize_filename("..\\..\\Startup\\evil.exe"), "evil.exe");
+    }
+
+    #[test]
+    fn sanitize_filename_replaces_invalid_or_empty_values() {
+        assert_eq!(sanitize_filename(".."), "download");
+        assert_eq!(sanitize_filename(""), "download");
+        assert_eq!(
+            sanitize_filename("name\u{0}with\u{1f}controls"),
+            "name_with_controls"
+        );
+    }
+
+    #[test]
+    fn receive_save_path_stays_in_configured_directory() {
+        let save_path = receive_save_path(
+            Path::new("/home/victim/Downloads"),
+            "../../../tmp/pwned",
+        );
+
+        assert_eq!(
+            save_path,
+            Path::new("/home/victim/Downloads").join("pwned")
+        );
+    }
 }
