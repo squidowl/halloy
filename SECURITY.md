@@ -6,7 +6,7 @@ Only the latest released minor version of Halloy is supported.
 
 | Version                                                                                 | Supported          |
 | --------------------------------------------------------------------------------------- | ------------------ |
-| 2026.3 | :white_check_mark: |
+| 2026.4 | :white_check_mark: |
 | Previous Versions                                                                       | :x:                |
 
 ## Reporting a Vulnerability
