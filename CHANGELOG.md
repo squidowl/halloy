@@ -1,5 +1,9 @@
 # Unreleased
 
+Added:
+
+- Setting to limit reaction text length (`buffer.channel.message.max_reaction_chars`)
+
 # 2026.4 (2026-03-03)
 
 Added:
