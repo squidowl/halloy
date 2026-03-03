@@ -1,5 +1,7 @@
 # Unreleased
 
+# 2026.4 (2026-03-03)
+
 Added:
 
 - Support for the IRCv3 [`react`](https://ircv3.net/specs/client-tags/react.html) client tag.
