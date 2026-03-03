@@ -125,6 +125,25 @@ pub fn secondary(theme: &Theme, status: Status, selected: bool) -> Style {
     button(foreground, background, background_hover, status)
 }
 
+pub fn picker(theme: &Theme, status: Status, is_selected: bool) -> Style {
+    let foreground = theme.styles().text.primary.color;
+    let button_colors = theme.styles().buttons.primary;
+
+    let background = if is_selected {
+        button_colors.background_hover
+    } else {
+        button_colors.background
+    };
+
+    let background_hover = if is_selected {
+        button_colors.background_selected
+    } else {
+        button_colors.background_hover
+    };
+
+    button(foreground, background, background_hover, status)
+}
+
 pub fn bare(_theme: &Theme, status: Status) -> Style {
     match status {
         Status::Active | Status::Pressed | Status::Hovered => Style {
