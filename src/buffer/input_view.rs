@@ -63,6 +63,7 @@ pub enum Message {
     DeleteWordBackward(bool),
     DeleteToEnd(bool),
     DeleteToStart(bool),
+    SelectCompletion(usize),
     Tab(bool),
     Up,
     Down,
@@ -534,7 +535,8 @@ pub fn view<'a>(
             state.input_content.text().as_str(),
             server,
             config,
-            theme
+            theme,
+            Message::SelectCompletion,
         ),
         state
             .error
@@ -1172,6 +1174,25 @@ impl State {
                     self.input_content.cursor().position.column;
 
                 if let Some(entry) = self.completion.tab(reverse) {
+                    let chantypes = clients.get_chantypes(buffer.server());
+                    let actions = entry.complete_input(
+                        input.as_str(),
+                        cursor_position,
+                        chantypes,
+                        config,
+                    );
+
+                    self.on_completion(buffer, history, actions, true)
+                } else {
+                    (Task::none(), None)
+                }
+            }
+            Message::SelectCompletion(index) => {
+                let input = self.input_content.text();
+                let cursor_position =
+                    self.input_content.cursor().position.column;
+
+                if let Some(entry) = self.completion.select_at(index, config) {
                     let chantypes = clients.get_chantypes(buffer.server());
                     let actions = entry.complete_input(
                         input.as_str(),

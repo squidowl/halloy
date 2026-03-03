@@ -3,11 +3,13 @@
 Added:
 
 - Setting to limit reaction display length (`buffer.channel.message.max_reaction_display`) and maximum length (`buffer.channel.message.max_reaction_chars`)
+- Emoji and command picker entries are now clickable and insert the selected completion directly into the input.
 
 Fixed:
 
 - Improved message length calculation (when known the bytes required to relay a message are included in the calculation, when unknown an estimate is used)
 - Prevent interaction leakage behind open modals: clicks, cursor changes, and hover states no longer affect underlying UI while preserving outside-click and `Esc` to close
+- Prevent clicks from passing through completion picker overlays to content behind them (for example nicknames in the buffer).
 
 Thanks:
 

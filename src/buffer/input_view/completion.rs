@@ -17,7 +17,7 @@ use data::user::{ChannelUsers, Nick, NickRef};
 use data::{Config, mode};
 use iced::Length;
 use iced::widget::text::Shaping;
-use iced::widget::{column, container, row, text_editor, tooltip};
+use iced::widget::{button, column, container, row, text_editor, tooltip};
 use irc::proto;
 use itertools::{Either, Itertools};
 use strsim::jaro_winkler;
@@ -125,6 +125,17 @@ impl Completion {
             .or(self.emojis.select(config).map(Entry::Emoji))
     }
 
+    pub fn select_at(
+        &mut self,
+        index: usize,
+        config: &Config,
+    ) -> Option<Entry> {
+        self.commands
+            .select_at(index)
+            .map(Entry::Command)
+            .or(self.emojis.select_at(index, config).map(Entry::Emoji))
+    }
+
     pub fn complete_emoji(
         &self,
         input: &str,
@@ -183,15 +194,18 @@ impl Completion {
         false
     }
 
-    pub fn view<'a, Message: 'a>(
+    pub fn view<'a, Message: Clone + 'a>(
         &self,
         input: &str,
         server: &Server,
         config: &Config,
         theme: &'a Theme,
+        on_select_command: impl Fn(usize) -> Message + Copy + 'a,
     ) -> Option<Element<'a, Message>> {
-        let command_view = self.commands.view(input, server, config, theme);
-        let emojis_view = self.emojis.view(config);
+        let command_view =
+            self.commands
+                .view(input, server, config, theme, on_select_command);
+        let emojis_view = self.emojis.view(config, on_select_command);
 
         if command_view.is_some() || emojis_view.is_some() {
             Some(column![emojis_view, command_view].spacing(4).into())
@@ -544,12 +558,23 @@ impl Commands {
     }
 
     fn select(&mut self) -> Option<Command> {
-        if let Self::Selecting {
+        let index = if let Self::Selecting {
             highlighted: Some(index),
-            filtered,
+            ..
         } = self
+        {
+            *index
+        } else {
+            return None;
+        };
+
+        self.select_at(index)
+    }
+
+    fn select_at(&mut self, index: usize) -> Option<Command> {
+        if let Self::Selecting { filtered, .. } = self
             && let Some(command) =
-                filtered.get(*index).map(|(_, command)| command.clone())
+                filtered.get(index).map(|(_, command)| command.clone())
         {
             *self = Self::Selected {
                 command: command.clone(),
@@ -576,12 +601,13 @@ impl Commands {
         }
     }
 
-    fn view<'a, Message: 'a>(
+    fn view<'a, Message: Clone + 'a>(
         &self,
         input: &str,
         server: &Server,
         config: &Config,
         theme: &'a Theme,
+        on_select_command: impl Fn(usize) -> Message + Copy + 'a,
     ) -> Option<Element<'a, Message>> {
         match self {
             Self::Idle => None,
@@ -613,15 +639,15 @@ impl Commands {
                         let content = text(format!("/{title}"));
 
                         Element::from(
-                            container(content)
+                            button(content)
                                 .width(width)
-                                .style(if selected {
-                                    theme::container::primary_background_hover
-                                } else {
-                                    theme::container::none
-                                })
                                 .padding(6)
-                                .center_y(Length::Shrink),
+                                .style(move |theme, status| {
+                                    theme::button::picker(
+                                        theme, status, selected,
+                                    )
+                                })
+                                .on_press(on_select_command(*index)),
                         )
                     }))
                 };
@@ -2792,11 +2818,22 @@ impl Emojis {
     }
 
     fn select(&mut self, config: &Config) -> Option<String> {
-        if let Self::Selecting {
+        let index = if let Self::Selecting {
             highlighted: Some(index),
-            filtered,
+            ..
         } = self
-            && let Some(shortcode) = filtered.get(*index).copied()
+        {
+            *index
+        } else {
+            return None;
+        };
+
+        self.select_at(index, config)
+    }
+
+    fn select_at(&mut self, index: usize, config: &Config) -> Option<String> {
+        if let Self::Selecting { filtered, .. } = self
+            && let Some(shortcode) = filtered.get(index).copied()
         {
             *self = Self::Idle;
 
@@ -2821,9 +2858,10 @@ impl Emojis {
         }
     }
 
-    fn view<'a, Message: 'a>(
+    fn view<'a, Message: Clone + 'a>(
         &self,
         config: &Config,
+        on_select_command: impl Fn(usize) -> Message + Copy + 'a,
     ) -> Option<Element<'a, Message>> {
         match self {
             Self::Idle | Self::Selected { .. } => None,
@@ -2864,15 +2902,15 @@ impl Emojis {
                         .shaping(Shaping::Advanced);
 
                         Element::from(
-                            container(content)
+                            button(content)
                                 .width(width)
-                                .style(if selected {
-                                    theme::container::primary_background_hover
-                                } else {
-                                    theme::container::none
-                                })
                                 .padding(6)
-                                .center_y(Length::Shrink),
+                                .style(move |theme, status| {
+                                    theme::button::picker(
+                                        theme, status, selected,
+                                    )
+                                })
+                                .on_press(on_select_command(*index)),
                         )
                     }))
                 };

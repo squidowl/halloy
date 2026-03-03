@@ -281,6 +281,9 @@ impl<Message> overlay::Overlay<Message, Theme, Renderer>
         clipboard: &mut dyn Clipboard,
         shell: &mut Shell<'_, Message>,
     ) {
+        let should_capture = matches!(event, Event::Mouse(_) | Event::Touch(_))
+            && cursor.is_over(layout.bounds());
+
         self.content.as_widget_mut().update(
             self.tree,
             event,
@@ -291,6 +294,10 @@ impl<Message> overlay::Overlay<Message, Theme, Renderer>
             shell,
             &layout.bounds(),
         );
+
+        if should_capture {
+            shell.capture_event();
+        }
     }
 
     fn mouse_interaction(
