@@ -111,4 +111,14 @@ mod tests {
     fn limit_one_keeps_first_grapheme_when_truncated() {
         assert_eq!(truncate_text("👍🏽👍🏽", 1), "👍🏽");
     }
+
+    #[test]
+    fn does_not_split_zwj_emoji_clusters() {
+        assert_eq!(truncate_text("👨‍👩‍👧‍👦x", 1), "👨‍👩‍👧‍👦");
+    }
+
+    #[test]
+    fn does_not_split_combining_mark_clusters() {
+        assert_eq!(truncate_text("a\u{0301}b", 1), "a\u{0301}");
+    }
 }
