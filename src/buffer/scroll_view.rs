@@ -1164,10 +1164,26 @@ impl State {
                 }
             }
             Message::Reacted { msgid, text } => {
-                send_reaction(clients, buffer, history, msgid, text, false);
+                send_reaction(
+                    clients,
+                    buffer,
+                    history,
+                    msgid,
+                    text,
+                    false,
+                    config.buffer.channel.message.max_reaction_chars,
+                );
             }
             Message::Unreacted { msgid, text } => {
-                send_reaction(clients, buffer, history, msgid, text, true);
+                send_reaction(
+                    clients,
+                    buffer,
+                    history,
+                    msgid,
+                    text,
+                    true,
+                    config.buffer.channel.message.max_reaction_chars,
+                );
             }
         }
         (Task::none(), None)
@@ -1394,8 +1410,10 @@ fn send_reaction(
     msgid: message::Id,
     text: String,
     unreact: bool,
+    max_reaction_chars: u32,
 ) -> Option<()> {
     let buffer = buffer?;
+    let text = reaction::truncate_text(&text, max_reaction_chars as usize);
     let server = buffer.server();
     let target = buffer.target()?;
     let command = match unreact {
