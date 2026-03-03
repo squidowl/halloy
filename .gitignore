@@ -22,3 +22,8 @@
 # Flatpak generated files
 /assets/flatpak/generated-sources.json
 .flatpak-builder
+
+# Nix and Direnv
+.envrc
+.direnv/
+shell.nix

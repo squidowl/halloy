@@ -331,6 +331,16 @@ impl Sidebar {
                                     buffer::Internal::Highlights,
                                 ),
                             ),
+
+                            Menu::ChannelMonitor => context_button(
+                                text("Channel Monitor"),
+                                None,
+                                icon::channel_monitor(),
+                                Message::ToggleInternalBuffer(
+                                    buffer::Internal::ChannelMonitor,
+                                ),
+                            ),
+
                             Menu::ChannelDiscovery => context_button(
                                 text("Channel Discovery"),
                                 None,
@@ -708,6 +718,7 @@ enum Menu {
     ThemeEditor,
     Highlights,
     ChannelDiscovery,
+    ChannelMonitor,
     Logs,
     FileTransfers,
     Version,
@@ -739,6 +750,7 @@ impl Menu {
         list.extend([
             Self::ChannelDiscovery,
             Self::Highlights,
+            Self::ChannelMonitor,
             Self::Logs,
             Self::OpenConfigFile,
             Self::RefreshConfig,

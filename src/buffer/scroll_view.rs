@@ -91,6 +91,7 @@ pub enum Kind<'a> {
     Query(&'a Server, &'a target::Query),
     Logs,
     Highlights,
+    ChannelMonitor,
 }
 
 impl Kind<'_> {
@@ -99,7 +100,7 @@ impl Kind<'_> {
             Kind::Server(server)
             | Kind::Channel(server, _)
             | Kind::Query(server, _) => Some(server),
-            Kind::Logs | Kind::Highlights => None,
+            Kind::Logs | Kind::Highlights | Kind::ChannelMonitor => None,
         }
     }
 }
@@ -116,6 +117,7 @@ impl From<Kind<'_>> for history::Kind {
             }
             Kind::Logs => history::Kind::Logs,
             Kind::Highlights => history::Kind::Highlights,
+            Kind::ChannelMonitor => history::Kind::ChannelMonitor,
         }
     }
 }

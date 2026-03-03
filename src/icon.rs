@@ -93,6 +93,10 @@ pub fn highlights<'a>() -> Text<'a> {
     to_text('\u{E811}')
 }
 
+pub fn channel_monitor<'a>() -> Text<'a> {
+    to_text('\u{F108}')
+}
+
 pub fn scroll_to_bottom<'a>() -> Text<'a> {
     to_text('\u{F103}')
 }

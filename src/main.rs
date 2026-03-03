@@ -1691,7 +1691,11 @@ fn handle_priv_or_notice(
     focused_window: Option<window::Id>,
 ) {
     let Some((mut msg, highlight)) = create_message_with_highlight(
-        server, encoded, our_nick, config, clients,
+        server,
+        encoded.clone(),
+        our_nick.clone(),
+        config,
+        clients,
     ) else {
         return;
     };
@@ -1744,9 +1748,25 @@ fn handle_priv_or_notice(
         );
     }
 
+    let mut chan_msg = msg.clone();
+    if let message::Target::Channel {
+        channel, source, ..
+    } = &chan_msg.target
+    {
+        chan_msg.target = message::Target::ChannelMonitor {
+            server: server.clone(),
+            channel: channel.clone(),
+            source: source.clone(),
+        };
+    }
     commands.push(
         dashboard
             .record_message(server, msg, &config.buffer)
+            .map(Message::Dashboard),
+    );
+    commands.push(
+        dashboard
+            .record_channel_monitor(chan_msg)
             .map(Message::Dashboard),
     );
 
