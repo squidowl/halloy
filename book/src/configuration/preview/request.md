@@ -94,4 +94,4 @@ delay_ms = 500
 
 ## [Image Cache](image-cache.md)
 
-Image cache sttings for all requests.
+Image cache settings for all requests.
