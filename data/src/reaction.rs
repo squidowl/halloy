@@ -68,9 +68,11 @@ pub fn truncate_text(text: &str, max_chars: usize) -> String {
         return text.to_string();
     }
 
-    UnicodeSegmentation::graphemes(text, true)
+    let mut truncated = UnicodeSegmentation::graphemes(text, true)
         .take(max_chars)
-        .collect()
+        .collect::<String>();
+    truncated.push_str("...");
+    truncated
 }
 
 #[derive(Debug)]
@@ -99,7 +101,7 @@ mod tests {
 
     #[test]
     fn truncates_ascii_to_limit() {
-        assert_eq!(truncate_text("hello world", 5), "hello");
+        assert_eq!(truncate_text("hello world", 5), "hello...");
     }
 
     #[test]
@@ -109,16 +111,16 @@ mod tests {
 
     #[test]
     fn limit_one_keeps_first_grapheme_when_truncated() {
-        assert_eq!(truncate_text("👍🏽👍🏽", 1), "👍🏽");
+        assert_eq!(truncate_text("👍🏽👍🏽", 1), "👍🏽...");
     }
 
     #[test]
     fn does_not_split_zwj_emoji_clusters() {
-        assert_eq!(truncate_text("👨‍👩‍👧‍👦x", 1), "👨‍👩‍👧‍👦");
+        assert_eq!(truncate_text("👨‍👩‍👧‍👦x", 1), "👨‍👩‍👧‍👦...");
     }
 
     #[test]
     fn does_not_split_combining_mark_clusters() {
-        assert_eq!(truncate_text("a\u{0301}b", 1), "a\u{0301}");
+        assert_eq!(truncate_text("a\u{0301}b", 1), "a\u{0301}...");
     }
 }
