@@ -10,6 +10,7 @@ Request settings for previews.
     - [max\_scrape\_size](#max_scrape_size)
     - [concurrency](#concurrency)
     - [delay\_ms](#delay_ms)
+  - [Image Cache](#image-cache)
 
 ## Configuration
 
@@ -90,3 +91,7 @@ Number of milliseconds to wait before requesting another preview when number of 
 [preview.request]
 delay_ms = 500
 ```
+
+## [Image Cache](image-cache.md)
+
+Image cache settings for all requests.

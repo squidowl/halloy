@@ -207,6 +207,17 @@ fn has_visible_preview(
     false
 }
 
+fn eligible_preview_urls(
+    urls: impl IntoIterator<Item = url::Url>,
+    hidden_urls: &HashSet<url::Url>,
+    max_per_message: usize,
+) -> Vec<url::Url> {
+    urls.into_iter()
+        .filter(|url| !hidden_urls.contains(url))
+        .take(max_per_message)
+        .collect()
+}
+
 fn is_consecutive_user_message(
     message: &data::Message,
     prev_message: Option<&data::Message>,
@@ -391,11 +402,14 @@ pub fn view<'a>(
                     Some(previews),
                 ) = (&message.content, previews)
                 {
-                    let urls = fragments
-                        .iter()
-                        .filter_map(message::Fragment::url)
-                        .cloned()
-                        .collect::<Vec<_>>();
+                    let urls = eligible_preview_urls(
+                        fragments
+                            .iter()
+                            .filter_map(message::Fragment::url)
+                            .cloned(),
+                        &message.hidden_urls,
+                        config.preview.max_per_message,
+                    );
 
                     if !urls.is_empty() {
                         let is_message_visible = state
@@ -405,10 +419,6 @@ pub fn view<'a>(
                         let mut column = column![element].spacing(2);
 
                         for (idx, url) in urls.iter().enumerate() {
-                            if message.hidden_urls.contains(url) {
-                                continue;
-                            }
-
                             if let (
                                 true,
                                 Some(preview::State::Loaded(preview)),
@@ -452,6 +462,7 @@ pub fn view<'a>(
                                 column,
                                 2000.0,
                                 notify_visibility::When::NotVisible,
+                                message.hash,
                                 Message::ExitingViewport(message.hash),
                             )
                         } else {
@@ -459,6 +470,7 @@ pub fn view<'a>(
                                 column,
                                 1000.0,
                                 notify_visibility::When::Visible,
+                                message.hash,
                                 Message::EnteringViewport(message.hash, urls),
                             )
                         }

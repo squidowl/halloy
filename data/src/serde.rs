@@ -151,6 +151,43 @@ where
     }
 }
 
+pub fn deserialize_positive_integer_limit<'de, D>(
+    deserializer: D,
+) -> Result<Option<u64>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum Inner {
+        String(String),
+        PositiveInteger(u64),
+    }
+
+    match Inner::deserialize(deserializer)? {
+        Inner::String(string) => {
+            if string == "unlimited" {
+                Ok(None)
+            } else {
+                Err(serde::de::Error::invalid_value(
+                    serde::de::Unexpected::Str(&string),
+                    &"unlimited",
+                ))
+            }
+        }
+        Inner::PositiveInteger(integer) => {
+            if integer == 0 {
+                Err(serde::de::Error::invalid_value(
+                    serde::de::Unexpected::Unsigned(integer),
+                    &"any positive integer",
+                ))
+            } else {
+                Ok(Some(integer))
+            }
+        }
+    }
+}
+
 pub fn deserialize_positive_float_maybe<'de, D>(
     deserializer: D,
 ) -> Result<Option<f32>, D::Error>
