@@ -1,0 +1,71 @@
+name: Security
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  schedule:
+    - cron: "25 4 * * 1"
+
+jobs:
+  codeql:
+    name: CodeQL (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      packages: read
+      actions: read
+      contents: read
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: actions
+            build-mode: none
+          - language: rust
+            build-mode: none
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac25e3e8cae4132f5265e56ef9a1aea2dde8 # v6.0.2
+
+      - name: Install system dependencies
+        if: matrix.language == 'rust'
+        run: |
+          sudo apt update
+          sudo apt install \
+            build-essential \
+            pkg-config \
+            libdbus-1-dev \
+            libudev-dev \
+            libxkbcommon-dev \
+            libfontconfig1-dev \
+            libasound2-dev \
+            libx11-xcb-dev
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@c793b71e8c76c146fb185c2a8ce915e2dabc4a05 # v4.32.5
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+          queries: default
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@c793b71e8c76c146fb185c2a8ce915e2dabc4a05 # v4.32.5
+        with:
+          category: "/language:${{ matrix.language }}"
+
+  cargo-audit:
+    name: Cargo Audit
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@de0fac25e3e8cae4132f5265e56ef9a1aea2dde8 # v6.0.2
+
+      - uses: rustsec/audit-check@69366f33c96575abad1ee0dba8212993eecbe998 # v2.0.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
