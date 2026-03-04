@@ -2,10 +2,37 @@ use serde::Deserialize;
 
 use crate::{Server, isupport, target};
 
-#[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Default)]
 #[serde(default)]
+pub struct Reroute {
+    pub private_messages: PrivateMessages,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct PrivateMessages {
     pub reroute: Vec<RerouteRule>,
+}
+
+impl<'de> Deserialize<'de> for PrivateMessages {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum Data {
+            Rules(Vec<RerouteRule>),
+            Legacy {
+                #[serde(default)]
+                reroute: Vec<RerouteRule>,
+            },
+        }
+
+        Ok(match Data::deserialize(deserializer)? {
+            Data::Rules(reroute) => Self { reroute },
+            Data::Legacy { reroute } => Self { reroute },
+        })
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]

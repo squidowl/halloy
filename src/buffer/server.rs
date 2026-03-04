@@ -220,7 +220,9 @@ pub fn view<'a>(
                         let rerouted_private =
                             data::message::is_rerouted_private_message(
                                 message,
-                                &config.buffer.private_messages,
+                                config.servers.get(&state.server).as_ref().map(
+                                    |config| &config.reroute.private_messages,
+                                ),
                                 &state.server,
                             );
 

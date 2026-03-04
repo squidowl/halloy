@@ -1303,17 +1303,20 @@ impl Client {
                             query.as_normalized_str()
                                 == self.nickname().as_normalized_str()
                         });
+                    let server_config = config.servers.get(&self.server);
                     let rerouted_private = direct_message
-                        && config
-                            .buffer
-                            .private_messages
-                            .has_reroute_rule_for_query(
-                                &user_query,
-                                &self.server,
-                                self.chantypes(),
-                                self.statusmsg(),
-                                self.casemapping(),
-                            );
+                        && server_config.as_ref().is_some_and(|config| {
+                            config
+                                .reroute
+                                .private_messages
+                                .has_reroute_rule_for_query(
+                                    &user_query,
+                                    &self.server,
+                                    self.chantypes(),
+                                    self.statusmsg(),
+                                    self.casemapping(),
+                                )
+                        });
 
                     if let Some(channel) =
                         self.message_channel_target(&message.command)

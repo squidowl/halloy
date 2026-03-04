@@ -1,14 +1,11 @@
-# Private Messages
+# Reroute
 
-Configure how private messages are displayed in buffers.
+Configure message rerouting for a specific server.
 
-- [Private Messages](#private-messages)
-  - [Configuration](#configuration)
-    - [reroute](#reroute)
+- [Reroute](#reroute)
+  - [private_messages](#private_messages)
 
-## Configuration
-
-### reroute
+## private_messages
 
 Reroute private `PRIVMSG` / `NOTICE` traffic from specific users into another
 buffer instead of a query buffer.
@@ -20,12 +17,14 @@ private and are not visible to other users in the channel.
 # Type: array
 # Default: []
 
-[buffer.private_messages]
-reroute = [
-  { user = "Q", target = { channel = "#noc" } },
+[servers.<name>.reroute]
+private_messages = [
+  { user = "Q", target = { channel = "#foo" } },
   { user = "ChanServ", target = { server = "libera" } },
 ]
 ```
+
+Reroutes are scoped to the server section they are configured in.
 
 Each entry supports:
 
