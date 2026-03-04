@@ -1286,15 +1286,19 @@ impl Client {
                 self.capabilities
                     .acknowledge(caps.split(' ').map(String::from));
 
-                if let Some(sasl) = self.config.sasl.as_ref().filter(|_| {
-                    self.capabilities.acknowledged(Capability::Sasl)
-                }) {
-                    self.registration_step = RegistrationStep::Sasl;
-                    self.handle
-                        .try_send(command!("AUTHENTICATE", sasl.command()))?;
-                } else {
-                    self.registration_step = RegistrationStep::End;
-                    self.handle.try_send(command!("CAP", "END"))?;
+                if self.registration_step == RegistrationStep::Req {
+                    if let Some(sasl) = self.config.sasl.as_ref().filter(|_| {
+                        self.capabilities.acknowledged(Capability::Sasl)
+                    }) {
+                        self.registration_step = RegistrationStep::Sasl;
+                        self.handle.try_send(command!(
+                            "AUTHENTICATE",
+                            sasl.command()
+                        ))?;
+                    } else {
+                        self.registration_step = RegistrationStep::End;
+                        self.handle.try_send(command!("CAP", "END"))?;
+                    }
                 }
             }
             Command::CAP(_, sub, a, b) if sub == "NAK" => {
