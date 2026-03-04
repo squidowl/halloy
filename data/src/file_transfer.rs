@@ -14,21 +14,13 @@ const FALLBACK_FILENAME: &str = "dcc_transfer";
 
 pub fn sanitize_filename(raw: &str) -> String {
     let trimmed = raw.trim().trim_matches('"');
-    let candidate = last_path_component(trimmed);
 
-    if matches!(candidate, "" | "." | "..") {
-        return FALLBACK_FILENAME.to_string();
-    }
+    let name = Path::new(trimmed)
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or(FALLBACK_FILENAME);
 
-    replace_control_chars(candidate)
-}
-
-// Keep only the final path component so path traversal segments are ignored.
-fn last_path_component(input: &str) -> &str {
-    input
-        .rsplit(['/', '\\'])
-        .find(|segment| !segment.is_empty())
-        .unwrap_or_default()
+    replace_control_chars(name)
 }
 
 // Replace control characters to avoid problematic filenames.
