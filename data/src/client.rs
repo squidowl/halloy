@@ -139,6 +139,232 @@ struct ChatHistoryRequest {
     autorequest: bool,
 }
 
+// This is not an exhaustive list of IRCv3 capabilities, just the ones that
+// Halloy will request when available.  When adding new IRCv3 capabilities to
+// Halloy they should be added to this enum (Capability), Capability::from_str,
+// and Capabilities::create_requested.
+#[derive(Debug, Eq, PartialEq, Hash)]
+enum Capability {
+    AccountNotify,
+    AwayNotify,
+    Batch,
+    BouncerNetworks,
+    Chathistory,
+    Chghost,
+    EchoMessage,
+    EventPlayback,
+    ExtendedJoin,
+    ExtendedMonitor,
+    InviteNotify,
+    LabeledResponse,
+    MessageTags,
+    MultiPrefix,
+    ReadMarker,
+    Sasl,
+    ServerTime,
+    Setname,
+    UserhostInNames,
+}
+
+impl Capability {
+    pub fn from_str(cap: &str) -> Option<Self> {
+        match cap {
+            "account-notify" => Some(Self::AccountNotify),
+            "away-notify" => Some(Self::AwayNotify),
+            "batch" => Some(Self::Batch),
+            "chghost" => Some(Self::Chghost),
+            "draft/chathistory" => Some(Self::Chathistory),
+            "draft/event-playback" => Some(Self::EventPlayback),
+            "draft/read-marker" => Some(Self::ReadMarker),
+            "echo-message" => Some(Self::EchoMessage),
+            "extended-join" => Some(Self::ExtendedJoin),
+            "extended-monitor" => Some(Self::ExtendedMonitor),
+            "invite-notify" => Some(Self::InviteNotify),
+            "labeled-response" => Some(Self::LabeledResponse),
+            "message-tags" => Some(Self::MessageTags),
+            "multi-prefix" => Some(Self::MultiPrefix),
+            "server-time" => Some(Self::ServerTime),
+            "setname" => Some(Self::Setname),
+            "soju.im/bouncer-networks" => Some(Self::BouncerNetworks),
+            "userhost-in-names" => Some(Self::UserhostInNames),
+            _ if cap.starts_with("sasl") => Some(Self::Sasl),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Default)]
+struct Capabilities {
+    listed: HashSet<String>,
+    pending: HashSet<String>,
+    acknowledged: HashSet<Capability>,
+}
+
+impl Capabilities {
+    pub fn acknowledge(&mut self, caps: impl Iterator<Item = String>) {
+        for cap in caps {
+            if let Some(cap) = Capability::from_str(cap.as_str()) {
+                self.acknowledged.insert(cap);
+            }
+        }
+    }
+
+    pub fn acknowledged(&self, cap: Capability) -> bool {
+        self.acknowledged.contains(&cap)
+    }
+
+    pub fn create_requested(
+        &mut self,
+        config: &config::Server,
+    ) -> Vec<&'static str> {
+        let mut requested = vec![];
+
+        if self.pending.contains("invite-notify")
+            && !self.acknowledged(Capability::InviteNotify)
+        {
+            requested.push("invite-notify");
+        }
+
+        if self.pending.contains("userhost-in-names")
+            && !self.acknowledged(Capability::UserhostInNames)
+        {
+            requested.push("userhost-in-names");
+        }
+
+        if self.pending.contains("away-notify")
+            && !self.acknowledged(Capability::AwayNotify)
+        {
+            requested.push("away-notify");
+        }
+
+        if self.pending.contains("message-tags")
+            && !self.acknowledged(Capability::MessageTags)
+        {
+            requested.push("message-tags");
+        }
+
+        if self.pending.contains("server-time")
+            && !self.acknowledged(Capability::ServerTime)
+        {
+            requested.push("server-time");
+        }
+
+        if self.pending.contains("chghost")
+            && !self.acknowledged(Capability::Chghost)
+        {
+            requested.push("chghost");
+        }
+
+        if self.pending.contains("extended-monitor")
+            && !self.acknowledged(Capability::ExtendedMonitor)
+        {
+            requested.push("extended-monitor");
+        }
+
+        if self.pending.contains("account-notify")
+            || self.acknowledged(Capability::AccountNotify)
+        {
+            if !self.acknowledged(Capability::AccountNotify) {
+                requested.push("account-notify");
+            }
+
+            if self.pending.contains("extended-join")
+                && !self.acknowledged(Capability::ExtendedJoin)
+            {
+                requested.push("extended-join");
+            }
+        }
+
+        if self.pending.contains("batch")
+            || self.acknowledged(Capability::Batch)
+        {
+            if !self.acknowledged(Capability::Batch) {
+                requested.push("batch");
+            }
+
+            // We require batch for chathistory support
+            if (self.pending.contains("draft/chathistory")
+                && config.chathistory)
+                || self.acknowledged(Capability::Chathistory)
+            {
+                if !self.acknowledged(Capability::Chathistory) {
+                    requested.push("draft/chathistory");
+                }
+
+                if self.pending.contains("draft/event-playback")
+                    && !self.acknowledged(Capability::EventPlayback)
+                {
+                    requested.push("draft/event-playback");
+                }
+            }
+        }
+
+        if self.pending.contains("labeled-response")
+            && !self.acknowledged(Capability::LabeledResponse)
+        {
+            requested.push("labeled-response");
+        }
+
+        if self.pending.contains("echo-message")
+            && !self.acknowledged(Capability::EchoMessage)
+        {
+            requested.push("echo-message");
+        }
+
+        if self.pending.contains("multi-prefix")
+            && !self.acknowledged(Capability::MultiPrefix)
+        {
+            requested.push("multi-prefix");
+        }
+
+        if self.pending.contains("draft/read-marker")
+            && !self.acknowledged(Capability::ReadMarker)
+        {
+            requested.push("draft/read-marker");
+        }
+
+        if self.pending.contains("setname")
+            && !self.acknowledged(Capability::Setname)
+        {
+            requested.push("setname");
+        }
+
+        if self.pending.contains("soju.im/bouncer-networks")
+            && !self.acknowledged(Capability::BouncerNetworks)
+        {
+            requested.push("soju.im/bouncer-networks");
+        }
+
+        if self.pending.iter().any(|cap| cap.starts_with("sasl"))
+            && !self.acknowledged(Capability::Sasl)
+        {
+            requested.push("sasl");
+        }
+
+        for cap in self.pending.drain() {
+            self.listed.insert(cap);
+        }
+
+        requested
+    }
+
+    pub fn delete(&mut self, caps: impl Iterator<Item = String>) {
+        for cap in caps {
+            if let Some(cap) = Capability::from_str(cap.as_str()) {
+                self.acknowledged.remove(&cap);
+            }
+
+            self.listed.remove(&cap);
+        }
+    }
+
+    pub fn extend_list(&mut self, caps: impl Iterator<Item = String>) {
+        for cap in caps {
+            self.pending.insert(cap);
+        }
+    }
+}
+
 pub struct Client {
     server: Server,
     config: Arc<config::Server>,
@@ -155,15 +381,7 @@ pub struct Client {
     reroute_responses_to: Option<buffer::Upstream>,
     logged_in: bool,
     registration_step: RegistrationStep,
-    listed_caps: Vec<String>,
-    supports_echoes: bool,
-    supports_labels: bool,
-    supports_away_notify: bool,
-    supports_account_notify: bool,
-    supports_extended_join: bool,
-    supports_read_marker: bool,
-    supports_chathistory: bool,
-    supports_bouncer_networks: bool,
+    capabilities: Capabilities,
     supports_detach: bool,
     sasl_succeeded: bool,
     chathistory_requests: HashMap<Target, ChatHistoryRequest>,
@@ -224,15 +442,7 @@ impl Client {
             reroute_responses_to: None,
             logged_in: false,
             registration_step: RegistrationStep::Start,
-            listed_caps: vec![],
-            supports_echoes: false,
-            supports_labels: false,
-            supports_away_notify: false,
-            supports_account_notify: false,
-            supports_extended_join: false,
-            supports_read_marker: false,
-            supports_chathistory: false,
-            supports_bouncer_networks: false,
+            capabilities: Capabilities::default(),
             supports_detach: false,
             sasl_succeeded: false,
             chathistory_requests: HashMap::new(),
@@ -506,7 +716,7 @@ impl Client {
         priority: TokenPriority,
     ) {
         if let Some(buffer) = buffer {
-            if self.supports_labels {
+            if self.capabilities.acknowledged(Capability::LabeledResponse) {
                 let label = generate_label();
                 let context = Context::new(&message, buffer.clone());
 
@@ -1042,82 +1252,13 @@ impl Client {
                     (None, None) | (None, Some(_)) => return Ok(vec![]),
                 };
 
-                self.listed_caps.extend(caps.split(' ').map(String::from));
+                self.capabilities
+                    .extend_list(caps.split(' ').map(String::from));
 
                 // Finished
                 if asterisk.is_none() {
-                    let mut requested = vec![];
-
-                    let contains =
-                        |s| self.listed_caps.iter().any(|cap| cap == s);
-
-                    if contains("invite-notify") {
-                        requested.push("invite-notify");
-                    }
-                    if contains("userhost-in-names") {
-                        requested.push("userhost-in-names");
-                    }
-                    if contains("away-notify") {
-                        requested.push("away-notify");
-                    }
-                    if contains("message-tags") {
-                        requested.push("message-tags");
-                    }
-                    if contains("server-time") {
-                        requested.push("server-time");
-                    }
-                    if contains("chghost") {
-                        requested.push("chghost");
-                    }
-                    if contains("extended-monitor") {
-                        requested.push("extended-monitor");
-                    }
-                    if contains("account-notify") {
-                        requested.push("account-notify");
-
-                        if contains("extended-join") {
-                            requested.push("extended-join");
-                        }
-                    }
-                    if contains("batch") {
-                        requested.push("batch");
-
-                        // We require batch for our chathistory support
-                        if contains("draft/chathistory")
-                            && self.config.chathistory
-                        {
-                            requested.push("draft/chathistory");
-
-                            if contains("draft/event-playback") {
-                                requested.push("draft/event-playback");
-                            }
-                        }
-                    }
-                    if contains("labeled-response") {
-                        requested.push("labeled-response");
-                    }
-                    if contains("echo-message") {
-                        requested.push("echo-message");
-                    }
-                    if self
-                        .listed_caps
-                        .iter()
-                        .any(|cap| cap.starts_with("sasl"))
-                    {
-                        requested.push("sasl");
-                    }
-                    if contains("multi-prefix") {
-                        requested.push("multi-prefix");
-                    }
-                    if contains("draft/read-marker") {
-                        requested.push("draft/read-marker");
-                    }
-                    if contains("setname") {
-                        requested.push("setname");
-                    }
-                    if contains("soju.im/bouncer-networks") {
-                        requested.push("soju.im/bouncer-networks");
-                    }
+                    let requested =
+                        self.capabilities.create_requested(&self.config);
 
                     if !requested.is_empty() {
                         // Request
@@ -1142,47 +1283,18 @@ impl Client {
                     self.server
                 );
 
-                let caps = caps.split(' ').collect::<Vec<_>>();
+                self.capabilities
+                    .acknowledge(caps.split(' ').map(String::from));
 
-                if caps.contains(&"echo-message") {
-                    self.supports_echoes = true;
-                }
-                if caps.contains(&"labeled-response") {
-                    self.supports_labels = true;
-                }
-                if caps.contains(&"away-notify") {
-                    self.supports_away_notify = true;
-                }
-                if caps.contains(&"account-notify") {
-                    self.supports_account_notify = true;
-                }
-                if caps.contains(&"extended-join") {
-                    self.supports_extended_join = true;
-                }
-                if caps.contains(&"draft/read-marker") {
-                    self.supports_read_marker = true;
-                }
-                if caps.contains(&"soju.im/bouncer-networks") {
-                    self.supports_bouncer_networks = true;
-                }
-
-                let supports_sasl = caps.iter().any(|cap| cap.contains("sasl"));
-
-                if let Some(sasl) =
-                    self.config.sasl.as_ref().filter(|_| supports_sasl)
-                {
+                if let Some(sasl) = self.config.sasl.as_ref().filter(|_| {
+                    self.capabilities.acknowledged(Capability::Sasl)
+                }) {
                     self.registration_step = RegistrationStep::Sasl;
                     self.handle
                         .try_send(command!("AUTHENTICATE", sasl.command()))?;
                 } else {
                     self.registration_step = RegistrationStep::End;
                     self.handle.try_send(command!("CAP", "END"))?;
-                }
-
-                if caps.contains(&"draft/chathistory")
-                    && self.config.chathistory
-                {
-                    self.supports_chathistory = true;
                 }
             }
             Command::CAP(_, sub, a, b) if sub == "NAK" => {
@@ -1202,92 +1314,17 @@ impl Client {
             Command::CAP(_, sub, a, b) if sub == "NEW" => {
                 let caps = ok!(b.as_ref().or(a.as_ref()));
 
-                let new_caps =
-                    caps.split(' ').map(String::from).collect::<Vec<String>>();
+                self.capabilities
+                    .extend_list(caps.split(' ').map(String::from));
 
-                let mut requested = vec![];
-
-                let newly_contains = |s| new_caps.iter().any(|cap| cap == s);
-
-                let contains = |s| self.listed_caps.iter().any(|cap| cap == s);
-
-                if newly_contains("invite-notify") {
-                    requested.push("invite-notify");
-                }
-                if newly_contains("userhost-in-names") {
-                    requested.push("userhost-in-names");
-                }
-                if newly_contains("away-notify") {
-                    requested.push("away-notify");
-                }
-                if newly_contains("message-tags") {
-                    requested.push("message-tags");
-                }
-                if newly_contains("server-time") {
-                    requested.push("server-time");
-                }
-                if newly_contains("chghost") {
-                    requested.push("chghost");
-                }
-                if newly_contains("extended-monitor") {
-                    requested.push("extended-monitor");
-                }
-                if contains("account-notify")
-                    || newly_contains("account-notify")
-                {
-                    if newly_contains("account-notify") {
-                        requested.push("account-notify");
-                    }
-
-                    if newly_contains("extended-join") {
-                        requested.push("extended-join");
-                    }
-                }
-                if contains("batch") || newly_contains("batch") {
-                    if newly_contains("batch") {
-                        requested.push("batch");
-                    }
-
-                    // We require batch for our chathistory support
-                    if (contains("draft/chathistory")
-                        || newly_contains("draft/chathistory"))
-                        && self.config.chathistory
-                    {
-                        if newly_contains("draft/chathistory") {
-                            requested.push("draft/chathistory");
-                        }
-
-                        if newly_contains("draft/event-playback") {
-                            requested.push("draft/event-playback");
-                        }
-                    }
-                }
-                if newly_contains("labeled-response") {
-                    requested.push("labeled-response");
-                }
-                if newly_contains("echo-message") {
-                    requested.push("echo-message");
-                }
-                if newly_contains("multi-prefix") {
-                    requested.push("multi-prefix");
-                }
-                if newly_contains("draft/read-marker") {
-                    requested.push("draft/read-marker");
-                }
-                if newly_contains("setname") {
-                    requested.push("setname");
-                }
-                if newly_contains("soju.im/bouncer-networks") {
-                    requested.push("soju.im/bouncer-networks");
-                }
+                let requested =
+                    self.capabilities.create_requested(&self.config);
 
                 if !requested.is_empty() {
                     for message in group_capability_requests(&requested) {
                         self.handle.try_send(message)?;
                     }
                 }
-
-                self.listed_caps.extend(new_caps);
             }
             Command::CAP(_, sub, a, b) if sub == "DEL" => {
                 let caps = ok!(b.as_ref().or(a.as_ref()));
@@ -1297,36 +1334,7 @@ impl Client {
                     self.server
                 );
 
-                let del_caps = caps.split(' ').collect::<Vec<_>>();
-
-                if del_caps.contains(&"echo-message") {
-                    self.supports_echoes = false;
-                }
-                if del_caps.contains(&"labeled-response") {
-                    self.supports_labels = false;
-                }
-                if del_caps.contains(&"away-notify") {
-                    self.supports_away_notify = false;
-                }
-                if del_caps.contains(&"account-notify") {
-                    self.supports_account_notify = false;
-                }
-                if del_caps.contains(&"extended-join") {
-                    self.supports_extended_join = false;
-                }
-                if del_caps.contains(&"draft/read-marker") {
-                    self.supports_read_marker = false;
-                }
-                if del_caps.contains(&"draft/chathistory") {
-                    self.supports_chathistory = false;
-                }
-                if del_caps.contains(&"soju.im/bouncer-networks") {
-                    self.supports_bouncer_networks = false;
-                }
-
-                self.listed_caps.retain(|cap| {
-                    !del_caps.iter().any(|del_cap| del_cap == cap)
-                });
+                self.capabilities.delete(caps.split(' ').map(String::from));
             }
             Command::AUTHENTICATE(param) if param == "+" => {
                 if let Some(sasl) = self.config.sasl.as_ref() {
@@ -1386,7 +1394,7 @@ impl Client {
                     self.registration_required_channels.clear();
                 }
 
-                if !self.supports_account_notify {
+                if !self.capabilities.acknowledged(Capability::AccountNotify) {
                     let accountname = ok!(args.get(2));
 
                     let old_user = User::from(self.nickname().to_owned());
@@ -1407,7 +1415,7 @@ impl Client {
 
                 self.logged_in = false;
 
-                if !self.supports_account_notify {
+                if !self.capabilities.acknowledged(Capability::AccountNotify) {
                     let old_user = User::from(self.nickname().to_owned());
 
                     self.chanmap.values_mut().for_each(|channel| {
@@ -1421,7 +1429,11 @@ impl Client {
                 if let Some(user) = message.user(self.casemapping()) {
                     let is_echo = user.nickname() == self.nickname();
 
-                    if is_echo {
+                    if is_echo
+                        && self
+                            .capabilities
+                            .acknowledged(Capability::EchoMessage)
+                    {
                         if let Some(username) = user.username() {
                             self.resolved_user = Some(username.to_string());
                         }
@@ -1812,7 +1824,10 @@ impl Client {
                 } else if let Some(channel) =
                     self.chanmap.get_mut(&target_channel)
                 {
-                    let user = if self.supports_extended_join {
+                    let user = if self
+                        .capabilities
+                        .acknowledged(Capability::ExtendedJoin)
+                    {
                         accountname
                             .as_ref()
                             .map_or(user.clone(), |accountname| {
@@ -2217,7 +2232,9 @@ impl Client {
 
                     if casemapping.normalize(target)
                         == self.nickname().as_normalized_str()
-                        && !self.supports_account_notify
+                        && !self
+                            .capabilities
+                            .acknowledged(Capability::AccountNotify)
                         && !self.registration_required_channels.is_empty()
                     {
                         let modes = mode::parse::<mode::User>(
@@ -2268,7 +2285,11 @@ impl Client {
                     for user in args[3].split(' ') {
                         if let Ok(user) = User::parse(user, casemapping, prefix)
                         {
-                            if user.nickname() == our_nick {
+                            if user.nickname() == our_nick
+                                && self
+                                    .capabilities
+                                    .acknowledged(Capability::UserhostInNames)
+                            {
                                 if let Some(username) = user.username() {
                                     our_user = Some(username.to_string());
                                 }
@@ -2897,7 +2918,11 @@ impl Client {
                 // Request bouncer networks
                 // TODO(pounce) replace this with "bouncer-networks-notify" after the cap handling
                 // is cleaned up.
-                if self.is_primary() && self.supports_bouncer_networks {
+                if self.is_primary()
+                    && self
+                        .capabilities
+                        .acknowledged(Capability::BouncerNetworks)
+                {
                     self.handle
                         .try_send(command!("BOUNCER", "LISTNETWORKS"))?;
                 }
@@ -2984,7 +3009,7 @@ impl Client {
         read_marker: ReadMarker,
         priority: TokenPriority,
     ) {
-        if self.supports_read_marker {
+        if self.capabilities.acknowledged(Capability::ReadMarker) {
             self.send(
                 None,
                 command!(
@@ -3053,7 +3078,7 @@ impl Client {
     ) {
         use std::collections::hash_map;
 
-        if self.supports_chathistory {
+        if self.capabilities.acknowledged(Capability::Chathistory) {
             if let Some(target) = subcommand.target() {
                 if let hash_map::Entry::Vacant(entry) =
                     self.chathistory_requests.entry(Target::parse(
@@ -3473,11 +3498,13 @@ impl Client {
             }
 
             let request = match &who_poll.status {
-                WhoStatus::Joined => (self.supports_away_notify
-                    || self.config.who_poll_enabled)
-                    .then_some(Request::Poll),
+                WhoStatus::Joined => {
+                    (self.capabilities.acknowledged(Capability::AwayNotify)
+                        || self.config.who_poll_enabled)
+                        .then_some(Request::Poll)
+                }
                 WhoStatus::Waiting(last) => {
-                    if self.supports_away_notify {
+                    if self.capabilities.acknowledged(Capability::AwayNotify) {
                         self.chanmap.get(&who_poll.channel).and_then(
                             |channel| {
                                 (!channel.who_init
@@ -3520,7 +3547,10 @@ impl Client {
 
                 let message =
                     if self.isupport.contains_key(&isupport::Kind::WHOX) {
-                        let whox_params = if self.supports_account_notify {
+                        let whox_params = if self
+                            .capabilities
+                            .acknowledged(Capability::AccountNotify)
+                        {
                             WhoXPollParameters::WithAccountName
                         } else {
                             WhoXPollParameters::Default
@@ -4068,8 +4098,9 @@ impl Map {
     }
 
     pub fn get_server_supports_echoes(&self, server: &Server) -> bool {
-        self.client(server)
-            .is_some_and(|client| client.supports_echoes)
+        self.client(server).is_some_and(|client| {
+            client.capabilities.acknowledged(Capability::EchoMessage)
+        })
     }
 
     pub fn get_server_chathistory_message_reference_types(
@@ -4089,8 +4120,9 @@ impl Map {
     }
 
     pub fn get_server_supports_chathistory(&self, server: &Server) -> bool {
-        self.client(server)
-            .is_some_and(|client| client.supports_chathistory)
+        self.client(server).is_some_and(|client| {
+            client.capabilities.acknowledged(Capability::Chathistory)
+        })
     }
 
     pub fn get_chathistory_request(
@@ -4138,7 +4170,7 @@ impl Map {
         target: &Target,
     ) -> Option<ChatHistoryState> {
         self.client(server).and_then(|client| {
-            if client.supports_chathistory {
+            if client.capabilities.acknowledged(Capability::Chathistory) {
                 if client.chathistory_request(target).is_some() {
                     Some(ChatHistoryState::PendingRequest)
                 } else if client.chathistory_exhausted(target) {
