@@ -2,7 +2,6 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::Duration;
 
-use fancy_regex::{Regex, RegexBuilder};
 use irc::connection;
 use serde::{Deserialize, Deserializer};
 
@@ -14,6 +13,12 @@ use crate::serde::{
     deserialize_path_buf_with_path_transformations_maybe,
 };
 use crate::{config, isupport, target};
+
+pub mod filters;
+pub mod reroute;
+
+pub use self::filters::{FancyRegex, Filters, Ignore};
+pub use self::reroute::Reroute;
 
 const DEFAULT_PORT: u16 = 6667;
 const DEFAULT_TLS_PORT: u16 = 6697;
@@ -59,6 +64,8 @@ pub struct Server {
     pub password_command: Option<String>,
     /// Filter settings for the server, e.g. ignored nicks
     pub filters: Option<Filters>,
+    /// Message reroute settings scoped to this server.
+    pub reroute: Reroute,
     /// A list of channels to join on connection.
     pub channels: Vec<String>,
     /// A mapping of channel names to keys for join-on-connect.
@@ -204,6 +211,7 @@ impl Default for Server {
             password_file_first_line_only: true,
             password_command: Option::default(),
             filters: Option::default(),
+            reroute: Reroute::default(),
             channels: Vec::default(),
             channel_keys: HashMap::default(),
             queries: Vec::default(),
@@ -358,113 +366,6 @@ impl Sasl {
             None
         }
     }
-}
-
-#[derive(PartialEq, Eq, Debug, Clone, Deserialize, Default)]
-#[serde(default)]
-pub struct Filters {
-    pub ignore: Vec<Ignore>,
-    #[serde(deserialize_with = "deserialize_fancy_regexes")]
-    pub regex: Vec<FancyRegex>,
-}
-
-#[derive(PartialEq, Eq, Debug, Clone)]
-pub enum Ignore {
-    User(String),
-    UserInChannel { user: String, channel: String },
-    Regex { regex: FancyRegex },
-    RegexInChannel { regex: FancyRegex, channel: String },
-}
-
-impl<'de> Deserialize<'de> for Ignore {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        #[derive(Debug, Clone, Deserialize)]
-        #[serde(untagged)]
-        pub enum Inner {
-            User(String),
-            UserInChannel { user: String, channel: String },
-            Regex { regex: String },
-            RegexInChannel { regex: String, channel: String },
-        }
-
-        match Inner::deserialize(deserializer)? {
-            Inner::User(user) => Ok(Ignore::User(user)),
-            Inner::UserInChannel { user, channel } => {
-                Ok(Ignore::UserInChannel { user, channel })
-            }
-            Inner::Regex { regex } => {
-                let regex =
-                    RegexBuilder::new(&regex).build().map_err(|err| {
-                        serde::de::Error::custom(format!(
-                            "invalid regex '{regex}': {err}"
-                        ))
-                    })?;
-
-                Ok(Ignore::Regex {
-                    regex: FancyRegex(regex),
-                })
-            }
-            Inner::RegexInChannel { regex, channel } => {
-                let regex =
-                    RegexBuilder::new(&regex).build().map_err(|err| {
-                        serde::de::Error::custom(format!(
-                            "invalid regex '{regex}': {err}"
-                        ))
-                    })?;
-
-                Ok(Ignore::RegexInChannel {
-                    regex: FancyRegex(regex),
-                    channel,
-                })
-            }
-        }
-    }
-}
-
-// We want to build the regex on deserialization to present any errors to the
-// user then, but we need to be able to define PartialEq and Eq. So, we use this
-// Regex wrapper.
-#[derive(Debug, Clone)]
-pub struct FancyRegex(Regex);
-
-impl PartialEq for FancyRegex {
-    fn eq(&self, other: &FancyRegex) -> bool {
-        self.0.as_str() == other.0.as_str()
-    }
-}
-
-impl Eq for FancyRegex {}
-
-impl From<FancyRegex> for Regex {
-    fn from(fancy_regex: FancyRegex) -> Regex {
-        fancy_regex.0
-    }
-}
-
-pub fn deserialize_fancy_regexes<'de, D>(
-    deserializer: D,
-) -> Result<Vec<FancyRegex>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let regex_strings = Vec::<String>::deserialize(deserializer)?;
-
-    regex_strings
-        .iter()
-        .map(|regex_string| {
-            RegexBuilder::new(regex_string)
-                .build()
-                .map_err(|err| {
-                    serde::de::Error::custom(format!(
-                        "invalid regex '{regex_string}': {err}"
-                    ))
-                })
-                .map(FancyRegex)
-        })
-        .collect::<Result<Vec<FancyRegex>, D::Error>>()
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]

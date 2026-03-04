@@ -87,12 +87,16 @@ pub mod source;
 
 pub fn reroute_private_target(
     target: Target,
-    reroute_private: &config::buffer::PrivateMessages,
+    reroute_private: Option<&config::server::reroute::PrivateMessages>,
     server: &Server,
     chantypes: &[char],
     statusmsg: &[char],
     casemapping: isupport::CaseMap,
 ) -> Target {
+    let Some(reroute_private) = reroute_private else {
+        return target;
+    };
+
     match target {
         Target::Query { query, source } => {
             if let Some(target) = reroute_private.target_for_query(
@@ -103,7 +107,7 @@ pub fn reroute_private_target(
                 casemapping,
             ) {
                 match target {
-                    config::buffer::private_messages::RerouteTarget::Channel {
+                    config::server::reroute::RerouteTarget::Channel {
                         channel,
                     } => {
                         if let Ok(channel) = target::Channel::parse(
@@ -117,7 +121,7 @@ pub fn reroute_private_target(
                             Target::Query { query, source }
                         }
                     }
-                    config::buffer::private_messages::RerouteTarget::Server {
+                    config::server::reroute::RerouteTarget::Server {
                         ..
                     } => Target::Server { source },
                 }
@@ -131,9 +135,13 @@ pub fn reroute_private_target(
 
 pub fn is_rerouted_private_message(
     message: &Message,
-    reroute_private: &config::buffer::PrivateMessages,
+    reroute_private: Option<&config::server::reroute::PrivateMessages>,
     server: &Server,
 ) -> bool {
+    let Some(reroute_private) = reroute_private else {
+        return false;
+    };
+
     let Some(
         command::Irc::Msg(raw_target, _) | command::Irc::Notice(raw_target, _),
     ) = &message.command
@@ -2244,7 +2252,11 @@ fn target(
                                 query,
                                 source: source(user),
                             },
-                            &config.buffer.private_messages,
+                            config
+                                .servers
+                                .get(server)
+                                .as_ref()
+                                .map(|config| &config.reroute.private_messages),
                             server,
                             chantypes,
                             statusmsg,

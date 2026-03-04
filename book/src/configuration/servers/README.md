@@ -41,6 +41,7 @@ You can define multiple server sections in the configuration file. Each server s
     - [proxy](#proxy)
     - [autoconnect](#autoconnect)
   - [Filters](#filters)
+  - [Reroute](#reroute)
   - [SASL Plain](#sasl-plain)
   - [SASL External](#sasl-external)
   - [Confirm Message Delivery](#confirm-message-delivery)
@@ -532,6 +533,10 @@ autoconnect = true
 ## [Filters](filters.md)
 
 Filter messages based on various criteria
+
+## [Reroute](reroute.md)
+
+Reroute selected message types within this server.
 
 ## [SASL Plain](sasl-plain.md)
 

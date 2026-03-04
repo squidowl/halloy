@@ -564,7 +564,7 @@ fn error<'a, 'b, Message: 'a>(
 fn reroute_input_message(
     message: data::Message,
     input: &input::Input,
-    private_messages: &data::config::buffer::PrivateMessages,
+    private_messages: Option<&data::config::server::reroute::PrivateMessages>,
     server: &Server,
     chantypes: &[char],
     statusmsg: &[char],
@@ -757,6 +757,8 @@ impl State {
                             }
                         }
 
+                        let server_config = config.servers.get(buffer.server());
+
                         if let Some(messages) = input.messages(
                             user,
                             channel_users,
@@ -769,7 +771,9 @@ impl State {
                                 let message = reroute_input_message(
                                     message,
                                     &input,
-                                    &config.buffer.private_messages,
+                                    server_config.as_ref().map(|config| {
+                                        &config.reroute.private_messages
+                                    }),
                                     buffer.server(),
                                     chantypes,
                                     statusmsg,
@@ -1155,6 +1159,8 @@ impl State {
 
                         let mut history_tasks = vec![];
 
+                        let server_config = config.servers.get(buffer.server());
+
                         if let Some(messages) = input.messages(
                             user,
                             channel_users,
@@ -1167,7 +1173,9 @@ impl State {
                                 let message = reroute_input_message(
                                     message,
                                     &input,
-                                    &config.buffer.private_messages,
+                                    server_config.as_ref().map(|config| {
+                                        &config.reroute.private_messages
+                                    }),
                                     buffer.server(),
                                     chantypes,
                                     statusmsg,

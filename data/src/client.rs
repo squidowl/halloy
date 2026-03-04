@@ -1583,17 +1583,20 @@ impl Client {
 
                     // use `target` to confirm the direct message
                     let direct_message = target == &self.nickname().to_string();
+                    let server_config = config.servers.get(&self.server);
                     let rerouted_private = direct_message
-                        && config
-                            .buffer
-                            .private_messages
-                            .has_reroute_rule_for_query(
-                                &target::Query::from(&user),
-                                &self.server,
-                                self.chantypes(),
-                                self.statusmsg(),
-                                self.casemapping(),
-                            );
+                        && server_config.as_ref().is_some_and(|config| {
+                            config
+                                .reroute
+                                .private_messages
+                                .has_reroute_rule_for_query(
+                                    &target::Query::from(&user),
+                                    &self.server,
+                                    self.chantypes(),
+                                    self.statusmsg(),
+                                    self.casemapping(),
+                                )
+                        });
 
                     if direct_message {
                         self.resolved_queries
