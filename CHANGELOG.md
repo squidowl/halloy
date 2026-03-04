@@ -4,6 +4,14 @@ Added:
 
 - Setting to limit reaction text length (`buffer.channel.message.max_reaction_chars`)
 
+Fixed:
+
+- Improved message length calculation (when known the bytes required to relay a message are included in the calculation, when unknown an estimate is used)
+
+Thanks:
+
+- Bug reports: chmod222, @whitequark
+
 # 2026.4 (2026-03-03)
 
 Added:
