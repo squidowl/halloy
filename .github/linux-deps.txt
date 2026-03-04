@@ -1,0 +1,8 @@
+build-essential
+pkg-config
+libdbus-1-dev
+libudev-dev
+libxkbcommon-dev
+libfontconfig1-dev
+libasound2-dev
+libx11-xcb-dev

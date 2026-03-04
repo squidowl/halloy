@@ -33,18 +33,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt update
-          sudo apt install \
-            build-essential \
-            git \
-            pkg-config \
-            mold \
-            clang \
-            libdbus-1-dev \
-            libudev-dev \
-            libxkbcommon-dev \
-            libfontconfig1-dev \
-            libasound2-dev \
-            libx11-xcb-dev
+          sudo apt install $(cat .github/linux-deps.txt) git mold clang
       - uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
         with:
           path: |
