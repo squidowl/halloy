@@ -10,7 +10,7 @@ Fixed:
 
 Thanks:
 
-- Bug reports: chmod222, @whitequark
+- Bug reports: chmod222, @whitequark, quaff
 
 # 2026.4 (2026-03-03)
 
