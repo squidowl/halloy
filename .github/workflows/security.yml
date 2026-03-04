@@ -31,7 +31,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@de0fac25e3e8cae4132f5265e56ef9a1aea2dde8 # v6.0.2
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Install system dependencies
         if: matrix.language == 'rust'
@@ -48,14 +48,14 @@ jobs:
             libx11-xcb-dev
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@c793b71e8c76c146fb185c2a8ce915e2dabc4a05 # v4.32.5
+        uses: github/codeql-action/init@c793b717bc78562f491db7b0e93a3a178b099162 # v4.32.5
         with:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
           queries: default
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@c793b71e8c76c146fb185c2a8ce915e2dabc4a05 # v4.32.5
+        uses: github/codeql-action/analyze@c793b717bc78562f491db7b0e93a3a178b099162 # v4.32.5
         with:
           category: "/language:${{ matrix.language }}"
 
@@ -64,7 +64,7 @@ jobs:
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
-      - uses: actions/checkout@de0fac25e3e8cae4132f5265e56ef9a1aea2dde8 # v6.0.2
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - uses: rustsec/audit-check@69366f33c96575abad1ee0dba8212993eecbe998 # v2.0.0
         with:
