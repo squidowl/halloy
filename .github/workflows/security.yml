@@ -1,5 +1,7 @@
 name: Security
 
+permissions: {}
+
 on:
   pull_request:
     branches:
