@@ -676,6 +676,7 @@ impl State {
                     }),
                     clients.get_server_is_connected(buffer.server()),
                     &clients.get_isupport(buffer.server()),
+                    clients.get_relay_bytes(buffer.server()),
                     config,
                 ) {
                     if let Some(encoded) = input.encoded() {
@@ -781,6 +782,7 @@ impl State {
                         }),
                         clients.get_server_is_connected(buffer.server()),
                         &clients.get_isupport(buffer.server()),
+                        clients.get_relay_bytes(buffer.server()),
                         config,
                     ) {
                         Ok(input::Parsed::Internal(command)) => {
@@ -1525,6 +1527,7 @@ impl State {
                             }),
                             is_connected,
                             &clients.get_isupport(buffer.server()),
+                            clients.get_relay_bytes(buffer.server()),
                             config,
                         ) && match error {
                             input::Error::ExceedsByteLimit { .. }
