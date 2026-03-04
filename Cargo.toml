@@ -164,6 +164,13 @@ opt-level = 1
 [profile.dev.package."*"]
 opt-level = 3
 
+# Enable a large amount of optimizations and minimize filesize in release profile.
+[profile.release]
+lto = true
+panic = "abort"
+strip = true
+codegen-units = 1
+
 [workspace.lints.clippy]
 cast_lossless = "deny"
 cloned_instead_of_copied = "deny"
