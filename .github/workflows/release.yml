@@ -62,6 +62,12 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-release-
 
+      - name: Install cargo-edit
+        if: matrix.target.target == 'windows'
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-edit
+
       - name: Build
         run: ${{ matrix.target.make }}
 
