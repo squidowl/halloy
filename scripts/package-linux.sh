@@ -12,7 +12,7 @@ ARCHIVE_NAME="$TARGET-$VERSION-$ARCH-linux.tar.gz"
 ARCHIVE_PATH="$RELEASE_DIR/$ARCHIVE_NAME"
 
 build() {
-  cargo build --profile $PROFILE
+  cargo build --locked --profile $PROFILE
 }
 
 archive_name() {
