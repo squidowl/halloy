@@ -10,7 +10,7 @@ use crate::{Server, User, dcc, server};
 pub mod manager;
 pub mod task;
 
-const FALLBACK_FILENAME: &str = "download";
+const FALLBACK_FILENAME: &str = "dcc_transfer";
 
 pub fn sanitize_filename(raw: &str) -> String {
     let trimmed = raw.trim().trim_matches('"');
@@ -160,8 +160,8 @@ mod tests {
 
     #[test]
     fn sanitize_filename_replaces_invalid_or_empty_values() {
-        assert_eq!(sanitize_filename(".."), "download");
-        assert_eq!(sanitize_filename(""), "download");
+        assert_eq!(sanitize_filename(".."), "dcc_transfer");
+        assert_eq!(sanitize_filename(""), "dcc_transfer");
         assert_eq!(
             sanitize_filename("name\u{0}with\u{1f}controls"),
             "name_with_controls"
