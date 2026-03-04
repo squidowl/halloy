@@ -22,6 +22,7 @@ pub fn parse(
     in_channel: Option<bool>,
     is_connected: bool,
     isupport: &HashMap<isupport::Kind, isupport::Parameter>,
+    relay_bytes: usize,
     config: &Config,
 ) -> Result<Parsed, Error> {
     let content = match command::parse(
@@ -64,9 +65,20 @@ pub fn parse(
     if let Some(message_bytes) = content
         .proto(&buffer)
         .map(|message| format::message(message).len())
-        && message_bytes > format::BYTE_LIMIT
     {
-        return Err(Error::ExceedsByteLimit { message_bytes });
+        let message_bytes = match &content {
+            Content::Text(_)
+            | Content::Command(command::Irc::Msg(_, _))
+            | Content::Command(command::Irc::Me(_, _))
+            | Content::Command(command::Irc::Notice(_, _)) => {
+                message_bytes + relay_bytes
+            }
+            Content::Command(_) => message_bytes,
+        };
+
+        if message_bytes > format::BYTE_LIMIT {
+            return Err(Error::ExceedsByteLimit { message_bytes });
+        }
     }
 
     if !is_connected {
