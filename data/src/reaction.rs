@@ -40,7 +40,14 @@ impl Reaction {
             (None, Some(s)) => (s.clone(), true),
             _ => return None,
         };
-        let text = truncate_text(&text, max_reaction_chars as usize);
+        // Drop reactions above the maximum rather than truncate, to avoid
+        // potentially creating a new, separate reaction when interacting with
+        // it (from the perspective of other clients)
+        if UnicodeSegmentation::graphemes(text.as_str(), true).count()
+            > max_reaction_chars as usize
+        {
+            return None;
+        }
         let in_reply_to = message.in_reply_to()?;
         let server_time = message.server_time();
 
@@ -63,18 +70,6 @@ impl Reaction {
     }
 }
 
-pub fn truncate_text(text: &str, max_chars: usize) -> String {
-    if UnicodeSegmentation::graphemes(text, true).count() <= max_chars {
-        return text.to_string();
-    }
-
-    let mut truncated = UnicodeSegmentation::graphemes(text, true)
-        .take(max_chars)
-        .collect::<String>();
-    truncated.push_str("...");
-    truncated
-}
-
 #[derive(Debug)]
 pub struct Pending {
     pub reactions: Vec<Reaction>,
@@ -87,40 +82,5 @@ impl Pending {
             reactions: vec![],
             server_time,
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::truncate_text;
-
-    #[test]
-    fn keeps_short_reaction_text() {
-        assert_eq!(truncate_text("hello", 5), "hello");
-    }
-
-    #[test]
-    fn truncates_ascii_to_limit() {
-        assert_eq!(truncate_text("hello world", 5), "hello...");
-    }
-
-    #[test]
-    fn truncates_unicode_graphemes() {
-        assert_eq!(truncate_text("cafe\u{301}", 4), "cafe\u{301}");
-    }
-
-    #[test]
-    fn limit_one_keeps_first_grapheme_when_truncated() {
-        assert_eq!(truncate_text("👍🏽👍🏽", 1), "👍🏽...");
-    }
-
-    #[test]
-    fn does_not_split_zwj_emoji_clusters() {
-        assert_eq!(truncate_text("👨‍👩‍👧‍👦x", 1), "👨‍👩‍👧‍👦...");
-    }
-
-    #[test]
-    fn does_not_split_combining_mark_clusters() {
-        assert_eq!(truncate_text("a\u{0301}b", 1), "a\u{0301}...");
     }
 }
