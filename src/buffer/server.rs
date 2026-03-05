@@ -84,7 +84,7 @@ pub fn view<'a>(
 
                 match message.target.source() {
                     message::Source::Server(server) => {
-                        let message = message_content(
+                        let text_content = message_content(
                             &message.content,
                             &state.server,
                             chantypes,
@@ -108,19 +108,20 @@ pub fn view<'a>(
                             config,
                         );
 
-                        Some(
+                        let content: Element<'a, scroll_view::Message> =
                             container(row![
                                 timestamp,
                                 selectable_text(" "),
-                                message
+                                text_content
                             ])
-                            .into(),
-                        )
+                            .into();
+
+                        Some(context_menu::message(content, config, theme))
                     }
                     message::Source::Internal(
                         message::source::Internal::Status(status),
                     ) => {
-                        let message = message_content(
+                        let text_content = message_content(
                             &message.content,
                             &state.server,
                             chantypes,
@@ -138,14 +139,15 @@ pub fn view<'a>(
                             config,
                         );
 
-                        Some(
+                        let content: Element<'a, scroll_view::Message> =
                             container(row![
                                 timestamp,
                                 selectable_text(" "),
-                                message
+                                text_content
                             ])
-                            .into(),
-                        )
+                            .into();
+
+                        Some(context_menu::message(content, config, theme))
                     }
                     _ => None,
                 }

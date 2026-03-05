@@ -22,6 +22,7 @@ pub enum Context<'a> {
     },
     Timestamp(&'a DateTime<Utc>),
     NotSentMessage(&'a DateTime<Utc>, &'a message::Hash),
+    Message,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -47,6 +48,8 @@ pub enum Entry {
     // not sent message context
     DeleteMessage,
     ResendMessage,
+    // message context
+    AddReaction,
 }
 
 impl Entry {
@@ -60,6 +63,10 @@ impl Entry {
 
     pub fn timestamp_list() -> Vec<Self> {
         vec![Entry::Timestamp]
+    }
+
+    pub fn message_list() -> Vec<Self> {
+        vec![Entry::AddReaction]
     }
 
     pub fn url_list(preview_hidden: Option<bool>) -> Vec<Self> {
@@ -427,6 +434,13 @@ impl Entry {
                     config,
                 )
             }
+            (Entry::AddReaction, Context::Message) => menu_button(
+                "Add reaction".to_string(),
+                Some(Message::OpenReactionModal),
+                length,
+                theme,
+                config,
+            ),
             _ => row![].into(),
         })
     }
@@ -450,6 +464,7 @@ pub enum Message {
     DeleteMessage(DateTime<Utc>, message::Hash),
     #[allow(clippy::enum_variant_names)]
     ResendMessage(DateTime<Utc>, message::Hash),
+    OpenReactionModal,
 }
 
 #[derive(Debug, Clone)]
@@ -468,6 +483,7 @@ pub enum Event {
     CopyTimestamp(DateTime<Utc>),
     DeleteMessage(DateTime<Utc>, message::Hash),
     ResendMessage(DateTime<Utc>, message::Hash),
+    OpenReactionModal,
 }
 
 pub fn update(message: Message) -> Event {
@@ -496,7 +512,33 @@ pub fn update(message: Message) -> Event {
         Message::ResendMessage(sesrver_time, hash) => {
             Event::ResendMessage(sesrver_time, hash)
         }
+        Message::OpenReactionModal => Event::OpenReactionModal,
     }
+}
+
+pub fn message<'a, M>(
+    content: impl Into<Element<'a, M>>,
+    config: &'a Config,
+    theme: &'a Theme,
+) -> Element<'a, M>
+where
+    M: From<Message> + 'a,
+{
+    let entries = Entry::message_list();
+
+    context_menu(
+        context_menu::MouseButton::default(),
+        context_menu::Anchor::Cursor,
+        context_menu::ToggleBehavior::KeepOpen,
+        content,
+        entries,
+        move |entry, length| {
+            entry
+                .view(Some(Context::Message), length, config, theme)
+                .map(M::from)
+        },
+    )
+    .into()
 }
 
 pub fn user<'a>(

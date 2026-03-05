@@ -1,7 +1,7 @@
 use data::user::ChannelUsers;
 use data::{Config, file_transfer, history, preview};
-use iced::Size;
 use iced::widget::{button, center, container, pane_grid, row, text};
+use iced::{Length, Size};
 
 use super::sidebar;
 use crate::buffer::{self, Buffer};
@@ -24,6 +24,12 @@ pub enum Message {
     ScrollToBottom,
     MarkAsRead,
     ContentResized(pane_grid::Pane, Size),
+    CloseBufferModal(pane_grid::Pane),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BufferModal {
+    AddReaction,
 }
 
 #[derive(Clone, Debug)]
@@ -31,6 +37,7 @@ pub struct Pane {
     pub buffer: Buffer,
     pub size: Size,
     title_bar: TitleBar,
+    buffer_modal: Option<BufferModal>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -42,6 +49,7 @@ impl Pane {
             buffer,
             size: Size::default(), // Will get set initially via `Message::Resized`
             title_bar: TitleBar::default(),
+            buffer_modal: None,
         }
     }
 
@@ -129,7 +137,7 @@ impl Pane {
             maximized,
             clients,
             settings,
-            config.tooltips,
+            config.tooltips && self.buffer_modal.is_none(),
             is_popout,
             config,
             theme,
@@ -150,11 +158,29 @@ impl Pane {
             )
             .map(move |msg| Message::Buffer(id, msg));
 
-        widget::Content::new(on_resize(content, move |size| {
-            Message::ContentResized(id, size)
-        }))
-        .style(move |theme| theme::container::buffer(theme, is_focused))
-        .title_bar(title_bar.style(theme::container::buffer_title_bar))
+        let content =
+            on_resize(content, move |size| Message::ContentResized(id, size));
+
+        let content = match self.buffer_modal {
+            Some(BufferModal::AddReaction) => {
+                widget::modal(content, add_reaction_modal(), move || {
+                    Message::CloseBufferModal(id)
+                })
+            }
+            None => content,
+        };
+
+        widget::Content::new(content)
+            .style(move |theme| theme::container::buffer(theme, is_focused))
+            .title_bar(title_bar.style(theme::container::buffer_title_bar))
+    }
+
+    pub fn open_buffer_modal(&mut self, modal: BufferModal) {
+        self.buffer_modal = Some(modal);
+    }
+
+    pub fn close_buffer_modal(&mut self) {
+        self.buffer_modal = None;
     }
 
     pub fn resource(&self) -> Option<history::Resource> {
@@ -195,6 +221,15 @@ impl Pane {
             | Buffer::ChannelDiscovery(_) => vec![],
         }
     }
+}
+
+fn add_reaction_modal<'a>() -> widget::Element<'a, Message> {
+    container(row![])
+        .width(Length::Fixed(360.0))
+        .height(Length::Fixed(220.0))
+        .style(theme::container::tooltip)
+        .padding(16)
+        .into()
 }
 
 impl TitleBar {

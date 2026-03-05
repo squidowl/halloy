@@ -68,6 +68,12 @@ pub enum Message {
     },
 }
 
+impl From<context_menu::Message> for Message {
+    fn from(message: context_menu::Message) -> Self {
+        Message::ContextMenu(message)
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum Event {
     ContextMenu(context_menu::Event),

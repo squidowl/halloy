@@ -24,7 +24,7 @@ use iced::{Length, Padding, Size, Task, Vector, advanced, clipboard};
 use irc::proto;
 
 use self::command_bar::CommandBar;
-use self::pane::Pane;
+use self::pane::{BufferModal, Pane};
 use self::sidebar::Sidebar;
 use self::theme_editor::ThemeEditor;
 use crate::buffer::{self, Buffer};
@@ -449,6 +449,12 @@ impl Dashboard {
                             state.size = size;
                             state.buffer.update_pane_size(size, config);
                         }
+                    }
+                    pane::Message::CloseBufferModal(id) => {
+                        if let Some(state) = self.panes.get_mut(window, id) {
+                            state.close_buffer_modal();
+                        }
+                        return (Task::none(), None);
                     }
                 }
             }
@@ -2142,6 +2148,10 @@ impl Dashboard {
                             );
                         }
 
+                        None
+                    }
+                    buffer::context_menu::Event::OpenReactionModal => {
+                        pane.open_buffer_modal(BufferModal::AddReaction);
                         None
                     }
                 };
