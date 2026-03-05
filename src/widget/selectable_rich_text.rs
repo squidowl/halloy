@@ -547,6 +547,7 @@ where
                     };
                     state.context_menu_link = Some(link);
                     self.cached_entries = entries;
+                    shell.capture_event();
                 }
             }
             _ => {}
