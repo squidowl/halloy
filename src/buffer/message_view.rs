@@ -875,6 +875,9 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
         } else {
             None
         };
+
+        let content = context_menu::message(content, self.config, self.theme);
+
         let row = row.push(middle).push(maybe_space);
 
         if self.content_on_new_line(message) {
