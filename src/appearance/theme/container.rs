@@ -87,19 +87,6 @@ pub fn none(_theme: &Theme) -> Style {
     }
 }
 
-pub fn primary_background_hover(theme: &Theme) -> Style {
-    Style {
-        background: Some(Background::Color(
-            theme.styles().buttons.primary.background_hover,
-        )),
-        border: Border {
-            radius: 4.0.into(),
-            ..Default::default()
-        },
-        ..Default::default()
-    }
-}
-
 pub fn root(theme: &Theme) -> Style {
     Style {
         text_color: Some(theme.styles().text.primary.color),
