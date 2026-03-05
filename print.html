@@ -35,7 +35,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-0d265565.js";
+            window.path_to_searchindex_js = "searchindex-624bef44.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-eee21653.js"></script>
@@ -1239,6 +1239,7 @@ text = false
 <ul>
 <li><a href="#nickname_color">nickname_color</a></li>
 <li><a href="#show_emoji_reacts">show_emoji_reacts</a></li>
+<li><a href="#max_reaction_display">max_reaction_display</a></li>
 <li><a href="#max_reaction_chars">max_reaction_chars</a></li>
 </ul>
 </li>
@@ -1264,15 +1265,25 @@ nickname_color = "unique"
 [buffer.channel.message]
 show_emoji_reacts = true
 </code></pre>
-<h3 id="max_reaction_chars"><a class="header" href="#max_reaction_chars">max_reaction_chars</a></h3>
+<h3 id="max_reaction_display"><a class="header" href="#max_reaction_display">max_reaction_display</a></h3>
 <p>Maximum number of user-visible characters (Unicode grapheme clusters) in a reaction.
-If a reaction exceeds this value, it is truncated to the first <code>max_reaction_chars</code> grapheme clusters.</p>
+If a reaction exceeds this value, then its display is truncated to the first <code>max_reaction_display</code> grapheme clusters.</p>
 <pre><code class="language-toml"># Type: integer
 # Values: positive integers
 # Default: 5
 
 [buffer.channel.message]
-max_reaction_chars = 5
+max_reaction_display = 5
+</code></pre>
+<h3 id="max_reaction_chars"><a class="header" href="#max_reaction_chars">max_reaction_chars</a></h3>
+<p>Maximum number of user-visible characters (Unicode grapheme clusters) in a reaction.
+If a reaction exceeds this value, then it is not stored.</p>
+<pre><code class="language-toml"># Type: integer
+# Values: positive integers
+# Default: 64
+
+[buffer.channel.message]
+max_reaction_chars = 64
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="nicklist-1"><a class="header" href="#nicklist-1">Nicklist</a></h1>
