@@ -10,6 +10,7 @@ Fixed:
 - Improved message length calculation (when known the bytes required to relay a message are included in the calculation, when unknown an estimate is used)
 - Prevent interaction leakage behind open modals: clicks, cursor changes, and hover states no longer affect underlying UI while preserving outside-click and `Esc` to close
 - Prevent clicks from passing through completion picker overlays to content behind them (for example nicknames in the buffer).
+- Regression that could make the application slow to close
 
 Thanks:
 
