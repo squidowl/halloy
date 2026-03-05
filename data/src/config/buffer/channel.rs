@@ -20,6 +20,8 @@ pub struct Message {
     pub nickname_color: Color,
     pub show_emoji_reacts: bool,
     #[serde(deserialize_with = "crate::serde::deserialize_positive_integer")]
+    pub max_reaction_display: u32,
+    #[serde(deserialize_with = "crate::serde::deserialize_positive_integer")]
     pub max_reaction_chars: u32,
 }
 
@@ -28,7 +30,8 @@ impl Default for Message {
         Self {
             nickname_color: Color::default(),
             show_emoji_reacts: true,
-            max_reaction_chars: 5,
+            max_reaction_display: 5,
+            max_reaction_chars: 64,
         }
     }
 }
