@@ -1,9 +1,11 @@
+use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet};
 
 use data::user::NickRef;
 use iced::alignment;
 pub use iced::widget::tooltip::Position;
 use iced::widget::{Space, button, container, row};
+use unicode_segmentation::UnicodeSegmentation;
 
 use super::{Column, Element, Row};
 use crate::theme;
@@ -15,6 +17,7 @@ pub fn reaction_row<'a, M, F1, F2>(
     message: &'a data::Message,
     our_nick: Option<NickRef<'a>>,
     font_size: f32,
+    max_reaction_display: u32,
     on_react: Option<F1>,
     on_unreact: Option<F2>,
 ) -> Element<'a, M>
@@ -68,10 +71,11 @@ where
             on_react.as_ref().map(|f| f(reaction_text))
         };
         let react_count = nicks.len();
-        let emoji = text(*reaction_text)
-            .shaping(iced::widget::text::Shaping::Advanced)
-            .size(emoji_size)
-            .style(theme::text::primary);
+        let emoji =
+            text(truncate_text(reaction_text, max_reaction_display as usize))
+                .shaping(iced::widget::text::Shaping::Advanced)
+                .size(emoji_size)
+                .style(theme::text::primary);
         let mut button_content = row![emoji];
         if react_count >= 2 {
             button_content = button_content.push(Space::new().width(4)).push(
@@ -122,4 +126,51 @@ where
     .wrap();
 
     container(row).into()
+}
+
+pub fn truncate_text<'a>(text: &'a str, max_chars: usize) -> Cow<'a, str> {
+    if UnicodeSegmentation::graphemes(text, true).count() <= max_chars {
+        return text.into();
+    }
+
+    let mut truncated = UnicodeSegmentation::graphemes(text, true)
+        .take(max_chars)
+        .collect::<String>();
+    truncated.push('…');
+    truncated.into()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::truncate_text;
+
+    #[test]
+    fn keeps_short_reaction_text() {
+        assert_eq!(truncate_text("hello", 5), "hello");
+    }
+
+    #[test]
+    fn truncates_ascii_to_limit() {
+        assert_eq!(truncate_text("hello world", 5), "hello…");
+    }
+
+    #[test]
+    fn truncates_unicode_graphemes() {
+        assert_eq!(truncate_text("cafe\u{301}", 4), "cafe\u{301}");
+    }
+
+    #[test]
+    fn limit_one_keeps_first_grapheme_when_truncated() {
+        assert_eq!(truncate_text("👍🏽👍🏽", 1), "👍🏽…");
+    }
+
+    #[test]
+    fn does_not_split_zwj_emoji_clusters() {
+        assert_eq!(truncate_text("👨‍👩‍👧‍👦x", 1), "👨‍👩‍👧‍👦…");
+    }
+
+    #[test]
+    fn does_not_split_combining_mark_clusters() {
+        assert_eq!(truncate_text("a\u{0301}b", 1), "a\u{0301}…");
+    }
 }
