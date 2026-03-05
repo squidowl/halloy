@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::fs::File;
 use std::io;
 use std::path::PathBuf;
 
@@ -66,16 +65,15 @@ impl Dashboard {
     pub fn load() -> Result<Self, Error> {
         let path = path()?;
 
-        let file = File::open(path)?;
+        let bytes = std::fs::read(path)?;
 
-        Ok(compression::decompress(&file)?)
+        Ok(compression::decompress(&bytes)?)
     }
 
     pub async fn save(self) -> Result<(), Error> {
         let path = path()?;
 
-        let mut bytes = vec![];
-        compression::compress(&mut bytes, &self)?;
+        let bytes = compression::compress(&self)?;
 
         tokio::fs::write(path, &bytes).await?;
 
