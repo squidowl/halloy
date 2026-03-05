@@ -224,6 +224,21 @@ where
         shell: &mut Shell<'_, Message>,
         viewport: &Rectangle,
     ) {
+        self.base.as_widget_mut().update(
+            &mut tree.children[0],
+            event,
+            layout,
+            cursor,
+            renderer,
+            clipboard,
+            shell,
+            viewport,
+        );
+
+        if shell.is_event_captured() {
+            return;
+        }
+
         // is this a mouse event we are waiting for?
         let is_mouse_event =
             matches!(event, Event::Mouse(mouse::Event::ButtonPressed { .. }));
@@ -311,19 +326,12 @@ where
                 {
                     shell.request_redraw();
                 }
+
+                if is_activation_mouse_event {
+                    shell.capture_event();
+                }
             }
         }
-
-        self.base.as_widget_mut().update(
-            &mut tree.children[0],
-            event,
-            layout,
-            cursor,
-            renderer,
-            clipboard,
-            shell,
-            viewport,
-        );
     }
 
     fn mouse_interaction(
