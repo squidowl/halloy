@@ -7,8 +7,7 @@ use std::{fmt, io};
 use chrono::{DateTime, Utc};
 use futures::future::BoxFuture;
 use futures::{Future, FutureExt};
-use tokio::fs::{self, File};
-use tokio::task;
+use tokio::fs;
 use tokio::time::Instant;
 
 pub use self::manager::{Manager, Resource};
@@ -224,10 +223,9 @@ pub async fn overwrite(
     let latest = &messages[messages.len().saturating_sub(MAX_MESSAGES)..];
 
     let path = path(kind).await?;
-    let mut bytes = vec![];
-    compression::compress(&mut bytes, &latest)?;
+    let compressed = compression::compress(&latest)?;
 
-    fs::write(path, &bytes).await?;
+    fs::write(path, &compressed).await?;
 
     metadata::save(kind, latest, read_marker).await?;
 
@@ -268,11 +266,8 @@ pub async fn delete(kind: &Kind) -> Result<(), Error> {
 }
 
 async fn read_all(path: &PathBuf) -> Result<Vec<Message>, Error> {
-    let file = File::open(path).await?.into_std().await;
-    let msgs: Vec<Message> =
-        tokio::task::spawn_blocking(move || compression::decompress(file))
-            .await??;
-    Ok(msgs)
+    let bytes = fs::read(path).await?;
+    Ok(compression::decompress(&bytes)?)
 }
 
 pub async fn dir_path() -> Result<PathBuf, Error> {
@@ -1141,6 +1136,4 @@ pub enum Error {
     Io(#[from] io::Error),
     #[error(transparent)]
     SerdeJson(#[from] serde_json::Error),
-    #[error(transparent)]
-    ThreadPanic(#[from] task::JoinError),
 }
