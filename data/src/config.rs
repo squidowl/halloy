@@ -25,7 +25,7 @@ pub use self::preview::Preview;
 pub use self::proxy::Proxy;
 pub use self::server::Server;
 pub use self::sidebar::Sidebar;
-use self::window::Window as WindowConfig;
+pub use self::window::Window;
 use crate::appearance::theme::Styles;
 use crate::appearance::{self, Appearance};
 use crate::audio::{self};
@@ -71,7 +71,7 @@ pub struct Config {
     pub notifications: Notifications,
     pub file_transfer: FileTransfer,
     pub tooltips: bool,
-    pub window: WindowConfig,
+    pub window: Window,
     pub preview: Preview,
     pub highlights: Highlights,
     pub actions: Actions,
@@ -97,7 +97,7 @@ impl Default for Config {
             notifications: Notifications::default(),
             file_transfer: FileTransfer::default(),
             tooltips: true,
-            window: WindowConfig::default(),
+            window: Window::default(),
             preview: Preview::default(),
             highlights: Highlights::default(),
             actions: Actions::default(),
@@ -356,7 +356,7 @@ impl Config {
             pub notifications: Notifications,
             pub file_transfer: FileTransfer,
             pub tooltips: bool,
-            pub window: WindowConfig,
+            pub window: Window,
             pub preview: Preview,
             pub highlights: Highlights,
             pub actions: Actions,
@@ -382,7 +382,7 @@ impl Config {
                     notifications: Notifications::default(),
                     file_transfer: FileTransfer::default(),
                     tooltips: true,
-                    window: WindowConfig::default(),
+                    window: Window::default(),
                     preview: Preview::default(),
                     highlights: Highlights::default(),
                     actions: Actions::default(),
