@@ -312,9 +312,19 @@ impl Halloy {
         let config = config_load.as_ref().unwrap_or(&default_config);
         let proxy_config = config.proxy.clone();
         let check_for_update_on_launch = config.check_for_update_on_launch;
+        let window_size = iced::Size::new(
+            config
+                .window
+                .initial_width
+                .map_or(size.width, |width| width as f32),
+            config
+                .window
+                .initial_height
+                .map_or(size.height, |height| height as f32),
+        );
 
         let (main_window, open_main_window) = window::open(window::Settings {
-            size: fullscreen.unwrap_or(size),
+            size: fullscreen.unwrap_or(window_size),
             position: position
                 .map(window::Position::Specific)
                 .unwrap_or_default(),
