@@ -427,6 +427,7 @@ impl<'a> ChannelQueryLayout<'a> {
                 message,
                 self.target.our_user().map(|user| user.nickname()),
                 self.config.font.size.map_or(theme::TEXT_SIZE, f32::from),
+                self.config.buffer.channel.message.max_reaction_display,
                 on_react,
                 on_unreact,
             );
