@@ -21,26 +21,26 @@ license = "GPL-3.0-or-later"
 edition = "2024"
 
 [workspace.dependencies]
-tokio = { version = "1.44.0" }
+tokio = { version = "1.50.0" }
 futures = "0.3.32"
-thiserror = "2.0.12"
+thiserror = "2.0.18"
 chrono = { version = "0.4.40", features = ['serde', 'unstable-locales'] }
 bytes = "1.10.1"
-strum = { version = "0.27.1", features = ["derive"] }
+strum = { version = "0.28.0", features = ["derive"] }
 anyhow = "1.0.97"
 url = { version = "2.5.0", features = ["serde"] }
 tokio-stream = { version = "0.1" }
-timeago = "0.5.0"
+timeago = "0.6.0"
 itertools = "0.14.0"
 emojis = "0.8.0"
 unicode-segmentation = "1.10.1"
-rand = "0.9.0"
-rand_chacha = "0.9.0"
+rand = "0.10.0"
+rand_chacha = "0.10.0"
 palette = "0.7.4"
 log = { version = "0.4.26", features = ['std'] }
 uptime_lib = "0.3.1"
 nucleo-matcher = "0.3.1"
-reqwest = { version = "0.12", features = ["json", "socks"] }
+reqwest = { version = "0.13", features = ["json", "socks"] }
 
 [dependencies]
 tokio = { workspace = true, features = ["rt", "fs", "process"] }
