@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use chrono::{TimeDelta, Utc};
+use chrono::{DateTime, TimeDelta, Utc};
 use data::config::buffer::nickname::ShownStatus;
 use data::config::buffer::{CondensationIcon, Dimmed};
 use data::isupport::{CaseMap, PrefixMap};
@@ -144,123 +144,108 @@ impl<'a> ChannelQueryLayout<'a> {
         message: &'a data::Message,
         hide_timestamp: bool,
     ) -> Option<Element<'a, Message>> {
-        if let message::Source::Internal(message::source::Internal::Condensed(
-            end_server_time,
-        )) = message.target.source()
-            && message.server_time != *end_server_time
-        {
-            self.config
-                .buffer
-                .format_range_timestamp(&message.server_time, end_server_time)
-                .map(|(start_timestamp, dash, end_timestamp)| {
-                    row![
-                        context_menu::timestamp(
-                            selectable_text(start_timestamp)
-                                .style(theme::selectable_text::timestamp)
-                                .font_maybe(
-                                    theme::font_style::timestamp(self.theme)
-                                        .map(font::get),
-                                ),
-                            &message.server_time,
-                            self.config,
-                            self.theme,
-                        )
-                        .map(Message::ContextMenu),
-                        selectable_text(dash)
+        self.config
+            .buffer
+            .format_timestamp(&message.server_time)
+            .map(|timestamp| {
+                if hide_timestamp {
+                    let width = font::width_from_chars(
+                        timestamp.chars().count(),
+                        &self.config.font,
+                    );
+
+                    return Space::new().width(width).into();
+                }
+
+                context_menu::timestamp(
+                    selectable_text(timestamp)
+                        .style(theme::selectable_text::timestamp)
+                        .font_maybe(
+                            theme::font_style::timestamp(self.theme)
+                                .map(font::get),
+                        ),
+                    &message.server_time,
+                    self.config,
+                    self.theme,
+                )
+                .map(Message::ContextMenu)
+            })
+    }
+
+    fn format_range_end_timestamp(
+        &self,
+        end_server_time: &'a DateTime<Utc>,
+        hide_timestamp: bool,
+    ) -> Option<Element<'a, Message>> {
+        self.config
+            .buffer
+            .format_range_end_timestamp(end_server_time)
+            .map(|(dash, end_timestamp)| {
+                if hide_timestamp {
+                    let width = font::width_from_chars(
+                        dash.chars().count() + end_timestamp.chars().count(),
+                        &self.config.font,
+                    );
+
+                    return Space::new().width(width).into();
+                }
+
+                row![
+                    selectable_text(dash)
+                        .style(theme::selectable_text::timestamp)
+                        .font_maybe(
+                            theme::font_style::timestamp(self.theme)
+                                .map(font::get),
+                        ),
+                    context_menu::timestamp(
+                        selectable_text(end_timestamp)
                             .style(theme::selectable_text::timestamp)
                             .font_maybe(
                                 theme::font_style::timestamp(self.theme)
                                     .map(font::get),
                             ),
-                        context_menu::timestamp(
-                            selectable_text(end_timestamp)
-                                .style(theme::selectable_text::timestamp)
-                                .font_maybe(
-                                    theme::font_style::timestamp(self.theme)
-                                        .map(font::get),
-                                ),
-                            end_server_time,
-                            self.config,
-                            self.theme,
-                        )
-                        .map(Message::ContextMenu),
-                        selectable_text(" "),
-                    ]
-                    .into()
-                })
-        } else {
-            self.config
-                .buffer
-                .format_timestamp(&message.server_time)
-                .map(|timestamp| {
-                    if hide_timestamp {
-                        let width = font::width_from_chars(
-                            timestamp.chars().count() + 1,
-                            &self.config.font,
-                        );
-
-                        return Space::new().width(width).into();
-                    }
-
-                    row![
-                        context_menu::timestamp(
-                            selectable_text(timestamp)
-                                .style(theme::selectable_text::timestamp)
-                                .font_maybe(
-                                    theme::font_style::timestamp(self.theme)
-                                        .map(font::get),
-                                ),
-                            &message.server_time,
-                            self.config,
-                            self.theme,
-                        )
-                        .map(Message::ContextMenu),
-                        selectable_text(" "),
-                    ]
-                    .into()
-                })
-        }
+                        end_server_time,
+                        self.config,
+                        self.theme,
+                    )
+                    .map(Message::ContextMenu),
+                ]
+                .into()
+            })
     }
 
     fn format_prefixes(
         &self,
         message: &'a data::Message,
-        right_aligned_width: Option<f32>,
         max_prefix_width: Option<f32>,
     ) -> Option<Element<'a, Message>> {
-        message
-            .target
-            .prefixes()
-            .map_or(
-                right_aligned_width.and_then(|_| {
-                    max_prefix_width.map(|width| {
-                        selectable_text("")
-                            .width(width)
-                            .align_x(text::Alignment::Right)
-                    })
-                }),
-                |prefixes| {
-                    let text = selectable_text(format!(
-                        "{} ",
-                        self.config
-                            .buffer
-                            .status_message_prefix
-                            .brackets
-                            .format(String::from_iter(prefixes))
-                    ))
-                    .style(theme::selectable_text::tertiary)
-                    .font_maybe(
-                        theme::font_style::tertiary(self.theme).map(font::get),
-                    );
+        message.target.prefixes().map_or(
+            max_prefix_width.map(|width| Space::new().width(width).into()),
+            |prefixes| {
+                let text = selectable_text(format!(
+                    "{} ",
+                    self.config
+                        .buffer
+                        .status_message_prefix
+                        .brackets
+                        .format(String::from_iter(prefixes))
+                ))
+                .style(theme::selectable_text::tertiary)
+                .font_maybe(
+                    theme::font_style::tertiary(self.theme).map(font::get),
+                );
 
-                    if let Some(width) = max_prefix_width {
-                        Some(text.width(width).align_x(text::Alignment::Right))
-                    } else {
-                        Some(text)
-                    }
-                },
-            )
-            .map(Element::from)
+                if let Some(width) = max_prefix_width {
+                    Some(
+                        text.width(width)
+                            .align_x(text::Alignment::Right)
+                            .into(),
+                    )
+                } else {
+                    Some(text.into())
+                }
+            },
+        )
     }
 
     fn format_user_message(
@@ -309,54 +294,55 @@ impl<'a> ChannelQueryLayout<'a> {
             dimmed_background_tuple,
         );
 
-        let mut nick_text = selectable_text(
-            self.config
-                .buffer
-                .nickname
-                .brackets
-                .format(user.display(with_access_levels, truncate)),
-        )
-        .style(move |_| nickname_style)
-        .font_maybe(
-            theme::font_style::nickname(self.theme, is_user_offline)
-                .map(font::get),
-        );
+        let (user_display, show_nickname_tooltip) =
+            user.display_with_truncated(with_access_levels, truncate);
 
-        if let Some(width) = right_aligned_width {
-            nick_text = nick_text.width(width).align_x(text::Alignment::Right);
-        }
-
-        let nick = tooltip(
-            context_menu::user(
-                nick_text,
-                self.server,
-                self.prefix,
-                self.target.channel(),
-                user,
-                user_in_channel,
-                self.target.our_user(),
-                self.config,
-                self.theme,
-                &self.config.buffer.nickname.click,
-            )
-            .map(Message::ContextMenu),
-            // We show the full nickname in the tooltip if truncation is enabled.
-            truncate.map(|_| user.as_str()),
-            tooltip::Position::Bottom,
-            self.theme,
-        );
+        let nick_text =
+            self.config.buffer.nickname.brackets.format(user_display);
 
         let nick_element: Element<_> = if hide_nickname {
             let width = match self.config.buffer.nickname.alignment {
                 data::buffer::Alignment::Left
-                | data::buffer::Alignment::Top => 0.0,
+                | data::buffer::Alignment::Top => font::width_from_chars(
+                    nick_text.chars().count(),
+                    &self.config.font,
+                ),
                 data::buffer::Alignment::Right => {
                     right_aligned_width.unwrap_or_default()
                 }
             };
             Space::new().width(width).into()
         } else {
-            nick
+            let mut nick_text = selectable_text(nick_text)
+                .style(move |_| nickname_style)
+                .font_maybe(
+                    theme::font_style::nickname(self.theme, is_user_offline)
+                        .map(font::get),
+                );
+
+            if let Some(width) = right_aligned_width {
+                nick_text =
+                    nick_text.width(width).align_x(text::Alignment::Right);
+            }
+
+            tooltip(
+                context_menu::user(
+                    nick_text,
+                    self.server,
+                    self.prefix,
+                    self.target.channel(),
+                    user,
+                    user_in_channel,
+                    self.target.our_user(),
+                    self.config,
+                    self.theme,
+                    &self.config.buffer.nickname.click,
+                )
+                .map(Message::ContextMenu),
+                show_nickname_tooltip.then_some(user.as_str()),
+                tooltip::Position::Bottom,
+                self.theme,
+            )
         };
 
         let formatter = *self;
@@ -568,6 +554,7 @@ impl<'a> ChannelQueryLayout<'a> {
         &self,
         message: &'a data::Message,
         right_aligned_width: Option<f32>,
+        hide_timestamp: bool,
     ) -> (Element<'a, Message>, Element<'a, Message>) {
         let formatter = *self;
 
@@ -592,13 +579,44 @@ impl<'a> ChannelQueryLayout<'a> {
         );
         let moved_link = link.clone();
 
+        let range_end_timestamp = if let message::Source::Internal(
+            message::source::Internal::Condensed(end_server_time),
+        ) = message.target.source()
+            && message.server_time != *end_server_time
+        {
+            formatter
+                .format_range_end_timestamp(end_server_time, hide_timestamp)
+        } else {
+            None
+        };
+
+        let condensation_marker = self.condensation_marker(false, true);
         let marker = message_marker(
-            self.condensation_marker(false, true),
-            right_aligned_width,
+            condensation_marker,
+            None,
             self.config,
             theme::selectable_text::condensed_marker,
             Some(Message::Link(link.clone())),
         );
+
+        let middle = row![
+            range_end_timestamp,
+            if hide_timestamp || matches!(condensation_marker, Marker::None) {
+                let width = font::width_from_chars(1, &self.config.font);
+
+                Element::from(Space::new().width(width))
+            } else {
+                Element::from(selectable_text(" "))
+            },
+            if right_aligned_width.is_some() {
+                container(marker)
+                    .width(Length::Fill)
+                    .align_x(text::Alignment::Right)
+                    .into()
+            } else {
+                marker
+            }
+        ];
 
         let message_content = message_content::with_context(
             &message.content,
@@ -652,7 +670,14 @@ impl<'a> ChannelQueryLayout<'a> {
             self.config,
         );
 
-        (marker, container(message_content).into())
+        (
+            if let Some(right_aligned_width) = right_aligned_width {
+                container(middle).width(right_aligned_width).into()
+            } else {
+                middle.into()
+            },
+            container(message_content).into(),
+        )
     }
 
     fn content_on_new_line(&self, message: &data::Message) -> bool {
@@ -748,18 +773,14 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
         message: &'a data::Message,
         right_aligned_width: Option<f32>,
         max_prefix_width: Option<f32>,
-        range_timestamp_excess_width: Option<f32>,
         hide_timestamp: bool,
         hide_nickname: bool,
     ) -> Option<Element<'a, Message>> {
-        let timestamp = self.format_timestamp(message, hide_timestamp);
-        let prefixes = self.format_prefixes(
-            message,
-            right_aligned_width,
-            max_prefix_width,
-        );
+        let prefixes = self.format_prefixes(message, max_prefix_width);
 
-        let row = row![timestamp, prefixes];
+        let timestamp = self.format_timestamp(message, hide_timestamp);
+
+        let left_is_hidden = prefixes.is_none() && hide_timestamp;
 
         let (middle, content): (Element<'a, Message>, Element<'a, Message>) =
             match message.target.source() {
@@ -877,38 +898,15 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
                     _,
                 )) => None,
                 message::Source::Internal(
-                    message::source::Internal::Condensed(end_server_time),
-                ) => {
-                    let right_aligned_width =
-                        if message.server_time != *end_server_time {
-                            right_aligned_width.map(|right_aligned_width| {
-                                right_aligned_width
-                                    - range_timestamp_excess_width
-                                        .unwrap_or_default()
-                            })
-                        } else {
-                            right_aligned_width
-                        };
-
-                    (!message.text().is_empty()).then_some(
-                        self.format_condensed_message(
-                            message,
-                            right_aligned_width,
-                        ),
-                    )
-                }
+                    message::source::Internal::Condensed(_),
+                ) => (!message.text().is_empty()).then_some(
+                    self.format_condensed_message(
+                        message,
+                        right_aligned_width,
+                        hide_timestamp,
+                    ),
+                ),
             }?;
-
-        // When hiding consecutive nicknames (left-aligned only), insert a single space
-        // to maintain visual separation. Right-aligned nicknames always get a space since
-        // they don't create a gap when hidden (alignment pushes content to the same position).
-        let maybe_space = if !hide_nickname
-            || self.config.buffer.nickname.alignment.is_right()
-        {
-            Some(selectable_text(" "))
-        } else {
-            None
-        };
 
         let selected_reaction_texts =
             selected_reactions(message, self.our_nick);
@@ -921,7 +919,19 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
             self.theme,
         );
 
-        let row = row.push(middle).push(maybe_space);
+        let row = row![
+            prefixes,
+            timestamp,
+            if left_is_hidden {
+                let width = font::width_from_chars(1, &self.config.font);
+
+                Element::from(Space::new().width(width))
+            } else {
+                Element::from(selectable_text(" "))
+            },
+            middle,
+            selectable_text(" ")
+        ];
 
         if self.content_on_new_line(message) {
             Some(container(column![row, content]).into())
