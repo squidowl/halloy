@@ -23,6 +23,7 @@ use iced::widget::{
 use iced::{Alignment, Length, Task, clipboard, event, keyboard, padding};
 use itertools::Itertools;
 use tokio::time;
+use unicode_segmentation::UnicodeSegmentation;
 
 use self::completion::Completion;
 use crate::widget::key_press::is_numpad;
@@ -817,6 +818,93 @@ impl State {
 
                     self.on_completion(buffer, history, actions, true)
                 } else if !raw_input.is_empty() {
+                    // If there is an error in the input then display the error
+                    // for the current line (if it has an error) or the first
+                    // line with an error, then ignore send.
+                    let is_connected =
+                        clients.get_server_is_connected(buffer.server());
+
+                    if let Some(line) = self
+                        .input_content
+                        .line(cursor_position.line)
+                        .map(|line| line.text)
+                        && let Err(error) = input::parse(
+                            buffer.clone(),
+                            config.buffer.text_input.auto_format,
+                            &line,
+                            clients.nickname(buffer.server()),
+                            buffer.channel().map(|target| {
+                                clients
+                                    .get_channels(buffer.server())
+                                    .any(|channel| target == channel)
+                            }),
+                            is_connected,
+                            &clients.get_isupport(buffer.server()),
+                            clients.get_relay_bytes(buffer.server()),
+                            config,
+                        )
+                    {
+                        self.error = Some(error.to_string());
+
+                        return (Task::none(), None);
+                    } else if let Some((line_num, line, error)) = self
+                        .input_content
+                        .lines()
+                        .map(|line| line.text)
+                        .enumerate()
+                        .find_map(|(line_num, line)| {
+                            if line_num != cursor_position.line {
+                                input::parse(
+                                    buffer.clone(),
+                                    config.buffer.text_input.auto_format,
+                                    &line,
+                                    clients.nickname(buffer.server()),
+                                    buffer.channel().map(|target| {
+                                        clients
+                                            .get_channels(buffer.server())
+                                            .any(|channel| target == channel)
+                                    }),
+                                    is_connected,
+                                    &clients.get_isupport(buffer.server()),
+                                    clients.get_relay_bytes(buffer.server()),
+                                    config,
+                                )
+                                .err()
+                                .map(|error| (line_num, line, error))
+                            } else {
+                                None
+                            }
+                        })
+                    {
+                        const MAX_SNIPPET_LEN: usize = 64;
+
+                        let line_snippet =
+                            if UnicodeSegmentation::graphemes(&*line, true)
+                                .count()
+                                <= MAX_SNIPPET_LEN
+                            {
+                                line
+                            } else {
+                                let mut line_snippet =
+                                    UnicodeSegmentation::graphemes(
+                                        &*line, true,
+                                    )
+                                    .take(MAX_SNIPPET_LEN)
+                                    .collect::<String>();
+                                line_snippet.push('…');
+
+                                Cow::Owned(line_snippet)
+                            };
+
+                        self.error = Some(format!(
+                            "error on line {}: {line_snippet}\
+                           \n{error}",
+                            line_num + 1
+                        ));
+
+                        return (Task::none(), None);
+                    }
+
                     self.completion.reset();
 
                     if is_multiline_input(raw_input.as_str()) {
@@ -1275,6 +1363,54 @@ impl State {
                                 &isupport,
                                 config,
                             );
+
+                            // Reset error state
+                            self.error = None;
+
+                            if let Err(error) = input::parse(
+                                buffer.clone(),
+                                config.buffer.text_input.auto_format,
+                                &line,
+                                clients.nickname(buffer.server()),
+                                buffer.channel().map(|target| {
+                                    clients
+                                        .get_channels(buffer.server())
+                                        .any(|channel| target == channel)
+                                }),
+                                is_connected,
+                                &clients.get_isupport(buffer.server()),
+                                clients.get_relay_bytes(buffer.server()),
+                                config,
+                            ) && match error {
+                                input::Error::ExceedsByteLimit { .. }
+                                | input::Error::Command(
+                                    command::Error::InvalidModeString
+                                    | command::Error::ArgTooLong { .. }
+                                    | command::Error::TooManyTargets { .. }
+                                    | command::Error::NotPositiveInteger
+                                    | command::Error::InvalidChannelName {
+                                        ..
+                                    }
+                                    | command::Error::InvalidServerUrl,
+                                ) => true,
+                                input::Error::Command(
+                                    command::Error::IncorrectArgCount {
+                                        actual,
+                                        max,
+                                        ..
+                                    },
+                                ) => actual > max,
+                                input::Error::Command(
+                                    command::Error::MissingSlash
+                                    | command::Error::MissingCommand
+                                    | command::Error::NoModeString
+                                    | command::Error::Connected
+                                    | command::Error::Disconnected
+                                    | command::Error::NotInChannel,
+                                ) => false,
+                            } {
+                                self.error = Some(error.to_string());
+                            }
                         }
 
                         (Task::none(), None)
