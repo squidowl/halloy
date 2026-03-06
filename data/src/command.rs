@@ -12,7 +12,9 @@ use crate::message::{self, formatting};
 use crate::user::{ChannelUsers, NickRef};
 use crate::{Config, Message, Target, Url, User, ctcp, target};
 
-mod alias;
+pub mod alias;
+
+pub use self::alias::Alias;
 
 #[derive(Debug, Clone)]
 pub enum Command {
@@ -248,7 +250,7 @@ pub fn parse(
     config: &Config,
 ) -> Result<Command, Error> {
     let parsed = parse_input(s)?;
-    let expanded = alias::expand(parsed.0, parsed.2, config);
+    let expanded = alias::expand(parsed.0, parsed.2, config)?;
 
     let (command_name, args, raw_args) = match expanded.as_deref() {
         Some(input) => parse_input(input)?,

@@ -5,11 +5,10 @@ Commands settings.
 - [Commands](#commands)
   - [Configuration](#configuration)
     - [show\_description](#show_description)
-  - [Aliases](#aliases)
   - [Sysinfo](#sysinfo)
   - [Quit](#quit)
   - [Part](#part)
-  - [Aliases](#aliases-1)
+  - [Aliases](#aliases)
 
 ## Configuration
 
@@ -25,10 +24,6 @@ Show or hide the description for a command
 [buffer.commands]
 show_description = true
 ```
-
-## [Aliases](aliases.md)
-
-Define custom slash command aliases.
 
 ## [Sysinfo](sysinfo.md)
 

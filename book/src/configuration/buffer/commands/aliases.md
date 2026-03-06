@@ -8,8 +8,9 @@ Define custom slash command aliases.
 # Default: {}
 
 [buffer.commands.aliases]
-op = "/mode #noc +ooo $1 $2 $3"
+op = "/mode #halloy +ooo $1 $2 $3"
 halloy = "/me says halloy to $1!"
+topic = "/topic #halloy $1-"
 ```
 
 Use `$1` through `$9` to insert corresponding arguments.

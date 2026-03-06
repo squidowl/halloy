@@ -221,12 +221,6 @@ where
                 ));
             }
 
-            if alias.starts_with('!') {
-                return Err(serde::de::Error::custom(format!(
-                    "alias '{alias}' cannot start with '!'"
-                )));
-            }
-
             let command = command.trim().to_string();
 
             if command.is_empty() {
