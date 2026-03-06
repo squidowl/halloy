@@ -598,8 +598,8 @@ fn multiline_lines(input: &str) -> VecDeque<String> {
         .lines()
         .map(|line| {
             if line.is_empty() {
-                // Send zero-width space to emulate an empty line
-                String::from('\u{200b}')
+                // Send a space to emulate an empty line
+                String::from(' ')
             } else {
                 line.to_string()
             }
