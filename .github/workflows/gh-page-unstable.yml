@@ -11,33 +11,33 @@ jobs:
     name: Deploy
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
 
       - name: Check internal links
         id: lychee-interal
-        uses: lycheeverse/lychee-action@v2
+        uses: lycheeverse/lychee-action@8646ba30535128ac92d33dfc9133794bfdd9b411 # v2
         with:
           args: --config ./.config/lychee-internal.toml --root-dir='./book/src' './book/**/*.md'
           fail: true
 
       - name: Check external links
         id: lychee-external
-        uses: lycheeverse/lychee-action@v2
+        uses: lycheeverse/lychee-action@8646ba30535128ac92d33dfc9133794bfdd9b411 # v2
         with:
           args: --config ./.config/lychee-external.toml --root-dir='./book/src' './book/**/*.md'
           fail: true
         continue-on-error: true
 
       - name: Setup mdBook
-        uses: peaceiris/actions-mdbook@v1
+        uses: peaceiris/actions-mdbook@adeb05db28a0c0004681db83893d56c0388ea9ea # v1
         with:
-          mdbook-version: 'latest'
+          mdbook-version: "latest"
 
       - name: Build book
         run: mdbook build book
 
       - name: Publish book
-        uses: peaceiris/actions-gh-pages@v3
+        uses: peaceiris/actions-gh-pages@373f7f263a76c20808c831209c920827a82a2847 # v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_branch: gh-pages-unstable
