@@ -11,6 +11,9 @@ Fixed:
 - Prevent interaction leakage behind open modals: clicks, cursor changes, and hover states no longer affect underlying UI while preserving outside-click and `Esc` to close
 - Prevent clicks from passing through completion picker overlays to content behind them (for example nicknames in the buffer).
 - Regression that could make the application slow to close
+- Handle IPC-delivered IRC URLs (irc:// / ircs://) in the running instance by resolving and focusing the target channel instead of opening the server-connect modal.
+- Reuse active connections for IRC URLs by preferring ISUPPORT NETWORK, then falling back to hostname matching (ignoring port); create a new connection only when no active match exists.
+- Respect server casemapping for IRC URL channel matching, with ASCII fallback when CASEMAPPING is not available.
 
 Thanks:
 

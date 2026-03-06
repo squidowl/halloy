@@ -293,6 +293,71 @@ pub enum Message {
     ConfigReloaded(Result<Config, config::Error>),
 }
 
+#[derive(Debug, Clone)]
+struct IrcRoute {
+    host: String,
+    port: Option<u16>,
+    channel: String,
+    use_tls: bool,
+}
+
+impl IrcRoute {
+    fn parse(route: &str) -> Option<Self> {
+        let parsed = ::url::Url::parse(route).ok()?;
+        let scheme = parsed.scheme().to_ascii_lowercase();
+        let use_tls = match scheme.as_str() {
+            "ircs" => true,
+            "irc" | "irc+insecure" => false,
+            _ => return None,
+        };
+
+        let host = parsed.host_str()?.to_string();
+        let port = parsed.port();
+        let channel = first_channel_from_url(&parsed)?;
+
+        Some(Self {
+            host,
+            port,
+            channel,
+            use_tls,
+        })
+    }
+}
+
+fn first_channel_from_url(url: &::url::Url) -> Option<String> {
+    first_channel_component(url.fragment().unwrap_or_default())
+        .or_else(|| first_channel_component(url.path().trim_start_matches('/')))
+}
+
+fn first_channel_component(component: &str) -> Option<String> {
+    component
+        .split(',')
+        .find(|channel| !channel.is_empty())
+        .map(|channel| {
+            if channel.starts_with('#') {
+                channel.to_string()
+            } else {
+                format!("#{channel}")
+            }
+        })
+}
+
+fn normalize_host(host: &str) -> String {
+    host.trim_end_matches('.').to_ascii_lowercase()
+}
+
+fn normalize_network(network: &str) -> String {
+    network
+        .chars()
+        .filter(char::is_ascii_alphanumeric)
+        .flat_map(char::to_lowercase)
+        .collect()
+}
+
+fn host_matches(host: &str, other: &str) -> bool {
+    normalize_host(host) == normalize_host(other)
+}
+
 impl Halloy {
     fn new(
         config_load: Result<Config, config::Error>,
@@ -399,6 +464,153 @@ impl Halloy {
         }
 
         Task::none()
+    }
+
+    fn handle_irc_route(&mut self, route: IrcRoute) -> Task<Message> {
+        let (server, connected) = self.resolve_irc_route_server(&route);
+
+        if !connected {
+            self.controllers.connect(&server);
+        }
+
+        let channel =
+            self.parse_irc_channel_for_server(&server, &route.channel);
+
+        let Screen::Dashboard(dashboard) = &mut self.screen else {
+            return Task::none();
+        };
+
+        dashboard
+            .open_target(
+                server,
+                Target::Channel(channel),
+                &mut self.clients,
+                data::dashboard::BufferAction::ReplacePane,
+                &self.config,
+            )
+            .map(Message::Dashboard)
+    }
+
+    fn resolve_irc_route_server(&mut self, route: &IrcRoute) -> (Server, bool) {
+        if let Some(server) = self.find_connected_server_by_network(route) {
+            return (server, true);
+        }
+
+        if let Some(server) = self.find_connected_server_by_host(&route.host) {
+            return (server, true);
+        }
+
+        let server = self.create_server_for_route(route);
+        (server, false)
+    }
+
+    fn find_connected_server_by_network(
+        &self,
+        route: &IrcRoute,
+    ) -> Option<Server> {
+        let host_network = normalize_network(&route.host);
+        let stripped_network =
+            route.host.strip_prefix("irc.").map(normalize_network);
+
+        self.clients.connected_servers().find_map(|server| {
+            let isupport = self.clients.get_isupport(server);
+            let data::isupport::Parameter::NETWORK(network) =
+                isupport.get(&data::isupport::Kind::NETWORK)?
+            else {
+                return None;
+            };
+
+            let network = normalize_network(network);
+            let matches = network == host_network
+                || stripped_network
+                    .as_ref()
+                    .is_some_and(|target| network == *target);
+
+            matches.then(|| server.clone())
+        })
+    }
+
+    fn find_connected_server_by_host(&self, host: &str) -> Option<Server> {
+        self.clients.connected_servers().find_map(|server| {
+            self.servers
+                .get(server)
+                .filter(|config| host_matches(&config.server, host))
+                .map(|_| server.clone())
+        })
+    }
+
+    fn parse_irc_channel_for_server(
+        &self,
+        server: &Server,
+        channel: &str,
+    ) -> target::Channel {
+        let chantypes = self.clients.get_chantypes(server);
+        let statusmsg = self.clients.get_statusmsg(server);
+        let casemapping = self.url_casemapping_for_server(server);
+
+        target::Channel::parse(channel, chantypes, statusmsg, casemapping)
+            .unwrap_or_else(|_| {
+                target::Channel::from_str(channel, chantypes, casemapping)
+            })
+    }
+
+    fn url_casemapping_for_server(
+        &self,
+        server: &Server,
+    ) -> data::isupport::CaseMap {
+        self.clients
+            .get_isupport(server)
+            .get(&data::isupport::Kind::CASEMAPPING)
+            .and_then(|parameter| {
+                if let data::isupport::Parameter::CASEMAPPING(casemapping) =
+                    parameter
+                {
+                    Some(*casemapping)
+                } else {
+                    None
+                }
+            })
+            .unwrap_or(data::isupport::CaseMap::ASCII)
+    }
+
+    fn create_server_for_route(&mut self, route: &IrcRoute) -> Server {
+        let base_name = Self::server_name_from_host(&route.host);
+        let mut name = base_name.clone();
+        let mut suffix = 2;
+
+        while self.servers.keys().any(|server| {
+            !server.is_bouncer_network()
+                && server.name.as_ref().eq_ignore_ascii_case(name.as_str())
+        }) {
+            name = format!("{base_name}-{suffix}");
+            suffix += 1;
+        }
+
+        let config = data::config::Server::new(
+            route.host.clone(),
+            route.port,
+            data::config::random_nickname(),
+            vec![route.channel.clone()],
+            route.use_tls,
+        );
+        let server = Server::from(Arc::<str>::from(name));
+
+        self.servers.insert(server.clone(), Arc::new(config));
+
+        server
+    }
+
+    fn server_name_from_host(host: &str) -> String {
+        let host = host.trim_end_matches('.');
+
+        if let Some(without_prefix) = host.strip_prefix("irc.")
+            && let Some(label) = without_prefix.split('.').next()
+            && !label.is_empty()
+        {
+            return label.to_string();
+        }
+
+        host.to_string()
     }
 
     fn title(&self, _window_id: window::Id) -> String {
@@ -900,6 +1112,10 @@ impl Halloy {
             }
             Message::RouteReceived(route) => {
                 log::info!("RouteReceived: {route:?}");
+
+                if let Some(route) = IrcRoute::parse(&route) {
+                    return self.handle_irc_route(route);
+                }
 
                 if let Ok(url) = route.parse() {
                     return self.handle_url(url);
