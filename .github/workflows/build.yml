@@ -3,21 +3,21 @@ name: Build
 on:
   pull_request:
     paths:
-      - '**.rs'
-      - '**/Cargo.toml'
-      - 'Cargo.lock'
+      - "**.rs"
+      - "**/Cargo.toml"
+      - "Cargo.lock"
   push:
     branches:
       - main
     paths:
-      - '**.rs'
-      - '**/Cargo.toml'
-      - 'Cargo.lock'
+      - "**.rs"
+      - "**/Cargo.toml"
+      - "Cargo.lock"
   merge_group:
     paths:
-      - '**.rs'
-      - '**/Cargo.toml'
-      - 'Cargo.lock'
+      - "**.rs"
+      - "**/Cargo.toml"
+      - "Cargo.lock"
 
 env:
   CARGO_TERM_COLOR: always
@@ -29,46 +29,37 @@ jobs:
     env:
       RUSTFLAGS: "-C linker=clang -C link-arg=-fuse-ld=mold"
     steps:
-    - uses: actions/checkout@v5
-    - name: Install dependencies
-      run: |
-        sudo apt update
-        sudo apt install \
-          build-essential \
-          git \
-          pkg-config \
-          mold \
-          clang \
-          libdbus-1-dev \
-          libudev-dev \
-          libxkbcommon-dev \
-          libfontconfig1-dev \
-          libasound2-dev \
-          libx11-xcb-dev
-    - uses: actions/cache@v4
-      with:
-        path: |
-          ~/.cargo/bin/
-          ~/.cargo/registry/index/
-          ~/.cargo/registry/cache/
-          ~/.cargo/git/db/
-          target/
-        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install $(cat .github/linux-deps.txt) git mold clang
+      - uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target
+          key: ${{ runner.os }}-cargo-debug-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-debug-
 
-    - name: Check
-      run: cargo check --locked --profile ci
+      - name: Check
+        run: cargo check --locked --profile ci
 
-    - name: Clippy
-      run: cargo clippy --locked --profile ci --workspace --all-targets -- -D warnings
+      - name: Clippy
+        run: cargo clippy --locked --profile ci --workspace --all-targets -- -D warnings
 
-    - uses: taiki-e/install-action@v2
-      with:
-        tool: cargo-nextest
-    - name: Test
-      run: cargo nextest run --locked --profile ci --workspace --all-targets
+      - uses: taiki-e/install-action@205eb1d74c6feda89abb1f3a09360601953286c0 # v2
+        with:
+          tool: cargo-nextest
+      - name: Test
+        run: cargo nextest run --locked --profile ci --workspace --all-targets
 
-    - uses: dtolnay/rust-toolchain@nightly
-      with:
-        components: rustfmt
-    - name: Format
-      run: cargo +nightly fmt --all -- --check --color=always
+      - uses: dtolnay/rust-toolchain@0f1b44df7e9cbb178d781a242338dfa5e243ad7f # nightly
+        with:
+          components: rustfmt
+      - name: Format
+        run: cargo +nightly fmt --all -- --check --color=always

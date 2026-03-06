@@ -7,7 +7,9 @@ TARGET="x86_64-pc-windows-msvc"
 HALLOY_VERSION=$(grep -q '\..*\.' VERSION && cat VERSION || echo "$(cat VERSION).0")
 
 # update package version on Cargo.toml
-cargo install cargo-edit
+if ! command -v cargo-set-version &> /dev/null; then
+    cargo install cargo-edit
+fi
 cargo set-version $HALLOY_VERSION
 
 # build binary
