@@ -10,8 +10,8 @@ use nom::combinator::{
     verify,
 };
 use nom::multi::{count, many_m_n, many_till, many1};
-use nom::sequence::{pair, preceded, terminated, tuple};
-use nom::{Finish, IResult};
+use nom::sequence::{pair, preceded, terminated};
+use nom::{Finish, IResult, Parser};
 
 use super::{Color, Modifier};
 
@@ -30,9 +30,10 @@ pub fn encode(text: &str, markdown_only: bool) -> String {
 }
 
 fn parse(input: &str, markdown_only: bool) -> Option<Vec<Token>> {
-    let tokens = many_till(|i| token(input, i, markdown_only), eof);
+    let mut tokens = cut(many_till(|i| token(input, i, markdown_only), eof));
 
-    cut(tokens)(input)
+    tokens
+        .parse(input)
         .finish()
         .ok()
         .map(|(_, (tokens, _))| tokens)
@@ -48,12 +49,13 @@ fn token<'a>(
         map(markdown(source, markdown_only), Token::Markdown),
         skip(markdown_only, map(dollar, Token::Dollar)),
         map(anychar, Token::Plain),
-    ))(input)
+    ))
+    .parse(input)
 }
 
 fn escaped<'a>(
     markdown_only: bool,
-) -> impl FnMut(&'a str) -> IResult<&'a str, char> {
+) -> impl Parser<&'a str, Output = char, Error = nom::error::Error<&'a str>> {
     alt((
         value('\\', tag("\\\\")),
         value('*', tag("\\*")),
@@ -65,20 +67,26 @@ fn escaped<'a>(
     ))
 }
 
-fn skip<'a, O>(
+fn skip<'a, O, P>(
     skip: bool,
-    inner: impl FnMut(&'a str) -> IResult<&'a str, O>,
-) -> impl FnMut(&'a str) -> IResult<&'a str, O> {
+    inner: P,
+) -> impl Parser<&'a str, Output = O, Error = nom::error::Error<&'a str>>
+where
+    P: Parser<&'a str, Output = O, Error = nom::error::Error<&'a str>>,
+{
     map_opt(cond(!skip, inner), identity)
 }
 
 fn markdown<'a>(
     source: &'a str,
     markdown_only: bool,
-) -> impl FnMut(&'a str) -> IResult<&'a str, Markdown> {
+) -> impl Parser<&'a str, Output = Markdown, Error = nom::error::Error<&'a str>>
+{
     // EOF is considered WS in common mark spec
-    let ws = |i| alt((satisfy(char::is_whitespace), map(eof, |_| ' ')))(i);
-    let punc = |d| move |i| satisfy(|c| c != d && c.is_ascii_punctuation())(i);
+    let ws =
+        |i| alt((satisfy(char::is_whitespace), map(eof, |_| ' '))).parse(i);
+    let punc =
+        |d| move |i| satisfy(|c| c != d && c.is_ascii_punctuation()).parse(i);
 
     // Previous consumed character
     let prev = |i: &str| source[..source.len() - i.len()].chars().last();
@@ -109,15 +117,16 @@ fn markdown<'a>(
                 // OR delimiter run followed by a Unicode punctuation character and preceded
                 // by Unicode whitespace or a Unicode punctuation character
                 map(
-                    tuple((
+                    (
                         verify(delimiter_run(d, n), move |_: &Vec<_>| {
                             prev_is_ws_or_punc(d, i)
                         }),
                         peek(punc(d)),
-                    )),
+                    ),
                     move |_| prev(i),
                 ),
-            ))(i)
+            ))
+            .parse(i)
         }
     };
     // A right-flanking delimiter run is a
@@ -142,7 +151,8 @@ fn markdown<'a>(
                     ),
                     move |_| prev(i),
                 ),
-            ))(i)
+            ))
+            .parse(i)
         }
     };
 
@@ -165,11 +175,14 @@ fn markdown<'a>(
                 map(
                     pair(
                         peek(left_flanking(d, n)),
-                        verify(right_flanking(d, n), move |c| {
-                            c.is_some_and(|c| {
-                                c != d && c.is_ascii_punctuation()
-                            })
-                        }),
+                        verify(
+                            right_flanking(d, n),
+                            move |c: &Option<char>| {
+                                c.is_some_and(|c| {
+                                    c != d && c.is_ascii_punctuation()
+                                })
+                            },
+                        ),
                     ),
                     |_| (),
                 ),
@@ -189,11 +202,11 @@ fn markdown<'a>(
                 // OR part of a right-flanking delimiter run and part of a left-flanking delimiter run
                 // followed by a Unicode punctuation character
                 map(
-                    tuple((
+                    (
                         peek(right_flanking(d, n)),
                         left_flanking(d, n),
                         satisfy(move |c| c != d && c.is_ascii_punctuation()),
-                    )),
+                    ),
                     |_| (),
                 ),
             ))),
@@ -298,27 +311,28 @@ fn dollar(input: &str) -> IResult<&str, Dollar> {
             map(tag("pink"), |_| Color::Pink),
             map(tag("grey"), |_| Color::Grey),
             map(tag("lightgrey"), |_| Color::LightGrey),
-        ))(input)
+        ))
+        .parse(input)
     };
     // 1-2 digits -> Color
     let color_digit = |input| {
         map_opt(
             recognize(many_m_n(1, 2, satisfy(|c| c.is_ascii_digit()))),
             |s: &str| s.parse().ok().and_then(Color::code),
-        )(input)
+        )
+        .parse(input)
     };
-    let color = move |input| alt((color_name, color_digit))(input);
+    let color = move |input| alt((color_name, color_digit)).parse(input);
 
     // Optional , then Color
-    let background = map(opt(tuple((char(','), color))), |maybe| {
-        maybe.map(|(_, color)| color)
-    });
+    let background =
+        map(opt((char(','), color)), |maybe: Option<(char, Color)>| {
+            maybe.map(|(_, color)| color)
+        });
 
     // $cFG[,BG]
-    let start_color = map(
-        tuple((tag("$c"), tuple((color, background)))),
-        |(_, (fg, bg))| (fg, bg),
-    );
+    let start_color =
+        map((tag("$c"), (color, background)), |(_, (fg, bg))| (fg, bg));
 
     alt((
         map(tag("$b"), |_| Dollar::Bold),
@@ -330,7 +344,8 @@ fn dollar(input: &str) -> IResult<&str, Dollar> {
         map(start_color, |(fg, bg)| Dollar::StartColor(fg, bg)),
         // No valid colors after code == end
         map(tag("$c"), |_| Dollar::EndColor),
-    ))(input)
+    ))
+    .parse(input)
 }
 
 #[derive(Debug)]

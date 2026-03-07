@@ -62,6 +62,9 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let is_debug = cfg!(debug_assertions);
 
+    // Prepare crypto provider before any TLS config is built.
+    irc::connection::prepare();
+
     // Prepare notifications.
     notification::prepare();
 
