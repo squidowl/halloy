@@ -7,8 +7,8 @@ use nom::combinator::{
 use nom::multi::{
     many_m_n, many0, many0_count, many1, many1_count, separated_list1,
 };
-use nom::sequence::{preceded, terminated, tuple};
-use nom::{Finish, IResult};
+use nom::sequence::{preceded, terminated};
+use nom::{Finish, IResult, Parser};
 
 use crate::{Command, Message, Source, Tags, User};
 
@@ -19,13 +19,13 @@ pub fn message_bytes(bytes: Vec<u8>) -> Result<Message, Error> {
 
 /// Parses a single IRC message terminated by '\r\n`
 pub fn message(input: &str) -> Result<Message, Error> {
-    let mut message = cut(terminated(
+    let mut parser = cut(terminated(
         // '@' <tags> <SPACE>
-        tuple((
+        (
             opt(preceded(char('@'), terminated(tags, space))),
             opt(source),
             command,
-        )),
+        ),
         // Discard addtl. \r or \n if it exists, allow whitespace before
         preceded(
             many0(char(' ')),
@@ -33,7 +33,8 @@ pub fn message(input: &str) -> Result<Message, Error> {
         ),
     ));
 
-    message(input)
+    parser
+        .parse(input)
         .finish()
         .map(|(_, (tags, source, command))| Message {
             tags: tags.unwrap_or_default().into_iter().collect(),
@@ -48,7 +49,8 @@ pub fn message(input: &str) -> Result<Message, Error> {
 
 /// Parses a list of tag-encoded values into a list of tags
 pub fn tagstr(input: &str) -> Result<Tags, Error> {
-    complete(tags)(input)
+    complete(tags)
+        .parse(input)
         .finish()
         .map(|(_, tags)| tags.into_iter().collect())
         .map_err(|e| Error::Parse {
@@ -79,18 +81,18 @@ fn tags(input: &str) -> IResult<&str, Vec<(String, String)>> {
     // '+'
     let client_prefix = char('+');
     // [ <client_prefix> ] [ <vendor> '/' ] <sequence of letters, digits, hyphens (`-`)>
-    let key = recognize(tuple((
+    let key = recognize((
         opt(client_prefix),
         opt(terminated(many1_count(none_of("/ ;=")), char('/'))),
         many1_count(satisfy(|c| c.is_ascii_alphanumeric() || c == '-')),
-    )));
+    ));
     // <key> ['=' <escaped value>]
     let tag = map(
-        tuple((key, opt(preceded(char('='), escaped_value)))),
+        (key, opt(preceded(char('='), escaped_value))),
         |(key, value): (&str, _)| (key.to_string(), value.unwrap_or_default()),
     );
     // <tag> [';' <tag>]*
-    separated_list1(char(';'), tag)(input)
+    separated_list1(char(';'), tag).parse(input)
 }
 
 fn source(input: &str) -> IResult<&str, Source> {
@@ -104,25 +106,26 @@ fn source(input: &str) -> IResult<&str, Source> {
         ),
     ));
     // ':' <source> <SPACE>
-    terminated(preceded(char(':'), source), space)(input)
+    terminated(preceded(char(':'), source), space).parse(input)
+}
+
+fn nospcrlfcl(input: &str) -> IResult<&str, &str> {
+    recognize(many1_count(none_of("\0\r\n: "))).parse(input)
 }
 
 fn command(input: &str) -> IResult<&str, Command> {
     // <sequence of any characters except NUL, CR, LF, colon (`:`) and SPACE>
-    let nospcrlfcl = |input| recognize(many1_count(none_of("\0\r\n: ")))(input);
     // *( ":" / " " / nospcrlfcl )
     let trailing =
         recognize(many0_count(alt((tag(":"), tag(" "), nospcrlfcl))));
     // nospcrlfcl *( ":" / nospcrlfcl )
-    let middle = recognize(tuple((
-        nospcrlfcl,
-        many0_count(alt((tag(":"), nospcrlfcl))),
-    )));
+    let middle =
+        recognize((nospcrlfcl, many0_count(alt((tag(":"), nospcrlfcl)))));
     // *( SPACE middle ) [ SPACE ":" trailing ]
-    let parameters = tuple((
+    let parameters = (
         many0(preceded(space, middle)),
         opt(preceded(space, preceded(char(':'), trailing))),
-    ));
+    );
     // letter* / 3digit
     let command = alt((
         alpha1,
@@ -130,7 +133,7 @@ fn command(input: &str) -> IResult<&str, Command> {
     ));
     // <command> <parameters>
     let (input, (command, (leading, trailing))) =
-        tuple((command, parameters))(input)?;
+        (command, parameters).parse(input)?;
 
     let parameters = leading
         .into_iter()
@@ -142,14 +145,14 @@ fn command(input: &str) -> IResult<&str, Command> {
 }
 
 fn space(input: &str) -> IResult<&str, ()> {
-    map(many1_count(char(' ')), |_| ())(input)
+    map(many1_count(char(' ')), |_| ()).parse(input)
 }
 
 fn user(input: &str) -> IResult<&str, User> {
     // <sequence of any characters except NUL, CR, LF, and SPACE> and @
     let username = recognize(many1_count(none_of("\0\r\n @")));
     // "-", "[", "]", "\", "`", "_", "^", "{", "|", "}", "*", "/", "@"
-    let special = |input| one_of("-[]\\`_^{|}*/@")(input);
+    let special = |input| one_of("-[]\\`_^{|}*/@").parse(input);
     // *( <letter> | <number> | <special> )
     let strict_nick = recognize(many1_count(alt((
         satisfy(|c| c.is_ascii_alphanumeric() || !c.is_ascii()),
@@ -175,11 +178,11 @@ fn user(input: &str) -> IResult<&str, User> {
     let hostname = recognize(many1_count(none_of(" ")));
     //( <nickname> [ "!" <user> ] [ "@" <host> ] )
     map(
-        tuple((
+        (
             nickname,
             opt(preceded(char('!'), username)),
             opt(preceded(char('@'), hostname)),
-        )),
+        ),
         |(nickname, username, hostname): (&str, Option<&str>, Option<&str>)| {
             User {
                 nickname: nickname.to_string(),
@@ -187,7 +190,8 @@ fn user(input: &str) -> IResult<&str, User> {
                 hostname: hostname.map(ToString::to_string),
             }
         },
-    )(input)
+    )
+    .parse(input)
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -198,6 +202,7 @@ pub enum Error {
 
 #[cfg(test)]
 mod test {
+    use nom::Parser;
     use nom::combinator::all_consuming;
 
     use crate::command::Numeric::*;
@@ -219,7 +224,7 @@ mod test {
         ];
 
         for test in tests {
-            all_consuming(super::user)(test).unwrap();
+            all_consuming(super::user).parse(test).unwrap();
         }
     }
 
