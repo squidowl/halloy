@@ -14,7 +14,7 @@ use data::isupport::{self, find_target_limit};
 use data::server::Server;
 use data::target::{self, Target};
 use data::user::{ChannelUsers, Nick, NickRef};
-use data::{Config, mode};
+use data::{Config, command, mode};
 use iced::Length;
 use iced::widget::text::Shaping;
 use iced::widget::{button, column, container, row, text_editor, tooltip};
@@ -71,6 +71,7 @@ impl Completion {
                 is_connected,
                 supports_detach,
                 isupport,
+                config,
             );
 
             // Disallow other completions when selecting a command
@@ -195,7 +196,7 @@ impl Completion {
     }
 
     pub fn view<'a, Message: Clone + 'a>(
-        &self,
+        &'a self,
         input: &str,
         server: &Server,
         config: &Config,
@@ -248,7 +249,7 @@ impl Entry {
             Entry::Command(command) => replace_word_with_text(
                 input,
                 cursor_position,
-                &format!("/{}", command.title.to_lowercase()),
+                &format!("/{}", command.title().to_lowercase()),
                 None,
             ),
             Entry::Text {
@@ -310,6 +311,7 @@ impl Commands {
         is_connected: bool,
         supports_detach: bool,
         isupport: &HashMap<isupport::Kind, isupport::Parameter>,
+        config: &Config,
     ) {
         let Some((head, rest)) = input.split_once('/') else {
             *self = Self::Idle;
@@ -328,7 +330,12 @@ impl Commands {
             (rest, false)
         };
 
-        let command_list = if is_connected {
+        let alias_names = command::alias::list(config)
+            .into_iter()
+            .map(|alias| alias.name)
+            .collect::<Vec<_>>();
+
+        let builtin_command_list = if is_connected {
             connected_command_list(
                 our_nickname,
                 channels,
@@ -340,14 +347,19 @@ impl Commands {
             disconnected_command_list(server)
         };
 
+        let mut command_list = alias_command_list(config);
+        command_list.extend(builtin_command_list.into_iter().filter(
+            |command| !command_is_overridden_by_alias(command, &alias_names),
+        ));
+
         match self {
             // Command not fully typed, show filtered entries
             _ if !has_space => {
                 if let Some(command) = command_list.iter().find(|command| {
-                    command.title.to_lowercase() == cmd.to_lowercase()
-                        || command.alias().iter().any(|alias| {
+                    command.title().to_lowercase() == cmd.to_lowercase()
+                        || command.aliases().iter().any(|alias| {
                             !command
-                                .title
+                                .title()
                                 .to_lowercase()
                                 .starts_with(&alias.to_lowercase())
                                 && alias.to_lowercase() == cmd.to_lowercase()
@@ -361,7 +373,7 @@ impl Commands {
                     let mut filtered = command_list
                         .iter()
                         .filter_map(|command| {
-                            let title = command.title.to_lowercase();
+                            let title = command.title().to_lowercase();
 
                             title
                                 .starts_with(&cmd.to_lowercase())
@@ -372,7 +384,7 @@ impl Commands {
                     filtered.extend(command_list.into_iter().flat_map(
                         |command| {
                             command
-                                .alias()
+                                .aliases()
                                 .iter()
                                 .filter_map({
                                     let alias_command = command.clone();
@@ -400,8 +412,8 @@ impl Commands {
             Self::Idle | Self::Selecting { .. } => {
                 if let Some(command) =
                     command_list.into_iter().find(|command| {
-                        command.title.to_lowercase() == cmd.to_lowercase()
-                            || command.alias().iter().any(|alias| {
+                        command.title().to_lowercase() == cmd.to_lowercase()
+                            || command.aliases().iter().any(|alias| {
                                 alias.to_lowercase() == cmd.to_lowercase()
                             })
                     })
@@ -420,7 +432,7 @@ impl Commands {
 
         if let Self::Selected { command, .. } = self {
             // Mark skipped arguments as skipped
-            match command.title {
+            match command.title.as_str() {
                 "CTCP" => {
                     if let Some(nick) = rest.split_ascii_whitespace().nth(1)
                         && matches!(
@@ -500,8 +512,7 @@ impl Commands {
                     )
                 {
                     let subcmd = if command.title != "MODE" {
-                        (String::from(command.title) + " " + subcmd)
-                            .to_lowercase()
+                        (command.title.clone() + " " + subcmd).to_lowercase()
                     } else {
                         let text = if subcmd.starts_with(['+', '-']) {
                             if let Some(target) = current_target {
@@ -527,7 +538,7 @@ impl Commands {
                             "{} {}",
                             command.title,
                             Argument {
-                                text,
+                                text: text.into(),
                                 kind: ArgumentKind::Required,
                                 tooltip: None,
                             }
@@ -602,7 +613,7 @@ impl Commands {
     }
 
     fn view<'a, Message: Clone + 'a>(
-        &self,
+        &'a self,
         input: &str,
         server: &Server,
         config: &Config,
@@ -672,6 +683,7 @@ impl Commands {
                         input,
                         subcommand.as_ref(),
                         server,
+                        config,
                         theme,
                     ))
                 } else {
@@ -694,9 +706,9 @@ fn connected_command_list<'a>(
         // MOTD
         {
             Command {
-                title: "MOTD",
+                title: "MOTD".into(),
                 args: vec![Argument {
-                    text: "server",
+                    text: "server".into(),
                     kind: ArgumentKind::Optional { skipped: false },
                     tooltip: None,
                 }],
@@ -706,9 +718,9 @@ fn connected_command_list<'a>(
         // QUIT
         {
             Command {
-                title: "QUIT",
+                title: "QUIT".into(),
                 args: vec![Argument {
-                    text: "reason",
+                    text: "reason".into(),
                     kind: ArgumentKind::Optional { skipped: false },
                     tooltip: None,
                 }],
@@ -856,15 +868,15 @@ fn connected_command_list<'a>(
         // WHOWAS
         {
             Command {
-                title: "WHOWAS",
+                title: "WHOWAS".into(),
                 args: vec![
                     Argument {
-                        text: "nick",
+                        text: "nick".into(),
                         kind: ArgumentKind::Required,
                         tooltip: None,
                     },
                     Argument {
-                        text: "count",
+                        text: "count".into(),
                         kind: ArgumentKind::Optional { skipped: false },
                         tooltip: Some(String::from(
                             "maximum number of nickname history entries returned, or all if omitted",
@@ -877,9 +889,9 @@ fn connected_command_list<'a>(
         // ME
         {
             Command {
-                title: "ME",
+                title: "ME".into(),
                 args: vec![Argument {
-                    text: "action",
+                    text: "action".into(),
                     kind: ArgumentKind::Required,
                     tooltip: None,
                 }],
@@ -905,9 +917,9 @@ fn connected_command_list<'a>(
             }
 
             Command {
-                title: "MODE",
+                title: "MODE".into(),
                 args: vec![Argument {
-                    text: "target",
+                    text: "target".into(),
                     kind: if default.is_some() {
                         ArgumentKind::Optional { skipped: false }
                     } else {
@@ -924,15 +936,15 @@ fn connected_command_list<'a>(
         // RAW
         {
             Command {
-                title: "RAW",
+                title: "RAW".into(),
                 args: vec![
                     Argument {
-                        text: "command",
+                        text: "command".into(),
                         kind: ArgumentKind::Required,
                         tooltip: None,
                     },
                     Argument {
-                        text: "args",
+                        text: "args".into(),
                         kind: ArgumentKind::Optional { skipped: false },
                         tooltip: None,
                     },
@@ -943,9 +955,9 @@ fn connected_command_list<'a>(
         // FORMAT
         {
             Command {
-                title: "FORMAT",
+                title: "FORMAT".into(),
                 args: vec![Argument {
-                    text: "text",
+                    text: "text".into(),
                     kind: ArgumentKind::Required,
                     tooltip: Some(
                         include_str!("./format_tooltip.txt").to_string(),
@@ -957,9 +969,9 @@ fn connected_command_list<'a>(
         // PLAIN
         {
             Command {
-                title: "PLAIN",
+                title: "PLAIN".into(),
                 args: vec![Argument {
-                    text: "text",
+                    text: "text".into(),
                     kind: ArgumentKind::Required,
                     tooltip: None,
                 }],
@@ -969,15 +981,15 @@ fn connected_command_list<'a>(
         // HOP
         {
             Command {
-                title: "HOP",
+                title: "HOP".into(),
                 args: vec![
                     Argument {
-                        text: "channel",
+                        text: "channel".into(),
                         kind: ArgumentKind::Optional { skipped: false },
                         tooltip: Some(String::from("the channel to join")),
                     },
                     Argument {
-                        text: "message",
+                        text: "message".into(),
                         kind: ArgumentKind::Optional { skipped: false },
                         tooltip: Some(String::from(
                             "the part message to be sent",
@@ -990,7 +1002,7 @@ fn connected_command_list<'a>(
         // SYSINFO
         {
             Command {
-                title: "SYSINFO",
+                title: "SYSINFO".into(),
                 args: vec![],
                 subcommands: None,
             }
@@ -998,7 +1010,7 @@ fn connected_command_list<'a>(
         // CLEAR
         {
             Command {
-                title: "CLEAR",
+                title: "CLEAR".into(),
                 args: vec![],
                 subcommands: None,
             }
@@ -1010,9 +1022,9 @@ fn connected_command_list<'a>(
                 .map(target::Channel::to_string);
 
             Command {
-                title: "CLEARTOPIC",
+                title: "CLEARTOPIC".into(),
                 args: vec![Argument {
-                    text: "channel",
+                    text: "channel".into(),
                     kind: if default.is_some() {
                         ArgumentKind::Optional { skipped: false }
                     } else {
@@ -1032,10 +1044,10 @@ fn connected_command_list<'a>(
                 .map(target::Query::to_string);
 
             Command {
-                title: "CTCP",
+                title: "CTCP".into(),
                 args: vec![
                     Argument {
-                        text: "nick",
+                        text: "nick".into(),
                         kind: if default.is_some() {
                             ArgumentKind::Optional { skipped: false }
                         } else {
@@ -1046,7 +1058,7 @@ fn connected_command_list<'a>(
                         }),
                     },
                     Argument {
-                        text: "command",
+                        text: "command".into(),
                         kind: ArgumentKind::Required,
                         tooltip: Some(
                             "    ACTION: Display <text> as a third-person action or emote\
@@ -1073,7 +1085,7 @@ fn connected_command_list<'a>(
         // LIST
         {
             Command {
-                title: "LIST",
+                title: "LIST".into(),
                 args: vec![],
                 subcommands: None,
             }
@@ -1081,9 +1093,9 @@ fn connected_command_list<'a>(
         // CONNECT
         {
             Command {
-                title: "CONNECT",
+                title: "CONNECT".into(),
                 args: vec![Argument {
-                    text: "server",
+                    text: "server".into(),
                     kind: ArgumentKind::Required,
                     tooltip: Some(
                         "URL of the format (irc|ircs)://(server):(port)/"
@@ -1134,9 +1146,9 @@ fn disconnected_command_list(server: &Server) -> Vec<Command> {
         // CONNECT
         {
             Command {
-                title: "CONNECT",
+                title: "CONNECT".into(),
                 args: vec![Argument {
-                    text: "server",
+                    text: "server".into(),
                     kind: ArgumentKind::Optional { skipped: false },
                     tooltip: Some(format!(
                         "URL of the format (irc|ircs)://(server):(port)/\
@@ -1149,7 +1161,7 @@ fn disconnected_command_list(server: &Server) -> Vec<Command> {
         // RECONNECT
         {
             Command {
-                title: "RECONNECT",
+                title: "RECONNECT".into(),
                 args: vec![],
                 subcommands: None,
             }
@@ -1157,9 +1169,39 @@ fn disconnected_command_list(server: &Server) -> Vec<Command> {
     ]
 }
 
+fn alias_command_list(config: &Config) -> Vec<Command> {
+    command::alias::list(config)
+        .into_iter()
+        .map(|alias| Command {
+            title: alias.name,
+            args: command::alias::placeholder_args(alias.min_args)
+                .into_iter()
+                .map(|arg| Argument {
+                    text: arg,
+                    kind: ArgumentKind::Required,
+                    tooltip: None,
+                })
+                .collect(),
+            subcommands: None,
+        })
+        .collect()
+}
+
+fn command_is_overridden_by_alias(
+    command: &Command,
+    aliases: &[String],
+) -> bool {
+    let title = command.title.to_lowercase();
+
+    aliases.iter().any(|alias| alias == &title)
+        || command.alias().iter().any(|command_alias| {
+            aliases.iter().any(|alias| alias == command_alias)
+        })
+}
+
 #[derive(Debug, Clone)]
 pub struct Command {
-    title: &'static str,
+    title: String,
     args: Vec<Argument>,
     subcommands: Option<Vec<Command>>,
 }
@@ -1170,7 +1212,19 @@ const MODE_USER_PATTERN: &str =
     concatcp!("mode ", REQUIRED_ARG_PREFIX, "user", REQUIRED_ARG_SUFFIX);
 
 impl Command {
-    fn description(&self, server: &Server) -> Option<Cow<'static, str>> {
+    fn title(&self) -> &str {
+        &self.title
+    }
+
+    fn aliases(&self) -> Vec<&str> {
+        self.alias()
+    }
+
+    fn description(
+        &self,
+        server: &Server,
+        config: &Config,
+    ) -> Option<Cow<'static, str>> {
         Some(match self.title.to_lowercase().as_str() {
             "away" => Cow::Borrowed(
                 "Mark yourself as away. If already away, the status is removed",
@@ -1255,7 +1309,12 @@ impl Command {
             }
             "connect" => Cow::Borrowed("Connect to server"),
             "reconnect" => Cow::Owned(format!("Reconnect to {server}")),
-            _ => return None,
+            _ => config
+                .buffer
+                .commands
+                .aliases
+                .get(&self.title.to_lowercase())
+                .map(|alias| Cow::Owned(format!("Alias for {alias}")))?,
         })
     }
 
@@ -1284,8 +1343,9 @@ impl Command {
     fn view<'a, Message: 'a>(
         &self,
         input: &str,
-        subcommand: Option<&Command>,
+        subcommand: Option<&'a Command>,
         server: &Server,
+        config: &Config,
         theme: &'a Theme,
     ) -> Element<'a, Message> {
         let command_prefix = format!("/{}", self.title.to_lowercase());
@@ -1319,7 +1379,7 @@ impl Command {
             .saturating_sub(1),
         );
 
-        let title = Some(Element::from(text(self.title)));
+        let title = Some(Element::from(text(self.title.clone())));
 
         let arg_text = |index: usize, arg: &Argument| {
             let content = text(format!("{arg}"))
@@ -1396,7 +1456,7 @@ impl Command {
                         text(
                             subcommand
                                 .title
-                                .strip_prefix(self.title)
+                                .strip_prefix(&self.title)
                                 .unwrap_or_default(),
                         )
                         .style(move |theme| {
@@ -1429,8 +1489,8 @@ impl Command {
 
         container(column![
             subcommand
-                .map_or(self.description(server), |subcommand| {
-                    subcommand.description(server)
+                .map_or(self.description(server, config), |subcommand| {
+                    subcommand.description(server, config)
                 })
                 .map(|description| {
                     text(description).style(theme::text::secondary).font_maybe(
@@ -1448,7 +1508,7 @@ impl Command {
 
 #[derive(Debug, Clone)]
 struct Argument {
-    text: &'static str,
+    text: String,
     kind: ArgumentKind,
     tooltip: Option<String>,
 }
@@ -1708,9 +1768,9 @@ fn away_command(max_len: Option<u16>) -> Command {
     let tooltip = max_len.map(|max_len| format!("maximum length: {max_len}"));
 
     Command {
-        title: "AWAY",
+        title: "AWAY".into(),
         args: vec![Argument {
-            text: "reason",
+            text: "reason".into(),
             kind: ArgumentKind::Optional { skipped: false },
             tooltip,
         }],
@@ -1720,9 +1780,9 @@ fn away_command(max_len: Option<u16>) -> Command {
 
 fn ctcp_action_command() -> Command {
     Command {
-        title: "CTCP ACTION",
+        title: "CTCP ACTION".into(),
         args: vec![Argument {
-            text: "text",
+            text: "text".into(),
             kind: ArgumentKind::Required,
             tooltip: Some(String::from(
                 "message to display as a third-person action or emote",
@@ -1734,7 +1794,7 @@ fn ctcp_action_command() -> Command {
 
 fn ctcp_clientinfo_command() -> Command {
     Command {
-        title: "CTCP CLIENTINFO",
+        title: "CTCP CLIENTINFO".into(),
         args: vec![],
         subcommands: None,
     }
@@ -1742,7 +1802,7 @@ fn ctcp_clientinfo_command() -> Command {
 
 fn ctcp_userinfo_command() -> Command {
     Command {
-        title: "CTCP USERINFO",
+        title: "CTCP USERINFO".into(),
         args: vec![],
         subcommands: None,
     }
@@ -1750,9 +1810,9 @@ fn ctcp_userinfo_command() -> Command {
 
 fn ctcp_ping_command() -> Command {
     Command {
-        title: "CTCP PING",
+        title: "CTCP PING".into(),
         args: vec![Argument {
-            text: "info",
+            text: "info".into(),
             kind: ArgumentKind::Required,
             tooltip: Some(String::from(
                 "text that should be exactly reproduced in the reply PING",
@@ -1764,7 +1824,7 @@ fn ctcp_ping_command() -> Command {
 
 fn ctcp_source_command() -> Command {
     Command {
-        title: "CTCP SOURCE",
+        title: "CTCP SOURCE".into(),
         args: vec![],
         subcommands: None,
     }
@@ -1772,7 +1832,7 @@ fn ctcp_source_command() -> Command {
 
 fn ctcp_time_command() -> Command {
     Command {
-        title: "CTCP TIME",
+        title: "CTCP TIME".into(),
         args: vec![],
         subcommands: None,
     }
@@ -1780,7 +1840,7 @@ fn ctcp_time_command() -> Command {
 
 fn ctcp_version_command() -> Command {
     Command {
-        title: "CTCP VERSION",
+        title: "CTCP VERSION".into(),
         args: vec![],
         subcommands: None,
     }
@@ -1788,9 +1848,9 @@ fn ctcp_version_command() -> Command {
 
 fn chathistory_command(maximum_limit: &u16) -> Command {
     Command {
-        title: "CHATHISTORY",
+        title: "CHATHISTORY".into(),
         args: vec![Argument {
-            text: "subcommand",
+            text: "subcommand".into(),
             kind: ArgumentKind::Required,
             tooltip: Some(String::from(
                 " BEFORE: Request messages before a timestamp or msgid\
@@ -1820,22 +1880,22 @@ fn chathistory_after_command(maximum_limit: &u16) -> Command {
     };
 
     Command {
-        title: "CHATHISTORY AFTER",
+        title: "CHATHISTORY AFTER".into(),
         args: vec![
             Argument {
-                text: "target",
+                text: "target".into(),
                 kind: ArgumentKind::Required,
                 tooltip: None,
             },
             Argument {
-                text: "timestamp | msgid",
+                text: "timestamp | msgid".into(),
                 kind: ArgumentKind::Required,
                 tooltip: Some(String::from(
                     "timestamp format: timestamp=YYYY-MM-DDThh:mm:ss.sssZ",
                 )),
             },
             Argument {
-                text: "limit",
+                text: "limit".into(),
                 kind: ArgumentKind::Required,
                 tooltip: Some(limit_tooltip),
             },
@@ -1852,22 +1912,22 @@ fn chathistory_around_command(maximum_limit: &u16) -> Command {
     };
 
     Command {
-        title: "CHATHISTORY AROUND",
+        title: "CHATHISTORY AROUND".into(),
         args: vec![
             Argument {
-                text: "target",
+                text: "target".into(),
                 kind: ArgumentKind::Required,
                 tooltip: None,
             },
             Argument {
-                text: "timestamp | msgid",
+                text: "timestamp | msgid".into(),
                 kind: ArgumentKind::Required,
                 tooltip: Some(String::from(
                     "timestamp format: timestamp=YYYY-MM-DDThh:mm:ss.sssZ",
                 )),
             },
             Argument {
-                text: "limit",
+                text: "limit".into(),
                 kind: ArgumentKind::Required,
                 tooltip: Some(limit_tooltip),
             },
@@ -1884,22 +1944,22 @@ fn chathistory_before_command(maximum_limit: &u16) -> Command {
     };
 
     Command {
-        title: "CHATHISTORY BEFORE",
+        title: "CHATHISTORY BEFORE".into(),
         args: vec![
             Argument {
-                text: "target",
+                text: "target".into(),
                 kind: ArgumentKind::Required,
                 tooltip: None,
             },
             Argument {
-                text: "timestamp | msgid",
+                text: "timestamp | msgid".into(),
                 kind: ArgumentKind::Required,
                 tooltip: Some(String::from(
                     "timestamp format: timestamp=YYYY-MM-DDThh:mm:ss.sssZ",
                 )),
             },
             Argument {
-                text: "limit",
+                text: "limit".into(),
                 kind: ArgumentKind::Required,
                 tooltip: Some(limit_tooltip),
             },
@@ -1916,29 +1976,29 @@ fn chathistory_between_command(maximum_limit: &u16) -> Command {
     };
 
     Command {
-        title: "CHATHISTORY BETWEEN",
+        title: "CHATHISTORY BETWEEN".into(),
         args: vec![
             Argument {
-                text: "target",
+                text: "target".into(),
                 kind: ArgumentKind::Required,
                 tooltip: None,
             },
             Argument {
-                text: "timestamp | msgid",
+                text: "timestamp | msgid".into(),
                 kind: ArgumentKind::Required,
                 tooltip: Some(String::from(
                     "timestamp format: timestamp=YYYY-MM-DDThh:mm:ss.sssZ",
                 )),
             },
             Argument {
-                text: "timestamp | msgid",
+                text: "timestamp | msgid".into(),
                 kind: ArgumentKind::Required,
                 tooltip: Some(String::from(
                     "timestamp format: timestamp=YYYY-MM-DDThh:mm:ss.sssZ",
                 )),
             },
             Argument {
-                text: "limit",
+                text: "limit".into(),
                 kind: ArgumentKind::Required,
                 tooltip: Some(limit_tooltip),
             },
@@ -1955,15 +2015,15 @@ fn chathistory_latest_command(maximum_limit: &u16) -> Command {
     };
 
     Command {
-        title: "CHATHISTORY LATEST",
+        title: "CHATHISTORY LATEST".into(),
         args: vec![
             Argument {
-                text: "target",
+                text: "target".into(),
                 kind: ArgumentKind::Required,
                 tooltip: None,
             },
             Argument {
-                text: "* | timestamp | msgid",
+                text: "* | timestamp | msgid".into(),
                 kind: ArgumentKind::Required,
                 tooltip: Some(String::from(
                     "               *: no restriction on returned messages\
@@ -1971,7 +2031,7 @@ fn chathistory_latest_command(maximum_limit: &u16) -> Command {
                 )),
             },
             Argument {
-                text: "limit",
+                text: "limit".into(),
                 kind: ArgumentKind::Required,
                 tooltip: Some(limit_tooltip),
             },
@@ -1988,24 +2048,24 @@ fn chathistory_targets_command(maximum_limit: &u16) -> Command {
     };
 
     Command {
-        title: "CHATHISTORY TARGETS",
+        title: "CHATHISTORY TARGETS".into(),
         args: vec![
             Argument {
-                text: "timestamp",
+                text: "timestamp".into(),
                 kind: ArgumentKind::Required,
                 tooltip: Some(String::from(
                     "timestamp format: timestamp=YYYY-MM-DDThh:mm:ss.sssZ",
                 )),
             },
             Argument {
-                text: "timestamp",
+                text: "timestamp".into(),
                 kind: ArgumentKind::Required,
                 tooltip: Some(String::from(
                     "timestamp format: timestamp=YYYY-MM-DDThh:mm:ss.sssZ",
                 )),
             },
             Argument {
-                text: "limit",
+                text: "limit".into(),
                 kind: ArgumentKind::Required,
                 tooltip: Some(limit_tooltip),
             },
@@ -2015,20 +2075,20 @@ fn chathistory_targets_command(maximum_limit: &u16) -> Command {
 }
 
 static CNOTICE_COMMAND: LazyLock<Command> = LazyLock::new(|| Command {
-    title: "CNOTICE",
+    title: "CNOTICE".into(),
     args: vec![
         Argument {
-            text: "nickname",
+            text: "nickname".into(),
             kind: ArgumentKind::Required,
             tooltip: None,
         },
         Argument {
-            text: "channel",
+            text: "channel".into(),
             kind: ArgumentKind::Required,
             tooltip: None,
         },
         Argument {
-            text: "message",
+            text: "message".into(),
             kind: ArgumentKind::Required,
             tooltip: None,
         },
@@ -2037,20 +2097,20 @@ static CNOTICE_COMMAND: LazyLock<Command> = LazyLock::new(|| Command {
 });
 
 static CPRIVMSG_COMMAND: LazyLock<Command> = LazyLock::new(|| Command {
-    title: "CPRIVMSG",
+    title: "CPRIVMSG".into(),
     args: vec![
         Argument {
-            text: "nickname",
+            text: "nickname".into(),
             kind: ArgumentKind::Required,
             tooltip: None,
         },
         Argument {
-            text: "channel",
+            text: "channel".into(),
             kind: ArgumentKind::Required,
             tooltip: None,
         },
         Argument {
-            text: "message",
+            text: "message".into(),
             kind: ArgumentKind::Required,
             tooltip: None,
         },
@@ -2077,9 +2137,9 @@ fn detach_command(
     }
 
     Command {
-        title: "DETACH",
+        title: "DETACH".into(),
         args: vec![Argument {
-            text: "channels",
+            text: "channels".into(),
             kind: if default.is_some() {
                 ArgumentKind::Optional { skipped: false }
             } else {
@@ -2141,10 +2201,10 @@ fn join_command(
     }
 
     Command {
-        title: "JOIN",
+        title: "JOIN".into(),
         args: vec![
             Argument {
-                text: "channels",
+                text: "channels".into(),
                 kind: if default.is_some() {
                     ArgumentKind::Optional { skipped: false }
                 } else {
@@ -2153,7 +2213,7 @@ fn join_command(
                 tooltip: Some(channels_tooltip),
             },
             Argument {
-                text: "keys",
+                text: "keys".into(),
                 kind: ArgumentKind::Optional { skipped: false },
                 tooltip: Some(keys_tooltip),
             },
@@ -2180,10 +2240,10 @@ fn kick_command(
         max_len.map(|max_len| format!("maximum length: {max_len}"));
 
     Command {
-        title: "KICK",
+        title: "KICK".into(),
         args: vec![
             Argument {
-                text: "channel",
+                text: "channel".into(),
                 kind: if default.is_some() {
                     ArgumentKind::Optional { skipped: false }
                 } else {
@@ -2194,12 +2254,12 @@ fn kick_command(
                 }),
             },
             Argument {
-                text: "users",
+                text: "users".into(),
                 kind: ArgumentKind::Required,
                 tooltip: Some(users_tooltip),
             },
             Argument {
-                text: "comment",
+                text: "comment".into(),
                 kind: ArgumentKind::Optional { skipped: false },
                 tooltip: comment_tooltip,
             },
@@ -2209,15 +2269,15 @@ fn kick_command(
 }
 
 static KNOCK_COMMAND: LazyLock<Command> = LazyLock::new(|| Command {
-    title: "KNOCK",
+    title: "KNOCK".into(),
     args: vec![
         Argument {
-            text: "channel",
+            text: "channel".into(),
             kind: ArgumentKind::Required,
             tooltip: None,
         },
         Argument {
-            text: "message",
+            text: "message".into(),
             kind: ArgumentKind::Optional { skipped: false },
             tooltip: None,
         },
@@ -2227,9 +2287,9 @@ static KNOCK_COMMAND: LazyLock<Command> = LazyLock::new(|| Command {
 
 fn monitor_command(target_limit: &Option<u16>) -> Command {
     Command {
-        title: "MONITOR",
+        title: "MONITOR".into(),
         args: vec![Argument {
-            text: "subcommand",
+            text: "subcommand".into(),
             kind: ArgumentKind::Required,
             tooltip: Some(String::from(
                 "+: Add user(s) to list being monitored\n\
@@ -2262,9 +2322,9 @@ fn monitor_add_command(target_limit: &Option<u16>) -> Command {
     }
 
     Command {
-        title: "MONITOR +",
+        title: "MONITOR +".into(),
         args: vec![Argument {
-            text: "targets",
+            text: "targets".into(),
             kind: ArgumentKind::Required,
             tooltip: Some(targets_tooltip),
         }],
@@ -2273,9 +2333,9 @@ fn monitor_add_command(target_limit: &Option<u16>) -> Command {
 }
 
 static MONITOR_REMOVE_COMMAND: LazyLock<Command> = LazyLock::new(|| Command {
-    title: "MONITOR -",
+    title: "MONITOR -".into(),
     args: vec![Argument {
-        text: "targets",
+        text: "targets".into(),
         kind: ArgumentKind::Required,
         tooltip: Some(String::from("comma-separated")),
     }],
@@ -2283,19 +2343,19 @@ static MONITOR_REMOVE_COMMAND: LazyLock<Command> = LazyLock::new(|| Command {
 });
 
 static MONITOR_CLEAR_COMMAND: LazyLock<Command> = LazyLock::new(|| Command {
-    title: "MONITOR C",
+    title: "MONITOR C".into(),
     args: vec![],
     subcommands: None,
 });
 
 static MONITOR_LIST_COMMAND: LazyLock<Command> = LazyLock::new(|| Command {
-    title: "MONITOR L",
+    title: "MONITOR L".into(),
     args: vec![],
     subcommands: None,
 });
 
 static MONITOR_STATUS_COMMAND: LazyLock<Command> = LazyLock::new(|| Command {
-    title: "MONITOR S",
+    title: "MONITOR S".into(),
     args: vec![],
     subcommands: None,
 });
@@ -2382,15 +2442,16 @@ fn mode_channel_command(
             REQUIRED_ARG_PREFIX,
             "channel",
             REQUIRED_ARG_SUFFIX
-        ),
+        )
+        .into(),
         args: vec![
             Argument {
-                text: "modestring",
+                text: "modestring".into(),
                 kind: ArgumentKind::Optional { skipped: false },
                 tooltip: Some(modestring_tooltip),
             },
             Argument {
-                text: "arguments",
+                text: "arguments".into(),
                 kind: ArgumentKind::Optional { skipped: false },
                 tooltip: None,
             },
@@ -2418,9 +2479,10 @@ fn mode_user_command(mode_limit: Option<u16>) -> Command {
             REQUIRED_ARG_PREFIX,
             "user",
             REQUIRED_ARG_SUFFIX
-        ),
+        )
+        .into(),
         args: vec![Argument {
-            text: "modestring",
+            text: "modestring".into(),
             kind: ArgumentKind::Optional { skipped: false },
             tooltip: Some(modestring_tooltip),
         }],
@@ -2461,15 +2523,15 @@ fn msg_command(
     }
 
     Command {
-        title: "MSG",
+        title: "MSG".into(),
         args: vec![
             Argument {
-                text: "targets",
+                text: "targets".into(),
                 kind: ArgumentKind::Required,
                 tooltip: Some(targets_tooltip),
             },
             Argument {
-                text: "text",
+                text: "text".into(),
                 kind: ArgumentKind::Optional { skipped: false },
                 tooltip: None,
             },
@@ -2491,9 +2553,9 @@ fn names_command(target_limit: Option<u16>) -> Command {
     }
 
     Command {
-        title: "NAMES",
+        title: "NAMES".into(),
         args: vec![Argument {
-            text: "channels",
+            text: "channels".into(),
             kind: ArgumentKind::Required,
             tooltip: Some(channels_tooltip),
         }],
@@ -2505,9 +2567,9 @@ fn nick_command(max_len: Option<u16>) -> Command {
     let tooltip = max_len.map(|max_len| format!("maximum length: {max_len}"));
 
     Command {
-        title: "NICK",
+        title: "NICK".into(),
         args: vec![Argument {
-            text: "nickname",
+            text: "nickname".into(),
             kind: ArgumentKind::Required,
             tooltip,
         }],
@@ -2548,15 +2610,15 @@ fn notice_command(
     }
 
     Command {
-        title: "NOTICE",
+        title: "NOTICE".into(),
         args: vec![
             Argument {
-                text: "targets",
+                text: "targets".into(),
                 kind: ArgumentKind::Required,
                 tooltip: Some(targets_tooltip),
             },
             Argument {
-                text: "text",
+                text: "text".into(),
                 kind: ArgumentKind::Optional { skipped: false },
                 tooltip: None,
             },
@@ -2582,10 +2644,10 @@ fn part_command(default: Option<String>, max_len: Option<u16>) -> Command {
     }
 
     Command {
-        title: "PART",
+        title: "PART".into(),
         args: vec![
             Argument {
-                text: "targets",
+                text: "targets".into(),
                 kind: if default.is_some() {
                     ArgumentKind::Optional { skipped: false }
                 } else {
@@ -2594,7 +2656,7 @@ fn part_command(default: Option<String>, max_len: Option<u16>) -> Command {
                 tooltip: Some(targets_tooltip),
             },
             Argument {
-                text: "reason",
+                text: "reason".into(),
                 kind: ArgumentKind::Optional { skipped: false },
                 tooltip: None,
             },
@@ -2605,9 +2667,9 @@ fn part_command(default: Option<String>, max_len: Option<u16>) -> Command {
 
 fn setname_command(max_len: &u16) -> Command {
     Command {
-        title: "SETNAME",
+        title: "SETNAME".into(),
         args: vec![Argument {
-            text: "realname",
+            text: "realname".into(),
             kind: ArgumentKind::Required,
             tooltip: Some(format!("maximum length: {max_len}")),
         }],
@@ -2624,10 +2686,10 @@ fn topic_command(default: Option<String>, max_len: Option<u16>) -> Command {
     }
 
     Command {
-        title: "TOPIC",
+        title: "TOPIC".into(),
         args: vec![
             Argument {
-                text: "channel",
+                text: "channel".into(),
                 kind: if default.is_some() {
                     ArgumentKind::Optional { skipped: false }
                 } else {
@@ -2638,7 +2700,7 @@ fn topic_command(default: Option<String>, max_len: Option<u16>) -> Command {
                 }),
             },
             Argument {
-                text: "topic",
+                text: "topic".into(),
                 kind: ArgumentKind::Optional { skipped: false },
                 tooltip: Some(topic_tooltip),
             },
@@ -2648,9 +2710,9 @@ fn topic_command(default: Option<String>, max_len: Option<u16>) -> Command {
 }
 
 static USERIP_COMMAND: LazyLock<Command> = LazyLock::new(|| Command {
-    title: "USERIP",
+    title: "USERIP".into(),
     args: vec![Argument {
-        text: "nickname",
+        text: "nickname".into(),
         kind: ArgumentKind::Required,
         tooltip: None,
     }],
@@ -2659,15 +2721,15 @@ static USERIP_COMMAND: LazyLock<Command> = LazyLock::new(|| Command {
 
 fn whox_command() -> Command {
     Command {
-        title: "WHO",
+        title: "WHO".into(),
         args: vec![
             Argument {
-                text: "target",
+                text: "target".into(),
                 kind: ArgumentKind::Required,
                 tooltip: None,
             },
             Argument {
-                text: "fields",
+                text: "fields".into(),
                 kind: ArgumentKind::Optional { skipped: false },
                 tooltip: Some(String::from(
                     "t: token\n\
@@ -2686,7 +2748,7 @@ fn whox_command() -> Command {
                 )),
             },
             Argument {
-                text: "token",
+                text: "token".into(),
                 kind: ArgumentKind::Optional { skipped: false },
                 tooltip: Some(String::from("1-3 digits")),
             },
@@ -2697,9 +2759,9 @@ fn whox_command() -> Command {
 
 fn who_command() -> Command {
     Command {
-        title: "WHO",
+        title: "WHO".into(),
         args: vec![Argument {
-            text: "target",
+            text: "target".into(),
             kind: ArgumentKind::Required,
             tooltip: None,
         }],
@@ -2723,17 +2785,17 @@ fn whois_command(target_limit: Option<u16>) -> Command {
     };
 
     Command {
-        title: "WHOIS",
+        title: "WHOIS".into(),
         args: vec![
             Argument {
-                text: "server",
+                text: "server".into(),
                 kind: ArgumentKind::Optional { skipped: false },
                 tooltip: Some(String::from(
                     "may be skipped (default: the connected server)",
                 )),
             },
             Argument {
-                text: nicks_text,
+                text: nicks_text.into(),
                 kind: ArgumentKind::Required,
                 tooltip: Some(nicks_tooltip),
             },

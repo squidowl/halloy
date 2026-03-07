@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use chrono::{DateTime, Local, Utc};
 use iced::Color;
@@ -185,6 +185,8 @@ pub struct Commands {
     pub sysinfo: SysInfo,
     pub quit: Quit,
     pub part: Part,
+    #[serde(default, deserialize_with = "deserialize_aliases")]
+    pub aliases: HashMap<String, String>,
 }
 
 impl Default for Commands {
@@ -194,8 +196,50 @@ impl Default for Commands {
             sysinfo: SysInfo::default(),
             quit: Quit::default(),
             part: Part::default(),
+            aliases: HashMap::default(),
         }
     }
+}
+
+fn deserialize_aliases<'de, D>(
+    deserializer: D,
+) -> Result<HashMap<String, String>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let aliases = HashMap::<String, String>::deserialize(deserializer)?;
+
+    aliases.into_iter().try_fold(
+        HashMap::new(),
+        |mut normalized, (alias, command)| {
+            let alias =
+                alias.trim().trim_start_matches('/').to_ascii_lowercase();
+
+            if alias.is_empty() {
+                return Err(serde::de::Error::custom(
+                    "alias names cannot be empty",
+                ));
+            }
+
+            let command = command.trim().to_string();
+
+            if command.is_empty() {
+                return Err(serde::de::Error::custom(format!(
+                    "alias '{alias}' cannot map to an empty command"
+                )));
+            }
+
+            if normalized.contains_key(&alias) {
+                return Err(serde::de::Error::custom(format!(
+                    "duplicate alias name after normalization: '{alias}'"
+                )));
+            }
+
+            normalized.insert(alias, command);
+
+            Ok(normalized)
+        },
+    )
 }
 
 #[derive(Debug, Clone, Copy)]
