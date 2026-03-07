@@ -402,7 +402,8 @@ impl Config {
             .await
             .map_err(|e| Error::LoadConfigFile(e.to_string()))?;
 
-        let config = toml::Deserializer::new(content.as_ref());
+        let config = toml::Deserializer::parse(content.as_ref())
+            .map_err(|e| Error::Parse(e.to_string()))?;
 
         let Configuration {
             theme,
