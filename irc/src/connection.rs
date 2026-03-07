@@ -1,6 +1,7 @@
 use std::net::IpAddr;
 use std::path::PathBuf;
 use std::pin::Pin;
+use std::sync::Once;
 
 #[cfg(feature = "tor")]
 use arti_client::DataStream as TorStream;
@@ -15,6 +16,15 @@ pub use self::proxy::Proxy;
 
 mod proxy;
 mod tls;
+
+pub fn prepare() {
+    static INIT: Once = Once::new();
+
+    INIT.call_once(|| {
+        let _ = tokio_rustls::rustls::crypto::ring::default_provider()
+            .install_default();
+    });
+}
 
 pub enum IrcStream {
     Tcp(TcpStream),
@@ -122,6 +132,22 @@ pub enum Error {
     Io(#[from] std::io::Error),
     #[error("proxy error: {0}")]
     Proxy(#[from] proxy::Error),
+}
+
+#[cfg(test)]
+mod tests {
+    use tokio_rustls::rustls;
+
+    #[test]
+    fn prepare_allows_building_client_config() {
+        super::prepare();
+
+        let result = std::panic::catch_unwind(|| {
+            let _ = rustls::ClientConfig::builder();
+        });
+
+        assert!(result.is_ok());
+    }
 }
 
 macro_rules! delegate {
