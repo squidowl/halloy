@@ -343,6 +343,14 @@ impl Manager {
         )
     }
 
+    pub fn record_channel_monitor_message(
+        &mut self,
+        message: crate::Message,
+    ) -> Option<impl Future<Output = Message> + use<>> {
+        self.data
+            .add_message(history::Kind::ChannelMonitor, message)
+    }
+
     pub fn record_reaction(
         &mut self,
         server: &Server,
