@@ -87,12 +87,13 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     log::info!("config dir: {:?}", environment::config_dir());
     log::info!("data dir: {:?}", environment::data_dir());
 
-    let (config_load, window_load) = {
+    let (config_load, window_load, networks_load) = {
         rt.block_on(async {
             let config = Config::load().await;
             let window = data::Window::load().await;
+            let networks = data::network::Map::load().await;
 
-            (config, window)
+            (config, window, networks)
         })
     };
 
@@ -113,6 +114,13 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let settings = settings(&config_load);
     let log_stream = Mutex::new(Some(log_stream));
+    let networks = match networks_load {
+        Ok(networks) => networks,
+        Err(error) => {
+            log::warn!("failed to load networks.toml: {error}");
+            data::network::Map::default()
+        }
+    };
 
     //tarkah: guess we need to move some stuff into the Halloy::new now.
     iced::daemon(
@@ -127,6 +135,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
                 config_load.clone(),
                 window_load.clone(),
                 destination.clone(),
+                networks.clone(),
                 log_stream,
                 // we start with an unspecified mode because we are guaranteed to
                 // receive a message from mundy containing the correct mode on startup.
@@ -182,6 +191,7 @@ struct Halloy {
     focused_window: Option<window::Id>,
     pending_logs: Vec<data::log::Record>,
     notifications: Notifications,
+    networks: data::network::Map,
 }
 
 impl Halloy {
@@ -257,6 +267,7 @@ impl Halloy {
                 focused_window: None,
                 pending_logs: vec![],
                 notifications,
+                networks: data::network::Map::default(),
             },
             command,
         )
@@ -346,14 +357,6 @@ fn normalize_host(host: &str) -> String {
     host.trim_end_matches('.').to_ascii_lowercase()
 }
 
-fn normalize_network(network: &str) -> String {
-    network
-        .chars()
-        .filter(char::is_ascii_alphanumeric)
-        .flat_map(char::to_lowercase)
-        .collect()
-}
-
 fn host_matches(host: &str, other: &str) -> bool {
     normalize_host(host) == normalize_host(other)
 }
@@ -363,6 +366,7 @@ impl Halloy {
         config_load: Result<Config, config::Error>,
         window_load: Result<data::Window, window::Error>,
         url_received: Option<data::Url>,
+        networks: data::network::Map,
         log_stream: ReceiverStream<Vec<logger::Record>>,
         current_mode: appearance::Mode,
     ) -> (Halloy, Task<Message>) {
@@ -401,6 +405,7 @@ impl Halloy {
 
         let (mut halloy, command) =
             Halloy::load_from_state(main_window, config_load, current_mode);
+        halloy.networks = networks;
 
         halloy.main_window.fullscreen = fullscreen;
         halloy.main_window.maximized = maximized;
@@ -508,9 +513,11 @@ impl Halloy {
         &self,
         route: &IrcRoute,
     ) -> Option<Server> {
-        let host_network = normalize_network(&route.host);
-        let stripped_network =
-            route.host.strip_prefix("irc.").map(normalize_network);
+        let networks = self.networks.network_names_for_host(&route.host);
+
+        if networks.is_empty() {
+            return None;
+        }
 
         self.clients.connected_servers().find_map(|server| {
             let isupport = self.clients.get_isupport(server);
@@ -520,11 +527,9 @@ impl Halloy {
                 return None;
             };
 
-            let network = normalize_network(network);
-            let matches = network == host_network
-                || stripped_network
-                    .as_ref()
-                    .is_some_and(|target| network == *target);
+            let matches = networks
+                .iter()
+                .any(|candidate| network.eq_ignore_ascii_case(candidate));
 
             matches.then(|| server.clone())
         })
@@ -628,12 +633,14 @@ impl Halloy {
             }
             Message::ScreenConfigReloaded(updated) => {
                 let saved_window = self.main_window;
+                let saved_networks = self.networks.clone();
                 let (mut halloy, command) = Halloy::load_from_state(
                     self.main_window.id,
                     updated,
                     self.current_mode,
                 );
                 halloy.main_window = saved_window;
+                halloy.networks = saved_networks;
                 *self = halloy;
                 command
             }

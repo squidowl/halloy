@@ -40,6 +40,7 @@ pub mod isupport;
 pub mod log;
 pub mod message;
 pub mod mode;
+pub mod network;
 pub mod notification;
 pub mod pane;
 pub mod preview;

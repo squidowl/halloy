@@ -1,0 +1,29 @@
+version = 1
+
+[[networks]]
+network = "DALnet"
+hosts = [
+    "irc.dal.net",
+    "atw.hu.eu.dal.net",
+    "bifrost.ca.us.dal.net",
+    "bitcoin.uk.eu.dal.net",
+    "choopa.nj.us.dal.net",
+    "halcyon.il.us.dal.net",
+    "lair.nl.eu.dal.net",
+    "lion.tx.us.dal.net",
+    "punch.wa.us.dal.net",
+    "sakura.jp.as.dal.net",
+    "serenity.fl.us.dal.net"
+]
+
+[[networks]]
+network = ["Libera.Chat"]
+hosts = [
+    "irc.libera.chat",
+    "irc.au.libera.chat",
+    "irc.eu.libera.chat",
+    "irc.ea.libera.chat",
+    "irc.ipv4.libera.chat",
+    "irc.ipv6.libera.chat"
+    "irc.us.libera.chat"
+]
