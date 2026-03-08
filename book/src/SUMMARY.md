@@ -92,6 +92,7 @@
 - [Scale factor](configuration/scale-factor.md)
 - [Servers](configuration/servers/README.md)
   - [Filters](configuration/servers/filters.md)
+  - [Reroute](configuration/servers/reroute.md)
   - [SASL External](configuration/servers/sasl-external.md)
   - [SASL Plain](configuration/servers/sasl-plain.md)
   - [Confirm Message Delivery](configuration/servers/confirm-message-delivery.md)

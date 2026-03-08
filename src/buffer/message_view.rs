@@ -284,12 +284,29 @@ impl<'a> ChannelQueryLayout<'a> {
             .into_iter()
             .flatten()
             .find(|current_user| *current_user == user);
-        let is_user_offline = match self.config.buffer.nickname.shown_status {
-            ShownStatus::Current => {
-                self.target.is_channel() && user_in_channel.is_none()
+        let rerouted_private = data::message::is_rerouted_private_message(
+            message,
+            self.config
+                .servers
+                .get(self.server)
+                .as_ref()
+                .map(|config| &config.reroute.private_messages),
+            self.server,
+        );
+        let is_user_offline = if rerouted_private {
+            false
+        } else {
+            match self.config.buffer.nickname.shown_status {
+                ShownStatus::Current => {
+                    self.target.is_channel() && user_in_channel.is_none()
+                }
+                ShownStatus::Historical => false,
             }
-            ShownStatus::Historical => false,
         };
+        let is_ourself = self
+            .target
+            .our_user()
+            .is_some_and(|our_user| our_user.nickname() == user.nickname());
 
         let nickname_style = theme::selectable_text::dimmed(
             theme::selectable_text::nickname(
@@ -323,19 +340,34 @@ impl<'a> ChannelQueryLayout<'a> {
         }
 
         let nick = tooltip(
-            context_menu::user(
-                nick_text,
-                self.server,
-                self.prefix,
-                self.target.channel(),
-                user,
-                user_in_channel,
-                self.target.our_user(),
-                self.config,
-                self.theme,
-                &self.config.buffer.nickname.click,
-            )
-            .map(Message::ContextMenu),
+            {
+                if rerouted_private && !is_ourself {
+                    context_menu::rerouted_private_user(
+                        nick_text,
+                        self.server,
+                        self.prefix,
+                        user,
+                        self.config,
+                        self.theme,
+                        &self.config.buffer.nickname.click,
+                    )
+                    .map(Message::ContextMenu)
+                } else {
+                    context_menu::user(
+                        nick_text,
+                        self.server,
+                        self.prefix,
+                        self.target.channel(),
+                        user,
+                        user_in_channel,
+                        self.target.our_user(),
+                        self.config,
+                        self.theme,
+                        &self.config.buffer.nickname.click,
+                    )
+                    .map(Message::ContextMenu)
+                }
+            },
             // We show the full nickname in the tooltip if truncation is enabled.
             truncate.map(|_| user.as_str()),
             tooltip::Position::Bottom,
@@ -359,7 +391,11 @@ impl<'a> ChannelQueryLayout<'a> {
 
         let message_style = move |message_theme: &Theme| {
             theme::selectable_text::dimmed(
-                theme::selectable_text::default(message_theme),
+                if rerouted_private {
+                    theme::selectable_text::tertiary(message_theme)
+                } else {
+                    theme::selectable_text::default(message_theme)
+                },
                 message_theme,
                 dimmed_background_tuple,
             )
@@ -386,12 +422,18 @@ impl<'a> ChannelQueryLayout<'a> {
             theme::font_style::primary,
             color_transformation,
             move |link| match link {
-                message::Link::User(_, _) => context_menu::Entry::user_list(
-                    formatter.target.is_channel(),
-                    user_in_channel,
-                    formatter.target.our_user(),
-                    formatter.config.file_transfer.enabled,
-                ),
+                message::Link::User(_, _) => {
+                    if rerouted_private && !is_ourself {
+                        vec![context_menu::Entry::Whois]
+                    } else {
+                        context_menu::Entry::user_list(
+                            formatter.target.is_channel(),
+                            user_in_channel,
+                            formatter.target.our_user(),
+                            formatter.config.file_transfer.enabled,
+                        )
+                    }
+                }
                 message::Link::Url(_) => formatter.url_entries(message, link),
                 _ => vec![],
             },

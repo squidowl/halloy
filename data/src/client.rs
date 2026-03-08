@@ -1612,6 +1612,20 @@ impl Client {
 
                     // use `target` to confirm the direct message
                     let direct_message = target == &self.nickname().to_string();
+                    let server_config = config.servers.get(&self.server);
+                    let rerouted_private = direct_message
+                        && server_config.as_ref().is_some_and(|config| {
+                            config
+                                .reroute
+                                .private_messages
+                                .has_reroute_rule_for_query(
+                                    &target::Query::from(&user),
+                                    &self.server,
+                                    self.chantypes(),
+                                    self.statusmsg(),
+                                    self.casemapping(),
+                                )
+                        });
 
                     if direct_message {
                         self.resolved_queries
@@ -1627,7 +1641,10 @@ impl Client {
                     // Event::DirectMessage is currently only used to send a
                     // notification, so only return the event it notifications
                     // are allowed.
-                    if direct_message && self.notification_blackout.allowed() {
+                    if direct_message
+                        && self.notification_blackout.allowed()
+                        && !rerouted_private
+                    {
                         return Ok(vec![
                             event,
                             Event::DirectMessage(
