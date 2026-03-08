@@ -4,7 +4,7 @@ window.addEventListener("load", () => {
   const searchNode = document.querySelector("#mdbook-search-wrapper");
   const searchToggleNode = document.querySelector("#mdbook-search-toggle");
 
-  // initalize search with simulated clicks
+  // initialize search with simulated clicks
   if (searchToggleNode) {
     // first click simulates initializing search
     searchToggleNode.click();
