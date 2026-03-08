@@ -30,7 +30,7 @@ Set the number of messages recorded to the history files on disk
 
 ```toml
 # Type: integer
-# Values: any positive integer
+# Values: 0 or any positive intege
 # Default: 10000
 
 [buffer.chathistory]
