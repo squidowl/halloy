@@ -23,6 +23,7 @@ pub enum Message {
     Merge,
     ScrollToBottom,
     MarkAsRead,
+    RefreshScripts,
     ContentResized(pane_grid::Pane, Size),
 }
 
@@ -53,6 +54,7 @@ impl Pane {
         maximized: bool,
         clients: &'a data::client::Map,
         file_transfers: &'a file_transfer::Manager,
+        script_manager: &'a data::scripts::Manager,
         history: &'a history::Manager,
         previews: &'a preview::Collection,
         sidebar: &'a sidebar::Sidebar,
@@ -87,6 +89,7 @@ impl Pane {
                 format!("{nick} @ {server}")
             }
             Buffer::FileTransfers(_) => "File Transfers".to_string(),
+            Buffer::Scripts(_) => "Scripts".to_string(),
             Buffer::ChannelDiscovery(state) => {
                 let base = "Channel Discovery";
                 if let Some(server) = state.server.as_ref() {
@@ -129,6 +132,7 @@ impl Pane {
             .view(
                 clients,
                 file_transfers,
+                script_manager,
                 history,
                 previews,
                 settings,
@@ -166,7 +170,9 @@ impl Pane {
             }),
             Buffer::Logs(_) => Some(history::Resource::logs()),
             Buffer::Highlights(_) => Some(history::Resource::highlights()),
-            Buffer::ChannelDiscovery(_) | Buffer::FileTransfers(_) => None,
+            Buffer::ChannelDiscovery(_)
+            | Buffer::FileTransfers(_)
+            | Buffer::Scripts(_) => None,
         }
     }
 
@@ -179,6 +185,7 @@ impl Pane {
             Buffer::Empty
             | Buffer::Server(_)
             | Buffer::FileTransfers(_)
+            | Buffer::Scripts(_)
             | Buffer::Logs(_)
             | Buffer::Highlights(_)
             | Buffer::ChannelDiscovery(_) => vec![],
@@ -336,6 +343,26 @@ impl TitleBar {
             } else {
                 None
             },
+            if matches!(buffer, Buffer::Scripts(_)) {
+                let refresh_scripts_button = button(center(icon::refresh()))
+                    .padding(5)
+                    .width(22)
+                    .height(22)
+                    .on_press(Message::RefreshScripts)
+                    .style(|theme, status| {
+                        theme::button::secondary(theme, status, false)
+                    });
+
+                let refresh_scripts_button_with_tooltip = tooltip(
+                    refresh_scripts_button,
+                    show_tooltips.then_some("Refresh scripts"),
+                    tooltip::Position::Bottom,
+                    theme,
+                );
+                Some(refresh_scripts_button_with_tooltip)
+            } else {
+                None
+            },
             if panes > 1 {
                 let maximize_button = button(center(if maximized {
                     icon::restore()
@@ -457,6 +484,9 @@ impl From<Pane> for data::Pane {
             ),
             Buffer::FileTransfers(_) => {
                 data::Buffer::Internal(buffer::Internal::FileTransfers)
+            }
+            Buffer::Scripts(_) => {
+                data::Buffer::Internal(buffer::Internal::Scripts)
             }
             Buffer::Logs(_) => data::Buffer::Internal(buffer::Internal::Logs),
             Buffer::Highlights(_) => {
