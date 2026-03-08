@@ -1,5 +1,5 @@
-// use timeout to allow other aspects of pages to load first
-setTimeout(() => {
+// allow mdbook scripts to load first
+window.addEventListener("load", () => {
   const sidebarNode = document.querySelector("mdbook-sidebar-scrollbox");
   const searchNode = document.querySelector("#mdbook-search-wrapper");
   const searchToggleNode = document.querySelector("#mdbook-search-toggle");
@@ -16,4 +16,4 @@ setTimeout(() => {
 
   // remove focus from the search input
   setTimeout(() => searchNode.querySelector("input").blur(), 50);
-}, 0);
+});
