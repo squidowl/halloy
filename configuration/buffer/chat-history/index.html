@@ -34,7 +34,7 @@
             const path_to_root = "../../../";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../../../searchindex-624bef44.js";
+            window.path_to_searchindex_js = "../../../searchindex-f5b4be7d.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="../../../toc-eee21653.js"></script>
@@ -187,6 +187,7 @@
 <li><a href="#configuration">Configuration</a>
 <ul>
 <li><a href="#infinite_scroll">infinite_scroll</a></li>
+<li><a href="#max_messages">max_messages</a></li>
 </ul>
 </li>
 </ul>
@@ -201,6 +202,18 @@
 
 [buffer.chathistory]
 infinite_scroll = true
+</code></pre>
+<h3 id="max_messages"><a class="header" href="#max_messages">max_messages</a></h3>
+<p>Set the number of messages recorded to the history files on disk</p>
+<blockquote>
+<p>💡 Setting this to 0 (zero) will disable all history from being written to disk. This will also result in buffers not populating previous messages in a new session.</p>
+</blockquote>
+<pre><code class="language-toml"># Type: integer
+# Values: 0 or any positive intege
+# Default: 10000
+
+[buffer.chathistory]
+max_messages = 10000
 </code></pre>
 
                     </main>
