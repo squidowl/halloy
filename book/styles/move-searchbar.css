@@ -1,0 +1,4 @@
+/* force display of searchbar */
+#mdbook-search-wrapper.hidden {
+  display: block!important;
+}
