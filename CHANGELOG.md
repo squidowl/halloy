@@ -4,6 +4,7 @@ Added:
 
 - Setting to limit reaction display length (`buffer.channel.message.max_reaction_display`) and maximum length (`buffer.channel.message.max_reaction_chars`)
 - Emoji and command picker entries are now clickable and insert the selected completion directly into the input.
+- Setting to limit locally stored chat history (`buffer.chathistory.max_messages`)
 
 Fixed:
 
