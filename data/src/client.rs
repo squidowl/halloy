@@ -3883,13 +3883,6 @@ fn compare_channels_default(chantypes: &[char], a: &str, b: &str) -> Ordering {
     a.cmp(b)
 }
 
-// If config.sidebar.order_channels_by, is `name-and-prefix` this will sort channels together which
-//   have similar names when the chantype prefix (sometimes multiplied) is removed.
-//   e.g., '#chat', '##chat-offtopic' and '&chat-local' all get sorted together instead of in
-//   wildly different places.
-//
-// If config.sidebar.order_channels_by is `config`, this will sort channels based on your
-//   config.server.<server_name>.channels. Anything not in this list is sorted by `name` (default).
 fn compare_channels(
     server: &Server,
     config: &config::Config,
@@ -3898,6 +3891,25 @@ fn compare_channels(
     b: &str,
 ) -> Ordering {
     match config.sidebar.order_channels_by {
+        /*
+         * If config.sidebar.order_channels_by is `name` (default), this will sort channels together
+         * which have similar names when the chantype prefix (sometimes multiplied) is removed.
+         *   e.g., '#chat', '##chat-offtopic' and '&chat-local' all get sorted together instead of
+         *   in wildly different places.
+         */
+        config::sidebar::OrderChannelsBy::Name => {
+            compare_channels_default(chantypes, a, b)
+        }
+        /*
+         * If config.sidebar.order_channels_by is `name-and-prefix`, this will sort channels
+         * alphabetically by their full name including the prefix symbols. e.g., '#chat' and '##chat'
+         * will be in different sections of the list.
+         */
+        config::sidebar::OrderChannelsBy::NameAndPrefix => a.cmp(b),
+        /*
+         * If config.sidebar.order_channels_by is `config`, this will sort channels based on your
+         * config.server.<server_name>.channels. Anything not in this list is sorted by `name` (default).
+         */
         config::sidebar::OrderChannelsBy::Config => {
             config
                 .servers
@@ -3927,10 +3939,6 @@ fn compare_channels(
                     },
                 )
         }
-        config::sidebar::OrderChannelsBy::Name => {
-            compare_channels_default(chantypes, a, b)
-        }
-        config::sidebar::OrderChannelsBy::NameAndPrefix => a.cmp(b),
     }
 }
 
