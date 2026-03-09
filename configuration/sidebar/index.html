@@ -34,7 +34,7 @@
             const path_to_root = "../../";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../../searchindex-f5b4be7d.js";
+            window.path_to_searchindex_js = "../../searchindex-d2eba5c8.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="../../toc-eee21653.js"></script>
@@ -192,6 +192,7 @@
 <li><a href="#user_menu">user_menu</a></li>
 <li><a href="#order_by">order_by</a></li>
 <li><a href="#order_channels_by">order_channels_by</a></li>
+<li><a href="#channel_name_casing">channel_name_casing</a></li>
 </ul>
 </li>
 <li><a href="#scrollbar">Scrollbar</a></li>
@@ -267,6 +268,15 @@ order_by = "config"
 
 [sidebar]
 order_channels_by = "name-and-prefix"
+</code></pre>
+<h3 id="channel_name_casing"><a class="header" href="#channel_name_casing">channel_name_casing</a></h3>
+<p>Transform the channel name casing in the sidebar channel entries.</p>
+<pre><code class="language-toml"># Type: string (optional)
+# Values: "lowercase"
+# Default: not set (channel name displayed as-is)
+
+[sidebar]
+channel_name_casing = "lowercase"
 </code></pre>
 <h2 id="scrollbar"><a class="header" href="#scrollbar"><a href="scrollbar.html">Scrollbar</a></a></h2>
 <p>Scrollbar in sidebar</p>

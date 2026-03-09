@@ -34,7 +34,7 @@
             const path_to_root = "../../../";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../../../searchindex-f5b4be7d.js";
+            window.path_to_searchindex_js = "../../../searchindex-d2eba5c8.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="../../../toc-eee21653.js"></script>
@@ -184,12 +184,22 @@
 <ul>
 <li><a href="#channel">Channel</a>
 <ul>
+<li><a href="#channel_name_casing">channel_name_casing</a></li>
 <li><a href="#message">Message</a></li>
 <li><a href="#nicklist">Nicklist</a></li>
 <li><a href="#topic-banner">Topic Banner</a></li>
 </ul>
 </li>
 </ul>
+<h2 id="channel_name_casing"><a class="header" href="#channel_name_casing">channel_name_casing</a></h2>
+<p>Transform the channel name casing in the channel pane title.</p>
+<pre><code class="language-toml"># Type: string (optional)
+# Values: "lowercase"
+# Default: not set (channel name displayed as-is)
+
+[buffer.channel]
+channel_name_casing = "lowercase"
+</code></pre>
 <h2 id="message"><a class="header" href="#message"><a href="message.html">Message</a></a></h2>
 <p>Message settings within a channel buffer</p>
 <h2 id="nicklist"><a class="header" href="#nicklist"><a href="nicklist.html">Nicklist</a></a></h2>
