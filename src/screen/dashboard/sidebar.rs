@@ -1000,11 +1000,12 @@ fn upstream_buffer_button<'a>(
             }
             buffer::Upstream::Channel(_, channel) => {
                 let raw_channel = channel.as_str();
-                let display_channel = if config.sidebar.lowercase_channels {
-                    casemapping.normalize(raw_channel)
-                } else {
-                    raw_channel.to_owned()
-                };
+                let display_channel =
+                    if let Some(casing) = config.sidebar.channel_name_casing {
+                        casing.apply(raw_channel, casemapping)
+                    } else {
+                        raw_channel.to_owned()
+                    };
 
                 text(display_channel)
                     .style(buffer_title_style)

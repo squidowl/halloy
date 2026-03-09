@@ -4,6 +4,7 @@ use super::NicknameClickAction;
 use crate::buffer::Color;
 use crate::channel::Position;
 use crate::config::buffer::{AccessLevelFormat, Away};
+use crate::isupport;
 
 #[derive(Debug, Clone, Default, Deserialize)]
 #[serde(default)]
@@ -12,8 +13,21 @@ pub struct Channel {
     #[serde(alias = "topic")] // For backwards compatibility
     pub topic_banner: TopicBanner,
     pub message: Message,
-    #[serde(default)]
-    pub lowercase_channel: bool,
+    pub channel_name_casing: Option<ChannelNameCasing>,
+}
+
+#[derive(Debug, Copy, Clone, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ChannelNameCasing {
+    Lowercase,
+}
+
+impl ChannelNameCasing {
+    pub fn apply(&self, name: &str, casemapping: isupport::CaseMap) -> String {
+        match self {
+            Self::Lowercase => casemapping.normalize(name),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]
