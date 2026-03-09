@@ -557,7 +557,9 @@ impl Sidebar {
                             }
 
                             // Queries from the connected server.
-                            let queries = history.get_unique_queries(server);
+                            let mut queries =
+                                history.get_unique_queries(server);
+                            queries.sort_by_key(|q| q.as_str().to_lowercase());
                             for query in queries {
                                 let query = clients
                                     .resolve_query(server, query)
