@@ -641,9 +641,6 @@ impl Serialize for Message {
             target: &'a Target,
             content: &'a Content,
             id: &'a Option<Id>,
-            // Old field before we had fragments,
-            // added for downgrade compatibility
-            text: Cow<'a, str>,
             hidden_urls: &'a HashSet<url::Url>,
             is_echo: &'a bool,
             command: &'a Option<command::Irc>,
@@ -658,7 +655,6 @@ impl Serialize for Message {
             target: &self.target,
             content: &self.content,
             id: &self.id,
-            text: self.content.text(),
             hidden_urls: &self.hidden_urls,
             is_echo: &self.is_echo,
             command: &self.command,
