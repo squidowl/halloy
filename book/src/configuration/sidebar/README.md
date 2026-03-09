@@ -4,13 +4,13 @@ Sidebar settings for Halloy.
 
 - [Sidebar](#sidebar)
   - [Configuration](#configuration)
-    - [server\_icon](#server_icon)
+    - [server_icon](#server_icon)
     - [position](#position)
-    - [max\_width](#max_width)
-    - [user\_menu](#user_menu)
-    - [order\_by](#order_by)
-    - [order\_channels\_by](#order_channels_by)
-    - [channel\_name\_casing](#channel_name_casing)
+    - [max_width](#max_width)
+    - [user_menu](#user_menu)
+    - [order_by](#order_by)
+    - [order_channels_by](#order_channels_by)
+    - [channel_name_casing](#channel_name_casing)
   - [Scrollbar](#scrollbar)
   - [Unread Indicator](#unread-indicator)
   - [Padding](#padding)
@@ -95,18 +95,25 @@ order_by = "config"
 
 ### order_channels_by
 
-Include chantypes (channel prefixes, e.g., `#` and `##`) when sorting channels in the sidebar.
+Ordering for channels listed in the sidebar.
 
-- `"name"`: Sort channels by name only, ignoring chantypes.
+- `"name"`: Sort channels by name only, ignoring chantypes (channel prefixes, e.g., `#` and `##`).
 - `"name-and-prefix"`: Sort channels by name including their chantypes.
+- `"config"`: Sort channels in the order they appear in your server's `channels`
+  list. Any channels not in the list appear last, using default (`"name"`) sort.
 
 ```toml
 # Type: string
-# Values: "name", "name-and-prefix"
+# Values: "name", "name-and-prefix", "config"
 # Default: "name"
 
 [sidebar]
-order_channels_by = "name-and-prefix"
+order_channels_by = "config"
+
+# Example: When using "config", channels appear in this exact order:
+[servers.liberachat]
+channels = ["#rust", "#halloy", "#halloy-test"]
+# Result: #rust → #halloy → #halloy-test → (any other channels are sorted by "name")
 ```
 
 ### channel_name_casing
