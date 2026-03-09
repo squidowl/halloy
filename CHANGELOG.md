@@ -6,9 +6,9 @@ Added:
 
 - Support for the IRCv3 [`react`](https://ircv3.net/specs/client-tags/react.html) client tag.
 - Correctly record window size if window is maximized
-- Optional settings to render channel names in lowercase:
-  - `sidebar.lowercase_channels` for channel entries in the sidebar
-  - `buffer.channel.lowercase_channel` for channel pane title bars
+- Optional settings to transform channel name casing:
+  - `sidebar.channel_name_casing` for channel entries in the sidebar
+  - `buffer.channel.channel_name_casing` for channel pane title bars
 
 Changed:
 
@@ -18,7 +18,7 @@ Changed:
 - Formatting inside code spans is now ignored in order to prevent breaks in code span styling
 - Links inside code spans are not detected in order to prevent breaks in code span styling
 - Setting to hide consecutive timestamps (`buffer.timestamp.hide_consecutive`)
-- Channel names can now be displayed in lowercase in sidebar entries and channel pane titles when the corresponding settings are enabled
+- Channel name casing can now be transformed (e.g. to lowercase) in sidebar entries and channel pane titles via `channel_name_casing` settings
 
 Fixed:
 

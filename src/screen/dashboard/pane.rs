@@ -64,10 +64,12 @@ impl Pane {
         let title_bar_text = match &self.buffer {
             Buffer::Empty => String::new(),
             Buffer::Channel(state) => {
-                let casemapping = clients.get_casemapping(&state.server);
                 let raw_channel = state.target.as_str();
-                let display_channel = if config.sidebar.lowercase_channels {
-                    casemapping.normalize(raw_channel)
+                let display_channel = if let Some(casing) =
+                    config.buffer.channel.channel_name_casing
+                {
+                    let casemapping = clients.get_casemapping(&state.server);
+                    casing.apply(raw_channel, casemapping)
                 } else {
                     raw_channel.to_owned()
                 };

@@ -3,22 +3,22 @@
 Channel specific settings
 
 - [Channel](#channel)
-  - [lowercase\_channel](#lowercase_channel)
+  - [channel\_name\_casing](#channel_name_casing)
   - [Message](#message)
   - [Nicklist](#nicklist)
   - [Topic Banner](#topic-banner)
 
-## lowercase_channel
+## channel_name_casing
 
-Render the channel name in lowercase in the channel pane title.
+Transform the channel name casing in the channel pane title.
 
 ```toml
-# Type: boolean
-# Values: true, false
-# Default: false
+# Type: string (optional)
+# Values: "lowercase"
+# Default: not set (channel name displayed as-is)
 
 [buffer.channel]
-lowercase_channel = true
+channel_name_casing = "lowercase"
 ```
 
 ## [Message](message.md)
