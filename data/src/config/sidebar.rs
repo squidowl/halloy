@@ -2,6 +2,7 @@ use serde::{Deserialize, Deserializer};
 use serde_untagged::UntaggedEnumVisitor;
 
 use crate::config::Scrollbar;
+use crate::config::buffer::ChannelNameCasing;
 use crate::config::inclusivities::{Inclusivities, is_target_channel_included};
 use crate::serde::deserialize_positive_integer;
 use crate::server::Server;
@@ -25,6 +26,7 @@ pub struct Sidebar {
     pub padding: Padding,
     pub spacing: Spacing,
     pub order_channels_by: OrderChannelsBy,
+    pub channel_name_casing: Option<ChannelNameCasing>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
