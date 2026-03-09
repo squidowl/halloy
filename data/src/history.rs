@@ -8,6 +8,7 @@ use chrono::{DateTime, Utc};
 use futures::future::BoxFuture;
 use futures::{Future, FutureExt};
 use tokio::fs;
+use tokio::task;
 use tokio::time::Instant;
 
 pub use self::manager::{Manager, Resource};
@@ -225,7 +226,12 @@ pub async fn overwrite(
     let latest = &messages[messages.len().saturating_sub(max_messages)..];
 
     let path = path(kind).await?;
-    let compressed = compression::compress(&latest)?;
+
+    // Offload CPU-heavy serialize + compress to a blocking thread
+    // so we don't stall the async runtime
+    let owned = latest.to_vec();
+    let compressed =
+        task::spawn_blocking(move || compression::compress(&owned)).await??;
 
     fs::write(path, &compressed).await?;
 
@@ -274,7 +280,10 @@ pub async fn delete(kind: &Kind) -> Result<(), Error> {
 
 async fn read_all(path: &PathBuf) -> Result<Vec<Message>, Error> {
     let bytes = fs::read(path).await?;
-    Ok(compression::decompress(&bytes)?)
+
+    // Offload CPU-heavy decompress + deserialize to a blocking thread
+    // so we don't stall the async runtime
+    Ok(task::spawn_blocking(move || compression::decompress(&bytes)).await??)
 }
 
 pub async fn dir_path() -> Result<PathBuf, Error> {
@@ -1179,4 +1188,6 @@ pub enum Error {
     Io(#[from] io::Error),
     #[error(transparent)]
     SerdeJson(#[from] serde_json::Error),
+    #[error(transparent)]
+    ThreadPanic(#[from] task::JoinError),
 }
