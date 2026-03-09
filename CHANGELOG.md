@@ -8,6 +8,7 @@ Added:
 - Typing indicator support (uses IRCv3 [`typing`](https://ircv3.net/specs/client-tags/typing))
 - Add emoji reactions for supported servers (uses IRCv3 [`react`](https://ircv3.net/specs/client-tags/react.html))
 - Added `"config"` option to `sidebar.order_channels_by`. Uses `server.<server_name>.channels` to determine order.
+- Case insensitive sort of query names in sidebar
 
 Fixed:
 
