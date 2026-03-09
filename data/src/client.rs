@@ -1568,8 +1568,9 @@ impl Client {
                         Channel::default(),
                         |c1, _, c2, _| {
                             compare_channels(
+                                &self.server,
+                                config,
                                 &chantypes,
-                                config.sidebar.order_channels_by,
                                 c1.as_normalized_str(),
                                 c2.as_normalized_str(),
                             )
@@ -3860,21 +3861,7 @@ impl Client {
     }
 }
 
-// If config.sidebar.order_channels_by is `name-and-prefix` this will sort channels together which
-// have similar names when the chantype prefix (sometimes multiplied) is removed.
-// e.g., '#chat', '##chat-offtopic' and '&chat-local' all get sorted together instead of in
-// wildly different places.
-fn compare_channels(
-    chantypes: &[char],
-    order_channels_by: config::sidebar::OrderChannelsBy,
-    a: &str,
-    b: &str,
-) -> Ordering {
-    match order_channels_by {
-        config::sidebar::OrderChannelsBy::NameAndPrefix => return a.cmp(b),
-        config::sidebar::OrderChannelsBy::Name => {}
-    }
-
+fn compare_channels_default(chantypes: &[char], a: &str, b: &str) -> Ordering {
     let (Some(a_chantype), Some(b_chantype)) =
         (a.chars().next(), b.chars().next())
     else {
@@ -3894,6 +3881,57 @@ fn compare_channels(
     }
 
     a.cmp(b)
+}
+
+// If config.sidebar.order_channels_by, is `name-and-prefix` this will sort channels together which
+//   have similar names when the chantype prefix (sometimes multiplied) is removed.
+//   e.g., '#chat', '##chat-offtopic' and '&chat-local' all get sorted together instead of in
+//   wildly different places.
+//
+// If config.sidebar.order_channels_by is `config`, this will sort channels based on your
+//   config.server.<server_name>.channels. Anything not in this list is sorted by `name` (default).
+fn compare_channels(
+    server: &Server,
+    config: &config::Config,
+    chantypes: &[char],
+    a: &str,
+    b: &str,
+) -> Ordering {
+    match config.sidebar.order_channels_by {
+        config::sidebar::OrderChannelsBy::Config => {
+            config
+                .servers
+                .iter()
+                .find(|(name, _)| name.as_ref() == server.name.as_ref())
+                .map_or_else(
+                    || compare_channels_default(chantypes, a, b),
+                    |(_, server_config)| {
+                        // use server's list of configured channels
+                        let a_pos = server_config
+                            .channels
+                            .iter()
+                            .position(|ch| ch.eq_ignore_ascii_case(a));
+                        let b_pos = server_config
+                            .channels
+                            .iter()
+                            .position(|ch| ch.eq_ignore_ascii_case(b));
+
+                        match (a_pos, b_pos) {
+                            (Some(a_pos), Some(b_pos)) => a_pos.cmp(&b_pos),
+                            (Some(_), None) => Ordering::Less,
+                            (None, Some(_)) => Ordering::Greater,
+                            (None, None) => {
+                                compare_channels_default(chantypes, a, b)
+                            }
+                        }
+                    },
+                )
+        }
+        config::sidebar::OrderChannelsBy::Name => {
+            compare_channels_default(chantypes, a, b)
+        }
+        config::sidebar::OrderChannelsBy::NameAndPrefix => a.cmp(b),
+    }
 }
 
 fn is_reaction(message: &message::Encoded) -> bool {

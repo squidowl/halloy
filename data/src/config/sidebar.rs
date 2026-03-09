@@ -248,6 +248,7 @@ pub enum OrderBy {
 #[derive(Debug, Copy, Clone, Deserialize, Default)]
 #[serde(rename_all = "kebab-case")]
 pub enum OrderChannelsBy {
+    Config,
     #[default]
     Name,
     NameAndPrefix,
