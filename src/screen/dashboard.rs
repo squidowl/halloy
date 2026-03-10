@@ -4260,7 +4260,7 @@ fn all_buffers(
 
             let mut queries: Vec<_> =
                 history.get_unique_queries(server).into_iter().collect();
-            queries.sort_by_key(|nick| nick.to_string().to_lowercase());
+            queries.sort_by_key(|nick| nick.as_normalized_str());
 
             std::iter::once(buffer::Upstream::Server(server.clone()))
                 .chain(channels.into_iter().map(|channel| {
@@ -4295,7 +4295,7 @@ fn all_buffers_with_has_unread(
 
             let mut queries: Vec<_> =
                 history.get_unique_queries(server).into_iter().collect();
-            queries.sort_by_key(|nick| nick.to_string().to_lowercase());
+            queries.sort_by_key(|nick| nick.as_normalized_str());
 
             std::iter::once((
                 buffer::Upstream::Server(server.clone()),
