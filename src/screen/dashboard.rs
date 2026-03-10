@@ -133,6 +133,10 @@ impl Dashboard {
             buffer_settings: dashboard::BufferSettings::default(),
         };
 
+        dashboard
+            .history
+            .set_persist(config.buffer.chathistory.persist);
+
         let command = dashboard.track(None);
         let sidebar_task = sidebar_task.map(Message::Sidebar);
 
@@ -187,6 +191,8 @@ impl Dashboard {
         clients: &client::Map,
         buffer_config: &config::Buffer,
     ) {
+        self.history.set_persist(buffer_config.chathistory.persist);
+
         self.init_filters(servers, clients);
 
         self.reprocess_history(clients, buffer_config);
@@ -3694,6 +3700,10 @@ impl Dashboard {
             preview_client: preview_client_from_config(config).map(Arc::new),
             buffer_settings: data.buffer_settings.clone(),
         };
+
+        dashboard
+            .history
+            .set_persist(config.buffer.chathistory.persist);
 
         let mut tasks = vec![sidebar_task.map(Message::Sidebar)];
 

@@ -562,7 +562,12 @@ impl History {
         &mut self,
         now: Option<Instant>,
         seed: Option<Seed>,
+        persist: bool,
     ) -> Option<BoxFuture<'static, Result<(), Error>>> {
+        if !persist {
+            return None;
+        }
+
         match self {
             History::Partial {
                 kind,
@@ -643,6 +648,7 @@ impl History {
 
     fn make_partial(
         &mut self,
+        persist: bool,
     ) -> Option<impl Future<Output = Result<(), Error>> + use<>> {
         match self {
             History::Partial { .. } => None,
@@ -676,6 +682,10 @@ impl History {
                     pending_reactions: HashMap::new(),
                 };
 
+                if !persist {
+                    return None;
+                }
+
                 Some(
                     async move { overwrite(&kind, &messages, read_marker).await },
                 )
@@ -683,7 +693,15 @@ impl History {
         }
     }
 
-    async fn close(self, seed: Option<Seed>) -> Result<(), Error> {
+    async fn close(
+        self,
+        seed: Option<Seed>,
+        persist: bool,
+    ) -> Result<(), Error> {
+        if !persist {
+            return Ok(());
+        }
+
         match self {
             History::Partial {
                 kind,
