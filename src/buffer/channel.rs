@@ -11,7 +11,7 @@ use iced::widget::{column, container, row};
 use iced::{Length, Size, Task, padding};
 
 use super::message_view::{ChannelQueryLayout, TargetInfo};
-use super::{context_menu, input_view, scroll_view};
+use super::{context_menu, input_view, scroll_view, typing};
 use crate::Theme;
 use crate::widget::Element;
 use crate::window::Window;
@@ -149,6 +149,22 @@ pub fn view<'a>(
         data::config::buffer::text_input::Visibility::Always => true,
     };
 
+    let typing_enabled = settings
+        .map_or(config.buffer.channel.typing.enabled, |settings| {
+            settings.channel.typing.enabled
+        });
+
+    let typing = typing::view(
+        typing::typing_text(
+            typing_enabled,
+            clients.get_server_supports_typing(server),
+            our_nick.as_ref().map(|nick| nick.as_str()),
+            &clients.get_channel_typing_users(server, channel),
+            casemapping,
+        ),
+        theme,
+    );
+
     let text_input = show_text_input.then(move || {
         input_view::view(
             &state.input_view,
@@ -176,8 +192,9 @@ pub fn view<'a>(
         .spacing(4)
         .padding(padding::left(8).right(8));
 
-    let body = column![container(content).height(Length::Fill), text_input]
-        .height(Length::Fill);
+    let body =
+        column![container(content).height(Length::Fill), typing, text_input,]
+            .height(Length::Fill);
 
     container(body)
         .width(Length::Fill)
@@ -222,6 +239,7 @@ impl Channel {
         history: &mut history::Manager,
         main_window: &Window,
         config: &Config,
+        channel_typing_enabled: bool,
     ) -> (Task<Message>, Option<Event>) {
         match message {
             Message::ScrollView(message) => {
@@ -291,6 +309,7 @@ impl Channel {
                     history,
                     main_window,
                     config,
+                    channel_typing_enabled,
                 );
                 let command = command.map(Message::InputView);
 

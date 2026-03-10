@@ -13,6 +13,7 @@ pub struct Channel {
     pub nicklist: Nicklist,
     #[serde(alias = "topic")] // For backwards compatibility
     pub topic_banner: TopicBanner,
+    pub typing: Typing,
     pub message: Message,
     pub channel_name_casing: Option<ChannelNameCasing>,
 }
@@ -50,6 +51,18 @@ impl Default for Message {
             max_reaction_display: 5,
             max_reaction_chars: 64,
         }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Deserialize)]
+#[serde(default)]
+pub struct Typing {
+    pub enabled: bool,
+}
+
+impl Default for Typing {
+    fn default() -> Self {
+        Self { enabled: true }
     }
 }
 

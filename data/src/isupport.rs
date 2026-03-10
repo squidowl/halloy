@@ -23,6 +23,7 @@ pub enum Kind {
     CHANNELLEN,
     CHANTYPES,
     CHATHISTORY,
+    CLIENTTAGDENY,
     CNOTICE,
     CPRIVMSG,
     ELIST,
@@ -626,6 +627,7 @@ impl Operation {
                 "CHANNELLEN" => Some(Kind::CHANNELLEN),
                 "CHANTYPES" => Some(Kind::CHANTYPES),
                 "CHATHISTORY" => Some(Kind::CHATHISTORY),
+                "CLIENTTAGDENY" => Some(Kind::CLIENTTAGDENY),
                 "CNOTICE" => Some(Kind::CNOTICE),
                 "CPRIVMSG" => Some(Kind::CPRIVMSG),
                 "ELIST" => Some(Kind::ELIST),
@@ -737,6 +739,7 @@ impl Parameter {
             Parameter::CHANNELLEN(_) => Some(Kind::CHANNELLEN),
             Parameter::CHANTYPES(_) => Some(Kind::CHANTYPES),
             Parameter::CHATHISTORY(_) => Some(Kind::CHATHISTORY),
+            Parameter::CLIENTTAGDENY(_) => Some(Kind::CLIENTTAGDENY),
             Parameter::CNOTICE => Some(Kind::CNOTICE),
             Parameter::CPRIVMSG => Some(Kind::CPRIVMSG),
             Parameter::ELIST(_) => Some(Kind::ELIST),
@@ -941,6 +944,18 @@ impl fmt::Display for MessageReference {
             MessageReference::MessageId(id) => write!(f, "msgid={id}"),
             MessageReference::None => write!(f, "*"),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn remove_operation_maps_clienttagdeny_kind() {
+        let operation = Operation::Remove("CLIENTTAGDENY".to_string());
+
+        assert_eq!(operation.kind(), Some(Kind::CLIENTTAGDENY));
     }
 }
 

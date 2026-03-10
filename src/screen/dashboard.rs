@@ -317,6 +317,18 @@ impl Dashboard {
                         return (self.split_pane(axis), None);
                     }
                     pane::Message::Buffer(id, message) => {
+                        let typing_enabled = self
+                            .panes
+                            .get(window, id)
+                            .and_then(|pane| pane.buffer.data())
+                            .and_then(|buffer| {
+                                self.buffer_settings.get(&buffer)
+                            })
+                            .map_or(
+                                config.buffer.channel.typing.enabled,
+                                |settings| settings.channel.typing.enabled,
+                            );
+
                         if let Some(pane) = self.panes.get_mut(window, id) {
                             let (command, event) = pane.buffer.update(
                                 message,
@@ -325,6 +337,7 @@ impl Dashboard {
                                 &mut self.file_transfers,
                                 main_window,
                                 config,
+                                typing_enabled,
                             );
 
                             let task = command.map(move |message| {
@@ -2018,12 +2031,27 @@ impl Dashboard {
                         None
                     }
                     buffer::context_menu::Event::InsertNickname(nick) => {
+                        let typing_enabled = self
+                            .panes
+                            .get(self.focus.window, self.focus.pane)
+                            .and_then(|pane| pane.buffer.data())
+                            .and_then(|buffer| {
+                                self.buffer_settings.get(&buffer)
+                            })
+                            .map_or(
+                                config.buffer.channel.typing.enabled,
+                                |settings| settings.channel.typing.enabled,
+                            );
+
                         if let Some((_, _, pane, history)) =
                             self.get_focused_with_history_mut()
                         {
                             pane.buffer.insert_user_to_input(
                                 nick,
+                                clients,
                                 history,
+                                typing_enabled,
+                                config,
                                 &config.buffer.text_input.autocomplete,
                             );
                         }

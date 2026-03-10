@@ -10,7 +10,7 @@ use iced::widget::{column, container, space};
 use iced::{Length, Size, Task};
 
 use super::message_view::{ChannelQueryLayout, TargetInfo};
-use super::{context_menu, input_view, scroll_view};
+use super::{context_menu, input_view, scroll_view, typing};
 use crate::Theme;
 use crate::widget::Element;
 use crate::window::Window;
@@ -48,6 +48,7 @@ pub fn view<'a>(
     clients: &'a data::client::Map,
     history: &'a history::Manager,
     previews: &'a preview::Collection,
+    settings: Option<&'a buffer::Settings>,
     config: &'a Config,
     theme: &'a Theme,
     is_focused: bool,
@@ -107,6 +108,22 @@ pub fn view<'a>(
     )
     .height(Length::Fill);
 
+    let typing_enabled = settings
+        .map_or(config.buffer.channel.typing.enabled, |settings| {
+            settings.channel.typing.enabled
+        });
+
+    let typing = typing::view(
+        typing::typing_text(
+            typing_enabled,
+            clients.get_server_supports_typing(server),
+            our_nick.as_ref().map(|nick| nick.as_str()),
+            &clients.get_query_typing_users(server, query),
+            casemapping,
+        ),
+        theme,
+    );
+
     let show_text_input = match config.buffer.text_input.visibility {
         data::config::buffer::text_input::Visibility::Focused => is_focused,
         data::config::buffer::text_input::Visibility::Always => true,
@@ -127,7 +144,7 @@ pub fn view<'a>(
         .width(Length::Fill)
     });
 
-    let scrollable = column![messages, text_input].height(Length::Fill);
+    let scrollable = column![messages, typing, text_input].height(Length::Fill);
 
     container(scrollable)
         .width(Length::Fill)
@@ -172,6 +189,7 @@ impl Query {
         history: &mut history::Manager,
         main_window: &Window,
         config: &Config,
+        typing_enabled: bool,
     ) -> (Task<Message>, Option<Event>) {
         match message {
             Message::ScrollView(message) => {
@@ -241,6 +259,7 @@ impl Query {
                     history,
                     main_window,
                     config,
+                    typing_enabled,
                 );
                 let command = command.map(Message::InputView);
 
