@@ -1,6 +1,7 @@
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use std::path::PathBuf;
+use std::str::FromStr;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use std::{fmt, io, iter};
@@ -144,7 +145,7 @@ struct ChatHistoryRequest {
 // Halloy they should be added to this enum (Capability), Capability::from_str,
 // and Capabilities::create_requested.
 #[derive(Debug, Eq, PartialEq, Hash)]
-enum Capability {
+pub enum Capability {
     AccountNotify,
     AwayNotify,
     Batch,
@@ -164,33 +165,43 @@ enum Capability {
     ServerTime,
     Setname,
     UserhostInNames,
+    Multiline,
 }
 
-impl Capability {
-    pub fn from_str(cap: &str) -> Option<Self> {
+impl FromStr for Capability {
+    type Err = &'static str;
+
+    fn from_str(cap: &str) -> Result<Self, Self::Err> {
         match cap {
-            "account-notify" => Some(Self::AccountNotify),
-            "away-notify" => Some(Self::AwayNotify),
-            "batch" => Some(Self::Batch),
-            "chghost" => Some(Self::Chghost),
-            "draft/chathistory" => Some(Self::Chathistory),
-            "draft/event-playback" => Some(Self::EventPlayback),
-            "draft/read-marker" => Some(Self::ReadMarker),
-            "echo-message" => Some(Self::EchoMessage),
-            "extended-join" => Some(Self::ExtendedJoin),
-            "extended-monitor" => Some(Self::ExtendedMonitor),
-            "invite-notify" => Some(Self::InviteNotify),
-            "labeled-response" => Some(Self::LabeledResponse),
-            "message-tags" => Some(Self::MessageTags),
-            "multi-prefix" => Some(Self::MultiPrefix),
-            "server-time" => Some(Self::ServerTime),
-            "setname" => Some(Self::Setname),
-            "soju.im/bouncer-networks" => Some(Self::BouncerNetworks),
-            "userhost-in-names" => Some(Self::UserhostInNames),
-            _ if cap.starts_with("sasl") => Some(Self::Sasl),
-            _ => None,
+            "account-notify" => Ok(Self::AccountNotify),
+            "away-notify" => Ok(Self::AwayNotify),
+            "batch" => Ok(Self::Batch),
+            "chghost" => Ok(Self::Chghost),
+            "draft/chathistory" => Ok(Self::Chathistory),
+            "draft/event-playback" => Ok(Self::EventPlayback),
+            "draft/multiline" => Ok(Self::Multiline),
+            "draft/read-marker" => Ok(Self::ReadMarker),
+            "echo-message" => Ok(Self::EchoMessage),
+            "extended-join" => Ok(Self::ExtendedJoin),
+            "extended-monitor" => Ok(Self::ExtendedMonitor),
+            "invite-notify" => Ok(Self::InviteNotify),
+            "labeled-response" => Ok(Self::LabeledResponse),
+            "message-tags" => Ok(Self::MessageTags),
+            "multi-prefix" => Ok(Self::MultiPrefix),
+            "server-time" => Ok(Self::ServerTime),
+            "setname" => Ok(Self::Setname),
+            "soju.im/bouncer-networks" => Ok(Self::BouncerNetworks),
+            "userhost-in-names" => Ok(Self::UserhostInNames),
+            _ if cap.starts_with("sasl") => Ok(Self::Sasl),
+            _ => Err("unknown capability"),
         }
     }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct Multiline {
+    pub max_bytes: usize,
+    pub max_lines: Option<usize>,
 }
 
 #[derive(Debug, Default)]
@@ -198,12 +209,13 @@ struct Capabilities {
     listed: HashSet<String>,
     pending: HashSet<String>,
     acknowledged: HashSet<Capability>,
+    multiline: Option<Multiline>,
 }
 
 impl Capabilities {
     pub fn acknowledge(&mut self, caps: impl Iterator<Item = String>) {
         for cap in caps {
-            if let Some(cap) = Capability::from_str(cap.as_str()) {
+            if let Ok(cap) = Capability::from_str(cap.as_str()) {
                 self.acknowledged.insert(cap);
             }
         }
@@ -341,6 +353,33 @@ impl Capabilities {
             requested.push("sasl");
         }
 
+        if let Some(multiline) = self
+            .pending
+            .iter()
+            .find_map(|cap| cap.strip_prefix("draft/multiline="))
+        {
+            let dictionary = multiline.split(',').collect::<Vec<_>>();
+
+            if let Some(max_bytes) = dictionary.iter().find_map(|key_value| {
+                key_value
+                    .strip_prefix("max-bytes=")
+                    .and_then(|value| value.parse::<usize>().ok())
+            }) {
+                self.multiline = Some(Multiline {
+                    max_bytes,
+                    max_lines: dictionary.iter().find_map(|key_value| {
+                        key_value
+                            .strip_prefix("max-lines=")
+                            .and_then(|value| value.parse::<usize>().ok())
+                    }),
+                });
+
+                if !self.acknowledged(Capability::Multiline) {
+                    requested.push("draft/multiline");
+                }
+            }
+        }
+
         for cap in self.pending.drain() {
             self.listed.insert(cap);
         }
@@ -350,7 +389,7 @@ impl Capabilities {
 
     pub fn delete(&mut self, caps: impl Iterator<Item = String>) {
         for cap in caps {
-            if let Some(cap) = Capability::from_str(cap.as_str()) {
+            if let Ok(cap) = Capability::from_str(cap.as_str()) {
                 self.acknowledged.remove(&cap);
             }
 
@@ -361,6 +400,14 @@ impl Capabilities {
     pub fn extend_list(&mut self, caps: impl Iterator<Item = String>) {
         for cap in caps {
             self.pending.insert(cap);
+        }
+    }
+
+    pub fn multiline(&self) -> Option<Multiline> {
+        if self.acknowledged(Capability::Multiline) {
+            self.multiline
+        } else {
+            None
         }
     }
 }
@@ -3686,6 +3733,10 @@ impl Client {
             }
             + 5
     }
+
+    pub fn multiline(&self) -> Option<Multiline> {
+        self.capabilities.multiline()
+    }
 }
 
 // If config.sidebar.order_channels_by is `name-and-prefix` this will sort channels together which
@@ -4099,6 +4150,10 @@ impl Map {
     // estimate when no client is available
     pub fn get_relay_bytes(&self, server: &Server) -> usize {
         self.client(server).map_or(144, Client::relay_bytes)
+    }
+
+    pub fn get_multiline(&self, server: &Server) -> Option<Multiline> {
+        self.client(server).and_then(Client::multiline)
     }
 
     pub fn get_server_supports_echoes(&self, server: &Server) -> bool {
