@@ -2,6 +2,11 @@ use std::collections::HashMap;
 
 use irc::proto;
 use irc::proto::format;
+use nom::character::complete::char;
+use nom::combinator::{cut, map, rest, verify};
+use nom::multi::{many_m_n, many0_count, many1_count};
+use nom::sequence::tuple;
+use nom::{Finish, IResult};
 
 use crate::buffer::{self};
 use crate::config::buffer::text_input::AutoFormat;
@@ -18,6 +23,7 @@ pub fn parse(
     buffer: buffer::Upstream,
     auto_format: AutoFormat,
     input: &str,
+    code_fence: Option<&CodeFence>,
     our_nickname: Option<NickRef>,
     in_channel: Option<bool>,
     is_connected: bool,
@@ -25,41 +31,102 @@ pub fn parse(
     relay_bytes: usize,
     config: &Config,
 ) -> Result<Parsed, Error> {
-    let content = match command::parse(
-        input,
-        Some(&buffer),
-        our_nickname,
-        is_connected,
-        isupport,
-        config,
-    ) {
-        Ok(Command::Internal(command)) => {
-            if is_connected {
-                if matches!(command, command::Internal::Reconnect) {
-                    return Err(Error::Command(command::Error::Connected));
-                } else {
-                    return Ok(Parsed::Internal(command));
+    let content = if let Some(open_code_fence) = code_fence {
+        if let Some(close_code_fence) = parse_code_fence(input)
+            .finish()
+            .ok()
+            .map(|(_, code_fence)| code_fence)
+            && close_code_fence.backticks >= open_code_fence.backticks
+            && close_code_fence.info.is_none()
+        {
+            return Ok(Parsed::CodeFence(close_code_fence));
+        }
+
+        Content::Text(format!(
+            "\u{11}{}\u{11}",
+            remove_indent(input, open_code_fence)
+                .finish()
+                .ok()
+                .map_or(input, |(_, unindented)| unindented)
+        ))
+    } else {
+        match auto_format {
+            AutoFormat::Disabled => (),
+            AutoFormat::Markdown | AutoFormat::All => {
+                if let Some(open_code_fence) = parse_code_fence(input)
+                    .finish()
+                    .ok()
+                    .map(|(_, code_fence)| code_fence)
+                {
+                    return Ok(Parsed::CodeFence(open_code_fence));
                 }
-            } else if matches!(
-                command,
-                command::Internal::Reconnect | command::Internal::Connect(_)
-            ) {
-                return Ok(Parsed::Internal(command));
-            } else {
-                return Err(Error::Command(command::Error::Disconnected));
             }
         }
-        Ok(Command::Irc(command)) => Content::Command(command),
-        Err(command::Error::MissingSlash) => {
-            let text = match auto_format {
-                AutoFormat::Disabled => input.to_string(),
-                AutoFormat::Markdown => formatting::encode(input, true),
-                AutoFormat::All => formatting::encode(input, false),
-            };
 
-            Content::Text(text)
+        match command::parse(
+            input,
+            Some(&buffer),
+            our_nickname,
+            is_connected,
+            isupport,
+            config,
+        ) {
+            Ok(Command::Internal(command)) => {
+                if is_connected {
+                    if matches!(command, command::Internal::Reconnect) {
+                        return Err(Error::Command(command::Error::Connected));
+                    } else {
+                        return Ok(Parsed::Internal(command));
+                    }
+                } else if matches!(
+                    command,
+                    command::Internal::Reconnect
+                        | command::Internal::Connect(_)
+                ) {
+                    return Ok(Parsed::Internal(command));
+                } else {
+                    return Err(Error::Command(command::Error::Disconnected));
+                }
+            }
+            Ok(Command::Irc(command::Irc::Msg(targets, text))) => {
+                let text = match auto_format {
+                    AutoFormat::Disabled => text,
+                    AutoFormat::Markdown => formatting::encode(&text, true),
+                    AutoFormat::All => formatting::encode(&text, false),
+                };
+
+                Content::Command(command::Irc::Msg(targets, text))
+            }
+            Ok(Command::Irc(command::Irc::Me(target, text))) => {
+                let text = match auto_format {
+                    AutoFormat::Disabled => text,
+                    AutoFormat::Markdown => formatting::encode(&text, true),
+                    AutoFormat::All => formatting::encode(&text, false),
+                };
+
+                Content::Command(command::Irc::Me(target, text))
+            }
+            Ok(Command::Irc(command::Irc::Notice(targets, text))) => {
+                let text = match auto_format {
+                    AutoFormat::Disabled => text,
+                    AutoFormat::Markdown => formatting::encode(&text, true),
+                    AutoFormat::All => formatting::encode(&text, false),
+                };
+
+                Content::Command(command::Irc::Notice(targets, text))
+            }
+            Ok(Command::Irc(command)) => Content::Command(command),
+            Err(command::Error::MissingSlash) => {
+                let text = match auto_format {
+                    AutoFormat::Disabled => input.to_string(),
+                    AutoFormat::Markdown => formatting::encode(input, true),
+                    AutoFormat::All => formatting::encode(input, false),
+                };
+
+                Content::Text(text)
+            }
+            Err(error) => return Err(Error::Command(error)),
         }
-        Err(error) => return Err(Error::Command(error)),
     };
 
     if let Some(message_bytes) = content
@@ -90,12 +157,23 @@ pub fn parse(
     Ok(Parsed::Input(Input { buffer, content }))
 }
 
+#[derive(Debug, Clone, PartialEq)]
 pub enum Parsed {
     Input(Input),
     Internal(command::Internal),
+    CodeFence(CodeFence),
 }
 
-#[derive(Debug, Clone)]
+impl Parsed {
+    pub fn code_fence(&self) -> Option<&CodeFence> {
+        match &self {
+            Parsed::Input(_) | Parsed::Internal(_) => None,
+            Parsed::CodeFence(code_fence) => Some(code_fence),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct Input {
     pub buffer: buffer::Upstream,
     content: Content,
@@ -177,7 +255,7 @@ impl Input {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 enum Content {
     Text(String),
     Command(command::Irc),
@@ -250,7 +328,50 @@ pub struct Cache<'a> {
     pub cursor_position: Option<&'a (usize, usize)>,
 }
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, Clone, PartialEq)]
+pub struct CodeFence {
+    indent: usize,
+    backticks: usize,
+    info: Option<String>,
+}
+
+fn parse_code_fence(input: &str) -> IResult<&str, CodeFence> {
+    cut(map(
+        tuple((parse_indent, parse_backticks, parse_info)),
+        |(indent, backticks, info)| {
+            let info = info.trim();
+            CodeFence {
+                indent,
+                backticks,
+                info: (!info.is_empty()).then_some(info.to_string()),
+            }
+        },
+    ))(input)
+}
+
+fn parse_indent(input: &str) -> IResult<&str, usize> {
+    verify(many0_count(char(' ')), |indent: &usize| *indent <= 3)(input)
+}
+
+fn parse_backticks(input: &str) -> IResult<&str, usize> {
+    verify(many1_count(char('`')), |backticks: &usize| *backticks >= 3)(input)
+}
+
+fn parse_info(input: &str) -> IResult<&str, &str> {
+    verify(rest, |info: &str| !info.contains('`'))(input)
+}
+
+fn remove_indent<'a>(
+    input: &'a str,
+    code_fence: &CodeFence,
+) -> IResult<&'a str, &'a str> {
+    map(
+        tuple((many_m_n(0, code_fence.indent, char(' ')), rest)),
+        |(_, unindented)| unindented,
+    )(input)
+}
+
+#[derive(Debug, Clone, PartialEq, thiserror::Error)]
 pub enum Error {
     #[error(
         "message exceeds maximum encoded length ({}/{} bytes)",
@@ -260,4 +381,171 @@ pub enum Error {
     ExceedsByteLimit { message_bytes: usize },
     #[error(transparent)]
     Command(#[from] command::Error),
+}
+
+#[cfg(test)]
+mod test {
+    use std::collections::HashMap;
+
+    use crate::config::buffer::text_input::AutoFormat;
+    use crate::input::{CodeFence, Content, Input, Parsed, parse};
+    use crate::user::Nick;
+    use crate::{Config, Server, buffer, command, isupport, target};
+
+    #[test]
+    fn parsing() {
+        let config = Config::default();
+        let isupport = HashMap::<isupport::Kind, isupport::Parameter>::new();
+        let nick = Nick::from_str(
+            "tester",
+            isupport::get_casemapping_or_default(&isupport),
+        );
+        let buffer = buffer::Upstream::Channel(
+            Server {
+                name: "Libera".into(),
+                network: None,
+            },
+            target::Channel::from_str(
+                "##chat",
+                isupport::get_chantypes_or_default(&isupport),
+                isupport::get_casemapping_or_default(&isupport),
+            ),
+        );
+        let tests = [
+            (
+                (
+                    AutoFormat::Disabled,
+                    "``` no autoformat ``` _at_ **all**",
+                    None,
+                ),
+                Ok(Parsed::Input(Input {
+                    buffer: buffer.clone(),
+                    content: Content::Text(String::from(
+                        "``` no autoformat ``` _at_ **all**",
+                    )),
+                })),
+            ),
+            (
+                (AutoFormat::Markdown, "```toml", None),
+                Ok(Parsed::CodeFence(CodeFence {
+                    indent: 0,
+                    backticks: 3,
+                    info: Some(String::from("toml")),
+                })),
+            ),
+            (
+                (
+                    AutoFormat::Markdown,
+                    "```toml",
+                    Some(&CodeFence {
+                        indent: 0,
+                        backticks: 3,
+                        info: Some(String::from("toml")),
+                    }),
+                ),
+                Ok(Parsed::Input(Input {
+                    buffer: buffer.clone(),
+                    content: Content::Text(String::from("\u{11}```toml\u{11}")),
+                })),
+            ),
+            (
+                (
+                    AutoFormat::Markdown,
+                    "  ```",
+                    Some(&CodeFence {
+                        indent: 0,
+                        backticks: 3,
+                        info: Some(String::from("toml")),
+                    }),
+                ),
+                Ok(Parsed::CodeFence(CodeFence {
+                    indent: 2,
+                    backticks: 3,
+                    info: None,
+                })),
+            ),
+            (
+                (
+                    AutoFormat::Markdown,
+                    "`````",
+                    Some(&CodeFence {
+                        indent: 0,
+                        backticks: 3,
+                        info: Some(String::from("toml")),
+                    }),
+                ),
+                Ok(Parsed::CodeFence(CodeFence {
+                    indent: 0,
+                    backticks: 5,
+                    info: None,
+                })),
+            ),
+            (
+                (
+                    AutoFormat::Markdown,
+                    "    key_bindings = \"emacs\"",
+                    Some(&CodeFence {
+                        indent: 2,
+                        backticks: 3,
+                        info: None,
+                    }),
+                ),
+                Ok(Parsed::Input(Input {
+                    buffer: buffer.clone(),
+                    content: Content::Text(String::from(
+                        "\u{11}  key_bindings = \"emacs\"\u{11}",
+                    )),
+                })),
+            ),
+            (
+                (
+                    AutoFormat::Markdown,
+                    "  key_bindings = \"emacs\"",
+                    Some(&CodeFence {
+                        indent: 3,
+                        backticks: 3,
+                        info: None,
+                    }),
+                ),
+                Ok(Parsed::Input(Input {
+                    buffer: buffer.clone(),
+                    content: Content::Text(String::from(
+                        "\u{11}key_bindings = \"emacs\"\u{11}",
+                    )),
+                })),
+            ),
+            (
+                (
+                    AutoFormat::Markdown,
+                    "/me thinks in _italics_ and **bold**",
+                    None,
+                ),
+                Ok(Parsed::Input(Input {
+                    buffer: buffer.clone(),
+                    content: Content::Command(command::Irc::Me(
+                        String::from("##chat"),
+                        String::from(
+                            "thinks in \u{1d}italics\u{1d} and \u{2}bold\u{2}",
+                        ),
+                    )),
+                })),
+            ),
+        ];
+        for ((auto_format, input, code_fence), expected) in tests {
+            let parsed = parse(
+                buffer.clone(),
+                auto_format,
+                input,
+                code_fence,
+                Some(nick.as_nickref()),
+                Some(true),
+                true,
+                &isupport,
+                128,
+                &config,
+            );
+
+            assert_eq!(parsed, expected);
+        }
+    }
 }
