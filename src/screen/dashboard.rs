@@ -610,7 +610,7 @@ impl Dashboard {
                     ),
                     sidebar::Event::ToggleCommandBar => (
                         self.toggle_command_bar(
-                            &closed_buffers(self, clients),
+                            &closed_buffers(self, clients, config),
                             version,
                             config,
                             theme,
@@ -1022,7 +1022,7 @@ impl Dashboard {
                             Task::batch(vec![
                                 command,
                                 self.toggle_command_bar(
-                                    &closed_buffers(self, clients),
+                                    &closed_buffers(self, clients, config),
                                     version,
                                     config,
                                     theme,
@@ -1034,7 +1034,7 @@ impl Dashboard {
                     Some(command_bar::Event::Unfocused) => {
                         return (
                             self.toggle_command_bar(
-                                &closed_buffers(self, clients),
+                                &closed_buffers(self, clients, config),
                                 version,
                                 config,
                                 theme,
@@ -1105,7 +1105,8 @@ impl Dashboard {
                         self.panes.main.restore();
                     }
                     CycleNextBuffer => {
-                        let all_buffers = all_buffers(clients, &self.history);
+                        let all_buffers =
+                            all_buffers(clients, &self.history, config);
                         let open_buffers = open_buffers(self);
 
                         if let Some((window, pane, state, history)) =
@@ -1134,7 +1135,8 @@ impl Dashboard {
                         }
                     }
                     CyclePreviousBuffer => {
-                        let all_buffers = all_buffers(clients, &self.history);
+                        let all_buffers =
+                            all_buffers(clients, &self.history, config);
                         let open_buffers = open_buffers(self);
 
                         if let Some((window, pane, state, history)) =
@@ -1207,7 +1209,7 @@ impl Dashboard {
                     CommandBar => {
                         return (
                             self.toggle_command_bar(
-                                &closed_buffers(self, clients),
+                                &closed_buffers(self, clients, config),
                                 version,
                                 config,
                                 theme,
@@ -1375,8 +1377,11 @@ impl Dashboard {
                         return (task, None);
                     }
                     CycleNextUnreadBuffer => {
-                        let all_buffers =
-                            all_buffers_with_has_unread(clients, &self.history);
+                        let all_buffers = all_buffers_with_has_unread(
+                            clients,
+                            &self.history,
+                            config,
+                        );
                         let open_buffers = open_buffers(self);
 
                         if let Some((window, pane, state, history)) =
@@ -1405,8 +1410,11 @@ impl Dashboard {
                         }
                     }
                     CyclePreviousUnreadBuffer => {
-                        let all_buffers =
-                            all_buffers_with_has_unread(clients, &self.history);
+                        let all_buffers = all_buffers_with_has_unread(
+                            clients,
+                            &self.history,
+                            config,
+                        );
                         let open_buffers = open_buffers(self);
 
                         if let Some((window, pane, state, history)) =
@@ -1813,7 +1821,7 @@ impl Dashboard {
                 background,
                 command_bar
                     .view(
-                        &all_buffers(clients, &self.history),
+                        &all_buffers(clients, &self.history, config),
                         self.focus,
                         self.buffer_resize_action(),
                         version,
@@ -2481,7 +2489,7 @@ impl Dashboard {
                 // - Restore maximized pane (if main window)
                 if self.command_bar.is_some() && window == self.main_window() {
                     self.toggle_command_bar(
-                        &closed_buffers(self, clients),
+                        &closed_buffers(self, clients, config),
                         version,
                         config,
                         theme,
@@ -4233,19 +4241,34 @@ impl Panes {
 fn all_buffers(
     clients: &client::Map,
     history: &history::Manager,
+    config: &Config,
 ) -> Vec<buffer::Upstream> {
     clients
         .connected_servers()
         .flat_map(|server| {
+            let chantypes = clients.get_chantypes(server);
+            let mut channels: Vec<_> = clients.get_channels(server).collect();
+            channels.sort_by(|a, b| {
+                data::client::compare_channels(
+                    server,
+                    config,
+                    chantypes,
+                    a.as_normalized_str(),
+                    b.as_normalized_str(),
+                )
+            });
+
+            let mut queries: Vec<_> =
+                history.get_unique_queries(server).into_iter().collect();
+            queries.sort_by_key(|nick| nick.to_string().to_lowercase());
+
             std::iter::once(buffer::Upstream::Server(server.clone()))
-                .chain(clients.get_channels(server).map(|channel| {
+                .chain(channels.into_iter().map(|channel| {
                     buffer::Upstream::Channel(server.clone(), channel.clone())
                 }))
-                .chain(history.get_unique_queries(server).into_iter().map(
-                    |nick| {
-                        buffer::Upstream::Query(server.clone(), nick.clone())
-                    },
-                ))
+                .chain(queries.into_iter().map(|nick| {
+                    buffer::Upstream::Query(server.clone(), nick.clone())
+                }))
         })
         .collect()
 }
@@ -4253,15 +4276,32 @@ fn all_buffers(
 fn all_buffers_with_has_unread(
     clients: &client::Map,
     history: &history::Manager,
+    config: &config::Config,
 ) -> Vec<(buffer::Upstream, bool)> {
     clients
         .connected_servers()
         .flat_map(|server| {
+            let chantypes = clients.get_chantypes(server);
+            let mut channels: Vec<_> = clients.get_channels(server).collect();
+            channels.sort_by(|a, b| {
+                data::client::compare_channels(
+                    server,
+                    config,
+                    chantypes,
+                    a.as_normalized_str(),
+                    b.as_normalized_str(),
+                )
+            });
+
+            let mut queries: Vec<_> =
+                history.get_unique_queries(server).into_iter().collect();
+            queries.sort_by_key(|nick| nick.to_string().to_lowercase());
+
             std::iter::once((
                 buffer::Upstream::Server(server.clone()),
                 history.has_unread(&history::Kind::Server(server.clone())),
             ))
-            .chain(clients.get_channels(server).map(|channel| {
+            .chain(channels.into_iter().map(|channel| {
                 (
                     buffer::Upstream::Channel(server.clone(), channel.clone()),
                     history.has_unread(&history::Kind::Channel(
@@ -4270,17 +4310,15 @@ fn all_buffers_with_has_unread(
                     )),
                 )
             }))
-            .chain(
-                history.get_unique_queries(server).into_iter().map(|nick| {
-                    (
-                        buffer::Upstream::Query(server.clone(), nick.clone()),
-                        history.has_unread(&history::Kind::Query(
-                            server.clone(),
-                            nick.clone(),
-                        )),
-                    )
-                }),
-            )
+            .chain(queries.into_iter().map(|nick| {
+                (
+                    buffer::Upstream::Query(server.clone(), nick.clone()),
+                    history.has_unread(&history::Kind::Query(
+                        server.clone(),
+                        nick.clone(),
+                    )),
+                )
+            }))
         })
         .collect()
 }
@@ -4297,10 +4335,11 @@ fn open_buffers(dashboard: &Dashboard) -> Vec<buffer::Upstream> {
 fn closed_buffers(
     dashboard: &Dashboard,
     clients: &client::Map,
+    config: &config::Config,
 ) -> Vec<buffer::Upstream> {
     let open_buffers = open_buffers(dashboard);
 
-    all_buffers(clients, &dashboard.history)
+    all_buffers(clients, &dashboard.history, config)
         .into_iter()
         .filter(|buffer| !open_buffers.contains(buffer))
         .collect()
