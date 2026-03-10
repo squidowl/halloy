@@ -1,19 +1,28 @@
+use data::Config;
 use data::isupport::CaseMap;
+use iced::padding;
+use iced::widget::container;
 
-use crate::widget::Element;
+use crate::widget::{self, Element};
 use crate::{Theme, font, theme};
 
 pub fn view<'a, Message: 'a>(
     typing: Option<String>,
+    _config: &'a Config,
     theme: &'a Theme,
 ) -> Option<Element<'a, Message>> {
     let text = typing?;
 
     Some(
-        crate::widget::text(text)
-            .style(theme::text::secondary)
-            .font_maybe(theme::font_style::secondary(theme).map(font::get))
-            .into(),
+        container(
+            widget::text(text)
+                .style(theme::text::secondary)
+                .font_maybe(theme::font_style::secondary(theme).map(font::get)),
+        )
+        .padding(padding::left(14).top(2).right(14))
+        .align_y(iced::alignment::Vertical::Bottom)
+        .style(theme::container::typing)
+        .into(),
     )
 }
 

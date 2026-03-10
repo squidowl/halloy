@@ -57,12 +57,16 @@ impl Default for Message {
 #[derive(Debug, Clone, Copy, Deserialize)]
 #[serde(default)]
 pub struct Typing {
-    pub enabled: bool,
+    pub share: bool,
+    pub show: bool,
 }
 
 impl Default for Typing {
     fn default() -> Self {
-        Self { enabled: true }
+        Self {
+            share: false,
+            show: true,
+        }
     }
 }
 

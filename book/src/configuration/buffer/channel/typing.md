@@ -1,16 +1,30 @@
 # Typing
 
-Typing indicator settings within a channel buffer.
+Typing settings for channel and query buffers.
 
 - [Typing](#typing)
   - [Configuration](#configuration)
-    - [enabled](#enabled)
+    - [share](#share)
+    - [show](#show)
 
 ## Configuration
 
-### enabled
+### share
 
-Control if channel typing indicators should be shown by default.
+Control whether Halloy shares your typing status with other users.
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: false
+
+[buffer.channel.typing]
+share = false
+```
+
+### show
+
+Control whether Halloy shows typing status from other users.
 
 ```toml
 # Type: boolean
@@ -18,5 +32,5 @@ Control if channel typing indicators should be shown by default.
 # Default: true
 
 [buffer.channel.typing]
-enabled = true
+show = true
 ```
