@@ -1,6 +1,6 @@
-use std::cmp::Ordering;
 use std::time::Duration;
 
+use data::client::compare_channels;
 use data::config::{self, Config, sidebar};
 use data::dashboard::{BufferAction, BufferFocusedAction};
 use data::{Version, buffer, file_transfer, history, isupport, server, target};
@@ -1280,86 +1280,5 @@ fn upstream_buffer_button<'a>(
             },
         )
         .into()
-    }
-}
-
-fn compare_channels_default(chantypes: &[char], a: &str, b: &str) -> Ordering {
-    let (Some(a_chantype), Some(b_chantype)) =
-        (a.chars().next(), b.chars().next())
-    else {
-        return a.cmp(b);
-    };
-
-    if [a_chantype, b_chantype]
-        .iter()
-        .all(|c| chantypes.contains(c))
-    {
-        let ord = a
-            .trim_start_matches(a_chantype)
-            .cmp(b.trim_start_matches(b_chantype));
-        if ord != Ordering::Equal {
-            return ord;
-        }
-    }
-
-    a.cmp(b)
-}
-
-fn compare_channels(
-    server: &Server,
-    config: &config::Config,
-    chantypes: &[char],
-    a: &str,
-    b: &str,
-) -> Ordering {
-    match config.sidebar.order_channels_by {
-        /*
-         * If config.sidebar.order_channels_by is `name` (default), this will sort channels together
-         * which have similar names when the chantype prefix (sometimes multiplied) is removed.
-         *   e.g., '#chat', '##chat-offtopic' and '&chat-local' all get sorted together instead of
-         *   in wildly different places.
-         */
-        config::sidebar::OrderChannelsBy::Name => {
-            compare_channels_default(chantypes, a, b)
-        }
-        /*
-         * If config.sidebar.order_channels_by is `name-and-prefix`, this will sort channels
-         * alphabetically by their full name including the prefix symbols. e.g., '#chat' and '##chat'
-         * will be in different sections of the list.
-         */
-        config::sidebar::OrderChannelsBy::NameAndPrefix => a.cmp(b),
-        /*
-         * If config.sidebar.order_channels_by is `config`, this will sort channels based on your
-         * config.server.<server_name>.channels. Anything not in this list is sorted by `name` (default).
-         */
-        config::sidebar::OrderChannelsBy::Config => {
-            config
-                .servers
-                .iter()
-                .find(|(name, _)| name.as_ref() == server.name.as_ref())
-                .map_or_else(
-                    || compare_channels_default(chantypes, a, b),
-                    |(_, server_config)| {
-                        // use server's list of configured channels
-                        let a_pos = server_config
-                            .channels
-                            .iter()
-                            .position(|ch| ch.eq_ignore_ascii_case(a));
-                        let b_pos = server_config
-                            .channels
-                            .iter()
-                            .position(|ch| ch.eq_ignore_ascii_case(b));
-
-                        match (a_pos, b_pos) {
-                            (Some(a_pos), Some(b_pos)) => a_pos.cmp(&b_pos),
-                            (Some(_), None) => Ordering::Less,
-                            (None, Some(_)) => Ordering::Greater,
-                            (None, None) => {
-                                compare_channels_default(chantypes, a, b)
-                            }
-                        }
-                    },
-                )
-        }
     }
 }
