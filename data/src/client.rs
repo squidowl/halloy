@@ -383,6 +383,27 @@ impl Client {
             }
         }
 
+        if let Some(order_channels_by) = self.config.order_channels_by
+            && config.order_channels_by != Some(order_channels_by)
+        {
+            let chantypes = self.chantypes().to_vec();
+            let channels: Vec<_> = self.chanmap.drain(..).collect();
+            for (channel, channel_data) in channels {
+                self.chanmap.insert_sorted_by(
+                    channel,
+                    channel_data,
+                    |c1, _, c2, _| {
+                        compare_channels(
+                            &config,
+                            &chantypes,
+                            c1.as_normalized_str(),
+                            c2.as_normalized_str(),
+                        )
+                    },
+                );
+            }
+        }
+
         self.config = config;
 
         events
@@ -1562,7 +1583,19 @@ impl Client {
                 ));
 
                 if user.nickname() == self.nickname() {
-                    self.chanmap.entry(target_channel.clone()).or_default();
+                    let chantypes = self.chantypes().to_vec();
+                    let _ = self.chanmap.insert_sorted_by(
+                        target_channel.clone(),
+                        Channel::default(),
+                        |c1, _, c2, _| {
+                            compare_channels(
+                                &self.config,
+                                &chantypes,
+                                c1.as_normalized_str(),
+                                c2.as_normalized_str(),
+                            )
+                        },
+                    );
 
                     // Add channel to WHO poll queue
                     if !self
@@ -3925,6 +3958,79 @@ pub fn compare_channels(
                         }
                     },
                 )
+        }
+    }
+}
+
+fn compare_channels_default(chantypes: &[char], a: &str, b: &str) -> Ordering {
+    let (Some(a_chantype), Some(b_chantype)) =
+        (a.chars().next(), b.chars().next())
+    else {
+        return a.cmp(b);
+    };
+
+    if [a_chantype, b_chantype]
+        .iter()
+        .all(|c| chantypes.contains(c))
+    {
+        let ord = a
+            .trim_start_matches(a_chantype)
+            .cmp(b.trim_start_matches(b_chantype));
+        if ord != Ordering::Equal {
+            return ord;
+        }
+    }
+
+    a.cmp(b)
+}
+
+fn compare_channels(
+    config: &config::server::Server,
+    chantypes: &[char],
+    a: &str,
+    b: &str,
+) -> Ordering {
+    match config.order_channels_by {
+        /*
+         * If config.sidebar.order_channels_by is `name` (default), this will sort channels together
+         * which have similar names when the chantype prefix (sometimes multiplied) is removed.
+         *   e.g., '#chat', '##chat-offtopic' and '&chat-local' all get sorted together instead of
+         *   in wildly different places.
+         */
+        None => compare_channels_default(chantypes, a, b),
+        Some(config::sidebar::OrderChannelsBy::Name) => {
+            compare_channels_default(chantypes, a, b)
+        }
+        /*
+         * If config.sidebar.order_channels_by is `name-and-prefix`, this will sort channels
+         * alphabetically by their full name including the prefix symbols. e.g., '#chat' and '##chat'
+         * will be in different sections of the list.
+         */
+        Some(config::sidebar::OrderChannelsBy::NameAndPrefix) => a.cmp(b),
+        /*
+         * If config.sidebar.order_channels_by is `config`, this will sort channels based on your
+         * config.server.<server_name>.channels. Anything not in this list is sorted by `name` (default).
+         */
+        Some(config::sidebar::OrderChannelsBy::Config) => {
+            // use server's list of configured channels (or sort_channels on bouncer networks)
+            let channel_list = if !config.sort_channels.is_empty() {
+                &config.sort_channels
+            } else {
+                &config.channels
+            };
+            let a_pos = channel_list
+                .iter()
+                .position(|ch| ch.eq_ignore_ascii_case(a));
+            let b_pos = channel_list
+                .iter()
+                .position(|ch| ch.eq_ignore_ascii_case(b));
+
+            match (a_pos, b_pos) {
+                (Some(a_pos), Some(b_pos)) => a_pos.cmp(&b_pos),
+                (Some(_), None) => Ordering::Less,
+                (None, Some(_)) => Ordering::Greater,
+                (None, None) => compare_channels_default(chantypes, a, b),
+            }
         }
     }
 }

@@ -1,6 +1,5 @@
 use std::time::Duration;
 
-use data::client::compare_channels;
 use data::config::{self, Config, sidebar};
 use data::dashboard::{BufferAction, BufferFocusedAction};
 use data::{Version, buffer, file_transfer, history, isupport, server, target};
@@ -533,19 +532,7 @@ impl Sidebar {
                             ));
 
                             // Channels from the connected server.
-                            let chantypes = clients.get_chantypes(server);
-                            let mut channels: Vec<_> =
-                                connection.channels().collect();
-                            channels.sort_by(|a, b| {
-                                compare_channels(
-                                    server,
-                                    config,
-                                    chantypes,
-                                    a.as_normalized_str(),
-                                    b.as_normalized_str(),
-                                )
-                            });
-                            for channel in channels {
+                            for channel in connection.channels() {
                                 buffers.push(button(
                                     buffer::Upstream::Channel(
                                         server.clone(),
@@ -570,9 +557,7 @@ impl Sidebar {
                             }
 
                             // Queries from the connected server.
-                            let mut queries =
-                                history.get_unique_queries(server);
-                            queries.sort_by_key(|q| q.as_normalized_str());
+                            let queries = history.get_unique_queries(server);
                             for query in queries {
                                 let query = clients
                                     .resolve_query(server, query)

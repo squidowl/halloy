@@ -181,6 +181,7 @@ impl ConfigMap {
     }
     pub async fn new(
         iter: impl IntoIterator<Item = (ServerName, config::Server)>,
+        sidebar_order_channels_by: sidebar::OrderChannelsBy,
     ) -> Result<Self, Error> {
         let mut map = IndexMap::new();
         for (i, (server, mut config)) in iter.into_iter().enumerate() {
@@ -273,6 +274,9 @@ impl ConfigMap {
                         // no passwords to read
                     }
                 }
+            }
+            if config.order_channels_by.is_none() {
+                config.order_channels_by = Some(sidebar_order_channels_by);
             }
             config.order = i as u16;
             map.insert(server, Arc::new(config));

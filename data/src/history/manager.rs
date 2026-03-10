@@ -500,7 +500,8 @@ impl Manager {
     }
 
     pub fn get_unique_queries(&self, server: &Server) -> Vec<&target::Query> {
-        self.data
+        let mut queries: Vec<_> = self
+            .data
             .map
             .keys()
             .filter_map(|kind| match kind {
@@ -512,7 +513,13 @@ impl Manager {
                 .then_some(query),
                 _ => None,
             })
-            .collect::<Vec<_>>()
+            .collect();
+
+        // Sort alphabetically
+        queries
+            .sort_by(|a, b| a.as_normalized_str().cmp(b.as_normalized_str()));
+
+        queries
     }
 
     pub fn server_kinds(&self, server: Server) -> Vec<history::Kind> {
