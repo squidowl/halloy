@@ -17,7 +17,8 @@ Fixed:
 - Prevent clicks from passing through completion picker overlays to content behind them (for example nicknames in the buffer).
 - Regression that could make the application slow to close
 - Apply locale to context menu, copy, and date separator timestamps
-- Fix direct message notifications when excludes are present
+- Fixed direct message notifications when excludes are present
+- Fixed reloading config for channel sorting.
 
 Thanks:
 
