@@ -6,36 +6,37 @@ You can define multiple server sections in the configuration file. Each server s
   - [Examples](#examples)
   - [Configuration](#configuration)
     - [nickname](#nickname)
-    - [nick\_password](#nick_password)
-    - [nick\_password\_file](#nick_password_file)
-    - [nick\_password\_file\_first\_line\_only](#nick_password_file_first_line_only)
-    - [nick\_password\_command](#nick_password_command)
-    - [nick\_identify\_syntax](#nick_identify_syntax)
-    - [alt\_nicks](#alt_nicks)
+    - [nick_password](#nick_password)
+    - [nick_password_file](#nick_password_file)
+    - [nick_password_file_first_line_only](#nick_password_file_first_line_only)
+    - [nick_password_command](#nick_password_command)
+    - [nick_identify_syntax](#nick_identify_syntax)
+    - [alt_nicks](#alt_nicks)
     - [username](#username)
     - [realname](#realname)
     - [server](#server)
     - [port](#port)
     - [password](#password)
-    - [password\_file](#password_file)
-    - [password\_file\_first\_line\_only](#password_file_first_line_only)
-    - [password\_command](#password_command)
+    - [password_file](#password_file)
+    - [password_file_first_line_only](#password_file_first_line_only)
+    - [password_command](#password_command)
     - [channels](#channels)
-    - [channel\_keys](#channel_keys)
+    - [channel_keys](#channel_keys)
+    - [order_channels_by](#order_channels_by)
     - [queries](#queries)
-    - [ping\_time](#ping_time)
-    - [ping\_timeout](#ping_timeout)
-    - [reconnect\_delay](#reconnect_delay)
-    - [should\_ghost](#should_ghost)
-    - [ghost\_sequence](#ghost_sequence)
+    - [ping_time](#ping_time)
+    - [ping_timeout](#ping_timeout)
+    - [reconnect_delay](#reconnect_delay)
+    - [should_ghost](#should_ghost)
+    - [ghost_sequence](#ghost_sequence)
     - [umodes](#umodes)
-    - [use\_tls](#use_tls)
-    - [dangerously\_accept\_invalid\_certs](#dangerously_accept_invalid_certs)
-    - [root\_cert\_path](#root_cert_path)
-    - [on\_connect](#on_connect)
-    - [anti\_flood](#anti_flood)
-    - [who\_poll\_enabled](#who_poll_enabled)
-    - [who\_poll\_interval](#who_poll_interval)
+    - [use_tls](#use_tls)
+    - [dangerously_accept_invalid_certs](#dangerously_accept_invalid_certs)
+    - [root_cert_path](#root_cert_path)
+    - [on_connect](#on_connect)
+    - [anti_flood](#anti_flood)
+    - [who_poll_enabled](#who_poll_enabled)
+    - [who_poll_interval](#who_poll_interval)
     - [monitor](#monitor)
     - [chathistory](#chathistory)
     - [proxy](#proxy)
@@ -48,6 +49,7 @@ You can define multiple server sections in the configuration file. Each server s
 ## Examples
 
 Examples can be found in the following guides:
+
 - [Example Server Configurations](../../guides/example-server-configurations.md)
 - [Multiple Servers](../../guides/multiple-servers.md)
 - [Connect with soju](../../guides/connect-with-soju.md)
@@ -174,7 +176,7 @@ realname = ""
 
 ### server
 
-The server to connect to.  Should not contain the protocol, port, username, or password (i.e. should look like `"irc.libera.chat"` not `"ircs://irc.libera.chat:6697"`).
+The server to connect to. Should not contain the protocol, port, username, or password (i.e. should look like `"irc.libera.chat"` not `"ircs://irc.libera.chat:6697"`).
 
 ```toml
 # Type: string
@@ -274,6 +276,31 @@ A mapping of channel names to keys (passwords) for join-on-connect.
 
 [servers.<name>]
 channel_keys = { "#foo" = "password" }
+```
+
+### order_channels_by
+
+Ordering for channels listed in the sidebar for the current server.
+
+- `"name"`: Sort channels by name only, ignoring chantypes (channel prefixes, e.g., `#` and `##`).
+- `"name-and-prefix"`: Sort channels by name including their chantypes.
+- `"config"`: Sort channels in the order they appear in your server's `channels`
+  list. Any channels not in the list appear last, using default (`"name"`) sort.
+
+
+If not set, the value will be taken from the sidebar config: [order_channels_by](../sidebar/#order_channels_by).
+
+```toml
+# Type: string
+# Values: "name", "name-and-prefix", "config"
+# Default: "name"
+
+[servers.<name>]
+order_channels_by = "config"
+
+# Example: When using "config", channels appear in this exact order:
+channels = ["#rust", "#halloy", "#halloy-test"]
+# Result: #rust → #halloy → #halloy-test → (any other channels are sorted by "name")
 ```
 
 ### queries
@@ -421,7 +448,7 @@ on_connect = ["/msg NickServ IDENTIFY foo bar", "/delay 2", "/join registered-cl
 
 ### anti_flood
 
-The time (in milliseconds) between sending messages to servers without SAFERATE.  Timing is not strictly guaranteed;  small groups of messages may be allowed to be sent at a faster rate, messages may be delayed in order to be batched, automated messages are included in the queue (most at a lower priority than user messages), etc.
+The time (in milliseconds) between sending messages to servers without SAFERATE. Timing is not strictly guaranteed; small groups of messages may be allowed to be sent at a faster rate, messages may be delayed in order to be batched, automated messages are included in the queue (most at a lower priority than user messages), etc.
 
 ```toml
 # Type: integer
@@ -492,9 +519,9 @@ Custom proxy for specified server
 
 The logic is as follows:
 
-* If a server proxy is provided, it will be used.
-* If a server proxy is not provided, the global proxy will be used.
-* If the global proxy is not provided, a plain connection will be used.
+- If a server proxy is provided, it will be used.
+- If a server proxy is not provided, the global proxy will be used.
+- If the global proxy is not provided, a plain connection will be used.
 
 The configuration syntax and supported proxy types are similar to the global [Proxy](../proxy/) but associated with the current `servers.<name>`:
 
@@ -546,4 +573,5 @@ External SASL auth uses a PEM encoded X509 certificate.
 Whether and where to confirm delivery of sent messages, if the server supports [`echo-message`](https://ircv3.net/specs/extensions/echo-message)
 
 [^1]: Windows path strings should usually be specified as literal strings (e.g. `'C:\Users\Default\'`), otherwise directory separators will need to be escaped (e.g. `"C:\\Users\\Default\\"`).
+
 [^2]: Relative paths are prefixed with the config directory (i.e. if you have your config.toml in `/home/me/.config/halloy/config.toml`, path `.passwd/libera` will be converted to `/home/me/.config/halloy/.passwd/libera`).
