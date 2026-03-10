@@ -11,11 +11,12 @@ Fixed:
 - Prevent interaction leakage behind open modals: clicks, cursor changes, and hover states no longer affect underlying UI while preserving outside-click and `Esc` to close
 - Prevent clicks from passing through completion picker overlays to content behind them (for example nicknames in the buffer).
 - Regression that could make the application slow to close
+- Apply locale to context menu, copy, and date separator timestamps
 
 Thanks:
 
 - Contributions: @KaiKorla
-- Bug reports: chmod222, @whitequark, quaff
+- Bug reports: chmod222, @whitequark, quaff, sebbu
 
 # 2026.4 (2026-03-03)
 
