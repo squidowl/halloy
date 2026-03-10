@@ -32,7 +32,7 @@ Nicklist settings within a channel buffer
 
 ## [Typing](typing.md)
 
-Typing indicator settings within a channel buffer
+Typing settings for channel and query buffers
 
 ## [Topic Banner](topic-banner.md)
 

@@ -15,6 +15,20 @@ impl Catalog for Theme {
     }
 }
 
+pub fn typing(theme: &Theme) -> Style {
+    let buffer = theme.styles().buffer;
+
+    Style {
+        background: Some(Background::Color(buffer.background)),
+        border: Border {
+            radius: 4.0.into(),
+            width: 0.0,
+            color: buffer.border,
+        },
+        ..Default::default()
+    }
+}
+
 pub fn buffer(theme: &Theme, selected: bool) -> Style {
     let buffer = theme.styles().buffer;
 

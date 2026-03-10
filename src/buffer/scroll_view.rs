@@ -240,6 +240,7 @@ pub fn view<'a>(
     previews: Option<Previews<'a>>,
     visible_for_source: Option<impl Fn(&Preview, &message::Source) -> bool>,
     chathistory_state: Option<ChatHistoryState>,
+    reserve_bottom_line_for_typing: bool,
     config: &'a Config,
     theme: &'a Theme,
     formatter: impl LayoutMessage<'a> + 'a,
@@ -669,6 +670,11 @@ pub fn view<'a>(
             bottom_spacer,
             space::vertical().height(line_spacing),
         ]
+        .padding(if reserve_bottom_line_for_typing {
+            padding::bottom(theme::resolve_line_height(&config.font) + 2.0 /* for padding */)
+        } else {
+            padding::bottom(0)
+        })
         .spacing(line_spacing),
         Message::ContentResized,
     );

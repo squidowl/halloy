@@ -317,7 +317,7 @@ impl Dashboard {
                         return (self.split_pane(axis), None);
                     }
                     pane::Message::Buffer(id, message) => {
-                        let typing_enabled = self
+                        let share_typing = self
                             .panes
                             .get(window, id)
                             .and_then(|pane| pane.buffer.data())
@@ -325,8 +325,8 @@ impl Dashboard {
                                 self.buffer_settings.get(&buffer)
                             })
                             .map_or(
-                                config.buffer.channel.typing.enabled,
-                                |settings| settings.channel.typing.enabled,
+                                config.buffer.channel.typing.share,
+                                |settings| settings.channel.typing.share,
                             );
 
                         if let Some(pane) = self.panes.get_mut(window, id) {
@@ -337,7 +337,7 @@ impl Dashboard {
                                 &mut self.file_transfers,
                                 main_window,
                                 config,
-                                typing_enabled,
+                                share_typing,
                             );
 
                             let task = command.map(move |message| {
@@ -2031,7 +2031,7 @@ impl Dashboard {
                         None
                     }
                     buffer::context_menu::Event::InsertNickname(nick) => {
-                        let typing_enabled = self
+                        let share_typing = self
                             .panes
                             .get(self.focus.window, self.focus.pane)
                             .and_then(|pane| pane.buffer.data())
@@ -2039,8 +2039,8 @@ impl Dashboard {
                                 self.buffer_settings.get(&buffer)
                             })
                             .map_or(
-                                config.buffer.channel.typing.enabled,
-                                |settings| settings.channel.typing.enabled,
+                                config.buffer.channel.typing.share,
+                                |settings| settings.channel.typing.share,
                             );
 
                         if let Some((_, _, pane, history)) =
@@ -2050,7 +2050,7 @@ impl Dashboard {
                                 nick,
                                 clients,
                                 history,
-                                typing_enabled,
+                                share_typing,
                                 config,
                                 &config.buffer.text_input.autocomplete,
                             );

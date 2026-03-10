@@ -6,8 +6,8 @@ use data::preview::{self, Previews};
 use data::target::{self, Target};
 use data::user::Nick;
 use data::{Config, Preview, Server, User, buffer, client, history, message};
-use iced::widget::{column, container, space};
-use iced::{Length, Size, Task};
+use iced::widget::{column, container, space, stack};
+use iced::{Length, Size, Task, padding};
 
 use super::message_view::{ChannelQueryLayout, TargetInfo};
 use super::{context_menu, input_view, scroll_view, typing};
@@ -67,6 +67,11 @@ pub fn view<'a>(
         });
     let our_nick = clients.nickname(server);
     let our_user = our_nick.map(|our_nick| User::from(Nick::from(our_nick)));
+    let server_supports_typing = clients.get_server_supports_typing(server);
+    let show_typing =
+        settings.map_or(config.buffer.channel.typing.show, |settings| {
+            settings.channel.typing.show
+        }) && server_supports_typing;
 
     let chathistory_state =
         clients.get_chathistory_state(server, &query.to_target());
@@ -100,6 +105,7 @@ pub fn view<'a>(
             previews,
             Option::<fn(&Preview, &message::Source) -> bool>::None,
             chathistory_state,
+            show_typing,
             config,
             theme,
             message_formatter,
@@ -108,19 +114,15 @@ pub fn view<'a>(
     )
     .height(Length::Fill);
 
-    let typing_enabled = settings
-        .map_or(config.buffer.channel.typing.enabled, |settings| {
-            settings.channel.typing.enabled
-        });
-
     let typing = typing::view(
         typing::typing_text(
-            typing_enabled,
-            clients.get_server_supports_typing(server),
+            show_typing,
+            server_supports_typing,
             our_nick.as_ref().map(|nick| nick.as_str()),
             &clients.get_query_typing_users(server, query),
             casemapping,
         ),
+        config,
         theme,
     );
 
@@ -144,7 +146,25 @@ pub fn view<'a>(
         .width(Length::Fill)
     });
 
-    let scrollable = column![messages, typing, text_input].height(Length::Fill);
+    let content = column![messages];
+
+    let scrollable: Element<'a, Message> = if let Some(typing) = typing {
+        let typing_overlay: Element<'a, Message> = container(typing)
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .padding(padding::left(2))
+            .align_y(iced::alignment::Vertical::Bottom)
+            .into();
+
+        column![
+            stack![content, typing_overlay].height(Length::Fill),
+            text_input
+        ]
+        .height(Length::Fill)
+        .into()
+    } else {
+        column![content, text_input].height(Length::Fill).into()
+    };
 
     container(scrollable)
         .width(Length::Fill)
@@ -189,7 +209,7 @@ impl Query {
         history: &mut history::Manager,
         main_window: &Window,
         config: &Config,
-        typing_enabled: bool,
+        share_typing: bool,
     ) -> (Task<Message>, Option<Event>) {
         match message {
             Message::ScrollView(message) => {
@@ -259,7 +279,7 @@ impl Query {
                     history,
                     main_window,
                     config,
-                    typing_enabled,
+                    share_typing,
                 );
                 let command = command.map(Message::InputView);
 

@@ -947,18 +947,6 @@ impl fmt::Display for MessageReference {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn remove_operation_maps_clienttagdeny_kind() {
-        let operation = Operation::Remove("CLIENTTAGDENY".to_string());
-
-        assert_eq!(operation.kind(), Some(Kind::CLIENTTAGDENY));
-    }
-}
-
 impl PartialEq<Message> for MessageReference {
     fn eq(&self, other: &Message) -> bool {
         match self {

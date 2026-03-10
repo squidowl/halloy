@@ -213,7 +213,7 @@ impl Buffer {
         file_transfers: &mut file_transfer::Manager,
         main_window: &Window,
         config: &Config,
-        typing_enabled: bool,
+        share_typing: bool,
     ) -> (Task<Message>, Option<Event>) {
         match (self, message) {
             (Buffer::Channel(state), Message::Channel(message)) => {
@@ -223,7 +223,7 @@ impl Buffer {
                     history,
                     main_window,
                     config,
-                    typing_enabled,
+                    share_typing,
                 );
 
                 let event = event.map(|event| match event {
@@ -337,7 +337,7 @@ impl Buffer {
                     history,
                     main_window,
                     config,
-                    typing_enabled,
+                    share_typing,
                 );
 
                 let event = event.map(|event| match event {
@@ -599,7 +599,7 @@ impl Buffer {
         nick: Nick,
         clients: &mut data::client::Map,
         history: &mut history::Manager,
-        typing_enabled: bool,
+        share_typing: bool,
         config: &Config,
         autocomplete: &Autocomplete,
     ) {
@@ -623,7 +623,7 @@ impl Buffer {
                 state.buffer.clone(),
                 clients,
                 history,
-                typing_enabled,
+                share_typing,
                 config,
                 autocomplete,
             ),
@@ -632,7 +632,7 @@ impl Buffer {
                 state.buffer.clone(),
                 clients,
                 history,
-                typing_enabled,
+                share_typing,
                 config,
                 autocomplete,
             ),
