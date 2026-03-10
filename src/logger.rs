@@ -10,7 +10,6 @@ use tokio::sync::mpsc as tokio_mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 
 pub fn setup(
-    is_debug: bool,
     config: config::Logs,
 ) -> Result<ReceiverStream<Vec<Record>>, Error> {
     let env_rust_log = env::var("RUST_LOG")
@@ -36,13 +35,9 @@ pub fn setup(
         ));
     });
 
-    if is_debug {
-        io_sink = io_sink.chain(std::io::stdout());
-    } else {
-        let log_file = data::log::file()?;
+    let log_file = data::log::file()?;
 
-        io_sink = io_sink.chain(log_file);
-    }
+    io_sink = io_sink.chain(log_file);
 
     io_sink = io_sink
         .level(log::LevelFilter::Off)
