@@ -1,4 +1,4 @@
-use chrono::{DateTime, Local, Utc};
+use chrono::{DateTime, Utc};
 use data::dashboard::BufferAction;
 use data::user::Nick;
 use data::{Config, Server, User, config, ctcp, isupport, message, target};
@@ -386,18 +386,13 @@ impl Entry {
                 )
             }
             (Entry::Timestamp, Context::Timestamp(date_time)) => {
-                let message = Message::CopyTimestamp(
-                    *date_time,
-                    config.buffer.timestamp.copy_format.clone(),
-                );
+                let context_menu_timestamp =
+                    config.buffer.format_context_menu_timestamp(date_time);
+
+                let message = Message::CopyTimestamp(*date_time);
 
                 menu_button(
-                    format!(
-                        "{}",
-                        date_time.with_timezone(&Local).format(
-                            &config.buffer.timestamp.context_menu_format
-                        )
-                    ),
+                    context_menu_timestamp,
                     Some(message),
                     length,
                     theme,
@@ -450,7 +445,7 @@ pub enum Message {
     OpenUrl(String),
     HidePreview(message::Hash, String),
     ShowPreview(message::Hash, String),
-    CopyTimestamp(DateTime<Utc>, Option<String>),
+    CopyTimestamp(DateTime<Utc>),
     #[allow(clippy::enum_variant_names)]
     DeleteMessage(DateTime<Utc>, message::Hash),
     #[allow(clippy::enum_variant_names)]
@@ -470,7 +465,7 @@ pub enum Event {
     OpenUrl(String),
     HidePreview(message::Hash, String),
     ShowPreview(message::Hash, String),
-    CopyTimestamp(DateTime<Utc>, Option<String>),
+    CopyTimestamp(DateTime<Utc>),
     DeleteMessage(DateTime<Utc>, message::Hash),
     ResendMessage(DateTime<Utc>, message::Hash),
 }
@@ -494,9 +489,7 @@ pub fn update(message: Message) -> Event {
         Message::OpenUrl(url) => Event::OpenUrl(url),
         Message::HidePreview(message, url) => Event::HidePreview(message, url),
         Message::ShowPreview(message, url) => Event::ShowPreview(message, url),
-        Message::CopyTimestamp(date_time, format) => {
-            Event::CopyTimestamp(date_time, format)
-        }
+        Message::CopyTimestamp(date_time) => Event::CopyTimestamp(date_time),
         Message::DeleteMessage(sesrver_time, hash) => {
             Event::DeleteMessage(sesrver_time, hash)
         }

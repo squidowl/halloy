@@ -2,8 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::time::Duration;
 
-use chrono::{DateTime, Local, NaiveDate, NaiveTime, Utc};
-use data::buffer::DateSeparators;
+use chrono::{DateTime, Local, NaiveDate, Utc};
 use data::command::Irc;
 use data::config::buffer::HideConsecutiveEnabled;
 use data::dashboard::BufferAction;
@@ -481,55 +480,33 @@ pub fn view<'a>(
                     element
                 };
 
-                let content =
-                    if is_new_day && config.buffer.date_separators.show {
-                        column![
-                            row![
-                                container(rule::horizontal(1))
-                                    .width(Length::Fill)
-                                    .padding(padding::right(6)),
-                                text(
-                                    date.and_time(
-                                        NaiveTime::from_hms_opt(0, 0, 0)
-                                            .expect("midnight is valid")
-                                    )
-                                    .and_local_timezone(Local)
-                                    .single()
-                                    .map_or(
-                                        // in the event of timezone weirdness,
-                                        // revert to default format
-                                        date.format(
-                                            &DateSeparators::default().format
-                                        ),
-                                        |datetime| {
-                                            datetime.format(
-                                                &config
-                                                    .buffer
-                                                    .date_separators
-                                                    .format,
-                                            )
-                                        }
-                                    )
-                                    .to_string()
-                                )
+                let content = if is_new_day
+                    && config.buffer.date_separators.show
+                {
+                    column![
+                        row![
+                            container(rule::horizontal(1))
+                                .width(Length::Fill)
+                                .padding(padding::right(6)),
+                            text(config.buffer.format_date_separator(&date))
                                 .size(divider_font_size)
                                 .style(theme::text::secondary)
                                 .font_maybe(
                                     theme::font_style::secondary(theme)
                                         .map(font::get)
                                 ),
-                                container(rule::horizontal(1))
-                                    .width(Length::Fill)
-                                    .padding(padding::left(6))
-                            ]
-                            .padding(2)
-                            .align_y(iced::Alignment::Center),
-                            content
+                            container(rule::horizontal(1))
+                                .width(Length::Fill)
+                                .padding(padding::left(6))
                         ]
-                        .into()
-                    } else {
+                        .padding(2)
+                        .align_y(iced::Alignment::Center),
                         content
-                    };
+                    ]
+                    .into()
+                } else {
+                    content
+                };
 
                 Some(keyed(keyed::Key::message(message), content))
             })
