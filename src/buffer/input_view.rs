@@ -805,8 +805,12 @@ impl State {
                     );
                     self.input_content = text_editor::Content::new();
 
-                    let lines =
-                        self.parsed.drain(..).filter_map(Result::ok).collect();
+                    let lines = self
+                        .parsed
+                        .drain(..)
+                        .filter_map(Result::ok)
+                        .filter(|parsed| parsed.code_fence().is_none())
+                        .collect();
 
                     self.send_input_lines(
                         lines, buffer, clients, history, config,
@@ -1359,14 +1363,10 @@ impl State {
                     {
                         *open_code_fence = None;
                     }
-                } else {
-                    if let Some(code_fence) = parsed
-                        .as_ref()
-                        .ok()
-                        .and_then(|parsed| parsed.code_fence())
-                    {
-                        *open_code_fence = Some(code_fence.clone());
-                    }
+                } else if let Some(code_fence) =
+                    parsed.as_ref().ok().and_then(|parsed| parsed.code_fence())
+                {
+                    *open_code_fence = Some(code_fence.clone());
                 }
 
                 Some(parsed)

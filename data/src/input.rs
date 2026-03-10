@@ -171,6 +171,31 @@ impl Parsed {
             Parsed::CodeFence(code_fence) => Some(code_fence),
         }
     }
+
+    pub fn includable_in_multiline_batch(
+        &self,
+        casemapping: isupport::CaseMap,
+    ) -> bool {
+        match self {
+            Parsed::Input(input) => match &input.content {
+                Content::Text(_) => true,
+                Content::Command(command) => match command {
+                    command::Irc::Msg(command_target, _)
+                    | command::Irc::Me(command_target, _)
+                    | command::Irc::Notice(command_target, _) => {
+                        input.buffer.target().is_some_and(|buffer_target| {
+                            buffer_target.as_normalized_str()
+                                == casemapping.normalize(command_target)
+                        })
+                    }
+                    _ => false,
+                },
+            },
+            Parsed::Internal(_) => false,
+            // Not included in batch, but should not delimit a batch
+            Parsed::CodeFence(_) => true,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
