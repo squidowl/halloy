@@ -868,6 +868,11 @@ impl State {
                 if !cache.history.is_empty() {
                     if let Some(index) = self.selected_history.as_mut() {
                         if *index == cache.history.len().saturating_sub(1) {
+                            self.input_content.perform(
+                                text_editor::Action::Move(
+                                    text_editor::Motion::DocumentStart,
+                                ),
+                            );
                             return (Task::none(), None);
                         }
 
@@ -910,6 +915,10 @@ impl State {
                     return self.on_history_navigation(
                         buffer, history, &new_input, false,
                     );
+                } else {
+                    self.input_content.perform(text_editor::Action::Move(
+                        text_editor::Motion::DocumentEnd,
+                    ));
                 }
 
                 (Task::none(), None)
@@ -1293,6 +1302,8 @@ impl State {
         }
     }
 
+    // TODO: Create a parse_line variant that updates only a single line's
+    // parsed update (and any following lines whose parsed value might change)
     fn parse_lines(
         &mut self,
         buffer: &buffer::Upstream,
