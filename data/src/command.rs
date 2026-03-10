@@ -18,7 +18,7 @@ pub enum Command {
     Irc(Irc),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Internal {
     OpenBuffers(Vec<Target>),
     LeaveBuffers(Vec<Target>, Option<String>),
@@ -170,7 +170,7 @@ impl Irc {
 }
 
 #[derive(Debug, Clone, Copy)]
-enum Kind {
+pub enum Kind {
     Join,
     Motd,
     Nick,
@@ -1265,7 +1265,7 @@ impl TryFrom<Irc> for message::Encoded {
     }
 }
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, Clone, PartialEq, thiserror::Error)]
 pub enum Error {
     #[error("{}", fmt_incorrect_arg_count(*min, *max, *actual))]
     IncorrectArgCount {

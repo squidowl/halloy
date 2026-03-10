@@ -4,11 +4,11 @@ use std::convert;
 use std::time::Duration;
 
 use data::buffer::{self, Upstream};
-use data::config::buffer::text_input::{Autocomplete, KeyBindings};
+use data::config::buffer::text_input::{AutoFormat, Autocomplete, KeyBindings};
 use data::dashboard::BufferAction;
 use data::history::filter::FilterChain;
 use data::history::{self, ReadMarker};
-use data::input::{self, RawInput};
+use data::input::{self, CodeFence, RawInput};
 use data::rate_limit::TokenPriority;
 use data::server::Server;
 use data::target::Target;
@@ -79,7 +79,7 @@ pub enum Message {
     },
     SendLines {
         buffer: Upstream,
-        lines: VecDeque<String>,
+        lines: VecDeque<input::Parsed>,
     },
     Paste,
     SelectAll,
@@ -590,28 +590,11 @@ fn error<'a, 'b, Message: 'a>(
     .into()
 }
 
-fn is_multiline_input(input: &str) -> bool {
-    input.contains('\n') || input.contains('\r')
-}
-
-fn multiline_lines(input: &str) -> VecDeque<String> {
-    input
-        .lines()
-        .map(|line| {
-            if line.is_empty() {
-                // Send a space to emulate an empty line
-                String::from(' ')
-            } else {
-                line.to_string()
-            }
-        })
-        .collect()
-}
-
 #[derive(Debug, Clone)]
 pub struct State {
     input_id: widget::Id,
     input_content: text_editor::Content,
+    parsed: Vec<Result<input::Parsed, input::Error>>,
     error: Option<String>,
     completion: Completion,
     selected_history: Option<usize>,
@@ -631,6 +614,7 @@ impl State {
                 text_editor::Content::new(),
                 text_editor::Content::with_text,
             ),
+            parsed: Vec::new(),
             error: None,
             completion: Completion::default(),
             selected_history: None,
@@ -709,12 +693,11 @@ impl State {
 
                 let message = sysinfo_parts.join(" ");
 
-                let mut history_tasks = vec![];
-
-                if let Ok(data::input::Parsed::Input(input)) = input::parse(
+                if let Ok(parsed) = input::parse(
                     buffer.clone(),
-                    config.buffer.text_input.auto_format,
+                    AutoFormat::Disabled,
                     message.as_str(),
+                    None,
                     clients.nickname(buffer.server()),
                     buffer.channel().map(|target| {
                         clients
@@ -726,75 +709,14 @@ impl State {
                     clients.get_relay_bytes(buffer.server()),
                     config,
                 ) {
-                    if let Some(encoded) = input.encoded() {
-                        clients.send(buffer, encoded, TokenPriority::User);
-                    }
-
-                    if let Some(nick) = clients.nickname(buffer.server()) {
-                        let mut user = nick.to_owned().into();
-                        let mut channel_users = None;
-
-                        let chantypes = clients.get_chantypes(buffer.server());
-                        let statusmsg = clients.get_statusmsg(buffer.server());
-                        let casemapping =
-                            clients.get_casemapping(buffer.server());
-                        let supports_echoes =
-                            clients.get_server_supports_echoes(buffer.server());
-
-                        // Resolve our attributes if sending this message in a channel
-                        if let buffer::Upstream::Channel(server, channel) =
-                            &buffer
-                        {
-                            channel_users =
-                                clients.get_channel_users(server, channel);
-
-                            if let Some(user_with_attributes) = clients
-                                .resolve_user_attributes(server, channel, &user)
-                            {
-                                user = user_with_attributes.clone();
-                            }
-                        }
-
-                        if let Some(messages) = input.messages(
-                            user,
-                            channel_users,
-                            chantypes,
-                            statusmsg,
-                            casemapping,
-                            supports_echoes,
-                        ) {
-                            for message in messages {
-                                history_tasks.extend(
-                                    history
-                                        .record_input_message(
-                                            message,
-                                            buffer.server(),
-                                            casemapping,
-                                            config,
-                                        )
-                                        .into_iter(),
-                                );
-                            }
-                        }
-                    }
-                }
-
-                let history_task = if history_tasks.is_empty() {
-                    Task::none()
+                    self.send_input_line(
+                        parsed, buffer, clients, history, config,
+                    )
                 } else {
-                    Task::batch(history_tasks.into_iter().map(Task::future))
-                };
-
-                (
-                    Task::none(),
-                    Some(Event::InputSent {
-                        history_task,
-                        open_buffers: vec![],
-                    }),
-                )
+                    (Task::none(), None)
+                }
             }
             Message::Send => {
-                let raw_input = self.input_content.text().clone();
                 let cursor_position = self.input_content.cursor().position;
 
                 // Reset error
@@ -817,64 +739,34 @@ impl State {
                     );
 
                     self.on_completion(buffer, history, actions, true)
-                } else if !raw_input.is_empty() {
+                } else if !self.input_content.text().is_empty() {
                     // If there is an error in the input then display the error
                     // for the current line (if it has an error) or the first
                     // line with an error, then ignore send.
-                    let is_connected =
-                        clients.get_server_is_connected(buffer.server());
 
-                    if let Some(line) = self
-                        .input_content
-                        .line(cursor_position.line)
-                        .map(|line| line.text)
-                        && let Err(error) = input::parse(
-                            buffer.clone(),
-                            config.buffer.text_input.auto_format,
-                            &line,
-                            clients.nickname(buffer.server()),
-                            buffer.channel().map(|target| {
-                                clients
-                                    .get_channels(buffer.server())
-                                    .any(|channel| target == channel)
-                            }),
-                            is_connected,
-                            &clients.get_isupport(buffer.server()),
-                            clients.get_relay_bytes(buffer.server()),
-                            config,
-                        )
+                    self.parse_lines(buffer, clients, config);
+
+                    if let Some(Err(error)) =
+                        self.parsed.get(cursor_position.line)
                     {
                         self.error = Some(error.to_string());
 
                         return (Task::none(), None);
-                    } else if let Some((line_num, line, error)) = self
-                        .input_content
-                        .lines()
-                        .map(|line| line.text)
-                        .enumerate()
-                        .find_map(|(line_num, line)| {
-                            if line_num != cursor_position.line {
-                                input::parse(
-                                    buffer.clone(),
-                                    config.buffer.text_input.auto_format,
-                                    &line,
-                                    clients.nickname(buffer.server()),
-                                    buffer.channel().map(|target| {
-                                        clients
-                                            .get_channels(buffer.server())
-                                            .any(|channel| target == channel)
-                                    }),
-                                    is_connected,
-                                    &clients.get_isupport(buffer.server()),
-                                    clients.get_relay_bytes(buffer.server()),
-                                    config,
-                                )
-                                .err()
-                                .map(|error| (line_num, line, error))
-                            } else {
-                                None
-                            }
-                        })
+                    } else if let Some((position, line, error)) =
+                        self.parsed.iter().enumerate().find_map(
+                            |(position, parsed)| {
+                                if let Err(error) = parsed
+                                    && let Some(line) = self
+                                        .input_content
+                                        .line(position)
+                                        .map(|line| line.text)
+                                {
+                                    Some((position, line, error))
+                                } else {
+                                    None
+                                }
+                            },
+                        )
                     {
                         const MAX_SNIPPET_LEN: usize = 64;
 
@@ -899,7 +791,7 @@ impl State {
                         self.error = Some(format!(
                             "error on line {}: {line_snippet}\
                            \n{error}",
-                            line_num + 1
+                            position + 1
                         ));
 
                         return (Task::none(), None);
@@ -907,25 +799,17 @@ impl State {
 
                     self.completion.reset();
 
-                    if is_multiline_input(raw_input.as_str()) {
-                        history
-                            .record_input_history(buffer, raw_input.to_owned());
-                        self.input_content = text_editor::Content::new();
-
-                        return self.send_multiline_line(
-                            multiline_lines(raw_input.as_str()),
-                            buffer,
-                            clients,
-                            history,
-                            config,
-                        );
-                    }
-
-                    history.record_input_history(buffer, raw_input.to_owned());
+                    history.record_input_history(
+                        buffer,
+                        self.input_content.text().clone(),
+                    );
                     self.input_content = text_editor::Content::new();
 
-                    self.send_input_line(
-                        raw_input, buffer, clients, history, config,
+                    let lines =
+                        self.parsed.drain(..).filter_map(Result::ok).collect();
+
+                    self.send_input_lines(
+                        lines, buffer, clients, history, config,
                     )
                 } else {
                     (Task::none(), None)
@@ -1047,7 +931,7 @@ impl State {
             Message::SendLines {
                 buffer: send_buffer,
                 lines,
-            } => self.send_multiline_line(
+            } => self.send_input_lines(
                 lines,
                 &send_buffer,
                 clients,
@@ -1218,6 +1102,8 @@ impl State {
 
                 match &action {
                     text_editor::Action::Edit(_) => {
+                        self.parse_lines(buffer, clients, config);
+
                         let cursor_position =
                             self.input_content.cursor().position;
 
@@ -1265,48 +1151,41 @@ impl State {
                                 .completion
                                 .complete_emoji(&line, cursor_position.column);
 
-                            if let Err(error) = input::parse(
-                                buffer.clone(),
-                                config.buffer.text_input.auto_format,
-                                &line,
-                                clients.nickname(buffer.server()),
-                                buffer.channel().map(|target| {
-                                    clients
-                                        .get_channels(buffer.server())
-                                        .any(|channel| target == channel)
-                                }),
-                                is_connected,
-                                &clients.get_isupport(buffer.server()),
-                                clients.get_relay_bytes(buffer.server()),
-                                config,
-                            ) && match error {
-                                input::Error::ExceedsByteLimit { .. }
-                                | input::Error::Command(
-                                    command::Error::InvalidModeString
-                                    | command::Error::ArgTooLong { .. }
-                                    | command::Error::TooManyTargets { .. }
-                                    | command::Error::NotPositiveInteger
-                                    | command::Error::InvalidChannelName {
+                            if let Some(Err(error)) =
+                                self.parsed.get(cursor_position.line)
+                                && match error {
+                                    input::Error::ExceedsByteLimit {
                                         ..
                                     }
-                                    | command::Error::InvalidServerUrl,
-                                ) => true,
-                                input::Error::Command(
-                                    command::Error::IncorrectArgCount {
-                                        actual,
-                                        max,
-                                        ..
-                                    },
-                                ) => actual > max,
-                                input::Error::Command(
-                                    command::Error::MissingSlash
-                                    | command::Error::MissingCommand
-                                    | command::Error::NoModeString
-                                    | command::Error::Connected
-                                    | command::Error::Disconnected
-                                    | command::Error::NotInChannel,
-                                ) => false,
-                            } {
+                                    | input::Error::Command(
+                                        command::Error::InvalidModeString
+                                        | command::Error::ArgTooLong { .. }
+                                        | command::Error::TooManyTargets {
+                                            ..
+                                        }
+                                        | command::Error::NotPositiveInteger
+                                        | command::Error::InvalidChannelName {
+                                            ..
+                                        }
+                                        | command::Error::InvalidServerUrl,
+                                    ) => true,
+                                    input::Error::Command(
+                                        command::Error::IncorrectArgCount {
+                                            actual,
+                                            max,
+                                            ..
+                                        },
+                                    ) => actual > max,
+                                    input::Error::Command(
+                                        command::Error::MissingSlash
+                                        | command::Error::MissingCommand
+                                        | command::Error::NoModeString
+                                        | command::Error::Connected
+                                        | command::Error::Disconnected
+                                        | command::Error::NotInChannel,
+                                    ) => false,
+                                }
+                            {
                                 self.error = Some(error.to_string());
                             }
 
@@ -1367,48 +1246,41 @@ impl State {
                             // Reset error state
                             self.error = None;
 
-                            if let Err(error) = input::parse(
-                                buffer.clone(),
-                                config.buffer.text_input.auto_format,
-                                &line,
-                                clients.nickname(buffer.server()),
-                                buffer.channel().map(|target| {
-                                    clients
-                                        .get_channels(buffer.server())
-                                        .any(|channel| target == channel)
-                                }),
-                                is_connected,
-                                &clients.get_isupport(buffer.server()),
-                                clients.get_relay_bytes(buffer.server()),
-                                config,
-                            ) && match error {
-                                input::Error::ExceedsByteLimit { .. }
-                                | input::Error::Command(
-                                    command::Error::InvalidModeString
-                                    | command::Error::ArgTooLong { .. }
-                                    | command::Error::TooManyTargets { .. }
-                                    | command::Error::NotPositiveInteger
-                                    | command::Error::InvalidChannelName {
+                            if let Some(Err(error)) =
+                                self.parsed.get(cursor_position.line)
+                                && match error {
+                                    input::Error::ExceedsByteLimit {
                                         ..
                                     }
-                                    | command::Error::InvalidServerUrl,
-                                ) => true,
-                                input::Error::Command(
-                                    command::Error::IncorrectArgCount {
-                                        actual,
-                                        max,
-                                        ..
-                                    },
-                                ) => actual > max,
-                                input::Error::Command(
-                                    command::Error::MissingSlash
-                                    | command::Error::MissingCommand
-                                    | command::Error::NoModeString
-                                    | command::Error::Connected
-                                    | command::Error::Disconnected
-                                    | command::Error::NotInChannel,
-                                ) => false,
-                            } {
+                                    | input::Error::Command(
+                                        command::Error::InvalidModeString
+                                        | command::Error::ArgTooLong { .. }
+                                        | command::Error::TooManyTargets {
+                                            ..
+                                        }
+                                        | command::Error::NotPositiveInteger
+                                        | command::Error::InvalidChannelName {
+                                            ..
+                                        }
+                                        | command::Error::InvalidServerUrl,
+                                    ) => true,
+                                    input::Error::Command(
+                                        command::Error::IncorrectArgCount {
+                                            actual,
+                                            max,
+                                            ..
+                                        },
+                                    ) => actual > max,
+                                    input::Error::Command(
+                                        command::Error::MissingSlash
+                                        | command::Error::MissingCommand
+                                        | command::Error::NoModeString
+                                        | command::Error::Connected
+                                        | command::Error::Disconnected
+                                        | command::Error::NotInChannel,
+                                    ) => false,
+                                }
+                            {
                                 self.error = Some(error.to_string());
                             }
                         }
@@ -1419,6 +1291,76 @@ impl State {
                 }
             }
         }
+    }
+
+    fn parse_lines(
+        &mut self,
+        buffer: &buffer::Upstream,
+        clients: &mut client::Map,
+        config: &Config,
+    ) {
+        let nickname = clients.nickname(buffer.server());
+        let in_channel = buffer.channel().map(|target| {
+            clients
+                .get_channels(buffer.server())
+                .any(|channel| target == channel)
+        });
+        let is_connected = clients.get_server_is_connected(buffer.server());
+        let isupport = clients.get_isupport(buffer.server());
+        let relay_bytes = clients.get_relay_bytes(buffer.server());
+
+        if self.input_content.text().is_empty() {
+            self.parsed = Vec::new();
+            return;
+        }
+
+        self.parsed = self
+            .input_content
+            .text()
+            .lines()
+            .scan(None, |open_code_fence: &mut Option<CodeFence>, line| {
+                let line = if line.is_empty() {
+                    // Send a space to emulate an empty line
+                    Cow::Owned(String::from(' '))
+                } else {
+                    Cow::Borrowed(line)
+                };
+
+                let parsed = input::parse(
+                    buffer.clone(),
+                    config.buffer.text_input.auto_format,
+                    &line,
+                    open_code_fence.as_ref(),
+                    nickname,
+                    in_channel,
+                    is_connected,
+                    &isupport,
+                    relay_bytes,
+                    config,
+                );
+
+                if open_code_fence.is_some() {
+                    if parsed
+                        .as_ref()
+                        .ok()
+                        .and_then(|parsed| parsed.code_fence())
+                        .is_some()
+                    {
+                        *open_code_fence = None;
+                    }
+                } else {
+                    if let Some(code_fence) = parsed
+                        .as_ref()
+                        .ok()
+                        .and_then(|parsed| parsed.code_fence())
+                    {
+                        *open_code_fence = Some(code_fence.clone());
+                    }
+                }
+
+                Some(parsed)
+            })
+            .collect();
     }
 
     fn close_context_menu(
@@ -1440,9 +1382,9 @@ impl State {
         )
     }
 
-    fn send_multiline_line(
+    fn send_input_lines(
         &mut self,
-        mut lines: VecDeque<String>,
+        mut lines: VecDeque<input::Parsed>,
         buffer: &Upstream,
         clients: &mut client::Map,
         history: &mut history::Manager,
@@ -1476,29 +1418,14 @@ impl State {
 
     fn send_input_line(
         &mut self,
-        raw_input: String,
+        parsed: input::Parsed,
         buffer: &buffer::Upstream,
         clients: &mut client::Map,
         history: &mut history::Manager,
         config: &Config,
     ) -> (Task<Message>, Option<Event>) {
-        // Parse input
-        let input = match input::parse(
-            buffer.clone(),
-            config.buffer.text_input.auto_format,
-            raw_input.as_str(),
-            clients.nickname(buffer.server()),
-            buffer.channel().map(|target| {
-                clients
-                    .get_channels(buffer.server())
-                    .any(|channel| target == channel)
-            }),
-            clients.get_server_is_connected(buffer.server()),
-            &clients.get_isupport(buffer.server()),
-            clients.get_relay_bytes(buffer.server()),
-            config,
-        ) {
-            Ok(input::Parsed::Internal(command)) => {
+        let input = match parsed {
+            input::Parsed::Internal(command) => {
                 match command {
                     command::Internal::OpenBuffers(targets) => {
                         return (
@@ -1687,9 +1614,8 @@ impl State {
                     }
                 }
             }
-            Ok(input::Parsed::Input(input)) => input,
-            Err(error) => {
-                self.error = Some(error.to_string());
+            input::Parsed::Input(input) => input,
+            input::Parsed::CodeFence(_) => {
                 return (Task::none(), None);
             }
         };
