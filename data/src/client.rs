@@ -40,6 +40,7 @@ const CLIENT_CHATHISTORY_LIMIT: u16 = 500;
 const CHATHISTORY_REQUEST_TIMEOUT: Duration = Duration::from_secs(120);
 const MODE_REQUEST_DELAY: Duration = Duration::from_millis(600);
 const MODE_REQUEST_TIMEOUT: Duration = Duration::from_secs(120);
+const TYPING_TIMEOUT: Duration = Duration::from_secs(6);
 
 #[derive(Debug, Clone, Copy)]
 pub enum Status {
@@ -150,6 +151,7 @@ pub struct Client {
     resolved_host: Option<String>,
     configured_nick: Nick,
     chanmap: IndexMap<target::Channel, Channel>,
+    querymap: IndexMap<target::Query, QueryState>,
     resolved_queries: HashSet<target::Query>,
     labels: HashMap<String, Context>,
     batches: HashMap<String, Batch>,
@@ -211,6 +213,7 @@ impl Client {
             ),
             alt_nick: None,
             chanmap: IndexMap::default(),
+            querymap: IndexMap::default(),
             resolved_queries: HashSet::new(),
             labels: HashMap::new(),
             batches: HashMap::new(),
@@ -1113,7 +1116,7 @@ impl Client {
                     });
                 }
             }
-            Command::PRIVMSG(target, text) | Command::NOTICE(target, text) => {
+            Command::PRIVMSG(_, text) | Command::NOTICE(_, text) => {
                 if let Some(user) = message.user(self.casemapping()) {
                     let is_echo = user.nickname() == self.nickname();
 
@@ -1294,8 +1297,21 @@ impl Client {
                         }
                     }
 
-                    // use `target` to confirm the direct message
-                    let direct_message = target == &self.nickname().to_string();
+                    let direct_message = self
+                        .message_query_target(&message.command)
+                        .as_ref()
+                        .is_some_and(|query| {
+                            query.as_normalized_str()
+                                == self.nickname().as_normalized_str()
+                        });
+
+                    if let Some(channel) =
+                        self.message_channel_target(&message.command)
+                    {
+                        self.clear_channel_typing(&channel, user.nickname());
+                    } else if direct_message {
+                        self.clear_query_typing(&target::Query::from(&user));
+                    }
 
                     if direct_message {
                         self.resolved_queries
@@ -2302,6 +2318,37 @@ impl Client {
                 return Ok(events);
             }
             Command::TAGMSG(_) => {
+                if let Some(sender) = message.user(self.casemapping()) {
+                    if sender.nickname() == self.nickname() {
+                        return Ok(vec![]);
+                    }
+
+                    let typing =
+                        message.tags.get("+typing").map(String::as_str);
+
+                    if let Some(channel) =
+                        self.message_channel_target(&message.command)
+                    {
+                        self.handle_channel_typing_tagmsg(
+                            &channel,
+                            sender.nickname(),
+                            typing,
+                        );
+                    } else if self
+                        .message_query_target(&message.command)
+                        .as_ref()
+                        .is_some_and(|query| {
+                            query.as_normalized_str()
+                                == self.nickname().as_normalized_str()
+                        })
+                    {
+                        self.handle_query_typing_tagmsg(
+                            &target::Query::from(&sender),
+                            typing,
+                        );
+                    }
+                }
+
                 return Ok(vec![]);
             }
             Command::ACCOUNT(accountname) => {
@@ -3274,6 +3321,36 @@ impl Client {
         self.chanmap.get(channel).map(|chanimpl| &chanimpl.users)
     }
 
+    pub fn channel_typing_users(
+        &self,
+        channel: &target::Channel,
+    ) -> Vec<String> {
+        let mut users = self
+            .chanmap
+            .get(channel)
+            .map(|channel| {
+                channel
+                    .typing
+                    .iter()
+                    .filter(|(_, updated_at)| !is_typing_expired(**updated_at))
+                    .map(|(nick, _)| nick.to_string())
+                    .collect_vec()
+            })
+            .unwrap_or_default();
+
+        users.sort_unstable();
+        users
+    }
+
+    pub fn query_typing_users(&self, query: &target::Query) -> Vec<String> {
+        self.querymap
+            .get(query)
+            .and_then(|query_state| query_state.typing)
+            .filter(|updated_at| !is_typing_expired(*updated_at))
+            .map(|_| vec![query.as_str().to_string()])
+            .unwrap_or_default()
+    }
+
     fn user_channels(&self, nick: NickRef) -> Vec<target::Channel> {
         self.chanmap
             .iter()
@@ -3288,6 +3365,107 @@ impl Client {
         query: &target::Query,
     ) -> Option<&'a target::Query> {
         self.resolved_queries.get(query)
+    }
+
+    fn update_channel_typing(
+        &mut self,
+        channel: &target::Channel,
+        nick: NickRef<'_>,
+    ) {
+        if let Some(channel) = self.chanmap.get_mut(channel) {
+            prune_expired_typing(&mut channel.typing);
+            channel.typing.insert(nick.to_owned(), Instant::now());
+        }
+    }
+
+    fn clear_channel_typing(
+        &mut self,
+        channel: &target::Channel,
+        nick: NickRef<'_>,
+    ) {
+        if let Some(channel) = self.chanmap.get_mut(channel) {
+            prune_expired_typing(&mut channel.typing);
+            channel.typing.remove(&nick.to_owned());
+        }
+    }
+
+    fn update_query_typing(&mut self, query: &target::Query) {
+        prune_expired_querymap(&mut self.querymap);
+        self.querymap.entry(query.clone()).or_default().typing =
+            Some(Instant::now());
+    }
+
+    fn clear_query_typing(&mut self, query: &target::Query) {
+        prune_expired_querymap(&mut self.querymap);
+
+        if let Some(query_state) = self.querymap.get_mut(query) {
+            query_state.typing = None;
+        }
+
+        self.querymap
+            .retain(|_, query_state| !query_state.is_empty());
+    }
+
+    fn message_channel_target(
+        &self,
+        command: &Command,
+    ) -> Option<target::Channel> {
+        let target = match command {
+            Command::TAGMSG(target)
+            | Command::PRIVMSG(target, _)
+            | Command::NOTICE(target, _) => target,
+            _ => return None,
+        };
+
+        target::Channel::parse(
+            target,
+            self.chantypes(),
+            self.statusmsg(),
+            self.casemapping(),
+        )
+        .ok()
+    }
+
+    fn message_query_target(&self, command: &Command) -> Option<target::Query> {
+        let target = match command {
+            Command::TAGMSG(target)
+            | Command::PRIVMSG(target, _)
+            | Command::NOTICE(target, _) => target,
+            _ => return None,
+        };
+
+        target::Query::parse(
+            target,
+            self.chantypes(),
+            self.statusmsg(),
+            self.casemapping(),
+        )
+        .ok()
+    }
+
+    fn handle_channel_typing_tagmsg(
+        &mut self,
+        channel: &target::Channel,
+        nick: NickRef<'_>,
+        typing: Option<&str>,
+    ) {
+        match typing {
+            Some("active") => self.update_channel_typing(channel, nick),
+            Some("done") => self.clear_channel_typing(channel, nick),
+            _ => {}
+        }
+    }
+
+    fn handle_query_typing_tagmsg(
+        &mut self,
+        query: &target::Query,
+        typing: Option<&str>,
+    ) {
+        match typing {
+            Some("active") => self.update_query_typing(query),
+            Some("done") => self.clear_query_typing(query),
+            _ => {}
+        }
     }
 
     pub fn nickname(&self) -> NickRef<'_> {
@@ -3308,6 +3486,11 @@ impl Client {
             }
             NotificationBlackout::Receiving => {}
         }
+
+        self.chanmap
+            .values_mut()
+            .for_each(|channel| prune_expired_typing(&mut channel.typing));
+        prune_expired_querymap(&mut self.querymap);
 
         if let Some(who_poll) = self.who_polls.front_mut() {
             #[derive(Debug)]
@@ -3468,6 +3651,41 @@ impl Client {
 
     pub fn safelist(&self) -> bool {
         self.isupport.contains_key(&isupport::Kind::SAFELIST)
+    }
+
+    fn supports_typing(&self) -> bool {
+        self.capabilities.acknowledged(Capability::MessageTags)
+    }
+
+    fn can_send_typing(&self) -> bool {
+        self.capabilities.acknowledged(Capability::MessageTags)
+            && !self.is_typing_tag_denied()
+    }
+
+    fn is_typing_tag_denied(&self) -> bool {
+        let Some(isupport::Parameter::CLIENTTAGDENY(tags)) =
+            self.isupport.get(&isupport::Kind::CLIENTTAGDENY)
+        else {
+            return false;
+        };
+
+        let (has_deny_all, typing_allowed, typing_denied) = tags.iter().fold(
+            (false, false, false),
+            |(has_deny_all, typing_allowed, typing_denied), tag| match tag {
+                isupport::ClientOnlyTags::DenyAll => {
+                    (true, typing_allowed, typing_denied)
+                }
+                isupport::ClientOnlyTags::Allowed(name) if name == "typing" => {
+                    (has_deny_all, true, typing_denied)
+                }
+                isupport::ClientOnlyTags::Denied(name) if name == "typing" => {
+                    (has_deny_all, typing_allowed, true)
+                }
+                _ => (has_deny_all, typing_allowed, typing_denied),
+            },
+        );
+
+        typing_denied || (has_deny_all && !typing_allowed)
     }
 
     pub fn is_channel(&self, target: &str) -> bool {
@@ -3943,6 +4161,34 @@ impl Map {
         })
     }
 
+    pub fn get_server_supports_typing(&self, server: &Server) -> bool {
+        self.client(server).is_some_and(Client::supports_typing)
+    }
+
+    pub fn get_server_can_send_typing(&self, server: &Server) -> bool {
+        self.client(server).is_some_and(Client::can_send_typing)
+    }
+
+    pub fn get_channel_typing_users(
+        &self,
+        server: &Server,
+        channel: &target::Channel,
+    ) -> Vec<String> {
+        self.client(server)
+            .map(|client| client.channel_typing_users(channel))
+            .unwrap_or_default()
+    }
+
+    pub fn get_query_typing_users(
+        &self,
+        server: &Server,
+        query: &target::Query,
+    ) -> Vec<String> {
+        self.client(server)
+            .map(|client| client.query_typing_users(query))
+            .unwrap_or_default()
+    }
+
     pub fn get_server_chathistory_message_reference_types(
         &self,
         server: &Server,
@@ -4205,6 +4451,21 @@ fn generate_batch_reference_tag() -> String {
     Posix::now().as_nanos().to_string()
 }
 
+fn prune_expired_typing(typing: &mut HashMap<Nick, Instant>) {
+    typing.retain(|_, updated_at| !is_typing_expired(*updated_at));
+}
+
+fn prune_expired_querymap(querymap: &mut IndexMap<target::Query, QueryState>) {
+    querymap.retain(|_, query_state| {
+        query_state.prune();
+        !query_state.is_empty()
+    });
+}
+
+fn is_typing_expired(updated_at: Instant) -> bool {
+    updated_at.elapsed() >= TYPING_TIMEOUT
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 enum RegistrationStep {
     Start,
@@ -4222,6 +4483,7 @@ pub struct Channel {
     pub names_init: bool,
     pub who_init: bool,
     pub mode: Option<String>,
+    pub typing: HashMap<Nick, Instant>,
 }
 
 impl Channel {
@@ -4259,6 +4521,23 @@ impl Channel {
         if let Some(user) = self.users.take(&user) {
             self.users.insert(user.with_accountname(accountname));
         }
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct QueryState {
+    pub typing: Option<Instant>,
+}
+
+impl QueryState {
+    fn prune(&mut self) {
+        if self.typing.is_some_and(is_typing_expired) {
+            self.typing = None;
+        }
+    }
+
+    fn is_empty(&self) -> bool {
+        self.typing.is_none()
     }
 }
 

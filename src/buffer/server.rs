@@ -275,6 +275,7 @@ impl Server {
                     history,
                     main_window,
                     config,
+                    false,
                 );
                 let command = command.map(Message::InputView);
 

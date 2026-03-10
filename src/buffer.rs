@@ -33,6 +33,7 @@ mod message_view;
 pub mod query;
 mod scroll_view;
 pub mod server;
+pub mod typing;
 
 #[derive(Clone, Debug)]
 pub enum Buffer {
@@ -212,6 +213,7 @@ impl Buffer {
         file_transfers: &mut file_transfer::Manager,
         main_window: &Window,
         config: &Config,
+        typing_enabled: bool,
     ) -> (Task<Message>, Option<Event>) {
         match (self, message) {
             (Buffer::Channel(state), Message::Channel(message)) => {
@@ -221,6 +223,7 @@ impl Buffer {
                     history,
                     main_window,
                     config,
+                    typing_enabled,
                 );
 
                 let event = event.map(|event| match event {
@@ -334,6 +337,7 @@ impl Buffer {
                     history,
                     main_window,
                     config,
+                    typing_enabled,
                 );
 
                 let event = event.map(|event| match event {
@@ -515,7 +519,8 @@ impl Buffer {
                     .map(Message::Server)
             }
             Buffer::Query(state) => query::view(
-                state, clients, history, previews, config, theme, is_focused,
+                state, clients, history, previews, settings, config, theme,
+                is_focused,
             )
             .map(Message::Query),
             Buffer::FileTransfers(state) => {
@@ -592,7 +597,10 @@ impl Buffer {
     pub fn insert_user_to_input(
         &mut self,
         nick: Nick,
+        clients: &mut data::client::Map,
         history: &mut history::Manager,
+        typing_enabled: bool,
+        config: &Config,
         autocomplete: &Autocomplete,
     ) {
         match self {
@@ -604,19 +612,28 @@ impl Buffer {
             Buffer::Server(state) => state.input_view.insert_user(
                 nick,
                 state.buffer.clone(),
+                clients,
                 history,
+                false,
+                config,
                 autocomplete,
             ),
             Buffer::Channel(state) => state.input_view.insert_user(
                 nick,
                 state.buffer.clone(),
+                clients,
                 history,
+                typing_enabled,
+                config,
                 autocomplete,
             ),
             Buffer::Query(state) => state.input_view.insert_user(
                 nick,
                 state.buffer.clone(),
+                clients,
                 history,
+                typing_enabled,
+                config,
                 autocomplete,
             ),
         }
