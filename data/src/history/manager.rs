@@ -51,7 +51,7 @@ pub enum Message {
 }
 
 pub enum Event {
-    Loaded(history::Kind),
+    Loaded(history::Kind, usize),
     Exited,
     SentMessageUpdated(history::Kind, history::ReadMarker),
     ResendMessage(history::Kind, message::Message),
@@ -163,7 +163,7 @@ impl Manager {
 
                 self.process_messages(kind.clone(), clients, buffer_config);
 
-                return Some(Event::Loaded(kind));
+                return Some(Event::Loaded(kind, len));
             }
             Message::LoadFull(kind, Err(error)) => {
                 log::warn!("failed to load history for {kind}: {error}");

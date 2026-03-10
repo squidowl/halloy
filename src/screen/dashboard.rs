@@ -655,8 +655,14 @@ impl Dashboard {
                     self.history.update(message, clients, &config.buffer)
                 {
                     match event {
-                        history::manager::Event::Loaded(kind) => {
-                            let buffer = kind.into();
+                        history::manager::Event::Loaded(kind, len) => {
+                            let buffer: data::Buffer = kind.into();
+
+                            if len == 0 {
+                                self.request_older_chathistory(
+                                    clients, &buffer,
+                                );
+                            }
 
                             if let Some((window, pane, state)) =
                                 self.panes.get_mut_by_buffer(&buffer)
