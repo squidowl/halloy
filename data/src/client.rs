@@ -16,6 +16,7 @@ use tokio::fs;
 
 pub use self::on_connect::on_connect;
 use crate::bouncer::{self, BouncerNetwork};
+use crate::capabilities::{Capabilities, Capability, Multiline};
 use crate::environment::{SOURCE_WEBSITE, VERSION};
 use crate::history::ReadMarker;
 use crate::isupport::{
@@ -139,232 +140,6 @@ struct ChatHistoryRequest {
     autorequest: bool,
 }
 
-// This is not an exhaustive list of IRCv3 capabilities, just the ones that
-// Halloy will request when available.  When adding new IRCv3 capabilities to
-// Halloy they should be added to this enum (Capability), Capability::from_str,
-// and Capabilities::create_requested.
-#[derive(Debug, Eq, PartialEq, Hash)]
-enum Capability {
-    AccountNotify,
-    AwayNotify,
-    Batch,
-    BouncerNetworks,
-    Chathistory,
-    Chghost,
-    EchoMessage,
-    EventPlayback,
-    ExtendedJoin,
-    ExtendedMonitor,
-    InviteNotify,
-    LabeledResponse,
-    MessageTags,
-    MultiPrefix,
-    ReadMarker,
-    Sasl,
-    ServerTime,
-    Setname,
-    UserhostInNames,
-}
-
-impl Capability {
-    pub fn from_str(cap: &str) -> Option<Self> {
-        match cap {
-            "account-notify" => Some(Self::AccountNotify),
-            "away-notify" => Some(Self::AwayNotify),
-            "batch" => Some(Self::Batch),
-            "chghost" => Some(Self::Chghost),
-            "draft/chathistory" => Some(Self::Chathistory),
-            "draft/event-playback" => Some(Self::EventPlayback),
-            "draft/read-marker" => Some(Self::ReadMarker),
-            "echo-message" => Some(Self::EchoMessage),
-            "extended-join" => Some(Self::ExtendedJoin),
-            "extended-monitor" => Some(Self::ExtendedMonitor),
-            "invite-notify" => Some(Self::InviteNotify),
-            "labeled-response" => Some(Self::LabeledResponse),
-            "message-tags" => Some(Self::MessageTags),
-            "multi-prefix" => Some(Self::MultiPrefix),
-            "server-time" => Some(Self::ServerTime),
-            "setname" => Some(Self::Setname),
-            "soju.im/bouncer-networks" => Some(Self::BouncerNetworks),
-            "userhost-in-names" => Some(Self::UserhostInNames),
-            _ if cap.starts_with("sasl") => Some(Self::Sasl),
-            _ => None,
-        }
-    }
-}
-
-#[derive(Debug, Default)]
-struct Capabilities {
-    listed: HashSet<String>,
-    pending: HashSet<String>,
-    acknowledged: HashSet<Capability>,
-}
-
-impl Capabilities {
-    pub fn acknowledge(&mut self, caps: impl Iterator<Item = String>) {
-        for cap in caps {
-            if let Some(cap) = Capability::from_str(cap.as_str()) {
-                self.acknowledged.insert(cap);
-            }
-        }
-    }
-
-    pub fn acknowledged(&self, cap: Capability) -> bool {
-        self.acknowledged.contains(&cap)
-    }
-
-    pub fn create_requested(
-        &mut self,
-        config: &config::Server,
-    ) -> Vec<&'static str> {
-        let mut requested = vec![];
-
-        if self.pending.contains("invite-notify")
-            && !self.acknowledged(Capability::InviteNotify)
-        {
-            requested.push("invite-notify");
-        }
-
-        if self.pending.contains("userhost-in-names")
-            && !self.acknowledged(Capability::UserhostInNames)
-        {
-            requested.push("userhost-in-names");
-        }
-
-        if self.pending.contains("away-notify")
-            && !self.acknowledged(Capability::AwayNotify)
-        {
-            requested.push("away-notify");
-        }
-
-        if self.pending.contains("message-tags")
-            && !self.acknowledged(Capability::MessageTags)
-        {
-            requested.push("message-tags");
-        }
-
-        if self.pending.contains("server-time")
-            && !self.acknowledged(Capability::ServerTime)
-        {
-            requested.push("server-time");
-        }
-
-        if self.pending.contains("chghost")
-            && !self.acknowledged(Capability::Chghost)
-        {
-            requested.push("chghost");
-        }
-
-        if self.pending.contains("extended-monitor")
-            && !self.acknowledged(Capability::ExtendedMonitor)
-        {
-            requested.push("extended-monitor");
-        }
-
-        if self.pending.contains("account-notify")
-            || self.acknowledged(Capability::AccountNotify)
-        {
-            if !self.acknowledged(Capability::AccountNotify) {
-                requested.push("account-notify");
-            }
-
-            if self.pending.contains("extended-join")
-                && !self.acknowledged(Capability::ExtendedJoin)
-            {
-                requested.push("extended-join");
-            }
-        }
-
-        if self.pending.contains("batch")
-            || self.acknowledged(Capability::Batch)
-        {
-            if !self.acknowledged(Capability::Batch) {
-                requested.push("batch");
-            }
-
-            // We require batch for chathistory support
-            if (self.pending.contains("draft/chathistory")
-                && config.chathistory)
-                || self.acknowledged(Capability::Chathistory)
-            {
-                if !self.acknowledged(Capability::Chathistory) {
-                    requested.push("draft/chathistory");
-                }
-
-                if self.pending.contains("draft/event-playback")
-                    && !self.acknowledged(Capability::EventPlayback)
-                {
-                    requested.push("draft/event-playback");
-                }
-            }
-        }
-
-        if self.pending.contains("labeled-response")
-            && !self.acknowledged(Capability::LabeledResponse)
-        {
-            requested.push("labeled-response");
-        }
-
-        if self.pending.contains("echo-message")
-            && !self.acknowledged(Capability::EchoMessage)
-        {
-            requested.push("echo-message");
-        }
-
-        if self.pending.contains("multi-prefix")
-            && !self.acknowledged(Capability::MultiPrefix)
-        {
-            requested.push("multi-prefix");
-        }
-
-        if self.pending.contains("draft/read-marker")
-            && !self.acknowledged(Capability::ReadMarker)
-        {
-            requested.push("draft/read-marker");
-        }
-
-        if self.pending.contains("setname")
-            && !self.acknowledged(Capability::Setname)
-        {
-            requested.push("setname");
-        }
-
-        if self.pending.contains("soju.im/bouncer-networks")
-            && !self.acknowledged(Capability::BouncerNetworks)
-        {
-            requested.push("soju.im/bouncer-networks");
-        }
-
-        if self.pending.iter().any(|cap| cap.starts_with("sasl"))
-            && !self.acknowledged(Capability::Sasl)
-        {
-            requested.push("sasl");
-        }
-
-        for cap in self.pending.drain() {
-            self.listed.insert(cap);
-        }
-
-        requested
-    }
-
-    pub fn delete(&mut self, caps: impl Iterator<Item = String>) {
-        for cap in caps {
-            if let Some(cap) = Capability::from_str(cap.as_str()) {
-                self.acknowledged.remove(&cap);
-            }
-
-            self.listed.remove(&cap);
-        }
-    }
-
-    pub fn extend_list(&mut self, caps: impl Iterator<Item = String>) {
-        for cap in caps {
-            self.pending.insert(cap);
-        }
-    }
-}
-
 pub struct Client {
     server: Server,
     config: Arc<config::Server>,
@@ -377,7 +152,7 @@ pub struct Client {
     chanmap: IndexMap<target::Channel, Channel>,
     resolved_queries: HashSet<target::Query>,
     labels: HashMap<String, Context>,
-    batches: HashMap<Target, Batch>,
+    batches: HashMap<String, Batch>,
     reroute_responses_to: Option<buffer::Upstream>,
     logged_in: bool,
     registration_step: RegistrationStep,
@@ -792,6 +567,66 @@ impl Client {
         }
     }
 
+    fn send_multiline_batch(
+        &mut self,
+        buffer: &buffer::Upstream,
+        mut messages: Vec<message::Encoded>,
+        priority: TokenPriority,
+    ) {
+        if let Some(target) =
+            buffer.target().as_ref().map(Target::as_normalized_str)
+        {
+            let reference_tag = generate_batch_reference_tag();
+
+            let mut opening_batch: message::Encoded = command!(
+                "BATCH",
+                format!("+{reference_tag}"),
+                "draft/multiline",
+                target
+            )
+            .into();
+
+            if self.capabilities.acknowledged(Capability::LabeledResponse) {
+                let label = generate_label();
+                let context = Context::new(&opening_batch, buffer.clone());
+
+                self.labels.insert(label.clone(), context);
+
+                // IRC: Encode tags
+                opening_batch.tags.insert("label".to_string(), label);
+            }
+
+            for message in messages.iter_mut() {
+                message
+                    .tags
+                    .insert("batch".to_string(), reference_tag.clone());
+            }
+
+            let closing_batch: message::Encoded =
+                command!("BATCH", format!("-{reference_tag}")).into();
+
+            let messages = iter::once(opening_batch)
+                .chain(messages)
+                .chain(iter::once(closing_batch))
+                .collect::<Vec<message::Encoded>>();
+
+            if let Some(ref mut anti_flood) = self.anti_flood {
+                for message in messages {
+                    anti_flood.add_token(message, priority);
+                }
+            } else {
+                for message in messages {
+                    if let Err(e) = self.handle.try_send(message.into()) {
+                        log::warn!(
+                            "[{}] Error sending message: {e}",
+                            self.server
+                        );
+                    }
+                }
+            }
+        }
+    }
+
     fn receive(
         &mut self,
         message: message::Encoded,
@@ -829,12 +664,7 @@ impl Client {
                 .or_else(|| {
                     batch_tag.as_ref().and_then(|batch| {
                         self.batches
-                            .get(&Target::parse(
-                                batch,
-                                self.chantypes(),
-                                self.statusmsg(),
-                                self.casemapping(),
-                            ))
+                            .get(batch)
                             .and_then(|batch| batch.context.clone())
                     })
                 })
@@ -874,58 +704,51 @@ impl Client {
                     '+' => {
                         let mut batch = Batch::new(context);
 
-                        batch.chathistory =
-                            match params.first().map(String::as_str) {
-                                Some("chathistory") => {
-                                    params.get(1).map(|target| {
-                                        ChatHistoryBatch::Target(Target::parse(
-                                            target,
-                                            self.chantypes(),
-                                            self.statusmsg(),
-                                            self.casemapping(),
-                                        ))
-                                    })
-                                }
-                                Some("draft/chathistory-targets") => {
-                                    Some(ChatHistoryBatch::Targets)
-                                }
-                                _ => None,
-                            };
-
-                        self.batches.insert(
-                            Target::parse(
-                                &reference,
-                                self.chantypes(),
-                                self.statusmsg(),
-                                self.casemapping(),
-                            ),
-                            batch,
-                        );
-                    }
-                    '-' => {
-                        if let Some(mut finished) =
-                            self.batches.remove(&Target::parse(
-                                &reference,
-                                self.chantypes(),
-                                self.statusmsg(),
-                                self.casemapping(),
-                            ))
-                        {
-                            // If nested, extend events into parent batch
-                            if let Some(parent) =
-                                batch_tag.as_ref().and_then(|batch| {
-                                    self.batches.get_mut(&Target::parse(
-                                        batch,
+                        batch.kind = match params.first().map(String::as_str) {
+                            Some("chathistory") => {
+                                params.get(1).map(|target| {
+                                    BatchKind::ChathistoryTarget(Target::parse(
+                                        target,
                                         self.chantypes(),
                                         self.statusmsg(),
                                         self.casemapping(),
                                     ))
                                 })
+                            }
+                            Some("draft/chathistory-targets") => {
+                                Some(BatchKind::ChathistoryTargets)
+                            }
+                            Some("draft/multiline") => {
+                                params.get(1).map(|target| {
+                                    BatchKind::Multiline(
+                                        Target::parse(
+                                            target,
+                                            self.chantypes(),
+                                            self.statusmsg(),
+                                            self.casemapping(),
+                                        ),
+                                        message.server_time(),
+                                    )
+                                })
+                            }
+                            _ => None,
+                        };
+
+                        self.batches.insert(reference, batch);
+                    }
+                    '-' => {
+                        if let Some(mut finished) =
+                            self.batches.remove(&reference)
+                        {
+                            // If nested, extend events into parent batch
+                            if let Some(parent) = batch_tag
+                                .as_ref()
+                                .and_then(|batch| self.batches.get_mut(batch))
                             {
                                 parent.events.extend(finished.events);
                             } else {
-                                match &finished.chathistory {
-                                    Some(ChatHistoryBatch::Target(
+                                match &finished.kind {
+                                    Some(BatchKind::ChathistoryTarget(
                                         batch_target,
                                     )) => {
                                         let continuation_subcommand = self
@@ -947,7 +770,7 @@ impl Client {
                                             );
                                         }
                                     }
-                                    Some(ChatHistoryBatch::Targets) => {
+                                    Some(BatchKind::ChathistoryTargets) => {
                                         if let Some(ChatHistoryRequest {
                                             subcommand,
                                             ..
@@ -971,14 +794,15 @@ impl Client {
 
                                             finished.events.push(
                                                 Event::ChatHistoryTargetsReceived(
-                                                    message.server_time(),
+                                                    message.server_time_or_now(),
                                                 ),
                                             );
                                         }
 
                                         self.clear_chathistory_request(None);
                                     }
-                                    _ => (),
+                                    Some(BatchKind::Multiline(_, _)) | None => {
+                                    }
                                 }
 
                                 return Ok(finished.events);
@@ -991,182 +815,42 @@ impl Client {
                 return Ok(vec![]);
             }
             _ if batch_tag.is_some() => {
-                let events = if let Some(batch_target) = batch_tag
-                    .as_ref()
-                    .and_then(|batch| {
-                        self.batches.get(&Target::parse(
-                            batch,
-                            self.chantypes(),
-                            self.statusmsg(),
-                            self.casemapping(),
-                        ))
-                    })
-                    .and_then(|batch| {
-                        batch
-                            .chathistory
-                            .as_ref()
-                            .and_then(ChatHistoryBatch::target)
-                    }) {
-                    if Some(User::from(Nick::from_str(
-                        "HistServ",
-                        self.casemapping(),
-                    ))) == message.user(self.casemapping())
+                if let Some(batch_tag) = batch_tag.as_ref() {
+                    let events = match self
+                        .batches
+                        .get(batch_tag)
+                        .and_then(|batch| batch.kind.as_ref())
                     {
-                        // HistServ provides event-playback without event-playback
-                        // which would require client-side parsing to map appropriately.
-                        // Avoid that complexity by only providing that functionality
-                        // via event-playback.
-                        vec![]
-                    } else {
-                        match &message.command {
-                            _ if is_reaction(&message) => {
-                                vec![Event::Reaction(message)]
-                            }
-                            Command::NICK(_) => batch_target
-                                .as_channel()
-                                .map(|channel| {
-                                    let target = message::Target::Channel {
-                                        channel: channel.clone(),
-                                        source: source::Source::Server(None),
-                                    };
-
-                                    vec![Event::WithTarget(
-                                        message,
-                                        self.nickname().to_owned(),
-                                        target,
-                                    )]
-                                })
-                                .unwrap_or_default(),
-                            Command::JOIN(_, _) => batch_target
-                                .as_channel()
-                                .map(|channel| {
-                                    let target = message::Target::Channel {
-                                        channel: channel.clone(),
-                                        source: source::Source::Server(Some(
-                                            source::Server::new(
-                                                source::server::Kind::Join,
-                                                message
-                                                    .user(self.casemapping())
-                                                    .map(|user| {
-                                                        Nick::from(
-                                                            user.nickname(),
-                                                        )
-                                                    }),
-                                                None,
-                                            ),
-                                        )),
-                                    };
-
-                                    vec![Event::WithTarget(
-                                        message,
-                                        self.nickname().to_owned(),
-                                        target,
-                                    )]
-                                })
-                                .unwrap_or_default(),
-                            Command::PART(_, _) => batch_target
-                                .as_channel()
-                                .map(|channel| {
-                                    let target = message::Target::Channel {
-                                        channel: channel.clone(),
-                                        source: source::Source::Server(Some(
-                                            source::Server::new(
-                                                source::server::Kind::Part,
-                                                message
-                                                    .user(self.casemapping())
-                                                    .map(|user| {
-                                                        Nick::from(
-                                                            user.nickname(),
-                                                        )
-                                                    }),
-                                                None,
-                                            ),
-                                        )),
-                                    };
-
-                                    vec![Event::WithTarget(
-                                        message,
-                                        self.nickname().to_owned(),
-                                        target,
-                                    )]
-                                })
-                                .unwrap_or_default(),
-                            Command::QUIT(_) => batch_target
-                                .as_channel()
-                                .map(|channel| {
-                                    let target = message::Target::Channel {
-                                        channel: channel.clone(),
-                                        source: source::Source::Server(Some(
-                                            source::Server::new(
-                                                source::server::Kind::Quit,
-                                                message
-                                                    .user(self.casemapping())
-                                                    .map(|user| {
-                                                        Nick::from(
-                                                            user.nickname(),
-                                                        )
-                                                    }),
-                                                None,
-                                            ),
-                                        )),
-                                    };
-
-                                    vec![Event::WithTarget(
-                                        message,
-                                        self.nickname().to_owned(),
-                                        target,
-                                    )]
-                                })
-                                .unwrap_or_default(),
-                            Command::PRIVMSG(target, text)
-                            | Command::NOTICE(target, text) => {
-                                if ctcp::is_query(text)
-                                    && !message::is_action(text)
-                                {
-                                    // Ignore historical CTCP queries/responses except for ACTIONs
-                                    vec![]
-                                } else {
-                                    if let Some(user) =
-                                        message.user(self.casemapping())
-                                    {
-                                        // If direct message, update resolved queries with user
-                                        if target
-                                            == &self.nickname().to_string()
-                                        {
-                                            self.resolved_queries.replace(
-                                                target::Query::from(user),
-                                            );
-                                        }
-                                    }
-
-                                    vec![Event::PrivOrNotice(
-                                        message,
-                                        self.nickname().to_owned(),
-                                        // Don't allow notifications from history
-                                        false,
-                                    )]
-                                }
-                            }
-                            _ => vec![Event::Single(
+                        Some(BatchKind::ChathistoryTarget(batch_target)) => {
+                            self.handle_chathistory(
                                 message,
-                                self.nickname().to_owned(),
-                            )],
+                                batch_target.clone(),
+                            )
                         }
-                    }
-                } else {
-                    self.handle(message, context, config)?
-                };
+                        Some(BatchKind::Multiline(_, server_time)) => {
+                            if let Some(server_time) = server_time
+                                && message.server_time().is_none()
+                            {
+                                self.handle(
+                                    message.with_server_time(server_time),
+                                    context,
+                                    config,
+                                )?
+                            } else {
+                                self.handle(message, context, config)?
+                            }
+                        }
+                        Some(BatchKind::ChathistoryTargets) | None => {
+                            self.handle(message, context, config)?
+                        }
+                    };
 
-                if let Some(batch) = self.batches.get_mut(&Target::parse(
-                    &batch_tag.unwrap(),
-                    self.chantypes(),
-                    self.statusmsg(),
-                    self.casemapping(),
-                )) {
-                    batch.events.extend(events);
-                    return Ok(vec![]);
-                } else {
-                    return Ok(events);
+                    if let Some(batch) = self.batches.get_mut(batch_tag) {
+                        batch.events.extend(events);
+                        return Ok(vec![]);
+                    } else {
+                        return Ok(events);
+                    }
                 }
             }
             // Label context whois
@@ -1412,7 +1096,7 @@ impl Client {
                     });
                 }
 
-                return Ok(vec![Event::LoggedIn(message.server_time())]);
+                return Ok(vec![Event::LoggedIn(message.server_time_or_now())]);
             }
             Command::Numeric(RPL_LOGGEDOUT, _) => {
                 log::info!("[{}] logged out", self.server);
@@ -1659,7 +1343,7 @@ impl Client {
                     inviter,
                     channel,
                     user_channels,
-                    sent_time: message.server_time(),
+                    sent_time: message.server_time_or_now(),
                 })]);
             }
             Command::NICK(nick) => {
@@ -1691,7 +1375,7 @@ impl Client {
                     new_nick,
                     ourself,
                     channels,
-                    sent_time: message.server_time(),
+                    sent_time: message.server_time_or_now(),
                 })]);
             }
             Command::Numeric(ERR_NICKNAMEINUSE | ERR_ERRONEUSNICKNAME, _)
@@ -1747,7 +1431,7 @@ impl Client {
                     user,
                     comment: comment.clone(),
                     channels,
-                    sent_time: message.server_time(),
+                    sent_time: message.server_time_or_now(),
                 })]);
             }
             Command::PART(channel, _) => {
@@ -1823,7 +1507,7 @@ impl Client {
 
                     return Ok(vec![Event::JoinedChannel(
                         target_channel,
-                        message.server_time(),
+                        message.server_time_or_now(),
                     )]);
                 } else if let Some(channel) =
                     self.chanmap.get_mut(&target_channel)
@@ -1864,7 +1548,7 @@ impl Client {
                                 victim: User::from(self.nickname().to_owned()),
                                 reason: reason.clone(),
                                 channel,
-                                sent_time: message.server_time(),
+                                sent_time: message.server_time_or_now(),
                             }),
                             Event::Single(message, self.nickname().to_owned()),
                         ]);
@@ -2354,7 +2038,7 @@ impl Client {
                         channel.topic.content =
                             Some(message::parse_fragments(text.clone()));
                         channel.topic.who = message.user(casemapping);
-                        channel.topic.time = Some(message.server_time());
+                        channel.topic.time = Some(message.server_time_or_now());
                     } else {
                         channel.topic.content = None;
                         channel.topic.who = None;
@@ -2674,7 +2358,7 @@ impl Client {
                     ourself,
                     logged_in: self.logged_in,
                     channels,
-                    sent_time: message.server_time(),
+                    sent_time: message.server_time_or_now(),
                 })]);
             }
             Command::Numeric(RPL_MONONLINE, args) => {
@@ -2744,14 +2428,14 @@ impl Client {
                             {
                                 events.push(Event::ChatHistoryTargetReceived(
                                     target,
-                                    message.server_time(),
+                                    message.server_time_or_now(),
                                 ));
                             }
                         }
                         Target::Query(_) => {
                             events.push(Event::ChatHistoryTargetReceived(
                                 target,
-                                message.server_time(),
+                                message.server_time_or_now(),
                             ));
                         }
                     }
@@ -3005,6 +2689,137 @@ impl Client {
         }
 
         Ok(vec![Event::Single(message, self.nickname().to_owned())])
+    }
+
+    fn handle_chathistory(
+        &mut self,
+        message: message::Encoded,
+        batch_target: Target,
+    ) -> Vec<Event> {
+        if Some(User::from(Nick::from_str("HistServ", self.casemapping())))
+            == message.user(self.casemapping())
+        {
+            // HistServ provides event-playback without event-playback which
+            // would require client-side parsing to map appropriately. Avoid
+            // that complexity by only providing that functionality via
+            // event-playback.
+            vec![]
+        } else {
+            match &message.command {
+                _ if is_reaction(&message) => {
+                    vec![Event::Reaction(message)]
+                }
+                Command::NICK(_) => batch_target
+                    .as_channel()
+                    .map(|channel| {
+                        let target = message::Target::Channel {
+                            channel: channel.clone(),
+                            source: source::Source::Server(None),
+                        };
+
+                        vec![Event::WithTarget(
+                            message,
+                            self.nickname().to_owned(),
+                            target,
+                        )]
+                    })
+                    .unwrap_or_default(),
+                Command::JOIN(_, _) => batch_target
+                    .as_channel()
+                    .map(|channel| {
+                        let target = message::Target::Channel {
+                            channel: channel.clone(),
+                            source: source::Source::Server(Some(
+                                source::Server::new(
+                                    source::server::Kind::Join,
+                                    message.user(self.casemapping()).map(
+                                        |user| Nick::from(user.nickname()),
+                                    ),
+                                    None,
+                                ),
+                            )),
+                        };
+
+                        vec![Event::WithTarget(
+                            message,
+                            self.nickname().to_owned(),
+                            target,
+                        )]
+                    })
+                    .unwrap_or_default(),
+                Command::PART(_, _) => batch_target
+                    .as_channel()
+                    .map(|channel| {
+                        let target = message::Target::Channel {
+                            channel: channel.clone(),
+                            source: source::Source::Server(Some(
+                                source::Server::new(
+                                    source::server::Kind::Part,
+                                    message.user(self.casemapping()).map(
+                                        |user| Nick::from(user.nickname()),
+                                    ),
+                                    None,
+                                ),
+                            )),
+                        };
+
+                        vec![Event::WithTarget(
+                            message,
+                            self.nickname().to_owned(),
+                            target,
+                        )]
+                    })
+                    .unwrap_or_default(),
+                Command::QUIT(_) => batch_target
+                    .as_channel()
+                    .map(|channel| {
+                        let target = message::Target::Channel {
+                            channel: channel.clone(),
+                            source: source::Source::Server(Some(
+                                source::Server::new(
+                                    source::server::Kind::Quit,
+                                    message.user(self.casemapping()).map(
+                                        |user| Nick::from(user.nickname()),
+                                    ),
+                                    None,
+                                ),
+                            )),
+                        };
+
+                        vec![Event::WithTarget(
+                            message,
+                            self.nickname().to_owned(),
+                            target,
+                        )]
+                    })
+                    .unwrap_or_default(),
+                Command::PRIVMSG(target, text)
+                | Command::NOTICE(target, text) => {
+                    if ctcp::is_query(text) && !message::is_action(text) {
+                        // Ignore historical CTCP queries/responses except for
+                        // ACTIONs
+                        vec![]
+                    } else {
+                        if let Some(user) = message.user(self.casemapping()) {
+                            // If direct message, update resolved queries with
+                            // user
+                            if target == &self.nickname().to_string() {
+                                self.resolved_queries
+                                    .replace(target::Query::from(user));
+                            }
+                        }
+
+                        vec![Event::PrivOrNotice(
+                            message,
+                            self.nickname().to_owned(),
+                            // Don't allow notifications from history
+                            false,
+                        )]
+                    }
+                }
+                _ => vec![Event::Single(message, self.nickname().to_owned())],
+            }
+        }
     }
 
     fn send_markread(
@@ -3686,6 +3501,10 @@ impl Client {
             }
             + 5
     }
+
+    pub fn multiline(&self) -> Option<Multiline> {
+        self.capabilities.multiline()
+    }
 }
 
 // If config.sidebar.order_channels_by is `name-and-prefix` this will sort channels together which
@@ -3748,7 +3567,9 @@ fn continue_chathistory_between(
                         message.message_id().map(MessageReference::MessageId)
                     }
                     MessageReference::Timestamp(_) => {
-                        Some(MessageReference::Timestamp(message.server_time()))
+                        Some(MessageReference::Timestamp(
+                            message.server_time_or_now(),
+                        ))
                     }
                     MessageReference::None => None,
                 }
@@ -3915,6 +3736,17 @@ impl Map {
     ) {
         if let Some(client) = self.client_mut(buffer.server()) {
             client.send(Some(buffer), message, priority);
+        }
+    }
+
+    pub fn send_multiline_batch(
+        &mut self,
+        buffer: &buffer::Upstream,
+        messages: Vec<message::Encoded>,
+        priority: TokenPriority,
+    ) {
+        if let Some(client) = self.client_mut(buffer.server()) {
+            client.send_multiline_batch(buffer, messages, priority);
         }
     }
 
@@ -4099,6 +3931,10 @@ impl Map {
     // estimate when no client is available
     pub fn get_relay_bytes(&self, server: &Server) -> usize {
         self.client(server).map_or(144, Client::relay_bytes)
+    }
+
+    pub fn get_multiline(&self, server: &Server) -> Option<Multiline> {
+        self.client(server).and_then(Client::multiline)
     }
 
     pub fn get_server_supports_echoes(&self, server: &Server) -> bool {
@@ -4328,18 +4164,18 @@ impl Context {
 }
 
 #[derive(Debug)]
-pub enum ChatHistoryBatch {
-    Target(Target),
-    Targets,
+pub enum BatchKind {
+    ChathistoryTarget(Target),
+    ChathistoryTargets,
+    Multiline(Target, Option<DateTime<Utc>>),
 }
 
-impl ChatHistoryBatch {
+impl BatchKind {
     pub fn target(&self) -> Option<Target> {
         match self {
-            ChatHistoryBatch::Target(batch_target) => {
-                Some(batch_target.clone())
-            }
-            ChatHistoryBatch::Targets => None,
+            Self::ChathistoryTarget(batch_target)
+            | Self::Multiline(batch_target, _) => Some(batch_target.clone()),
+            Self::ChathistoryTargets => None,
         }
     }
 }
@@ -4348,7 +4184,7 @@ impl ChatHistoryBatch {
 pub struct Batch {
     context: Option<Context>,
     events: Vec<Event>,
-    chathistory: Option<ChatHistoryBatch>,
+    kind: Option<BatchKind>,
 }
 
 impl Batch {
@@ -4356,12 +4192,16 @@ impl Batch {
         Self {
             context,
             events: vec![],
-            chathistory: None,
+            kind: None,
         }
     }
 }
 
 fn generate_label() -> String {
+    Posix::now().as_nanos().to_string()
+}
+
+fn generate_batch_reference_tag() -> String {
     Posix::now().as_nanos().to_string()
 }
 

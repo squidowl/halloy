@@ -1,13 +1,14 @@
 use std::borrow::Cow;
+use std::collections::VecDeque;
 use std::convert;
 use std::time::Duration;
 
 use data::buffer::{self, Upstream};
-use data::config::buffer::text_input::{Autocomplete, KeyBindings};
+use data::config::buffer::text_input::{AutoFormat, Autocomplete, KeyBindings};
 use data::dashboard::BufferAction;
 use data::history::filter::FilterChain;
 use data::history::{self, ReadMarker};
-use data::input::{self, RawInput};
+use data::input::{self, CodeFence, RawInput};
 use data::rate_limit::TokenPriority;
 use data::server::Server;
 use data::target::Target;
@@ -20,7 +21,9 @@ use iced::widget::{
     self, button, column, container, operation, row, rule, text_editor,
 };
 use iced::{Alignment, Length, Task, clipboard, event, keyboard, padding};
+use itertools::Itertools;
 use tokio::time;
+use unicode_segmentation::UnicodeSegmentation;
 
 use self::completion::Completion;
 use crate::widget::key_press::is_numpad;
@@ -71,6 +74,10 @@ pub enum Message {
     SendCommand {
         buffer: Upstream,
         command: command::Irc,
+    },
+    SendLines {
+        buffer: Upstream,
+        lines: VecDeque<input::Parsed>,
     },
     Paste,
     SelectAll,
@@ -339,12 +346,13 @@ pub fn view<'a>(
 
             match *key {
                 // New line
-                // TODO: Add shift+enter binding
-                // iced::keyboard::Key::Named(
-                //     iced::keyboard::key::Named::Enter,
-                // ) if key_press.modifiers.shift() => {
-                //     Some(text_editor::Binding::Enter)
-                // }
+                iced::keyboard::Key::Named(
+                    iced::keyboard::key::Named::Enter,
+                ) if key_press.modifiers.shift() => {
+                    (state.input_content.line_count()
+                        < config.buffer.text_input.max_lines)
+                        .then_some(text_editor::Binding::Enter)
+                }
                 //
                 // Send
                 iced::keyboard::Key::Named(
@@ -359,11 +367,29 @@ pub fn view<'a>(
                 // Up
                 iced::keyboard::Key::Named(
                     iced::keyboard::key::Named::ArrowUp,
-                ) => Some(text_editor::Binding::Custom(Message::Up)),
+                ) => {
+                    let cursor_position = state.input_content.cursor().position;
+
+                    if cursor_position.line == 0 {
+                        Some(text_editor::Binding::Custom(Message::Up))
+                    } else {
+                        text_editor::Binding::from_key_press(key_press)
+                    }
+                }
                 // Down
                 iced::keyboard::Key::Named(
                     iced::keyboard::key::Named::ArrowDown,
-                ) => Some(text_editor::Binding::Custom(Message::Down)),
+                ) => {
+                    let cursor_position = state.input_content.cursor().position;
+
+                    if cursor_position.line
+                        == state.input_content.line_count().saturating_sub(1)
+                    {
+                        Some(text_editor::Binding::Custom(Message::Down))
+                    } else {
+                        text_editor::Binding::from_key_press(key_press)
+                    }
+                }
                 // Escape
                 iced::keyboard::Key::Named(
                     iced::keyboard::key::Named::Escape,
@@ -567,6 +593,7 @@ fn error<'a, 'b, Message: 'a>(
 pub struct State {
     input_id: widget::Id,
     input_content: text_editor::Content,
+    parsed: Vec<Result<input::Parsed, input::Error>>,
     error: Option<String>,
     completion: Completion,
     selected_history: Option<usize>,
@@ -586,6 +613,7 @@ impl State {
                 text_editor::Content::new(),
                 text_editor::Content::with_text,
             ),
+            parsed: Vec::new(),
             error: None,
             completion: Completion::default(),
             selected_history: None,
@@ -664,12 +692,11 @@ impl State {
 
                 let message = sysinfo_parts.join(" ");
 
-                let mut history_tasks = vec![];
-
-                if let Ok(data::input::Parsed::Input(input)) = input::parse(
+                if let Ok(parsed) = input::parse(
                     buffer.clone(),
-                    config.buffer.text_input.auto_format,
+                    AutoFormat::Disabled,
                     message.as_str(),
+                    None,
                     clients.nickname(buffer.server()),
                     buffer.channel().map(|target| {
                         clients
@@ -681,503 +708,129 @@ impl State {
                     clients.get_relay_bytes(buffer.server()),
                     config,
                 ) {
-                    if let Some(encoded) = input.encoded() {
-                        clients.send(buffer, encoded, TokenPriority::User);
-                    }
-
-                    if let Some(nick) = clients.nickname(buffer.server()) {
-                        let mut user = nick.to_owned().into();
-                        let mut channel_users = None;
-
-                        let chantypes = clients.get_chantypes(buffer.server());
-                        let statusmsg = clients.get_statusmsg(buffer.server());
-                        let casemapping =
-                            clients.get_casemapping(buffer.server());
-                        let supports_echoes =
-                            clients.get_server_supports_echoes(buffer.server());
-
-                        // Resolve our attributes if sending this message in a channel
-                        if let buffer::Upstream::Channel(server, channel) =
-                            &buffer
-                        {
-                            channel_users =
-                                clients.get_channel_users(server, channel);
-
-                            if let Some(user_with_attributes) = clients
-                                .resolve_user_attributes(server, channel, &user)
-                            {
-                                user = user_with_attributes.clone();
-                            }
-                        }
-
-                        if let Some(messages) = input.messages(
-                            user,
-                            channel_users,
-                            chantypes,
-                            statusmsg,
-                            casemapping,
-                            supports_echoes,
-                        ) {
-                            for message in messages {
-                                history_tasks.extend(
-                                    history
-                                        .record_input_message(
-                                            message,
-                                            buffer.server(),
-                                            casemapping,
-                                            config,
-                                        )
-                                        .into_iter(),
-                                );
-                            }
-                        }
-                    }
-                }
-
-                let history_task = if history_tasks.is_empty() {
-                    Task::none()
+                    self.send_input_line(
+                        parsed, buffer, clients, history, config,
+                    )
                 } else {
-                    Task::batch(history_tasks.into_iter().map(Task::future))
-                };
-
-                (
-                    Task::none(),
-                    Some(Event::InputSent {
-                        history_task,
-                        open_buffers: vec![],
-                    }),
-                )
+                    (Task::none(), None)
+                }
             }
             Message::Send => {
-                let raw_input = self.input_content.text().clone();
-                let cursor_position =
-                    self.input_content.cursor().position.column;
+                let cursor_position = self.input_content.cursor().position;
 
                 // Reset error
                 self.error = None;
                 // Reset selected history
                 self.selected_history = None;
 
-                if let Some(entry) = self.completion.select(config) {
+                if let Some(entry) = self.completion.select(config)
+                    && let Some(line) = self
+                        .input_content
+                        .line(cursor_position.line)
+                        .map(|line| line.text)
+                {
                     let chantypes = clients.get_chantypes(buffer.server());
                     let actions = entry.complete_input(
-                        raw_input.as_str(),
-                        cursor_position,
+                        &line,
+                        cursor_position.column,
                         chantypes,
                         config,
                     );
 
                     self.on_completion(buffer, history, actions, true)
-                } else if !raw_input.is_empty() {
+                } else if !self.input_content.text().is_empty() {
+                    // If there is an error in the input then display the error
+                    // for the current line (if it has an error) or the first
+                    // line with an error, then ignore send.
+
+                    self.parse_lines(buffer, clients, config);
+
+                    if let Some(Err(error)) =
+                        self.parsed.get(cursor_position.line)
+                    {
+                        self.error = Some(error.to_string());
+
+                        return (Task::none(), None);
+                    } else if let Some((position, line, error)) =
+                        self.parsed.iter().enumerate().find_map(
+                            |(position, parsed)| {
+                                if let Err(error) = parsed
+                                    && let Some(line) = self
+                                        .input_content
+                                        .line(position)
+                                        .map(|line| line.text)
+                                {
+                                    Some((position, line, error))
+                                } else {
+                                    None
+                                }
+                            },
+                        )
+                    {
+                        const MAX_SNIPPET_LEN: usize = 64;
+
+                        let line_snippet =
+                            if UnicodeSegmentation::graphemes(&*line, true)
+                                .count()
+                                <= MAX_SNIPPET_LEN
+                            {
+                                line
+                            } else {
+                                let mut line_snippet =
+                                    UnicodeSegmentation::graphemes(
+                                        &*line, true,
+                                    )
+                                    .take(MAX_SNIPPET_LEN)
+                                    .collect::<String>();
+                                line_snippet.push('…');
+
+                                Cow::Owned(line_snippet)
+                            };
+
+                        self.error = Some(format!(
+                            "error on line {}: {line_snippet}\
+                           \n{error}",
+                            position + 1
+                        ));
+
+                        return (Task::none(), None);
+                    }
+
                     self.completion.reset();
 
-                    // Parse input
-                    let input = match input::parse(
-                        buffer.clone(),
-                        config.buffer.text_input.auto_format,
-                        raw_input.as_str(),
-                        clients.nickname(buffer.server()),
-                        buffer.channel().map(|target| {
-                            clients
-                                .get_channels(buffer.server())
-                                .any(|channel| target == channel)
-                        }),
-                        clients.get_server_is_connected(buffer.server()),
-                        &clients.get_isupport(buffer.server()),
-                        clients.get_relay_bytes(buffer.server()),
-                        config,
-                    ) {
-                        Ok(input::Parsed::Internal(command)) => {
-                            history.record_input_history(
-                                buffer,
-                                raw_input.to_owned(),
-                            );
-
-                            self.input_content = text_editor::Content::new();
-
-                            match command {
-                                command::Internal::OpenBuffers(targets) => {
-                                    return (
-                                        Task::none(),
-                                        Some(Event::OpenBuffers {
-                                            server: buffer.server().clone(),
-                                            targets: targets
-                                                .into_iter()
-                                                .map(|target| match target {
-                                                    Target::Channel(_) => (
-                                                        target,
-                                                        config
-                                                            .actions
-                                                            .buffer
-                                                            .message_channel,
-                                                    ),
-                                                    Target::Query(_) => (
-                                                        target,
-                                                        config
-                                                            .actions
-                                                            .buffer
-                                                            .message_user,
-                                                    ),
-                                                })
-                                                .collect(),
-                                        }),
-                                    );
-                                }
-                                command::Internal::LeaveBuffers(
-                                    targets,
-                                    reason,
-                                ) => {
-                                    return (
-                                        Task::none(),
-                                        Some(Event::LeaveBuffers {
-                                            targets,
-                                            reason,
-                                        }),
-                                    );
-                                }
-                                command::Internal::Detach(channels) => {
-                                    return (
-                                        Task::none(),
-                                        Some(Event::LeaveBuffers {
-                                            targets: channels
-                                                .into_iter()
-                                                .map(Target::Channel)
-                                                .collect(),
-                                            reason: Some("detach".to_string()),
-                                        }),
-                                    );
-                                }
-                                command::Internal::Hop(first, rest) => {
-                                    let has_channel_argument = first
-                                        .as_ref()
-                                        .is_some_and(|s| s.starts_with('#'));
-
-                                    // Channel to join, either from first argument or buffer channel
-                                    let target_channel = if has_channel_argument
-                                    {
-                                        // Use first argument as channel.
-                                        first.clone()
-                                    } else {
-                                        // If first argument isn't a channel, we use buffer channel
-                                        buffer.channel().map(|chan| {
-                                            chan.as_str().to_string()
-                                        })
-                                    };
-
-                                    // If we don't have a target channel for some reason we return
-                                    let Some(target_channel) = target_channel
-                                    else {
-                                        return (Task::none(), None);
-                                    };
-
-                                    let message = if has_channel_argument {
-                                        // If first argument is a channel, we use second argument as message
-                                        rest
-                                    } else {
-                                        // Otherwise we use both arguments
-                                        match (
-                                            first.as_deref(),
-                                            rest.as_deref(),
-                                        ) {
-                                            (Some(a), Some(b)) => {
-                                                Some(format!("{a} {b}"))
-                                            }
-                                            (Some(a), None) => {
-                                                Some(a.to_string())
-                                            }
-                                            (None, Some(b)) => {
-                                                Some(b.to_string())
-                                            }
-                                            (None, None) => None,
-                                        }
-                                    };
-
-                                    // Part channel. Might not exist if we execute on a query/server.
-                                    let part_command =
-                                        buffer.channel().and_then(|channel| {
-                                            data::Input::from_command(
-                                                buffer.clone(),
-                                                command::Irc::Part(
-                                                    channel
-                                                        .as_str()
-                                                        .to_string(),
-                                                    message,
-                                                ),
-                                            )
-                                            .encoded()
-                                        });
-
-                                    // Send part command.
-                                    if let Some(part_command) = part_command {
-                                        clients.send(
-                                            buffer,
-                                            part_command,
-                                            TokenPriority::User,
-                                        );
-                                    }
-
-                                    // Create a delay task that will execute the join after waiting
-                                    let buffer_clone = buffer.clone();
-                                    let target_channel_clone =
-                                        target_channel.clone();
-
-                                    let delayed_join_task = Task::perform(
-                                        time::sleep(Duration::from_millis(100)),
-                                        move |()| Message::SendCommand {
-                                            buffer: buffer_clone,
-                                            command: command::Irc::Join(
-                                                target_channel_clone,
-                                                None,
-                                            ),
-                                        },
-                                    );
-
-                                    let chantypes =
-                                        clients.get_chantypes(buffer.server());
-                                    let statusmsg =
-                                        clients.get_statusmsg(buffer.server());
-                                    let casemapping = clients
-                                        .get_casemapping(buffer.server());
-
-                                    let target = Target::parse(
-                                        target_channel.as_str(),
-                                        chantypes,
-                                        statusmsg,
-                                        casemapping,
-                                    );
-
-                                    let event =
-                                        has_channel_argument.then_some({
-                                            let buffer_action = match buffer {
-                                                // If it's a channel, we want to replace it when hopping to a new channel.
-                                                Upstream::Channel(..) => {
-                                                    BufferAction::ReplacePane
-                                                }
-                                                // If it's a server or query, we want to follow config for actions.
-                                                Upstream::Server(..)
-                                                | Upstream::Query(..) => {
-                                                    config
-                                                        .actions
-                                                        .buffer
-                                                        .message_channel
-                                                }
-                                            };
-
-                                            Event::OpenBuffers {
-                                                server: buffer.server().clone(),
-                                                targets: vec![(
-                                                    target,
-                                                    buffer_action,
-                                                )],
-                                            }
-                                        });
-
-                                    return (delayed_join_task, event);
-                                }
-                                command::Internal::ChannelDiscovery => {
-                                    return (
-                                        Task::none(),
-                                        Some(Event::OpenInternalBuffer(
-                                            buffer::Internal::ChannelDiscovery(
-                                                Some(buffer.server().clone()),
-                                            ),
-                                        )),
-                                    );
-                                }
-                                command::Internal::Delay(_) => {
-                                    return (Task::none(), None);
-                                }
-                                command::Internal::ClearBuffer => {
-                                    let kind = history::Kind::from_input_buffer(
-                                        buffer.clone(),
-                                    );
-
-                                    let event = history
-                                        .clear_messages(kind, clients)
-                                        .map(|history_task| Event::Cleared {
-                                            history_task: Task::future(
-                                                history_task,
-                                            ),
-                                        });
-
-                                    return (Task::none(), event);
-                                }
-                                command::Internal::SysInfo => {
-                                    return (
-                                        iced::system::information()
-                                            .map(Message::SysInfoReceived),
-                                        None,
-                                    );
-                                }
-                                command::Internal::Connect(server) => {
-                                    return (
-                                        Task::none(),
-                                        Some(Event::OpenServer(server)),
-                                    );
-                                }
-                                command::Internal::Reconnect => {
-                                    return (
-                                        Task::none(),
-                                        Some(Event::Reconnect(
-                                            buffer.server().clone(),
-                                        )),
-                                    );
-                                }
-                            }
-                        }
-                        Ok(input::Parsed::Input(input)) => input,
-                        Err(error) => {
-                            self.error = Some(error.to_string());
-                            return (Task::none(), None);
-                        }
-                    };
-
-                    history.record_input_history(buffer, raw_input.to_owned());
+                    history.record_input_history(
+                        buffer,
+                        self.input_content.text().clone(),
+                    );
                     self.input_content = text_editor::Content::new();
 
-                    if let Some(encoded) = input.encoded() {
-                        let sent_time = encoded.server_time();
+                    let lines = self
+                        .parsed
+                        .drain(..)
+                        .filter_map(Result::ok)
+                        .filter(|parsed| parsed.code_fence().is_none())
+                        .collect();
 
-                        clients.send(buffer, encoded, TokenPriority::User);
-
-                        let supports_echoes =
-                            clients.get_server_supports_echoes(buffer.server());
-
-                        if config.buffer.mark_as_read.on_message_sent
-                            // If the server supports echoes, then send MARKREAD
-                            // on echo only (not when recording the input)
-                            && !supports_echoes
-                        {
-                            let chantypes =
-                                clients.get_chantypes(buffer.server());
-                            let statusmsg =
-                                clients.get_statusmsg(buffer.server());
-                            let casemapping =
-                                clients.get_casemapping(buffer.server());
-
-                            if let Some(targets) =
-                                input.targets(chantypes, statusmsg, casemapping)
-                            {
-                                for target in targets {
-                                    clients.send_markread(
-                                        buffer.server(),
-                                        target,
-                                        ReadMarker::from_date_time(sent_time),
-                                        TokenPriority::High,
-                                    );
-                                }
-                            }
-                        }
-                    }
-
-                    let mut history_task = Task::none();
-
-                    if let Some(nick) = clients.nickname(buffer.server()) {
-                        let mut user = nick.to_owned().into();
-                        let mut channel_users = None;
-
-                        let chantypes = clients.get_chantypes(buffer.server());
-                        let statusmsg = clients.get_statusmsg(buffer.server());
-                        let casemapping =
-                            clients.get_casemapping(buffer.server());
-                        let supports_echoes =
-                            clients.get_server_supports_echoes(buffer.server());
-
-                        // Resolve our attributes if sending this message in a channel
-                        if let buffer::Upstream::Channel(server, channel) =
-                            &buffer
-                        {
-                            channel_users =
-                                clients.get_channel_users(server, channel);
-
-                            if let Some(user_with_attributes) = clients
-                                .resolve_user_attributes(server, channel, &user)
-                            {
-                                user = user_with_attributes.clone();
-                            }
-                        }
-
-                        let mut history_tasks = vec![];
-
-                        if let Some(messages) = input.messages(
-                            user,
-                            channel_users,
-                            chantypes,
-                            statusmsg,
-                            casemapping,
-                            supports_echoes,
-                        ) {
-                            for message in messages {
-                                history_tasks.extend(
-                                    history
-                                        .record_input_message(
-                                            message,
-                                            buffer.server(),
-                                            casemapping,
-                                            config,
-                                        )
-                                        .into_iter(),
-                                );
-                            }
-                        }
-
-                        history_task = Task::batch(
-                            history_tasks.into_iter().map(Task::future),
-                        );
-                    }
-
-                    let open_buffers =
-                        if let Some(command::Irc::Join(targets, _)) =
-                            input.command()
-                            && let Some(buffer_action) =
-                                config.actions.buffer.join_channel
-                        {
-                            let chantypes =
-                                clients.get_chantypes(buffer.server());
-                            let statusmsg =
-                                clients.get_statusmsg(buffer.server());
-                            let casemapping =
-                                clients.get_casemapping(buffer.server());
-
-                            targets
-                                .split(',')
-                                .filter_map(|target| {
-                                    let target = Target::parse(
-                                        target,
-                                        chantypes,
-                                        statusmsg,
-                                        casemapping,
-                                    );
-
-                                    matches!(target, Target::Channel(_))
-                                        .then_some((target, buffer_action))
-                                })
-                                .collect()
-                        } else {
-                            vec![]
-                        };
-
-                    (
-                        Task::none(),
-                        Some(Event::InputSent {
-                            history_task,
-                            open_buffers,
-                        }),
+                    self.send_input_lines(
+                        lines, buffer, clients, history, config,
                     )
                 } else {
                     (Task::none(), None)
                 }
             }
             Message::Tab(reverse) => {
-                let input = self.input_content.text();
-                let cursor_position =
-                    self.input_content.cursor().position.column;
+                let cursor_position = self.input_content.cursor().position;
 
-                if let Some(entry) = self.completion.tab(reverse) {
+                if let Some(entry) = self.completion.tab(reverse)
+                    && let Some(line) = self
+                        .input_content
+                        .line(cursor_position.line)
+                        .map(|line| line.text)
+                {
                     let chantypes = clients.get_chantypes(buffer.server());
                     let actions = entry.complete_input(
-                        input.as_str(),
-                        cursor_position,
+                        &line,
+                        cursor_position.column,
                         chantypes,
                         config,
                     );
@@ -1217,7 +870,16 @@ impl State {
 
                 if !cache.history.is_empty() {
                     if let Some(index) = self.selected_history.as_mut() {
-                        *index = (*index + 1).min(cache.history.len() - 1);
+                        if *index == cache.history.len().saturating_sub(1) {
+                            self.input_content.perform(
+                                text_editor::Action::Move(
+                                    text_editor::Motion::DocumentStart,
+                                ),
+                            );
+                            return (Task::none(), None);
+                        }
+
+                        *index += 1;
                     } else {
                         self.selected_history = Some(0);
                     }
@@ -1227,33 +889,6 @@ impl State {
                         .get(self.selected_history.unwrap())
                         .unwrap()
                         .clone();
-
-                    let users = buffer.channel().and_then(|channel| {
-                        clients.get_channel_users(buffer.server(), channel)
-                    });
-                    let last_seen = history.get_last_seen(buffer);
-                    let filters = FilterChain::borrow(history.get_filters());
-                    let is_connected =
-                        clients.get_server_is_connected(buffer.server());
-                    let supports_detach =
-                        clients.get_server_supports_detach(buffer.server());
-                    let isupport = clients.get_isupport(buffer.server());
-
-                    self.completion.process(
-                        &new_input,
-                        new_input.len(),
-                        clients.nickname(buffer.server()),
-                        users,
-                        filters,
-                        &last_seen,
-                        clients.get_channels(buffer.server()),
-                        current_target.as_ref(),
-                        buffer.server(),
-                        is_connected,
-                        supports_detach,
-                        &isupport,
-                        config,
-                    );
 
                     return self.on_history_navigation(
                         buffer, history, &new_input, false,
@@ -1277,42 +912,16 @@ impl State {
                         cache.draft.to_string()
                     } else {
                         *index -= 1;
-                        let new_input =
-                            cache.history.get(*index).unwrap().clone();
-
-                        let users = buffer.channel().and_then(|channel| {
-                            clients.get_channel_users(buffer.server(), channel)
-                        });
-                        let last_seen = history.get_last_seen(buffer);
-                        let filters =
-                            FilterChain::borrow(history.get_filters());
-                        let is_connected =
-                            clients.get_server_is_connected(buffer.server());
-                        let supports_detach =
-                            clients.get_server_supports_detach(buffer.server());
-                        let isupport = clients.get_isupport(buffer.server());
-
-                        self.completion.process(
-                            &new_input,
-                            new_input.len(),
-                            clients.nickname(buffer.server()),
-                            users,
-                            filters,
-                            &last_seen,
-                            clients.get_channels(buffer.server()),
-                            current_target.as_ref(),
-                            buffer.server(),
-                            is_connected,
-                            supports_detach,
-                            &isupport,
-                            config,
-                        );
-                        new_input
+                        cache.history.get(*index).unwrap().clone()
                     };
 
                     return self.on_history_navigation(
                         buffer, history, &new_input, false,
                     );
+                } else {
+                    self.input_content.perform(text_editor::Action::Move(
+                        text_editor::Motion::DocumentEnd,
+                    ));
                 }
 
                 (Task::none(), None)
@@ -1331,6 +940,16 @@ impl State {
 
                 (Task::none(), None)
             }
+            Message::SendLines {
+                buffer: send_buffer,
+                lines,
+            } => self.send_input_lines(
+                lines,
+                &send_buffer,
+                clients,
+                history,
+                config,
+            ),
             Message::Paste => {
                 let task = clipboard::read().and_then(|clipboard| {
                     Task::done(Message::Action(text_editor::Action::Edit(
@@ -1476,12 +1095,18 @@ impl State {
                     clipboard,
                 )) = &action
                 {
-                    // TODO: Remove newline cleaning when adding multiline
-                    // support
-                    let cleaned = clipboard.replace(['\n', '\r'], " ");
-                    let action = text_editor::Action::Edit(
-                        text_editor::Edit::Paste(std::sync::Arc::new(cleaned)),
-                    );
+                    let truncated_clipboard = clipboard
+                        .lines()
+                        .take(
+                            config.buffer.text_input.max_lines.saturating_sub(
+                                self.input_content.line_count(),
+                            ) + 1,
+                        )
+                        .join("\n");
+                    let action =
+                        text_editor::Action::Edit(text_editor::Edit::Paste(
+                            std::sync::Arc::new(truncated_clipboard),
+                        ));
                     self.input_content.perform(action);
                 } else {
                     self.input_content.perform(action.clone());
@@ -1489,136 +1114,188 @@ impl State {
 
                 match &action {
                     text_editor::Action::Edit(_) => {
-                        let input = self.input_content.text();
+                        self.parse_lines(buffer, clients, config);
+
                         let cursor_position =
-                            self.input_content.cursor().position.column;
+                            self.input_content.cursor().position;
 
                         // Reset error state
                         self.error = None;
                         // Reset selected history
                         self.selected_history = None;
 
-                        let users = buffer.channel().and_then(|channel| {
-                            clients.get_channel_users(buffer.server(), channel)
-                        });
-                        let last_seen = history.get_last_seen(buffer);
-                        let filters =
-                            FilterChain::borrow(history.get_filters());
-                        let is_connected =
-                            clients.get_server_is_connected(buffer.server());
-                        let supports_detach =
-                            clients.get_server_supports_detach(buffer.server());
-                        let isupport = clients.get_isupport(buffer.server());
-
-                        self.completion.process(
-                            &input,
-                            cursor_position,
-                            clients.nickname(buffer.server()),
-                            users,
-                            filters,
-                            &last_seen,
-                            clients.get_channels(buffer.server()),
-                            current_target.as_ref(),
-                            buffer.server(),
-                            is_connected,
-                            supports_detach,
-                            &isupport,
-                            config,
-                        );
-
-                        let actions = self
-                            .completion
-                            .complete_emoji(&input, cursor_position);
-
-                        if let Some(actions) = actions {
-                            for action in actions.into_iter() {
-                                self.input_content.perform(action);
-                            }
-                        }
-
-                        if let Err(error) = input::parse(
-                            buffer.clone(),
-                            config.buffer.text_input.auto_format,
-                            &input,
-                            clients.nickname(buffer.server()),
-                            buffer.channel().map(|target| {
+                        if let Some(line) = self
+                            .input_content
+                            .line(cursor_position.line)
+                            .map(|line| line.text)
+                        {
+                            let users = buffer.channel().and_then(|channel| {
                                 clients
-                                    .get_channels(buffer.server())
-                                    .any(|channel| target == channel)
-                            }),
-                            is_connected,
-                            &clients.get_isupport(buffer.server()),
-                            clients.get_relay_bytes(buffer.server()),
-                            config,
-                        ) && match error {
-                            input::Error::ExceedsByteLimit { .. }
-                            | input::Error::Command(
-                                command::Error::InvalidModeString
-                                | command::Error::ArgTooLong { .. }
-                                | command::Error::TooManyTargets { .. }
-                                | command::Error::NotPositiveInteger
-                                | command::Error::InvalidChannelName { .. }
-                                | command::Error::InvalidServerUrl,
-                            ) => true,
-                            input::Error::Command(
-                                command::Error::IncorrectArgCount {
-                                    actual,
-                                    max,
-                                    ..
-                                },
-                            ) => actual > max,
-                            input::Error::Command(
-                                command::Error::MissingSlash
-                                | command::Error::MissingCommand
-                                | command::Error::NoModeString
-                                | command::Error::Connected
-                                | command::Error::Disconnected
-                                | command::Error::NotInChannel,
-                            ) => false,
-                        } {
-                            self.error = Some(error.to_string());
+                                    .get_channel_users(buffer.server(), channel)
+                            });
+                            let last_seen = history.get_last_seen(buffer);
+                            let filters =
+                                FilterChain::borrow(history.get_filters());
+                            let is_connected = clients
+                                .get_server_is_connected(buffer.server());
+                            let supports_detach = clients
+                                .get_server_supports_detach(buffer.server());
+                            let isupport =
+                                clients.get_isupport(buffer.server());
+
+                            self.completion.process(
+                                &line,
+                                cursor_position.column,
+                                clients.nickname(buffer.server()),
+                                users,
+                                filters,
+                                &last_seen,
+                                clients.get_channels(buffer.server()),
+                                current_target.as_ref(),
+                                buffer.server(),
+                                is_connected,
+                                supports_detach,
+                                &isupport,
+                                config,
+                            );
+
+                            let actions = self
+                                .completion
+                                .complete_emoji(&line, cursor_position.column);
+
+                            if let Some(Err(error)) =
+                                self.parsed.get(cursor_position.line)
+                                && match error {
+                                    input::Error::ExceedsByteLimit {
+                                        ..
+                                    }
+                                    | input::Error::Command(
+                                        command::Error::InvalidModeString
+                                        | command::Error::ArgTooLong { .. }
+                                        | command::Error::TooManyTargets {
+                                            ..
+                                        }
+                                        | command::Error::NotPositiveInteger
+                                        | command::Error::InvalidChannelName {
+                                            ..
+                                        }
+                                        | command::Error::InvalidServerUrl,
+                                    ) => true,
+                                    input::Error::Command(
+                                        command::Error::IncorrectArgCount {
+                                            actual,
+                                            max,
+                                            ..
+                                        },
+                                    ) => actual > max,
+                                    input::Error::Command(
+                                        command::Error::MissingSlash
+                                        | command::Error::MissingCommand
+                                        | command::Error::NoModeString
+                                        | command::Error::Connected
+                                        | command::Error::Disconnected
+                                        | command::Error::NotInChannel,
+                                    ) => false,
+                                }
+                            {
+                                self.error = Some(error.to_string());
+                            }
+
+                            if let Some(actions) = actions {
+                                for action in actions.into_iter() {
+                                    self.input_content.perform(action);
+                                }
+                            }
                         }
 
                         history.record_draft(RawInput {
                             buffer: buffer.clone(),
-                            text: input,
+                            text: self.input_content.text(),
                         });
 
                         (Task::none(), None)
                     }
                     text_editor::Action::Move(_)
                     | text_editor::Action::Click(_) => {
-                        let input = self.input_content.text();
                         let cursor_position =
-                            self.input_content.cursor().position.column;
+                            self.input_content.cursor().position;
 
-                        let users = buffer.channel().and_then(|channel| {
-                            clients.get_channel_users(buffer.server(), channel)
-                        });
-                        let last_seen = history.get_last_seen(buffer);
-                        let filters =
-                            FilterChain::borrow(history.get_filters());
-                        let is_connected =
-                            clients.get_server_is_connected(buffer.server());
-                        let supports_detach =
-                            clients.get_server_supports_detach(buffer.server());
-                        let isupport = clients.get_isupport(buffer.server());
+                        if let Some(line) = self
+                            .input_content
+                            .line(cursor_position.line)
+                            .map(|line| line.text)
+                        {
+                            let users = buffer.channel().and_then(|channel| {
+                                clients
+                                    .get_channel_users(buffer.server(), channel)
+                            });
+                            let last_seen = history.get_last_seen(buffer);
+                            let filters =
+                                FilterChain::borrow(history.get_filters());
+                            let is_connected = clients
+                                .get_server_is_connected(buffer.server());
+                            let supports_detach = clients
+                                .get_server_supports_detach(buffer.server());
+                            let isupport =
+                                clients.get_isupport(buffer.server());
 
-                        self.completion.process(
-                            &input,
-                            cursor_position,
-                            clients.nickname(buffer.server()),
-                            users,
-                            filters,
-                            &last_seen,
-                            clients.get_channels(buffer.server()),
-                            current_target.as_ref(),
-                            buffer.server(),
-                            is_connected,
-                            supports_detach,
-                            &isupport,
-                            config,
-                        );
+                            self.completion.process(
+                                &line,
+                                cursor_position.column,
+                                clients.nickname(buffer.server()),
+                                users,
+                                filters,
+                                &last_seen,
+                                clients.get_channels(buffer.server()),
+                                current_target.as_ref(),
+                                buffer.server(),
+                                is_connected,
+                                supports_detach,
+                                &isupport,
+                                config,
+                            );
+
+                            // Reset error state
+                            self.error = None;
+
+                            if let Some(Err(error)) =
+                                self.parsed.get(cursor_position.line)
+                                && match error {
+                                    input::Error::ExceedsByteLimit {
+                                        ..
+                                    }
+                                    | input::Error::Command(
+                                        command::Error::InvalidModeString
+                                        | command::Error::ArgTooLong { .. }
+                                        | command::Error::TooManyTargets {
+                                            ..
+                                        }
+                                        | command::Error::NotPositiveInteger
+                                        | command::Error::InvalidChannelName {
+                                            ..
+                                        }
+                                        | command::Error::InvalidServerUrl,
+                                    ) => true,
+                                    input::Error::Command(
+                                        command::Error::IncorrectArgCount {
+                                            actual,
+                                            max,
+                                            ..
+                                        },
+                                    ) => actual > max,
+                                    input::Error::Command(
+                                        command::Error::MissingSlash
+                                        | command::Error::MissingCommand
+                                        | command::Error::NoModeString
+                                        | command::Error::Connected
+                                        | command::Error::Disconnected
+                                        | command::Error::NotInChannel,
+                                    ) => false,
+                                }
+                            {
+                                self.error = Some(error.to_string());
+                            }
+                        }
 
                         (Task::none(), None)
                     }
@@ -1626,6 +1303,74 @@ impl State {
                 }
             }
         }
+    }
+
+    // TODO: Create a parse_line variant that updates only a single line's
+    // parsed update (and any following lines whose parsed value might change)
+    fn parse_lines(
+        &mut self,
+        buffer: &buffer::Upstream,
+        clients: &mut client::Map,
+        config: &Config,
+    ) {
+        let nickname = clients.nickname(buffer.server());
+        let in_channel = buffer.channel().map(|target| {
+            clients
+                .get_channels(buffer.server())
+                .any(|channel| target == channel)
+        });
+        let is_connected = clients.get_server_is_connected(buffer.server());
+        let isupport = clients.get_isupport(buffer.server());
+        let relay_bytes = clients.get_relay_bytes(buffer.server());
+
+        if self.input_content.text().is_empty() {
+            self.parsed = Vec::new();
+            return;
+        }
+
+        self.parsed = self
+            .input_content
+            .text()
+            .lines()
+            .scan(None, |open_code_fence: &mut Option<CodeFence>, line| {
+                let line = if line.is_empty() {
+                    // Send a space to emulate an empty line
+                    Cow::Owned(String::from(' '))
+                } else {
+                    Cow::Borrowed(line)
+                };
+
+                let parsed = input::parse(
+                    buffer.clone(),
+                    config.buffer.text_input.auto_format,
+                    &line,
+                    open_code_fence.as_ref(),
+                    nickname,
+                    in_channel,
+                    is_connected,
+                    &isupport,
+                    relay_bytes,
+                    config,
+                );
+
+                if open_code_fence.is_some() {
+                    if parsed
+                        .as_ref()
+                        .ok()
+                        .and_then(|parsed| parsed.code_fence())
+                        .is_some()
+                    {
+                        *open_code_fence = None;
+                    }
+                } else if let Some(code_fence) =
+                    parsed.as_ref().ok().and_then(|parsed| parsed.code_fence())
+                {
+                    *open_code_fence = Some(code_fence.clone());
+                }
+
+                Some(parsed)
+            })
+            .collect();
     }
 
     fn close_context_menu(
@@ -1644,6 +1389,520 @@ impl State {
                 .collect::<Vec<_>>(),
             ),
             None,
+        )
+    }
+
+    fn send_input_lines(
+        &mut self,
+        mut lines: VecDeque<input::Parsed>,
+        buffer: &Upstream,
+        clients: &mut client::Map,
+        history: &mut history::Manager,
+        config: &Config,
+    ) -> (Task<Message>, Option<Event>) {
+        let send_count = if let Some(multiline) =
+            clients.get_multiline(buffer.server())
+        {
+            let casemapping = clients.get_casemapping(buffer.server());
+
+            let mut multiline_byte_count = 0;
+            let mut multiline_batch_kind = None;
+
+            let max_lines = if let Some(max_lines) = multiline.max_lines {
+                max_lines.min(lines.len())
+            } else {
+                lines.len()
+            };
+
+            lines
+                .iter()
+                .take(max_lines)
+                .position(|line| {
+                    if let Some((line_bytes, line_batch_kind)) =
+                        line.multiline_bytes(casemapping)
+                    {
+                        if let Some(multiline_batch_kind) = multiline_batch_kind
+                        {
+                            if line_batch_kind != multiline_batch_kind {
+                                return true;
+                            }
+                        } else {
+                            multiline_batch_kind = Some(line_batch_kind);
+                        }
+
+                        multiline_byte_count += line_bytes;
+                        multiline_byte_count > multiline.max_bytes
+                    } else {
+                        true
+                    }
+                })
+                .map_or(max_lines, |position| position.max(1))
+        } else {
+            1
+        };
+
+        let remaining_lines = lines.split_off(send_count);
+
+        let (send_task, event) = if lines.len() > 1 {
+            self.send_input_line_batch(lines, buffer, clients, history, config)
+        } else if let Some(line) = lines.pop_front() {
+            self.send_input_line(line, buffer, clients, history, config)
+        } else {
+            return (Task::none(), None);
+        };
+
+        if remaining_lines.is_empty() {
+            return (send_task, event);
+        }
+
+        let delay =
+            Duration::from_millis(config.buffer.text_input.send_line_delay);
+        let next_message = Message::SendLines {
+            buffer: buffer.clone(),
+            lines: remaining_lines,
+        };
+        let next_task = if delay.is_zero() {
+            Task::done(next_message)
+        } else {
+            Task::perform(time::sleep(delay), move |()| next_message)
+        };
+
+        (send_task.chain(next_task), event)
+    }
+
+    fn send_input_line_batch(
+        &mut self,
+        lines: VecDeque<input::Parsed>,
+        buffer: &Upstream,
+        clients: &mut client::Map,
+        history: &mut history::Manager,
+        config: &Config,
+    ) -> (Task<Message>, Option<Event>) {
+        let inputs = lines
+            .into_iter()
+            .filter_map(|parsed| match parsed {
+                input::Parsed::Internal(_) | input::Parsed::CodeFence(_) => {
+                    None
+                }
+                input::Parsed::Input(input) => Some(input),
+            })
+            .collect::<Vec<_>>();
+
+        let encoded = inputs
+            .iter()
+            .filter_map(data::Input::encoded)
+            .collect::<Vec<_>>();
+
+        if let Some(last_encoded) = encoded.last() {
+            let sent_time = last_encoded.server_time_or_now();
+
+            clients.send_multiline_batch(buffer, encoded, TokenPriority::User);
+
+            let supports_echoes =
+                clients.get_server_supports_echoes(buffer.server());
+
+            // If the server supports echoes, then send MARKREAD on echo only
+            // (not when recording the input)
+            if config.buffer.mark_as_read.on_message_sent && !supports_echoes {
+                let chantypes = clients.get_chantypes(buffer.server());
+                let statusmsg = clients.get_statusmsg(buffer.server());
+                let casemapping = clients.get_casemapping(buffer.server());
+
+                if let Some(input) = inputs.first()
+                    && let Some(targets) =
+                        input.targets(chantypes, statusmsg, casemapping)
+                {
+                    for target in targets {
+                        clients.send_markread(
+                            buffer.server(),
+                            target,
+                            ReadMarker::from_date_time(sent_time),
+                            TokenPriority::High,
+                        );
+                    }
+                }
+            }
+        }
+
+        let mut history_task = Task::none();
+
+        if let Some(nick) = clients.nickname(buffer.server()) {
+            let mut user = nick.to_owned().into();
+            let mut channel_users = None;
+
+            let chantypes = clients.get_chantypes(buffer.server());
+            let statusmsg = clients.get_statusmsg(buffer.server());
+            let casemapping = clients.get_casemapping(buffer.server());
+            let supports_echoes =
+                clients.get_server_supports_echoes(buffer.server());
+
+            // Resolve our attributes if sending this message in a channel
+            if let buffer::Upstream::Channel(server, channel) = &buffer {
+                channel_users = clients.get_channel_users(server, channel);
+
+                if let Some(user_with_attributes) =
+                    clients.resolve_user_attributes(server, channel, &user)
+                {
+                    user = user_with_attributes.clone();
+                }
+            }
+
+            let mut history_tasks = vec![];
+
+            for input in inputs.into_iter() {
+                if let Some(messages) = input.messages(
+                    user.clone(),
+                    channel_users,
+                    chantypes,
+                    statusmsg,
+                    casemapping,
+                    supports_echoes,
+                ) {
+                    for message in messages {
+                        history_tasks.extend(
+                            history
+                                .record_input_message(
+                                    message,
+                                    buffer.server(),
+                                    casemapping,
+                                    config,
+                                )
+                                .into_iter(),
+                        );
+                    }
+                }
+            }
+
+            history_task =
+                Task::batch(history_tasks.into_iter().map(Task::future));
+        }
+
+        (
+            Task::none(),
+            Some(Event::InputSent {
+                history_task,
+                open_buffers: vec![],
+            }),
+        )
+    }
+
+    fn send_input_line(
+        &mut self,
+        parsed: input::Parsed,
+        buffer: &buffer::Upstream,
+        clients: &mut client::Map,
+        history: &mut history::Manager,
+        config: &Config,
+    ) -> (Task<Message>, Option<Event>) {
+        let input = match parsed {
+            input::Parsed::Internal(command) => {
+                match command {
+                    command::Internal::OpenBuffers(targets) => {
+                        return (
+                            Task::none(),
+                            Some(Event::OpenBuffers {
+                                server: buffer.server().clone(),
+                                targets: targets
+                                    .into_iter()
+                                    .map(|target| match target {
+                                        Target::Channel(_) => (
+                                            target,
+                                            config
+                                                .actions
+                                                .buffer
+                                                .message_channel,
+                                        ),
+                                        Target::Query(_) => (
+                                            target,
+                                            config.actions.buffer.message_user,
+                                        ),
+                                    })
+                                    .collect(),
+                            }),
+                        );
+                    }
+                    command::Internal::LeaveBuffers(targets, reason) => {
+                        return (
+                            Task::none(),
+                            Some(Event::LeaveBuffers { targets, reason }),
+                        );
+                    }
+                    command::Internal::Detach(channels) => {
+                        return (
+                            Task::none(),
+                            Some(Event::LeaveBuffers {
+                                targets: channels
+                                    .into_iter()
+                                    .map(Target::Channel)
+                                    .collect(),
+                                reason: Some("detach".to_string()),
+                            }),
+                        );
+                    }
+                    command::Internal::Hop(first, rest) => {
+                        let has_channel_argument =
+                            first.as_ref().is_some_and(|s| s.starts_with('#'));
+
+                        // Channel to join, either from first argument or buffer channel
+                        let target_channel = if has_channel_argument {
+                            // Use first argument as channel.
+                            first.clone()
+                        } else {
+                            // If first argument isn't a channel, we use buffer channel
+                            buffer
+                                .channel()
+                                .map(|chan| chan.as_str().to_string())
+                        };
+
+                        // If we don't have a target channel for some reason we return
+                        let Some(target_channel) = target_channel else {
+                            return (Task::none(), None);
+                        };
+
+                        let message = if has_channel_argument {
+                            // If first argument is a channel, we use second argument as message
+                            rest
+                        } else {
+                            // Otherwise we use both arguments
+                            match (first.as_deref(), rest.as_deref()) {
+                                (Some(a), Some(b)) => Some(format!("{a} {b}")),
+                                (Some(a), None) => Some(a.to_string()),
+                                (None, Some(b)) => Some(b.to_string()),
+                                (None, None) => None,
+                            }
+                        };
+
+                        // Part channel. Might not exist if we execute on a query/server.
+                        let part_command =
+                            buffer.channel().and_then(|channel| {
+                                data::Input::from_command(
+                                    buffer.clone(),
+                                    command::Irc::Part(
+                                        channel.as_str().to_string(),
+                                        message,
+                                    ),
+                                )
+                                .encoded()
+                            });
+
+                        // Send part command.
+                        if let Some(part_command) = part_command {
+                            clients.send(
+                                buffer,
+                                part_command,
+                                TokenPriority::User,
+                            );
+                        }
+
+                        // Create a delay task that will execute the join after waiting
+                        let buffer_clone = buffer.clone();
+                        let target_channel_clone = target_channel.clone();
+
+                        let delayed_join_task = Task::perform(
+                            time::sleep(Duration::from_millis(100)),
+                            move |()| Message::SendCommand {
+                                buffer: buffer_clone,
+                                command: command::Irc::Join(
+                                    target_channel_clone,
+                                    None,
+                                ),
+                            },
+                        );
+
+                        let chantypes = clients.get_chantypes(buffer.server());
+                        let statusmsg = clients.get_statusmsg(buffer.server());
+                        let casemapping =
+                            clients.get_casemapping(buffer.server());
+
+                        let target = Target::parse(
+                            target_channel.as_str(),
+                            chantypes,
+                            statusmsg,
+                            casemapping,
+                        );
+
+                        let event = has_channel_argument.then_some({
+                            let buffer_action = match buffer {
+                                // If it's a channel, we want to replace it when hopping to a new channel.
+                                Upstream::Channel(..) => {
+                                    BufferAction::ReplacePane
+                                }
+                                // If it's a server or query, we want to follow config for actions.
+                                Upstream::Server(..) | Upstream::Query(..) => {
+                                    config.actions.buffer.message_channel
+                                }
+                            };
+
+                            Event::OpenBuffers {
+                                server: buffer.server().clone(),
+                                targets: vec![(target, buffer_action)],
+                            }
+                        });
+
+                        return (delayed_join_task, event);
+                    }
+                    command::Internal::ChannelDiscovery => {
+                        return (
+                            Task::none(),
+                            Some(Event::OpenInternalBuffer(
+                                buffer::Internal::ChannelDiscovery(Some(
+                                    buffer.server().clone(),
+                                )),
+                            )),
+                        );
+                    }
+                    command::Internal::Delay(_) => {
+                        return (Task::none(), None);
+                    }
+                    command::Internal::ClearBuffer => {
+                        let kind =
+                            history::Kind::from_input_buffer(buffer.clone());
+
+                        let event = history.clear_messages(kind, clients).map(
+                            |history_task| Event::Cleared {
+                                history_task: Task::future(history_task),
+                            },
+                        );
+
+                        return (Task::none(), event);
+                    }
+                    command::Internal::SysInfo => {
+                        return (
+                            iced::system::information()
+                                .map(Message::SysInfoReceived),
+                            None,
+                        );
+                    }
+                    command::Internal::Connect(server) => {
+                        return (Task::none(), Some(Event::OpenServer(server)));
+                    }
+                    command::Internal::Reconnect => {
+                        return (
+                            Task::none(),
+                            Some(Event::Reconnect(buffer.server().clone())),
+                        );
+                    }
+                }
+            }
+            input::Parsed::Input(input) => input,
+            input::Parsed::CodeFence(_) => {
+                return (Task::none(), None);
+            }
+        };
+
+        if let Some(encoded) = input.encoded() {
+            let sent_time = encoded.server_time_or_now();
+
+            clients.send(buffer, encoded, TokenPriority::User);
+
+            let supports_echoes =
+                clients.get_server_supports_echoes(buffer.server());
+
+            // If the server supports echoes, then send MARKREAD on echo only
+            // (not when recording the input)
+            if config.buffer.mark_as_read.on_message_sent && !supports_echoes {
+                let chantypes = clients.get_chantypes(buffer.server());
+                let statusmsg = clients.get_statusmsg(buffer.server());
+                let casemapping = clients.get_casemapping(buffer.server());
+
+                if let Some(targets) =
+                    input.targets(chantypes, statusmsg, casemapping)
+                {
+                    for target in targets {
+                        clients.send_markread(
+                            buffer.server(),
+                            target,
+                            ReadMarker::from_date_time(sent_time),
+                            TokenPriority::High,
+                        );
+                    }
+                }
+            }
+        }
+
+        let mut history_task = Task::none();
+
+        if let Some(nick) = clients.nickname(buffer.server()) {
+            let mut user = nick.to_owned().into();
+            let mut channel_users = None;
+
+            let chantypes = clients.get_chantypes(buffer.server());
+            let statusmsg = clients.get_statusmsg(buffer.server());
+            let casemapping = clients.get_casemapping(buffer.server());
+            let supports_echoes =
+                clients.get_server_supports_echoes(buffer.server());
+
+            // Resolve our attributes if sending this message in a channel
+            if let buffer::Upstream::Channel(server, channel) = &buffer {
+                channel_users = clients.get_channel_users(server, channel);
+
+                if let Some(user_with_attributes) =
+                    clients.resolve_user_attributes(server, channel, &user)
+                {
+                    user = user_with_attributes.clone();
+                }
+            }
+
+            let mut history_tasks = vec![];
+
+            if let Some(messages) = input.messages(
+                user,
+                channel_users,
+                chantypes,
+                statusmsg,
+                casemapping,
+                supports_echoes,
+            ) {
+                for message in messages {
+                    history_tasks.extend(
+                        history
+                            .record_input_message(
+                                message,
+                                buffer.server(),
+                                casemapping,
+                                config,
+                            )
+                            .into_iter(),
+                    );
+                }
+            }
+
+            history_task =
+                Task::batch(history_tasks.into_iter().map(Task::future));
+        }
+
+        let open_buffers = if let Some(command::Irc::Join(targets, _)) =
+            input.command()
+            && let Some(buffer_action) = config.actions.buffer.join_channel
+        {
+            let chantypes = clients.get_chantypes(buffer.server());
+            let statusmsg = clients.get_statusmsg(buffer.server());
+            let casemapping = clients.get_casemapping(buffer.server());
+
+            targets
+                .split(',')
+                .filter_map(|target| {
+                    let target = Target::parse(
+                        target,
+                        chantypes,
+                        statusmsg,
+                        casemapping,
+                    );
+
+                    matches!(target, Target::Channel(_))
+                        .then_some((target, buffer_action))
+                })
+                .collect()
+        } else {
+            vec![]
+        };
+
+        (
+            Task::none(),
+            Some(Event::InputSent {
+                history_task,
+                open_buffers,
+            }),
         )
     }
 
@@ -1685,8 +1944,9 @@ impl State {
         // update the input content
         self.input_content = text_editor::Content::with_text(text);
         // move the cursor to the end of the input
-        self.input_content
-            .perform(text_editor::Action::Move(text_editor::Motion::End));
+        self.input_content.perform(text_editor::Action::Move(
+            text_editor::Motion::DocumentEnd,
+        ));
 
         (Task::none(), None)
     }
@@ -1716,45 +1976,52 @@ impl State {
         history: &mut history::Manager,
         autocomplete: &Autocomplete,
     ) {
-        let text = self.input_content.text();
-        let cursor_position = self.input_content.cursor().position.column;
+        let cursor_position = self.input_content.cursor().position;
 
-        let insert_text = if cursor_position == 0 {
-            let suffix_range = cursor_position
-                ..cursor_position + autocomplete.completion_suffixes[0].len();
+        let insert_text = if let Some(line) = self
+            .input_content
+            .line(cursor_position.line)
+            .map(|line| line.text)
+        {
+            if cursor_position.column == 0 {
+                let suffix_range = cursor_position.column
+                    ..cursor_position.column
+                        + autocomplete.completion_suffixes[0].len();
 
-            if text
-                .get(suffix_range)
-                .is_some_and(|text| text == autocomplete.completion_suffixes[0])
-            {
-                format!("{nick}")
-            } else {
-                format!("{nick}{}", autocomplete.completion_suffixes[0])
-            }
-        } else {
-            let suffix_range = cursor_position
-                ..cursor_position + autocomplete.completion_suffixes[1].len();
-
-            if text
-                .chars()
-                .nth(cursor_position - 1)
-                .is_some_and(|c| c == ' ')
-            {
-                if text.get(suffix_range).is_some_and(|text| {
-                    text == autocomplete.completion_suffixes[1]
+                if line.get(suffix_range).is_some_and(|text| {
+                    text == autocomplete.completion_suffixes[0]
                 }) {
                     format!("{nick}")
                 } else {
-                    format!("{nick}{}", autocomplete.completion_suffixes[1])
+                    format!("{nick}{}", autocomplete.completion_suffixes[0])
                 }
-            } else if text
-                .get(suffix_range)
-                .is_some_and(|text| text == autocomplete.completion_suffixes[1])
-            {
-                format!(" {nick}")
             } else {
-                format!(" {nick}{}", autocomplete.completion_suffixes[1])
+                let suffix_range = cursor_position.column
+                    ..cursor_position.column
+                        + autocomplete.completion_suffixes[1].len();
+
+                if line
+                    .chars()
+                    .nth(cursor_position.column - 1)
+                    .is_some_and(|c| c == ' ')
+                {
+                    if line.get(suffix_range).is_some_and(|text| {
+                        text == autocomplete.completion_suffixes[1]
+                    }) {
+                        format!("{nick}")
+                    } else {
+                        format!("{nick}{}", autocomplete.completion_suffixes[1])
+                    }
+                } else if line.get(suffix_range).is_some_and(|text| {
+                    text == autocomplete.completion_suffixes[1]
+                }) {
+                    format!(" {nick}")
+                } else {
+                    format!(" {nick}{}", autocomplete.completion_suffixes[1])
+                }
             }
+        } else {
+            format!("{nick}")
         };
 
         self.input_content.perform(text_editor::Action::Edit(

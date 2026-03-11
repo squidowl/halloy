@@ -113,7 +113,7 @@ where
     }
 }
 
-pub fn deserialize_positive_integer_maybe<'de, D>(
+pub fn deserialize_u8_positive_integer_maybe<'de, D>(
     deserializer: D,
 ) -> Result<Option<u8>, D::Error>
 where
@@ -133,7 +133,7 @@ where
     }
 }
 
-pub fn deserialize_positive_integer<'de, D>(
+pub fn deserialize_u32_positive_integer<'de, D>(
     deserializer: D,
 ) -> Result<u32, D::Error>
 where
@@ -151,7 +151,25 @@ where
     }
 }
 
-pub fn deserialize_positive_integer_limit<'de, D>(
+pub fn deserialize_usize_positive_integer<'de, D>(
+    deserializer: D,
+) -> Result<usize, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let integer: usize = Deserialize::deserialize(deserializer)?;
+
+    if integer == 0 {
+        Err(serde::de::Error::invalid_value(
+            serde::de::Unexpected::Unsigned(integer as u64),
+            &"any positive integer",
+        ))
+    } else {
+        Ok(integer)
+    }
+}
+
+pub fn deserialize_u64_positive_integer_limit<'de, D>(
     deserializer: D,
 ) -> Result<Option<u64>, D::Error>
 where
@@ -188,7 +206,7 @@ where
     }
 }
 
-pub fn deserialize_positive_float_maybe<'de, D>(
+pub fn deserialize_f32_positive_float_maybe<'de, D>(
     deserializer: D,
 ) -> Result<Option<f32>, D::Error>
 where
