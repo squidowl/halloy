@@ -1401,14 +1401,58 @@ impl State {
         history: &mut history::Manager,
         config: &Config,
     ) -> (Task<Message>, Option<Event>) {
-        let Some(line) = lines.pop_front() else {
+        let send_count = if let Some(multiline) =
+            clients.get_multiline(buffer.server())
+        {
+            let casemapping = clients.get_casemapping(buffer.server());
+
+            let mut multiline_byte_count = 0;
+            let mut multiline_batch_kind = None;
+
+            let max_lines = if let Some(max_lines) = multiline.max_lines {
+                max_lines.min(lines.len())
+            } else {
+                lines.len()
+            };
+
+            lines
+                .iter()
+                .take(max_lines)
+                .position(|line| {
+                    if let Some((line_bytes, line_batch_kind)) =
+                        line.multiline_bytes(casemapping)
+                    {
+                        if let Some(multiline_batch_kind) = multiline_batch_kind
+                        {
+                            if line_batch_kind != multiline_batch_kind {
+                                return true;
+                            }
+                        } else {
+                            multiline_batch_kind = Some(line_batch_kind);
+                        }
+
+                        multiline_byte_count += line_bytes;
+                        multiline_byte_count > multiline.max_bytes
+                    } else {
+                        true
+                    }
+                })
+                .map_or(max_lines, |position| position.max(1))
+        } else {
+            1
+        };
+
+        let remaining_lines = lines.split_off(send_count);
+
+        let (send_task, event) = if lines.len() > 1 {
+            self.send_input_line_batch(lines, buffer, clients, history, config)
+        } else if let Some(line) = lines.pop_front() {
+            self.send_input_line(line, buffer, clients, history, config)
+        } else {
             return (Task::none(), None);
         };
 
-        let (send_task, event) =
-            self.send_input_line(line, buffer, clients, history, config);
-
-        if lines.is_empty() {
+        if remaining_lines.is_empty() {
             return (send_task, event);
         }
 
@@ -1416,7 +1460,7 @@ impl State {
             Duration::from_millis(config.buffer.text_input.send_line_delay);
         let next_message = Message::SendLines {
             buffer: buffer.clone(),
-            lines,
+            lines: remaining_lines,
         };
         let next_task = if delay.is_zero() {
             Task::done(next_message)
@@ -1425,6 +1469,122 @@ impl State {
         };
 
         (send_task.chain(next_task), event)
+    }
+
+    fn send_input_line_batch(
+        &mut self,
+        lines: VecDeque<input::Parsed>,
+        buffer: &Upstream,
+        clients: &mut client::Map,
+        history: &mut history::Manager,
+        config: &Config,
+    ) -> (Task<Message>, Option<Event>) {
+        let inputs = lines
+            .into_iter()
+            .filter_map(|parsed| match parsed {
+                input::Parsed::Internal(_) | input::Parsed::CodeFence(_) => {
+                    None
+                }
+                input::Parsed::Input(input) => Some(input),
+            })
+            .collect::<Vec<_>>();
+
+        let encoded = inputs
+            .iter()
+            .filter_map(data::Input::encoded)
+            .collect::<Vec<_>>();
+
+        if let Some(last_encoded) = encoded.last() {
+            let sent_time = last_encoded.server_time_or_now();
+
+            clients.send_multiline_batch(buffer, encoded, TokenPriority::User);
+
+            let supports_echoes =
+                clients.get_server_supports_echoes(buffer.server());
+
+            // If the server supports echoes, then send MARKREAD on echo only
+            // (not when recording the input)
+            if config.buffer.mark_as_read.on_message_sent && !supports_echoes {
+                let chantypes = clients.get_chantypes(buffer.server());
+                let statusmsg = clients.get_statusmsg(buffer.server());
+                let casemapping = clients.get_casemapping(buffer.server());
+
+                if let Some(input) = inputs.first()
+                    && let Some(targets) =
+                        input.targets(chantypes, statusmsg, casemapping)
+                {
+                    for target in targets {
+                        clients.send_markread(
+                            buffer.server(),
+                            target,
+                            ReadMarker::from_date_time(sent_time),
+                            TokenPriority::High,
+                        );
+                    }
+                }
+            }
+        }
+
+        let mut history_task = Task::none();
+
+        if let Some(nick) = clients.nickname(buffer.server()) {
+            let mut user = nick.to_owned().into();
+            let mut channel_users = None;
+
+            let chantypes = clients.get_chantypes(buffer.server());
+            let statusmsg = clients.get_statusmsg(buffer.server());
+            let casemapping = clients.get_casemapping(buffer.server());
+            let supports_echoes =
+                clients.get_server_supports_echoes(buffer.server());
+
+            // Resolve our attributes if sending this message in a channel
+            if let buffer::Upstream::Channel(server, channel) = &buffer {
+                channel_users = clients.get_channel_users(server, channel);
+
+                if let Some(user_with_attributes) =
+                    clients.resolve_user_attributes(server, channel, &user)
+                {
+                    user = user_with_attributes.clone();
+                }
+            }
+
+            let mut history_tasks = vec![];
+
+            for input in inputs.into_iter() {
+                if let Some(messages) = input.messages(
+                    user.clone(),
+                    channel_users,
+                    chantypes,
+                    statusmsg,
+                    casemapping,
+                    supports_echoes,
+                ) {
+                    for message in messages {
+                        history_tasks.extend(
+                            history
+                                .record_input_message(
+                                    message,
+                                    buffer.server(),
+                                    casemapping,
+                                    config,
+                                )
+                                .into_iter(),
+                        );
+                    }
+                }
+            }
+
+            history_task =
+                Task::batch(history_tasks.into_iter().map(Task::future));
+        }
+
+        (
+            Task::none(),
+            Some(Event::InputSent {
+                history_task,
+                open_buffers: vec![],
+            }),
+        )
     }
 
     fn send_input_line(
@@ -1632,7 +1792,7 @@ impl State {
         };
 
         if let Some(encoded) = input.encoded() {
-            let sent_time = encoded.server_time();
+            let sent_time = encoded.server_time_or_now();
 
             clients.send(buffer, encoded, TokenPriority::User);
 
