@@ -2299,17 +2299,17 @@ impl State {
         config: &Config,
         text: &str,
     ) -> bool {
-        match command::parse(
-            text,
-            Some(buffer),
-            clients.nickname(buffer.server()),
-            clients.get_server_is_connected(buffer.server()),
-            &clients.get_isupport(buffer.server()),
-            config,
-        ) {
-            Err(command::Error::MissingSlash) => true,
-            Ok(data::Command::Irc(command::Irc::Me(_, _))) => true,
-            _ => false,
-        }
+        matches!(
+            command::parse(
+                text,
+                Some(buffer),
+                clients.nickname(buffer.server()),
+                clients.get_server_is_connected(buffer.server()),
+                &clients.get_isupport(buffer.server()),
+                config,
+            ),
+            Err(command::Error::MissingSlash)
+                | Ok(data::Command::Irc(command::Irc::Me(_, _)))
+        )
     }
 }

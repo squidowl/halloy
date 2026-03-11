@@ -159,7 +159,7 @@ pub fn view<'a>(
         typing::typing_text(
             show_typing,
             server_supports_typing,
-            our_nick.as_ref().map(|nick| nick.as_str()),
+            our_nick.as_ref().map(data::user::NickRef::as_str),
             &clients.get_channel_typing_users(server, channel),
             casemapping,
         ),
