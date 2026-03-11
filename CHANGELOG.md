@@ -13,11 +13,12 @@ Fixed:
 - Prevent clicks from passing through completion picker overlays to content behind them (for example nicknames in the buffer).
 - Regression that could make the application slow to close
 - Apply locale to context menu, copy, and date separator timestamps
+- Fix direct message notifications when excludes are present
 
 Thanks:
 
-- Contributions: @KaiKorla
-- Bug reports: chmod222, @whitequark, quaff, sebbu, @ascarion
+- Contributions: @KaiKorla, @englut
+- Bug reports: chmod222, @whitequark, @englut, sebbu, @ascarion
 - Feature requests: @gAlleb, @jtbx, @cyrneko
 
 # 2026.4 (2026-03-03)
