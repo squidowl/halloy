@@ -4,7 +4,7 @@ use serde_untagged::UntaggedEnumVisitor;
 use crate::config::Scrollbar;
 use crate::config::buffer::ChannelNameCasing;
 use crate::config::inclusivities::{Inclusivities, is_target_channel_included};
-use crate::serde::deserialize_positive_integer;
+use crate::serde::deserialize_u32_positive_integer;
 use crate::server::Server;
 use crate::{isupport, target};
 
@@ -116,10 +116,10 @@ impl Default for UserMenu {
 pub struct UnreadIndicator {
     pub title: bool,
     pub icon: Icon,
-    #[serde(deserialize_with = "deserialize_positive_integer")]
+    #[serde(deserialize_with = "deserialize_u32_positive_integer")]
     pub icon_size: u32,
     pub highlight_icon: Icon,
-    #[serde(deserialize_with = "deserialize_positive_integer")]
+    #[serde(deserialize_with = "deserialize_u32_positive_integer")]
     pub highlight_icon_size: u32,
     pub query_as_highlight: bool,
     pub exclude: Option<Inclusivities>,
