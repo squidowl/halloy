@@ -148,13 +148,14 @@ pub fn view<'a>(
 
     let content = column![messages];
 
-    let scrollable: Element<'a, Message> = if let Some(typing) = typing {
-        let typing_overlay: Element<'a, Message> = container(typing)
-            .width(Length::Fill)
-            .height(Length::Fill)
-            .padding(padding::left(2))
-            .align_y(iced::alignment::Vertical::Bottom)
-            .into();
+    let scrollable: Element<'a, Message> = if show_typing {
+        let typing_overlay: Element<'a, Message> =
+            container(typing.unwrap_or_else(|| column![].into()))
+                .width(Length::Fill)
+                .height(Length::Fill)
+                .padding(padding::left(2))
+                .align_y(iced::alignment::Vertical::Bottom)
+                .into();
 
         column![
             stack![content, typing_overlay].height(Length::Fill),

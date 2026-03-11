@@ -1,7 +1,7 @@
 use data::Config;
 use data::isupport::CaseMap;
 use iced::padding;
-use iced::widget::container;
+use iced::widget::{column, container};
 
 use crate::widget::{self, Element};
 use crate::{Theme, font, theme};
@@ -11,10 +11,8 @@ pub fn view<'a, Message: 'a>(
     _config: &'a Config,
     theme: &'a Theme,
 ) -> Option<Element<'a, Message>> {
-    let text = typing?;
-
-    Some(
-        container(
+    let typing: Element<'a, Message> = match typing {
+        Some(text) => container(
             widget::text(text)
                 .style(theme::text::secondary)
                 .font_maybe(theme::font_style::secondary(theme).map(font::get)),
@@ -23,7 +21,10 @@ pub fn view<'a, Message: 'a>(
         .align_y(iced::alignment::Vertical::Bottom)
         .style(theme::container::typing)
         .into(),
-    )
+        None => column![].into(),
+    };
+
+    Some(typing)
 }
 
 pub fn typing_text(
