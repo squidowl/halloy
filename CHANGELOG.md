@@ -18,7 +18,7 @@ Thanks:
 
 - Contributions: @KaiKorla
 - Bug reports: chmod222, @whitequark, quaff, sebbu, @ascarion
-- Feature requests: @gAlleb, @jtbx
+- Feature requests: @gAlleb, @jtbx, @cyrneko
 
 # 2026.4 (2026-03-03)
 
