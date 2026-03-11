@@ -5,8 +5,7 @@ use irc::proto::format;
 use nom::character::complete::char;
 use nom::combinator::{cut, map, rest, verify};
 use nom::multi::{many_m_n, many0_count, many1_count};
-use nom::sequence::tuple;
-use nom::{Finish, IResult};
+use nom::{Finish, IResult, Parser};
 
 use crate::buffer::{self};
 use crate::capabilities::MultilineBatchKind;
@@ -375,7 +374,7 @@ pub struct CodeFence {
 
 fn parse_code_fence(input: &str) -> IResult<&str, CodeFence> {
     cut(map(
-        tuple((parse_indent, parse_backticks, parse_info)),
+        (parse_indent, parse_backticks, parse_info),
         |(indent, backticks, info)| {
             let info = info.trim();
             CodeFence {
@@ -384,19 +383,21 @@ fn parse_code_fence(input: &str) -> IResult<&str, CodeFence> {
                 info: (!info.is_empty()).then_some(info.to_string()),
             }
         },
-    ))(input)
+    ))
+    .parse(input)
 }
 
 fn parse_indent(input: &str) -> IResult<&str, usize> {
-    verify(many0_count(char(' ')), |indent: &usize| *indent <= 3)(input)
+    verify(many0_count(char(' ')), |indent: &usize| *indent <= 3).parse(input)
 }
 
 fn parse_backticks(input: &str) -> IResult<&str, usize> {
-    verify(many1_count(char('`')), |backticks: &usize| *backticks >= 3)(input)
+    verify(many1_count(char('`')), |backticks: &usize| *backticks >= 3)
+        .parse(input)
 }
 
 fn parse_info(input: &str) -> IResult<&str, &str> {
-    verify(rest, |info: &str| !info.contains('`'))(input)
+    verify(rest, |info: &str| !info.contains('`')).parse(input)
 }
 
 fn remove_indent<'a>(
@@ -404,9 +405,10 @@ fn remove_indent<'a>(
     code_fence: &CodeFence,
 ) -> IResult<&'a str, &'a str> {
     map(
-        tuple((many_m_n(0, code_fence.indent, char(' ')), rest)),
+        (many_m_n(0, code_fence.indent, char(' ')), rest),
         |(_, unindented)| unindented,
-    )(input)
+    )
+    .parse(input)
 }
 
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
