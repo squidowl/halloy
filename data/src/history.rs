@@ -811,13 +811,18 @@ impl History {
         }
     }
 
-    pub fn update_read_marker(&mut self, read_marker: ReadMarker) {
+    pub fn update_read_marker(&mut self, read_marker: ReadMarker) -> bool {
         let stored = match self {
             History::Partial { read_marker, .. } => read_marker,
             History::Full { read_marker, .. } => read_marker,
         };
 
-        *stored = (*stored).max(Some(read_marker));
+        if Some(read_marker) > *stored {
+            *stored = Some(read_marker);
+            true
+        } else {
+            false
+        }
     }
 
     pub fn read_marker(&self) -> Option<ReadMarker> {
@@ -919,8 +924,9 @@ impl History {
 /// of the incoming message. Either message IDs match, or server times
 /// have an exact match + target & content.
 ///
-/// A non-None return value indicates whether a message sent from
-/// this client was replaced by an echo
+/// A non-None return value indicates whether a message sent from / this client
+/// was replaced by an echo (and the replacement's server_time corresponds to
+/// the ReadMarker)
 pub fn insert_message(
     messages: &mut Vec<Message>,
     message: Message,

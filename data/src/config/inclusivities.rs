@@ -148,7 +148,7 @@ pub fn is_user_channel_server_included(
      -> bool {
         inclusivities.is_some_and(|inclusivities| {
             inclusivities.is_user_inclusive(user, casemapping)
-                || channel.is_none_or(|channel| {
+                || channel.is_some_and(|channel| {
                     inclusivities.is_channel_inclusive(channel, casemapping)
                 })
                 || inclusivities.is_server_inclusive(server)

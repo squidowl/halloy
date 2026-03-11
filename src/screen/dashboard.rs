@@ -4,8 +4,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 use std::{convert, slice};
 
-use chrono::format::SecondsFormat;
-use chrono::{DateTime, Local, Utc};
+use chrono::{DateTime, Utc};
 use data::config::buffer::{ScrollPosition, UsernameFormat};
 use data::dashboard::{self, BufferAction};
 use data::environment::{RELEASE_WEBSITE, WIKI_WEBSITE};
@@ -2092,25 +2091,11 @@ impl Dashboard {
 
                         None
                     }
-                    buffer::context_menu::Event::CopyTimestamp(
-                        date_time,
-                        format,
-                    ) => {
-                        if let Some(format) = format {
-                            tasks.push(clipboard::write(
-                                date_time
-                                    .with_timezone(&Local)
-                                    .format(&format)
-                                    .to_string(),
-                            ));
-                        } else {
-                            tasks.push(clipboard::write(
-                                date_time.to_rfc3339_opts(
-                                    SecondsFormat::Millis,
-                                    true,
-                                ),
-                            ));
-                        }
+                    buffer::context_menu::Event::CopyTimestamp(date_time) => {
+                        let date_time =
+                            config.buffer.format_copy_timestamp(&date_time);
+
+                        tasks.push(clipboard::write(date_time));
 
                         None
                     }

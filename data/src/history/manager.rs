@@ -1357,10 +1357,10 @@ impl Data {
             hash_map::Entry::Occupied(mut entry) => {
                 let read_marker = entry.get_mut().add_message(message);
 
-                if let Some(read_marker) = read_marker {
-                    // Update the read marker immediately so the split is correct
-                    entry.get_mut().update_read_marker(read_marker);
-
+                // Update the read marker immediately so the split is correct
+                if let Some(read_marker) = read_marker
+                    && entry.get_mut().update_read_marker(read_marker)
+                {
                     Some(
                         async move {
                             Message::SentMessageUpdated(

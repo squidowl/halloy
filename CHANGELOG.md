@@ -5,6 +5,7 @@ Added:
 - Setting to limit reaction display length (`buffer.channel.message.max_reaction_display`) and maximum length (`buffer.channel.message.max_reaction_chars`)
 - Emoji and command picker entries are now clickable and insert the selected completion directly into the input.
 - Setting to disable writing chat history to disk (`buffer.chathistory.persist`)
+- Multi-line send support (uses IRCv3 [`multiline`](https://ircv3.net/specs/extensions/multiline) when available)
 
 Fixed:
 
@@ -12,11 +13,14 @@ Fixed:
 - Prevent interaction leakage behind open modals: clicks, cursor changes, and hover states no longer affect underlying UI while preserving outside-click and `Esc` to close
 - Prevent clicks from passing through completion picker overlays to content behind them (for example nicknames in the buffer).
 - Regression that could make the application slow to close
+- Apply locale to context menu, copy, and date separator timestamps
+- Fix direct message notifications when excludes are present
 
 Thanks:
 
-- Contributions: @KaiKorla
-- Bug reports: chmod222, @whitequark, quaff
+- Contributions: @KaiKorla, @englut
+- Bug reports: chmod222, @whitequark, @englut, sebbu, @ascarion
+- Feature requests: @gAlleb, @jtbx, @cyrneko
 
 # 2026.4 (2026-03-03)
 

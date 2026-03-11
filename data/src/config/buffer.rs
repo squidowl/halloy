@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 
-use chrono::{DateTime, Local, Utc};
+use chrono::format::SecondsFormat;
+use chrono::{DateTime, Local, NaiveDate, NaiveTime, Utc};
 use iced::Color;
 use serde::{Deserialize, Deserializer};
 
@@ -690,6 +691,53 @@ impl Buffer {
                 ))
                 .to_string(),
         ))
+    }
+
+    pub fn format_context_menu_timestamp(
+        &self,
+        date_time: &DateTime<Utc>,
+    ) -> String {
+        date_time
+            .with_timezone(&Local)
+            .format_localized(
+                &self.timestamp.context_menu_format,
+                self.timestamp.locale,
+            )
+            .to_string()
+    }
+
+    pub fn format_copy_timestamp(&self, date_time: &DateTime<Utc>) -> String {
+        if let Some(copy_format) = &self.timestamp.copy_format {
+            date_time
+                .with_timezone(&Local)
+                .format_localized(copy_format, self.timestamp.locale)
+                .to_string()
+        } else {
+            date_time.to_rfc3339_opts(SecondsFormat::Millis, true)
+        }
+    }
+
+    pub fn format_date_separator(&self, date: &NaiveDate) -> String {
+        date.and_time(
+            NaiveTime::from_hms_opt(0, 0, 0).expect("midnight is valid"),
+        )
+        .and_local_timezone(Local)
+        .single()
+        .map_or(
+            // in the event of timezone weirdness,
+            // revert to default format
+            date.format_localized(
+                &DateSeparators::default().format,
+                self.timestamp.locale,
+            ),
+            |date_time| {
+                date_time.format_localized(
+                    &self.date_separators.format,
+                    self.timestamp.locale,
+                )
+            },
+        )
+        .to_string()
     }
 }
 
