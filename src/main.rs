@@ -60,6 +60,9 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
+    // Prepare crypto provider before any TLS config is built.
+    irc::connection::prepare();
+
     // Prepare notifications.
     notification::prepare();
 

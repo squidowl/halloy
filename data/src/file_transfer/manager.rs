@@ -7,7 +7,7 @@ use chrono::Utc;
 use futures::StreamExt;
 use futures::stream::BoxStream;
 use itertools::Itertools;
-use rand::Rng;
+use rand::RngExt;
 
 use super::{
     Direction, FileTransfer, Id, ReceiveRequest, SendRequest, Status, Task,
