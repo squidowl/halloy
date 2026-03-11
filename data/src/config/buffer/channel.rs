@@ -5,6 +5,7 @@ use crate::buffer::Color;
 use crate::channel::Position;
 use crate::config::buffer::{AccessLevelFormat, Away};
 use crate::isupport;
+use crate::serde::deserialize_u32_positive_integer;
 
 #[derive(Debug, Clone, Default, Deserialize)]
 #[serde(default)]
@@ -35,9 +36,9 @@ impl ChannelNameCasing {
 pub struct Message {
     pub nickname_color: Color,
     pub show_emoji_reacts: bool,
-    #[serde(deserialize_with = "crate::serde::deserialize_positive_integer")]
+    #[serde(deserialize_with = "deserialize_u32_positive_integer")]
     pub max_reaction_display: u32,
-    #[serde(deserialize_with = "crate::serde::deserialize_positive_integer")]
+    #[serde(deserialize_with = "deserialize_u32_positive_integer")]
     pub max_reaction_chars: u32,
 }
 

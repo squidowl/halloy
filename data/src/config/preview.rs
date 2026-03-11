@@ -5,7 +5,7 @@ use crate::config::inclusivities::{
     Inclusivities, is_source_included, is_target_included,
 };
 use crate::message::Source;
-use crate::serde::deserialize_positive_integer_limit;
+use crate::serde::deserialize_u64_positive_integer_limit;
 use crate::{Server, Target, isupport, target};
 
 #[derive(Debug, Clone, Deserialize)]
@@ -190,7 +190,7 @@ pub struct ImageCache {
     /// Maximum image preview cache size in megabytes.
     ///
     /// Oldest cached images are evicted when the cache exceeds this size.
-    #[serde(deserialize_with = "deserialize_positive_integer_limit")]
+    #[serde(deserialize_with = "deserialize_u64_positive_integer_limit")]
     pub max_size: Option<u64>,
     /// Run image cache trimming every N successful image saves.
     ///

@@ -30,7 +30,7 @@ use crate::appearance::theme::Styles;
 use crate::appearance::{self, Appearance};
 use crate::audio::{self};
 use crate::serde::{
-    deserialize_positive_float_maybe, deserialize_positive_integer_maybe,
+    deserialize_f32_positive_float_maybe, deserialize_u8_positive_integer_maybe,
 };
 use crate::server::{ConfigMap as ServerMap, ServerName};
 use crate::{Theme, environment};
@@ -152,16 +152,16 @@ impl Default for Scrollbar {
 #[serde(default)]
 pub struct Font {
     pub family: Option<String>,
-    #[serde(deserialize_with = "deserialize_positive_integer_maybe")]
+    #[serde(deserialize_with = "deserialize_u8_positive_integer_maybe")]
     pub size: Option<u8>,
-    #[serde(deserialize_with = "deserialize_positive_float_maybe")]
+    #[serde(deserialize_with = "deserialize_f32_positive_float_maybe")]
     pub line_height: Option<f32>,
     #[serde(deserialize_with = "deserialize_font_weight_from_string")]
     pub weight: font::Weight,
     #[serde(deserialize_with = "deserialize_optional_font_weight_from_string")]
     #[serde(alias = "bold-weight")] // For backwards compatibility
     pub bold_weight: Option<font::Weight>,
-    #[serde(deserialize_with = "deserialize_positive_integer_maybe")]
+    #[serde(deserialize_with = "deserialize_u8_positive_integer_maybe")]
     pub only_emojis_size: Option<u8>,
 }
 

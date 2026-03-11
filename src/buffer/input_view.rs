@@ -35,8 +35,6 @@ use crate::{Theme, font, theme, window};
 
 mod completion;
 
-const MAX_LINE_COUNT: usize = 20;
-
 pub enum Event {
     InputSent {
         history_task: Task<history::manager::Message>,
@@ -351,7 +349,8 @@ pub fn view<'a>(
                 iced::keyboard::Key::Named(
                     iced::keyboard::key::Named::Enter,
                 ) if key_press.modifiers.shift() => {
-                    (state.input_content.line_count() < MAX_LINE_COUNT)
+                    (state.input_content.line_count()
+                        < config.buffer.text_input.max_lines)
                         .then_some(text_editor::Binding::Enter)
                 }
                 //
@@ -1099,7 +1098,7 @@ impl State {
                     let truncated_clipboard = clipboard
                         .lines()
                         .take(
-                            MAX_LINE_COUNT.saturating_sub(
+                            config.buffer.text_input.max_lines.saturating_sub(
                                 self.input_content.line_count(),
                             ) + 1,
                         )

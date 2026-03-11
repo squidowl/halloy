@@ -8,6 +8,7 @@ Customize the text input for in buffers.
     - [auto\_format](#auto_format)
     - [key\_bindings](#key_bindings)
       - [emacs](#emacs)
+    - [max\_lines](#max_lines)
     - [send\_line\_delay](#send_line_delay)
   - [Autocomplete](#autocomplete)
   - [Nickname](#nickname)
@@ -70,9 +71,24 @@ Emacs variant has the following binds:
 
 > 💡 Global [keyboard shortcuts](../../keyboard.md) take precedence. Unset any that collide (e.g., set `command_bar = "unset"`).
 
+### max_lines
+
+Maximum number of lines in a single input.  If [`multiline`](https://ircv3.net/specs/extensions/multiline) is supported by the server then it will be utilized, otherwise messages will be sent individually with [`send_line_delay`](#send_line_delay) milliseconds between them.
+
+> ⚠️ In many IRC communities sending multiple lines in quick succession is frowned upon (and may be a bannable offense); be mindful of community norms when using this feature
+
+```toml
+# Type: integer
+# Values: > 0
+# Default: 5
+
+[buffer.text_input]
+max_lines = 5
+```
+
 ### send_line_delay
 
-Delay (milliseconds) between each line when sending multiple messages.
+Delay (milliseconds) between each line when sending multiple lines.  When the server does not support SAFERATE messages may be delayed longer due to [anti-flood protections](/configuration/servers/#anti_flood).
 
 ```toml
 # Type: integer
