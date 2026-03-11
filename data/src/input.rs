@@ -9,6 +9,7 @@ use nom::sequence::tuple;
 use nom::{Finish, IResult};
 
 use crate::buffer::{self};
+use crate::capabilities::MultilineBatchKind;
 use crate::config::buffer::text_input::AutoFormat;
 use crate::message::formatting;
 use crate::target::Target;
@@ -172,28 +173,40 @@ impl Parsed {
         }
     }
 
-    pub fn includable_in_multiline_batch(
+    pub fn multiline_bytes(
         &self,
         casemapping: isupport::CaseMap,
-    ) -> bool {
+    ) -> Option<(usize, MultilineBatchKind)> {
         match self {
             Parsed::Input(input) => match &input.content {
-                Content::Text(_) => true,
+                Content::Text(text) => {
+                    Some((text.len(), MultilineBatchKind::PRIVMSG))
+                }
                 Content::Command(command) => match command {
-                    command::Irc::Msg(command_target, _)
-                    | command::Irc::Me(command_target, _)
-                    | command::Irc::Notice(command_target, _) => {
-                        input.buffer.target().is_some_and(|buffer_target| {
-                            buffer_target.as_normalized_str()
-                                == casemapping.normalize(command_target)
+                    command::Irc::Msg(command_target, text)
+                    | command::Irc::Me(command_target, text) => {
+                        input.buffer.target().and_then(|buffer_target| {
+                            (buffer_target.as_normalized_str()
+                                == casemapping.normalize(command_target))
+                            .then_some((
+                                text.len(),
+                                MultilineBatchKind::PRIVMSG,
+                            ))
                         })
                     }
-                    _ => false,
+                    command::Irc::Notice(command_target, text) => {
+                        input.buffer.target().and_then(|buffer_target| {
+                            (buffer_target.as_normalized_str()
+                                == casemapping.normalize(command_target))
+                            .then_some((text.len(), MultilineBatchKind::NOTICE))
+                        })
+                    }
+                    _ => None,
                 },
             },
-            Parsed::Internal(_) => false,
+            Parsed::Internal(_) => None,
             // Not included in batch, but should not delimit a batch
-            Parsed::CodeFence(_) => true,
+            Parsed::CodeFence(_) => Some((0, MultilineBatchKind::PRIVMSG)),
         }
     }
 }

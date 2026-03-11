@@ -23,6 +23,7 @@ pub mod appearance;
 pub mod audio;
 pub mod bouncer;
 pub mod buffer;
+pub mod capabilities;
 pub mod channel;
 pub mod channel_discovery;
 pub mod client;

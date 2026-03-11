@@ -49,7 +49,7 @@ impl Reaction {
             return None;
         }
         let in_reply_to = message.in_reply_to()?;
-        let server_time = message.server_time();
+        let server_time = message.server_time_or_now();
 
         let (Command::PRIVMSG(target, _) | Command::TAGMSG(target)) =
             message.0.command
