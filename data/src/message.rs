@@ -4,6 +4,7 @@ use std::hash::{DefaultHasher, Hash as _, Hasher};
 use std::iter;
 use std::sync::{Arc, LazyLock};
 
+use chrono::format::SecondsFormat;
 use chrono::{DateTime, Local, Utc};
 use const_format::concatcp;
 use fancy_regex::{Regex, RegexBuilder};
@@ -111,11 +112,23 @@ impl Encoded {
             .map(|val| Id::from(&**val))
     }
 
-    pub fn server_time(&self) -> DateTime<Utc> {
+    pub fn server_time(&self) -> Option<DateTime<Utc>> {
         self.tags
             .get("time")
             .and_then(|rfc3339| DateTime::parse_from_rfc3339(rfc3339).ok())
-            .map_or_else(Utc::now, |dt| dt.with_timezone(&Utc))
+            .map(|dt| dt.with_timezone(&Utc))
+    }
+
+    pub fn server_time_or_now(&self) -> DateTime<Utc> {
+        self.server_time().unwrap_or_else(Utc::now)
+    }
+
+    pub fn with_server_time(mut self, server_time: &DateTime<Utc>) -> Self {
+        self.tags.insert(
+            "time".to_string(),
+            server_time.to_rfc3339_opts(SecondsFormat::Millis, true),
+        );
+        self
     }
 }
 
@@ -325,7 +338,7 @@ impl Message {
         casemapping: isupport::CaseMap,
         prefix: &[isupport::PrefixMap],
     ) -> Option<Message> {
-        let server_time = encoded.server_time();
+        let server_time = encoded.server_time_or_now();
         let id = encoded.message_id();
         let is_echo = encoded
             .user(casemapping)
@@ -383,7 +396,7 @@ impl Message {
         casemapping: isupport::CaseMap,
         prefix: &[isupport::PrefixMap],
     ) -> Option<(Message, Option<Highlight>)> {
-        let server_time = encoded.server_time();
+        let server_time = encoded.server_time_or_now();
         let id = encoded.message_id();
         let is_echo = encoded
             .user(casemapping)
