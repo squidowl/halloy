@@ -34,7 +34,7 @@
             const path_to_root = "../../../";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../../../searchindex-6483efed.js";
+            window.path_to_searchindex_js = "../../../searchindex-d5eb6780.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="../../../toc-eee21653.js"></script>
@@ -193,6 +193,8 @@
 <li><a href="#emacs">emacs</a></li>
 </ul>
 </li>
+<li><a href="#max_lines">max_lines</a></li>
+<li><a href="#send_line_delay">send_line_delay</a></li>
 </ul>
 </li>
 <li><a href="#autocomplete">Autocomplete</a></li>
@@ -239,6 +241,27 @@ key_bindings = "emacs"
 <blockquote>
 <p>💡 Global <a href="../../keyboard.html">keyboard shortcuts</a> take precedence. Unset any that collide (e.g., set <code>command_bar = "unset"</code>).</p>
 </blockquote>
+<h3 id="max_lines"><a class="header" href="#max_lines">max_lines</a></h3>
+<p>Maximum number of lines in a single input.  If <a href="https://ircv3.net/specs/extensions/multiline"><code>multiline</code></a> is supported by the server then it will be utilized, otherwise messages will be sent individually with <a href="#send_line_delay"><code>send_line_delay</code></a> milliseconds between them.</p>
+<blockquote>
+<p>⚠️ In many IRC communities sending multiple lines in quick succession is frowned upon (and may be a bannable offense); be mindful of community norms when using this feature</p>
+</blockquote>
+<pre><code class="language-toml"># Type: integer
+# Values: &gt; 0
+# Default: 5
+
+[buffer.text_input]
+max_lines = 5
+</code></pre>
+<h3 id="send_line_delay"><a class="header" href="#send_line_delay">send_line_delay</a></h3>
+<p>Delay (milliseconds) between each line when sending multiple lines.  When the server does not support SAFERATE messages may be delayed longer due to <a href="/configuration/servers/#anti_flood">anti-flood protections</a>.</p>
+<pre><code class="language-toml"># Type: integer
+# Values: &gt;= 0
+# Default: 100
+
+[buffer.text_input]
+send_line_delay = 100
+</code></pre>
 <h2 id="autocomplete"><a class="header" href="#autocomplete"><a href="autocomplete.html">Autocomplete</a></a></h2>
 <p>Customize autocomplete</p>
 <h2 id="nickname"><a class="header" href="#nickname"><a href="nickname.html">Nickname</a></a></h2>
