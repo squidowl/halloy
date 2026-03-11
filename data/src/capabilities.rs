@@ -22,13 +22,13 @@ pub enum Capability {
     InviteNotify,
     LabeledResponse,
     MessageTags,
+    Multiline,
     MultiPrefix,
     ReadMarker,
     Sasl,
     ServerTime,
     Setname,
     UserhostInNames,
-    Multiline,
 }
 
 impl FromStr for Capability {
