@@ -195,13 +195,12 @@ pub fn view<'a>(
         .padding(padding::left(8).right(8));
 
     let body: Element<Message> = if show_typing {
-        let typing_overlay: Element<'a, Message> =
-            container(typing.unwrap_or_else(|| column![].into()))
-                .width(Length::Fill)
-                .height(Length::Fill)
-                .align_y(iced::alignment::Vertical::Bottom)
-                .padding(padding::left(2))
-                .into();
+        let typing_overlay: Element<'a, Message> = container(typing)
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .align_y(iced::alignment::Vertical::Bottom)
+            .padding(padding::left(2))
+            .into();
 
         column![
             stack![content, typing_overlay].height(Length::Fill),
