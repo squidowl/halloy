@@ -4792,7 +4792,7 @@ mod tests {
         let canonical = query("FooBar");
 
         let message = message::Encoded(proto::Message {
-            tags: Default::default(),
+            tags: BTreeMap::default(),
             source: Some(proto::Source::User(proto::User {
                 nickname: "FooBar".to_string(),
                 username: Some("user".to_string()),
