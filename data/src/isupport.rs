@@ -1312,3 +1312,30 @@ pub fn get_statusmsg_or_default(
         }
     })
 }
+
+pub fn is_client_only_tag_denied(
+    isupport: &HashMap<Kind, Parameter>,
+    tag: &str,
+) -> bool {
+    let Some(Parameter::CLIENTTAGDENY(tags)) =
+        isupport.get(&Kind::CLIENTTAGDENY)
+    else {
+        return false;
+    };
+
+    let (has_deny_all, tag_allowed, tag_denied) = tags.iter().fold(
+        (false, false, false),
+        |(has_deny_all, tag_allowed, tag_denied), client_tag| match client_tag {
+            ClientOnlyTags::DenyAll => (true, tag_allowed, tag_denied),
+            ClientOnlyTags::Allowed(name) if name == tag => {
+                (has_deny_all, true, tag_denied)
+            }
+            ClientOnlyTags::Denied(name) if name == tag => {
+                (has_deny_all, tag_allowed, true)
+            }
+            _ => (has_deny_all, tag_allowed, tag_denied),
+        },
+    );
+
+    tag_denied || (has_deny_all && !tag_allowed)
+}
