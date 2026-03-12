@@ -320,6 +320,7 @@ pub enum History {
         messages: Vec<Message>,
         last_updated_at: Option<Instant>,
         read_marker: Option<ReadMarker>,
+        display_read_marker: Option<ReadMarker>,
         last_seen: HashMap<Nick, DateTime<Utc>>,
         cleared: bool,
     },
@@ -795,8 +796,19 @@ impl History {
 
     pub fn update_read_marker(&mut self, read_marker: ReadMarker) -> bool {
         let stored = match self {
-            History::Partial { read_marker, .. } => read_marker,
-            History::Full { read_marker, .. } => read_marker,
+            History::Partial {
+                read_marker: stored_read_marker,
+                ..
+            } => stored_read_marker,
+            History::Full {
+                display_read_marker,
+                read_marker: stored_read_marker,
+                ..
+            } => {
+                *display_read_marker =
+                    (*display_read_marker).max(Some(read_marker));
+                stored_read_marker
+            }
         };
 
         if Some(read_marker) > *stored {
@@ -811,6 +823,27 @@ impl History {
         match self {
             History::Partial { read_marker, .. }
             | History::Full { read_marker, .. } => *read_marker,
+        }
+    }
+
+    pub fn update_display_read_marker(&mut self, read_marker: ReadMarker) {
+        if let History::Full {
+            display_read_marker,
+            ..
+        } = self
+        {
+            *display_read_marker =
+                (*display_read_marker).max(Some(read_marker));
+        }
+    }
+
+    pub fn display_read_marker(&self) -> Option<ReadMarker> {
+        match self {
+            History::Partial { .. } => None,
+            History::Full {
+                display_read_marker,
+                ..
+            } => *display_read_marker,
         }
     }
 
