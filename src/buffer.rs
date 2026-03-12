@@ -597,10 +597,7 @@ impl Buffer {
     pub fn insert_user_to_input(
         &mut self,
         nick: Nick,
-        clients: &mut data::client::Map,
         history: &mut history::Manager,
-        share_typing: bool,
-        config: &Config,
         autocomplete: &Autocomplete,
     ) {
         match self {
@@ -612,28 +609,19 @@ impl Buffer {
             Buffer::Server(state) => state.input_view.insert_user(
                 nick,
                 state.buffer.clone(),
-                clients,
                 history,
-                false,
-                config,
                 autocomplete,
             ),
             Buffer::Channel(state) => state.input_view.insert_user(
                 nick,
                 state.buffer.clone(),
-                clients,
                 history,
-                share_typing,
-                config,
                 autocomplete,
             ),
             Buffer::Query(state) => state.input_view.insert_user(
                 nick,
                 state.buffer.clone(),
-                clients,
                 history,
-                share_typing,
-                config,
                 autocomplete,
             ),
         }
