@@ -122,7 +122,7 @@ pub fn view<'a>(
             &clients.get_query_typing_users(server, query),
             casemapping,
         ),
-        config,
+        typing::typing_font_size(config),
         theme,
     );
 

@@ -163,7 +163,7 @@ pub fn view<'a>(
             &clients.get_channel_typing_users(server, channel),
             casemapping,
         ),
-        config,
+        typing::typing_font_size(config),
         theme,
     );
 
