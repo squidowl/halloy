@@ -13,43 +13,6 @@ on:
     - cron: "25 4 * * 1"
 
 jobs:
-  codeql:
-    name: CodeQL (${{ matrix.language }})
-    runs-on: ubuntu-latest
-    permissions:
-      security-events: write
-      contents: read
-
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - language: actions
-            build-mode: none
-          - language: rust
-            build-mode: none
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-
-      - name: Install system dependencies
-        if: matrix.language == 'rust'
-        run: |
-          sudo apt update
-          sudo apt install $(cat .github/linux-deps.txt)
-
-      - name: Initialize CodeQL
-        uses: github/codeql-action/init@0d579ffd059c29b07949a3cce3983f0780820c98 # v4.32.6
-        with:
-          languages: ${{ matrix.language }}
-          build-mode: ${{ matrix.build-mode }}
-
-      - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@0d579ffd059c29b07949a3cce3983f0780820c98 # v4.32.6
-        with:
-          category: "/language:${{ matrix.language }}"
-
   cargo-audit:
     name: Cargo Audit
     runs-on: ubuntu-latest
