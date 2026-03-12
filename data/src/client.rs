@@ -1,5 +1,6 @@
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, HashMap, VecDeque};
+use std::mem::take;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -387,21 +388,14 @@ impl Client {
             && config.order_channels_by != Some(order_channels_by)
         {
             let chantypes = self.chantypes().to_vec();
-            let channels: Vec<_> = self.chanmap.drain(..).collect();
-            for (channel, channel_data) in channels {
-                self.chanmap.insert_sorted_by(
-                    channel,
-                    channel_data,
-                    |c1, _, c2, _| {
-                        compare_channels(
-                            &config,
-                            &chantypes,
-                            c1.as_normalized_str(),
-                            c2.as_normalized_str(),
-                        )
-                    },
-                );
-            }
+            self.chanmap.sort_by(|c1, _, c2, _| {
+                compare_channels(
+                    &config,
+                    &chantypes,
+                    c1.as_normalized_str(),
+                    c2.as_normalized_str(),
+                )
+            });
         }
 
         self.config = config;
@@ -2335,6 +2329,39 @@ impl Client {
                                                 // changes, ChannelUsers,
                                                 // Targets, etc should be
                                                 // renormalized and resorted
+
+                                                let chantypes = self.chantypes().to_vec();
+                                                self.chanmap = take(&mut self.chanmap)
+                                                    .into_iter()
+                                                    .map(|(channel, data)| {
+                                                        let updated_channel = target::Channel::from_str(
+                                                            channel.as_str(),
+                                                            &chantypes,
+                                                            casemapping,
+                                                        );
+                                                        (updated_channel, data)
+                                                    })
+                                                    .sorted_by(|(c1, _), (c2, _)| {
+                                                        compare_channels(
+                                                            &self.config,
+                                                            &chantypes,
+                                                            c1.as_normalized_str(),
+                                                            c2.as_normalized_str(),
+                                                        )
+                                                    })
+                                                    .collect();
+
+                                                self.resolved_queries = take(&mut self.resolved_queries)
+                                                    .into_iter()
+                                                    .filter_map(|old_query| {
+                                                        target::Query::parse(
+                                                            old_query.as_str(),
+                                                            &chantypes,
+                                                            self.statusmsg(),
+                                                            casemapping,
+                                                        ).ok()
+                                                    })
+                                                    .collect();
                                             }
                                             isupport::Parameter::SAFERATE => {
                                                 if let Some(ref mut anti_flood) = self.anti_flood {
@@ -2784,13 +2811,15 @@ impl Client {
                     })
                     .collect::<Vec<_>>();
 
-                // Send JOIN
-                for message in group_joins(
-                    &channels,
-                    &self.config.channel_keys,
-                    find_target_limit(&self.isupport, "JOIN"),
-                ) {
-                    self.handle.try_send(message)?;
+                // Send JOIN on non bouncer networks
+                if !self.server.is_bouncer_network() {
+                    for message in group_joins(
+                        &channels,
+                        &self.config.channel_keys,
+                        find_target_limit(&self.isupport, "JOIN"),
+                    ) {
+                        self.handle.try_send(message)?;
+                    }
                 }
 
                 if !self.config.monitor.is_empty() {
@@ -4012,21 +4041,10 @@ fn compare_channels(
          * config.server.<server_name>.channels. Anything not in this list is sorted by `name` (default).
          */
         Some(config::sidebar::OrderChannelsBy::Config) => {
-            // use server's list of configured channels (or sort_channels on bouncer networks)
-            let channel_list = if !config.sort_channels.is_empty() {
-                &config.sort_channels
-            } else {
-                &config.channels
-            };
-            let a_pos = channel_list
-                .iter()
-                .position(|ch| ch.eq_ignore_ascii_case(a));
-            let b_pos = channel_list
-                .iter()
-                .position(|ch| ch.eq_ignore_ascii_case(b));
-
+            let a_pos = &config.channels.iter().position(|ch| ch == a);
+            let b_pos = &config.channels.iter().position(|ch| ch == b);
             match (a_pos, b_pos) {
-                (Some(a_pos), Some(b_pos)) => a_pos.cmp(&b_pos),
+                (Some(a_pos), Some(b_pos)) => a_pos.cmp(b_pos),
                 (Some(_), None) => Ordering::Less,
                 (None, Some(_)) => Ordering::Greater,
                 (None, None) => compare_channels_default(chantypes, a, b),
