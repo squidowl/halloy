@@ -65,9 +65,6 @@ pub struct Server {
     pub channel_keys: HashMap<String, String>,
     /// Order server's channels
     pub order_channels_by: Option<config::sidebar::OrderChannelsBy>,
-    /// Channel list used for sorting (preserved for bouncer networks)
-    #[serde(skip)]
-    pub sort_channels: Vec<String>,
     /// A list of queries to add to the sidebar on connection.
     pub queries: Vec<String>,
     /// The amount of inactivity in seconds before the client will ping the server.
@@ -177,11 +174,8 @@ impl Server {
             nick_password_command: Option::default(),
             nick_identify_syntax: Option::default(),
 
-            // channels not relevant (don't auto-join on bouncer networks)
-            channels: Vec::default(),
+            // channel_keys not relevant
             channel_keys: HashMap::default(),
-            // but preserve parent's channel list for sorting
-            sort_channels: self.channels.clone(),
 
             // ghost sequence not relevant
             should_ghost: Default::default(),
@@ -214,7 +208,6 @@ impl Default for Server {
             channels: Vec::default(),
             channel_keys: HashMap::default(),
             order_channels_by: None,
-            sort_channels: Vec::default(),
             queries: Vec::default(),
             ping_time: 180,
             ping_timeout: 20,
