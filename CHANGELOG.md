@@ -18,7 +18,7 @@ Fixed:
 Thanks:
 
 - Contributions: @KaiKorla, @englut
-- Bug reports: chmod222, @whitequark, @englut, sebbu, @ascarion
+- Bug reports: chmod222, @whitequark, @englut, sebbu, @ascarion, @4e554c4c
 - Feature requests: @gAlleb, @jtbx, @cyrneko, @englut
 
 # 2026.4 (2026-03-03)
