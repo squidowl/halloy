@@ -744,7 +744,9 @@ impl State {
                     );
 
                     self.on_completion(buffer, history, actions, true)
-                } else if !self.input_content.text().is_empty() {
+                // IRCv3 draft/multiline forbids all blank lines, so we will
+                // take that as an IRC norm and require the same
+                } else if !self.input_content.text().trim().is_empty() {
                     // If there is an error in the input then display the error
                     // for the current line (if it has an error) or the first
                     // line with an error, then ignore send.
@@ -1350,6 +1352,8 @@ impl State {
         let is_connected = clients.get_server_is_connected(buffer.server());
         let isupport = clients.get_isupport(buffer.server());
         let relay_bytes = clients.get_relay_bytes(buffer.server());
+        let supports_multiline =
+            clients.get_server_supports_multiline(buffer.server());
 
         if self.input_content.text().is_empty() {
             self.parsed = Vec::new();
@@ -1360,7 +1364,7 @@ impl State {
 
         self.parsed = input_lines(&text)
             .scan(None, |open_code_fence: &mut Option<CodeFence>, line| {
-                let line = if line.is_empty() {
+                let line = if line.is_empty() && !supports_multiline {
                     // Send a space to emulate an empty line
                     Cow::Owned(String::from(' '))
                 } else {

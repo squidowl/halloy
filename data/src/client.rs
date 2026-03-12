@@ -4249,6 +4249,12 @@ impl Map {
         self.client(server).and_then(Client::multiline)
     }
 
+    pub fn get_server_supports_multiline(&self, server: &Server) -> bool {
+        self.client(server).is_some_and(|client| {
+            client.capabilities.acknowledged(Capability::Multiline)
+        })
+    }
+
     pub fn get_server_supports_echoes(&self, server: &Server) -> bool {
         self.client(server).is_some_and(|client| {
             client.capabilities.acknowledged(Capability::EchoMessage)
