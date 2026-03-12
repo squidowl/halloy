@@ -456,8 +456,7 @@ impl Manager {
         kind: T,
         read_marker: history::ReadMarker,
     ) -> Option<impl Future<Output = Message> + use<T>> {
-        self.data
-            .update_read_marker(kind, read_marker, self.persist)
+        self.data.update_read_marker(kind, read_marker)
     }
 
     pub fn load_metadata(
@@ -1448,7 +1447,6 @@ impl Data {
         &mut self,
         kind: T,
         read_marker: history::ReadMarker,
-        persist: bool,
     ) -> Option<impl Future<Output = Message> + use<T>> {
         use std::collections::hash_map;
 
@@ -1460,7 +1458,6 @@ impl Data {
 
                 None
             }
-            hash_map::Entry::Vacant(_) if !persist => None,
             hash_map::Entry::Vacant(_) => Some(
                 async move {
                     let updated =

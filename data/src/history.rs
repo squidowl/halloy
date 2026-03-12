@@ -564,10 +564,6 @@ impl History {
         seed: Option<Seed>,
         persist: bool,
     ) -> Option<BoxFuture<'static, Result<(), Error>>> {
-        if !persist {
-            return None;
-        }
-
         match self {
             History::Partial {
                 kind,
@@ -586,9 +582,20 @@ impl History {
                     let kind = kind.clone();
                     let messages = std::mem::take(messages);
                     let read_marker = *read_marker;
-                    let pending_reactions = std::mem::take(pending_reactions);
 
                     *last_updated_at = None;
+
+                    if !persist {
+                        return Some(
+                            async move {
+                                metadata::save(&kind, &messages, read_marker)
+                                    .await
+                            }
+                            .boxed(),
+                        );
+                    }
+
+                    let pending_reactions = std::mem::take(pending_reactions);
 
                     return Some(
                         async move {
@@ -624,6 +631,15 @@ impl History {
                     let kind = kind.clone();
                     let read_marker = *read_marker;
                     *last_updated_at = None;
+
+                    if !persist {
+                        return Some(
+                            async move {
+                                metadata::save(&kind, &[], read_marker).await
+                            }
+                            .boxed(),
+                        );
+                    }
 
                     if messages.len() > MAX_MESSAGES {
                         messages.drain(
@@ -682,13 +698,13 @@ impl History {
                     pending_reactions: HashMap::new(),
                 };
 
-                if !persist {
-                    return None;
-                }
-
-                Some(
-                    async move { overwrite(&kind, &messages, read_marker).await },
-                )
+                Some(async move {
+                    if persist {
+                        overwrite(&kind, &messages, read_marker).await
+                    } else {
+                        metadata::save(&kind, &messages, read_marker).await
+                    }
+                })
             }
         }
     }
@@ -698,10 +714,6 @@ impl History {
         seed: Option<Seed>,
         persist: bool,
     ) -> Result<(), Error> {
-        if !persist {
-            return Ok(());
-        }
-
         match self {
             History::Partial {
                 kind,
@@ -710,6 +722,9 @@ impl History {
                 pending_reactions,
                 ..
             } => {
+                if !persist {
+                    return metadata::save(&kind, &messages, read_marker).await;
+                }
                 append(&kind, seed, messages, read_marker, pending_reactions)
                     .await
             }
@@ -718,7 +733,12 @@ impl History {
                 messages,
                 read_marker,
                 ..
-            } => overwrite(&kind, &messages, read_marker).await,
+            } => {
+                if !persist {
+                    return metadata::save(&kind, &messages, read_marker).await;
+                }
+                overwrite(&kind, &messages, read_marker).await
+            }
         }
     }
 
