@@ -4,6 +4,7 @@ use std::convert;
 use std::time::{Duration, Instant};
 
 use data::buffer::{self, Upstream};
+use data::capabilities::MultilineBatchKind;
 use data::config::buffer::text_input::{AutoFormat, Autocomplete, KeyBindings};
 use data::dashboard::BufferAction;
 use data::history::filter::FilterChain;
@@ -1010,7 +1011,7 @@ impl State {
                             text_editor::Edit::Delete,
                         ));
 
-                        self.maybe_send_typing_status(
+                        self.parse_lines_and_maybe_send_typing_status(
                             buffer,
                             clients,
                             channel_typing_enabled,
@@ -1067,7 +1068,7 @@ impl State {
                     text_editor::Edit::Delete,
                 ));
 
-                self.maybe_send_typing_status(
+                self.parse_lines_and_maybe_send_typing_status(
                     buffer,
                     clients,
                     channel_typing_enabled,
@@ -1098,7 +1099,7 @@ impl State {
                     text_editor::Edit::Delete,
                 ));
 
-                self.maybe_send_typing_status(
+                self.parse_lines_and_maybe_send_typing_status(
                     buffer,
                     clients,
                     channel_typing_enabled,
@@ -1128,7 +1129,7 @@ impl State {
                     text_editor::Edit::Delete,
                 ));
 
-                self.maybe_send_typing_status(
+                self.parse_lines_and_maybe_send_typing_status(
                     buffer,
                     clients,
                     channel_typing_enabled,
@@ -1158,7 +1159,7 @@ impl State {
                     text_editor::Edit::Delete,
                 ));
 
-                self.maybe_send_typing_status(
+                self.parse_lines_and_maybe_send_typing_status(
                     buffer,
                     clients,
                     channel_typing_enabled,
@@ -1286,7 +1287,6 @@ impl State {
                             buffer,
                             clients,
                             channel_typing_enabled,
-                            config,
                         );
 
                         history.record_draft(RawInput {
@@ -1409,10 +1409,9 @@ impl State {
             return;
         }
 
-        self.parsed = self
-            .input_content
-            .text()
-            .lines()
+        let text = self.input_content.text();
+
+        self.parsed = input_lines(&text)
             .scan(None, |open_code_fence: &mut Option<CodeFence>, line| {
                 let line = if line.is_empty() {
                     // Send a space to emulate an empty line
@@ -2001,7 +2000,7 @@ impl State {
             self.input_content.perform(action);
         }
 
-        self.maybe_send_typing_status(
+        self.parse_lines_and_maybe_send_typing_status(
             buffer,
             clients,
             channel_typing_enabled,
@@ -2042,7 +2041,7 @@ impl State {
             text_editor::Motion::DocumentEnd,
         ));
 
-        self.maybe_send_typing_status(
+        self.parse_lines_and_maybe_send_typing_status(
             buffer,
             clients,
             channel_typing_enabled,
@@ -2132,7 +2131,7 @@ impl State {
             text_editor::Edit::Paste(std::sync::Arc::new(insert_text)),
         ));
 
-        self.maybe_send_typing_status(
+        self.parse_lines_and_maybe_send_typing_status(
             &buffer,
             clients,
             channel_typing_enabled,
@@ -2147,6 +2146,17 @@ impl State {
 
     pub fn close_picker(&mut self) -> bool {
         self.completion.close_picker()
+    }
+
+    fn parse_lines_and_maybe_send_typing_status(
+        &mut self,
+        buffer: &buffer::Upstream,
+        clients: &mut client::Map,
+        channel_typing_enabled: bool,
+        config: &Config,
+    ) {
+        self.parse_lines(buffer, clients, config);
+        self.maybe_send_typing_status(buffer, clients, channel_typing_enabled);
     }
 
     fn typing_transition(
@@ -2181,15 +2191,12 @@ impl State {
         buffer: &buffer::Upstream,
         clients: &mut client::Map,
         channel_typing_enabled: bool,
-        config: &Config,
     ) {
         let text = self.current_line_text();
         let enabled = self.can_send_typing_status(
             buffer,
             clients,
             channel_typing_enabled,
-            config,
-            &text,
         );
 
         if !enabled {
@@ -2265,11 +2272,9 @@ impl State {
         buffer: &buffer::Upstream,
         clients: &client::Map,
         channel_typing_enabled: bool,
-        config: &Config,
-        text: &str,
     ) -> bool {
         self.typing_allowed(buffer, clients, channel_typing_enabled)
-            && self.is_message_like_input(buffer, clients, config, text)
+            && self.is_message_like_input(buffer, clients)
     }
 
     fn typing_allowed(
@@ -2296,20 +2301,18 @@ impl State {
         &self,
         buffer: &buffer::Upstream,
         clients: &client::Map,
-        config: &Config,
-        text: &str,
     ) -> bool {
-        matches!(
-            command::parse(
-                text,
-                Some(buffer),
-                clients.nickname(buffer.server()),
-                clients.get_server_is_connected(buffer.server()),
-                &clients.get_isupport(buffer.server()),
-                config,
-            ),
-            Err(command::Error::MissingSlash)
-                | Ok(data::Command::Irc(command::Irc::Me(_, _)))
-        )
+        let cursor_position = self.input_content.cursor().position;
+        let casemapping = clients.get_casemapping(buffer.server());
+
+        self.parsed
+            .get(cursor_position.line)
+            .and_then(|parsed| parsed.as_ref().ok())
+            .and_then(|parsed| parsed.multiline_batch_kind(casemapping))
+            .is_some_and(|kind| kind == MultilineBatchKind::PRIVMSG)
     }
+}
+
+fn input_lines(text: &str) -> impl Iterator<Item = &str> {
+    text.split('\n')
 }
