@@ -3664,33 +3664,7 @@ impl Client {
 
     fn can_send_typing(&self) -> bool {
         self.capabilities.acknowledged(Capability::MessageTags)
-            && !self.is_typing_tag_denied()
-    }
-
-    fn is_typing_tag_denied(&self) -> bool {
-        let Some(isupport::Parameter::CLIENTTAGDENY(tags)) =
-            self.isupport.get(&isupport::Kind::CLIENTTAGDENY)
-        else {
-            return false;
-        };
-
-        let (has_deny_all, typing_allowed, typing_denied) = tags.iter().fold(
-            (false, false, false),
-            |(has_deny_all, typing_allowed, typing_denied), tag| match tag {
-                isupport::ClientOnlyTags::DenyAll => {
-                    (true, typing_allowed, typing_denied)
-                }
-                isupport::ClientOnlyTags::Allowed(name) if name == "typing" => {
-                    (has_deny_all, true, typing_denied)
-                }
-                isupport::ClientOnlyTags::Denied(name) if name == "typing" => {
-                    (has_deny_all, typing_allowed, true)
-                }
-                _ => (has_deny_all, typing_allowed, typing_denied),
-            },
-        );
-
-        typing_denied || (has_deny_all && !typing_allowed)
+            && !isupport::is_client_only_tag_denied(&self.isupport, "typing")
     }
 
     pub fn is_channel(&self, target: &str) -> bool {
