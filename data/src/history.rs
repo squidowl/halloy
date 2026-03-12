@@ -633,9 +633,11 @@ impl History {
                     *last_updated_at = None;
 
                     if !persist {
+                        let messages = messages.clone();
                         return Some(
                             async move {
-                                metadata::save(&kind, &[], read_marker).await
+                                metadata::save(&kind, &messages, read_marker)
+                                    .await
                             }
                             .boxed(),
                         );
