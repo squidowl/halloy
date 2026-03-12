@@ -19,7 +19,7 @@ Thanks:
 
 - Contributions: @KaiKorla, @englut
 - Bug reports: chmod222, @whitequark, @englut, sebbu, @ascarion
-- Feature requests: @gAlleb, @jtbx, @cyrneko
+- Feature requests: @gAlleb, @jtbx, @cyrneko, @englut
 
 # 2026.4 (2026-03-03)
 
