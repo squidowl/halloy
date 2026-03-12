@@ -10,7 +10,7 @@ pub fn view<'a, Message: 'a>(
     typing: Option<String>,
     _config: &'a Config,
     theme: &'a Theme,
-) -> Option<Element<'a, Message>> {
+) -> Element<'a, Message> {
     let typing: Element<'a, Message> = match typing {
         Some(text) => container(
             widget::text(text)
@@ -24,7 +24,7 @@ pub fn view<'a, Message: 'a>(
         None => column![].into(),
     };
 
-    Some(typing)
+    typing
 }
 
 pub fn typing_text(
