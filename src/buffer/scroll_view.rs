@@ -23,7 +23,7 @@ use tokio::time;
 
 use self::correct_viewport::correct_viewport;
 use self::keyed::keyed;
-use super::context_menu;
+use super::{context_menu, typing};
 use crate::widget::{
     Element, notify_visibility, on_resize, selectable_text, tooltip,
 };
@@ -670,11 +670,10 @@ pub fn view<'a>(
             bottom_spacer,
             space::vertical().height(line_spacing),
         ]
-        .padding(if reserve_bottom_line_for_typing {
-            padding::bottom(theme::resolve_line_height(&config.font) + 2.0 /* for padding */)
-        } else {
-            padding::bottom(0)
-        })
+        .padding(padding::bottom(typing::reserved_bottom_padding(
+            reserve_bottom_line_for_typing,
+            config,
+        )))
         .spacing(line_spacing),
         Message::ContentResized,
     );

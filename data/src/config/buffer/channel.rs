@@ -5,7 +5,9 @@ use crate::buffer::Color;
 use crate::channel::Position;
 use crate::config::buffer::{AccessLevelFormat, Away};
 use crate::isupport;
-use crate::serde::deserialize_u32_positive_integer;
+use crate::serde::{
+    deserialize_u8_positive_integer_maybe, deserialize_u32_positive_integer,
+};
 
 #[derive(Debug, Clone, Default, Deserialize)]
 #[serde(default)]
@@ -59,6 +61,8 @@ impl Default for Message {
 pub struct Typing {
     pub share: bool,
     pub show: bool,
+    #[serde(deserialize_with = "deserialize_u8_positive_integer_maybe")]
+    pub font_size: Option<u8>,
 }
 
 impl Default for Typing {
@@ -66,6 +70,7 @@ impl Default for Typing {
         Self {
             share: false,
             show: true,
+            font_size: None,
         }
     }
 }
