@@ -743,15 +743,7 @@ impl State {
                         config,
                     );
 
-                    self.on_completion(
-                        buffer,
-                        clients,
-                        history,
-                        channel_typing_enabled,
-                        config,
-                        actions,
-                        true,
-                    )
+                    self.on_completion(buffer, history, actions, true)
                 } else if !self.input_content.text().is_empty() {
                     // If there is an error in the input then display the error
                     // for the current line (if it has an error) or the first
@@ -850,15 +842,7 @@ impl State {
                         config,
                     );
 
-                    self.on_completion(
-                        buffer,
-                        clients,
-                        history,
-                        channel_typing_enabled,
-                        config,
-                        actions,
-                        true,
-                    )
+                    self.on_completion(buffer, history, actions, true)
                 } else {
                     (Task::none(), None)
                 }
@@ -877,15 +861,7 @@ impl State {
                         config,
                     );
 
-                    self.on_completion(
-                        buffer,
-                        clients,
-                        history,
-                        channel_typing_enabled,
-                        config,
-                        actions,
-                        true,
-                    )
+                    self.on_completion(buffer, history, actions, true)
                 } else {
                     (Task::none(), None)
                 }
@@ -1011,13 +987,6 @@ impl State {
                             text_editor::Edit::Delete,
                         ));
 
-                        self.parse_lines_and_maybe_send_typing_status(
-                            buffer,
-                            clients,
-                            channel_typing_enabled,
-                            config,
-                        );
-
                         clipboard::write(selection.to_string())
                     } else {
                         Task::none()
@@ -1068,13 +1037,6 @@ impl State {
                     text_editor::Edit::Delete,
                 ));
 
-                self.parse_lines_and_maybe_send_typing_status(
-                    buffer,
-                    clients,
-                    channel_typing_enabled,
-                    config,
-                );
-
                 (task, None)
             }
             Message::DeleteWordForward(save_to_clipboard) => {
@@ -1099,13 +1061,6 @@ impl State {
                     text_editor::Edit::Delete,
                 ));
 
-                self.parse_lines_and_maybe_send_typing_status(
-                    buffer,
-                    clients,
-                    channel_typing_enabled,
-                    config,
-                );
-
                 (task, None)
             }
             Message::DeleteToEnd(save_to_clipboard) => {
@@ -1129,13 +1084,6 @@ impl State {
                     text_editor::Edit::Delete,
                 ));
 
-                self.parse_lines_and_maybe_send_typing_status(
-                    buffer,
-                    clients,
-                    channel_typing_enabled,
-                    config,
-                );
-
                 (task, None)
             }
             Message::DeleteToStart(save_to_clipboard) => {
@@ -1158,13 +1106,6 @@ impl State {
                 self.input_content.perform(text_editor::Action::Edit(
                     text_editor::Edit::Delete,
                 ));
-
-                self.parse_lines_and_maybe_send_typing_status(
-                    buffer,
-                    clients,
-                    channel_typing_enabled,
-                    config,
-                );
 
                 (task, None)
             }
@@ -1192,7 +1133,13 @@ impl State {
 
                 match &action {
                     text_editor::Action::Edit(_) => {
-                        self.parse_lines(buffer, clients, config);
+                        self.parse_lines_and_maybe_send_typing_status(
+                            buffer,
+                            clients,
+                            channel_typing_enabled,
+                            config,
+                        );
+
                         let cursor_position =
                             self.input_content.cursor().position;
 
@@ -1989,23 +1936,13 @@ impl State {
     fn on_completion(
         &mut self,
         buffer: &buffer::Upstream,
-        clients: &mut client::Map,
         history: &mut history::Manager,
-        channel_typing_enabled: bool,
-        config: &Config,
         actions: Vec<text_editor::Action>,
         record_draft: bool,
     ) -> (Task<Message>, Option<Event>) {
         for action in actions.into_iter() {
             self.input_content.perform(action);
         }
-
-        self.parse_lines_and_maybe_send_typing_status(
-            buffer,
-            clients,
-            channel_typing_enabled,
-            config,
-        );
 
         if record_draft {
             history.record_draft(RawInput {
@@ -2073,10 +2010,7 @@ impl State {
         &mut self,
         nick: Nick,
         buffer: buffer::Upstream,
-        clients: &mut client::Map,
         history: &mut history::Manager,
-        channel_typing_enabled: bool,
-        config: &Config,
         autocomplete: &Autocomplete,
     ) {
         let cursor_position = self.input_content.cursor().position;
@@ -2130,13 +2064,6 @@ impl State {
         self.input_content.perform(text_editor::Action::Edit(
             text_editor::Edit::Paste(std::sync::Arc::new(insert_text)),
         ));
-
-        self.parse_lines_and_maybe_send_typing_status(
-            &buffer,
-            clients,
-            channel_typing_enabled,
-            config,
-        );
 
         history.record_draft(RawInput {
             buffer,

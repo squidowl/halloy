@@ -2031,27 +2031,12 @@ impl Dashboard {
                         None
                     }
                     buffer::context_menu::Event::InsertNickname(nick) => {
-                        let share_typing = self
-                            .panes
-                            .get(self.focus.window, self.focus.pane)
-                            .and_then(|pane| pane.buffer.data())
-                            .and_then(|buffer| {
-                                self.buffer_settings.get(&buffer)
-                            })
-                            .map_or(
-                                config.buffer.channel.typing.share,
-                                |settings| settings.channel.typing.share,
-                            );
-
                         if let Some((_, _, pane, history)) =
                             self.get_focused_with_history_mut()
                         {
                             pane.buffer.insert_user_to_input(
                                 nick,
-                                clients,
                                 history,
-                                share_typing,
-                                config,
                                 &config.buffer.text_input.autocomplete,
                             );
                         }
