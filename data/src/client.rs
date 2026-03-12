@@ -1,5 +1,5 @@
 use std::cmp::Ordering;
-use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
+use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -152,7 +152,6 @@ pub struct Client {
     configured_nick: Nick,
     chanmap: IndexMap<target::Channel, Channel>,
     querymap: IndexMap<target::Query, QueryState>,
-    resolved_queries: HashSet<target::Query>,
     labels: HashMap<String, Context>,
     batches: HashMap<String, Batch>,
     reroute_responses_to: Option<buffer::Upstream>,
@@ -214,7 +213,6 @@ impl Client {
             alt_nick: None,
             chanmap: IndexMap::default(),
             querymap: IndexMap::default(),
-            resolved_queries: HashSet::new(),
             labels: HashMap::new(),
             batches: HashMap::new(),
             reroute_responses_to: None,
@@ -1314,8 +1312,7 @@ impl Client {
                     }
 
                     if direct_message {
-                        self.resolved_queries
-                            .replace(target::Query::from(&user));
+                        self.record_query(&target::Query::from(&user));
                     }
 
                     let event = Event::PrivOrNotice(
@@ -2848,11 +2845,9 @@ impl Client {
                         vec![]
                     } else {
                         if let Some(user) = message.user(self.casemapping()) {
-                            // If direct message, update resolved queries with
-                            // user
+                            // If direct message, update query map with user
                             if target == &self.nickname().to_string() {
-                                self.resolved_queries
-                                    .replace(target::Query::from(user));
+                                self.record_query(&target::Query::from(user));
                             }
                         }
 
@@ -3364,7 +3359,17 @@ impl Client {
         &'a self,
         query: &target::Query,
     ) -> Option<&'a target::Query> {
-        self.resolved_queries.get(query)
+        self.querymap
+            .get_key_value(query)
+            .map(|(stored_query, query_state)| {
+                query_state.query.as_ref().unwrap_or(stored_query)
+            })
+    }
+
+    fn record_query(&mut self, query: &target::Query) {
+        prune_expired_querymap(&mut self.querymap);
+        self.querymap.entry(query.clone()).or_default().query =
+            Some(query.clone());
     }
 
     fn update_channel_typing(
@@ -4526,6 +4531,7 @@ impl Channel {
 
 #[derive(Debug, Default)]
 pub struct QueryState {
+    pub query: Option<target::Query>,
     pub typing: Option<Instant>,
 }
 
@@ -4537,7 +4543,7 @@ impl QueryState {
     }
 
     fn is_empty(&self) -> bool {
-        self.typing.is_none()
+        self.query.is_none() && self.typing.is_none()
     }
 }
 
@@ -4736,4 +4742,71 @@ pub enum Error {
     Target(#[from] target::ParseError),
     #[error(transparent)]
     BouncerNetwork(#[from] bouncer::Error),
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use futures::channel::mpsc;
+    use irc::proto;
+
+    use super::*;
+
+    fn test_client(nickname: &str) -> Client {
+        let (sender, _) = mpsc::channel(1);
+
+        Client::new(
+            Server::from(Arc::<str>::from("test")),
+            Arc::new(config::Server {
+                nickname: nickname.to_string(),
+                ..Default::default()
+            }),
+            sender,
+        )
+    }
+
+    fn query(target: &str) -> target::Query {
+        target::Query::parse(
+            target,
+            isupport::DEFAULT_CHANTYPES,
+            &[],
+            isupport::CaseMap::default(),
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn resolve_query_uses_querymap_casing() {
+        let mut client = test_client("tester");
+        let canonical = query("FooBar");
+
+        client.querymap.entry(canonical.clone()).or_default();
+
+        assert_eq!(client.resolve_query(&query("foobar")), Some(&canonical));
+    }
+
+    #[test]
+    fn chathistory_direct_messages_record_query_in_querymap() {
+        let mut client = test_client("tester");
+        let canonical = query("FooBar");
+
+        let message = message::Encoded(proto::Message {
+            tags: Default::default(),
+            source: Some(proto::Source::User(proto::User {
+                nickname: "FooBar".to_string(),
+                username: Some("user".to_string()),
+                hostname: Some("example.test".to_string()),
+            })),
+            command: Command::PRIVMSG(
+                "tester".to_string(),
+                "hello".to_string(),
+            ),
+        });
+
+        client.handle_chathistory(message, Target::Query(canonical.clone()));
+
+        assert!(client.querymap.contains_key(&query("foobar")));
+        assert_eq!(client.resolve_query(&query("foobar")), Some(&canonical));
+    }
 }
