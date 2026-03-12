@@ -10,13 +10,15 @@ use chrono::{DateTime, Utc};
 use futures::channel::mpsc;
 use futures::{Future, FutureExt};
 use indexmap::IndexMap;
-use irc::proto::{self, Command, command};
+use irc::proto::{self, Command, Tags, command};
 use itertools::{Either, Itertools};
 use tokio::fs;
 
 pub use self::on_connect::on_connect;
 use crate::bouncer::{self, BouncerNetwork};
-use crate::capabilities::{Capabilities, Capability, Multiline};
+use crate::capabilities::{
+    Capabilities, Capability, Multiline, MultilineBatchKind,
+};
 use crate::environment::{SOURCE_WEBSITE, VERSION};
 use crate::history::ReadMarker;
 use crate::isupport::{
@@ -659,8 +661,9 @@ impl Client {
 
         let context = parent_context.or_else(|| {
             label_tag
+                .as_ref()
                 // Remove context associated to label if we get resp for it
-                .and_then(|label| self.labels.remove(&label))
+                .and_then(|label| self.labels.remove(label))
                 // Otherwise if we're in a batch, get it's context
                 .or_else(|| {
                     batch_tag.as_ref().and_then(|batch| {
@@ -721,14 +724,24 @@ impl Client {
                             }
                             Some("draft/multiline") => {
                                 params.get(1).map(|target| {
+                                    let mut tags = message.tags.clone();
+                                    if let Some(label_tag) = label_tag {
+                                        tags.insert(
+                                            "label".to_string(),
+                                            label_tag,
+                                        );
+                                    }
                                     BatchKind::Multiline(
+                                        tags,
+                                        message.user(self.casemapping()),
                                         Target::parse(
                                             target,
                                             self.chantypes(),
                                             self.statusmsg(),
                                             self.casemapping(),
                                         ),
-                                        message.server_time(),
+                                        None,
+                                        String::new(),
                                     )
                                 })
                             }
@@ -802,9 +815,59 @@ impl Client {
 
                                         self.clear_chathistory_request(None);
                                     }
-                                    Some(BatchKind::Multiline(_, _)) | None => {
+                                    Some(BatchKind::Multiline(
+                                        tags,
+                                        user,
+                                        target,
+                                        kind,
+                                        text,
+                                    )) => {
+                                        if let Some(user) = user
+                                            && let Some(kind) = kind
+                                        {
+                                            let mut encoded = command!(
+                                                        match kind {
+                                                            MultilineBatchKind::PRIVMSG => "PRIVMSG",
+                                                            MultilineBatchKind::NOTICE => "NOTICE",
+                                                        },
+                                                        target.to_string(),
+                                                        text,
+                                                    );
+
+                                            encoded.source =
+                                                Some(proto::Source::User(
+                                                    proto::User {
+                                                        nickname: user
+                                                            .nickname()
+                                                            .to_string(),
+                                                        username: user
+                                                            .username()
+                                                            .map(|username| {
+                                                                username
+                                                                    .to_string()
+                                                            }),
+                                                        hostname: user
+                                                            .hostname()
+                                                            .map(|hostname| {
+                                                                hostname
+                                                                    .to_string()
+                                                            }),
+                                                    },
+                                                ));
+
+                                            encoded.tags = tags.clone();
+
+                                            finished.events.extend(
+                                                self.handle(
+                                                    message::Encoded(encoded),
+                                                    context,
+                                                    config,
+                                                )?,
+                                            );
+                                        }
                                     }
-                                }
+                                    None => (),
+                                };
 
                                 return Ok(finished.events);
                             }
@@ -828,18 +891,9 @@ impl Client {
                                 batch_target.clone(),
                             )
                         }
-                        Some(BatchKind::Multiline(_, server_time)) => {
-                            if let Some(server_time) = server_time
-                                && message.server_time().is_none()
-                            {
-                                self.handle(
-                                    message.with_server_time(server_time),
-                                    context,
-                                    config,
-                                )?
-                            } else {
-                                self.handle(message, context, config)?
-                            }
+                        Some(BatchKind::Multiline(_, _, _, _, _)) => {
+                            self.handle_multiline(message, batch_tag);
+                            vec![]
                         }
                         Some(BatchKind::ChathistoryTargets) | None => {
                             self.handle(message, context, config)?
@@ -2864,6 +2918,67 @@ impl Client {
         }
     }
 
+    fn handle_multiline(&mut self, message: message::Encoded, batch_tag: &str) {
+        if let Some(batch) = self.batches.get_mut(batch_tag)
+            && let Some(BatchKind::Multiline(
+                _,
+                _,
+                _,
+                ref mut kind,
+                ref mut text,
+            )) = batch.kind
+        {
+            match &message.command {
+                Command::PRIVMSG(_, message_text) => {
+                    if let Some(kind) = kind {
+                        if !matches!(kind, MultilineBatchKind::PRIVMSG) {
+                            log::warn!(
+                                "[{}] Ignoring invalid draft/multiline batch message {message:?}",
+                                self.server
+                            );
+
+                            return;
+                        }
+
+                        if !message.tags.contains_key("draft/multiline-concat")
+                        {
+                            text.push('\n');
+                        }
+                    } else {
+                        *kind = Some(MultilineBatchKind::PRIVMSG);
+                    }
+
+                    text.push_str(message_text.as_str());
+                }
+                Command::NOTICE(_, message_text) => {
+                    if let Some(kind) = kind {
+                        if !matches!(kind, MultilineBatchKind::NOTICE) {
+                            log::warn!(
+                                "[{}] Ignoring invalid draft/multiline batch message {message:?}",
+                                self.server
+                            );
+
+                            return;
+                        }
+
+                        if !message.tags.contains_key("draft/multiline-concat")
+                        {
+                            text.push('\n');
+                        }
+                    } else {
+                        *kind = Some(MultilineBatchKind::NOTICE);
+                    }
+
+                    text.push_str(message_text.as_str());
+                }
+                _ => log::warn!(
+                    "[{}] Ignoring invalid draft/multiline batch message {message:?}",
+                    self.server
+                ),
+            }
+        }
+    }
+
     fn send_markread(
         &mut self,
         target: Target,
@@ -4392,14 +4507,22 @@ impl Context {
 pub enum BatchKind {
     ChathistoryTarget(Target),
     ChathistoryTargets,
-    Multiline(Target, Option<DateTime<Utc>>),
+    Multiline(
+        Tags,
+        Option<User>,
+        Target,
+        Option<MultilineBatchKind>,
+        String,
+    ),
 }
 
 impl BatchKind {
     pub fn target(&self) -> Option<Target> {
         match self {
             Self::ChathistoryTarget(batch_target)
-            | Self::Multiline(batch_target, _) => Some(batch_target.clone()),
+            | Self::Multiline(_, _, batch_target, _, _) => {
+                Some(batch_target.clone())
+            }
             Self::ChathistoryTargets => None,
         }
     }

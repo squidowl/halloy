@@ -14,7 +14,7 @@ use data::rate_limit::TokenPriority;
 use data::server::Server;
 use data::target::Target;
 use data::user::Nick;
-use data::{Config, User, client, command, shortcut};
+use data::{Config, User, client, command, message, shortcut};
 use iced::advanced::widget::Tree;
 use iced::advanced::{Clipboard, Layout, Shell, mouse};
 use iced::widget::text::{Shaping, Wrapping};
@@ -1576,28 +1576,77 @@ impl State {
 
             let mut history_tasks = vec![];
 
-            for input in inputs.into_iter() {
-                if let Some(messages) = input.messages(
-                    user.clone(),
-                    channel_users,
-                    chantypes,
-                    statusmsg,
-                    casemapping,
-                    supports_echoes,
-                ) {
-                    for message in messages {
-                        history_tasks.extend(
-                            history
-                                .record_input_message(
-                                    message,
-                                    buffer.server(),
-                                    casemapping,
-                                    config,
-                                )
-                                .into_iter(),
-                        );
+            if let Some(message) = inputs
+                .into_iter()
+                .filter_map(|input| {
+                    input.messages(
+                        user.clone(),
+                        channel_users,
+                        chantypes,
+                        statusmsg,
+                        casemapping,
+                        supports_echoes,
+                    )
+                })
+                .flatten()
+                .reduce(|mut batch_message, message| {
+                    match &mut batch_message.content {
+                        message::Content::Plain(batch_text) => {
+                            match message.content {
+                                message::Content::Plain(message_text) => {
+                                    batch_text.push('\n');
+                                    batch_text.push_str(message_text.as_str());
+                                }
+                                message::Content::Fragments(
+                                    message_fragments,
+                                ) => {
+                                    batch_text.push('\n');
+                                    let mut fragments =
+                                        vec![message::Fragment::Text(
+                                            batch_text.to_string(),
+                                        )];
+                                    fragments.extend(message_fragments);
+
+                                    batch_message.content =
+                                        message::Content::Fragments(fragments);
+                                }
+                                message::Content::Log(_) => (),
+                            }
+                        }
+                        message::Content::Fragments(batch_fragments) => {
+                            match message.content {
+                                message::Content::Plain(message_text) => {
+                                    batch_fragments.push(
+                                        message::Fragment::Text(format!(
+                                            "\n{message_text}"
+                                        )),
+                                    );
+                                }
+                                message::Content::Fragments(
+                                    message_fragments,
+                                ) => {
+                                    batch_fragments.push(
+                                        message::Fragment::Text(
+                                            "\n".to_string(),
+                                        ),
+                                    );
+                                    batch_fragments.extend(message_fragments);
+                                }
+                                message::Content::Log(_) => (),
+                            }
+                        }
+                        message::Content::Log(_) => (),
                     }
-                }
+
+                    batch_message
+                })
+            {
+                history_tasks.extend(history.record_input_message(
+                    message,
+                    buffer.server(),
+                    casemapping,
+                    config,
+                ));
             }
 
             history_task =
