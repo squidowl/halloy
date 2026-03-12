@@ -24,7 +24,9 @@ infinite_scroll = true
 
 ### persist
 
-Write chat history to disk. When set to `false`, no history files will be written.
+Write chat history to disk. When set to `false`, no new history files will be written.
+
+> ⚠️ Existing history files are still loaded normally and must be removed manually if desired.
 
 ```toml
 # Type: boolean
