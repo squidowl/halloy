@@ -77,8 +77,11 @@ pub fn typing_text(
 
     match filtered.len() {
         0 => None,
-        1 => Some(format!("{} is typing ⋯", filtered[0])),
-        2 => Some(format!("{} and {} are typing ⋯", filtered[0], filtered[1])),
-        _ => Some("Several people are typing ⋯".to_string()),
+        1 => Some(format!("{} is typing ･･･", filtered[0])),
+        2 => Some(format!(
+            "{} and {} are typing ･･･",
+            filtered[0], filtered[1]
+        )),
+        _ => Some("Several people are typing ･･･".to_string()),
     }
 }
