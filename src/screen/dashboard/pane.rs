@@ -162,11 +162,12 @@ impl Pane {
             on_resize(content, move |size| Message::ContentResized(id, size));
 
         let content = match self.modal {
-            Some(Modal::AddReaction) => {
-                widget::modal(content, add_reaction_modal(), move || {
-                    Message::CloseBufferModal(id)
-                })
-            }
+            Some(Modal::AddReaction) => widget::modal(
+                content,
+                add_reaction_modal(),
+                move || Message::CloseBufferModal(id),
+                0.2,
+            ),
             None => content,
         };
 
