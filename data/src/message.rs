@@ -86,6 +86,96 @@ pub mod formatting;
 pub mod highlight;
 pub mod source;
 
+pub fn reroute_private_target(
+    target: Target,
+    reroute_private: Option<&config::server::reroute::PrivateMessages>,
+    server: &Server,
+    chantypes: &[char],
+    statusmsg: &[char],
+    casemapping: isupport::CaseMap,
+) -> Target {
+    let Some(reroute_private) = reroute_private else {
+        return target;
+    };
+
+    match target {
+        Target::Query { query, source } => {
+            if let Some(target) = reroute_private.target_for_query(
+                &query,
+                server,
+                chantypes,
+                statusmsg,
+                casemapping,
+            ) {
+                match target {
+                    config::server::reroute::RerouteTarget::Channel {
+                        channel,
+                    } => {
+                        if let Ok(channel) = target::Channel::parse(
+                            channel,
+                            chantypes,
+                            statusmsg,
+                            casemapping,
+                        ) {
+                            Target::Channel { channel, source }
+                        } else {
+                            Target::Query { query, source }
+                        }
+                    }
+                    config::server::reroute::RerouteTarget::Server {
+                        ..
+                    } => Target::Server { source },
+                }
+            } else {
+                Target::Query { query, source }
+            }
+        }
+        target => target,
+    }
+}
+
+pub fn is_rerouted_private_message(
+    message: &Message,
+    reroute_private: Option<&config::server::reroute::PrivateMessages>,
+    server: &Server,
+) -> bool {
+    let Some(reroute_private) = reroute_private else {
+        return false;
+    };
+
+    let Some(
+        command::Irc::Msg(raw_target, _) | command::Irc::Notice(raw_target, _),
+    ) = &message.command
+    else {
+        return false;
+    };
+
+    match &message.target {
+        Target::Channel { channel, source } => {
+            if matches!(message.direction, Direction::Sent) || message.is_echo {
+                reroute_private
+                    .has_reroute_rule_for(raw_target, channel.as_str())
+            } else if let Source::User(user) = source {
+                reroute_private
+                    .has_reroute_rule_for(user.as_str(), channel.as_str())
+            } else {
+                false
+            }
+        }
+        Target::Server { source } => {
+            if matches!(message.direction, Direction::Sent) || message.is_echo {
+                reroute_private.has_server_reroute_rule_for(raw_target, server)
+            } else if let Source::User(user) = source {
+                reroute_private
+                    .has_server_reroute_rule_for(user.as_str(), server)
+            } else {
+                false
+            }
+        }
+        _ => false,
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Encoded(pub(crate) proto::Message);
 
@@ -129,6 +219,18 @@ impl Encoded {
             server_time.to_rfc3339_opts(SecondsFormat::Millis, true),
         );
         self
+    }
+}
+
+fn received_command(encoded: &Encoded) -> Option<command::Irc> {
+    match &encoded.command {
+        Command::PRIVMSG(target, text) => {
+            Some(command::Irc::Msg(target.clone(), text.clone()))
+        }
+        Command::NOTICE(target, text) => {
+            Some(command::Irc::Notice(target.clone(), text.clone()))
+        }
+        _ => None,
     }
 }
 
@@ -215,6 +317,16 @@ impl Target {
             Target::Query { source, .. } => source,
             Target::Logs { source } => source,
             Target::Highlights { source, .. } => source,
+        }
+    }
+
+    pub fn raw(&self) -> Option<&str> {
+        match self {
+            Target::Channel { channel, .. } => Some(channel.as_str()),
+            Target::Query { query, .. } => Some(query.as_str()),
+            Target::Server { .. }
+            | Target::Logs { .. }
+            | Target::Highlights { .. } => None,
         }
     }
 }
@@ -340,6 +452,7 @@ impl Message {
     ) -> Option<Message> {
         let server_time = encoded.server_time_or_now();
         let id = encoded.message_id();
+        let command = received_command(&encoded);
         let is_echo = encoded
             .user(casemapping)
             .is_some_and(|user| user.nickname() == our_nick);
@@ -358,7 +471,9 @@ impl Message {
         let target = target(
             encoded,
             &our_nick,
+            config,
             &resolve_attributes,
+            server,
             chantypes,
             statusmsg,
             casemapping,
@@ -379,7 +494,7 @@ impl Message {
             blocked: false,
             condensed: None,
             expanded: false,
-            command: None,
+            command,
             reactions: vec![],
         })
     }
@@ -398,6 +513,7 @@ impl Message {
     ) -> Option<(Message, Option<Highlight>)> {
         let server_time = encoded.server_time_or_now();
         let id = encoded.message_id();
+        let command = received_command(&encoded);
         let is_echo = encoded
             .user(casemapping)
             .is_some_and(|user| user.nickname() == our_nick);
@@ -416,7 +532,9 @@ impl Message {
         let target = target(
             encoded,
             &our_nick,
+            config,
             &resolve_attributes,
+            server,
             chantypes,
             statusmsg,
             casemapping,
@@ -437,7 +555,7 @@ impl Message {
             blocked: false,
             condensed: None,
             expanded: false,
-            command: None,
+            command,
             reactions: vec![],
         };
 
@@ -1908,7 +2026,9 @@ impl From<formatting::Fragment> for Fragment {
 fn target(
     message: Encoded,
     our_nick: &Nick,
+    config: &Config,
     resolve_attributes: &dyn Fn(&User, &target::Channel) -> Option<User>,
+    server: &Server,
     chantypes: &[char],
     statusmsg: &[char],
     casemapping: isupport::CaseMap,
@@ -2140,10 +2260,21 @@ fn target(
                             .ok()?
                         };
 
-                        Some(Target::Query {
-                            query,
-                            source: source(user),
-                        })
+                        Some(reroute_private_target(
+                            Target::Query {
+                                query,
+                                source: source(user),
+                            },
+                            config
+                                .servers
+                                .get(server)
+                                .as_ref()
+                                .map(|config| &config.reroute.private_messages),
+                            server,
+                            chantypes,
+                            statusmsg,
+                            casemapping,
+                        ))
                     }
                     (target::Target::Query(query), None)
                         if query.as_normalized_str()
