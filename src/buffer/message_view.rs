@@ -62,6 +62,7 @@ pub struct ChannelQueryLayout<'a> {
     pub casemapping: CaseMap,
     pub prefix: &'a [PrefixMap],
     pub confirm_message_delivery: bool,
+    pub can_send_reactions: bool,
     pub connected: bool,
     pub server: &'a Server,
     pub theme: &'a Theme,
@@ -879,6 +880,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
         let content = context_menu::message(
             content,
             message.id.as_ref(),
+            self.can_send_reactions,
             self.config,
             self.theme,
         );
