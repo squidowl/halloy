@@ -27,6 +27,7 @@
     * [server-time](https://ircv3.net/specs/extensions/server-time)
     * [setname](https://ircv3.net/specs/extensions/setname.html)
     * [Standard Replies](https://ircv3.net/specs/extensions/standard-replies)
+    * [typing](https://ircv3.net/specs/client-tags/typing)
     * [userhost-in-names](https://ircv3.net/specs/extensions/userhost-in-names)
     * [`UTF8ONLY`](https://ircv3.net/specs/extensions/utf8-only)
     * [`WHOX`](https://ircv3.net/specs/extensions/whox)
