@@ -22,7 +22,9 @@ pub enum Context<'a> {
     },
     Timestamp(&'a DateTime<Utc>),
     NotSentMessage(&'a DateTime<Utc>, &'a message::Hash),
-    Message,
+    Message {
+        msgid: Option<&'a message::Id>,
+    },
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -434,13 +436,18 @@ impl Entry {
                     config,
                 )
             }
-            (Entry::AddReaction, Context::Message) => menu_button(
-                "Add reaction".to_string(),
-                Some(Message::OpenReactionModal),
-                length,
-                theme,
-                config,
-            ),
+            (Entry::AddReaction, Context::Message { msgid: Some(msgid) }) => {
+                menu_button(
+                    "Add reaction".to_string(),
+                    Some(Message::OpenReactionModal(msgid.clone())),
+                    length,
+                    theme,
+                    config,
+                )
+            }
+            (Entry::AddReaction, Context::Message { msgid: None }) => {
+                row![].into()
+            }
             _ => row![].into(),
         })
     }
@@ -464,7 +471,7 @@ pub enum Message {
     DeleteMessage(DateTime<Utc>, message::Hash),
     #[allow(clippy::enum_variant_names)]
     ResendMessage(DateTime<Utc>, message::Hash),
-    OpenReactionModal,
+    OpenReactionModal(message::Id),
 }
 
 #[derive(Debug, Clone)]
@@ -483,7 +490,7 @@ pub enum Event {
     CopyTimestamp(DateTime<Utc>),
     DeleteMessage(DateTime<Utc>, message::Hash),
     ResendMessage(DateTime<Utc>, message::Hash),
-    OpenReactionModal,
+    OpenReactionModal(message::Id),
 }
 
 pub fn update(message: Message) -> Event {
@@ -512,12 +519,13 @@ pub fn update(message: Message) -> Event {
         Message::ResendMessage(sesrver_time, hash) => {
             Event::ResendMessage(sesrver_time, hash)
         }
-        Message::OpenReactionModal => Event::OpenReactionModal,
+        Message::OpenReactionModal(msgid) => Event::OpenReactionModal(msgid),
     }
 }
 
 pub fn message<'a, M>(
     content: impl Into<Element<'a, M>>,
+    msgid: Option<&'a message::Id>,
     config: &'a Config,
     theme: &'a Theme,
 ) -> Element<'a, M>
@@ -534,7 +542,7 @@ where
         entries,
         move |entry, length| {
             entry
-                .view(Some(Context::Message), length, config, theme)
+                .view(Some(Context::Message { msgid }), length, config, theme)
                 .map(M::from)
         },
     )

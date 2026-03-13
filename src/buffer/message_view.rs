@@ -876,7 +876,12 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
             None
         };
 
-        let content = context_menu::message(content, self.config, self.theme);
+        let content = context_menu::message(
+            content,
+            message.id.as_ref(),
+            self.config,
+            self.theme,
+        );
 
         let row = row.push(middle).push(maybe_space);
 

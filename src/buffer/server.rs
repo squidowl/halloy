@@ -116,7 +116,9 @@ pub fn view<'a>(
                             ])
                             .into();
 
-                        Some(context_menu::message(content, config, theme))
+                        Some(context_menu::message(
+                            content, None, config, theme,
+                        ))
                     }
                     message::Source::Internal(
                         message::source::Internal::Status(status),
@@ -147,7 +149,9 @@ pub fn view<'a>(
                             ])
                             .into();
 
-                        Some(context_menu::message(content, config, theme))
+                        Some(context_menu::message(
+                            content, None, config, theme,
+                        ))
                     }
                     _ => None,
                 }
