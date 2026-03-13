@@ -290,6 +290,7 @@ impl Client {
         from_modal: bool,
     ) -> Vec<Event> {
         if self.registration_step == RegistrationStep::Complete {
+            // TODO: allow from_modal when modal matching to bouncer networks is added.
             if !self.server.is_bouncer_network() {
                 self.join(
                     &config
