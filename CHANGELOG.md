@@ -5,6 +5,7 @@ Added:
 - Setting to limit reaction display length (`buffer.channel.message.max_reaction_display`) and maximum length (`buffer.channel.message.max_reaction_chars`)
 - Emoji and command picker entries are now clickable and insert the selected completion directly into the input.
 - Multi-line send support (uses IRCv3 [`multiline`](https://ircv3.net/specs/extensions/multiline) when available)
+- Typing indicator support (uses IRCv3 [`typing`](https://ircv3.net/specs/client-tags/typing))
 
 Fixed:
 

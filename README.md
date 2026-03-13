@@ -44,6 +44,7 @@ Halloy is also available from [Flathub](https://flathub.org/apps/org.squidowl.ha
     * [server-time](https://ircv3.net/specs/extensions/server-time)
     * [setname](https://ircv3.net/specs/extensions/setname.html)
     * [Standard Replies](https://ircv3.net/specs/extensions/standard-replies)
+    * [typing](https://ircv3.net/specs/client-tags/typing)
     * [userhost-in-names](https://ircv3.net/specs/extensions/userhost-in-names)
     * [`UTF8ONLY`](https://ircv3.net/specs/extensions/utf8-only)
     * [`WHOX`](https://ircv3.net/specs/extensions/whox)
@@ -75,4 +76,3 @@ For any questions, suggestions, or issues, please open an issue on the [GitHub r
 <a href="https://github.com/iced-rs/iced">
   <img src="https://gist.githubusercontent.com/hecrj/ad7ecd38f6e47ff3688a38c79fd108f0/raw/74384875ecbad02ae2a926425e9bcafd0695bade/color.svg" width="130px">
 </a>
-
