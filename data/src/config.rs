@@ -432,7 +432,8 @@ impl Config {
         })
         .map_err(|e| Error::Parse(e.to_string()))?;
 
-        let servers = ServerMap::new(servers).await?;
+        let servers =
+            ServerMap::new(servers, sidebar.order_channels_by).await?;
 
         let appearance = Self::load_appearance(theme.keys())
             .await

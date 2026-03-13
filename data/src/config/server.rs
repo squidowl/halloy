@@ -9,6 +9,7 @@ use serde::{Deserialize, Deserializer};
 use crate::config::inclusivities::{
     Inclusivities, is_target_channel_included, is_target_query_included,
 };
+use crate::config::sidebar::OrderChannelsBy;
 use crate::serde::{
     deserialize_path_buf_with_path_transformations,
     deserialize_path_buf_with_path_transformations_maybe,
@@ -63,6 +64,8 @@ pub struct Server {
     pub channels: Vec<String>,
     /// A mapping of channel names to keys for join-on-connect.
     pub channel_keys: HashMap<String, String>,
+    /// Order server's channels
+    pub order_channels_by: Option<OrderChannelsBy>,
     /// A list of queries to add to the sidebar on connection.
     pub queries: Vec<String>,
     /// The amount of inactivity in seconds before the client will ping the server.
@@ -172,8 +175,7 @@ impl Server {
             nick_password_command: Option::default(),
             nick_identify_syntax: Option::default(),
 
-            // channels not relevant
-            channels: Vec::default(),
+            // channel_keys not relevant
             channel_keys: HashMap::default(),
 
             // ghost sequence not relevant
@@ -206,6 +208,7 @@ impl Default for Server {
             filters: Option::default(),
             channels: Vec::default(),
             channel_keys: HashMap::default(),
+            order_channels_by: None,
             queries: Vec::default(),
             ping_time: 180,
             ping_timeout: 20,

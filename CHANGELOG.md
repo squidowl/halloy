@@ -7,6 +7,9 @@ Added:
 - Multi-line send support (uses IRCv3 [`multiline`](https://ircv3.net/specs/extensions/multiline) when available)
 - Typing indicator support (uses IRCv3 [`typing`](https://ircv3.net/specs/client-tags/typing))
 - Add emoji reactions for supported servers (uses IRCv3 [`react`](https://ircv3.net/specs/client-tags/react.html))
+- New `"config"` option to `sidebar.order_channels_by`. Uses `server.<server_name>.channels` to determine order.
+- Case insensitive sort of query names in sidebar
+- Copied `order_channels_by` from `sidebar` to `server.<name>`, defaults to `sidebar.order_channels_by` if empty.
 
 Fixed:
 
@@ -15,7 +18,8 @@ Fixed:
 - Prevent clicks from passing through completion picker overlays to content behind them (for example nicknames in the buffer).
 - Regression that could make the application slow to close
 - Apply locale to context menu, copy, and date separator timestamps
-- Fix direct message notifications when excludes are present
+- Fixed direct message notifications when excludes are present
+- Fixed reloading config for channel sorting.
 
 Thanks:
 

@@ -11,7 +11,7 @@ use tokio::process::Command;
 
 use crate::bouncer::BouncerNetwork;
 use crate::config::server::Sasl;
-use crate::config::sidebar::OrderBy;
+use crate::config::sidebar::{OrderBy, OrderChannelsBy};
 use crate::config::{self, Error, sidebar};
 
 pub type Handle = Sender<proto::Message>;
@@ -181,6 +181,7 @@ impl ConfigMap {
     }
     pub async fn new(
         iter: impl IntoIterator<Item = (ServerName, config::Server)>,
+        default_order_channels_by: OrderChannelsBy,
     ) -> Result<Self, Error> {
         let mut map = IndexMap::new();
         for (i, (server, mut config)) in iter.into_iter().enumerate() {
@@ -274,6 +275,11 @@ impl ConfigMap {
                     }
                 }
             }
+
+            config
+                .order_channels_by
+                .get_or_insert(default_order_channels_by);
+
             config.order = i as u16;
             map.insert(server, Arc::new(config));
         }
