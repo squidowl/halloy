@@ -4,7 +4,7 @@ use std::convert;
 use std::time::{Duration, Instant};
 
 use data::buffer::{self, Upstream};
-use data::capabilities::MultilineBatchKind;
+use data::capabilities::{MultilineBatchKind, multiline_concat_lines};
 use data::config::buffer::text_input::{AutoFormat, Autocomplete, KeyBindings};
 use data::dashboard::BufferAction;
 use data::history::filter::FilterChain;
@@ -711,6 +711,7 @@ impl State {
                     }),
                     clients.get_server_is_connected(buffer.server()),
                     &clients.get_isupport(buffer.server()),
+                    clients.get_multiline_limits(buffer.server()).as_ref(),
                     clients.get_relay_bytes(buffer.server()),
                     config,
                 ) {
@@ -1352,8 +1353,7 @@ impl State {
         let is_connected = clients.get_server_is_connected(buffer.server());
         let isupport = clients.get_isupport(buffer.server());
         let relay_bytes = clients.get_relay_bytes(buffer.server());
-        let supports_multiline =
-            clients.get_server_supports_multiline(buffer.server());
+        let multiline_limits = clients.get_multiline_limits(buffer.server());
 
         if self.input_content.text().is_empty() {
             self.parsed = Vec::new();
@@ -1364,7 +1364,7 @@ impl State {
 
         self.parsed = input_lines(&text)
             .scan(None, |open_code_fence: &mut Option<CodeFence>, line| {
-                let line = if line.is_empty() && !supports_multiline {
+                let line = if line.is_empty() && multiline_limits.is_none() {
                     // Send a space to emulate an empty line
                     Cow::Owned(String::from(' '))
                 } else {
@@ -1380,6 +1380,7 @@ impl State {
                     in_channel,
                     is_connected,
                     &isupport,
+                    multiline_limits.as_ref(),
                     relay_bytes,
                     config,
                 );
@@ -1431,50 +1432,78 @@ impl State {
         history: &mut history::Manager,
         config: &Config,
     ) -> (Task<Message>, Option<Event>) {
-        let send_count = if let Some(multiline) =
-            clients.get_multiline(buffer.server())
+        let (send_count, line_count) = if let Some(multiline_limits) =
+            clients.get_multiline_limits(buffer.server())
+            && let Some(target) = buffer.target().as_ref()
         {
             let casemapping = clients.get_casemapping(buffer.server());
 
             let mut multiline_byte_count = 0;
+            let mut multiline_line_count = 0;
             let mut multiline_batch_kind = None;
+            let mut multiline_concat_bytes = 0;
 
-            let max_lines = if let Some(max_lines) = multiline.max_lines {
+            let max_lines = if let Some(max_lines) = multiline_limits.max_lines
+            {
                 max_lines.min(lines.len())
             } else {
                 lines.len()
             };
 
-            lines
+            let send_count = lines
                 .iter()
                 .take(max_lines)
                 .position(|line| {
-                    if let Some((line_bytes, line_batch_kind)) =
-                        line.multiline_bytes(casemapping)
+                    if let Some((text, batch_kind)) =
+                        line.multiline_content(casemapping)
                     {
                         if let Some(multiline_batch_kind) = multiline_batch_kind
                         {
-                            if line_batch_kind != multiline_batch_kind {
+                            if batch_kind != multiline_batch_kind {
                                 return true;
                             }
                         } else {
-                            multiline_batch_kind = Some(line_batch_kind);
+                            multiline_batch_kind = Some(batch_kind);
+                            multiline_concat_bytes = multiline_limits
+                                .concat_bytes(
+                                    clients.get_relay_bytes(buffer.server()),
+                                    batch_kind,
+                                    target,
+                                );
                         }
 
-                        multiline_byte_count += line_bytes;
-                        multiline_byte_count > multiline.max_bytes
+                        multiline_byte_count += text.len();
+
+                        if multiline_byte_count > multiline_limits.max_bytes {
+                            true
+                        } else if let Some(max_lines) =
+                            multiline_limits.max_lines
+                            && multiline_concat_bytes > 0
+                        {
+                            multiline_line_count += multiline_concat_lines(
+                                multiline_concat_bytes,
+                                text,
+                            )
+                            .len();
+
+                            multiline_line_count > max_lines
+                        } else {
+                            false
+                        }
                     } else {
                         true
                     }
                 })
-                .map_or(max_lines, |position| position.max(1))
+                .map_or(max_lines, |position| position.max(1));
+
+            (send_count, multiline_line_count)
         } else {
-            1
+            (1, 1)
         };
 
         let remaining_lines = lines.split_off(send_count);
 
-        let (send_task, event) = if lines.len() > 1 {
+        let (send_task, event) = if line_count > 1 {
             self.send_input_line_batch(lines, buffer, clients, history, config)
         } else if let Some(line) = lines.pop_front() {
             self.send_input_line(line, buffer, clients, history, config)

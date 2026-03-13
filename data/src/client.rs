@@ -17,7 +17,8 @@ use tokio::fs;
 pub use self::on_connect::on_connect;
 use crate::bouncer::{self, BouncerNetwork};
 use crate::capabilities::{
-    Capabilities, Capability, Multiline, MultilineBatchKind,
+    Capabilities, Capability, MultilineBatchKind, MultilineLimits,
+    multiline_concat_lines, multiline_encoded,
 };
 use crate::environment::{SOURCE_WEBSITE, VERSION};
 use crate::history::ReadMarker;
@@ -576,8 +577,14 @@ impl Client {
         mut messages: Vec<message::Encoded>,
         priority: TokenPriority,
     ) {
-        if let Some(target) =
-            buffer.target().as_ref().map(Target::as_normalized_str)
+        if let Some(multiline_limits) = self.multiline_limits()
+            && let Some(batch_kind) =
+                messages.first().and_then(|message| match message.command {
+                    Command::PRIVMSG(_, _) => Some(MultilineBatchKind::PRIVMSG),
+                    Command::NOTICE(_, _) => Some(MultilineBatchKind::NOTICE),
+                    _ => None,
+                })
+            && let Some(target) = buffer.target().as_ref()
         {
             let reference_tag = generate_batch_reference_tag();
 
@@ -585,7 +592,7 @@ impl Client {
                 "BATCH",
                 format!("+{reference_tag}"),
                 "draft/multiline",
-                target
+                target.as_str()
             )
             .into();
 
@@ -608,8 +615,51 @@ impl Client {
             let closing_batch: message::Encoded =
                 command!("BATCH", format!("-{reference_tag}")).into();
 
+            let multiline_concat_bytes = multiline_limits.concat_bytes(
+                self.relay_bytes(),
+                batch_kind,
+                target,
+            );
+
             let messages = iter::once(opening_batch)
-                .chain(messages)
+                .chain(messages.into_iter().flat_map(|message| {
+                    match &message.command {
+                        Command::PRIVMSG(_, text)
+                        | Command::NOTICE(_, text) => {
+                            let lines = multiline_concat_lines(
+                                multiline_concat_bytes,
+                                text,
+                            );
+
+                            if lines.len() < 2 {
+                                vec![message]
+                            } else {
+                                let mut lines = lines
+                                    .into_iter()
+                                    .map(|text| {
+                                        multiline_encoded(
+                                            None,
+                                            batch_kind,
+                                            target,
+                                            text,
+                                            message.tags.clone(),
+                                        )
+                                    })
+                                    .collect::<Vec<_>>();
+
+                                for line in lines.iter_mut().skip(1) {
+                                    line.tags.insert(
+                                        "draft/multiline-concat".to_string(),
+                                        String::new(),
+                                    );
+                                }
+
+                                lines
+                            }
+                        }
+                        _ => vec![],
+                    }
+                }))
                 .chain(iter::once(closing_batch))
                 .collect::<Vec<message::Encoded>>();
 
@@ -819,54 +869,29 @@ impl Client {
                                         tags,
                                         user,
                                         target,
-                                        kind,
+                                        Some(batch_kind),
                                         text,
                                     )) => {
-                                        if let Some(user) = user
-                                            && let Some(kind) = kind
-                                        {
-                                            let mut encoded = command!(
-                                                        match kind {
-                                                            MultilineBatchKind::PRIVMSG => "PRIVMSG",
-                                                            MultilineBatchKind::NOTICE => "NOTICE",
-                                                        },
-                                                        target.to_string(),
-                                                        text,
-                                                    );
+                                        let encoded = multiline_encoded(
+                                            user.as_ref(),
+                                            *batch_kind,
+                                            target,
+                                            text,
+                                            tags.clone(),
+                                        );
 
-                                            encoded.source =
-                                                Some(proto::Source::User(
-                                                    proto::User {
-                                                        nickname: user
-                                                            .nickname()
-                                                            .to_string(),
-                                                        username: user
-                                                            .username()
-                                                            .map(|username| {
-                                                                username
-                                                                    .to_string()
-                                                            }),
-                                                        hostname: user
-                                                            .hostname()
-                                                            .map(|hostname| {
-                                                                hostname
-                                                                    .to_string()
-                                                            }),
-                                                    },
-                                                ));
-
-                                            encoded.tags = tags.clone();
-
-                                            finished.events.extend(
-                                                self.handle(
-                                                    message::Encoded(encoded),
-                                                    context,
-                                                    config,
-                                                )?,
-                                            );
-                                        }
+                                        finished.events.extend(self.handle(
+                                            encoded, context, config,
+                                        )?);
                                     }
-                                    None => (),
+                                    Some(BatchKind::Multiline(
+                                        _,
+                                        _,
+                                        _,
+                                        None,
+                                        _,
+                                    ))
+                                    | None => (),
                                 };
 
                                 return Ok(finished.events);
@@ -3822,8 +3847,8 @@ impl Client {
             + 14
     }
 
-    pub fn multiline(&self) -> Option<Multiline> {
-        self.capabilities.multiline()
+    pub fn multiline_limits(&self) -> Option<MultilineLimits> {
+        self.capabilities.multiline_limits()
     }
 }
 
@@ -4253,8 +4278,11 @@ impl Map {
         self.client(server).map_or(144, Client::relay_bytes)
     }
 
-    pub fn get_multiline(&self, server: &Server) -> Option<Multiline> {
-        self.client(server).and_then(Client::multiline)
+    pub fn get_multiline_limits(
+        &self,
+        server: &Server,
+    ) -> Option<MultilineLimits> {
+        self.client(server).and_then(Client::multiline_limits)
     }
 
     pub fn get_server_supports_multiline(&self, server: &Server) -> bool {
