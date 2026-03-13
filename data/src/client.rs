@@ -290,22 +290,24 @@ impl Client {
         from_modal: bool,
     ) -> Vec<Event> {
         if self.registration_step == RegistrationStep::Complete {
-            self.join(
-                &config
-                    .channels
-                    .iter()
-                    .filter_map(|channel| {
-                        target::Channel::parse(
-                            channel,
-                            self.chantypes(),
-                            self.statusmsg(),
-                            self.casemapping(),
-                        )
-                        .ok()
-                    })
-                    .filter(|channel| !self.chanmap.contains_key(channel))
-                    .collect::<Vec<_>>(),
-            );
+            if !self.server.is_bouncer_network() {
+                self.join(
+                    &config
+                        .channels
+                        .iter()
+                        .filter_map(|channel| {
+                            target::Channel::parse(
+                                channel,
+                                self.chantypes(),
+                                self.statusmsg(),
+                                self.casemapping(),
+                            )
+                            .ok()
+                        })
+                        .filter(|channel| !self.chanmap.contains_key(channel))
+                        .collect::<Vec<_>>(),
+                );
+            }
 
             if !config.monitor.is_empty()
                 && config.monitor != self.config.monitor
@@ -384,14 +386,16 @@ impl Client {
             }
         }
 
-        if let Some(order_channels_by) = self.config.order_channels_by
-            && config.order_channels_by != Some(order_channels_by)
+        if self.config.order_channels_by != config.order_channels_by
+            || self.config.channels != config.channels
         {
+            let casemapping = self.casemapping();
             let chantypes = self.chantypes().to_vec();
             self.chanmap.sort_by(|c1, _, c2, _| {
                 compare_channels(
                     &config,
                     &chantypes,
+                    casemapping,
                     c1.as_normalized_str(),
                     c2.as_normalized_str(),
                 )
@@ -1577,6 +1581,7 @@ impl Client {
                 ));
 
                 if user.nickname() == self.nickname() {
+                    let casemapping = self.casemapping();
                     let chantypes = self.chantypes().to_vec();
                     let _ = self.chanmap.insert_sorted_by(
                         target_channel.clone(),
@@ -1585,6 +1590,7 @@ impl Client {
                             compare_channels(
                                 &self.config,
                                 &chantypes,
+                                casemapping,
                                 c1.as_normalized_str(),
                                 c2.as_normalized_str(),
                             )
@@ -2326,25 +2332,21 @@ impl Client {
                                                 self.configured_nick.renormalize(casemapping);
 
                                                 // TODO: When casemapping
-                                                // changes, ChannelUsers,
-                                                // Targets, etc should be
+                                                // changes, ChannelUsers, etc should be
                                                 // renormalized and resorted
 
                                                 let chantypes = self.chantypes().to_vec();
                                                 self.chanmap = take(&mut self.chanmap)
                                                     .into_iter()
-                                                    .map(|(channel, data)| {
-                                                        let updated_channel = target::Channel::from_str(
-                                                            channel.as_str(),
-                                                            &chantypes,
-                                                            casemapping,
-                                                        );
-                                                        (updated_channel, data)
+                                                    .map(|(mut channel, data)| {
+                                                        channel.renormalize(casemapping);
+                                                        (channel, data)
                                                     })
                                                     .sorted_by(|(c1, _), (c2, _)| {
                                                         compare_channels(
                                                             &self.config,
                                                             &chantypes,
+                                                            casemapping,
                                                             c1.as_normalized_str(),
                                                             c2.as_normalized_str(),
                                                         )
@@ -2353,13 +2355,9 @@ impl Client {
 
                                                 self.resolved_queries = take(&mut self.resolved_queries)
                                                     .into_iter()
-                                                    .filter_map(|old_query| {
-                                                        target::Query::parse(
-                                                            old_query.as_str(),
-                                                            &chantypes,
-                                                            self.statusmsg(),
-                                                            casemapping,
-                                                        ).ok()
+                                                    .map(|mut query| {
+                                                        query.renormalize(casemapping);
+                                                        query
                                                     })
                                                     .collect();
                                             }
@@ -4016,6 +4014,7 @@ fn compare_channels_default(chantypes: &[char], a: &str, b: &str) -> Ordering {
 fn compare_channels(
     config: &config::server::Server,
     chantypes: &[char],
+    casemapping: isupport::CaseMap,
     a: &str,
     b: &str,
 ) -> Ordering {
@@ -4041,8 +4040,14 @@ fn compare_channels(
          * config.server.<server_name>.channels. Anything not in this list is sorted by `name` (default).
          */
         Some(config::sidebar::OrderChannelsBy::Config) => {
-            let a_pos = &config.channels.iter().position(|ch| ch == a);
-            let b_pos = &config.channels.iter().position(|ch| ch == b);
+            let a_pos = &config
+                .channels
+                .iter()
+                .position(|ch| casemapping.normalize(ch) == a);
+            let b_pos = &config
+                .channels
+                .iter()
+                .position(|ch| casemapping.normalize(ch) == b);
             match (a_pos, b_pos) {
                 (Some(a_pos), Some(b_pos)) => a_pos.cmp(b_pos),
                 (Some(_), None) => Ordering::Less,

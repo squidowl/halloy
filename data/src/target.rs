@@ -135,7 +135,7 @@ impl fmt::Display for Target {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 struct ChannelData {
     prefixes: Vec<char>,
     normalized: String,
@@ -204,6 +204,11 @@ impl Channel {
         }
     }
 
+    pub fn renormalize(&mut self, casemapping: isupport::CaseMap) {
+        let data = Arc::make_mut(&mut self.0);
+        data.normalized = casemapping.normalize(&data.raw);
+    }
+
     pub fn prefixes(&self) -> &[char] {
         &self.0.prefixes
     }
@@ -245,7 +250,7 @@ impl fmt::Display for Channel {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 struct QueryData {
     normalized: String,
     raw: String,
@@ -314,6 +319,11 @@ impl Query {
                 raw: target.to_string(),
             }))
         }
+    }
+
+    pub fn renormalize(&mut self, casemapping: isupport::CaseMap) {
+        let data = Arc::make_mut(&mut self.0);
+        data.normalized = casemapping.normalize(&data.raw);
     }
 
     pub fn to_target(&self) -> Target {

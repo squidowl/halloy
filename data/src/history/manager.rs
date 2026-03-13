@@ -1,3 +1,4 @@
+use std::cmp::Ord;
 use std::collections::{HashMap, HashSet, hash_map};
 
 use chrono::{DateTime, Local, NaiveDate, Utc};
@@ -512,7 +513,7 @@ impl Manager {
                 .then_some(query),
                 _ => None,
             })
-            .sorted_by(|a, b| a.as_normalized_str().cmp(b.as_normalized_str()))
+            .sorted_by(Ord::cmp)
             .collect()
     }
 
