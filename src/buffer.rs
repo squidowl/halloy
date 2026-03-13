@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::path::PathBuf;
 
 use chrono::{DateTime, Utc};
@@ -196,6 +197,36 @@ impl Buffer {
                 Some(Target::Channel(state.target.clone()))
             }
             Buffer::Query(state) => Some(Target::Query(state.target.clone())),
+            Buffer::Empty
+            | Buffer::Server(_)
+            | Buffer::FileTransfers(_)
+            | Buffer::Logs(_)
+            | Buffer::Highlights(_)
+            | Buffer::ChannelDiscovery(_) => None,
+        }
+    }
+
+    pub fn reaction_message(
+        &self,
+        msgid: message::Id,
+        text: Cow<'static, str>,
+        unreact: bool,
+    ) -> Option<Message> {
+        match self {
+            Buffer::Channel(_) => Some(Message::Channel(
+                channel::Message::ScrollView(if unreact {
+                    scroll_view::Message::Unreacted { msgid, text }
+                } else {
+                    scroll_view::Message::Reacted { msgid, text }
+                }),
+            )),
+            Buffer::Query(_) => {
+                Some(Message::Query(query::Message::ScrollView(if unreact {
+                    scroll_view::Message::Unreacted { msgid, text }
+                } else {
+                    scroll_view::Message::Reacted { msgid, text }
+                })))
+            }
             Buffer::Empty
             | Buffer::Server(_)
             | Buffer::FileTransfers(_)

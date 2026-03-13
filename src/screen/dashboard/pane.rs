@@ -24,6 +24,8 @@ pub enum Message {
     ScrollToBottom,
     MarkAsRead,
     ContentResized(pane_grid::Pane, Size),
+    Modal(pane_grid::Pane, super::modal::Message),
+    CloseBufferModal(pane_grid::Pane),
 }
 
 #[derive(Clone, Debug)]
@@ -31,6 +33,7 @@ pub struct Pane {
     pub buffer: Buffer,
     pub size: Size,
     title_bar: TitleBar,
+    pub modal: Option<super::modal::Modal>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -42,6 +45,7 @@ impl Pane {
             buffer,
             size: Size::default(), // Will get set initially via `Message::Resized`
             title_bar: TitleBar::default(),
+            modal: None,
         }
     }
 
@@ -129,7 +133,8 @@ impl Pane {
             maximized,
             clients,
             settings,
-            config.tooltips,
+            self.modal.is_none(),
+            config.tooltips && self.modal.is_none(),
             is_popout,
             config,
             theme,
@@ -150,11 +155,32 @@ impl Pane {
             )
             .map(move |msg| Message::Buffer(id, msg));
 
-        widget::Content::new(on_resize(content, move |size| {
-            Message::ContentResized(id, size)
-        }))
-        .style(move |theme| theme::container::buffer(theme, is_focused))
-        .title_bar(title_bar.style(theme::container::buffer_title_bar))
+        let content =
+            on_resize(content, move |size| Message::ContentResized(id, size));
+
+        let content = match &self.modal {
+            Some(modal) => widget::modal(
+                content,
+                modal
+                    .view(config)
+                    .map(move |message| Message::Modal(id, message)),
+                move || Message::CloseBufferModal(id),
+                0.2,
+            ),
+            None => content,
+        };
+
+        widget::Content::new(content)
+            .style(move |theme| theme::container::buffer(theme, is_focused))
+            .title_bar(title_bar.style(theme::container::buffer_title_bar))
+    }
+
+    pub fn open_modal(&mut self, modal: super::modal::Modal) {
+        self.modal = Some(modal);
+    }
+
+    pub fn close_buffer_modal(&mut self) {
+        self.modal = None;
     }
 
     pub fn resource(&self) -> Option<history::Resource> {
@@ -209,6 +235,7 @@ impl TitleBar {
         maximized: bool,
         clients: &'a data::client::Map,
         settings: Option<&'a buffer::Settings>,
+        show_controls: bool,
         show_tooltips: bool,
         is_popout: bool,
         config: &'a Config,
@@ -447,9 +474,13 @@ impl TitleBar {
         .padding([0, 4])
         .align_y(iced::alignment::Vertical::Center);
 
-        widget::TitleBar::new(title)
-            .controls(pane_grid::Controls::new(controls))
-            .padding(6)
+        let title_bar = widget::TitleBar::new(title).padding(6);
+
+        if show_controls {
+            title_bar.controls(pane_grid::Controls::new(controls))
+        } else {
+            title_bar
+        }
     }
 }
 

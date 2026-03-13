@@ -24,6 +24,7 @@ use iced::{Length, Padding, Size, Task, Vector, advanced, clipboard};
 use irc::proto;
 
 use self::command_bar::CommandBar;
+use self::modal::reaction as reaction_modal;
 use self::pane::Pane;
 use self::sidebar::Sidebar;
 use self::theme_editor::ThemeEditor;
@@ -38,6 +39,7 @@ use crate::{
 };
 
 mod command_bar;
+pub mod modal;
 pub mod pane;
 pub mod sidebar;
 mod theme_editor;
@@ -449,6 +451,82 @@ impl Dashboard {
                             state.size = size;
                             state.buffer.update_pane_size(size, config);
                         }
+                    }
+                    pane::Message::Modal(id, message) => {
+                        let (task, buffer_event) = {
+                            let Some(pane) = self.panes.get_mut(window, id)
+                            else {
+                                return (Task::none(), None);
+                            };
+
+                            let Some(event) = pane
+                                .modal
+                                .as_mut()
+                                .and_then(|modal| modal.update(message))
+                            else {
+                                return (Task::none(), None);
+                            };
+
+                            let modal::Event::ToggleReaction {
+                                msgid,
+                                text,
+                                unreact,
+                            } = event;
+
+                            let Some(buffer_message) = pane
+                                .buffer
+                                .reaction_message(msgid, text, unreact)
+                            else {
+                                pane.close_buffer_modal();
+                                return (Task::none(), None);
+                            };
+
+                            pane.close_buffer_modal();
+
+                            let (command, event) = pane.buffer.update(
+                                buffer_message,
+                                clients,
+                                &mut self.history,
+                                &mut self.file_transfers,
+                                main_window,
+                                config,
+                                false,
+                            );
+
+                            let task = command.map(move |message| {
+                                Message::Pane(
+                                    window,
+                                    pane::Message::Buffer(id, message),
+                                )
+                            });
+
+                            (task, event)
+                        };
+
+                        let Some(event) = buffer_event else {
+                            return (task, None);
+                        };
+
+                        let (buffer_task, buffer_event) = self
+                            .handle_buffer_event(
+                                window,
+                                id,
+                                event,
+                                clients,
+                                controllers,
+                                config,
+                            );
+
+                        return (
+                            Task::batch(vec![task, buffer_task]),
+                            buffer_event,
+                        );
+                    }
+                    pane::Message::CloseBufferModal(id) => {
+                        if let Some(state) = self.panes.get_mut(window, id) {
+                            state.close_buffer_modal();
+                        }
+                        return (Task::none(), None);
                     }
                 }
             }
@@ -2142,6 +2220,18 @@ impl Dashboard {
                             );
                         }
 
+                        None
+                    }
+                    buffer::context_menu::Event::OpenReactionModal(
+                        msgid,
+                        selected_reactions,
+                    ) => {
+                        pane.open_modal(modal::Modal::AddReaction(
+                            reaction_modal::State::new(
+                                msgid,
+                                selected_reactions,
+                            ),
+                        ));
                         None
                     }
                 };

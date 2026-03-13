@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::str::FromStr;
 
@@ -47,12 +48,12 @@ pub enum Irc {
     React {
         target: String,
         msgid: message::Id,
-        text: String,
+        text: Cow<'static, str>,
     },
     Unreact {
         target: String,
         msgid: message::Id,
-        text: String,
+        text: Cow<'static, str>,
     },
     Me(String, String),
     Whois(Option<String>, String),
@@ -1263,12 +1264,12 @@ impl TryFrom<Irc> for proto::Message {
             Irc::React { msgid, text, .. } => tags![
                 "+reply" => msgid.to_string(),
                 "+draft/reply" => msgid.to_string(),
-                "+draft/react" => text,
+                "+draft/react" => text.as_ref(),
             ],
             Irc::Unreact { msgid, text, .. } => tags![
                 "+reply" => msgid.to_string(),
                 "+draft/reply" => msgid.to_string(),
-                "+draft/unreact" => text,
+                "+draft/unreact" => text.as_ref(),
             ],
             Irc::Typing { value, .. } => tags!["+typing" => value.as_str()],
             _ => tags![],

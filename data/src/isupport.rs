@@ -1339,3 +1339,10 @@ pub fn is_client_only_tag_denied(
 
     tag_denied || (has_deny_all && !tag_allowed)
 }
+
+pub fn is_client_tag_allowed(
+    isupport: &HashMap<Kind, Parameter>,
+    tag: &str,
+) -> bool {
+    !is_client_only_tag_denied(isupport, tag)
+}

@@ -145,6 +145,10 @@ pub fn channel_discovery<'a>() -> Text<'a> {
     to_text('\u{E81D}')
 }
 
+pub fn plus<'a>() -> Text<'a> {
+    to_text('\u{E820}')
+}
+
 pub fn not_sent<'a>() -> Svg<'a, Theme> {
     let fontawesome_attention_circled =
         include_bytes!("../assets/fontello/fontawesome-attention.svg").to_vec();

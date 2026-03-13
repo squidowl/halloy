@@ -4,6 +4,7 @@
 mod appearance;
 mod audio;
 mod buffer;
+mod emoji;
 mod event;
 mod font;
 mod icon;
@@ -1138,6 +1139,7 @@ impl Halloy {
                         content,
                         modal.view(&self.theme).map(Message::Modal),
                         || Message::Modal(modal::Message::Cancel),
+                        0.8,
                     )
                 }
                 _ => column![content].into(),
@@ -1158,6 +1160,7 @@ impl Halloy {
                     content,
                     modal.view(&self.theme).map(Message::Modal),
                     || Message::Modal(modal::Message::Cancel),
+                    0.8,
                 ),
                 _ => column![content].into(),
             }

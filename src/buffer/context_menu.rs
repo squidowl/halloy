@@ -22,6 +22,10 @@ pub enum Context<'a> {
     },
     Timestamp(&'a DateTime<Utc>),
     NotSentMessage(&'a DateTime<Utc>, &'a message::Hash),
+    Message {
+        msgid: Option<&'a message::Id>,
+        selected_reactions: &'a [String],
+    },
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -47,6 +51,8 @@ pub enum Entry {
     // not sent message context
     DeleteMessage,
     ResendMessage,
+    // message context
+    AddReaction,
 }
 
 impl Entry {
@@ -60,6 +66,10 @@ impl Entry {
 
     pub fn timestamp_list() -> Vec<Self> {
         vec![Entry::Timestamp]
+    }
+
+    pub fn message_list() -> Vec<Self> {
+        vec![Entry::AddReaction]
     }
 
     pub fn url_list(preview_hidden: Option<bool>) -> Vec<Self> {
@@ -151,8 +161,8 @@ impl Entry {
         self,
         context: Option<Context<'_>>,
         length: Length,
-        config: &Config,
-        theme: &Theme,
+        config: &'a Config,
+        theme: &'a Theme,
     ) -> Element<'a, Message> {
         context.map_or(row![].into(), |context| match (self, context) {
             (Entry::Whois, Context::User { server, user, .. }) => {
@@ -427,6 +437,31 @@ impl Entry {
                     config,
                 )
             }
+            (
+                Entry::AddReaction,
+                Context::Message {
+                    msgid: Some(msgid),
+                    selected_reactions,
+                },
+            ) => menu_button(
+                "Add reaction".to_string(),
+                Some(Message::OpenReactionModal(
+                    msgid.clone(),
+                    selected_reactions.to_vec(),
+                )),
+                length,
+                theme,
+                config,
+            ),
+            (Entry::AddReaction, Context::Message { msgid: None, .. }) => {
+                menu_button(
+                    "Add reaction".to_string(),
+                    None,
+                    length,
+                    theme,
+                    config,
+                )
+            }
             _ => row![].into(),
         })
     }
@@ -450,6 +485,7 @@ pub enum Message {
     DeleteMessage(DateTime<Utc>, message::Hash),
     #[allow(clippy::enum_variant_names)]
     ResendMessage(DateTime<Utc>, message::Hash),
+    OpenReactionModal(message::Id, Vec<String>),
 }
 
 #[derive(Debug, Clone)]
@@ -468,6 +504,7 @@ pub enum Event {
     CopyTimestamp(DateTime<Utc>),
     DeleteMessage(DateTime<Utc>, message::Hash),
     ResendMessage(DateTime<Utc>, message::Hash),
+    OpenReactionModal(message::Id, Vec<String>),
 }
 
 pub fn update(message: Message) -> Event {
@@ -496,7 +533,50 @@ pub fn update(message: Message) -> Event {
         Message::ResendMessage(sesrver_time, hash) => {
             Event::ResendMessage(sesrver_time, hash)
         }
+        Message::OpenReactionModal(msgid, selected_reactions) => {
+            Event::OpenReactionModal(msgid, selected_reactions)
+        }
     }
+}
+
+pub fn message<'a, M>(
+    content: impl Into<Element<'a, M>>,
+    msgid: Option<&'a message::Id>,
+    selected_reactions: Vec<String>,
+    can_send_reactions: bool,
+    config: &'a Config,
+    theme: &'a Theme,
+) -> Element<'a, M>
+where
+    M: From<Message> + 'a,
+{
+    if !can_send_reactions {
+        return content.into();
+    }
+
+    let entries = Entry::message_list();
+
+    context_menu(
+        context_menu::MouseButton::default(),
+        context_menu::Anchor::Cursor,
+        context_menu::ToggleBehavior::KeepOpen,
+        content,
+        entries,
+        move |entry, length| {
+            entry
+                .view(
+                    Some(Context::Message {
+                        msgid,
+                        selected_reactions: &selected_reactions,
+                    }),
+                    length,
+                    config,
+                    theme,
+                )
+                .map(M::from)
+        },
+    )
+    .into()
 }
 
 pub fn user<'a>(
@@ -616,9 +696,15 @@ fn menu_button(
     theme: &Theme,
     config: &Config,
 ) -> Element<'static, Message> {
+    let text_style = if message.is_some() {
+        theme::text::primary
+    } else {
+        theme::text::secondary
+    };
+
     button(
         text(content)
-            .style(theme::text::primary)
+            .style(text_style)
             .font_maybe(theme::font_style::primary(theme).map(font::get)),
     )
     .padding(config.context_menu.padding.entry)

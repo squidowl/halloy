@@ -55,6 +55,7 @@ pub fn view<'a>(
 ) -> Element<'a, Message> {
     let server = &state.server;
     let connected = matches!(clients.status(server), client::Status::Connected);
+    let can_send_reactions = clients.get_server_can_send_reactions(server);
     let chantypes = clients.get_chantypes(server);
     let casemapping = clients.get_casemapping(server);
     let prefix = clients.get_prefix(server);
@@ -90,6 +91,8 @@ pub fn view<'a>(
         casemapping,
         prefix,
         confirm_message_delivery,
+        can_send_reactions,
+        our_nick,
         connected,
         server,
         theme,
