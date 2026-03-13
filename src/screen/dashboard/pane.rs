@@ -133,6 +133,7 @@ impl Pane {
             maximized,
             clients,
             settings,
+            self.modal.is_none(),
             config.tooltips && self.modal.is_none(),
             is_popout,
             config,
@@ -234,6 +235,7 @@ impl TitleBar {
         maximized: bool,
         clients: &'a data::client::Map,
         settings: Option<&'a buffer::Settings>,
+        show_controls: bool,
         show_tooltips: bool,
         is_popout: bool,
         config: &'a Config,
@@ -472,9 +474,13 @@ impl TitleBar {
         .padding([0, 4])
         .align_y(iced::alignment::Vertical::Center);
 
-        widget::TitleBar::new(title)
-            .controls(pane_grid::Controls::new(controls))
-            .padding(6)
+        let title_bar = widget::TitleBar::new(title).padding(6);
+
+        if show_controls {
+            title_bar.controls(pane_grid::Controls::new(controls))
+        } else {
+            title_bar
+        }
     }
 }
 
