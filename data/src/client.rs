@@ -2459,6 +2459,16 @@ impl Client {
                     sent_time: message.server_time_or_now(),
                 })]);
             }
+            Command::Numeric(RPL_VISIBLEHOST, args) => {
+                let hostname = ok!(args.get(1));
+
+                if let Some((username, hostname)) = hostname.split_once('@') {
+                    self.resolved_user = Some(username.to_string());
+                    self.resolved_host = Some(hostname.to_string());
+                } else {
+                    self.resolved_host = Some(hostname.to_string());
+                }
+            }
             Command::Numeric(RPL_MONONLINE, args) => {
                 let casemapping =
                     isupport::get_casemapping_or_default(&self.isupport);
@@ -3788,9 +3798,7 @@ impl Client {
 
     // Known bytes or a reasonable, conservative estimate of
     // ':nick!user@host ' that must be prepended to relay a
-    // PRIVMSG/NOTICE, plus bytes for ':' that some servers will prepend
-    // to a relayed PRIVMSG's text (even if the content does not contain
-    // spaces)
+    // PRIVMSG/NOTICE, plus a safety buffer of 10 bytes
     pub fn relay_bytes(&self) -> usize {
         self.nickname().as_str().len()
             + if let Some(resolved_user) = &self.resolved_user {
@@ -3811,7 +3819,7 @@ impl Client {
             } else {
                 64
             }
-            + 5
+            + 14
     }
 
     pub fn multiline(&self) -> Option<Multiline> {
