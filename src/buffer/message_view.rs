@@ -1,15 +1,15 @@
+use std::collections::BTreeMap;
+
 use chrono::{TimeDelta, Utc};
 use data::config::buffer::nickname::ShownStatus;
 use data::config::buffer::{CondensationIcon, Dimmed};
 use data::isupport::{CaseMap, PrefixMap};
 use data::preview::{self, Previews};
 use data::server::Server;
-use data::user::ChannelUsers;
-use data::user::NickRef;
+use data::user::{ChannelUsers, NickRef};
 use data::{Config, User, message, target};
 use iced::widget::{Space, button, column, container, row, text};
 use iced::{Color, Length, alignment};
-use std::collections::BTreeMap;
 
 use super::context_menu::{self, Context};
 use super::scroll_view::LayoutMessage;

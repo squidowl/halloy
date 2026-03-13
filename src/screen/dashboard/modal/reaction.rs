@@ -1,9 +1,10 @@
+use std::collections::HashSet;
+
 use data::{Config, message};
 use iced::Length;
 use iced::widget::{
     Scrollable, button, column, container, scrollable, text_input,
 };
-use std::collections::HashSet;
 
 use crate::widget::{Element, Row, text};
 use crate::{theme, widget};
