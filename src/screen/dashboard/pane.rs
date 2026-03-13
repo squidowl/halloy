@@ -1,7 +1,7 @@
 use data::user::ChannelUsers;
 use data::{Config, file_transfer, history, preview};
+use iced::Size;
 use iced::widget::{button, center, container, pane_grid, row, text};
-use iced::{Length, Size};
 
 use super::sidebar;
 use crate::buffer::{self, Buffer};
@@ -24,12 +24,8 @@ pub enum Message {
     ScrollToBottom,
     MarkAsRead,
     ContentResized(pane_grid::Pane, Size),
+    Modal(pane_grid::Pane, super::modal::Message),
     CloseBufferModal(pane_grid::Pane),
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Modal {
-    AddReaction,
 }
 
 #[derive(Clone, Debug)]
@@ -37,7 +33,7 @@ pub struct Pane {
     pub buffer: Buffer,
     pub size: Size,
     title_bar: TitleBar,
-    modal: Option<Modal>,
+    pub modal: Option<super::modal::Modal>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -161,10 +157,12 @@ impl Pane {
         let content =
             on_resize(content, move |size| Message::ContentResized(id, size));
 
-        let content = match self.modal {
-            Some(Modal::AddReaction) => widget::modal(
+        let content = match &self.modal {
+            Some(modal) => widget::modal(
                 content,
-                add_reaction_modal(),
+                modal
+                    .view(config)
+                    .map(move |message| Message::Modal(id, message)),
                 move || Message::CloseBufferModal(id),
                 0.2,
             ),
@@ -176,7 +174,7 @@ impl Pane {
             .title_bar(title_bar.style(theme::container::buffer_title_bar))
     }
 
-    pub fn open_modal(&mut self, modal: Modal) {
+    pub fn open_modal(&mut self, modal: super::modal::Modal) {
         self.modal = Some(modal);
     }
 
@@ -222,15 +220,6 @@ impl Pane {
             | Buffer::ChannelDiscovery(_) => vec![],
         }
     }
-}
-
-fn add_reaction_modal<'a>() -> widget::Element<'a, Message> {
-    container(row![])
-        .width(Length::Fixed(360.0))
-        .height(Length::Fixed(220.0))
-        .style(theme::container::tooltip)
-        .padding(16)
-        .into()
 }
 
 impl TitleBar {

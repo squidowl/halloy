@@ -205,6 +205,31 @@ impl Buffer {
         }
     }
 
+    pub fn reaction_message(
+        &self,
+        msgid: message::Id,
+        text: String,
+    ) -> Option<Message> {
+        match self {
+            Buffer::Channel(_) => {
+                Some(Message::Channel(channel::Message::ScrollView(
+                    scroll_view::Message::Reacted { msgid, text },
+                )))
+            }
+            Buffer::Query(_) => {
+                Some(Message::Query(query::Message::ScrollView(
+                    scroll_view::Message::Reacted { msgid, text },
+                )))
+            }
+            Buffer::Empty
+            | Buffer::Server(_)
+            | Buffer::FileTransfers(_)
+            | Buffer::Logs(_)
+            | Buffer::Highlights(_)
+            | Buffer::ChannelDiscovery(_) => None,
+        }
+    }
+
     pub fn update(
         &mut self,
         message: Message,
