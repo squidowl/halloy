@@ -9,8 +9,8 @@ use crate::{theme, widget};
 
 const MODAL_WIDTH: f32 = 480.0;
 const MODAL_HEIGHT: f32 = 320.0;
-const EMOJI_BUTTON_WIDTH: f32 = 36.0;
-const EMOJI_BUTTON_HEIGHT: f32 = 36.0;
+const EMOJI_BUTTON_WIDTH: f32 = 34.0;
+const EMOJI_BUTTON_HEIGHT: f32 = 34.0;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct State {
@@ -88,7 +88,7 @@ pub fn view<'a>(state: &'a State, config: &'a Config) -> Element<'a, Message> {
     container(content)
         .width(Length::Fixed(MODAL_WIDTH))
         .height(Length::Fixed(MODAL_HEIGHT))
-        .padding(16)
+        .padding(8)
         .style(theme::container::tooltip)
         .into()
 }
@@ -107,12 +107,12 @@ fn emoji_button<'a>(
     emoji: &'static emojis::Emoji,
 ) -> widget::Button<'a, Message> {
     button(
-        container(text(emoji.as_str()).size(18))
+        container(text(emoji.as_str()).size(17))
             .width(Length::Fill)
             .center_x(Length::Fill)
             .center_y(Length::Fill),
     )
-    .padding(6)
+    .padding(5)
     .width(Length::Fixed(EMOJI_BUTTON_WIDTH))
     .height(Length::Fixed(EMOJI_BUTTON_HEIGHT))
     .style(|theme, status| theme::button::secondary(theme, status, false))
