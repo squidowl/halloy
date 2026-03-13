@@ -24,7 +24,7 @@ use iced::{Length, Padding, Size, Task, Vector, advanced, clipboard};
 use irc::proto;
 
 use self::command_bar::CommandBar;
-use self::pane::{BufferModal, Pane};
+use self::pane::{Modal, Pane};
 use self::sidebar::Sidebar;
 use self::theme_editor::ThemeEditor;
 use crate::buffer::{self, Buffer};
@@ -2151,7 +2151,7 @@ impl Dashboard {
                         None
                     }
                     buffer::context_menu::Event::OpenReactionModal => {
-                        pane.open_buffer_modal(BufferModal::AddReaction);
+                        pane.open_modal(Modal::AddReaction);
                         None
                     }
                 };

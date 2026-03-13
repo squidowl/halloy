@@ -28,7 +28,7 @@ pub enum Message {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum BufferModal {
+pub enum Modal {
     AddReaction,
 }
 
@@ -37,7 +37,7 @@ pub struct Pane {
     pub buffer: Buffer,
     pub size: Size,
     title_bar: TitleBar,
-    buffer_modal: Option<BufferModal>,
+    modal: Option<Modal>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -49,7 +49,7 @@ impl Pane {
             buffer,
             size: Size::default(), // Will get set initially via `Message::Resized`
             title_bar: TitleBar::default(),
-            buffer_modal: None,
+            modal: None,
         }
     }
 
@@ -137,7 +137,7 @@ impl Pane {
             maximized,
             clients,
             settings,
-            config.tooltips && self.buffer_modal.is_none(),
+            config.tooltips && self.modal.is_none(),
             is_popout,
             config,
             theme,
@@ -161,8 +161,8 @@ impl Pane {
         let content =
             on_resize(content, move |size| Message::ContentResized(id, size));
 
-        let content = match self.buffer_modal {
-            Some(BufferModal::AddReaction) => {
+        let content = match self.modal {
+            Some(Modal::AddReaction) => {
                 widget::modal(content, add_reaction_modal(), move || {
                     Message::CloseBufferModal(id)
                 })
@@ -175,12 +175,12 @@ impl Pane {
             .title_bar(title_bar.style(theme::container::buffer_title_bar))
     }
 
-    pub fn open_buffer_modal(&mut self, modal: BufferModal) {
-        self.buffer_modal = Some(modal);
+    pub fn open_modal(&mut self, modal: Modal) {
+        self.modal = Some(modal);
     }
 
     pub fn close_buffer_modal(&mut self) {
-        self.buffer_modal = None;
+        self.modal = None;
     }
 
     pub fn resource(&self) -> Option<history::Resource> {
