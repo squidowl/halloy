@@ -24,6 +24,7 @@ pub enum Context<'a> {
     NotSentMessage(&'a DateTime<Utc>, &'a message::Hash),
     Message {
         msgid: Option<&'a message::Id>,
+        selected_reactions: &'a [String],
     },
 }
 
@@ -436,16 +437,23 @@ impl Entry {
                     config,
                 )
             }
-            (Entry::AddReaction, Context::Message { msgid: Some(msgid) }) => {
-                menu_button(
-                    "Add reaction".to_string(),
-                    Some(Message::OpenReactionModal(msgid.clone())),
-                    length,
-                    theme,
-                    config,
-                )
-            }
-            (Entry::AddReaction, Context::Message { msgid: None }) => {
+            (
+                Entry::AddReaction,
+                Context::Message {
+                    msgid: Some(msgid),
+                    selected_reactions,
+                },
+            ) => menu_button(
+                "Add reaction".to_string(),
+                Some(Message::OpenReactionModal(
+                    msgid.clone(),
+                    selected_reactions.to_vec(),
+                )),
+                length,
+                theme,
+                config,
+            ),
+            (Entry::AddReaction, Context::Message { msgid: None, .. }) => {
                 menu_button(
                     "Add reaction".to_string(),
                     None,
@@ -477,7 +485,7 @@ pub enum Message {
     DeleteMessage(DateTime<Utc>, message::Hash),
     #[allow(clippy::enum_variant_names)]
     ResendMessage(DateTime<Utc>, message::Hash),
-    OpenReactionModal(message::Id),
+    OpenReactionModal(message::Id, Vec<String>),
 }
 
 #[derive(Debug, Clone)]
@@ -496,7 +504,7 @@ pub enum Event {
     CopyTimestamp(DateTime<Utc>),
     DeleteMessage(DateTime<Utc>, message::Hash),
     ResendMessage(DateTime<Utc>, message::Hash),
-    OpenReactionModal(message::Id),
+    OpenReactionModal(message::Id, Vec<String>),
 }
 
 pub fn update(message: Message) -> Event {
@@ -525,13 +533,16 @@ pub fn update(message: Message) -> Event {
         Message::ResendMessage(sesrver_time, hash) => {
             Event::ResendMessage(sesrver_time, hash)
         }
-        Message::OpenReactionModal(msgid) => Event::OpenReactionModal(msgid),
+        Message::OpenReactionModal(msgid, selected_reactions) => {
+            Event::OpenReactionModal(msgid, selected_reactions)
+        }
     }
 }
 
 pub fn message<'a, M>(
     content: impl Into<Element<'a, M>>,
     msgid: Option<&'a message::Id>,
+    selected_reactions: Vec<String>,
     can_send_reactions: bool,
     config: &'a Config,
     theme: &'a Theme,
@@ -553,7 +564,15 @@ where
         entries,
         move |entry, length| {
             entry
-                .view(Some(Context::Message { msgid }), length, config, theme)
+                .view(
+                    Some(Context::Message {
+                        msgid,
+                        selected_reactions: &selected_reactions,
+                    }),
+                    length,
+                    config,
+                    theme,
+                )
                 .map(M::from)
         },
     )

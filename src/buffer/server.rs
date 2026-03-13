@@ -117,7 +117,12 @@ pub fn view<'a>(
                             .into();
 
                         Some(context_menu::message(
-                            content, None, false, config, theme,
+                            content,
+                            None,
+                            vec![],
+                            false,
+                            config,
+                            theme,
                         ))
                     }
                     message::Source::Internal(
@@ -150,7 +155,12 @@ pub fn view<'a>(
                             .into();
 
                         Some(context_menu::message(
-                            content, None, false, config, theme,
+                            content,
+                            None,
+                            vec![],
+                            false,
+                            config,
+                            theme,
                         ))
                     }
                     _ => None,

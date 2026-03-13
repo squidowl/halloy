@@ -16,18 +16,29 @@ pub enum Message {
 
 #[derive(Debug, Clone)]
 pub enum Event {
-    React { msgid: message::Id, text: String },
+    Toggle {
+        msgid: message::Id,
+        text: String,
+        unreact: bool,
+    },
 }
 
 impl Modal {
     pub fn update(&mut self, message: Message) -> Option<Event> {
         match (self, message) {
-            (Modal::AddReaction(state), Message::Reaction(message)) => state
-                .update(message)
-                .map(|reaction::Event::React { msgid, text }| Event::React {
-                    msgid,
-                    text,
-                }),
+            (Modal::AddReaction(state), Message::Reaction(message)) => {
+                state.update(message).map(
+                    |reaction::Event::Toggle {
+                         msgid,
+                         text,
+                         unreact,
+                     }| Event::Toggle {
+                        msgid,
+                        text,
+                        unreact,
+                    },
+                )
+            }
         }
     }
 
