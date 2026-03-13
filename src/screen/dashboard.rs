@@ -99,6 +99,8 @@ pub enum Event {
     ImagePreview(PathBuf, url::Url),
     ToggleFullscreen,
     Remove(Server),
+    ToggleScript(String),
+    RefreshScripts,
 }
 
 impl Dashboard {
@@ -445,6 +447,9 @@ impl Dashboard {
                                 TokenPriority::User,
                             );
                         }
+                    }
+                    pane::Message::RefreshScripts => {
+                        return (Task::none(), Some(Event::RefreshScripts));
                     }
                     pane::Message::ContentResized(id, size) => {
                         if let Some(state) = self.panes.get_mut(window, id) {
@@ -1648,6 +1653,7 @@ impl Dashboard {
         &'a self,
         window: window::Id,
         clients: &'a client::Map,
+        script_manager: &'a data::scripts::Manager,
         config: &'a Config,
         theme: &'a Theme,
     ) -> Element<'a, Message> {
@@ -1673,6 +1679,7 @@ impl Dashboard {
                         false,
                         clients,
                         &self.file_transfers,
+                        script_manager,
                         &self.history,
                         &self.previews,
                         &self.side_menu,
@@ -1704,6 +1711,7 @@ impl Dashboard {
         &'a self,
         servers: &'a server::Map,
         clients: &'a client::Map,
+        script_manager: &'a data::scripts::Manager,
         version: &'a Version,
         config: &'a Config,
         theme: &'a Theme,
@@ -1727,6 +1735,7 @@ impl Dashboard {
                     maximized,
                     clients,
                     &self.file_transfers,
+                    script_manager,
                     &self.history,
                     &self.previews,
                     &self.side_menu,
@@ -2454,6 +2463,9 @@ impl Dashboard {
             }
             buffer::Event::Reconnect(server) => {
                 controllers.connect(&server);
+            }
+            buffer::Event::ToggleScript(name) => {
+                return (Task::none(), Some(Event::ToggleScript(name)));
             }
         }
 
