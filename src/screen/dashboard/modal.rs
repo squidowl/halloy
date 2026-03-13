@@ -1,5 +1,7 @@
 pub mod reaction;
 
+use std::borrow::Cow;
+
 use data::{Config, message};
 
 use crate::widget::Element;
@@ -16,9 +18,9 @@ pub enum Message {
 
 #[derive(Debug, Clone)]
 pub enum Event {
-    Toggle {
+    ToggleReaction {
         msgid: message::Id,
-        text: String,
+        text: Cow<'static, str>,
         unreact: bool,
     },
 }
@@ -32,7 +34,7 @@ impl Modal {
                          msgid,
                          text,
                          unreact,
-                     }| Event::Toggle {
+                     }| Event::ToggleReaction {
                         msgid,
                         text,
                         unreact,

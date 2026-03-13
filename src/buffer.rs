@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::path::PathBuf;
 
 use chrono::{DateTime, Utc};
@@ -208,7 +209,7 @@ impl Buffer {
     pub fn reaction_message(
         &self,
         msgid: message::Id,
-        text: String,
+        text: Cow<'static, str>,
         unreact: bool,
     ) -> Option<Message> {
         match self {

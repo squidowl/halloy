@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::time::Duration;
@@ -60,11 +61,11 @@ pub enum Message {
     HeightsCollected(Vec<(message::Hash, f32)>),
     Reacted {
         msgid: message::Id,
-        text: String,
+        text: Cow<'static, str>,
     },
     Unreacted {
         msgid: message::Id,
-        text: String,
+        text: Cow<'static, str>,
     },
 }
 
@@ -1380,7 +1381,7 @@ fn send_reaction(
     buffer: Option<&buffer::Upstream>,
     history: &mut history::Manager,
     msgid: message::Id,
-    text: String,
+    text: Cow<'static, str>,
     unreact: bool,
 ) -> Option<()> {
     let buffer = buffer?;
@@ -1409,7 +1410,7 @@ fn send_reaction(
             reaction::Context {
                 inner: Reaction {
                     sender: nick.to_owned(),
-                    text,
+                    text: text.into_owned(),
                     unreact,
                 },
                 target,
