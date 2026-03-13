@@ -411,46 +411,7 @@ impl<'a> ChannelQueryLayout<'a> {
             },
             self.config,
         );
-        if self.config.buffer.channel.message.show_emoji_reacts
-            && has_visible_reactions(message)
-        {
-            let selected_reaction_texts =
-                selected_reactions(message, self.our_nick);
-            let mut on_react = None;
-            let mut on_unreact = None;
-            let mut on_open_picker = None;
-            if let Some(msgid) = message.id.as_ref() {
-                on_react = Some(|text: &'a str| Message::Reacted {
-                    msgid: msgid.clone(),
-                    text: text.to_owned(),
-                });
-                on_unreact = Some(|text: &'a str| Message::Unreacted {
-                    msgid: msgid.clone(),
-                    text: text.to_owned(),
-                });
-
-                if self.can_send_reactions {
-                    on_open_picker = Some(Message::ContextMenu(
-                        context_menu::Message::OpenReactionModal(
-                            msgid.clone(),
-                            selected_reaction_texts.clone(),
-                        ),
-                    ));
-                }
-            }
-
-            let reactions = reaction_row(
-                message,
-                self.our_nick,
-                self.config.font.size.map_or(theme::TEXT_SIZE, f32::from),
-                self.config.buffer.channel.message.max_reaction_display,
-                on_react,
-                on_unreact,
-                on_open_picker,
-            );
-            message_content =
-                column![message_content, reactions].spacing(2).into();
-        }
+        message_content = self.with_reactions(message, message_content);
 
         let content = if not_sent {
             let font_size = 0.85
@@ -706,6 +667,56 @@ impl<'a> ChannelQueryLayout<'a> {
         )
     }
 
+    fn with_reactions(
+        &self,
+        message: &'a data::Message,
+        message_content: Element<'a, Message>,
+    ) -> Element<'a, Message> {
+        if !(self.config.buffer.channel.message.show_emoji_reacts
+            && has_visible_reactions(message))
+        {
+            return message_content;
+        }
+
+        let selected_reaction_texts =
+            selected_reactions(message, self.our_nick);
+        let mut on_react = None;
+        let mut on_unreact = None;
+        let mut on_open_picker = None;
+
+        if let Some(msgid) = message.id.as_ref() {
+            on_react = Some(|text: &'a str| Message::Reacted {
+                msgid: msgid.clone(),
+                text: text.to_owned(),
+            });
+            on_unreact = Some(|text: &'a str| Message::Unreacted {
+                msgid: msgid.clone(),
+                text: text.to_owned(),
+            });
+
+            if self.can_send_reactions {
+                on_open_picker = Some(Message::ContextMenu(
+                    context_menu::Message::OpenReactionModal(
+                        msgid.clone(),
+                        selected_reaction_texts.clone(),
+                    ),
+                ));
+            }
+        }
+
+        let reactions = reaction_row(
+            message,
+            self.our_nick,
+            self.config.font.size.map_or(theme::TEXT_SIZE, f32::from),
+            self.config.buffer.channel.message.max_reaction_display,
+            on_react,
+            on_unreact,
+            on_open_picker,
+        );
+
+        column![message_content, reactions].spacing(2).into()
+    }
+
     fn link_context<'b>(
         &'b self,
         message: &'b data::Message,
@@ -820,7 +831,16 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
                         formatter.config,
                     );
 
-                    Some((marker, container(message_content).into()))
+                    Some((
+                        marker,
+                        container(
+                            formatter.with_reactions(
+                                message,
+                                message_content,
+                            ),
+                        )
+                        .into(),
+                    ))
                 }
                 message::Source::Internal(
                     message::source::Internal::Status(status),
