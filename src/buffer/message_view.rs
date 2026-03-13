@@ -1,10 +1,12 @@
+use std::collections::BTreeMap;
+
 use chrono::{TimeDelta, Utc};
 use data::config::buffer::nickname::ShownStatus;
 use data::config::buffer::{CondensationIcon, Dimmed};
 use data::isupport::{CaseMap, PrefixMap};
 use data::preview::{self, Previews};
 use data::server::Server;
-use data::user::ChannelUsers;
+use data::user::{ChannelUsers, NickRef};
 use data::{Config, User, message, target};
 use iced::widget::{Space, button, column, container, row, text};
 use iced::{Color, Length, alignment};
@@ -12,7 +14,7 @@ use iced::{Color, Length, alignment};
 use super::context_menu::{self, Context};
 use super::scroll_view::LayoutMessage;
 use crate::buffer::scroll_view::Message;
-use crate::widget::reaction_row::reaction_row;
+use crate::widget::reaction_row::{has_visible_reactions, reaction_row};
 use crate::widget::{
     Element, Marker, message_content, message_marker, selectable_text, tooltip,
 };
@@ -62,6 +64,8 @@ pub struct ChannelQueryLayout<'a> {
     pub casemapping: CaseMap,
     pub prefix: &'a [PrefixMap],
     pub confirm_message_delivery: bool,
+    pub can_send_reactions: bool,
+    pub our_nick: Option<NickRef<'a>>,
     pub connected: bool,
     pub server: &'a Server,
     pub theme: &'a Theme,
@@ -407,33 +411,7 @@ impl<'a> ChannelQueryLayout<'a> {
             },
             self.config,
         );
-        if self.config.buffer.channel.message.show_emoji_reacts
-            && !message.reactions.is_empty()
-        {
-            let mut on_react = None;
-            let mut on_unreact = None;
-            if let Some(msgid) = message.id.as_ref() {
-                on_react = Some(|text: &'a str| Message::Reacted {
-                    msgid: msgid.clone(),
-                    text: text.to_owned(),
-                });
-                on_unreact = Some(|text: &'a str| Message::Unreacted {
-                    msgid: msgid.clone(),
-                    text: text.to_owned(),
-                });
-            }
-
-            let reactions = reaction_row(
-                message,
-                self.target.our_user().map(|user| user.nickname()),
-                self.config.font.size.map_or(theme::TEXT_SIZE, f32::from),
-                self.config.buffer.channel.message.max_reaction_display,
-                on_react,
-                on_unreact,
-            );
-            message_content =
-                column![message_content, reactions].spacing(2).into();
-        }
+        message_content = self.with_reactions(message, message_content);
 
         let content = if not_sent {
             let font_size = 0.85
@@ -689,6 +667,56 @@ impl<'a> ChannelQueryLayout<'a> {
         )
     }
 
+    fn with_reactions(
+        &self,
+        message: &'a data::Message,
+        message_content: Element<'a, Message>,
+    ) -> Element<'a, Message> {
+        if !(self.config.buffer.channel.message.show_emoji_reacts
+            && has_visible_reactions(message))
+        {
+            return message_content;
+        }
+
+        let selected_reaction_texts =
+            selected_reactions(message, self.our_nick);
+        let mut on_react = None;
+        let mut on_unreact = None;
+        let mut on_open_picker = None;
+
+        if let Some(msgid) = message.id.as_ref() {
+            on_react = Some(|text: &'a str| Message::Reacted {
+                msgid: msgid.clone(),
+                text: text.to_owned().into(),
+            });
+            on_unreact = Some(|text: &'a str| Message::Unreacted {
+                msgid: msgid.clone(),
+                text: text.to_owned().into(),
+            });
+
+            if self.can_send_reactions {
+                on_open_picker = Some(Message::ContextMenu(
+                    context_menu::Message::OpenReactionModal(
+                        msgid.clone(),
+                        selected_reaction_texts.clone(),
+                    ),
+                ));
+            }
+        }
+
+        let reactions = reaction_row(
+            message,
+            self.our_nick,
+            self.config.font.size.map_or(theme::TEXT_SIZE, f32::from),
+            self.config.buffer.channel.message.max_reaction_display,
+            on_react,
+            on_unreact,
+            on_open_picker,
+        );
+
+        column![message_content, reactions].spacing(2).into()
+    }
+
     fn link_context<'b>(
         &'b self,
         message: &'b data::Message,
@@ -803,7 +831,13 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
                         formatter.config,
                     );
 
-                    Some((marker, container(message_content).into()))
+                    Some((
+                        marker,
+                        container(
+                            formatter.with_reactions(message, message_content),
+                        )
+                        .into(),
+                    ))
                 }
                 message::Source::Internal(
                     message::source::Internal::Status(status),
@@ -875,6 +909,18 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
         } else {
             None
         };
+
+        let selected_reaction_texts =
+            selected_reactions(message, self.our_nick);
+        let content = context_menu::message(
+            content,
+            message.id.as_ref(),
+            selected_reaction_texts,
+            self.can_send_reactions,
+            self.config,
+            self.theme,
+        );
+
         let row = row.push(middle).push(maybe_space);
 
         if self.content_on_new_line(message) {
@@ -883,4 +929,31 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
             Some(container(row![row, content]).into())
         }
     }
+}
+
+fn selected_reactions(
+    message: &data::Message,
+    our_nick: Option<NickRef<'_>>,
+) -> Vec<String> {
+    let Some(our_nick) = our_nick else {
+        return vec![];
+    };
+
+    let mut selected = BTreeMap::new();
+
+    for reaction in &message.reactions {
+        if reaction.sender.as_str() == our_nick.as_str() {
+            let count = selected.entry(reaction.text.as_str()).or_insert(0i16);
+            if reaction.unreact {
+                *count -= 1;
+            } else {
+                *count += 1;
+            }
+        }
+    }
+
+    selected
+        .into_iter()
+        .filter_map(|(text, count)| (count >= 1).then_some(text.to_owned()))
+        .collect()
 }

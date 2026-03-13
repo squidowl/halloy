@@ -8,10 +8,14 @@ use iced::widget::{Space, button, container, row};
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::{Column, Element, Row};
-use crate::theme;
 use crate::widget::text;
+use crate::{icon, theme};
 
 const REACTION_TOOLTIP_MAX_NAMES: usize = 10;
+
+pub fn has_visible_reactions(message: &data::Message) -> bool {
+    !visible_reactions(message).is_empty()
+}
 
 pub fn reaction_row<'a, M, F1, F2>(
     message: &'a data::Message,
@@ -20,6 +24,7 @@ pub fn reaction_row<'a, M, F1, F2>(
     max_reaction_display: u32,
     on_react: Option<F1>,
     on_unreact: Option<F2>,
+    on_open_picker: Option<M>,
 ) -> Element<'a, M>
 where
     M: 'a + Clone,
@@ -28,40 +33,9 @@ where
 {
     let emoji_size = (font_size - 1.0).max(10.0);
     let count_size = (font_size - 1.0).max(10.0);
+    let m = visible_reactions(message);
 
-    // we need a container with deterministic order, so that the UI elements don't move around.
-    let mut m: BTreeMap<&'a str, BTreeMap<&'a str, i16>> = BTreeMap::new();
-    for r in message.reactions.iter() {
-        let reactions_for_sender = m
-            .entry(&r.text)
-            .or_default()
-            .entry(r.sender.as_str())
-            .or_default();
-        if r.unreact {
-            *reactions_for_sender -= 1;
-        } else {
-            *reactions_for_sender += 1;
-        }
-    }
-    let m: BTreeMap<&'a str, BTreeSet<&'a str>> = m
-        .into_iter()
-        .map(|(react, nicks)| {
-            (
-                react,
-                nicks
-                    .into_iter()
-                    .filter_map(
-                        |(nick, count)| {
-                            if count >= 1 { Some(nick) } else { None }
-                        },
-                    )
-                    .collect::<BTreeSet<&str>>(),
-            )
-        })
-        .filter(|(_, set)| !set.is_empty())
-        .collect();
-
-    let row = Row::from_iter(m.iter().map(|(reaction_text, nicks)| {
+    let mut row = Row::from_iter(m.iter().map(|(reaction_text, nicks)| {
         // we reacted to this message already
         let selected =
             our_nick.is_some_and(|nick| nicks.contains(&nick.as_str()));
@@ -122,10 +96,71 @@ where
         )
         .into()
     }))
-    .spacing(2.0)
-    .wrap();
+    .spacing(2.0);
+
+    if !m.is_empty()
+        && let Some(on_open_picker) = on_open_picker
+    {
+        let open_picker = iced::widget::tooltip(
+            button(
+                icon::plus()
+                    .size(emoji_size + 4.0)
+                    .style(theme::text::primary),
+            )
+            .padding([2, 6])
+            .style(|theme, status| {
+                theme::button::secondary(theme, status, false)
+            })
+            .on_press(on_open_picker),
+            container(text("Add reaction").style(theme::text::secondary))
+                .style(theme::container::tooltip)
+                .padding(8),
+            Position::Bottom,
+        );
+
+        row = row.push(open_picker);
+    }
+
+    let row = row.wrap();
 
     container(row).into()
+}
+
+fn visible_reactions<'a>(
+    message: &'a data::Message,
+) -> BTreeMap<&'a str, BTreeSet<&'a str>> {
+    // We need a deterministic order so that the UI elements don't move around.
+    let mut reactions = BTreeMap::<&'a str, BTreeMap<&'a str, i16>>::new();
+
+    for reaction in &message.reactions {
+        let reactions_for_sender = reactions
+            .entry(&reaction.text)
+            .or_default()
+            .entry(reaction.sender.as_str())
+            .or_default();
+
+        if reaction.unreact {
+            *reactions_for_sender -= 1;
+        } else {
+            *reactions_for_sender += 1;
+        }
+    }
+
+    reactions
+        .into_iter()
+        .map(|(text, senders)| {
+            (
+                text,
+                senders
+                    .into_iter()
+                    .filter_map(|(sender, count)| {
+                        (count >= 1).then_some(sender)
+                    })
+                    .collect::<BTreeSet<&str>>(),
+            )
+        })
+        .filter(|(_, senders)| !senders.is_empty())
+        .collect()
 }
 
 pub fn truncate_text<'a>(text: &'a str, max_chars: usize) -> Cow<'a, str> {

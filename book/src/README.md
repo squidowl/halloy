@@ -22,6 +22,7 @@
     * [msgid](https://ircv3.net/specs/extensions/message-ids)
     * [multi-prefix](https://ircv3.net/specs/extensions/multi-prefix)
     * [multiline](https://ircv3.net/specs/extensions/multiline)
+    * [react](https://ircv3.net/specs/client-tags/react.html)
     * [read-marker](https://ircv3.net/specs/extensions/read-marker)
     * [sasl-3.1](https://ircv3.net/specs/extensions/sasl-3.1)
     * [server-time](https://ircv3.net/specs/extensions/server-time)

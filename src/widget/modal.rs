@@ -4,21 +4,22 @@ use iced::advanced::{self, Clipboard, Shell, overlay, renderer};
 use iced::alignment::Alignment;
 use iced::keyboard::key;
 use iced::{
-    Color, Element, Event, Length, Point, Rectangle, Size, Vector, keyboard,
-    mouse, touch,
+    Color, Element, Event, Length, Point, Rectangle, Shadow, Size, Vector,
+    keyboard, mouse, touch,
 };
 
 pub fn modal<'a, Message, Theme, Renderer>(
     base: impl Into<Element<'a, Message, Theme, Renderer>>,
     modal: impl Into<Element<'a, Message, Theme, Renderer>>,
     on_blur: impl Fn() -> Message + 'a,
+    backdrop_alpha: f32,
 ) -> Element<'a, Message, Theme, Renderer>
 where
     Theme: 'a,
     Renderer: 'a + advanced::Renderer,
     Message: 'a,
 {
-    Modal::new(base, modal, on_blur).into()
+    Modal::new(base, modal, on_blur, backdrop_alpha).into()
 }
 
 /// A widget that centers a modal element over some base element
@@ -26,6 +27,8 @@ pub struct Modal<'a, Message, Theme, Renderer> {
     base: Element<'a, Message, Theme, Renderer>,
     modal: Element<'a, Message, Theme, Renderer>,
     on_blur: Box<dyn Fn() -> Message + 'a>,
+    backdrop: Color,
+    shadow: Shadow,
 }
 
 impl<'a, Message, Theme, Renderer> Modal<'a, Message, Theme, Renderer> {
@@ -34,11 +37,21 @@ impl<'a, Message, Theme, Renderer> Modal<'a, Message, Theme, Renderer> {
         base: impl Into<Element<'a, Message, Theme, Renderer>>,
         modal: impl Into<Element<'a, Message, Theme, Renderer>>,
         on_blur: impl Fn() -> Message + 'a,
+        backdrop_alpha: f32,
     ) -> Self {
         Self {
             base: base.into(),
             modal: modal.into(),
             on_blur: Box::new(on_blur),
+            backdrop: Color {
+                a: backdrop_alpha.clamp(0.0, 1.0),
+                ..Color::BLACK
+            },
+            shadow: Shadow {
+                color: Color::from_rgba(0.0, 0.0, 0.0, 0.35),
+                offset: Vector::new(0.0, 10.0),
+                blur_radius: 24.0,
+            },
         }
     }
 }
@@ -146,6 +159,8 @@ where
             tree: &mut state.children[1],
             size: layout.bounds().size(),
             on_blur: &self.on_blur,
+            backdrop: self.backdrop,
+            shadow: self.shadow,
             viewport: *viewport,
         })))
     }
@@ -183,6 +198,8 @@ struct Overlay<'a, 'b, Message, Theme, Renderer> {
     tree: &'b mut widget::Tree,
     size: Size,
     on_blur: &'b dyn Fn() -> Message,
+    backdrop: Color,
+    shadow: Shadow,
     viewport: Rectangle,
 }
 
@@ -264,10 +281,22 @@ where
                 bounds: layout.bounds(),
                 ..renderer::Quad::default()
             },
-            Color {
-                a: 0.80,
-                ..Color::BLACK
+            self.backdrop,
+        );
+
+        let bounds = layout.children().next().unwrap().bounds();
+
+        renderer.fill_quad(
+            renderer::Quad {
+                bounds,
+                border: iced::Border {
+                    radius: 4.0.into(),
+                    ..iced::Border::default()
+                },
+                shadow: self.shadow,
+                ..renderer::Quad::default()
             },
+            Color::TRANSPARENT,
         );
 
         self.content.as_widget().draw(
