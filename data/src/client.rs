@@ -3667,6 +3667,18 @@ impl Client {
             && !isupport::is_client_only_tag_denied(&self.isupport, "typing")
     }
 
+    fn can_send_reactions(&self) -> bool {
+        self.capabilities.acknowledged(Capability::MessageTags)
+            && !isupport::is_client_only_tag_denied(
+                &self.isupport,
+                "draft/react",
+            )
+            && !isupport::is_client_only_tag_denied(
+                &self.isupport,
+                "draft/reply",
+            )
+    }
+
     pub fn is_channel(&self, target: &str) -> bool {
         proto::is_channel(target, self.chantypes())
     }
@@ -4142,6 +4154,10 @@ impl Map {
 
     pub fn get_server_supports_typing(&self, server: &Server) -> bool {
         self.client(server).is_some_and(Client::supports_typing)
+    }
+
+    pub fn get_server_can_send_reactions(&self, server: &Server) -> bool {
+        self.client(server).is_some_and(Client::can_send_reactions)
     }
 
     pub fn get_server_can_send_typing(&self, server: &Server) -> bool {

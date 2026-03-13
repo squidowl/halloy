@@ -22,14 +22,12 @@ pub enum Event {
 impl Modal {
     pub fn update(&mut self, message: Message) -> Option<Event> {
         match (self, message) {
-            (Modal::AddReaction(state), Message::Reaction(message)) => {
-                match state.update(message) {
-                    Some(reaction::Event::React { msgid, text }) => {
-                        Some(Event::React { msgid, text })
-                    }
-                    None => None,
-                }
-            }
+            (Modal::AddReaction(state), Message::Reaction(message)) => state
+                .update(message)
+                .map(|reaction::Event::React { msgid, text }| Event::React {
+                    msgid,
+                    text,
+                }),
         }
     }
 

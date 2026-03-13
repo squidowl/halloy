@@ -160,8 +160,8 @@ impl Entry {
         self,
         context: Option<Context<'_>>,
         length: Length,
-        config: &Config,
-        theme: &Theme,
+        config: &'a Config,
+        theme: &'a Theme,
     ) -> Element<'a, Message> {
         context.map_or(row![].into(), |context| match (self, context) {
             (Entry::Whois, Context::User { server, user, .. }) => {
@@ -446,7 +446,13 @@ impl Entry {
                 )
             }
             (Entry::AddReaction, Context::Message { msgid: None }) => {
-                row![].into()
+                menu_button(
+                    "Add reaction".to_string(),
+                    None,
+                    length,
+                    theme,
+                    config,
+                )
             }
             _ => row![].into(),
         })
@@ -526,12 +532,17 @@ pub fn update(message: Message) -> Event {
 pub fn message<'a, M>(
     content: impl Into<Element<'a, M>>,
     msgid: Option<&'a message::Id>,
+    can_send_reactions: bool,
     config: &'a Config,
     theme: &'a Theme,
 ) -> Element<'a, M>
 where
     M: From<Message> + 'a,
 {
+    if !can_send_reactions {
+        return content.into();
+    }
+
     let entries = Entry::message_list();
 
     context_menu(
@@ -666,9 +677,15 @@ fn menu_button(
     theme: &Theme,
     config: &Config,
 ) -> Element<'static, Message> {
+    let text_style = if message.is_some() {
+        theme::text::primary
+    } else {
+        theme::text::secondary
+    };
+
     button(
         text(content)
-            .style(theme::text::primary)
+            .style(text_style)
             .font_maybe(theme::font_style::primary(theme).map(font::get)),
     )
     .padding(config.context_menu.padding.entry)
