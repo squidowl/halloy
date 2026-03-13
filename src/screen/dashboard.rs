@@ -2849,6 +2849,18 @@ impl Dashboard {
         }
     }
 
+    pub fn record_channel_monitor(
+        &mut self,
+        message: data::Message,
+    ) -> Task<Message> {
+        if let Some(task) = self.history.record_channel_monitor_message(message)
+        {
+            Task::perform(task, Message::History)
+        } else {
+            Task::none()
+        }
+    }
+
     pub fn record_reaction(
         &mut self,
         server: &Server,

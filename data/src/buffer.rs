@@ -33,6 +33,8 @@ pub enum Internal {
     FileTransfers,
     Logs,
     Highlights,
+    #[strum(serialize = "Channel Monitor")]
+    ChannelMonitor,
     #[strum(serialize = "Channel Discovery")]
     ChannelDiscovery(Option<Server>),
 }
@@ -123,6 +125,7 @@ impl Internal {
         Self::FileTransfers,
         Self::Logs,
         Self::Highlights,
+        Self::ChannelMonitor,
         Self::ChannelDiscovery(None),
     ];
 
@@ -131,6 +134,7 @@ impl Internal {
             Internal::FileTransfers => "file-transfers",
             Internal::Logs => "logs",
             Internal::Highlights => "highlights",
+            Internal::ChannelMonitor => "channel-monitor",
             Internal::ChannelDiscovery(_) => "channel-discovery",
         }
         .to_string()
