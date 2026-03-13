@@ -317,6 +317,18 @@ impl Dashboard {
                         return (self.split_pane(axis), None);
                     }
                     pane::Message::Buffer(id, message) => {
+                        let share_typing = self
+                            .panes
+                            .get(window, id)
+                            .and_then(|pane| pane.buffer.data())
+                            .and_then(|buffer| {
+                                self.buffer_settings.get(&buffer)
+                            })
+                            .map_or(
+                                config.buffer.channel.typing.share,
+                                |settings| settings.channel.typing.share,
+                            );
+
                         if let Some(pane) = self.panes.get_mut(window, id) {
                             let (command, event) = pane.buffer.update(
                                 message,
@@ -325,6 +337,7 @@ impl Dashboard {
                                 &mut self.file_transfers,
                                 main_window,
                                 config,
+                                share_typing,
                             );
 
                             let task = command.map(move |message| {

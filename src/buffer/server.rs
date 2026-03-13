@@ -60,6 +60,7 @@ pub fn view<'a>(
             None,
             Option::<fn(&Preview, &message::Source) -> bool>::None,
             None,
+            false,
             config,
             theme,
             move |message: &'a data::Message, _, _, _, _, _| {
@@ -275,6 +276,7 @@ impl Server {
                     history,
                     main_window,
                     config,
+                    false,
                 );
                 let command = command.map(Message::InputView);
 

@@ -33,6 +33,7 @@ mod message_view;
 pub mod query;
 mod scroll_view;
 pub mod server;
+pub mod typing;
 
 #[derive(Clone, Debug)]
 pub enum Buffer {
@@ -212,6 +213,7 @@ impl Buffer {
         file_transfers: &mut file_transfer::Manager,
         main_window: &Window,
         config: &Config,
+        share_typing: bool,
     ) -> (Task<Message>, Option<Event>) {
         match (self, message) {
             (Buffer::Channel(state), Message::Channel(message)) => {
@@ -221,6 +223,7 @@ impl Buffer {
                     history,
                     main_window,
                     config,
+                    share_typing,
                 );
 
                 let event = event.map(|event| match event {
@@ -334,6 +337,7 @@ impl Buffer {
                     history,
                     main_window,
                     config,
+                    share_typing,
                 );
 
                 let event = event.map(|event| match event {
@@ -515,7 +519,8 @@ impl Buffer {
                     .map(Message::Server)
             }
             Buffer::Query(state) => query::view(
-                state, clients, history, previews, config, theme, is_focused,
+                state, clients, history, previews, settings, config, theme,
+                is_focused,
             )
             .map(Message::Query),
             Buffer::FileTransfers(state) => {

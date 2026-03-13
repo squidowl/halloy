@@ -138,6 +138,7 @@ impl Internal {
 }
 
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
+#[serde(default)]
 pub struct Settings {
     pub channel: channel::Settings,
 }

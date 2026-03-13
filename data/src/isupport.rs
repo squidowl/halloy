@@ -23,6 +23,7 @@ pub enum Kind {
     CHANNELLEN,
     CHANTYPES,
     CHATHISTORY,
+    CLIENTTAGDENY,
     CNOTICE,
     CPRIVMSG,
     ELIST,
@@ -626,6 +627,7 @@ impl Operation {
                 "CHANNELLEN" => Some(Kind::CHANNELLEN),
                 "CHANTYPES" => Some(Kind::CHANTYPES),
                 "CHATHISTORY" => Some(Kind::CHATHISTORY),
+                "CLIENTTAGDENY" => Some(Kind::CLIENTTAGDENY),
                 "CNOTICE" => Some(Kind::CNOTICE),
                 "CPRIVMSG" => Some(Kind::CPRIVMSG),
                 "ELIST" => Some(Kind::ELIST),
@@ -737,6 +739,7 @@ impl Parameter {
             Parameter::CHANNELLEN(_) => Some(Kind::CHANNELLEN),
             Parameter::CHANTYPES(_) => Some(Kind::CHANTYPES),
             Parameter::CHATHISTORY(_) => Some(Kind::CHATHISTORY),
+            Parameter::CLIENTTAGDENY(_) => Some(Kind::CLIENTTAGDENY),
             Parameter::CNOTICE => Some(Kind::CNOTICE),
             Parameter::CPRIVMSG => Some(Kind::CPRIVMSG),
             Parameter::ELIST(_) => Some(Kind::ELIST),
@@ -1308,4 +1311,31 @@ pub fn get_statusmsg_or_default(
             &[]
         }
     })
+}
+
+pub fn is_client_only_tag_denied(
+    isupport: &HashMap<Kind, Parameter>,
+    tag: &str,
+) -> bool {
+    let Some(Parameter::CLIENTTAGDENY(tags)) =
+        isupport.get(&Kind::CLIENTTAGDENY)
+    else {
+        return false;
+    };
+
+    let (has_deny_all, tag_allowed, tag_denied) = tags.iter().fold(
+        (false, false, false),
+        |(has_deny_all, tag_allowed, tag_denied), client_tag| match client_tag {
+            ClientOnlyTags::DenyAll => (true, tag_allowed, tag_denied),
+            ClientOnlyTags::Allowed(name) if name == tag => {
+                (has_deny_all, true, tag_denied)
+            }
+            ClientOnlyTags::Denied(name) if name == tag => {
+                (has_deny_all, tag_allowed, true)
+            }
+            _ => (has_deny_all, tag_allowed, tag_denied),
+        },
+    );
+
+    tag_denied || (has_deny_all && !tag_allowed)
 }
