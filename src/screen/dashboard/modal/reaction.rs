@@ -7,9 +7,8 @@ use iced::widget::{
     Scrollable, button, column, container, scrollable, text_input,
 };
 
-use crate::emoji;
 use crate::widget::{Element, Row, text};
-use crate::{theme, widget};
+use crate::{emoji, theme, widget};
 
 const MODAL_WIDTH: f32 = 380.0;
 const MODAL_HEIGHT: f32 = 250.0;
