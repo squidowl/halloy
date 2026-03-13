@@ -834,10 +834,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
                     Some((
                         marker,
                         container(
-                            formatter.with_reactions(
-                                message,
-                                message_content,
-                            ),
+                            formatter.with_reactions(message, message_content),
                         )
                         .into(),
                     ))
