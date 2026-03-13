@@ -4,7 +4,6 @@ use std::hash::{DefaultHasher, Hash as _, Hasher};
 use std::iter;
 use std::sync::{Arc, LazyLock};
 
-use chrono::format::SecondsFormat;
 use chrono::{DateTime, Local, Utc};
 use const_format::concatcp;
 use fancy_regex::{Regex, RegexBuilder};
@@ -121,14 +120,6 @@ impl Encoded {
 
     pub fn server_time_or_now(&self) -> DateTime<Utc> {
         self.server_time().unwrap_or_else(Utc::now)
-    }
-
-    pub fn with_server_time(mut self, server_time: &DateTime<Utc>) -> Self {
-        self.tags.insert(
-            "time".to_string(),
-            server_time.to_rfc3339_opts(SecondsFormat::Millis, true),
-        );
-        self
     }
 }
 

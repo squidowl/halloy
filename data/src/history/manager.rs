@@ -278,12 +278,9 @@ impl Manager {
             && let Some(kind) =
                 history::Kind::from_server_message(server.clone(), &message)
         {
-            tasks.extend(
-                self.update_read_marker(
-                    kind,
-                    history::ReadMarker::from_date_time(message.server_time),
-                )
-                .map(futures::FutureExt::boxed),
+            self.update_display_read_marker(
+                kind,
+                history::ReadMarker::from_date_time(message.server_time),
             );
         }
 
@@ -436,6 +433,14 @@ impl Manager {
         read_marker: history::ReadMarker,
     ) -> Option<impl Future<Output = Message> + use<T>> {
         self.data.update_read_marker(kind, read_marker)
+    }
+
+    pub fn update_display_read_marker<T: Into<history::Kind>>(
+        &mut self,
+        kind: T,
+        read_marker: history::ReadMarker,
+    ) {
+        self.data.update_display_read_marker(kind, read_marker);
     }
 
     pub fn load_metadata(
@@ -1085,6 +1090,7 @@ impl Data {
                         messages,
                         last_updated_at,
                         read_marker,
+                        display_read_marker: read_marker,
                         last_seen,
                         cleared: false,
                     });
@@ -1097,6 +1103,7 @@ impl Data {
                         messages,
                         last_updated_at: None,
                         read_marker: metadata.read_marker,
+                        display_read_marker: metadata.read_marker,
                         last_seen,
                         cleared: false,
                     });
@@ -1110,6 +1117,7 @@ impl Data {
                     messages,
                     last_updated_at: None,
                     read_marker: metadata.read_marker,
+                    display_read_marker: metadata.read_marker,
                     last_seen,
                     cleared: false,
                 });
@@ -1131,7 +1139,7 @@ impl Data {
     ) -> Option<history::View<'_>> {
         let History::Full {
             messages,
-            read_marker,
+            display_read_marker,
             cleared,
             ..
         } = self.map.get(kind)?
@@ -1287,12 +1295,12 @@ impl Data {
         let first_with_limit = limited.first();
         let last_with_limit = limited.last();
 
-        let split_at = read_marker.map_or(0, |read_marker| {
+        let split_at = display_read_marker.map_or(0, |display_read_marker| {
             limited
                 .iter()
                 .rev()
                 .position(|message| {
-                    message.server_time <= read_marker.date_time()
+                    message.server_time <= display_read_marker.date_time()
                 })
                 .map_or_else(
                     || 0, // Backlog is before this limit view of messages
@@ -1446,6 +1454,23 @@ impl Data {
                 }
                 .boxed(),
             ),
+        }
+    }
+
+    fn update_display_read_marker<T: Into<history::Kind>>(
+        &mut self,
+        kind: T,
+        read_marker: history::ReadMarker,
+    ) {
+        use std::collections::hash_map;
+
+        let kind = kind.into();
+
+        match self.map.entry(kind.clone()) {
+            hash_map::Entry::Occupied(mut entry) => {
+                entry.get_mut().update_display_read_marker(read_marker);
+            }
+            hash_map::Entry::Vacant(_) => (),
         }
     }
 

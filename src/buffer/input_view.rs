@@ -4,7 +4,7 @@ use std::convert;
 use std::time::{Duration, Instant};
 
 use data::buffer::{self, Upstream};
-use data::capabilities::MultilineBatchKind;
+use data::capabilities::{MultilineBatchKind, multiline_concat_lines};
 use data::config::buffer::text_input::{AutoFormat, Autocomplete, KeyBindings};
 use data::dashboard::BufferAction;
 use data::history::filter::FilterChain;
@@ -14,7 +14,7 @@ use data::rate_limit::TokenPriority;
 use data::server::Server;
 use data::target::Target;
 use data::user::Nick;
-use data::{Config, User, client, command, shortcut};
+use data::{Config, User, client, command, message, shortcut};
 use iced::advanced::widget::Tree;
 use iced::advanced::{Clipboard, Layout, Shell, mouse};
 use iced::widget::text::{Shaping, Wrapping};
@@ -711,6 +711,7 @@ impl State {
                     }),
                     clients.get_server_is_connected(buffer.server()),
                     &clients.get_isupport(buffer.server()),
+                    clients.get_multiline_limits(buffer.server()).as_ref(),
                     clients.get_relay_bytes(buffer.server()),
                     config,
                 ) {
@@ -744,7 +745,9 @@ impl State {
                     );
 
                     self.on_completion(buffer, history, actions, true)
-                } else if !self.input_content.text().is_empty() {
+                // IRCv3 draft/multiline forbids all blank lines, so we will
+                // take that as an IRC norm and require the same
+                } else if !self.input_content.text().trim().is_empty() {
                     // If there is an error in the input then display the error
                     // for the current line (if it has an error) or the first
                     // line with an error, then ignore send.
@@ -1350,6 +1353,7 @@ impl State {
         let is_connected = clients.get_server_is_connected(buffer.server());
         let isupport = clients.get_isupport(buffer.server());
         let relay_bytes = clients.get_relay_bytes(buffer.server());
+        let multiline_limits = clients.get_multiline_limits(buffer.server());
 
         if self.input_content.text().is_empty() {
             self.parsed = Vec::new();
@@ -1360,7 +1364,7 @@ impl State {
 
         self.parsed = input_lines(&text)
             .scan(None, |open_code_fence: &mut Option<CodeFence>, line| {
-                let line = if line.is_empty() {
+                let line = if line.is_empty() && multiline_limits.is_none() {
                     // Send a space to emulate an empty line
                     Cow::Owned(String::from(' '))
                 } else {
@@ -1376,6 +1380,7 @@ impl State {
                     in_channel,
                     is_connected,
                     &isupport,
+                    multiline_limits.as_ref(),
                     relay_bytes,
                     config,
                 );
@@ -1427,50 +1432,78 @@ impl State {
         history: &mut history::Manager,
         config: &Config,
     ) -> (Task<Message>, Option<Event>) {
-        let send_count = if let Some(multiline) =
-            clients.get_multiline(buffer.server())
+        let (send_count, line_count) = if let Some(multiline_limits) =
+            clients.get_multiline_limits(buffer.server())
+            && let Some(target) = buffer.target().as_ref()
         {
             let casemapping = clients.get_casemapping(buffer.server());
 
             let mut multiline_byte_count = 0;
+            let mut multiline_line_count = 0;
             let mut multiline_batch_kind = None;
+            let mut multiline_concat_bytes = 0;
 
-            let max_lines = if let Some(max_lines) = multiline.max_lines {
+            let max_lines = if let Some(max_lines) = multiline_limits.max_lines
+            {
                 max_lines.min(lines.len())
             } else {
                 lines.len()
             };
 
-            lines
+            let send_count = lines
                 .iter()
                 .take(max_lines)
                 .position(|line| {
-                    if let Some((line_bytes, line_batch_kind)) =
-                        line.multiline_bytes(casemapping)
+                    if let Some((text, batch_kind)) =
+                        line.multiline_content(casemapping)
                     {
                         if let Some(multiline_batch_kind) = multiline_batch_kind
                         {
-                            if line_batch_kind != multiline_batch_kind {
+                            if batch_kind != multiline_batch_kind {
                                 return true;
                             }
                         } else {
-                            multiline_batch_kind = Some(line_batch_kind);
+                            multiline_batch_kind = Some(batch_kind);
+                            multiline_concat_bytes = multiline_limits
+                                .concat_bytes(
+                                    clients.get_relay_bytes(buffer.server()),
+                                    batch_kind,
+                                    target,
+                                );
                         }
 
-                        multiline_byte_count += line_bytes;
-                        multiline_byte_count > multiline.max_bytes
+                        multiline_byte_count += text.len();
+
+                        if multiline_byte_count > multiline_limits.max_bytes {
+                            true
+                        } else if let Some(max_lines) =
+                            multiline_limits.max_lines
+                            && multiline_concat_bytes > 0
+                        {
+                            multiline_line_count += multiline_concat_lines(
+                                multiline_concat_bytes,
+                                text,
+                            )
+                            .len();
+
+                            multiline_line_count > max_lines
+                        } else {
+                            false
+                        }
                     } else {
                         true
                     }
                 })
-                .map_or(max_lines, |position| position.max(1))
+                .map_or(max_lines, |position| position.max(1));
+
+            (send_count, multiline_line_count)
         } else {
-            1
+            (1, 1)
         };
 
         let remaining_lines = lines.split_off(send_count);
 
-        let (send_task, event) = if lines.len() > 1 {
+        let (send_task, event) = if line_count > 1 {
             self.send_input_line_batch(lines, buffer, clients, history, config)
         } else if let Some(line) = lines.pop_front() {
             self.send_input_line(line, buffer, clients, history, config)
@@ -1576,28 +1609,77 @@ impl State {
 
             let mut history_tasks = vec![];
 
-            for input in inputs.into_iter() {
-                if let Some(messages) = input.messages(
-                    user.clone(),
-                    channel_users,
-                    chantypes,
-                    statusmsg,
-                    casemapping,
-                    supports_echoes,
-                ) {
-                    for message in messages {
-                        history_tasks.extend(
-                            history
-                                .record_input_message(
-                                    message,
-                                    buffer.server(),
-                                    casemapping,
-                                    config,
-                                )
-                                .into_iter(),
-                        );
+            if let Some(message) = inputs
+                .into_iter()
+                .filter_map(|input| {
+                    input.messages(
+                        user.clone(),
+                        channel_users,
+                        chantypes,
+                        statusmsg,
+                        casemapping,
+                        supports_echoes,
+                    )
+                })
+                .flatten()
+                .reduce(|mut batch_message, message| {
+                    match &mut batch_message.content {
+                        message::Content::Plain(batch_text) => {
+                            match message.content {
+                                message::Content::Plain(message_text) => {
+                                    batch_text.push('\n');
+                                    batch_text.push_str(message_text.as_str());
+                                }
+                                message::Content::Fragments(
+                                    message_fragments,
+                                ) => {
+                                    batch_text.push('\n');
+                                    let mut fragments =
+                                        vec![message::Fragment::Text(
+                                            batch_text.to_string(),
+                                        )];
+                                    fragments.extend(message_fragments);
+
+                                    batch_message.content =
+                                        message::Content::Fragments(fragments);
+                                }
+                                message::Content::Log(_) => (),
+                            }
+                        }
+                        message::Content::Fragments(batch_fragments) => {
+                            match message.content {
+                                message::Content::Plain(message_text) => {
+                                    batch_fragments.push(
+                                        message::Fragment::Text(format!(
+                                            "\n{message_text}"
+                                        )),
+                                    );
+                                }
+                                message::Content::Fragments(
+                                    message_fragments,
+                                ) => {
+                                    batch_fragments.push(
+                                        message::Fragment::Text(
+                                            "\n".to_string(),
+                                        ),
+                                    );
+                                    batch_fragments.extend(message_fragments);
+                                }
+                                message::Content::Log(_) => (),
+                            }
+                        }
+                        message::Content::Log(_) => (),
                     }
-                }
+
+                    batch_message
+                })
+            {
+                history_tasks.extend(history.record_input_message(
+                    message,
+                    buffer.server(),
+                    casemapping,
+                    config,
+                ));
             }
 
             history_task =
