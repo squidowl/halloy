@@ -7,6 +7,7 @@ use iced::widget::{
     Scrollable, button, column, container, scrollable, text_input,
 };
 
+use crate::emoji;
 use crate::widget::{Element, Row, text};
 use crate::{theme, widget};
 
@@ -146,14 +147,7 @@ fn emoji_button<'a>(
 }
 
 fn filtered_emojis(query: &str) -> Vec<&'static emojis::Emoji> {
-    emojis::iter()
-        .filter(|emoji| {
-            query.is_empty()
-                || emoji
-                    .shortcodes()
-                    .any(|shortcode| shortcode.contains(query))
-        })
-        .collect()
+    emoji::matching_emojis(query)
 }
 
 fn normalized_query(query: &str) -> String {
