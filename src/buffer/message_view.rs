@@ -687,11 +687,11 @@ impl<'a> ChannelQueryLayout<'a> {
         if let Some(msgid) = message.id.as_ref() {
             on_react = Some(|text: &'a str| Message::Reacted {
                 msgid: msgid.clone(),
-                text: text.to_owned(),
+                text: text.to_owned().into(),
             });
             on_unreact = Some(|text: &'a str| Message::Unreacted {
                 msgid: msgid.clone(),
-                text: text.to_owned(),
+                text: text.to_owned().into(),
             });
 
             if self.can_send_reactions {

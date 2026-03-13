@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::collections::HashSet;
 
 use data::{Config, message};
@@ -17,21 +18,21 @@ const EMOJI_BUTTON_HEIGHT: f32 = 32.0;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct State {
     msgid: message::Id,
-    selected_reactions: HashSet<String>,
+    selected_reactions: HashSet<Cow<'static, str>>,
     search_query: String,
 }
 
 #[derive(Debug, Clone)]
 pub enum Message {
     SearchChanged(String),
-    SelectEmoji(String),
+    SelectEmoji(Cow<'static, str>),
 }
 
 #[derive(Debug, Clone)]
 pub enum Event {
     Toggle {
         msgid: message::Id,
-        text: String,
+        text: Cow<'static, str>,
         unreact: bool,
     },
 }
@@ -40,7 +41,10 @@ impl State {
     pub fn new(msgid: message::Id, selected_reactions: Vec<String>) -> Self {
         Self {
             msgid,
-            selected_reactions: selected_reactions.into_iter().collect(),
+            selected_reactions: selected_reactions
+                .into_iter()
+                .map(Cow::Owned)
+                .collect(),
             search_query: String::new(),
         }
     }
@@ -108,7 +112,7 @@ pub fn view<'a>(state: &'a State, config: &'a Config) -> Element<'a, Message> {
 
 fn emoji_grid<'a>(
     emojis: &[&'static emojis::Emoji],
-    selected_reactions: &HashSet<String>,
+    selected_reactions: &HashSet<Cow<'static, str>>,
 ) -> Element<'a, Message> {
     emojis
         .iter()
@@ -138,7 +142,7 @@ fn emoji_button<'a>(
     .style(move |theme, status| {
         theme::button::secondary(theme, status, selected)
     })
-    .on_press(Message::SelectEmoji(emoji.as_str().to_owned()))
+    .on_press(Message::SelectEmoji(Cow::Borrowed(emoji.as_str())))
 }
 
 fn filtered_emojis(query: &str) -> Vec<&'static emojis::Emoji> {

@@ -467,7 +467,7 @@ impl Dashboard {
                                 return (Task::none(), None);
                             };
 
-                            let modal::Event::Toggle {
+                            let modal::Event::ToggleReaction {
                                 msgid,
                                 text,
                                 unreact,

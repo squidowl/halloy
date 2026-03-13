@@ -3664,23 +3664,15 @@ impl Client {
 
     fn can_send_typing(&self) -> bool {
         self.capabilities.acknowledged(Capability::MessageTags)
-            && !isupport::is_client_only_tag_denied(&self.isupport, "typing")
+            && isupport::is_client_tag_allowed(&self.isupport, "typing")
     }
 
     fn can_send_reactions(&self) -> bool {
         self.capabilities.acknowledged(Capability::MessageTags)
-            && !isupport::is_client_only_tag_denied(
-                &self.isupport,
-                "draft/react",
-            )
-            && !isupport::is_client_only_tag_denied(
-                &self.isupport,
-                "draft/unreact",
-            )
-            && !isupport::is_client_only_tag_denied(
-                &self.isupport,
-                "draft/reply",
-            )
+            && isupport::is_client_tag_allowed(&self.isupport, "draft/react")
+            && isupport::is_client_tag_allowed(&self.isupport, "draft/unreact")
+            && (isupport::is_client_tag_allowed(&self.isupport, "draft/reply")
+                || isupport::is_client_tag_allowed(&self.isupport, "reply"))
     }
 
     pub fn is_channel(&self, target: &str) -> bool {
