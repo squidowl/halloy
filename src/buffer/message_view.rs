@@ -14,7 +14,7 @@ use std::collections::BTreeMap;
 use super::context_menu::{self, Context};
 use super::scroll_view::LayoutMessage;
 use crate::buffer::scroll_view::Message;
-use crate::widget::reaction_row::reaction_row;
+use crate::widget::reaction_row::{has_visible_reactions, reaction_row};
 use crate::widget::{
     Element, Marker, message_content, message_marker, selectable_text, tooltip,
 };
@@ -412,10 +412,13 @@ impl<'a> ChannelQueryLayout<'a> {
             self.config,
         );
         if self.config.buffer.channel.message.show_emoji_reacts
-            && !message.reactions.is_empty()
+            && has_visible_reactions(message)
         {
+            let selected_reaction_texts =
+                selected_reactions(message, self.our_nick);
             let mut on_react = None;
             let mut on_unreact = None;
+            let mut on_open_picker = None;
             if let Some(msgid) = message.id.as_ref() {
                 on_react = Some(|text: &'a str| Message::Reacted {
                     msgid: msgid.clone(),
@@ -425,6 +428,15 @@ impl<'a> ChannelQueryLayout<'a> {
                     msgid: msgid.clone(),
                     text: text.to_owned(),
                 });
+
+                if self.can_send_reactions {
+                    on_open_picker = Some(Message::ContextMenu(
+                        context_menu::Message::OpenReactionModal(
+                            msgid.clone(),
+                            selected_reaction_texts.clone(),
+                        ),
+                    ));
+                }
             }
 
             let reactions = reaction_row(
@@ -434,6 +446,7 @@ impl<'a> ChannelQueryLayout<'a> {
                 self.config.buffer.channel.message.max_reaction_display,
                 on_react,
                 on_unreact,
+                on_open_picker,
             );
             message_content =
                 column![message_content, reactions].spacing(2).into();
@@ -880,11 +893,12 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
             None
         };
 
-        let selected_reactions = selected_reactions(message, self.our_nick);
+        let selected_reaction_texts =
+            selected_reactions(message, self.our_nick);
         let content = context_menu::message(
             content,
             message.id.as_ref(),
-            selected_reactions,
+            selected_reaction_texts,
             self.can_send_reactions,
             self.config,
             self.theme,
