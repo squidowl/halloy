@@ -8,10 +8,10 @@ use std::collections::HashSet;
 use crate::widget::{Element, Row, text};
 use crate::{theme, widget};
 
-const MODAL_WIDTH: f32 = 480.0;
-const MODAL_HEIGHT: f32 = 320.0;
-const EMOJI_BUTTON_WIDTH: f32 = 34.0;
-const EMOJI_BUTTON_HEIGHT: f32 = 34.0;
+const MODAL_WIDTH: f32 = 380.0;
+const MODAL_HEIGHT: f32 = 250.0;
+const EMOJI_BUTTON_WIDTH: f32 = 32.0;
+const EMOJI_BUTTON_HEIGHT: f32 = 32.0;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct State {
@@ -126,12 +126,12 @@ fn emoji_button<'a>(
     selected: bool,
 ) -> widget::Button<'a, Message> {
     button(
-        container(text(emoji.as_str()).size(17))
+        container(text(emoji.as_str()).size(16))
             .width(Length::Fill)
             .center_x(Length::Fill)
             .center_y(Length::Fill),
     )
-    .padding(5)
+    .padding(4)
     .width(Length::Fixed(EMOJI_BUTTON_WIDTH))
     .height(Length::Fixed(EMOJI_BUTTON_HEIGHT))
     .style(move |theme, status| {
