@@ -209,17 +209,22 @@ impl Buffer {
         &self,
         msgid: message::Id,
         text: String,
+        unreact: bool,
     ) -> Option<Message> {
         match self {
-            Buffer::Channel(_) => {
-                Some(Message::Channel(channel::Message::ScrollView(
-                    scroll_view::Message::Reacted { msgid, text },
-                )))
-            }
+            Buffer::Channel(_) => Some(Message::Channel(
+                channel::Message::ScrollView(if unreact {
+                    scroll_view::Message::Unreacted { msgid, text }
+                } else {
+                    scroll_view::Message::Reacted { msgid, text }
+                }),
+            )),
             Buffer::Query(_) => {
-                Some(Message::Query(query::Message::ScrollView(
-                    scroll_view::Message::Reacted { msgid, text },
-                )))
+                Some(Message::Query(query::Message::ScrollView(if unreact {
+                    scroll_view::Message::Unreacted { msgid, text }
+                } else {
+                    scroll_view::Message::Reacted { msgid, text }
+                })))
             }
             Buffer::Empty
             | Buffer::Server(_)

@@ -3675,6 +3675,10 @@ impl Client {
             )
             && !isupport::is_client_only_tag_denied(
                 &self.isupport,
+                "draft/unreact",
+            )
+            && !isupport::is_client_only_tag_denied(
+                &self.isupport,
                 "draft/reply",
             )
     }

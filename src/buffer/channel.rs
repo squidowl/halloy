@@ -105,6 +105,7 @@ pub fn view<'a>(
         prefix,
         confirm_message_delivery,
         can_send_reactions,
+        our_nick,
         connected,
         server,
         theme,

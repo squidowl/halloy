@@ -467,10 +467,15 @@ impl Dashboard {
                                 return (Task::none(), None);
                             };
 
-                            let modal::Event::React { msgid, text } = event;
+                            let modal::Event::Toggle {
+                                msgid,
+                                text,
+                                unreact,
+                            } = event;
 
-                            let Some(buffer_message) =
-                                pane.buffer.reaction_message(msgid, text)
+                            let Some(buffer_message) = pane
+                                .buffer
+                                .reaction_message(msgid, text, unreact)
                             else {
                                 pane.close_buffer_modal();
                                 return (Task::none(), None);
@@ -2217,9 +2222,15 @@ impl Dashboard {
 
                         None
                     }
-                    buffer::context_menu::Event::OpenReactionModal(msgid) => {
+                    buffer::context_menu::Event::OpenReactionModal(
+                        msgid,
+                        selected_reactions,
+                    ) => {
                         pane.open_modal(modal::Modal::AddReaction(
-                            reaction_modal::State::new(msgid),
+                            reaction_modal::State::new(
+                                msgid,
+                                selected_reactions,
+                            ),
                         ));
                         None
                     }

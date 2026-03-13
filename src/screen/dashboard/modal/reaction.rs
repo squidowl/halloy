@@ -3,6 +3,7 @@ use iced::Length;
 use iced::widget::{
     Scrollable, button, column, container, scrollable, text_input,
 };
+use std::collections::HashSet;
 
 use crate::widget::{Element, Row, text};
 use crate::{theme, widget};
@@ -15,6 +16,7 @@ const EMOJI_BUTTON_HEIGHT: f32 = 34.0;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct State {
     msgid: message::Id,
+    selected_reactions: HashSet<String>,
     search_query: String,
 }
 
@@ -26,13 +28,18 @@ pub enum Message {
 
 #[derive(Debug, Clone)]
 pub enum Event {
-    React { msgid: message::Id, text: String },
+    Toggle {
+        msgid: message::Id,
+        text: String,
+        unreact: bool,
+    },
 }
 
 impl State {
-    pub fn new(msgid: message::Id) -> Self {
+    pub fn new(msgid: message::Id, selected_reactions: Vec<String>) -> Self {
         Self {
             msgid,
+            selected_reactions: selected_reactions.into_iter().collect(),
             search_query: String::new(),
         }
     }
@@ -43,10 +50,15 @@ impl State {
                 self.search_query = search_query;
                 None
             }
-            Message::SelectEmoji(text) => Some(Event::React {
-                msgid: self.msgid.clone(),
-                text,
-            }),
+            Message::SelectEmoji(text) => {
+                let unreact = self.selected_reactions.contains(&text);
+
+                Some(Event::Toggle {
+                    msgid: self.msgid.clone(),
+                    text,
+                    unreact,
+                })
+            }
         }
     }
 }
@@ -55,7 +67,7 @@ pub fn view<'a>(state: &'a State, config: &'a Config) -> Element<'a, Message> {
     let query = normalized_query(&state.search_query);
     let filtered = filtered_emojis(&query);
     let has_results = !filtered.is_empty();
-    let grid = emoji_grid(&filtered);
+    let grid = emoji_grid(&filtered, &state.selected_reactions);
 
     let body: Element<'a, Message> = if has_results {
         Scrollable::new(container(grid).width(Length::Fill))
@@ -93,11 +105,17 @@ pub fn view<'a>(state: &'a State, config: &'a Config) -> Element<'a, Message> {
         .into()
 }
 
-fn emoji_grid<'a>(emojis: &[&'static emojis::Emoji]) -> Element<'a, Message> {
+fn emoji_grid<'a>(
+    emojis: &[&'static emojis::Emoji],
+    selected_reactions: &HashSet<String>,
+) -> Element<'a, Message> {
     emojis
         .iter()
         .fold(Row::new().spacing(4), |row, emoji| {
-            row.push(emoji_button(emoji))
+            row.push(emoji_button(
+                emoji,
+                selected_reactions.contains(emoji.as_str()),
+            ))
         })
         .wrap()
         .into()
@@ -105,6 +123,7 @@ fn emoji_grid<'a>(emojis: &[&'static emojis::Emoji]) -> Element<'a, Message> {
 
 fn emoji_button<'a>(
     emoji: &'static emojis::Emoji,
+    selected: bool,
 ) -> widget::Button<'a, Message> {
     button(
         container(text(emoji.as_str()).size(17))
@@ -115,7 +134,9 @@ fn emoji_button<'a>(
     .padding(5)
     .width(Length::Fixed(EMOJI_BUTTON_WIDTH))
     .height(Length::Fixed(EMOJI_BUTTON_HEIGHT))
-    .style(|theme, status| theme::button::secondary(theme, status, false))
+    .style(move |theme, status| {
+        theme::button::secondary(theme, status, selected)
+    })
     .on_press(Message::SelectEmoji(emoji.as_str().to_owned()))
 }
 

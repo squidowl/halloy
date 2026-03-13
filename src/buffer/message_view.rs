@@ -5,9 +5,11 @@ use data::isupport::{CaseMap, PrefixMap};
 use data::preview::{self, Previews};
 use data::server::Server;
 use data::user::ChannelUsers;
+use data::user::NickRef;
 use data::{Config, User, message, target};
 use iced::widget::{Space, button, column, container, row, text};
 use iced::{Color, Length, alignment};
+use std::collections::BTreeMap;
 
 use super::context_menu::{self, Context};
 use super::scroll_view::LayoutMessage;
@@ -63,6 +65,7 @@ pub struct ChannelQueryLayout<'a> {
     pub prefix: &'a [PrefixMap],
     pub confirm_message_delivery: bool,
     pub can_send_reactions: bool,
+    pub our_nick: Option<NickRef<'a>>,
     pub connected: bool,
     pub server: &'a Server,
     pub theme: &'a Theme,
@@ -426,7 +429,7 @@ impl<'a> ChannelQueryLayout<'a> {
 
             let reactions = reaction_row(
                 message,
-                self.target.our_user().map(|user| user.nickname()),
+                self.our_nick,
                 self.config.font.size.map_or(theme::TEXT_SIZE, f32::from),
                 self.config.buffer.channel.message.max_reaction_display,
                 on_react,
@@ -877,9 +880,11 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
             None
         };
 
+        let selected_reactions = selected_reactions(message, self.our_nick);
         let content = context_menu::message(
             content,
             message.id.as_ref(),
+            selected_reactions,
             self.can_send_reactions,
             self.config,
             self.theme,
@@ -893,4 +898,31 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
             Some(container(row![row, content]).into())
         }
     }
+}
+
+fn selected_reactions(
+    message: &data::Message,
+    our_nick: Option<NickRef<'_>>,
+) -> Vec<String> {
+    let Some(our_nick) = our_nick else {
+        return vec![];
+    };
+
+    let mut selected = BTreeMap::new();
+
+    for reaction in &message.reactions {
+        if reaction.sender.as_str() == our_nick.as_str() {
+            let count = selected.entry(reaction.text.as_str()).or_insert(0i16);
+            if reaction.unreact {
+                *count -= 1;
+            } else {
+                *count += 1;
+            }
+        }
+    }
+
+    selected
+        .into_iter()
+        .filter_map(|(text, count)| (count >= 1).then_some(text.to_owned()))
+        .collect()
 }
