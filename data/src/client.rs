@@ -1,5 +1,6 @@
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, HashMap, VecDeque};
+use std::mem::take;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -289,22 +290,25 @@ impl Client {
         from_modal: bool,
     ) -> Vec<Event> {
         if self.registration_step == RegistrationStep::Complete {
-            self.join(
-                &config
-                    .channels
-                    .iter()
-                    .filter_map(|channel| {
-                        target::Channel::parse(
-                            channel,
-                            self.chantypes(),
-                            self.statusmsg(),
-                            self.casemapping(),
-                        )
-                        .ok()
-                    })
-                    .filter(|channel| !self.chanmap.contains_key(channel))
-                    .collect::<Vec<_>>(),
-            );
+            // TODO: allow from_modal when modal matching to bouncer networks is added.
+            if !self.server.is_bouncer_network() {
+                self.join(
+                    &config
+                        .channels
+                        .iter()
+                        .filter_map(|channel| {
+                            target::Channel::parse(
+                                channel,
+                                self.chantypes(),
+                                self.statusmsg(),
+                                self.casemapping(),
+                            )
+                            .ok()
+                        })
+                        .filter(|channel| !self.chanmap.contains_key(channel))
+                        .collect::<Vec<_>>(),
+                );
+            }
 
             if !config.monitor.is_empty()
                 && config.monitor != self.config.monitor
@@ -381,6 +385,22 @@ impl Client {
                     )
                 });
             }
+        }
+
+        if self.config.order_channels_by != config.order_channels_by
+            || self.config.channels != config.channels
+        {
+            let casemapping = self.casemapping();
+            let chantypes = self.chantypes().to_vec();
+            self.chanmap.sort_by(|c1, _, c2, _| {
+                compare_channels(
+                    &config,
+                    &chantypes,
+                    casemapping,
+                    c1.as_normalized_str(),
+                    c2.as_normalized_str(),
+                )
+            });
         }
 
         self.config = config;
@@ -1562,14 +1582,16 @@ impl Client {
                 ));
 
                 if user.nickname() == self.nickname() {
+                    let casemapping = self.casemapping();
                     let chantypes = self.chantypes().to_vec();
                     let _ = self.chanmap.insert_sorted_by(
                         target_channel.clone(),
                         Channel::default(),
                         |c1, _, c2, _| {
                             compare_channels(
+                                &self.config,
                                 &chantypes,
-                                config.sidebar.order_channels_by,
+                                casemapping,
                                 c1.as_normalized_str(),
                                 c2.as_normalized_str(),
                             )
@@ -2311,9 +2333,34 @@ impl Client {
                                                 self.configured_nick.renormalize(casemapping);
 
                                                 // TODO: When casemapping
-                                                // changes, ChannelUsers,
-                                                // Targets, etc should be
+                                                // changes, ChannelUsers, etc should be
                                                 // renormalized and resorted
+
+                                                let chantypes = self.chantypes().to_vec();
+                                                self.chanmap = take(&mut self.chanmap)
+                                                    .into_iter()
+                                                    .map(|(mut channel, data)| {
+                                                        channel.renormalize(casemapping);
+                                                        (channel, data)
+                                                    })
+                                                    .sorted_by(|(c1, _), (c2, _)| {
+                                                        compare_channels(
+                                                            &self.config,
+                                                            &chantypes,
+                                                            casemapping,
+                                                            c1.as_normalized_str(),
+                                                            c2.as_normalized_str(),
+                                                        )
+                                                    })
+                                                    .collect();
+
+                                                self.querymap = take(&mut self.querymap)
+                                                    .into_iter()
+                                                    .map(|(mut query, state)| {
+                                                        query.renormalize(casemapping);
+                                                        (query, state)
+                                                    })
+                                                    .collect();
                                             }
                                             isupport::Parameter::SAFERATE => {
                                                 if let Some(ref mut anti_flood) = self.anti_flood {
@@ -2763,13 +2810,15 @@ impl Client {
                     })
                     .collect::<Vec<_>>();
 
-                // Send JOIN
-                for message in group_joins(
-                    &channels,
-                    &self.config.channel_keys,
-                    find_target_limit(&self.isupport, "JOIN"),
-                ) {
-                    self.handle.try_send(message)?;
+                // Send JOIN on non bouncer networks
+                if !self.server.is_bouncer_network() {
+                    for message in group_joins(
+                        &channels,
+                        &self.config.channel_keys,
+                        find_target_limit(&self.isupport, "JOIN"),
+                    ) {
+                        self.handle.try_send(message)?;
+                    }
                 }
 
                 if !self.config.monitor.is_empty() {
@@ -3860,21 +3909,7 @@ impl Client {
     }
 }
 
-// If config.sidebar.order_channels_by is `name-and-prefix` this will sort channels together which
-// have similar names when the chantype prefix (sometimes multiplied) is removed.
-// e.g., '#chat', '##chat-offtopic' and '&chat-local' all get sorted together instead of in
-// wildly different places.
-fn compare_channels(
-    chantypes: &[char],
-    order_channels_by: config::sidebar::OrderChannelsBy,
-    a: &str,
-    b: &str,
-) -> Ordering {
-    match order_channels_by {
-        config::sidebar::OrderChannelsBy::NameAndPrefix => return a.cmp(b),
-        config::sidebar::OrderChannelsBy::Name => {}
-    }
-
+fn compare_channels_default(chantypes: &[char], a: &str, b: &str) -> Ordering {
     let (Some(a_chantype), Some(b_chantype)) =
         (a.chars().next(), b.chars().next())
     else {
@@ -3894,6 +3929,53 @@ fn compare_channels(
     }
 
     a.cmp(b)
+}
+
+fn compare_channels(
+    config: &config::server::Server,
+    chantypes: &[char],
+    casemapping: isupport::CaseMap,
+    a: &str,
+    b: &str,
+) -> Ordering {
+    match config.order_channels_by {
+        /*
+         * If config.sidebar.order_channels_by is `name` (default), this will sort channels together
+         * which have similar names when the chantype prefix (sometimes multiplied) is removed.
+         *   e.g., '#chat', '##chat-offtopic' and '&chat-local' all get sorted together instead of
+         *   in wildly different places.
+         */
+        None => compare_channels_default(chantypes, a, b),
+        Some(config::sidebar::OrderChannelsBy::Name) => {
+            compare_channels_default(chantypes, a, b)
+        }
+        /*
+         * If config.sidebar.order_channels_by is `name-and-prefix`, this will sort channels
+         * alphabetically by their full name including the prefix symbols. e.g., '#chat' and '##chat'
+         * will be in different sections of the list.
+         */
+        Some(config::sidebar::OrderChannelsBy::NameAndPrefix) => a.cmp(b),
+        /*
+         * If config.sidebar.order_channels_by is `config`, this will sort channels based on your
+         * config.server.<server_name>.channels. Anything not in this list is sorted by `name` (default).
+         */
+        Some(config::sidebar::OrderChannelsBy::Config) => {
+            let a_pos = &config
+                .channels
+                .iter()
+                .position(|ch| casemapping.normalize(ch) == a);
+            let b_pos = &config
+                .channels
+                .iter()
+                .position(|ch| casemapping.normalize(ch) == b);
+            match (a_pos, b_pos) {
+                (Some(a_pos), Some(b_pos)) => a_pos.cmp(b_pos),
+                (Some(_), None) => Ordering::Less,
+                (None, Some(_)) => Ordering::Greater,
+                (None, None) => compare_channels_default(chantypes, a, b),
+            }
+        }
+    }
 }
 
 fn is_reaction(message: &message::Encoded) -> bool {

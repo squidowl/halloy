@@ -245,10 +245,11 @@ pub enum OrderBy {
     Config,
 }
 
-#[derive(Debug, Copy, Clone, Deserialize, Default)]
+#[derive(Debug, Copy, Clone, Deserialize, Default, PartialEq, Eq)]
 #[serde(rename_all = "kebab-case")]
 pub enum OrderChannelsBy {
     #[default]
     Name,
     NameAndPrefix,
+    Config,
 }

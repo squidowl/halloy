@@ -1,3 +1,4 @@
+use std::cmp::Ord;
 use std::collections::{HashMap, HashSet, hash_map};
 
 use chrono::{DateTime, Local, NaiveDate, Utc};
@@ -512,7 +513,8 @@ impl Manager {
                 .then_some(query),
                 _ => None,
             })
-            .collect::<Vec<_>>()
+            .sorted_by(Ord::cmp)
+            .collect()
     }
 
     pub fn server_kinds(&self, server: Server) -> Vec<history::Kind> {
