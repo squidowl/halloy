@@ -5,10 +5,6 @@ use std::ops::RangeInclusive;
 use std::sync::LazyLock;
 use std::{fmt, iter};
 
-use crate::emoji;
-use crate::font;
-use crate::theme::{self, Theme};
-use crate::widget::{Element, double_pass, text};
 use chrono::{DateTime, Utc};
 use const_format::concatcp;
 use data::buffer::SkinTone;
@@ -24,6 +20,10 @@ use iced::widget::text::Shaping;
 use iced::widget::{button, column, container, row, text_editor, tooltip};
 use irc::proto;
 use itertools::{Either, Itertools};
+
+use crate::theme::{self, Theme};
+use crate::widget::{Element, double_pass, text};
+use crate::{emoji, font};
 
 const MAX_SHOWN_COMMAND_ENTRIES: usize = 5;
 const MAX_SHOWN_EMOJI_ENTRIES: usize = 8;
