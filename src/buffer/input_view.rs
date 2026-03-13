@@ -1,9 +1,10 @@
 use std::borrow::Cow;
 use std::collections::VecDeque;
 use std::convert;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use data::buffer::{self, Upstream};
+use data::capabilities::MultilineBatchKind;
 use data::config::buffer::text_input::{AutoFormat, Autocomplete, KeyBindings};
 use data::dashboard::BufferAction;
 use data::history::filter::FilterChain;
@@ -34,6 +35,8 @@ use crate::window::Window;
 use crate::{Theme, font, theme, window};
 
 mod completion;
+
+const TYPING_REFRESH_INTERVAL: Duration = Duration::from_secs(4);
 
 pub enum Event {
     InputSent {
@@ -597,6 +600,7 @@ pub struct State {
     error: Option<String>,
     completion: Completion,
     selected_history: Option<usize>,
+    last_typing_at: Option<Instant>,
 }
 
 impl Default for State {
@@ -617,6 +621,7 @@ impl State {
             error: None,
             completion: Completion::default(),
             selected_history: None,
+            last_typing_at: None,
         }
     }
 
@@ -628,6 +633,7 @@ impl State {
         history: &mut history::Manager,
         main_window: &Window,
         config: &Config,
+        channel_typing_enabled: bool,
     ) -> (Task<Message>, Option<Event>) {
         let current_target = buffer.target();
 
@@ -803,6 +809,7 @@ impl State {
                         self.input_content.text().clone(),
                     );
                     self.input_content = text_editor::Content::new();
+                    self.clear_typing(buffer, clients, channel_typing_enabled);
 
                     let lines = self
                         .parsed
@@ -891,7 +898,13 @@ impl State {
                         .clone();
 
                     return self.on_history_navigation(
-                        buffer, history, &new_input, false,
+                        buffer,
+                        clients,
+                        history,
+                        channel_typing_enabled,
+                        config,
+                        &new_input,
+                        false,
                     );
                 }
 
@@ -916,7 +929,13 @@ impl State {
                     };
 
                     return self.on_history_navigation(
-                        buffer, history, &new_input, false,
+                        buffer,
+                        clients,
+                        history,
+                        channel_typing_enabled,
+                        config,
+                        &new_input,
+                        false,
                     );
                 } else {
                     self.input_content.perform(text_editor::Action::Move(
@@ -1114,14 +1133,17 @@ impl State {
 
                 match &action {
                     text_editor::Action::Edit(_) => {
-                        self.parse_lines(buffer, clients, config);
+                        self.parse_lines_and_maybe_send_typing_status(
+                            buffer,
+                            clients,
+                            channel_typing_enabled,
+                            config,
+                        );
 
                         let cursor_position =
                             self.input_content.cursor().position;
 
-                        // Reset error state
                         self.error = None;
-                        // Reset selected history
                         self.selected_history = None;
 
                         if let Some(line) = self
@@ -1207,6 +1229,12 @@ impl State {
                                 }
                             }
                         }
+
+                        self.maybe_send_typing_status(
+                            buffer,
+                            clients,
+                            channel_typing_enabled,
+                        );
 
                         history.record_draft(RawInput {
                             buffer: buffer.clone(),
@@ -1328,10 +1356,9 @@ impl State {
             return;
         }
 
-        self.parsed = self
-            .input_content
-            .text()
-            .lines()
+        let text = self.input_content.text();
+
+        self.parsed = input_lines(&text)
             .scan(None, |open_code_fence: &mut Option<CodeFence>, line| {
                 let line = if line.is_empty() {
                     // Send a space to emulate an empty line
@@ -1930,7 +1957,10 @@ impl State {
     fn on_history_navigation(
         &mut self,
         buffer: &buffer::Upstream,
+        clients: &mut client::Map,
         history: &mut history::Manager,
+        channel_typing_enabled: bool,
+        config: &Config,
         text: &str,
         record_draft: bool,
     ) -> (Task<Message>, Option<Event>) {
@@ -1947,6 +1977,13 @@ impl State {
         self.input_content.perform(text_editor::Action::Move(
             text_editor::Motion::DocumentEnd,
         ));
+
+        self.parse_lines_and_maybe_send_typing_status(
+            buffer,
+            clients,
+            channel_typing_enabled,
+            config,
+        );
 
         (Task::none(), None)
     }
@@ -2037,4 +2074,172 @@ impl State {
     pub fn close_picker(&mut self) -> bool {
         self.completion.close_picker()
     }
+
+    fn parse_lines_and_maybe_send_typing_status(
+        &mut self,
+        buffer: &buffer::Upstream,
+        clients: &mut client::Map,
+        channel_typing_enabled: bool,
+        config: &Config,
+    ) {
+        self.parse_lines(buffer, clients, config);
+        self.maybe_send_typing_status(buffer, clients, channel_typing_enabled);
+    }
+
+    fn typing_transition(
+        &mut self,
+        text: &str,
+        enabled: bool,
+        now: Instant,
+    ) -> Option<command::Typing> {
+        if !enabled {
+            self.last_typing_at = None;
+
+            return None;
+        }
+
+        if text.is_empty() {
+            return self.last_typing_at.take().map(|_| command::Typing::Done);
+        }
+
+        if self.last_typing_at.is_none_or(|last| {
+            now.duration_since(last) >= TYPING_REFRESH_INTERVAL
+        }) {
+            self.last_typing_at = Some(now);
+
+            return Some(command::Typing::Active);
+        }
+
+        None
+    }
+
+    fn maybe_send_typing_status(
+        &mut self,
+        buffer: &buffer::Upstream,
+        clients: &mut client::Map,
+        channel_typing_enabled: bool,
+    ) {
+        let text = self.current_line_text();
+        let enabled = self.can_send_typing_status(
+            buffer,
+            clients,
+            channel_typing_enabled,
+        );
+
+        if !enabled {
+            if self.can_send_typing_done(buffer, clients)
+                && self.last_typing_at.is_some()
+            {
+                self.send_typing_status(buffer, clients, command::Typing::Done);
+            }
+
+            self.last_typing_at = None;
+
+            return;
+        }
+
+        if let Some(status) =
+            self.typing_transition(&text, enabled, Instant::now())
+        {
+            self.send_typing_status(buffer, clients, status);
+        }
+    }
+
+    fn current_line_text(&self) -> String {
+        let cursor_position = self.input_content.cursor().position;
+
+        self.input_content
+            .line(cursor_position.line)
+            .map(|line| line.text.to_string())
+            .unwrap_or_default()
+    }
+
+    fn clear_typing(
+        &mut self,
+        buffer: &buffer::Upstream,
+        clients: &mut client::Map,
+        channel_typing_enabled: bool,
+    ) {
+        let enabled =
+            self.typing_allowed(buffer, clients, channel_typing_enabled);
+
+        if enabled && self.last_typing_at.is_some() {
+            self.send_typing_status(buffer, clients, command::Typing::Done);
+        }
+
+        self.last_typing_at = None;
+    }
+
+    fn send_typing_status(
+        &self,
+        buffer: &buffer::Upstream,
+        clients: &mut client::Map,
+        status: command::Typing,
+    ) {
+        let Some(target) = buffer.target() else {
+            return;
+        };
+
+        let encoded = data::Input::from_command(
+            buffer.clone(),
+            command::Irc::Typing {
+                target: target.to_string(),
+                value: status,
+            },
+        )
+        .encoded();
+
+        if let Some(encoded) = encoded {
+            clients.send(buffer, encoded, TokenPriority::Low);
+        }
+    }
+
+    fn can_send_typing_status(
+        &self,
+        buffer: &buffer::Upstream,
+        clients: &client::Map,
+        channel_typing_enabled: bool,
+    ) -> bool {
+        self.typing_allowed(buffer, clients, channel_typing_enabled)
+            && self.is_message_like_input(buffer, clients)
+    }
+
+    fn typing_allowed(
+        &self,
+        buffer: &buffer::Upstream,
+        clients: &client::Map,
+        channel_typing_enabled: bool,
+    ) -> bool {
+        buffer.target().is_some()
+            && channel_typing_enabled
+            && clients.get_server_can_send_typing(buffer.server())
+    }
+
+    fn can_send_typing_done(
+        &self,
+        buffer: &buffer::Upstream,
+        clients: &client::Map,
+    ) -> bool {
+        buffer.target().is_some()
+            && clients.get_server_can_send_typing(buffer.server())
+    }
+
+    fn is_message_like_input(
+        &self,
+        buffer: &buffer::Upstream,
+        clients: &client::Map,
+    ) -> bool {
+        let cursor_position = self.input_content.cursor().position;
+        let casemapping = clients.get_casemapping(buffer.server());
+
+        self.parsed
+            .get(cursor_position.line)
+            .and_then(|parsed| parsed.as_ref().ok())
+            .and_then(|parsed| parsed.multiline_batch_kind(casemapping))
+            .is_some_and(|kind| kind == MultilineBatchKind::PRIVMSG)
+    }
+}
+
+fn input_lines(text: &str) -> impl Iterator<Item = &str> {
+    text.split('\n')
 }

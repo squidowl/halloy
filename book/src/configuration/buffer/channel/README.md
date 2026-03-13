@@ -6,6 +6,7 @@ Channel specific settings
   - [channel\_name\_casing](#channel_name_casing)
   - [Message](#message)
   - [Nicklist](#nicklist)
+  - [Typing](#typing)
   - [Topic Banner](#topic-banner)
 
 ## channel_name_casing
@@ -28,6 +29,10 @@ Message settings within a channel buffer
 ## [Nicklist](nicklist.md)
 
 Nicklist settings within a channel buffer
+
+## [Typing](typing.md)
+
+Typing settings for channel and query buffers
 
 ## [Topic Banner](topic-banner.md)
 

@@ -64,9 +64,28 @@ pub enum Irc {
     Away(Option<String>),
     SetName(String),
     Notice(String, String),
+    Typing {
+        target: String,
+        value: Typing,
+    },
     Raw(String),
     Unknown(String, Vec<String>),
     Ctcp(ctcp::Command, String, Option<String>),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
+pub enum Typing {
+    Active,
+    Done,
+}
+
+impl Typing {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Active => "active",
+            Self::Done => "done",
+        }
+    }
 }
 
 impl Irc {
@@ -1224,6 +1243,7 @@ impl TryFrom<Irc> for proto::Command {
             Irc::Away(comment) => proto::Command::AWAY(comment),
             Irc::SetName(realname) => proto::Command::SETNAME(realname),
             Irc::Notice(target, msg) => proto::Command::NOTICE(target, msg),
+            Irc::Typing { target, .. } => proto::Command::TAGMSG(target),
             Irc::Raw(raw) => proto::Command::Raw(raw),
             Irc::Unknown(command, args) => proto::Command::new(&command, args),
             Irc::Ctcp(command, target, params) => {
@@ -1250,6 +1270,7 @@ impl TryFrom<Irc> for proto::Message {
                 "+draft/reply" => msgid.to_string(),
                 "+draft/unreact" => text,
             ],
+            Irc::Typing { value, .. } => tags!["+typing" => value.as_str()],
             _ => tags![],
         };
         let mut msg = proto::Message::from(proto::Command::try_from(command)?);

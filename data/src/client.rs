@@ -1,5 +1,5 @@
 use std::cmp::Ordering;
-use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
+use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -40,6 +40,7 @@ const CLIENT_CHATHISTORY_LIMIT: u16 = 500;
 const CHATHISTORY_REQUEST_TIMEOUT: Duration = Duration::from_secs(120);
 const MODE_REQUEST_DELAY: Duration = Duration::from_millis(600);
 const MODE_REQUEST_TIMEOUT: Duration = Duration::from_secs(120);
+const TYPING_TIMEOUT: Duration = Duration::from_secs(6);
 
 #[derive(Debug, Clone, Copy)]
 pub enum Status {
@@ -150,7 +151,7 @@ pub struct Client {
     resolved_host: Option<String>,
     configured_nick: Nick,
     chanmap: IndexMap<target::Channel, Channel>,
-    resolved_queries: HashSet<target::Query>,
+    querymap: IndexMap<target::Query, QueryState>,
     labels: HashMap<String, Context>,
     batches: HashMap<String, Batch>,
     reroute_responses_to: Option<buffer::Upstream>,
@@ -211,7 +212,7 @@ impl Client {
             ),
             alt_nick: None,
             chanmap: IndexMap::default(),
-            resolved_queries: HashSet::new(),
+            querymap: IndexMap::default(),
             labels: HashMap::new(),
             batches: HashMap::new(),
             reroute_responses_to: None,
@@ -1113,7 +1114,7 @@ impl Client {
                     });
                 }
             }
-            Command::PRIVMSG(target, text) | Command::NOTICE(target, text) => {
+            Command::PRIVMSG(_, text) | Command::NOTICE(_, text) => {
                 if let Some(user) = message.user(self.casemapping()) {
                     let is_echo = user.nickname() == self.nickname();
 
@@ -1294,12 +1295,24 @@ impl Client {
                         }
                     }
 
-                    // use `target` to confirm the direct message
-                    let direct_message = target == &self.nickname().to_string();
+                    let direct_message = self
+                        .message_query_target(&message.command)
+                        .as_ref()
+                        .is_some_and(|query| {
+                            query.as_normalized_str()
+                                == self.nickname().as_normalized_str()
+                        });
+
+                    if let Some(channel) =
+                        self.message_channel_target(&message.command)
+                    {
+                        self.clear_channel_typing(&channel, user.nickname());
+                    } else if direct_message {
+                        self.clear_query_typing(&target::Query::from(&user));
+                    }
 
                     if direct_message {
-                        self.resolved_queries
-                            .replace(target::Query::from(&user));
+                        self.record_query(&target::Query::from(&user));
                     }
 
                     let event = Event::PrivOrNotice(
@@ -2302,6 +2315,37 @@ impl Client {
                 return Ok(events);
             }
             Command::TAGMSG(_) => {
+                if let Some(sender) = message.user(self.casemapping()) {
+                    if sender.nickname() == self.nickname() {
+                        return Ok(vec![]);
+                    }
+
+                    let typing =
+                        message.tags.get("+typing").map(String::as_str);
+
+                    if let Some(channel) =
+                        self.message_channel_target(&message.command)
+                    {
+                        self.handle_channel_typing_tagmsg(
+                            &channel,
+                            sender.nickname(),
+                            typing,
+                        );
+                    } else if self
+                        .message_query_target(&message.command)
+                        .as_ref()
+                        .is_some_and(|query| {
+                            query.as_normalized_str()
+                                == self.nickname().as_normalized_str()
+                        })
+                    {
+                        self.handle_query_typing_tagmsg(
+                            &target::Query::from(&sender),
+                            typing,
+                        );
+                    }
+                }
+
                 return Ok(vec![]);
             }
             Command::ACCOUNT(accountname) => {
@@ -2801,11 +2845,9 @@ impl Client {
                         vec![]
                     } else {
                         if let Some(user) = message.user(self.casemapping()) {
-                            // If direct message, update resolved queries with
-                            // user
+                            // If direct message, update query map with user
                             if target == &self.nickname().to_string() {
-                                self.resolved_queries
-                                    .replace(target::Query::from(user));
+                                self.record_query(&target::Query::from(user));
                             }
                         }
 
@@ -3274,6 +3316,36 @@ impl Client {
         self.chanmap.get(channel).map(|chanimpl| &chanimpl.users)
     }
 
+    pub fn channel_typing_users(
+        &self,
+        channel: &target::Channel,
+    ) -> Vec<String> {
+        let mut users = self
+            .chanmap
+            .get(channel)
+            .map(|channel| {
+                channel
+                    .typing
+                    .iter()
+                    .filter(|(_, updated_at)| !is_typing_expired(**updated_at))
+                    .map(|(nick, _)| nick.to_string())
+                    .collect_vec()
+            })
+            .unwrap_or_default();
+
+        users.sort_unstable();
+        users
+    }
+
+    pub fn query_typing_users(&self, query: &target::Query) -> Vec<String> {
+        self.querymap
+            .get(query)
+            .and_then(|query_state| query_state.typing)
+            .filter(|updated_at| !is_typing_expired(*updated_at))
+            .map(|_| vec![query.as_str().to_string()])
+            .unwrap_or_default()
+    }
+
     fn user_channels(&self, nick: NickRef) -> Vec<target::Channel> {
         self.chanmap
             .iter()
@@ -3287,7 +3359,118 @@ impl Client {
         &'a self,
         query: &target::Query,
     ) -> Option<&'a target::Query> {
-        self.resolved_queries.get(query)
+        self.querymap
+            .get_key_value(query)
+            .map(|(stored_query, query_state)| {
+                query_state.query.as_ref().unwrap_or(stored_query)
+            })
+    }
+
+    fn record_query(&mut self, query: &target::Query) {
+        prune_expired_querymap(&mut self.querymap);
+        self.querymap.entry(query.clone()).or_default().query =
+            Some(query.clone());
+    }
+
+    fn update_channel_typing(
+        &mut self,
+        channel: &target::Channel,
+        nick: NickRef<'_>,
+    ) {
+        if let Some(channel) = self.chanmap.get_mut(channel) {
+            prune_expired_typing(&mut channel.typing);
+            channel.typing.insert(nick.to_owned(), Instant::now());
+        }
+    }
+
+    fn clear_channel_typing(
+        &mut self,
+        channel: &target::Channel,
+        nick: NickRef<'_>,
+    ) {
+        if let Some(channel) = self.chanmap.get_mut(channel) {
+            prune_expired_typing(&mut channel.typing);
+            channel.typing.remove(&nick.to_owned());
+        }
+    }
+
+    fn update_query_typing(&mut self, query: &target::Query) {
+        prune_expired_querymap(&mut self.querymap);
+        self.querymap.entry(query.clone()).or_default().typing =
+            Some(Instant::now());
+    }
+
+    fn clear_query_typing(&mut self, query: &target::Query) {
+        prune_expired_querymap(&mut self.querymap);
+
+        if let Some(query_state) = self.querymap.get_mut(query) {
+            query_state.typing = None;
+        }
+
+        self.querymap
+            .retain(|_, query_state| !query_state.is_empty());
+    }
+
+    fn message_channel_target(
+        &self,
+        command: &Command,
+    ) -> Option<target::Channel> {
+        let target = match command {
+            Command::TAGMSG(target)
+            | Command::PRIVMSG(target, _)
+            | Command::NOTICE(target, _) => target,
+            _ => return None,
+        };
+
+        target::Channel::parse(
+            target,
+            self.chantypes(),
+            self.statusmsg(),
+            self.casemapping(),
+        )
+        .ok()
+    }
+
+    fn message_query_target(&self, command: &Command) -> Option<target::Query> {
+        let target = match command {
+            Command::TAGMSG(target)
+            | Command::PRIVMSG(target, _)
+            | Command::NOTICE(target, _) => target,
+            _ => return None,
+        };
+
+        target::Query::parse(
+            target,
+            self.chantypes(),
+            self.statusmsg(),
+            self.casemapping(),
+        )
+        .ok()
+    }
+
+    fn handle_channel_typing_tagmsg(
+        &mut self,
+        channel: &target::Channel,
+        nick: NickRef<'_>,
+        typing: Option<&str>,
+    ) {
+        match typing {
+            Some("active") => self.update_channel_typing(channel, nick),
+            Some("done") => self.clear_channel_typing(channel, nick),
+            _ => {}
+        }
+    }
+
+    fn handle_query_typing_tagmsg(
+        &mut self,
+        query: &target::Query,
+        typing: Option<&str>,
+    ) {
+        match typing {
+            Some("active") => self.update_query_typing(query),
+            Some("done") => self.clear_query_typing(query),
+            _ => {}
+        }
     }
 
     pub fn nickname(&self) -> NickRef<'_> {
@@ -3308,6 +3491,11 @@ impl Client {
             }
             NotificationBlackout::Receiving => {}
         }
+
+        self.chanmap
+            .values_mut()
+            .for_each(|channel| prune_expired_typing(&mut channel.typing));
+        prune_expired_querymap(&mut self.querymap);
 
         if let Some(who_poll) = self.who_polls.front_mut() {
             #[derive(Debug)]
@@ -3468,6 +3656,15 @@ impl Client {
 
     pub fn safelist(&self) -> bool {
         self.isupport.contains_key(&isupport::Kind::SAFELIST)
+    }
+
+    fn supports_typing(&self) -> bool {
+        self.capabilities.acknowledged(Capability::MessageTags)
+    }
+
+    fn can_send_typing(&self) -> bool {
+        self.capabilities.acknowledged(Capability::MessageTags)
+            && !isupport::is_client_only_tag_denied(&self.isupport, "typing")
     }
 
     pub fn is_channel(&self, target: &str) -> bool {
@@ -3943,6 +4140,34 @@ impl Map {
         })
     }
 
+    pub fn get_server_supports_typing(&self, server: &Server) -> bool {
+        self.client(server).is_some_and(Client::supports_typing)
+    }
+
+    pub fn get_server_can_send_typing(&self, server: &Server) -> bool {
+        self.client(server).is_some_and(Client::can_send_typing)
+    }
+
+    pub fn get_channel_typing_users(
+        &self,
+        server: &Server,
+        channel: &target::Channel,
+    ) -> Vec<String> {
+        self.client(server)
+            .map(|client| client.channel_typing_users(channel))
+            .unwrap_or_default()
+    }
+
+    pub fn get_query_typing_users(
+        &self,
+        server: &Server,
+        query: &target::Query,
+    ) -> Vec<String> {
+        self.client(server)
+            .map(|client| client.query_typing_users(query))
+            .unwrap_or_default()
+    }
+
     pub fn get_server_chathistory_message_reference_types(
         &self,
         server: &Server,
@@ -4205,6 +4430,21 @@ fn generate_batch_reference_tag() -> String {
     Posix::now().as_nanos().to_string()
 }
 
+fn prune_expired_typing(typing: &mut HashMap<Nick, Instant>) {
+    typing.retain(|_, updated_at| !is_typing_expired(*updated_at));
+}
+
+fn prune_expired_querymap(querymap: &mut IndexMap<target::Query, QueryState>) {
+    querymap.retain(|_, query_state| {
+        query_state.prune();
+        !query_state.is_empty()
+    });
+}
+
+fn is_typing_expired(updated_at: Instant) -> bool {
+    updated_at.elapsed() >= TYPING_TIMEOUT
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 enum RegistrationStep {
     Start,
@@ -4222,6 +4462,7 @@ pub struct Channel {
     pub names_init: bool,
     pub who_init: bool,
     pub mode: Option<String>,
+    pub typing: HashMap<Nick, Instant>,
 }
 
 impl Channel {
@@ -4259,6 +4500,24 @@ impl Channel {
         if let Some(user) = self.users.take(&user) {
             self.users.insert(user.with_accountname(accountname));
         }
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct QueryState {
+    pub query: Option<target::Query>,
+    pub typing: Option<Instant>,
+}
+
+impl QueryState {
+    fn prune(&mut self) {
+        if self.typing.is_some_and(is_typing_expired) {
+            self.typing = None;
+        }
+    }
+
+    fn is_empty(&self) -> bool {
+        self.query.is_none() && self.typing.is_none()
     }
 }
 
@@ -4457,4 +4716,71 @@ pub enum Error {
     Target(#[from] target::ParseError),
     #[error(transparent)]
     BouncerNetwork(#[from] bouncer::Error),
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use futures::channel::mpsc;
+    use irc::proto;
+
+    use super::*;
+
+    fn test_client(nickname: &str) -> Client {
+        let (sender, _) = mpsc::channel(1);
+
+        Client::new(
+            Server::from(Arc::<str>::from("test")),
+            Arc::new(config::Server {
+                nickname: nickname.to_string(),
+                ..Default::default()
+            }),
+            sender,
+        )
+    }
+
+    fn query(target: &str) -> target::Query {
+        target::Query::parse(
+            target,
+            isupport::DEFAULT_CHANTYPES,
+            &[],
+            isupport::CaseMap::default(),
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn resolve_query_uses_querymap_casing() {
+        let mut client = test_client("tester");
+        let canonical = query("FooBar");
+
+        client.querymap.entry(canonical.clone()).or_default();
+
+        assert_eq!(client.resolve_query(&query("foobar")), Some(&canonical));
+    }
+
+    #[test]
+    fn chathistory_direct_messages_record_query_in_querymap() {
+        let mut client = test_client("tester");
+        let canonical = query("FooBar");
+
+        let message = message::Encoded(proto::Message {
+            tags: BTreeMap::default(),
+            source: Some(proto::Source::User(proto::User {
+                nickname: "FooBar".to_string(),
+                username: Some("user".to_string()),
+                hostname: Some("example.test".to_string()),
+            })),
+            command: Command::PRIVMSG(
+                "tester".to_string(),
+                "hello".to_string(),
+            ),
+        });
+
+        client.handle_chathistory(message, Target::Query(canonical.clone()));
+
+        assert!(client.querymap.contains_key(&query("foobar")));
+        assert_eq!(client.resolve_query(&query("foobar")), Some(&canonical));
+    }
 }

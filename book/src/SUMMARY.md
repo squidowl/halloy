@@ -38,6 +38,7 @@
   - [Channel](configuration/buffer/channel/README.md)
     - [Message](configuration/buffer/channel/message.md)
     - [Nicklist](configuration/buffer/channel/nicklist.md)
+    - [Typing](configuration/buffer/channel/typing.md)
     - [Topic Banner](configuration/buffer/channel/topic-banner.md)
   - [Chat History](configuration/buffer/chat-history/README.md)
   - [Commands](configuration/buffer/commands/README.md)

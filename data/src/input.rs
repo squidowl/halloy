@@ -172,14 +172,29 @@ impl Parsed {
         }
     }
 
+    pub fn multiline_batch_kind(
+        &self,
+        casemapping: isupport::CaseMap,
+    ) -> Option<MultilineBatchKind> {
+        self.multiline_content(casemapping).map(|(_, kind)| kind)
+    }
+
     pub fn multiline_bytes(
         &self,
         casemapping: isupport::CaseMap,
     ) -> Option<(usize, MultilineBatchKind)> {
+        self.multiline_content(casemapping)
+            .map(|(text, kind)| (text.len(), kind))
+    }
+
+    fn multiline_content(
+        &self,
+        casemapping: isupport::CaseMap,
+    ) -> Option<(&str, MultilineBatchKind)> {
         match self {
             Parsed::Input(input) => match &input.content {
                 Content::Text(text) => {
-                    Some((text.len(), MultilineBatchKind::PRIVMSG))
+                    Some((text.as_str(), MultilineBatchKind::PRIVMSG))
                 }
                 Content::Command(command) => match command {
                     command::Irc::Msg(command_target, text)
@@ -188,7 +203,7 @@ impl Parsed {
                             (buffer_target.as_normalized_str()
                                 == casemapping.normalize(command_target))
                             .then_some((
-                                text.len(),
+                                text.as_str(),
                                 MultilineBatchKind::PRIVMSG,
                             ))
                         })
@@ -197,7 +212,10 @@ impl Parsed {
                         input.buffer.target().and_then(|buffer_target| {
                             (buffer_target.as_normalized_str()
                                 == casemapping.normalize(command_target))
-                            .then_some((text.len(), MultilineBatchKind::NOTICE))
+                            .then_some((
+                                text.as_str(),
+                                MultilineBatchKind::NOTICE,
+                            ))
                         })
                     }
                     _ => None,
@@ -205,7 +223,7 @@ impl Parsed {
             },
             Parsed::Internal(_) => None,
             // Not included in batch, but should not delimit a batch
-            Parsed::CodeFence(_) => Some((0, MultilineBatchKind::PRIVMSG)),
+            Parsed::CodeFence(_) => Some(("", MultilineBatchKind::PRIVMSG)),
         }
     }
 }

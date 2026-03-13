@@ -3,9 +3,11 @@ use serde::{Deserialize, Serialize};
 use crate::config;
 
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
+#[serde(default)]
 pub struct Settings {
     pub nicklist: Nicklist,
     pub topic_banner: TopicBanner,
+    pub typing: Typing,
 }
 
 impl From<config::buffer::Channel> for Settings {
@@ -13,6 +15,7 @@ impl From<config::buffer::Channel> for Settings {
         Self {
             nicklist: Nicklist::from(config.nicklist),
             topic_banner: TopicBanner::from(config.topic_banner),
+            typing: Typing::from(config.typing),
         }
     }
 }
@@ -66,5 +69,30 @@ impl From<config::buffer::channel::TopicBanner> for TopicBanner {
 impl TopicBanner {
     pub fn toggle_visibility(&mut self) {
         self.enabled = !self.enabled;
+    }
+}
+
+#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
+#[serde(default)]
+pub struct Typing {
+    pub share: bool,
+    pub show: bool,
+}
+
+impl Default for Typing {
+    fn default() -> Self {
+        Self {
+            share: false,
+            show: true,
+        }
+    }
+}
+
+impl From<config::buffer::channel::Typing> for Typing {
+    fn from(config: config::buffer::channel::Typing) -> Self {
+        Typing {
+            share: config.share,
+            show: config.show,
+        }
     }
 }
