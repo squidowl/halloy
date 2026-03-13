@@ -1,7 +1,10 @@
 use std::collections::HashSet;
 use std::str::FromStr;
+use std::string::ToString;
 
-use crate::config;
+use irc::proto::{self, Tags, command, format};
+
+use crate::{Target, User, config, message};
 
 // This is not an exhaustive list of IRCv3 capabilities, just the ones that
 // Halloy will request when available.  When adding new IRCv3 capabilities to
@@ -62,9 +65,76 @@ impl FromStr for Capability {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct Multiline {
+pub struct MultilineLimits {
     pub max_bytes: usize,
     pub max_lines: Option<usize>,
+}
+
+impl MultilineLimits {
+    pub fn concat_bytes(
+        &self,
+        relay_bytes: usize,
+        batch_kind: MultilineBatchKind,
+        target: &Target,
+    ) -> usize {
+        // Message byte limit - relay bytes - space - command - space - target - message separator - crlf
+        format::BYTE_LIMIT.saturating_sub(
+            match batch_kind {
+                MultilineBatchKind::PRIVMSG => 7,
+                MultilineBatchKind::NOTICE => 6,
+            } + target.as_str().len()
+                + relay_bytes
+                + 6,
+        )
+    }
+}
+
+pub fn multiline_concat_lines(concat_bytes: usize, text: &str) -> Vec<&str> {
+    let mut lines = Vec::new();
+    let mut last_line_start = 0;
+    let mut prev_char_index = 0;
+
+    for (char_index, _) in text.char_indices() {
+        if char_index.saturating_sub(last_line_start) > concat_bytes {
+            lines.push(&text[last_line_start..prev_char_index]);
+            last_line_start = prev_char_index;
+        }
+
+        prev_char_index = char_index;
+    }
+
+    lines.push(&text[last_line_start..]);
+
+    lines
+}
+
+pub fn multiline_encoded(
+    user: Option<&User>,
+    batch_kind: MultilineBatchKind,
+    target: &Target,
+    text: &str,
+    tags: Tags,
+) -> message::Encoded {
+    let mut encoded = command!(
+        match batch_kind {
+            MultilineBatchKind::PRIVMSG => "PRIVMSG",
+            MultilineBatchKind::NOTICE => "NOTICE",
+        },
+        target.as_str(),
+        text,
+    );
+
+    if let Some(user) = user {
+        encoded.source = Some(proto::Source::User(proto::User {
+            nickname: user.nickname().to_string(),
+            username: user.username().map(ToString::to_string),
+            hostname: user.hostname().map(ToString::to_string),
+        }));
+    }
+
+    encoded.tags = tags;
+
+    message::Encoded(encoded)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -78,7 +148,7 @@ pub struct Capabilities {
     listed: HashSet<String>,
     pending: HashSet<String>,
     acknowledged: HashSet<Capability>,
-    multiline: Option<Multiline>,
+    multiline: Option<MultilineLimits>,
 }
 
 impl Capabilities {
@@ -234,7 +304,7 @@ impl Capabilities {
                     .strip_prefix("max-bytes=")
                     .and_then(|value| value.parse::<usize>().ok())
             }) {
-                self.multiline = Some(Multiline {
+                self.multiline = Some(MultilineLimits {
                     max_bytes,
                     max_lines: dictionary.iter().find_map(|key_value| {
                         key_value
@@ -272,7 +342,7 @@ impl Capabilities {
         }
     }
 
-    pub fn multiline(&self) -> Option<Multiline> {
+    pub fn multiline_limits(&self) -> Option<MultilineLimits> {
         if self.acknowledged(Capability::Multiline) {
             self.multiline
         } else {

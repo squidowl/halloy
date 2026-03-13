@@ -8,7 +8,7 @@ use nom::multi::{many_m_n, many0_count, many1_count};
 use nom::{Finish, IResult, Parser};
 
 use crate::buffer::{self};
-use crate::capabilities::MultilineBatchKind;
+use crate::capabilities::{MultilineBatchKind, MultilineLimits};
 use crate::config::buffer::text_input::AutoFormat;
 use crate::message::formatting;
 use crate::target::Target;
@@ -28,6 +28,7 @@ pub fn parse(
     in_channel: Option<bool>,
     is_connected: bool,
     isupport: &HashMap<isupport::Kind, isupport::Parameter>,
+    multiline_limits: Option<&MultilineLimits>,
     relay_bytes: usize,
     config: &Config,
 ) -> Result<Parsed, Error> {
@@ -129,9 +130,22 @@ pub fn parse(
         }
     };
 
-    if let Some(message_bytes) = content
-        .proto(&buffer)
-        .map(|message| format::message(message).len())
+    let parsed = Parsed::Input(Input { buffer, content });
+
+    if let Some(multiline_limits) = multiline_limits
+        && let Some((text, _)) = parsed
+            .multiline_content(isupport::get_casemapping_or_default(isupport))
+    {
+        if text.len() > multiline_limits.max_bytes {
+            return Err(Error::ExceedsByteLimit {
+                bytes: text.len(),
+                bytes_limit: multiline_limits.max_bytes,
+            });
+        }
+    } else if let Parsed::Input(Input { buffer, content }) = &parsed
+        && let Some(message_bytes) = content
+            .proto(buffer)
+            .map(|message| format::message(message).len())
     {
         let message_bytes = match &content {
             Content::Text(_)
@@ -144,7 +158,10 @@ pub fn parse(
         };
 
         if message_bytes > format::BYTE_LIMIT {
-            return Err(Error::ExceedsByteLimit { message_bytes });
+            return Err(Error::ExceedsByteLimit {
+                bytes: message_bytes,
+                bytes_limit: format::BYTE_LIMIT,
+            });
         }
     }
 
@@ -154,7 +171,7 @@ pub fn parse(
         return Err(Error::Command(command::Error::NotInChannel));
     }
 
-    Ok(Parsed::Input(Input { buffer, content }))
+    Ok(parsed)
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -179,15 +196,7 @@ impl Parsed {
         self.multiline_content(casemapping).map(|(_, kind)| kind)
     }
 
-    pub fn multiline_bytes(
-        &self,
-        casemapping: isupport::CaseMap,
-    ) -> Option<(usize, MultilineBatchKind)> {
-        self.multiline_content(casemapping)
-            .map(|(text, kind)| (text.len(), kind))
-    }
-
-    fn multiline_content(
+    pub fn multiline_content(
         &self,
         casemapping: isupport::CaseMap,
     ) -> Option<(&str, MultilineBatchKind)> {
@@ -433,10 +442,10 @@ fn remove_indent<'a>(
 pub enum Error {
     #[error(
         "message exceeds maximum encoded length ({}/{} bytes)",
-        message_bytes,
-        format::BYTE_LIMIT
+        bytes,
+        bytes_limit
     )]
-    ExceedsByteLimit { message_bytes: usize },
+    ExceedsByteLimit { bytes: usize, bytes_limit: usize },
     #[error(transparent)]
     Command(#[from] command::Error),
 }
@@ -445,6 +454,7 @@ pub enum Error {
 mod test {
     use std::collections::HashMap;
 
+    use crate::capabilities::MultilineLimits;
     use crate::config::buffer::text_input::AutoFormat;
     use crate::input::{CodeFence, Content, Input, Parsed, parse};
     use crate::user::Nick;
@@ -454,6 +464,10 @@ mod test {
     fn parsing() {
         let config = Config::default();
         let isupport = HashMap::<isupport::Kind, isupport::Parameter>::new();
+        let multiline_limits = MultilineLimits {
+            max_bytes: 4096,
+            max_lines: Some(24),
+        };
         let nick = Nick::from_str(
             "tester",
             isupport::get_casemapping_or_default(&isupport),
@@ -599,6 +613,7 @@ mod test {
                 Some(true),
                 true,
                 &isupport,
+                Some(&multiline_limits),
                 128,
                 &config,
             );
