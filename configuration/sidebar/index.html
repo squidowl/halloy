@@ -34,7 +34,7 @@
             const path_to_root = "../../";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../../searchindex-99950379.js";
+            window.path_to_searchindex_js = "../../searchindex-3f142ae8.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="../../toc-a4c0301a.js"></script>
@@ -257,17 +257,24 @@ enabled = true
 order_by = "config"
 </code></pre>
 <h3 id="order_channels_by"><a class="header" href="#order_channels_by">order_channels_by</a></h3>
-<p>Include chantypes (channel prefixes, e.g., <code>#</code> and <code>##</code>) when sorting channels in the sidebar.</p>
+<p>Ordering for channels listed in the sidebar.</p>
 <ul>
-<li><code>"name"</code>: Sort channels by name only, ignoring chantypes.</li>
+<li><code>"name"</code>: Sort channels by name only, ignoring chantypes (channel prefixes, e.g., <code>#</code> and <code>##</code>).</li>
 <li><code>"name-and-prefix"</code>: Sort channels by name including their chantypes.</li>
+<li><code>"config"</code>: Sort channels in the order they appear in your server’s <code>channels</code>
+list. Any channels not in the list appear last, using default (<code>"name"</code>) sort.</li>
 </ul>
 <pre><code class="language-toml"># Type: string
-# Values: "name", "name-and-prefix"
+# Values: "name", "name-and-prefix", "config"
 # Default: "name"
 
 [sidebar]
-order_channels_by = "name-and-prefix"
+order_channels_by = "config"
+
+# Example: When using "config", channels appear in this exact order:
+[servers.liberachat]
+channels = ["#rust", "#halloy", "#halloy-test"]
+# Result: #rust → #halloy → #halloy-test → (any other channels are sorted by "name")
 </code></pre>
 <h3 id="channel_name_casing"><a class="header" href="#channel_name_casing">channel_name_casing</a></h3>
 <p>Transform the channel name casing in the sidebar channel entries.</p>

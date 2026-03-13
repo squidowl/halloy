@@ -34,7 +34,7 @@
             const path_to_root = "../../";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../../searchindex-99950379.js";
+            window.path_to_searchindex_js = "../../searchindex-3f142ae8.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="../../toc-a4c0301a.js"></script>
@@ -204,6 +204,7 @@
 <li><a href="#password_command">password_command</a></li>
 <li><a href="#channels">channels</a></li>
 <li><a href="#channel_keys">channel_keys</a></li>
+<li><a href="#order_channels_by">order_channels_by</a></li>
 <li><a href="#queries">queries</a></li>
 <li><a href="#ping_time">ping_time</a></li>
 <li><a href="#ping_timeout">ping_timeout</a></li>
@@ -322,7 +323,7 @@ username = ""
 realname = ""
 </code></pre>
 <h3 id="server"><a class="header" href="#server">server</a></h3>
-<p>The server to connect to.  Should not contain the protocol, port, username, or password (i.e. should look like <code>"irc.libera.chat"</code> not <code>"ircs://irc.libera.chat:6697"</code>).</p>
+<p>The server to connect to. Should not contain the protocol, port, username, or password (i.e. should look like <code>"irc.libera.chat"</code> not <code>"ircs://irc.libera.chat:6697"</code>).</p>
 <pre><code class="language-toml"># Type: string
 # Values: any string
 # Default: not set
@@ -392,6 +393,26 @@ channels = ["#foo", "#bar"]
 
 [servers.&lt;name&gt;]
 channel_keys = { "#foo" = "password" }
+</code></pre>
+<h3 id="order_channels_by"><a class="header" href="#order_channels_by">order_channels_by</a></h3>
+<p>Ordering for channels listed in the sidebar for the current server.</p>
+<ul>
+<li><code>"name"</code>: Sort channels by name only, ignoring chantypes (channel prefixes, e.g., <code>#</code> and <code>##</code>).</li>
+<li><code>"name-and-prefix"</code>: Sort channels by name including their chantypes.</li>
+<li><code>"config"</code>: Sort channels in the order they appear in your server’s <code>channels</code>
+list. Any channels not in the list appear last, using default (<code>"name"</code>) sort.</li>
+</ul>
+<p>If not set, the value will be taken from the sidebar config: <a href="../sidebar/#order_channels_by">order_channels_by</a>.</p>
+<pre><code class="language-toml"># Type: string
+# Values: "name", "name-and-prefix", "config"
+# Default: "name"
+
+[servers.&lt;name&gt;]
+order_channels_by = "config"
+
+# Example: When using "config", channels appear in this exact order:
+channels = ["#rust", "#halloy", "#halloy-test"]
+# Result: #rust → #halloy → #halloy-test → (any other channels are sorted by "name")
 </code></pre>
 <h3 id="queries"><a class="header" href="#queries">queries</a></h3>
 <p>A list of queries to add to the sidebar on connection.</p>
@@ -493,7 +514,7 @@ root_cert_path = ""
 on_connect = ["/msg NickServ IDENTIFY foo bar", "/delay 2", "/join registered-club"]
 </code></pre>
 <h3 id="anti_flood"><a class="header" href="#anti_flood">anti_flood</a></h3>
-<p>The time (in milliseconds) between sending messages to servers without SAFERATE.  Timing is not strictly guaranteed;  small groups of messages may be allowed to be sent at a faster rate, messages may be delayed in order to be batched, automated messages are included in the queue (most at a lower priority than user messages), etc.</p>
+<p>The time (in milliseconds) between sending messages to servers without SAFERATE. Timing is not strictly guaranteed; small groups of messages may be allowed to be sent at a faster rate, messages may be delayed in order to be batched, automated messages are included in the queue (most at a lower priority than user messages), etc.</p>
 <pre><code class="language-toml"># Type: integer
 # Values: 100 .. 60000
 # Default: 2000
