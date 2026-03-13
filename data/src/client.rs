@@ -10,7 +10,7 @@ use chrono::{DateTime, Utc};
 use futures::channel::mpsc;
 use futures::{Future, FutureExt};
 use indexmap::IndexMap;
-use irc::proto::{self, Command, Tags, command};
+use irc::proto::{self, Command, Tags, command, tags};
 use itertools::{Either, Itertools};
 use tokio::fs;
 
@@ -606,10 +606,10 @@ impl Client {
                 opening_batch.tags.insert("label".to_string(), label);
             }
 
+            // Overwrite any existing tags, since messages in the batch can only
+            // have draft/multiline-concat and batch tags
             for message in messages.iter_mut() {
-                message
-                    .tags
-                    .insert("batch".to_string(), reference_tag.clone());
+                message.tags = tags![ "batch" => reference_tag.clone() ];
             }
 
             let closing_batch: message::Encoded =
