@@ -191,6 +191,7 @@ impl ConfigMap {
                 {
                     return Err(Error::DuplicatePassword);
                 }
+                config::check_password_file_permissions(pass_file);
                 let mut pass = fs::read_to_string(pass_file).await?;
                 if config.password_file_first_line_only {
                     pass = pass
@@ -213,6 +214,7 @@ impl ConfigMap {
                 {
                     return Err(Error::DuplicateNickPassword);
                 }
+                config::check_password_file_permissions(nick_pass_file);
                 let mut nick_pass = fs::read_to_string(nick_pass_file).await?;
                 if config.nick_password_file_first_line_only {
                     nick_pass = nick_pass
@@ -245,6 +247,7 @@ impl ConfigMap {
                         password_command: None,
                         ..
                     } => {
+                        config::check_password_file_permissions(pass_file);
                         let mut pass = fs::read_to_string(pass_file).await?;
                         if password_file_first_line_only
                             .is_none_or(|first_line_only| first_line_only)
