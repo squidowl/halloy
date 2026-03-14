@@ -26,7 +26,8 @@ use itertools::Itertools;
 use tokio::time;
 use unicode_segmentation::UnicodeSegmentation;
 
-use self::{completion::Completion, exec::run as execute_shell_command};
+use self::completion::Completion;
+use self::exec::run as execute_shell_command;
 use crate::widget::key_press::is_numpad;
 use crate::widget::{
     Element, Renderer, Text, anchored_overlay, context_menu, decorate, text,
