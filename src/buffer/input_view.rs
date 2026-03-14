@@ -100,11 +100,17 @@ async fn execute_shell_command(
     max_output_bytes: usize,
 ) -> Result<String, String> {
     let output = time::timeout(Duration::from_secs(timeout_secs), async move {
-        if cfg!(target_os = "windows") {
-            Command::new("cmd").arg("/C").arg(command).output().await
+        let mut process = if cfg!(target_os = "windows") {
+            let mut process = Command::new("cmd");
+            process.arg("/C").arg(command);
+            process
         } else {
-            Command::new("sh").arg("-c").arg(command).output().await
-        }
+            let mut process = Command::new("sh");
+            process.arg("-c").arg(command);
+            process
+        };
+
+        process.kill_on_drop(true).output().await
     })
     .await
     .map_err(|_| format!("exec timed out after {timeout_secs} seconds"))?
