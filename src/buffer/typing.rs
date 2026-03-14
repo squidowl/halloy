@@ -1,9 +1,7 @@
-use data::Config;
 use data::history::filter::FilterChain;
 use data::isupport::CaseMap;
-use data::target;
 use data::user::Nick;
-use data::{Server, User};
+use data::{Config, Server, User, target};
 use iced::padding;
 use iced::widget::{column, container};
 
