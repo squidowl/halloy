@@ -4,6 +4,7 @@ Added:
 
 - Setting to limit reaction display length (`buffer.channel.message.max_reaction_display`) and maximum length (`buffer.channel.message.max_reaction_chars`)
 - Emoji and command picker entries are now clickable and insert the selected completion directly into the input.
+- Setting to disable writing chat history to disk (`buffer.chathistory.persist`)
 - Multi-line send support (uses IRCv3 [`multiline`](https://ircv3.net/specs/extensions/multiline) when available)
 - Typing indicator support (uses IRCv3 [`typing`](https://ircv3.net/specs/client-tags/typing))
 - Add emoji reactions for supported servers (uses IRCv3 [`react`](https://ircv3.net/specs/client-tags/react.html))

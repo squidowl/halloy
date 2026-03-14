@@ -573,12 +573,14 @@ pub enum LevelFilter {
 #[serde(default)]
 pub struct ChatHistory {
     pub infinite_scroll: bool,
+    pub persist: bool,
 }
 
 impl Default for ChatHistory {
     fn default() -> Self {
         Self {
             infinite_scroll: true,
+            persist: true,
         }
     }
 }
