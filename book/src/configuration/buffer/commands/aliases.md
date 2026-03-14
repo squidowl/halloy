@@ -23,6 +23,8 @@ You can also use context-aware placeholders:
 - `$channel` inserts the active channel name.
 - `$server` inserts the active server name.
 
+The `/exec` example requires enabling [`buffer.commands.exec`](README.md#exec) first.
+
 ## Notes
 
 - Aliases take precedence over built-in commands with the same name.

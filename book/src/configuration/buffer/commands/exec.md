@@ -4,10 +4,25 @@ Configure `/exec`
 
 - [Exec](#exec)
   - [Configuration](#configuration)
+    - [enabled](#enabled)
     - [timeout](#timeout)
     - [max_output_bytes](#max_output_bytes)
 
 ## Configuration
+
+### enabled
+
+Enable `/exec`.
+When disabled, submitting `/exec` shows an error instead of running the shell command.
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: false
+
+[buffer.commands.exec]
+enabled = false
+```
 
 ### timeout
 

@@ -1184,7 +1184,9 @@ fn parse_command(
             Kind::Exec => {
                 let command = raw.trim();
 
-                if command.is_empty() {
+                if !config.buffer.commands.exec.enabled {
+                    Ok(Command::Internal(Internal::Exec(command.to_string())))
+                } else if command.is_empty() {
                     Err(Error::IncorrectArgCount {
                         min: 1,
                         max: 1,
@@ -1427,7 +1429,8 @@ mod tests {
 
     #[test]
     fn parse_exec_preserves_raw_command() {
-        let config = Config::default();
+        let mut config = Config::default();
+        config.buffer.commands.exec.enabled = true;
 
         let command = parse(
             "/exec printf '/me hello world'",
@@ -1448,7 +1451,8 @@ mod tests {
 
     #[test]
     fn parse_exec_requires_command() {
-        let config = Config::default();
+        let mut config = Config::default();
+        config.buffer.commands.exec.enabled = true;
 
         let error =
             parse("/exec   ", None, None, true, &HashMap::new(), &config)
@@ -1461,6 +1465,21 @@ mod tests {
                 max: 1,
                 actual: 0
             }
+        ));
+    }
+
+    #[test]
+    fn parse_exec_without_command_when_disabled() {
+        let mut config = Config::default();
+        config.buffer.commands.exec.enabled = false;
+
+        let command =
+            parse("/exec   ", None, None, true, &HashMap::new(), &config)
+                .unwrap();
+
+        assert!(matches!(
+            command,
+            Command::Internal(Internal::Exec(command)) if command.is_empty()
         ));
     }
 }

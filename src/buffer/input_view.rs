@@ -1865,6 +1865,14 @@ impl State {
                         );
                     }
                     command::Internal::Exec(command) => {
+                        if !config.buffer.commands.exec.enabled {
+                            self.error = Some(String::from(
+                                "exec is not enabled by the user",
+                            ));
+
+                            return (Task::none(), None);
+                        }
+
                         let buffer = buffer.clone();
                         let exec = config.buffer.commands.exec.clone();
 

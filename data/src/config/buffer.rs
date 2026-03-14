@@ -160,6 +160,7 @@ pub struct Part {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
 pub struct Exec {
+    pub enabled: bool,
     pub timeout: u64,
     pub max_output_bytes: usize,
 }
@@ -167,6 +168,7 @@ pub struct Exec {
 impl Default for Exec {
     fn default() -> Self {
         Self {
+            enabled: false,
             timeout: 5,
             max_output_bytes: 4096,
         }
