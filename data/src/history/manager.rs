@@ -984,7 +984,10 @@ impl Manager {
                             first_message.condensed = condensed_message;
                         }
                     }
-                    CondensationKey::Singular => (),
+                    CondensationKey::Singular => chunk
+                        .collect::<Vec<&mut message::Message>>()
+                        .iter_mut()
+                        .for_each(|message| message.condensed = None),
                 });
         }
 
