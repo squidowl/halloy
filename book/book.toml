@@ -7,6 +7,8 @@ src = "src"
 cname = "halloy.chat"
 git-repository-url = "https://github.com/squidowl/halloy"
 edit-url-template = "https://github.com/squidowl/halloy/edit/main/book/{path}"
+additional-css  = ["styles/move-searchbar.css"]
+additional-js = ["scripts/move-searchbar.js"]
 
 [output.html.redirect]
 "/configuration/servers.html" = "/configuration/servers/index.html"
