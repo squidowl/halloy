@@ -8,6 +8,7 @@ use irc::proto;
 use itertools::sorted;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+use unicode_segmentation::UnicodeSegmentation;
 
 use crate::config::buffer::{AccessLevelFormat, UsernameFormat};
 use crate::{isupport, mode};
@@ -203,6 +204,14 @@ impl User {
         with_access_levels: AccessLevelFormat,
         truncate: Option<u16>,
     ) -> String {
+        self.display_with_truncated(with_access_levels, truncate).0
+    }
+
+    pub fn display_with_truncated(
+        &self,
+        with_access_levels: AccessLevelFormat,
+        truncate: Option<u16>,
+    ) -> (String, bool) {
         let mut nickname = match with_access_levels {
             AccessLevelFormat::All => {
                 if self.access_levels.is_empty() {
@@ -222,11 +231,21 @@ impl User {
             AccessLevelFormat::None => self.nickname().to_string(),
         };
 
-        if let Some(len) = truncate {
-            nickname = nickname.chars().take(len as usize).collect();
+        let mut show_tooltip = false;
+
+        if let Some(len) = truncate
+            && UnicodeSegmentation::graphemes(nickname.as_str(), true).count()
+                > len as usize
+        {
+            nickname = UnicodeSegmentation::graphemes(nickname.as_str(), true)
+                .take(len.saturating_sub(1) as usize)
+                .collect::<String>();
+            nickname.push('…');
+
+            show_tooltip = true;
         }
 
-        nickname
+        (nickname, show_tooltip)
     }
 
     pub fn as_str(&self) -> &str {

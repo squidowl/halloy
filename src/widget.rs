@@ -56,6 +56,7 @@ pub type Container<'a, Message> =
     iced::widget::Container<'a, Message, Theme, Renderer>;
 pub type Button<'a, Message> = iced::widget::Button<'a, Message, Theme>;
 
+#[derive(Clone, Copy)]
 pub enum Marker {
     Dot,
     Expand,

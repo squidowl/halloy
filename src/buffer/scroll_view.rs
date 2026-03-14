@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use chrono::{DateTime, Local, NaiveDate, Utc};
 use data::command::Irc;
-use data::config::buffer::HideConsecutiveEnabled;
+use data::config::buffer::{CondensationIcon, HideConsecutiveEnabled};
 use data::dashboard::BufferAction;
 use data::isupport::ChatHistoryState;
 use data::message::{self, Limit};
@@ -132,7 +132,6 @@ pub trait LayoutMessage<'a> {
         message: &'a data::Message,
         right_aligned_width: Option<f32>,
         max_prefix_width: Option<f32>,
-        range_timestamp_excess_width: Option<f32>,
         hide_timestamp: bool,
         hide_nickname: bool,
     ) -> Option<Element<'a, Message>>;
@@ -144,7 +143,6 @@ where
         &'a data::Message,
         Option<f32>,
         Option<f32>,
-        Option<f32>,
         bool,
         bool,
     ) -> Option<Element<'a, Message>>,
@@ -154,7 +152,6 @@ where
         message: &'a data::Message,
         right_aligned_width: Option<f32>,
         max_prefix_width: Option<f32>,
-        range_timestamp_excess_width: Option<f32>,
         hide_timestamp: bool,
         hide_nickname: bool,
     ) -> Option<Element<'a, Message>> {
@@ -162,7 +159,6 @@ where
             message,
             right_aligned_width,
             max_prefix_width,
-            range_timestamp_excess_width,
             hide_timestamp,
             hide_nickname,
         )
@@ -262,7 +258,7 @@ pub fn view<'a>(
         new_messages,
         max_nick_chars,
         max_prefix_chars,
-        range_timestamp_extra_chars,
+        range_end_timestamp_chars,
         cleared,
         ..
     }) = history.get_messages(&kind.into(), Some(state.limit), &config.buffer)
@@ -315,24 +311,32 @@ pub fn view<'a>(
             font::width_from_chars(max_nick_chars, &config.font) + 1.0;
         let message_marker_width =
             font::width_of_message_marker(&config.font) + 1.0;
-        let range_timestamp_extra_width = range_timestamp_extra_chars.map_or(
+        let mut range_end_timestamp_width = range_end_timestamp_chars.map_or(
             0.0,
-            |range_timestamp_extra_chars| {
-                font::width_from_chars(
-                    range_timestamp_extra_chars,
-                    &config.font,
-                ) + 1.0
+            |range_end_timestamp_chars| {
+                font::width_from_chars(range_end_timestamp_chars, &config.font)
+                    + 1.0
             },
         );
 
-        max_nick_width.max(range_timestamp_extra_width + message_marker_width)
+        if config.buffer.server_messages.condense.any()
+            && !matches!(
+                config.buffer.server_messages.condense.icon,
+                CondensationIcon::None
+            )
+        {
+            range_end_timestamp_width +=
+                font::width_from_chars(1, &config.font)
+                    + font::width_of_message_marker(&config.font);
+        }
+
+        max_nick_width
+            .max(range_end_timestamp_width)
+            .max(message_marker_width)
     });
 
     let max_prefix_width = max_prefix_chars
         .map(|len| font::width_from_chars(len, &config.font) + 1.0);
-
-    let range_timestamp_excess_width = range_timestamp_extra_chars
-        .map(|len| font::width_from_chars(len, &config.font));
 
     let message_rows = |last_date: Option<NaiveDate>,
                         messages: &[&'a data::Message]| {
@@ -388,7 +392,6 @@ pub fn view<'a>(
                             message,
                             right_aligned_width,
                             max_prefix_width,
-                            range_timestamp_excess_width,
                             hide_timestamp,
                             hide_nickname,
                         )
