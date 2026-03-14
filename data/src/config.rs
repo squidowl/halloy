@@ -1,5 +1,9 @@
-use std::path::PathBuf;
+use std::io::Write;
+use std::path::{Path, PathBuf};
 use std::{str, string};
+
+#[cfg(unix)]
+use std::os::unix::fs::{DirBuilderExt, OpenOptionsExt};
 
 use iced_core::font;
 use indexmap::IndexMap;
@@ -226,7 +230,7 @@ impl Config {
         let dir = environment::config_dir();
 
         if !dir.exists() {
-            std::fs::create_dir_all(dir.as_path())
+            create_owned_dir(dir.as_path())
                 .expect("expected permissions to create config folder");
         }
 
@@ -237,7 +241,7 @@ impl Config {
         let dir = Self::config_dir().join("sounds");
 
         if !dir.exists() {
-            std::fs::create_dir_all(dir.as_path())
+            create_owned_dir(dir.as_path())
                 .expect("expected permissions to create sounds folder");
         }
 
@@ -248,7 +252,7 @@ impl Config {
         let dir = Self::config_dir().join("themes");
 
         if !dir.exists() {
-            std::fs::create_dir_all(dir.as_path())
+            create_owned_dir(dir.as_path())
                 .expect("expected permissions to create themes folder");
         }
 
@@ -571,8 +575,40 @@ impl Config {
         // Create configuration path.
         let config_path = Self::config_dir().join("config.toml");
 
-        let _ = std::fs::write(config_path, config_bytes);
+        let _ = create_owned_file(config_path.as_path(), config_bytes);
     }
+}
+
+#[cfg(unix)]
+fn create_owned_dir(path: &Path) -> std::io::Result<()> {
+    let mut builder = std::fs::DirBuilder::new();
+    builder.recursive(true).mode(0o700).create(path)
+}
+
+#[cfg(not(unix))]
+fn create_owned_dir(path: &Path) -> std::io::Result<()> {
+    std::fs::create_dir_all(path)
+}
+
+#[cfg(unix)]
+fn create_owned_file(path: &Path, contents: &[u8]) -> std::io::Result<()> {
+    let mut file = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(0o600)
+        .open(path)?;
+
+    file.write_all(contents)
+}
+
+#[cfg(not(unix))]
+fn create_owned_file(path: &Path, contents: &[u8]) -> std::io::Result<()> {
+    let mut file = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(path)?;
+
+    file.write_all(contents)
 }
 
 pub fn random_nickname() -> String {

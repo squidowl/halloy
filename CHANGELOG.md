@@ -12,6 +12,10 @@ Fixed:
 - Prevent clicks from passing through completion picker overlays to content behind them (for example nicknames in the buffer).
 - Regression that could make the application slow to close
 
+Security:
+
+- Config directories and `config.toml` are now created with owner-only permissions
+
 Thanks:
 
 - Contributions: @KaiKorla
