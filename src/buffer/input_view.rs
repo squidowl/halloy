@@ -23,11 +23,10 @@ use iced::widget::{
 };
 use iced::{Alignment, Length, Task, clipboard, event, keyboard, padding};
 use itertools::Itertools;
-use tokio::process::Command;
 use tokio::time;
 use unicode_segmentation::UnicodeSegmentation;
 
-use self::completion::Completion;
+use self::{completion::Completion, exec::run as execute_shell_command};
 use crate::widget::key_press::is_numpad;
 use crate::widget::{
     Element, Renderer, Text, anchored_overlay, context_menu, decorate, text,
@@ -36,6 +35,7 @@ use crate::window::Window;
 use crate::{Theme, font, theme, window};
 
 mod completion;
+mod exec;
 
 const TYPING_REFRESH_INTERVAL: Duration = Duration::from_secs(4);
 
@@ -92,53 +92,6 @@ pub enum Message {
     CopyAll,
     Copy,
     Cut,
-}
-
-async fn execute_shell_command(
-    command: String,
-    timeout_secs: u64,
-    max_output_bytes: usize,
-) -> Result<String, String> {
-    let output = time::timeout(Duration::from_secs(timeout_secs), async move {
-        let mut process = if cfg!(target_os = "windows") {
-            let mut process = Command::new("cmd");
-            process.arg("/C").arg(command);
-            process
-        } else {
-            let mut process = Command::new("sh");
-            process.arg("-c").arg(command);
-            process
-        };
-
-        process.kill_on_drop(true).output().await
-    })
-    .await
-    .map_err(|_| format!("exec timed out after {timeout_secs} seconds"))?
-    .map_err(|error| format!("exec failed: {error}"))?;
-
-    if output.stdout.len() > max_output_bytes {
-        return Err(format!("exec output exceeds {max_output_bytes} bytes"));
-    }
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        let stderr = stderr.trim();
-
-        return Err(if stderr.is_empty() {
-            format!("exec exited with {}", output.status)
-        } else {
-            format!("exec failed: {stderr}")
-        });
-    }
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let output = stdout
-        .lines()
-        .map(|line| line.trim_end_matches('\r'))
-        .find(|line| !line.trim().is_empty())
-        .ok_or_else(|| String::from("exec produced no output"))?;
-
-    Ok(output.to_string())
 }
 
 #[derive(Debug, Clone, Copy)]
