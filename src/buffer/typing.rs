@@ -1,5 +1,9 @@
 use data::Config;
+use data::history::filter::FilterChain;
 use data::isupport::CaseMap;
+use data::target;
+use data::user::Nick;
+use data::{Server, User};
 use iced::padding;
 use iced::widget::{column, container};
 
@@ -53,6 +57,24 @@ pub fn view<'a, Message: 'a>(
     };
 
     typing
+}
+
+pub fn visible_nicks(
+    nicks: &[String],
+    channel: Option<&target::Channel>,
+    server: &Server,
+    filters: FilterChain<'_>,
+    casemapping: CaseMap,
+) -> Vec<String> {
+    nicks
+        .iter()
+        .filter(|nick| {
+            let user = User::from(Nick::from_str(nick, casemapping));
+
+            !filters.filter_user(&user, channel, server)
+        })
+        .cloned()
+        .collect()
 }
 
 pub fn typing_text(
