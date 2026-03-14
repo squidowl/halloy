@@ -34,12 +34,23 @@ use crate::{Config, User, command, ctcp, isupport, message, target};
 // - https://datatracker.ietf.org/doc/html/rfc1738#section-5
 // - https://www.ietf.org/rfc/rfc2396.txt
 
-const URL_PATH_UNRESERVED: &str = r#"\p{Letter}\p{Number}\-_.!~*'()"#;
+const URL_PATH_UNRESERVED_NO_CLOSE_PAREN: &str =
+    r#"\p{Letter}\p{Number}\-_.!~*'("#;
+
+const URL_PATH_UNRESERVED: &str =
+    concatcp!(URL_PATH_UNRESERVED_NO_CLOSE_PAREN, r#")"#);
 
 const URL_PATH_RESERVED: &str = r#";?:@&=+$,"#;
 
 const URL_PATH: &str =
     concatcp!(r#"["#, URL_PATH_UNRESERVED, URL_PATH_RESERVED, r#"%\/#]"#);
+
+const URL_PATH_NO_CLOSE_PAREN: &str = concatcp!(
+    r#"["#,
+    URL_PATH_UNRESERVED_NO_CLOSE_PAREN,
+    URL_PATH_RESERVED,
+    r#"%\/#]"#
+);
 
 const URL_PATH_UNRESERVED_EXC_PUNC: &str = r#"\p{Letter}\p{Number}\-_~*'("#;
 
@@ -54,8 +65,13 @@ const URL_PATH_EXC_PUNC: &str = concatcp!(
 
 static URL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
     RegexBuilder::new(concatcp!(
-        r#"(?i)(((https?|ircs?):\/\/|www\.)[\p{Letter}\p{Number}\-@:%._+~#=]{1,256}\.[\p{Letter}\p{Number}()]{1,63}\b"#,
-        r#"("#,
+        r#"(?i)(((https?|ircs?):\/\/|www\.)[\p{Letter}\p{Number}\-@:%._+~#=]{1,256}\.[\p{Letter}\p{Number}]{1,63}\b"#,
+        r#"(?:"#,
+        URL_PATH,
+        r#"*\("#,
+        URL_PATH_NO_CLOSE_PAREN,
+        r#"*\)"#,
+        r#"|"#,
         URL_PATH,
         r#"*"#,
         URL_PATH_EXC_PUNC,
@@ -3260,6 +3276,29 @@ pub mod tests {
                 vec![
                     Fragment::Url("http://öbb.at".parse().unwrap()),
                 ],
+            ),
+            (
+                "(Example brackets https://example.com)",
+                vec![
+                    Fragment::Text("(Example brackets ".into()),
+                    Fragment::Url("https://example.com".parse().unwrap()),
+                    Fragment::Text(")".into()),
+                ]
+            ),
+            (
+                "This is a valid url https://www.example.com/test_(example)",
+                vec![
+                    Fragment::Text("This is a valid url ".into()),
+                    Fragment::Url("https://www.example.com/test_(example)".parse().unwrap()),
+                ]
+            ),
+            (
+                "(This is also a valid url https://www.example.com/another_test_(example))",
+                vec![
+                    Fragment::Text("(This is also a valid url ".into()),
+                    Fragment::Url("https://www.example.com/another_test_(example)".parse().unwrap()),
+                    Fragment::Text(")".into()),
+                ]
             ),
             (
                 "\u{f}\u{3}03VLC\u{f} \u{3}05master\u{f} \u{3}06somenick\u{f} \u{3}14http://some.website.com/\u{f} * describe commit * \u{3}14https://code.videolan.org/videolan/vlc/\u{f}",
