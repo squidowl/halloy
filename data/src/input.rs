@@ -83,6 +83,7 @@ pub fn parse(
                     command,
                     command::Internal::Reconnect
                         | command::Internal::Connect(_)
+                        | command::Internal::Exec(_)
                 ) {
                     return Ok(Parsed::Internal(command));
                 } else {

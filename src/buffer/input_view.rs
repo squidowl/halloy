@@ -23,6 +23,7 @@ use iced::widget::{
 };
 use iced::{Alignment, Length, Task, clipboard, event, keyboard, padding};
 use itertools::Itertools;
+use tokio::process::Command;
 use tokio::time;
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -37,6 +38,8 @@ use crate::{Theme, font, theme, window};
 mod completion;
 
 const TYPING_REFRESH_INTERVAL: Duration = Duration::from_secs(4);
+const EXEC_TIMEOUT: Duration = Duration::from_secs(5);
+const EXEC_MAX_OUTPUT_BYTES: usize = 4096;
 
 pub enum Event {
     InputSent {
@@ -63,6 +66,10 @@ pub enum Event {
 pub enum Message {
     Action(text_editor::Action),
     CloseContextMenu(window::Id, bool),
+    ExecFinished {
+        buffer: Upstream,
+        result: Result<String, String>,
+    },
     SysInfoReceived(iced::system::Information),
     Send,
     DeleteWordForward(bool),
@@ -87,6 +94,47 @@ pub enum Message {
     CopyAll,
     Copy,
     Cut,
+}
+
+async fn execute_shell_command(command: String) -> Result<String, String> {
+    let output = time::timeout(EXEC_TIMEOUT, async move {
+        if cfg!(target_os = "windows") {
+            Command::new("cmd").arg("/C").arg(command).output().await
+        } else {
+            Command::new("sh").arg("-c").arg(command).output().await
+        }
+    })
+    .await
+    .map_err(|_| {
+        format!("exec timed out after {} seconds", EXEC_TIMEOUT.as_secs())
+    })?
+    .map_err(|error| format!("exec failed: {error}"))?;
+
+    if output.stdout.len() > EXEC_MAX_OUTPUT_BYTES {
+        return Err(format!(
+            "exec output exceeds {EXEC_MAX_OUTPUT_BYTES} bytes"
+        ));
+    }
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let stderr = stderr.trim();
+
+        return Err(if stderr.is_empty() {
+            format!("exec exited with {}", output.status)
+        } else {
+            format!("exec failed: {stderr}")
+        });
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let output = stdout
+        .lines()
+        .map(|line| line.trim_end_matches('\r'))
+        .find(|line| !line.trim().is_empty())
+        .ok_or_else(|| String::from("exec produced no output"))?;
+
+    Ok(output.to_string())
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -638,6 +686,50 @@ impl State {
         let current_target = buffer.target();
 
         match message {
+            Message::ExecFinished { buffer, result } => match result {
+                Ok(output) => {
+                    let parsed = input::parse(
+                        buffer.clone(),
+                        AutoFormat::Disabled,
+                        output.as_str(),
+                        None,
+                        clients.nickname(buffer.server()),
+                        buffer.channel().map(|target| {
+                            clients
+                                .get_channels(buffer.server())
+                                .any(|channel| target == channel)
+                        }),
+                        clients.get_server_is_connected(buffer.server()),
+                        &clients.get_isupport(buffer.server()),
+                        clients.get_multiline_limits(buffer.server()).as_ref(),
+                        clients.get_relay_bytes(buffer.server()),
+                        config,
+                    );
+
+                    match parsed {
+                        Ok(input::Parsed::Internal(
+                            command::Internal::Exec(_),
+                        )) => {
+                            self.error = Some(String::from(
+                                "exec output cannot invoke /exec",
+                            ));
+
+                            (Task::none(), None)
+                        }
+                        Ok(parsed) => self.send_input_line(
+                            parsed, &buffer, clients, history, config,
+                        ),
+                        Err(error) => {
+                            self.error = Some(error.to_string());
+                            (Task::none(), None)
+                        }
+                    }
+                }
+                Err(error) => {
+                    self.error = Some(error);
+                    (Task::none(), None)
+                }
+            },
             Message::SysInfoReceived(info) => {
                 let sysinfo_config = &config.buffer.commands.sysinfo;
 
@@ -1813,6 +1905,20 @@ impl State {
                         return (
                             Task::none(),
                             Some(Event::Reconnect(buffer.server().clone())),
+                        );
+                    }
+                    command::Internal::Exec(command) => {
+                        let buffer = buffer.clone();
+
+                        return (
+                            Task::perform(
+                                execute_shell_command(command),
+                                move |result| Message::ExecFinished {
+                                    buffer,
+                                    result,
+                                },
+                            ),
+                            None,
                         );
                     }
                 }

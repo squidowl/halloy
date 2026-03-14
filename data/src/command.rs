@@ -39,6 +39,7 @@ pub enum Internal {
     Detach(Vec<target::Channel>),
     Connect(String),
     Reconnect,
+    Exec(String),
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
@@ -221,6 +222,7 @@ pub enum Kind {
     Detach,
     Connect,
     Reconnect,
+    Exec,
     Raw,
 }
 
@@ -256,6 +258,7 @@ impl FromStr for Kind {
             "detach" => Ok(Kind::Detach),
             "connect" => Ok(Kind::Connect),
             "reconnect" => Ok(Kind::Reconnect),
+            "exec" => Ok(Kind::Exec),
             _ => Err(()),
         }
     }
@@ -1178,6 +1181,19 @@ fn parse_command(
             Kind::Reconnect => validated::<0, 0, false>(args, |_, _| {
                 Ok(Command::Internal(Internal::Reconnect))
             }),
+            Kind::Exec => {
+                let command = raw.trim();
+
+                if command.is_empty() {
+                    Err(Error::IncorrectArgCount {
+                        min: 1,
+                        max: 1,
+                        actual: 0,
+                    })
+                } else {
+                    Ok(Command::Internal(Internal::Exec(command.to_string())))
+                }
+            }
         },
         Err(()) => Ok(unknown()),
     }
@@ -1400,4 +1416,51 @@ fn fmt_channel_name_requirements(chantypes: &[char]) -> String {
     requirements.push_str(" and cannot contain a ',' or '^G'");
 
     requirements
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+
+    use super::{Command, Error, Internal, parse};
+    use crate::Config;
+
+    #[test]
+    fn parse_exec_preserves_raw_command() {
+        let config = Config::default();
+
+        let command = parse(
+            "/exec printf '/me hello world'",
+            None,
+            None,
+            true,
+            &HashMap::new(),
+            &config,
+        )
+        .unwrap();
+
+        assert!(matches!(
+            command,
+            Command::Internal(Internal::Exec(command))
+                if command == "printf '/me hello world'"
+        ));
+    }
+
+    #[test]
+    fn parse_exec_requires_command() {
+        let config = Config::default();
+
+        let error =
+            parse("/exec   ", None, None, true, &HashMap::new(), &config)
+                .unwrap_err();
+
+        assert!(matches!(
+            error,
+            Error::IncorrectArgCount {
+                min: 1,
+                max: 1,
+                actual: 0
+            }
+        ));
+    }
 }

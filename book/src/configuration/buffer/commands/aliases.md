@@ -12,6 +12,7 @@ op = "/mode #halloy +ooo $1 $2 $3"
 halloy = "/me says halloy to $1!"
 topic = "/topic #halloy $1-"
 deopme = "/mode -o $nick"
+np = "/exec mpc current --format '/me is now playing %artist% - %title%'"
 ```
 
 Use `$1` through `$9` to insert positional arguments.

@@ -30,6 +30,7 @@ Aliases are resolved before built-in commands and take precedence when they use 
 | `ctcp`        |              | Client-To-Client requests[^2]                                                      |
 | `delay`       |              | Delay the specified number of seconds[^7]                                          |
 | `detach`      |              | Hide the channel, but leave the bouncer's connection to the channel active[^5][^6] |
+| `exec`        |              | Run a local shell command and send the first line of stdout to the current buffer[^11] |
 | `format`      | `f`          | Format text with markdown and colors                                               |
 | `hop`         | `rejoin`     | Part the current channel and join a new one                                        |
 | `join`        | `j`          | Join channel(s) with optional key(s)[^9][^10]                                      |
@@ -63,3 +64,4 @@ Aliases are resolved before built-in commands and take precedence when they use 
 [^8]: Connections made will not be remembered after quitting Halloy (i.e. when next starting Halloy it will not re-make the connection).  Add the connection information to the [servers](configuration/servers/) section in the configuration file.
 [^9]: Channels joined will not be remembered after quitting Halloy (i.e. when next starting Halloy it will not re-join the channels).  Add the channel information to the [channels setting for the server](configuration/servers/#channels) in the configuration file.
 [^10]: If not joined to the channel in the buffer, then the `chanlist` argument can be skipped to target the channel in the buffer.
+[^11]: The command is executed locally with `sh -c` on Unix-like systems and `cmd /C` on Windows. Only the first non-empty line of stdout is used. If that line starts with `/`, it is treated as a command; otherwise it is sent as a normal message.
