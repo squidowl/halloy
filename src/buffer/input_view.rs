@@ -38,8 +38,6 @@ use crate::{Theme, font, theme, window};
 mod completion;
 
 const TYPING_REFRESH_INTERVAL: Duration = Duration::from_secs(4);
-const EXEC_TIMEOUT: Duration = Duration::from_secs(5);
-const EXEC_MAX_OUTPUT_BYTES: usize = 4096;
 
 pub enum Event {
     InputSent {
@@ -96,8 +94,12 @@ pub enum Message {
     Cut,
 }
 
-async fn execute_shell_command(command: String) -> Result<String, String> {
-    let output = time::timeout(EXEC_TIMEOUT, async move {
+async fn execute_shell_command(
+    command: String,
+    timeout_secs: u64,
+    max_output_bytes: usize,
+) -> Result<String, String> {
+    let output = time::timeout(Duration::from_secs(timeout_secs), async move {
         if cfg!(target_os = "windows") {
             Command::new("cmd").arg("/C").arg(command).output().await
         } else {
@@ -105,15 +107,11 @@ async fn execute_shell_command(command: String) -> Result<String, String> {
         }
     })
     .await
-    .map_err(|_| {
-        format!("exec timed out after {} seconds", EXEC_TIMEOUT.as_secs())
-    })?
+    .map_err(|_| format!("exec timed out after {timeout_secs} seconds"))?
     .map_err(|error| format!("exec failed: {error}"))?;
 
-    if output.stdout.len() > EXEC_MAX_OUTPUT_BYTES {
-        return Err(format!(
-            "exec output exceeds {EXEC_MAX_OUTPUT_BYTES} bytes"
-        ));
+    if output.stdout.len() > max_output_bytes {
+        return Err(format!("exec output exceeds {max_output_bytes} bytes"));
     }
 
     if !output.status.success() {
@@ -1909,10 +1907,15 @@ impl State {
                     }
                     command::Internal::Exec(command) => {
                         let buffer = buffer.clone();
+                        let exec = config.buffer.commands.exec.clone();
 
                         return (
                             Task::perform(
-                                execute_shell_command(command),
+                                execute_shell_command(
+                                    command,
+                                    exec.timeout,
+                                    exec.max_output_bytes,
+                                ),
                                 move |result| Message::ExecFinished {
                                     buffer,
                                     result,

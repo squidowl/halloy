@@ -5,6 +5,7 @@ Commands settings.
 - [Commands](#commands)
   - [Configuration](#configuration)
     - [show\_description](#show_description)
+  - [Exec](#exec)
   - [Sysinfo](#sysinfo)
   - [Quit](#quit)
   - [Part](#part)
@@ -24,6 +25,10 @@ Show or hide the description for a command
 [buffer.commands]
 show_description = true
 ```
+
+## [Exec](exec.md)
+
+Configure `/exec`
 
 ## [Sysinfo](sysinfo.md)
 

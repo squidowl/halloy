@@ -159,6 +159,22 @@ pub struct Part {
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
+pub struct Exec {
+    pub timeout: u64,
+    pub max_output_bytes: usize,
+}
+
+impl Default for Exec {
+    fn default() -> Self {
+        Self {
+            timeout: 5,
+            max_output_bytes: 4096,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(default)]
 pub struct SysInfo {
     pub cpu: bool,
     pub memory: bool,
@@ -183,6 +199,7 @@ impl Default for SysInfo {
 #[serde(default)]
 pub struct Commands {
     pub show_description: bool,
+    pub exec: Exec,
     pub sysinfo: SysInfo,
     pub quit: Quit,
     pub part: Part,
@@ -194,6 +211,7 @@ impl Default for Commands {
     fn default() -> Self {
         Self {
             show_description: true,
+            exec: Exec::default(),
             sysinfo: SysInfo::default(),
             quit: Quit::default(),
             part: Part::default(),
