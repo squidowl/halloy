@@ -338,11 +338,11 @@ impl Filter {
 }
 
 pub struct FilterChain<'f> {
-    filters: &'f Vec<Filter>,
+    filters: &'f [Filter],
 }
 
 impl<'f> FilterChain<'f> {
-    pub fn borrow(filters: &'f Vec<Filter>) -> Self {
+    pub fn borrow(filters: &'f [Filter]) -> Self {
         Self { filters }
     }
 

@@ -219,6 +219,10 @@ impl Manager {
         &mut self.filters
     }
 
+    pub fn filters(&self) -> &[Filter] {
+        &self.filters
+    }
+
     pub fn tick(
         &mut self,
         now: Instant,

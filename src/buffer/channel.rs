@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 use chrono::{DateTime, Utc};
 use data::dashboard::BufferAction;
+use data::history::filter::FilterChain;
 use data::preview::{self, Previews};
 use data::server::Server;
 use data::target::{self, Target};
@@ -163,7 +164,13 @@ pub fn view<'a>(
             show_typing,
             server_supports_typing,
             our_nick.as_ref().map(data::user::NickRef::as_str),
-            &clients.get_channel_typing_users(server, channel),
+            &typing::visible_nicks(
+                &clients.get_channel_typing_users(server, channel),
+                Some(channel),
+                server,
+                FilterChain::borrow(history.filters()),
+                casemapping,
+            ),
             casemapping,
         ),
         typing::typing_font_size(config),
