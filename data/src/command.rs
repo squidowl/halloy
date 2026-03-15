@@ -13,6 +13,10 @@ use crate::message::{self, formatting};
 use crate::user::{ChannelUsers, NickRef};
 use crate::{Config, Message, Target, Url, User, ctcp, target};
 
+pub mod alias;
+
+pub use self::alias::Alias;
+
 #[derive(Debug, Clone)]
 pub enum Command {
     Internal(Internal),
@@ -265,23 +269,56 @@ pub fn parse(
     isupport: &HashMap<isupport::Kind, isupport::Parameter>,
     config: &Config,
 ) -> Result<Command, Error> {
-    let (head, rest) = s.split_once('/').ok_or(Error::MissingSlash)?;
+    let parsed = parse_input(s)?;
+    let alias_context = alias::Context::new(buffer, our_nickname);
+    let expanded = alias::expand(parsed.0, parsed.2, &alias_context, config)?;
+
+    let (command_name, args, raw_args) = match expanded.as_deref() {
+        Some(input) => parse_input(input)?,
+        None => parsed,
+    };
+
+    parse_command(
+        command_name,
+        args,
+        raw_args,
+        buffer,
+        our_nickname,
+        is_connected,
+        isupport,
+        config,
+    )
+}
+
+fn parse_input(input: &str) -> Result<(&str, Vec<&str>, &str), Error> {
+    let (head, rest) = input.split_once('/').ok_or(Error::MissingSlash)?;
     // Don't allow leading whitespace before slash
     if !head.is_empty() {
         return Err(Error::MissingSlash);
     }
 
     let mut split = rest.split(' ');
-
-    let cmd = split.next().ok_or(Error::MissingCommand)?;
-
+    let command = split.next().ok_or(Error::MissingCommand)?;
     let args = split.collect::<Vec<_>>();
-    let raw = if rest.len() == cmd.len() {
+    let raw_args = if rest.len() == command.len() {
         ""
     } else {
-        &rest[cmd.len() + 1..]
+        &rest[command.len() + 1..]
     };
 
+    Ok((command, args, raw_args))
+}
+
+fn parse_command(
+    cmd: &str,
+    args: Vec<&str>,
+    raw: &str,
+    buffer: Option<&buffer::Upstream>,
+    our_nickname: Option<NickRef>,
+    is_connected: bool,
+    isupport: &HashMap<isupport::Kind, isupport::Parameter>,
+    config: &Config,
+) -> Result<Command, Error> {
     let unknown = || {
         Command::Irc(Irc::Unknown(
             cmd.to_string(),
