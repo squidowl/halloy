@@ -3286,6 +3286,14 @@ pub mod tests {
                 ]
             ),
             (
+                "see website (https://website-url.com)",
+                vec![
+                    Fragment::Text("see website (".into()),
+                    Fragment::Url("https://website-url.com".parse().unwrap()),
+                    Fragment::Text(")".into()),
+                ]
+            ),
+            (
                 "This is a valid url https://www.example.com/test_(example)",
                 vec![
                     Fragment::Text("This is a valid url ".into()),
@@ -3315,11 +3323,9 @@ pub mod tests {
                 ],
             ),
             (
-                "\u{f}\u{11}formatting that wraps a https://www.website.com/ like so\u{f}",
+                "\u{f}\u{11}code span that wraps a https://www.website.com/ like so\u{f}",
                 vec![
-                    Fragment::Formatted{ text: "formatting that wraps a ".into(), formatting: Formatting { monospace: true, ..Formatting::default() }},
-                    Fragment::Url("https://www.website.com/".parse().unwrap()),
-                    Fragment::Formatted{ text: " like so".into(), formatting: Formatting { monospace: true, ..Formatting::default() }},
+                    Fragment::Formatted{ text: "code span that wraps a https://www.website.com/ like so".into(), formatting: Formatting { monospace: true, ..Formatting::default() }},
                 ],
             ),
             (
@@ -3355,9 +3361,12 @@ pub mod tests {
         ];
 
         for (text, expected) in tests {
-            let actual = parse_fragments(text.to_string());
+            let Content::Fragments(actual) = parse_fragments(text.to_string())
+            else {
+                panic!("expected fragments from {text}")
+            };
 
-            assert_eq!(Content::Fragments(expected), actual);
+            assert_eq!(expected, actual);
         }
     }
 
@@ -3393,13 +3402,13 @@ pub mod tests {
         )];
         for ((text, channel_users), expected) in tests {
             if let Content::Fragments(actual) = parse_fragments_with_users(
-                text,
+                text.clone(),
                 Some(&channel_users),
                 casemapping,
             ) {
                 assert_eq!(expected, actual);
             } else {
-                panic!("expected fragments with users");
+                panic!("expected fragments with users from {text}");
             }
         }
     }
@@ -3503,7 +3512,7 @@ pub mod tests {
         {
             if let (Content::Fragments(actual), _) =
                 parse_fragments_with_highlights(
-                    text,
+                    text.clone(),
                     Some(&user),
                     Some(&channel_users),
                     &target,
@@ -3517,7 +3526,7 @@ pub mod tests {
                     assert_eq!(expected, actual);
                 }
             } else {
-                panic!("expected fragments with highlighting");
+                panic!("expected fragments with highlighting from {text}");
             }
         }
     }
