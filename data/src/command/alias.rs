@@ -106,7 +106,7 @@ pub fn required_args(alias: &str) -> usize {
 }
 
 pub fn placeholder_args(min_args: usize) -> Vec<String> {
-    (1..=min_args).map(|index| format!("arg{index}")).collect()
+    (1..=min_args).map(|index| format!("${index}")).collect()
 }
 
 fn expand_alias(alias: &str, raw_args: &str, context: &Context<'_>) -> String {
@@ -281,7 +281,7 @@ mod tests {
 
     #[test]
     fn placeholder_args_generates_names() {
-        assert_eq!(placeholder_args(3), vec!["arg1", "arg2", "arg3"]);
+        assert_eq!(placeholder_args(3), vec!["$1", "$2", "$3"]);
     }
 
     #[test]
