@@ -2,6 +2,7 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::str::FromStr;
 
+use chrono::{DateTime, Local, NaiveDate, NaiveDateTime, Utc};
 use fancy_regex::Regex;
 use irc::proto::{self, tags};
 use itertools::Itertools;
@@ -76,6 +77,7 @@ pub enum Irc {
     Raw(String),
     Unknown(String, Vec<String>),
     Ctcp(ctcp::Command, String, Option<String>),
+    Chathistory(String, Vec<String>),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
@@ -211,6 +213,7 @@ pub enum Kind {
     Away,
     SetName,
     Ctcp,
+    Chathistory,
     Hop,
     Notice,
     Delay,
@@ -247,6 +250,7 @@ impl FromStr for Kind {
             "notice" => Ok(Kind::Notice),
             "raw" => Ok(Kind::Raw),
             "ctcp" => Ok(Kind::Ctcp),
+            "chathistory" => Ok(Kind::Chathistory),
             "hop" | "rejoin" => Ok(Kind::Hop),
             "delay" => Ok(Kind::Delay),
             "clear" => Ok(Kind::Clear),
@@ -1026,6 +1030,254 @@ fn parse_command(
                     },
                 )
             }
+            Kind::Chathistory => {
+                validated::<1, 4, false>(args, |[subcommand], params| {
+                    let maximum_limit = if let Some(
+                        isupport::Parameter::CHATHISTORY(maximum_limit),
+                    ) =
+                        isupport.get(&isupport::Kind::CHATHISTORY)
+                    {
+                        Some(maximum_limit)
+                    } else {
+                        None
+                    };
+
+                    let subcommand = subcommand.to_uppercase();
+
+                    match subcommand.as_str() {
+                        "BEFORE" | "AFTER" | "AROUND" => {
+                            if let [
+                                Some(target),
+                                Some(message_reference),
+                                Some(limit),
+                                None,
+                            ] = params
+                            {
+                                let Some(message_reference) =
+                                    validated_message_reference(
+                                        &message_reference,
+                                        false,
+                                    )
+                                else {
+                                    return Err(Error::InvalidChathistoryMessageReference);
+                                };
+
+                                if let Ok(limit) = limit.parse::<u16>()
+                                    && limit > 0
+                                {
+                                    if let Some(maximum_limit) = maximum_limit
+                                        && limit > *maximum_limit
+                                    {
+                                        return Err(
+                                            Error::ChathistoryLimitTooLarge {
+                                                maximum_limit: *maximum_limit,
+                                            },
+                                        );
+                                    }
+                                } else {
+                                    return Err(Error::NotPositiveInteger);
+                                }
+
+                                Ok(Command::Irc(Irc::Chathistory(
+                                    subcommand,
+                                    vec![
+                                        target,
+                                        message_reference.to_string(),
+                                        limit,
+                                    ],
+                                )))
+                            } else {
+                                Err(Error::IncorrectArgCount {
+                                    min: 4,
+                                    max: 4,
+                                    actual: params
+                                        .into_iter()
+                                        .filter(Option::is_some)
+                                        .count(),
+                                })
+                            }
+                        }
+                        "LATEST" => {
+                            if let [
+                                Some(target),
+                                Some(message_reference),
+                                Some(limit),
+                                None,
+                            ] = params
+                            {
+                                let Some(message_reference) =
+                                    validated_message_reference(
+                                        &message_reference,
+                                        true,
+                                    )
+                                else {
+                                    return Err(Error::InvalidChathistoryMessageReference);
+                                };
+
+                                if let Ok(limit) = limit.parse::<u16>()
+                                    && limit > 0
+                                {
+                                    if let Some(maximum_limit) = maximum_limit
+                                        && limit > *maximum_limit
+                                    {
+                                        return Err(
+                                            Error::ChathistoryLimitTooLarge {
+                                                maximum_limit: *maximum_limit,
+                                            },
+                                        );
+                                    }
+                                } else {
+                                    return Err(Error::NotPositiveInteger);
+                                }
+
+                                Ok(Command::Irc(Irc::Chathistory(
+                                    subcommand,
+                                    vec![
+                                        target,
+                                        message_reference.to_string(),
+                                        limit,
+                                    ],
+                                )))
+                            } else {
+                                Err(Error::IncorrectArgCount {
+                                    min: 4,
+                                    max: 4,
+                                    actual: params
+                                        .into_iter()
+                                        .filter(Option::is_some)
+                                        .count(),
+                                })
+                            }
+                        }
+                        "BETWEEN" => {
+                            if let [
+                                Some(target),
+                                Some(first_message_reference),
+                                Some(second_message_reference),
+                                Some(limit),
+                            ] = params
+                            {
+                                let Some(first_message_reference) =
+                                    validated_message_reference(
+                                        &first_message_reference,
+                                        false,
+                                    )
+                                else {
+                                    return Err(Error::InvalidChathistoryMessageReference);
+                                };
+
+                                let Some(second_message_reference) =
+                                    validated_message_reference(
+                                        &second_message_reference,
+                                        false,
+                                    )
+                                else {
+                                    return Err(Error::InvalidChathistoryMessageReference);
+                                };
+
+                                if let Ok(limit) = limit.parse::<u16>()
+                                    && limit > 0
+                                {
+                                    if let Some(maximum_limit) = maximum_limit
+                                        && limit > *maximum_limit
+                                    {
+                                        return Err(
+                                            Error::ChathistoryLimitTooLarge {
+                                                maximum_limit: *maximum_limit,
+                                            },
+                                        );
+                                    }
+                                } else {
+                                    return Err(Error::NotPositiveInteger);
+                                }
+
+                                Ok(Command::Irc(Irc::Chathistory(
+                                    subcommand,
+                                    vec![
+                                        target,
+                                        first_message_reference.to_string(),
+                                        second_message_reference.to_string(),
+                                        limit,
+                                    ],
+                                )))
+                            } else {
+                                Err(Error::IncorrectArgCount {
+                                    min: 5,
+                                    max: 5,
+                                    actual: params
+                                        .into_iter()
+                                        .filter(Option::is_some)
+                                        .count(),
+                                })
+                            }
+                        }
+                        "TARGETS" => {
+                            if let [
+                                Some(first_timestamp),
+                                Some(second_timestamp),
+                                Some(limit),
+                                None,
+                            ] = params
+                            {
+                                let Some(first_timestamp) =
+                                    validated_timestamp(&first_timestamp).map(
+                                        isupport::MessageReference::Timestamp,
+                                    )
+                                else {
+                                    return Err(
+                                        Error::InvalidChathistoryTimestamp,
+                                    );
+                                };
+
+                                let Some(second_timestamp) =
+                                    validated_timestamp(&second_timestamp).map(
+                                        isupport::MessageReference::Timestamp,
+                                    )
+                                else {
+                                    return Err(
+                                        Error::InvalidChathistoryTimestamp,
+                                    );
+                                };
+
+                                if let Ok(limit) = limit.parse::<u16>()
+                                    && limit > 0
+                                {
+                                    if let Some(maximum_limit) = maximum_limit
+                                        && limit > *maximum_limit
+                                    {
+                                        return Err(
+                                            Error::ChathistoryLimitTooLarge {
+                                                maximum_limit: *maximum_limit,
+                                            },
+                                        );
+                                    }
+                                } else {
+                                    return Err(Error::NotPositiveInteger);
+                                }
+
+                                Ok(Command::Irc(Irc::Chathistory(
+                                    subcommand,
+                                    vec![
+                                        first_timestamp.to_string(),
+                                        second_timestamp.to_string(),
+                                        limit,
+                                    ],
+                                )))
+                            } else {
+                                Err(Error::IncorrectArgCount {
+                                    min: 4,
+                                    max: 4,
+                                    actual: params
+                                        .into_iter()
+                                        .filter(Option::is_some)
+                                        .count(),
+                                })
+                            }
+                        }
+                        _ => Err(Error::InvalidChathistorySubcommand),
+                    }
+                })
+            }
             Kind::Hop => {
                 validated::<0, 2, true>(args, |_, [channel, message]| {
                     Ok(Command::Internal(Internal::Hop(channel, message)))
@@ -1145,12 +1397,10 @@ fn parse_command(
                 })
             }
             Kind::Delay => validated::<1, 0, false>(args, |[seconds], _| {
-                if let Ok(seconds) = seconds.parse::<u64>() {
-                    if seconds > 0 {
-                        Ok(Command::Internal(Internal::Delay(seconds)))
-                    } else {
-                        Err(Error::NotPositiveInteger)
-                    }
+                if let Ok(seconds) = seconds.parse::<u64>()
+                    && seconds > 0
+                {
+                    Ok(Command::Internal(Internal::Delay(seconds)))
                 } else {
                     Err(Error::NotPositiveInteger)
                 }
@@ -1249,6 +1499,84 @@ fn get_combined_arg(
     (!combined_arg.is_empty()).then_some(combined_arg)
 }
 
+fn validated_timestamp(timestamp: &str) -> Option<DateTime<Utc>> {
+    // Allow no timestamp= prefix if we can parse the remainder as a timestamp.
+    let timestamp = timestamp.strip_prefix("timestamp=").unwrap_or(timestamp);
+
+    // Parse full timestamp format
+    if let Ok(date_time) = DateTime::parse_from_rfc3339(timestamp)
+        .map(|date_time| date_time.to_utc())
+    {
+        return Some(date_time);
+    }
+
+    // Allow omitted offset, by assuming it's the local timezone.  Also, per
+    // Chrono crate's documentation, "missing seconds are assumed to be zero".
+    if let Some(date_time) =
+        NaiveDateTime::parse_from_str(timestamp, "%Y-%m-%dT%H:%M:%S%.f")
+            .ok()
+            .and_then(|naive_date_time| {
+                naive_date_time.and_local_timezone(Local).single()
+            })
+            .map(|date_time| date_time.to_utc())
+    {
+        return Some(date_time);
+    }
+
+    // Allow omitted seconds, which will be assumed to be zero
+    if let Some(date_time) = NaiveDateTime::parse_from_str(
+        &format!("{timestamp}:00"),
+        "%Y-%m-%dT%H:%M:%S",
+    )
+    .ok()
+    .and_then(|naive_date_time| {
+        naive_date_time.and_local_timezone(Local).single()
+    })
+    .map(|date_time| date_time.to_utc())
+    {
+        return Some(date_time);
+    }
+
+    // Allow omitted minutes, which will be assumed to be zero
+    if let Some(date_time) = NaiveDateTime::parse_from_str(
+        &format!("{timestamp}:00"),
+        "%Y-%m-%dT%H:%M",
+    )
+    .ok()
+    .and_then(|naive_date_time| {
+        naive_date_time.and_local_timezone(Local).single()
+    })
+    .map(|date_time| date_time.to_utc())
+    {
+        return Some(date_time);
+    }
+
+    // Allow omitted hours, which will be assumed to be zero (midnight)
+    NaiveDate::parse_from_str(timestamp, "%Y-%m-%d")
+        .ok()
+        .and_then(|naive_date| naive_date.and_hms_opt(0, 0, 0))
+        .and_then(|naive_date_time| {
+            naive_date_time.and_local_timezone(Local).single()
+        })
+        .map(|date_time| date_time.to_utc())
+}
+
+fn validated_message_reference(
+    message_reference: &str,
+    allow_none: bool,
+) -> Option<isupport::MessageReference> {
+    if let Some(date_time) = validated_timestamp(message_reference) {
+        return Some(isupport::MessageReference::Timestamp(date_time));
+    }
+
+    if let Some(message_id) = message_reference.strip_prefix("msgid=") {
+        return Some(isupport::MessageReference::MessageId(message_id.into()));
+    }
+
+    (allow_none && message_reference == "*")
+        .then_some(isupport::MessageReference::None)
+}
+
 impl TryFrom<Irc> for proto::Command {
     type Error = ();
 
@@ -1286,6 +1614,9 @@ impl TryFrom<Irc> for proto::Command {
             Irc::Unknown(command, args) => proto::Command::new(&command, args),
             Irc::Ctcp(command, target, params) => {
                 ctcp::query_command(&command, target, params)
+            }
+            Irc::Chathistory(subcommand, params) => {
+                proto::Command::CHATHISTORY(subcommand, params)
             }
             Irc::List(channels, elistcond) => {
                 proto::Command::LIST(channels, elistcond)
@@ -1364,6 +1695,14 @@ pub enum Error {
     Connected,
     #[error("not in channel")]
     NotInChannel,
+    #[error("invalid chathistory subcommand")]
+    InvalidChathistorySubcommand,
+    #[error("invalid timestamp or message id")]
+    InvalidChathistoryMessageReference,
+    #[error("invalid timestamp")]
+    InvalidChathistoryTimestamp,
+    #[error("too large (maximum limit: {maximum_limit})")]
+    ChathistoryLimitTooLarge { maximum_limit: u16 },
 }
 
 fn fmt_incorrect_arg_count(min: usize, max: usize, actual: usize) -> String {
