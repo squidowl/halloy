@@ -11,9 +11,16 @@ Define custom slash command aliases.
 op = "/mode #halloy +ooo $1 $2 $3"
 halloy = "/me says halloy to $1!"
 topic = "/topic #halloy $1-"
+deopme = "/mode -o $nick"
 ```
 
-Use `$1` through `$9` to insert corresponding arguments.
+Use `$1` through `$9` to insert positional arguments.
+
+You can also use context-aware placeholders:
+
+- `$nick` inserts your current nickname.
+- `$channel` inserts the active channel name.
+- `$server` inserts the active server name.
 
 ## Notes
 

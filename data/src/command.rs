@@ -270,7 +270,8 @@ pub fn parse(
     config: &Config,
 ) -> Result<Command, Error> {
     let parsed = parse_input(s)?;
-    let expanded = alias::expand(parsed.0, parsed.2, config)?;
+    let alias_context = alias::Context::new(buffer, our_nickname);
+    let expanded = alias::expand(parsed.0, parsed.2, &alias_context, config)?;
 
     let (command_name, args, raw_args) = match expanded.as_deref() {
         Some(input) => parse_input(input)?,
