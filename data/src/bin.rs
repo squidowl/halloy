@@ -61,7 +61,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!(
         "{}",
         serde_json::to_string_pretty(&messages).unwrap_or_else(|_| {
-            panic!("unable to serialize messages {:?}", messages)
+            panic!("unable to serialize messages {messages:?}")
         })
     );
 

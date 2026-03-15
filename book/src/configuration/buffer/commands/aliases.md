@@ -12,6 +12,7 @@ op = "/mode #halloy +ooo $1 $2 $3"
 halloy = "/me says halloy to $1!"
 topic = "/topic #halloy $1-"
 deopme = "/mode -o $nick"
+np = "/exec mpc current --format '/me is now playing %artist% - %title%'"
 ```
 
 Use `$1` through `$9` to insert positional arguments.
@@ -21,6 +22,8 @@ You can also use context-aware placeholders:
 - `$nick` inserts your current nickname.
 - `$channel` inserts the active channel name.
 - `$server` inserts the active server name.
+
+The `/exec` example requires enabling [`buffer.commands.exec`](README.md#exec) first.
 
 ## Notes
 
