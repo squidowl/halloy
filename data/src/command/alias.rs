@@ -1,11 +1,42 @@
+use std::borrow::Cow;
+
 use super::Error;
 use crate::Config;
+use crate::buffer::Upstream;
+use crate::user::NickRef;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Alias {
     pub name: String,
     pub body: String,
     pub min_args: usize,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Context<'a> {
+    nick: Option<Cow<'a, str>>,
+    channel: Option<Cow<'a, str>>,
+    server: Option<Cow<'a, str>>,
+}
+
+impl<'a> Context<'a> {
+    pub fn new(
+        buffer: Option<&'a Upstream>,
+        nick: Option<NickRef<'a>>,
+    ) -> Self {
+        let nick = nick.map(|nick| Cow::Owned(nick.as_str().to_string()));
+        let channel = buffer
+            .and_then(Upstream::channel)
+            .map(|channel| Cow::Borrowed(channel.as_str()));
+        let server =
+            buffer.map(|buffer| Cow::Owned(buffer.server().to_string()));
+
+        Self {
+            nick,
+            channel,
+            server,
+        }
+    }
 }
 
 pub fn list(config: &Config) -> Vec<Alias> {
@@ -29,6 +60,7 @@ pub fn list(config: &Config) -> Vec<Alias> {
 pub(super) fn expand(
     command: &str,
     raw_args: &str,
+    context: &Context<'_>,
     config: &Config,
 ) -> Result<Option<String>, Error> {
     let Some(alias) = config
@@ -51,7 +83,7 @@ pub(super) fn expand(
         });
     }
 
-    Ok(Some(expand_alias(alias, raw_args)))
+    Ok(Some(expand_alias(alias, raw_args, context)))
 }
 
 pub fn required_args(alias: &str) -> usize {
@@ -61,9 +93,12 @@ pub fn required_args(alias: &str) -> usize {
     while let Some(index) = rest.find('$') {
         rest = &rest[index + 1..];
 
-        if let Some((arg_index, consumes_dash)) = parse_placeholder(rest) {
-            min_args = min_args.max(arg_index + 1);
-            rest = &rest[1 + usize::from(consumes_dash)..];
+        if let Some(placeholder) = parse_placeholder(rest) {
+            if let Placeholder::Argument { index, .. } = placeholder {
+                min_args = min_args.max(index + 1);
+            }
+
+            rest = &rest[placeholder.consumed_len()..];
         }
     }
 
@@ -74,9 +109,9 @@ pub fn placeholder_args(min_args: usize) -> Vec<String> {
     (1..=min_args).map(|index| format!("arg{index}")).collect()
 }
 
-fn expand_alias(alias: &str, raw_args: &str) -> String {
+fn expand_alias(alias: &str, raw_args: &str, context: &Context<'_>) -> String {
     let args = raw_args.split_ascii_whitespace().collect::<Vec<_>>();
-    let expanded = substitute_args(alias, &args);
+    let expanded = substitute_args(alias, &args, context);
     let trimmed = expanded.trim_start();
 
     if trimmed.starts_with('/') {
@@ -86,7 +121,11 @@ fn expand_alias(alias: &str, raw_args: &str) -> String {
     }
 }
 
-fn substitute_args(template: &str, args: &[&str]) -> String {
+fn substitute_args(
+    template: &str,
+    args: &[&str],
+    context: &Context<'_>,
+) -> String {
     let mut expanded = String::with_capacity(template.len());
     let mut rest = template;
 
@@ -94,44 +133,98 @@ fn substitute_args(template: &str, args: &[&str]) -> String {
         expanded.push_str(&rest[..index]);
         rest = &rest[index + 1..];
 
-        let Some((arg_index, take_rest)) = parse_placeholder(rest) else {
+        let Some(placeholder) = parse_placeholder(rest) else {
             expanded.push('$');
             continue;
         };
 
-        push_argument(&mut expanded, args, arg_index, take_rest);
-        rest = &rest[1 + usize::from(take_rest)..];
+        push_placeholder(&mut expanded, args, context, &placeholder);
+        rest = &rest[placeholder.consumed_len()..];
     }
 
     expanded.push_str(rest);
     expanded
 }
 
-fn parse_placeholder(input: &str) -> Option<(usize, bool)> {
-    let digit = *input.as_bytes().first()?;
-
-    if !(b'1'..=b'9').contains(&digit) {
-        return None;
-    }
-
-    let arg_index = (digit - b'1') as usize;
-    let take_rest = input.as_bytes().get(1) == Some(&b'-');
-
-    Some((arg_index, take_rest))
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum Placeholder {
+    Argument { index: usize, take_rest: bool },
+    Variable(Variable),
 }
 
-fn push_argument(
+impl Placeholder {
+    fn consumed_len(&self) -> usize {
+        match self {
+            Self::Argument { take_rest, .. } => 1 + usize::from(*take_rest),
+            Self::Variable(variable) => variable.as_str().len(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Variable {
+    Nick,
+    Channel,
+    Server,
+}
+
+impl Variable {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Nick => "nick",
+            Self::Channel => "channel",
+            Self::Server => "server",
+        }
+    }
+}
+
+fn parse_placeholder(input: &str) -> Option<Placeholder> {
+    let digit = *input.as_bytes().first()?;
+
+    if (b'1'..=b'9').contains(&digit) {
+        let arg_index = (digit - b'1') as usize;
+        let take_rest = input.as_bytes().get(1) == Some(&b'-');
+
+        return Some(Placeholder::Argument {
+            index: arg_index,
+            take_rest,
+        });
+    }
+
+    for variable in [Variable::Nick, Variable::Channel, Variable::Server] {
+        if input.starts_with(variable.as_str()) {
+            return Some(Placeholder::Variable(variable));
+        }
+    }
+
+    None
+}
+
+fn push_placeholder(
     expanded: &mut String,
     args: &[&str],
-    arg_index: usize,
-    take_rest: bool,
+    context: &Context<'_>,
+    placeholder: &Placeholder,
 ) {
-    if take_rest {
-        if let Some(args) = args.get(arg_index..) {
-            expanded.push_str(&args.join(" "));
+    match placeholder {
+        Placeholder::Argument { index, take_rest } => {
+            if *take_rest {
+                if let Some(args) = args.get(*index..) {
+                    expanded.push_str(&args.join(" "));
+                }
+            } else if let Some(arg) = args.get(*index) {
+                expanded.push_str(arg);
+            }
         }
-    } else if let Some(arg) = args.get(arg_index) {
-        expanded.push_str(arg);
+        Placeholder::Variable(variable) => {
+            if let Some(value) = match variable {
+                Variable::Nick => context.nick.as_deref(),
+                Variable::Channel => context.channel.as_deref(),
+                Variable::Server => context.server.as_deref(),
+            } {
+                expanded.push_str(value);
+            }
+        }
     }
 }
 
@@ -174,6 +267,11 @@ mod tests {
     }
 
     #[test]
+    fn required_args_ignores_named_placeholders() {
+        assert_eq!(required_args("/msg $nick on $server"), 0);
+    }
+
+    #[test]
     fn required_args_dollar_ten_treated_as_dollar_one() {
         // $10 is $1 followed by literal '0'
         assert_eq!(required_args("$10"), 1);
@@ -195,14 +293,50 @@ mod tests {
 
     #[test]
     fn parse_placeholder_valid_digits() {
-        assert_eq!(parse_placeholder("1"), Some((0, false)));
-        assert_eq!(parse_placeholder("9"), Some((8, false)));
+        assert_eq!(
+            parse_placeholder("1"),
+            Some(Placeholder::Argument {
+                index: 0,
+                take_rest: false,
+            })
+        );
+        assert_eq!(
+            parse_placeholder("9"),
+            Some(Placeholder::Argument {
+                index: 8,
+                take_rest: false,
+            })
+        );
     }
 
     #[test]
     fn parse_placeholder_with_rest() {
-        assert_eq!(parse_placeholder("1-"), Some((0, true)));
-        assert_eq!(parse_placeholder("3-rest"), Some((2, true)));
+        assert_eq!(
+            parse_placeholder("1-"),
+            Some(Placeholder::Argument {
+                index: 0,
+                take_rest: true,
+            })
+        );
+        assert_eq!(
+            parse_placeholder("3-rest"),
+            Some(Placeholder::Argument {
+                index: 2,
+                take_rest: true,
+            })
+        );
+    }
+
+    #[test]
+    fn parse_placeholder_named() {
+        assert_eq!(
+            parse_placeholder("nick"),
+            Some(Placeholder::Variable(Variable::Nick))
+        );
+        assert_eq!(
+            parse_placeholder("channel-rest"),
+            Some(Placeholder::Variable(Variable::Channel))
+        );
     }
 
     #[test]
@@ -217,7 +351,11 @@ mod tests {
     #[test]
     fn substitute_basic() {
         assert_eq!(
-            substitute_args("/mode #halloy +o $1", &["nick"]),
+            substitute_args(
+                "/mode #halloy +o $1",
+                &["nick"],
+                &Context::default()
+            ),
             "/mode #halloy +o nick"
         );
     }
@@ -225,7 +363,11 @@ mod tests {
     #[test]
     fn substitute_multiple_args() {
         assert_eq!(
-            substitute_args("/mode +oo $1 $2", &["alice", "bob"]),
+            substitute_args(
+                "/mode +oo $1 $2",
+                &["alice", "bob"],
+                &Context::default()
+            ),
             "/mode +oo alice bob"
         );
     }
@@ -233,7 +375,11 @@ mod tests {
     #[test]
     fn substitute_rest() {
         assert_eq!(
-            substitute_args("/topic #halloy $1-", &["hello", "world"]),
+            substitute_args(
+                "/topic #halloy $1-",
+                &["hello", "world"],
+                &Context::default()
+            ),
             "/topic #halloy hello world"
         );
     }
@@ -241,7 +387,7 @@ mod tests {
     #[test]
     fn substitute_rest_single_arg() {
         assert_eq!(
-            substitute_args("/topic #ch $1-", &["only"]),
+            substitute_args("/topic #ch $1-", &["only"], &Context::default()),
             "/topic #ch only"
         );
     }
@@ -249,46 +395,124 @@ mod tests {
     #[test]
     fn substitute_missing_arg_omitted() {
         // $2 with only 1 arg — silently omitted
-        assert_eq!(substitute_args("$1 $2", &["hello"]), "hello ");
+        assert_eq!(
+            substitute_args("$1 $2", &["hello"], &Context::default()),
+            "hello "
+        );
     }
 
     #[test]
     fn substitute_preserves_literal_dollar() {
-        assert_eq!(substitute_args("costs $$1", &["five"]), "costs $five");
+        assert_eq!(
+            substitute_args("costs $$1", &["five"], &Context::default()),
+            "costs $five"
+        );
     }
 
     #[test]
     fn substitute_no_placeholders() {
-        assert_eq!(substitute_args("/list", &[]), "/list");
+        assert_eq!(substitute_args("/list", &[], &Context::default()), "/list");
     }
 
     #[test]
     fn substitute_extra_args_ignored() {
-        assert_eq!(substitute_args("/me $1", &["hello", "extra"]), "/me hello");
+        assert_eq!(
+            substitute_args("/me $1", &["hello", "extra"], &Context::default()),
+            "/me hello"
+        );
+    }
+
+    #[test]
+    fn substitute_named_placeholders() {
+        let context = Context {
+            nick: Some(Cow::Borrowed("casperstorm")),
+            channel: Some(Cow::Borrowed("#halloy")),
+            server: Some(Cow::Borrowed("libera")),
+        };
+
+        assert_eq!(
+            substitute_args(
+                "/msg $nick from $channel on $server",
+                &[],
+                &context
+            ),
+            "/msg casperstorm from #halloy on libera"
+        );
+    }
+
+    #[test]
+    fn substitute_repeated_named_placeholders() {
+        let context = Context {
+            nick: Some(Cow::Borrowed("casperstorm")),
+            channel: Some(Cow::Borrowed("#halloy")),
+            server: Some(Cow::Borrowed("libera")),
+        };
+
+        assert_eq!(
+            substitute_args(
+                "/me $nick waves at $nick on $server",
+                &[],
+                &context
+            ),
+            "/me casperstorm waves at casperstorm on libera"
+        );
+    }
+
+    #[test]
+    fn substitute_missing_named_placeholders_omitted() {
+        assert_eq!(
+            substitute_args(
+                "/msg $channel$server$nick",
+                &[],
+                &Context::default()
+            ),
+            "/msg "
+        );
     }
 
     // --- expand_alias ---
 
     #[test]
     fn expand_alias_prepends_slash() {
-        assert_eq!(expand_alias("mode +o $1", "nick"), "/mode +o nick");
+        assert_eq!(
+            expand_alias("mode +o $1", "nick", &Context::default()),
+            "/mode +o nick"
+        );
     }
 
     #[test]
     fn expand_alias_preserves_existing_slash() {
-        assert_eq!(expand_alias("/mode +o $1", "nick"), "/mode +o nick");
+        assert_eq!(
+            expand_alias("/mode +o $1", "nick", &Context::default()),
+            "/mode +o nick"
+        );
     }
 
     #[test]
     fn expand_alias_with_rest_args() {
         assert_eq!(
-            expand_alias("/topic #ch $1-", "hello world"),
+            expand_alias("/topic #ch $1-", "hello world", &Context::default()),
             "/topic #ch hello world"
         );
     }
 
     #[test]
     fn expand_alias_no_args() {
-        assert_eq!(expand_alias("/list", ""), "/list");
+        assert_eq!(expand_alias("/list", "", &Context::default()), "/list");
+    }
+
+    #[test]
+    fn context_from_server_buffer() {
+        let nick = crate::user::Nick::from_str(
+            "casperstorm",
+            crate::isupport::CaseMap::default(),
+        );
+        let server = crate::Server::from(std::sync::Arc::<str>::from("libera"));
+        let buffer = Upstream::Server(server);
+        let context = Context::new(Some(&buffer), Some(nick.as_nickref()));
+
+        assert_eq!(context.nick.as_deref(), Some("casperstorm"));
+        assert_eq!(context.channel.as_deref(), None);
+        assert_eq!(context.server.as_deref(), Some("libera"));
     }
 }
