@@ -80,7 +80,7 @@ impl MultilineLimits {
         // Message byte limit - relay bytes - space - command - space - target - message separator - crlf
         format::BYTE_LIMIT.saturating_sub(
             match batch_kind {
-                MultilineBatchKind::PRIVMSG => 7,
+                MultilineBatchKind::PRIVMSG | MultilineBatchKind::ACTION => 7,
                 MultilineBatchKind::NOTICE => 6,
             } + target.as_str().len()
                 + relay_bytes
@@ -117,7 +117,8 @@ pub fn multiline_encoded(
 ) -> message::Encoded {
     let mut encoded = command!(
         match batch_kind {
-            MultilineBatchKind::PRIVMSG => "PRIVMSG",
+            MultilineBatchKind::PRIVMSG | MultilineBatchKind::ACTION =>
+                "PRIVMSG",
             MultilineBatchKind::NOTICE => "NOTICE",
         },
         target.as_str(),
@@ -140,6 +141,7 @@ pub fn multiline_encoded(
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum MultilineBatchKind {
     PRIVMSG,
+    ACTION,
     NOTICE,
 }
 

@@ -1398,18 +1398,26 @@ impl State {
 
                         multiline_byte_count += text.len();
 
-                        if multiline_byte_count > multiline_limits.max_bytes {
-                            true
-                        } else if let Some(max_lines) =
-                            multiline_limits.max_lines
-                            && multiline_concat_bytes > 0
-                        {
+                        if multiline_concat_bytes > 0 {
                             multiline_line_count += multiline_concat_lines(
                                 multiline_concat_bytes,
                                 text,
                             )
                             .len();
+                        }
 
+                        // Multiline is only permitted for concatenating
+                        // ACTIONs, not distinct lines
+                        if multiline_byte_count > multiline_limits.max_bytes
+                            || matches!(
+                                multiline_batch_kind,
+                                Some(MultilineBatchKind::ACTION)
+                            )
+                        {
+                            true
+                        } else if let Some(max_lines) =
+                            multiline_limits.max_lines
+                        {
                             multiline_line_count > max_lines
                         } else {
                             false
