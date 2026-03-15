@@ -2596,9 +2596,7 @@ impl Dashboard {
         config: &Config,
         buffer: buffer::Internal,
     ) -> Task<Message> {
-        let panes = self.panes.clone();
-
-        let open = panes.iter().find_map(|(window_id, pane, state)| {
+        let open = self.panes.iter().find_map(|(window_id, pane, state)| {
             (state.buffer.internal().as_ref() == Some(&buffer))
                 .then_some((window_id, pane))
         });
@@ -2661,6 +2659,7 @@ impl Dashboard {
         clients: &mut data::client::Map,
         config: &Config,
     ) -> Task<Message> {
+        // TODO(pounce) reduce clones
         let panes = self.panes.clone();
 
         self.last_changed = Some(Instant::now());
@@ -3344,10 +3343,8 @@ impl Dashboard {
     pub fn focus_window_pane(&mut self, window: window::Id) -> Task<Message> {
         if self.focus.window == window {
             Task::none()
-        } else if let Some(pane) = self
-            .focus_history
-            .front()
-            .filter(|_| window == self.main_window())
+        } else if let Some(pane) = self.focus_history.front()
+            && window == self.main_window()
         {
             self.focus_pane(window, *pane)
         } else {
@@ -3449,12 +3446,7 @@ impl Dashboard {
         self.last_changed = Some(Instant::now());
 
         if window == self.main_window() {
-            self.focus_history = self
-                .focus_history
-                .iter()
-                .filter(|p| **p != pane)
-                .copied()
-                .collect();
+            self.focus_history.retain(|p| *p != pane);
 
             if let Some((_, sibling)) = self.panes.main.close(pane) {
                 if (Focus { window, pane } == self.focus) {
@@ -3478,12 +3470,7 @@ impl Dashboard {
     ) -> Task<Message> {
         let Focus { pane, .. } = self.focus;
 
-        self.focus_history = self
-            .focus_history
-            .clone()
-            .into_iter()
-            .filter(|p| *p != pane)
-            .collect();
+        self.focus_history.retain(|p| *p != pane);
 
         if let Some((pane, _)) = self.panes.main.close(pane)
             && let Some(buffer) = pane.buffer.data()
@@ -4111,6 +4098,20 @@ impl Dashboard {
                     .flat_map(|state| state.panes.values().flat_map(pane_map)),
             )
             .collect()
+    }
+
+    pub fn focused_buffer_name(&self, w: window::Id) -> Option<String> {
+        if w == self.main_window() {
+            self.focus_history
+                .front()
+                .and_then(|pane| self.panes.get(w, *pane))
+                .map(|pane| pane.buffer.to_string())
+        } else {
+            self.panes.iter().find_map(|(win, _, pane)| {
+                (win == w && !matches!(pane.buffer, Buffer::Empty))
+                    .then_some(pane.buffer.to_string())
+            })
+        }
     }
 }
 

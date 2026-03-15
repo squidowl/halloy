@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use std::fmt;
 use std::path::PathBuf;
 
 use chrono::{DateTime, Utc};
@@ -1062,6 +1063,21 @@ impl Buffer {
             Buffer::Highlights(highlights) => {
                 highlights.scroll_view.update_pane_size(pane_size, config);
             }
+        }
+    }
+}
+
+impl fmt::Display for Buffer {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Buffer::Empty => write!(f, "Empty"),
+            Buffer::Channel(Channel { target, .. }) => write!(f, "{target}"),
+            Buffer::Server(Server { server, .. }) => write!(f, "{server}"),
+            Buffer::Query(Query { target, .. }) => write!(f, "{target}"),
+            Buffer::FileTransfers(_) => write!(f, "File Transfers"),
+            Buffer::Logs(_) => write!(f, "Logs"),
+            Buffer::Highlights(_) => write!(f, "Highlights"),
+            Buffer::ChannelDiscovery(_) => write!(f, "Channel Discovery"),
         }
     }
 }
