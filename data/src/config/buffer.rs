@@ -230,6 +230,14 @@ where
                 )));
             }
 
+            if !command.starts_with('/') {
+                log::warn!(
+                    "ignoring alias '{alias}' as it doesnt start with '/'"
+                );
+
+                return Ok(normalized);
+            }
+
             if normalized.contains_key(&alias) {
                 return Err(serde::de::Error::custom(format!(
                     "duplicate alias name after normalization: '{alias}'"
