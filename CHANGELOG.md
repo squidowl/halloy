@@ -20,11 +20,12 @@ Fixed:
 - Apply locale to context menu, copy, and date separator timestamps
 - Fixed direct message notifications when excludes are present
 - Fixed reloading config for channel sorting.
+- Fixed handling of URLs ending with `)`.
 
 Thanks:
 
 - Contributions: @KaiKorla, @englut
-- Bug reports: chmod222, @whitequark, @englut, sebbu, @ascarion, @4e554c4c
+- Bug reports: chmod222, @whitequark, @englut, sebbu, @ascarion, @4e554c4c, @BKVad1m
 - Feature requests: @gAlleb, @jtbx, @cyrneko, @englut
 
 # 2026.4 (2026-03-03)
