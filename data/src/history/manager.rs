@@ -988,7 +988,10 @@ impl Manager {
                             first_message.condensed = condensed_message;
                         }
                     }
-                    CondensationKey::Singular => (),
+                    CondensationKey::Singular => chunk
+                        .collect::<Vec<&mut message::Message>>()
+                        .iter_mut()
+                        .for_each(|message| message.condensed = None),
                 });
         }
 
@@ -1240,7 +1243,6 @@ impl Data {
                                     .format(prefixes.iter().collect::<String>())
                                     .chars()
                                     .count()
-                                    + 1
                             })
                         })
                         .max()
@@ -1253,7 +1255,7 @@ impl Data {
         // The right-aligned nicknames setting expects timestamps to have a
         // constant character count to function, so we can utilize that
         // expectation in this calculation
-        let range_timestamp_extra_chars = (buffer_config
+        let range_end_timestamp_chars = (buffer_config
             .nickname
             .alignment
             .is_right()
@@ -1267,25 +1269,12 @@ impl Data {
                     ) = message.target.source()
                         && message.server_time != *end_server_time
                     {
-                        Some(
-                            buffer_config
-                                .format_range_timestamp(
-                                    &message.server_time,
-                                    end_server_time,
-                                )
-                                .map(
-                                    |(start_timestamp, dash, end_timestamp)| {
-                                        start_timestamp.chars().count()
-                                            + dash.chars().count()
-                                            + end_timestamp.chars().count()
-                                    },
-                                )
-                                .unwrap_or_default()
-                                - buffer_config
-                                    .format_timestamp(&message.server_time)
-                                    .map(|timestamp| timestamp.chars().count())
-                                    .unwrap_or_default(),
-                        )
+                        buffer_config
+                            .format_range_end_timestamp(end_server_time)
+                            .map(|(dash, end_timestamp)| {
+                                dash.chars().count()
+                                    + end_timestamp.chars().count()
+                            })
                     } else {
                         None
                     }
@@ -1335,7 +1324,7 @@ impl Data {
             new_messages: new.to_vec(),
             max_nick_chars,
             max_prefix_chars,
-            range_timestamp_extra_chars,
+            range_end_timestamp_chars,
             cleared: *cleared,
         })
     }
