@@ -4,7 +4,7 @@ It's not uncommon for channels to have many server messages for every regular me
 
 ## Disable Topic Messages
 
-Most servers and bouncers will send a message with the topic every time Halloy joins a channel.  Since topics rarely change, it's often useful to hide these messages altogether with disabling the topic [server message setting](../configuration/buffer#server-messages):
+Most servers and bouncers will send a message with the topic every time Halloy joins a channel.  Since topics rarely change, it's often useful to hide these messages altogether with disabling the topic [server message setting](../configuration/buffer#server_messages):
 
 ```toml
 [buffer.server_messages.topic]
@@ -13,7 +13,7 @@ enabled = false
 
 Note, this will not hide the messages sent when a topic changes, only the topic messages sent on first connection to a channel.
 
-If topic messages are hidden but a reminder of the current topic is still desired, then a topic banner can be enabled to appear at the top of each pane.  Either with the label icon button in the pane's title bar, or with the [topic banner settings](../configuration/buffer#topic-banner):
+If topic messages are hidden but a reminder of the current topic is still desired, then a topic banner can be enabled to appear at the top of each pane.  Either with the label icon button in the pane's title bar, or with the [topic banner settings](../configuration/buffer#topic_banner):
 
 ```toml
 [buffer.channel.topic_banner]
@@ -40,7 +40,7 @@ quit.smart = 900
 change_nick.smart = 900
 ```
 
-Smart filters can also be applied to [internal messages](../configuration/buffer#internal-messages) as well.  For example, to hide any connect or disconnect message older than five minutes, use these settings:
+Smart filters can also be applied to [internal messages](../configuration/buffer#internal_messages) as well.  For example, to hide any connect or disconnect message older than five minutes, use these settings:
 
 ```toml
 [buffer.internal_messages]
