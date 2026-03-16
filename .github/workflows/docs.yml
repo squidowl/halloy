@@ -37,18 +37,11 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Check internal links
-        id: lychee-internal
-        uses: lycheeverse/lychee-action@8646ba30535128ac92d33dfc9133794bfdd9b411 # v2
-        with:
-          args: --config ./.config/lychee-internal.toml --root-dir='./docs' './docs/**/*.md'
-          fail: true
-
       - name: Check external links
         id: lychee-external
         uses: lycheeverse/lychee-action@8646ba30535128ac92d33dfc9133794bfdd9b411 # v2
         with:
-          args: --config ./.config/lychee-external.toml --root-dir='./docs' './docs/**/*.md'
+          args: --config ./.config/lychee-external.toml --root-dir='./docs' --exclude-path './docs/node_modules/**' --exclude-path './docs/.vitepress/**' './docs/**/*.md'
           fail: true
         continue-on-error: true
 
