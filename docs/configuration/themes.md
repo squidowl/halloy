@@ -4,7 +4,9 @@ Theme settings for Halloy.
 
 ## `theme`
 
-> ⚠️  `theme` is a root key, so it must be placed before every section.
+::: warning
+`theme` is a root key, so it must be placed before every section.
+:::
 
 Specify the theme name(s) to use. The theme must correspond to a file in the `themes` folder of your Halloy configuration directory. For more details, see the [configuration overview](../configuration.md). The default theme in Halloy is [Ferra](https://github.com/casperstorm/ferra/).
 

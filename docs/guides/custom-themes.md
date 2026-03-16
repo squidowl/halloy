@@ -10,7 +10,9 @@ theme = "foobar"
 # .. rest of the configuration file.
 ```
 
-> 💡  Halloy has a built in theme editor which makes theme creation easier
+::: tip
+Halloy has a built in theme editor which makes theme creation easier
+:::
 
  Each `"<color string>"` is expected to be a valid hex color. If invalid, or if
  the key is removed, the color will fall back to transparent.
@@ -116,7 +118,9 @@ default = <text style>
 
 More information on formatting colors is available in the [text formatting guide](/guides/text-formatting.md).
 
-> 💡  The default Ferra theme toml file can be viewed [on GitHub](https://github.com/squidowl/halloy/blob/main/assets/themes/ferra.toml).
+::: info
+The default Ferra theme toml file can be viewed [on GitHub](https://github.com/squidowl/halloy/blob/main/assets/themes/ferra.toml).
+:::
 
 ## Base16
 

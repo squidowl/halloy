@@ -14,7 +14,9 @@ Linux specific settings
 
 Whether the window should have a border, a title bar, etc. or not.
 
-> 💡 A restart is required for this change to take effect.
+::: warning
+A restart is required for this change to take effect.
+:::
 
 ```toml
 # Type: boolean
@@ -59,7 +61,9 @@ macos.sidebar_padding = "embedded-content"
 
 Whether the window should have a border, traffic light, a title bar, etc. or not.
 
-> 💡 A restart is required for this change to take effect.
+::: warning
+A restart is required for this change to take effect.
+:::
 
 ```toml
 # Type: boolean
@@ -78,7 +82,9 @@ Windows specific settings
 
 Whether the window should have a border, a title bar, etc. or not.
 
-> 💡 A restart is required for this change to take effect.
+::: warning
+💡 A restart is required for this change to take effect.
+:::
 
 ```toml
 # Type: boolean

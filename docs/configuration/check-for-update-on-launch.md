@@ -6,9 +6,13 @@ This can be useful if you would rather rely on a package manager.
 
 ## `check_for_update_on_launch`
 
-> ⚠️ `check_for_update_on_launch` is a root key, so it must be placed before any section.
+::: warning
+`check_for_update_on_launch` is a root key, so it must be placed before any section.
+:::
 
-> 💡 If configured, the [default proxy](./proxy) will be used to check for update.
+::: info
+If configured, the [default proxy](./proxy) will be used to check for update.
+:::
 
 ```toml
 # Type: boolean

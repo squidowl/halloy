@@ -4,7 +4,9 @@ To get started with Halloy, you need to connect to at least one IRC server. The 
 
 Once connected to a server, you can join channels. This can be done automatically from the config file or manually using the join command: `/join #channel`[^1]. To find channels, you can either use the list command: `/list`, or [browse for channels online](https://netsplit.de/channels/).
 
-> 💡 Configuration in Halloy happens through a `config.toml` file. See [Configuration](./configuration.md).
+::: info
+Configuration in Halloy happens through a `config.toml` file. See [Configuration](./configuration.md).
+:::
 
 Here are a few useful IRC commands for a new user[^2]
 

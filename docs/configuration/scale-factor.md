@@ -4,7 +4,9 @@ Application wide scale factor.
 
 ## `scale_factor`
 
-> ⚠️ `scale_factor` is a root key, so it must be placed before any section.
+::: warning
+`scale_factor` is a root key, so it must be placed before any section.
+:::
 
 ```toml
 # Type: float

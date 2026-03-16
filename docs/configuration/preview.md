@@ -17,9 +17,11 @@ enabled = true
 
 Only show previews for matching URLs:
 
-> 💡 Use toml multi-line literal strings `'''\bfoo'd\b'''` when writing a regex. This allows you to write the regex without escaping. You can also use a literal string `'\bfoo\b'`, but then you can't use `'` inside the string.
->
-> Without literal strings, you'd have to write the above as `"\\bfoo'd\\b"`
+::: tip
+Use toml multi-line literal strings `'''\bfoo'd\b'''` when writing a regex. This allows you to write the regex without escaping. You can also use a literal string `'\bfoo\b'`, but then you can't use `'` inside the string.
+
+Without literal strings, you'd have to write the above as `"\\bfoo'd\\b"`
+:::
 
 ```toml
 [preview]
@@ -44,9 +46,11 @@ exclude = []
 
 Prevent previews from showing for matching URLs:
 
-> 💡 Use toml multi-line literal strings `'''\bfoo'd\b'''` when writing a regex. This allows you to write the regex without escaping. You can also use a literal string `'\bfoo\b'`, but then you can't use `'` inside the string.
->
-> Without literal strings, you'd have to write the above as `"\\bfoo'd\\b"`
+::: tip
+Use toml multi-line literal strings `'''\bfoo'd\b'''` when writing a regex. This allows you to write the regex without escaping. You can also use a literal string `'\bfoo\b'`, but then you can't use `'` inside the string.
+
+Without literal strings, you'd have to write the above as `"\\bfoo'd\\b"`
+:::
 
 ```toml
 [preview]
