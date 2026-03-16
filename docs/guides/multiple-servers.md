@@ -1,7 +1,7 @@
 # Multiple Servers
 
 Creating multiple `[servers]` sections lets you connect to multiple servers.  
-All configuration options can be found in the [servers configuration section](../configuration/servers/).
+All configuration options can be found in the [servers configuration section](../configuration/servers).
 
 ```toml
 [servers.Libera]

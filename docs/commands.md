@@ -17,7 +17,7 @@ Commands in Halloy are prefixed with `/`.
 Halloy will first try to run below commands, and lastly send it directly to the server.
 The argument(s) for a command are shown in [tooltips](configuration/tooltips.md), and those marked with a `*` will show an additional tooltip with argument-specific information on mouseover.
 
-You can configure custom command aliases in [`buffer.commands.aliases`](configuration/buffer/commands/aliases.md).
+You can configure custom command aliases in [`buffer.commands.aliases`](configuration/buffer#aliases).
 Aliases are resolved before built-in commands and take precedence when they use the same name.
 
 | Command       | Alias        | Description                                                                        |
@@ -59,7 +59,7 @@ Aliases are resolved before built-in commands and take precedence when they use 
 [^4]: The `targets` argument can be skipped; in a channel or query buffer it will target the current buffer.
 [^5]: Command must be supported by the bouncer/server to be executed successfully; if not supported then the command will not appear in the command picker.
 [^6]: See [soju](https://soju.im/)'s [documentation on detaching from channels](https://man.sr.ht/chat.sr.ht/bouncer-usage.md#detaching-from-channels) for more information.
-[^7]: Can only be used in [on_connect](./configuration/servers/#on_connect).
-[^8]: Connections made will not be remembered after quitting Halloy (i.e. when next starting Halloy it will not re-make the connection).  Add the connection information to the [servers](configuration/servers/) section in the configuration file.
-[^9]: Channels joined will not be remembered after quitting Halloy (i.e. when next starting Halloy it will not re-join the channels).  Add the channel information to the [channels setting for the server](configuration/servers/#channels) in the configuration file.
+[^7]: Can only be used in [on_connect](./configuration/servers#on_connect).
+[^8]: Connections made will not be remembered after quitting Halloy (i.e. when next starting Halloy it will not re-make the connection).  Add the connection information to the [servers](configuration/servers) section in the configuration file.
+[^9]: Channels joined will not be remembered after quitting Halloy (i.e. when next starting Halloy it will not re-join the channels).  Add the channel information to the [channels setting for the server](configuration/servers#channels) in the configuration file.
 [^10]: If not joined to the channel in the buffer, then the `chanlist` argument can be skipped to target the channel in the buffer.

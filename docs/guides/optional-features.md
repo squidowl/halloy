@@ -21,4 +21,4 @@ cargo build --release --features tor
 Enables Tor network support for anonymous IRC connections.
 Not enabled by default.
 
-See [Proxy Configuration](../configuration/proxy/tor.md) for usage details.
+See [Proxy Configuration](../configuration/proxy#tor) for usage details.

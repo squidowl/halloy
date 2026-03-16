@@ -2,7 +2,7 @@
 
 Control if tooltips are displayed or not.
 
-## tooltips
+## `tooltips`
 
 > ⚠️ `tooltips` is a root key, so it must be placed before any section.
 

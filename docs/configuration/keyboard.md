@@ -3,8 +3,6 @@
 
 Customize keyboard shortcuts. Below is a list of all actions which can be mapped.
 
-## Example
-
 ```toml
 [keyboard]
 move_up = "alt+k"
