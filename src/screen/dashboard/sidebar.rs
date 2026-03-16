@@ -794,14 +794,7 @@ impl Entry {
                 buffer::Upstream::Query(_, _) => vec![],
             },
             match open {
-                None => vec![MarkAsRead, NewPane, Popout, Replace]
-                    .into_iter()
-                    .chain(
-                        (matches!(buffer, buffer::Upstream::Channel(_, _))
-                            && supports_detach)
-                            .then_some(Detach),
-                    )
-                    .collect_vec(),
+                None => vec![MarkAsRead, NewPane, Popout, Replace],
                 Some((window, pane)) => (num_panes > 1)
                     .then_some(Close(window, pane))
                     .into_iter()
@@ -811,7 +804,18 @@ impl Entry {
                     )
                     .collect_vec(),
             },
-            if connected { vec![Leave] } else { vec![] },
+            if connected {
+                vec![Leave]
+                    .into_iter()
+                    .chain(
+                        (matches!(buffer, buffer::Upstream::Channel(_, _))
+                            && supports_detach)
+                            .then_some(Detach),
+                    )
+                    .collect_vec()
+            } else {
+                vec![]
+            },
         )
         .sorted()
         .collect_vec()
