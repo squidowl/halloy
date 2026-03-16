@@ -10,6 +10,7 @@ Added:
 - New `"config"` option to `sidebar.order_channels_by`. Uses `server.<server_name>.channels` to determine order.
 - Case insensitive sort of query names in sidebar
 - Copied `order_channels_by` from `sidebar` to `server.<name>`, defaults to `sidebar.order_channels_by` if empty.
+- Alias commands (see `buffer.commands.aliases`)
 
 Fixed:
 

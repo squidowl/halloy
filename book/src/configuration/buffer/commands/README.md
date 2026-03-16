@@ -8,6 +8,7 @@ Commands settings.
   - [Sysinfo](#sysinfo)
   - [Quit](#quit)
   - [Part](#part)
+  - [Aliases](#aliases)
 
 ## Configuration
 
@@ -35,3 +36,7 @@ Configure `QUIT` command
 ## [Part](part.md)
 
 Configure `PART` command
+
+## [Aliases](aliases.md)
+
+Define custom slash command aliases
