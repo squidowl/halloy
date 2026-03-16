@@ -4,6 +4,7 @@ use std::string::ToString;
 
 use irc::proto::{self, Tags, command, format};
 
+use crate::message::formatting::{Formatting, Modifier, update_with_modifier};
 use crate::{Target, User, config, message};
 
 // This is not an exhaustive list of IRCv3 capabilities, just the ones that
@@ -89,21 +90,57 @@ impl MultilineLimits {
     }
 }
 
-pub fn multiline_concat_lines(concat_bytes: usize, text: &str) -> Vec<&str> {
+pub fn multiline_concat_lines(
+    concat_bytes: usize,
+    text: &str,
+) -> Vec<(Formatting, &str)> {
     let mut lines = Vec::new();
-    let mut last_line_start = 0;
-    let mut prev_char_index = 0;
 
-    for (char_index, _) in text.char_indices() {
-        if char_index.saturating_sub(last_line_start) > concat_bytes {
-            lines.push(&text[last_line_start..prev_char_index]);
-            last_line_start = prev_char_index;
+    let mut line_start = 0;
+    let mut line_bytes = 0;
+
+    let mut modifiers = HashSet::new();
+    let mut fg = None;
+    let mut bg = None;
+
+    let mut line_modifiers = modifiers.clone();
+    let mut line_fg = None;
+    let mut line_bg = None;
+
+    let mut iter = text.chars().peekable();
+
+    while let Some(c) = iter.next() {
+        if (line_bytes + c.len_utf8()) > concat_bytes {
+            lines.push((
+                Formatting::new(&line_modifiers, line_fg, line_bg),
+                &text[line_start..line_start + line_bytes],
+            ));
+
+            line_start += line_bytes;
+            line_bytes = Formatting::new(&modifiers, fg, bg).to_string().len();
+
+            line_modifiers = modifiers.clone();
+            line_fg = fg;
+            line_bg = bg;
         }
 
-        prev_char_index = char_index;
+        if let Ok(modifier) = Modifier::try_from(c) {
+            update_with_modifier(
+                &mut modifiers,
+                &mut fg,
+                &mut bg,
+                modifier,
+                &mut iter,
+            );
+        }
+
+        line_bytes += c.len_utf8();
     }
 
-    lines.push(&text[last_line_start..]);
+    lines.push((
+        Formatting::new(&line_modifiers, line_fg, line_bg),
+        &text[line_start..],
+    ));
 
     lines
 }

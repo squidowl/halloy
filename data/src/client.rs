@@ -27,7 +27,7 @@ use crate::isupport::{
     ChatHistoryState, ChatHistorySubcommand, MessageReference, WhoToken,
     WhoXPollParameters, find_target_limit,
 };
-use crate::message::source;
+use crate::message::{formatting, source};
 use crate::rate_limit::{BackoffInterval, TokenBucket, TokenPriority};
 use crate::target::{self, Target};
 use crate::time::Posix;
@@ -670,12 +670,15 @@ impl Client {
                                     .flat_map(|line| {
                                         let mut concat_lines = line
                                             .into_iter()
-                                            .map(|text| {
+                                            .map(|(formatting, text)| {
                                                 multiline_encoded(
                                                     None,
                                                     batch_kind,
                                                     target,
-                                                    text,
+                                                    format!(
+                                                        "{formatting}{text}"
+                                                    )
+                                                    .as_str(),
                                                     message.tags.clone(),
                                                 )
                                             })
@@ -3052,6 +3055,8 @@ impl Client {
                         {
                             text.push('\n');
                         }
+
+                        text.push(formatting::Modifier::Reset.into());
                     } else {
                         *kind = Some(MultilineBatchKind::PRIVMSG);
                     }
@@ -3073,6 +3078,8 @@ impl Client {
                         {
                             text.push('\n');
                         }
+
+                        text.push(formatting::Modifier::Reset.into());
                     } else {
                         *kind = Some(MultilineBatchKind::NOTICE);
                     }
