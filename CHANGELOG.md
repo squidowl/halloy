@@ -25,8 +25,8 @@ Fixed:
 
 Thanks:
 
-- Contributions: @KaiKorla, @englut
-- Bug reports: chmod222, @whitequark, @englut, sebbu, @ascarion, @4e554c4c, @BKVad1m
+- Contributions: @KaiKorla, @englut, @mango766
+- Bug reports: chmod222, @whitequark, @englut, sebbu, @ascarion, @4e554c4c, @BKVad1m, @mango766
 - Feature requests: @gAlleb, @jtbx, @cyrneko, @englut
 
 # 2026.4 (2026-03-03)
