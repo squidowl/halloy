@@ -2,16 +2,6 @@
 
 [Client-to-Client Protocol](https://modern.ircdocs.horse/ctcp) response settings.
 
-- [CTCP](#ctcp)
-  - [Example](#example)
-  - [Configuration](#configuration)
-    - [ping](#ping)
-    - [source](#source)
-    - [time](#time)
-    - [version](#version)
-    - [userinfo](#userinfo)
-
-
 ## Example
 
 ```toml
@@ -22,9 +12,7 @@ time = false
 version = false
 ```
 
-## Configuration
-
-### ping
+## ping
 
 Whether Halloy will respond to a [CTCP PING](https://modern.ircdocs.horse/ctcp#ping) message.
 
@@ -37,7 +25,7 @@ Whether Halloy will respond to a [CTCP PING](https://modern.ircdocs.horse/ctcp#p
 ping = true
 ```
 
-### source
+## source
 
 Whether Halloy will respond to a [CTCP SOURCE](https://modern.ircdocs.horse/ctcp#source) message.
 
@@ -50,7 +38,7 @@ Whether Halloy will respond to a [CTCP SOURCE](https://modern.ircdocs.horse/ctcp
 source = true
 ```
 
-### time
+## time
 
 Whether Halloy will respond to a [CTCP TIME](https://modern.ircdocs.horse/ctcp#time) message.
 
@@ -63,7 +51,7 @@ Whether Halloy will respond to a [CTCP TIME](https://modern.ircdocs.horse/ctcp#t
 time = true
 ```
 
-### version
+## version
 
 Whether Halloy will respond to a [CTCP VERSION](https://modern.ircdocs.horse/ctcp#version) message.
 
@@ -76,7 +64,7 @@ Whether Halloy will respond to a [CTCP VERSION](https://modern.ircdocs.horse/ctc
 version = true
 ```
 
-### userinfo
+## userinfo
 
 Whether Halloy will respond to a [CTCP USERINFO](https://modern.ircdocs.horse/ctcp#userinfo) message. The response is enabled if this option is set to a string, which will be used as the reply.
 

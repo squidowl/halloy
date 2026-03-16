@@ -1,19 +1,5 @@
 # Installing Halloy
 
-- [Pre-built binaries](#pre-built-binaries)
-- [Packaging status](#packaging-status)
-- [macOS](#macos)
-    - [Homebrew](#homebrew)
-    - [MacPorts](#macports)
-- [Linux](#linux)
-    - [Flatpak](#flatpak)
-    - [Snapcraft](#snapcraft)
-- [Windows](#windows)
-    - [Winget](#winget)
-- [Build from source](#build-from-source)
-
-> 💡 To get the latest nightly version of Halloy, you can [build from source](#build-from-source).
-
 ## Pre-built binaries
 
 Download pre-built binaries from [GitHub](https://github.com/squidowl/halloy/releases) page.

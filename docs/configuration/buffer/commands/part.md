@@ -2,13 +2,7 @@
 
 Configure `PART` command
 
-- [Part](#part)
-  - [Configuration](#configuration)
-    - [default_reason](#default_reason)
-
-## Configuration
-
-### default_reason
+## default_reason
 
 Default part (from channel) reason
 

@@ -2,18 +2,7 @@
 
 URL preview settings for Halloy.
 
-- [Preview](#preview)
-  - [Configuration](#configuration)
-    - [enabled](#enabled)
-    - [exclude](#exclude)
-    - [max\_per\_message](#max_per_message)
-  - [Request](#request)
-  - [Image](#image)
-  - [Card](#card)
-
-## Configuration
-
-### enabled
+## enabled
 
 Enable or disable previews globally with a boolean, or selectively enable them for URLs matching specific regex patterns.
 
@@ -40,7 +29,7 @@ enabled = [
 ]
 ```
 
-### exclude
+## exclude
 
 Exclude URLs from showing previews by providing regex patterns.
 
@@ -67,7 +56,7 @@ exclude = [
 ]
 ```
 
-### max_per_message
+## max_per_message
 
 Maximum number of previews to show for a single message.
 
@@ -79,15 +68,3 @@ Maximum number of previews to show for a single message.
 [preview]
 max_per_message = 1
 ```
-
-## [Request](request.md)
-
-Request settings for previews.
-
-## [Image](image.md)
-
-Specific image preview settings.
-
-## [Card](card.md)
-
-Specific card preview settings.

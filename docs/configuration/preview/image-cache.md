@@ -6,14 +6,7 @@ Settings to control how the image cache is managed.  The cache is stored in:
 * Mac: `~/Library/Caches/halloy/previews/images/` or `$HOME/.cache/halloy/previews/images/`
 * Linux: `$XDG_CACHE_HOME/halloy/previews/images/`, `$HOME/.cache/halloy/previews/images/`, or `$HOME/.var/app/org.squidowl.halloy/cache/halloy/previews/images/` (Flatpak)
 
-- [Image Cache](#image-cache)
-  - [Configuration](#configuration)
-    - [max\_size](#max_size)
-    - [trim\_interval](#trim_interval)
-
-## Configuration
-
-### max_size
+## max_size
 
 Maximum size in MB for cached preview images, or `"unlimited"` for an uncapped image cache (not recommended).
 
@@ -26,7 +19,7 @@ Maximum size in MB for cached preview images, or `"unlimited"` for an uncapped i
 max_size = 500
 ```
 
-### trim_interval
+## trim_interval
 
 Run image cache trimming every N successful image saves. Set to `"first-save-only"` to disable periodic trimming, and only trim on the first save to the image cache per app session.
 

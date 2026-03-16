@@ -2,14 +2,7 @@
 
 Scrollbar in sidebar
 
-- [Scrollbar](#scrollbar)
-  - [Configuration](#configuration)
-    - [width](#width)
-    - [scroller\_width](#scroller_width)
-
-## Configuration
-
-### width
+## width
 
 Width of the scrollbar.
 
@@ -22,7 +15,7 @@ Width of the scrollbar.
 width = 5
 ```
 
-### scroller_width
+## scroller_width
 
 Width of the scrollbar scroller.
 

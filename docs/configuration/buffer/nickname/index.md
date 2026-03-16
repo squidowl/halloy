@@ -2,22 +2,7 @@
 
 Customize how nicknames are displayed within a buffer.
 
-- [Nickname](#nickname)
-  - [Configuration](#configuration)
-    - [alignment](#alignment)
-    - [away](#away)
-    - [brackets](#brackets)
-    - [color](#color)
-    - [offline](#offline)
-    - [show\_access\_levels](#show_access_levels)
-    - [shown\_status](#shown_status)
-    - [click](#click)
-    - [truncate](#truncate)
-  - [Hide Consecutive](#hide-consecutive)
-
-## Configuration
-
-### alignment
+## alignment
 
 Horizontal alignment of nicknames.
 
@@ -30,7 +15,7 @@ Horizontal alignment of nicknames.
 alignment = "right"
 ```
 
-### away
+## away
 
 Controls the appearance of away nicknames.
 
@@ -50,7 +35,7 @@ away = { dimmed = 0.5 }
 away = "none"
 ```
 
-### brackets
+## brackets
 
 Brackets around nicknames.
 
@@ -63,7 +48,7 @@ Brackets around nicknames.
 brackets = { left = "<", right = ">" }
 ```
 
-### color
+## color
 
 Nickname colors in a channel buffer. `"unique"` generates colors by randomizing the hue, while keeping the saturation and lightness from the theme's nickname color.
 
@@ -76,7 +61,7 @@ Nickname colors in a channel buffer. `"unique"` generates colors by randomizing 
 color = "unique"
 ```
 
-### offline
+## offline
 
 Controls the appearance of offline nicknames.
 
@@ -92,7 +77,7 @@ offline = "solid"
 offline = "none"
 ```
 
-### show_access_levels
+## show_access_levels
 
 Show access level(s) in front of nicknames (`@`, `+`, `~`, etc.).
 
@@ -105,7 +90,7 @@ Show access level(s) in front of nicknames (`@`, `+`, `~`, etc.).
 show_access_levels = "none"
 ```
 
-### shown_status
+## shown_status
 
 What status should be indicated (by either `away` or `offline` settings), the user's current status (`"current"`) or their status at the time of sending the message (`"historical"`).
 
@@ -117,7 +102,7 @@ What status should be indicated (by either `away` or `offline` settings), the us
 shown_status = "current"
 ```
 
-### click
+## click
 
 Click action for when interaction with nicknames.
 
@@ -133,7 +118,7 @@ Click action for when interaction with nicknames.
 click = "open-query"
 ```
 
-### truncate
+## truncate
 
 Truncate nicknames in buffer to a maximum length
 
@@ -145,7 +130,3 @@ Truncate nicknames in buffer to a maximum length
 [buffer.nickname]
 truncate = 10
 ```
-
-## [Hide Consecutive](hide-consecutive.md)
-
-Hide nickname if consecutive messages are from the same user.

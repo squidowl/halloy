@@ -2,18 +2,7 @@
 
 Pane settings
 
-- [Pane](#pane)
-  - [Configuration](#configuration)
-    - [restore\_on\_launch](#restore_on_launch)
-    - [scrollbar](#scrollbar)
-    - [width](#width)
-    - [scroller\_width](#scroller_width)
-    - [split\_axis](#split_axis)
-  - [Gap](#gap)
-
-## Configuration
-
-### restore_on_launch
+## restore_on_launch
 
 Restore the panes that were open when Halloy was last closed when launching the application.
 
@@ -26,11 +15,11 @@ Restore the panes that were open when Halloy was last closed when launching the 
 restore_on_launch = false
 ```
 
-### scrollbar
+## scrollbar
 
 Scrollbar configuration.
 
-### width
+## width
 
 Width of the scrollbar.
 
@@ -43,8 +32,7 @@ Width of the scrollbar.
 width = 5
 ```
 
-### scroller_width
-
+## scroller_width
 
 Width of the scrollbar scroller.
 
@@ -57,7 +45,7 @@ Width of the scrollbar scroller.
 scroller_width = 5
 ```
 
-### split_axis
+## split_axis
 
 Default axis used when splitting the focused pane to create a new pane (i.e. default orientation of the divider between panes).  `"shorter"` will compare the width and height of the pane to select the splitting axis;  if the width is shorter then the horizontal axis is selected, and if the height is shorter then the vertical axis is selected.  `"largest-shorter"` will split the largest pane in the main window using the same method as `"shorter"`, rather than splitting the focused pane.
 
@@ -69,7 +57,3 @@ Default axis used when splitting the focused pane to create a new pane (i.e. def
 [pane]
 split_axis = "vertical"
 ```
-
-## [Gap](gap.md)
-
-Gap configuration for pane spacing and padding.

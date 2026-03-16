@@ -2,15 +2,7 @@
 
 Customize autocomplete.
 
-- [Autocomplete](#autocomplete)
-  - [Configuration](#configuration)
-    - [order\_by](#order_by)
-    - [sort\_direction](#sort_direction)
-    - [completion\_suffixes](#completion_suffixes)
-
-## Configuration
-
-### order_by
+## order_by
 
 Ordering that autocomplete uses to select from matching users.
 
@@ -26,7 +18,7 @@ Ordering that autocomplete uses to select from matching users.
 order_by = "recent"
 ```
 
-### sort_direction
+## sort_direction
 
 Sort direction when autocompleting alphabetically.
 
@@ -42,7 +34,7 @@ Sort direction when autocompleting alphabetically.
 sort_direction = "asc"
 ```
 
-### completion_suffixes
+## completion_suffixes
 
 Sets what suffix is added after autocompleting. The first option is for when a nickname is autocompleted at the beginning of a sentence. The second is for when it's autocompleted in the middle of a sentence.
 

@@ -2,17 +2,7 @@
 
 When to mark a buffer as read
 
-- [Mark as Read](#mark-as-read)
-  - [Configuration](#configuration)
-    - [on\_application\_exit](#on_application_exit)
-    - [on\_buffer\_close](#on_buffer_close)
-    - [on\_scroll\_to\_bottom](#on_scroll_to_bottom)
-    - [on\_message\_sent](#on_message_sent)
-    - [on\_message](#on_message)
-
-## Configuration
-
-### on_application_exit
+## on_application_exit
 
 When exiting the application (all buffers, opened or closed, will be marked as read when the application exits).
 
@@ -25,7 +15,7 @@ When exiting the application (all buffers, opened or closed, will be marked as r
 on_application_exit = false
 ```
 
-### on_buffer_close
+## on_buffer_close
 
 When closing a buffer (a buffer is considered closed when it is replaced or if it is open when the application exits).  If set to `"scrolled-to-bottom"` then a buffer will only be marked as read if it is scrolled to the bottom when closing (i.e. if the most recent messages are visible).
 
@@ -38,7 +28,7 @@ When closing a buffer (a buffer is considered closed when it is replaced or if i
 on_buffer_close = "scrolled-to-bottom"
 ```
 
-### on_scroll_to_bottom
+## on_scroll_to_bottom
 
 When scrolling to the bottom of a buffer.
 
@@ -51,7 +41,7 @@ When scrolling to the bottom of a buffer.
 on_scroll_to_bottom = true
 ```
 
-### on_message_sent
+## on_message_sent
 
 When sending a message to the buffer.
 
@@ -64,7 +54,7 @@ When sending a message to the buffer.
 on_message_sent = true
 ```
 
-### on_message
+## on_message
 
 Marks as read when a new message arrives in the focused buffer and you are at the bottom.
 

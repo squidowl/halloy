@@ -2,16 +2,6 @@
 
 Highlight based on matches
 
-- [Matches](#matches)
-  - [Example](#example)
-  - [Configuration](#configuration)
-    - [words](#words)
-    - [case\_insensitive](#case_insensitive)
-    - [regex](#regex)
-    - [exclude](#exclude)
-    - [include](#include)
-    - [sound](#sound)
-
 ## Example
 
 ```toml
@@ -27,9 +17,7 @@ regex = '''(?i)\bcasper\b'''
 exclude = ["#noisy-channel"]
 ```
 
-## Configuration
-
-### words
+## words
 
 You can set words to be highlighted when they are written.
 
@@ -44,7 +32,7 @@ Example shows word matches, which will trigger on `"word1"`, `"word2"` or `"word
 words = ["word1", "word2", "word3"]
 ```
 
-### case_insensitive
+## case_insensitive
 
 This option is only available when using `words` as the match type.
 You can choose whether or not to trigger regardless of case.
@@ -59,7 +47,7 @@ words = ["word1", "word2", "word3"]
 case_insensitive = true
 ```
 
-### regex
+## regex
 
 Match based on regex.
 
@@ -79,7 +67,7 @@ Example shows a regex that matches the word "casper", regardless of case and onl
 regex = '''(?i)\bcasper\b'''
 ```
 
-### exclude
+## exclude
 
 [Exclusion conditions](/configuration/conditions.md) in which you won't be
 highlighted. Inclusion conditions will take precedence over exclusion
@@ -97,7 +85,7 @@ regex = '''(?i)\bcasper\b'''
 exclude = { channels = ["#noisy-channel"] }
 ```
 
-### include
+## include
 
 [Inclusion conditions](/configuration/conditions.md) in which you will be
 highlighted. Highlights are enabled in all conditions unless explicitly
@@ -117,7 +105,7 @@ exclude = "*"
 include = { channels = ["#halloy"] }
 ```
 
-### sound
+## sound
 
 Sound to play when notifying for a highlight. If not specified then the sound
 specified for highlight notifications will be used. Supports both built-in

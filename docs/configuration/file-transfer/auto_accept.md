@@ -2,16 +2,7 @@
 
 Configuration for automatically accepting incoming file transfers.
 
-- [Auto Accept](#auto-accept)
-  - [Configuration](#configuration)
-    - [enabled](#enabled)
-    - [nicks](#nicks)
-    - [masks](#masks)
-
-
-## Configuration
-
-### enabled
+## enabled
 
 If true, automatically accept incoming file transfers. Requires `save_directory` to be set.
 
@@ -24,7 +15,7 @@ If true, automatically accept incoming file transfers. Requires `save_directory`
 enabled = false
 ```
 
-### nicks
+## nicks
 
 Automatically accept incoming file transfers from these nicks.
 Note `auto_accept` has to be enabled.
@@ -38,7 +29,7 @@ Note `auto_accept` has to be enabled.
 nicks = ["nick1", "nick2"]
 ```
 
-### masks
+## masks
 
 Automatically accept incoming file transfers matching these masks. Matches are made against the full nickname (i.e. nickname, username, and hostname in the format `nickname!username@hostname`). Note `auto_accept` has to be enabled.
 

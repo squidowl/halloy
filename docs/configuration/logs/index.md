@@ -2,14 +2,7 @@
 
 Customize log buffer
 
-- [Logs](#logs)
-  - [Configuration](#configuration)
-    - [file\_level](#file_level)
-    - [pane\_level](#pane_level)
-
-## Configuration
-
-### file_level
+## file_level
 
 The least urgent (most verbose) log level to record to the log file.
 E.g. a `file_level` setting of `"debug"` will record all `ERROR`, `WARN`, `INFO`, and `DEBUG` messages to the log file.
@@ -30,7 +23,7 @@ The log file is overwritten on each launch (i.e. contains log messages for the l
 file_level = "debug"
 ```
 
-### pane_level
+## pane_level
 
 The least urgent (most verbose) log level to record to the Logs pane.
 E.g. a `pane_level` setting of `"info"` will record all `ERROR`, `WARN`, and `INFO` messages to the Logs pane.

@@ -2,14 +2,7 @@
 
 Internal messages which are considered a "success" such as when a connection was restored, or when connected successfully to a server.
 
-- [Success](#success)
-  - [Configuration](#configuration)
-    - [enabled](#enabled)
-    - [smart](#smart)
-
-## Configuration
-
-### enabled
+## enabled
 
 Control if internal message type is enabled.
 
@@ -22,7 +15,7 @@ Control if internal message type is enabled.
 enabled = true
 ```
 
-### smart
+## smart
 
 Only show internal message if received within the given time duration (seconds).
 

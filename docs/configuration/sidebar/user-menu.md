@@ -2,13 +2,7 @@
 
 User menu in sidebar settings.
 
-- [User Menu](#user-menu)
-  - [Configuration](#configuration)
-    - [enabled](#enabled)
-
-## Configuration
-
-### enabled
+## enabled
 
 Controls whether the user menu is shown in the sidebar or hidden
 

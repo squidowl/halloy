@@ -2,20 +2,7 @@
 
 Customize the text input for in buffers.
 
-- [Text Input](#text-input)
-  - [Configuration](#configuration)
-    - [visibility](#visibility)
-    - [auto\_format](#auto_format)
-    - [key\_bindings](#key_bindings)
-      - [emacs](#emacs)
-    - [max\_lines](#max_lines)
-    - [send\_line\_delay](#send_line_delay)
-  - [Autocomplete](#autocomplete)
-  - [Nickname](#nickname)
-
-## Configuration
-
-### visibility
+## visibility
 
 Text input visibility. When set to `"focused"` it will only be visible when the buffer is focused.
 
@@ -28,7 +15,7 @@ Text input visibility. When set to `"focused"` it will only be visible when the 
 visibility = "always"
 ```
 
-### auto_format
+## auto_format
 
 Control if the text input should auto format the input. By default text is only formatted when using the `/format` command.
 
@@ -43,7 +30,7 @@ auto_format = "markdown"
 
 > 💡 Read more about [text formatting](../../../guides/text-formatting.md).
 
-### key_bindings
+## key_bindings
 
 Different key bindings for the text input
 
@@ -71,7 +58,7 @@ Emacs variant has the following binds:
 
 > 💡 Global [keyboard shortcuts](../../keyboard.md) take precedence. Unset any that collide (e.g., set `command_bar = "unset"`).
 
-### max_lines
+## max_lines
 
 Maximum number of lines in a single input.  If [`multiline`](https://ircv3.net/specs/extensions/multiline) is supported by the server then it will be utilized, otherwise messages will be sent individually with [`send_line_delay`](#send_line_delay) milliseconds between them.
 
@@ -86,7 +73,7 @@ Maximum number of lines in a single input.  If [`multiline`](https://ircv3.net/s
 max_lines = 5
 ```
 
-### send_line_delay
+## send_line_delay
 
 Delay (milliseconds) between each line when sending multiple lines.  When the server does not support SAFERATE messages may be delayed longer due to [anti-flood protections](/configuration/servers/#anti_flood).
 
@@ -98,11 +85,3 @@ Delay (milliseconds) between each line when sending multiple lines.  When the se
 [buffer.text_input]
 send_line_delay = 100
 ```
-
-## [Autocomplete](autocomplete.md)
-
-Customize autocomplete
-
-## [Nickname](nickname.md)
-
-Customize nickname left of text input

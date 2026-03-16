@@ -2,17 +2,7 @@
 
 Commands settings.
 
-- [Commands](#commands)
-  - [Configuration](#configuration)
-    - [show\_description](#show_description)
-  - [Sysinfo](#sysinfo)
-  - [Quit](#quit)
-  - [Part](#part)
-  - [Aliases](#aliases)
-
-## Configuration
-
-### show_description
+## show_description
 
 Show or hide the description for a command
 
@@ -24,19 +14,3 @@ Show or hide the description for a command
 [buffer.commands]
 show_description = true
 ```
-
-## [Sysinfo](sysinfo.md)
-
-Configure which system information components to display when using the `/sysinfo` command
-
-## [Quit](quit.md)
-
-Configure `QUIT` command
-
-## [Part](part.md)
-
-Configure `PART` command
-
-## [Aliases](aliases.md)
-
-Define custom slash command aliases

@@ -2,14 +2,7 @@
 
 Window settings.
 
-- [Window](#window)
-  - [Configuration](#configuration)
-    - [initial\_height](#initial_height)
-    - [initial\_width](#initial_width)
-
-## Configuration
-
-### initial_height
+## initial_height
 
 Initial window height in pixels. If not set, the previously saved window size is used.
 
@@ -22,7 +15,7 @@ Initial window height in pixels. If not set, the previously saved window size is
 initial_height = 720
 ```
 
-### initial_width
+## initial_width
 
 Initial window width in pixels. If not set, the previously saved window size is used.
 

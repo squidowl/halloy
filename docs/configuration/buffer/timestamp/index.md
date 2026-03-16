@@ -2,18 +2,7 @@
 
 Customize how timestamps are displayed within a buffer.
 
-- [Timestamp](#timestamp)
-  - [Configuration](#configuration)
-    - [format](#format)
-    - [context\_menu\_format](#context_menu_format)
-    - [copy\_format](#copy_format)
-    - [brackets](#brackets)
-    - [locale](#locale)
-    - [hide\_consecutive](#hide_consecutive)
-
-## Configuration
-
-### format
+## format
 
 Controls the timestamp format. The expected format is [strftime](https://pubs.opengroup.org/onlinepubs/007908799/xsh/strftime.html).
 
@@ -26,7 +15,7 @@ Controls the timestamp format. The expected format is [strftime](https://pubs.op
 format = "%R"
 ```
 
-### context_menu_format
+## context_menu_format
 
 Controls the format of shown in a timestamp's context menu. The expected format is [strftime](https://pubs.opengroup.org/onlinepubs/007908799/xsh/strftime.html).
 
@@ -39,7 +28,7 @@ Controls the format of shown in a timestamp's context menu. The expected format 
 context_menu_format = "%x"
 ```
 
-### copy_format
+## copy_format
 
 Controls the format used when copying the timestamp into the clipboard from its context menu. The expected format is [strftime](https://pubs.opengroup.org/onlinepubs/007908799/xsh/strftime.html).  If not set, then the timestamp is copied in the [date and time of day in UTC using extended format ISO 8601:2004(E) 4.3.2 with millisecond precision](https://en.wikipedia.org/wiki/ISO_8601) as is utilized in IRCv3.
 
@@ -52,7 +41,7 @@ Controls the format used when copying the timestamp into the clipboard from its 
 copy_format = "%Y-%m-%d %H:%M:%S"
 ```
 
-### brackets
+## brackets
 
 Brackets around timestamps.
 
@@ -65,7 +54,7 @@ Brackets around timestamps.
 brackets = { left = "[", right = "]" }
 ```
 
-### locale
+## locale
 
 Locale used when formatting timestamps, for strftime formats that produce locale-specific output (e.g. `%x`, `%X`, `%a`, etc).  If not specified, then the locale will be set automatically, falling back to the POSIX locale if the system locale cannot be determined.  Supported locales are determined by [`enum Locale` in the `pure-rust-locales` crate](https://docs.rs/pure-rust-locales/latest/pure_rust_locales/enum.Locale.html).
 
@@ -78,7 +67,7 @@ Locale used when formatting timestamps, for strftime formats that produce locale
 locale = "POSIX"
 ```
 
-### hide_consecutive
+## hide_consecutive
 
 Hide timestamp for consecutive messages from the same user.
 

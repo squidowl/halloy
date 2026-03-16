@@ -2,16 +2,7 @@
 
 Condense multiple consecutive server messages into a single abbreviated message.
 
-- [Condense](#condense)
-  - [Configuration](#configuration)
-    - [messages](#messages)
-    - [dimmed](#dimmed)
-    - [format](#format)
-    - [icon](#icon)
-
-## Configuration
-
-### messages
+## messages
 
  Message type(s) to condense. Supported types:
 
@@ -35,7 +26,7 @@ The color and font style of the symbols is taken from the theme setting for that
 messages = ["change-nick", "join", "part", "quit"]
 ```
 
-### dimmed
+## dimmed
 
 Dim condensed messages.  Either automatically, based on text/background colors (by setting to `true`), or specify a dimming value in the range `0.0` (transparent) to `1.0` (no dimming).
 
@@ -48,7 +39,7 @@ Dim condensed messages.  Either automatically, based on text/background colors (
 dimmed = true
 ```
 
-### format
+## format
 
 How to format condensed messages:
 
@@ -65,7 +56,7 @@ How to format condensed messages:
 format = "full"
 ```
 
-### icon
+## icon
 
 Marker style for condensed server messages.
 

@@ -2,14 +2,6 @@
 
 How sidebar actions should be enacted.
 
-- [Sidebar](#sidebar)
-  - [Example](#example)
-  - [Configuration](#configuration)
-    - [buffer](#buffer)
-    - [channel](#channel)
-    - [query](#query)
-    - [focused\_buffer](#focused_buffer)
-
 ## Example
 
 ```toml
@@ -23,9 +15,7 @@ query = "new-window"
 focused_buffer = "close-pane"
 ```
 
-## Configuration
-
-### buffer
+## buffer
 
 Action when clicking buffers in the sidebar. `"new-pane"` opens a new pane each time. `"replace-pane"` replaces the focused pane with the clicked buffer. `"new-window"` opens a new window each time.
 
@@ -38,7 +28,7 @@ Action when clicking buffers in the sidebar. `"new-pane"` opens a new pane each 
 buffer = "replace-pane"
 ```
 
-### channel
+## channel
 
 Action when clicking a channel buffer in the sidebar. If unset, it falls back to the value of `buffer`.
 
@@ -51,7 +41,7 @@ Action when clicking a channel buffer in the sidebar. If unset, it falls back to
 channel = "replace-pane"
 ```
 
-### query
+## query
 
 Action when clicking a user/query buffer in the sidebar. If unset, it falls back to the value of `buffer`.
 
@@ -64,7 +54,7 @@ Action when clicking a user/query buffer in the sidebar. If unset, it falls back
 query = "new-window"
 ```
 
-### focused_buffer
+## focused_buffer
 
 Action when clicking a focused buffer in the sidebar. `"close-pane"` will close the focused pane.
 

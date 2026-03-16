@@ -1,14 +1,5 @@
 # Themes
 
-- [Themes](#themes)
-  - [Example](#example)
-  - [Configuration](#configuration)
-    - [theme](#theme)
-  - [Custom themes](#custom-themes)
-  - [Community](#community)
-  - [Base16](#base16)
-
-
 ## Example
 
 ```toml
@@ -25,11 +16,9 @@ theme = { light = "ferra-light", dark = "ferra" }
 theme = { light = ["ferra-light", "booberry-light"], dark = ["ferra", "booberry"] }
 ```
 
-## Configuration
-
 > ⚠️  `theme` is a root key, so it must be placed before every section.
 
-### theme
+## theme
 
 Specify the theme name(s) to use. The theme must correspond to a file in the `themes` folder of your Halloy configuration directory. For more details, see the [configuration overview](../../configuration.md). The default theme in Halloy is [Ferra](https://github.com/casperstorm/ferra/).
 
@@ -160,11 +149,3 @@ default = <text style>
 More information on formatting colors is available in the [text formatting guide](/guides/text-formatting.md).
 
 > 💡  The default Ferra theme toml file can be viewed [on GitHub](https://github.com/squidowl/halloy/blob/main/assets/themes/ferra.toml).
-
-## [Community](community.md)
-
-Community created themes for Halloy
-
-## [Base16](base16.md)
-
-Community collection of base16 themes

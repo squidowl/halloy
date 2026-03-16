@@ -2,14 +2,7 @@
 
 Customize nickname left of text input
 
-- [Nickname](#nickname)
-  - [Configuration](#configuration)
-    - [enabled](#enabled)
-    - [show\_access\_levels](#show_access_levels)
-
-## Configuration
-
-### enabled
+## enabled
 
 Display own nickname next to text input field
 
@@ -22,7 +15,7 @@ Display own nickname next to text input field
 enabled = true
 ```
 
-### show_access_levels
+## show_access_levels
 
 Show access level(s) in front of nickname (`@`, `+`, `~`, etc.).
 

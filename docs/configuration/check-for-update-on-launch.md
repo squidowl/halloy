@@ -4,13 +4,7 @@ Controls whether Halloy will check the Halloy repository on launch for a new ver
 
 This can be useful if you would rather rely on a package manager.
 
-- [Check for Update on Launch](#check-for-update-on-launch)
-  - [Configuration](#configuration)
-    - [check_for_update_on_launch](#check_for_update_on_launch)
-
-## Configuration
-
-### check_for_update_on_launch
+## check_for_update_on_launch
 
 > ⚠️ `check_for_update_on_launch` is a root key, so it must be placed before any section.
 
