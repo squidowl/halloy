@@ -1,6 +1,7 @@
 #!/bin/bash
 WXS_FILE="wix/main.wxs"
 HALLOY_VERSION=$(grep -q '\..*\.' VERSION && cat VERSION || echo "$(cat VERSION).0")
+PROFILE="packaging"
 
 # build the binary
 scripts/build-windows.sh
@@ -12,4 +13,4 @@ dotnet tool install --global wix --version 6.0.2
 wix extension add WixToolset.UI.wixext/6.0.2
 
 # build the installer
-wix build -pdbtype none -arch x64 -d PackageVersion=$HALLOY_VERSION $WXS_FILE -o target/release/halloy-installer.msi -ext WixToolset.UI.wixext
+wix build -pdbtype none -arch x64 -d PackageVersion=$HALLOY_VERSION $WXS_FILE -o target/$PROFILE/halloy-installer.msi -ext WixToolset.UI.wixext

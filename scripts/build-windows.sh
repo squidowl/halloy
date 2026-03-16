@@ -16,4 +16,4 @@ cargo set-version $HALLOY_VERSION
 # build binary
 rustup target add $TARGET
 cargo build --profile $PROFILE --locked --target=$TARGET
-cp -fp target/$TARGET/release/$EXE_NAME target/release
+cp -fp target/$TARGET/$PROFILE/$EXE_NAME target/$PROFILE
