@@ -3,6 +3,7 @@ no_progress = true
 
 include_fragments = true
 root_dir = "docs"
+exclude_path = ["docs/node_modules/**", "docs/.vitepress/**"]
 
 # Reduce rate of checks to respect limits
 max_retries = 1 # default: 3
