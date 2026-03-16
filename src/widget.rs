@@ -109,7 +109,7 @@ where
 
     let mut marker: Element<'a, M> = selectable_text(text)
         .line_height(line_height)
-        .font(font::ICON)
+        .font(*font::ICON)
         .style(style)
         .size(font_size)
         .into();
