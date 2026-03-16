@@ -1,3 +1,0 @@
-# Highlights
-
-Application wide highlights.
