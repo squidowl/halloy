@@ -216,16 +216,6 @@ impl Parsed {
                             ))
                         })
                     }
-                    command::Irc::Me(command_target, text) => {
-                        input.buffer.target().and_then(|buffer_target| {
-                            (buffer_target.as_normalized_str()
-                                == casemapping.normalize(command_target))
-                            .then_some((
-                                text.as_str(),
-                                MultilineBatchKind::ACTION,
-                            ))
-                        })
-                    }
                     command::Irc::Notice(command_target, text) => {
                         input.buffer.target().and_then(|buffer_target| {
                             (buffer_target.as_normalized_str()
