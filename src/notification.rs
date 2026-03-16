@@ -145,7 +145,7 @@ impl Notifications {
             }
             Notification::MonitoredOffline(targets) => {
                 self.execute(
-                    &config.monitored_online,
+                    &config.monitored_offline,
                     notification,
                     if targets.len() == 1 {
                         "Monitored user is offline"
@@ -157,7 +157,7 @@ impl Notifications {
                     None,
                 );
 
-                config.monitored_online.request_attention
+                config.monitored_offline.request_attention
             }
             Notification::FileTransferRequest {
                 nick,
