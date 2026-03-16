@@ -5,6 +5,7 @@
 EXE_NAME="halloy.exe"
 TARGET="x86_64-pc-windows-msvc"
 HALLOY_VERSION=$(grep -q '\..*\.' VERSION && cat VERSION || echo "$(cat VERSION).0")
+PROFILE="packaging"
 
 # update package version on Cargo.toml
 if ! command -v cargo-set-version &> /dev/null; then
@@ -14,5 +15,5 @@ cargo set-version $HALLOY_VERSION
 
 # build binary
 rustup target add $TARGET
-cargo build --release --locked --target=$TARGET
+cargo build --profile $PROFILE --locked --target=$TARGET
 cp -fp target/$TARGET/release/$EXE_NAME target/release
