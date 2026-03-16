@@ -75,14 +75,14 @@ impl MultilineLimits {
         &self,
         relay_bytes: usize,
         batch_kind: MultilineBatchKind,
-        target: &Target,
+        target: &str,
     ) -> usize {
         // Message byte limit - relay bytes - space - command - space - target - message separator - crlf
         format::BYTE_LIMIT.saturating_sub(
             match batch_kind {
                 MultilineBatchKind::PRIVMSG | MultilineBatchKind::ACTION => 7,
                 MultilineBatchKind::NOTICE => 6,
-            } + target.as_str().len()
+            } + target.len()
                 + relay_bytes
                 + 6,
         )
