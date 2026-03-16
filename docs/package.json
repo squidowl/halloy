@@ -1,6 +1,7 @@
 {
   "dependencies": {},
   "devDependencies": {
+    "markdown-it-footnote": "^4.0.0",
     "vitepress": "^2.0.0-alpha.16"
   },
   "scripts": {
