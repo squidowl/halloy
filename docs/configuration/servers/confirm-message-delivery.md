@@ -2,15 +2,7 @@
 
 Whether and where to confirm delivery of sent messages, if the server supports [`echo-message`](https://ircv3.net/specs/extensions/echo-message)
 
-- [Confirm Message Delivery](#confirm-message-delivery)
-  - [Configuration](#configuration)
-    - [enabled](#enabled)
-    - [exclude](#exclude)
-    - [include](#include)
-
-## Configuration
-
-### enabled
+## enabled
 
 Control if delivery of sent messages is to be confirmed (if the server supports [`echo-message`](https://ircv3.net/specs/extensions/echo-message)).
 
@@ -23,7 +15,7 @@ Control if delivery of sent messages is to be confirmed (if the server supports 
 enabled = true
 ```
 
-### exclude
+## exclude
 
 [Exclusion conditions](/configuration/conditions.md) in which sent message
 delivery confirmation will be skipped. Inclusion conditions will take precedence
@@ -39,7 +31,7 @@ over exclusion conditions. You can also exclude all conditions by setting to
 exclude = "*"
 ```
 
-### include
+## include
 
 [Inclusion conditions](/configuration/conditions.md) in which sent message
 delivery will be confirmed . Delivery of sent messages be confirmed in all

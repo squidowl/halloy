@@ -2,14 +2,7 @@
 
 Filter messages based on various criteria.
 
-- [Filters](#filters)
-  - [Configuration](#configuration)
-    - [ignore](#ignore)
-    - [regex](#regex)
-
-## Configuration
-
-### ignore
+## ignore
 
 A list of users to ignore. Users may be identified in any of these four ways:
 
@@ -32,7 +25,7 @@ ignore = [
 ]
 ```
 
-### regex
+## regex
 
 A list of regex used to filter messages; if a match is found in the message text, then the message will be hidden.
 

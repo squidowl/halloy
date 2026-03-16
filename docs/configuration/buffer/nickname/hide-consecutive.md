@@ -2,18 +2,10 @@
 
 Hide nickname if consecutive messages are from the same user.  
 
-- [Hide\_Consecutive](#hide-consecutive)
-  - [Configuration](#configuration)
-    - [enabled](#enabled)
-    - [show_after_previews](#show_after_previews)
-
-
-## Configuration
-
 > ⚠️ `hide_consecutive` does not work in conjunction with `alignment = "top"` .
 
 
-### enabled
+## enabled
 
 If specified as `{ smart = integer }` then the nickname will be hidden for consecutive messages
 are from the same user and each is within `smart` seconds of each other.
@@ -31,7 +23,7 @@ enabled = true
 enabled = { smart = 120 }
 ```
 
-### show_after_previews
+## show_after_previews
 
 Show nicknames after messages with visible image or link previews.
 Note: has no effect when `enabled = false`.

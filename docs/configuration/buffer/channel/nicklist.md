@@ -2,20 +2,7 @@
 
 Nicklist settings within a channel buffer.
 
-- [Nicklist](#nicklist)
-  - [Configuration](#configuration)
-    - [alignment](#alignment)
-    - [away](#away)
-    - [color](#color)
-    - [enabled](#enabled)
-    - [position](#position)
-    - [show\_access\_levels](#show_access_levels)
-    - [width](#width)
-    - [click](#click)
-
-## Configuration
-
-### alignment
+## alignment
 
 Horizontal alignment of nicknames.
 
@@ -28,7 +15,7 @@ Horizontal alignment of nicknames.
 alignment = "left"
 ```
 
-### away
+## away
 
 Controls the appearance of away nicknames.
 
@@ -48,7 +35,7 @@ away = { dimmed = 0.5 }
 away = "none"
 ```
 
-### color
+## color
 
 Nickname colors in the nicklist. `"unique"` generates colors by randomizing the hue, while keeping the saturation and lightness from the theme's nickname color.
 
@@ -61,7 +48,7 @@ Nickname colors in the nicklist. `"unique"` generates colors by randomizing the 
 color = "unique"
 ```
 
-### enabled
+## enabled
 
 Control if nicklist should be shown or not by default.
 
@@ -74,7 +61,7 @@ Control if nicklist should be shown or not by default.
 enabled = true
 ```
 
-### position
+## position
 
 Nicklist position in the pane.
 
@@ -87,7 +74,7 @@ Nicklist position in the pane.
 position = "right"
 ```
 
-### show_access_levels
+## show_access_levels
 
 Show access level(s) in front of nicknames (`@`, `+`, `~`, etc.).
 
@@ -100,7 +87,7 @@ Show access level(s) in front of nicknames (`@`, `+`, `~`, etc.).
 show_access_levels = "all"
 ```
 
-### width
+## width
 
 Overwrite nicklist width in pixels.
 
@@ -113,7 +100,7 @@ Overwrite nicklist width in pixels.
 width = 150
 ```
 
-### click
+## click
 
 Click action for when interaction with nicknames.
 

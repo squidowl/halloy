@@ -2,15 +2,7 @@
 
 macOS specific settings
 
-- [macOS](#macos)
-  - [Configuration](#configuration)
-    - [content\_padding](#content_padding)
-    - [sidebar\_padding](#sidebar_padding)
-    - [decorations](#decorations)
-
-## Configuration
-
-### content_padding
+## content_padding
 
 Controls if the content (panes) are rendered inside the the titlebar content view, or padded just below it.
 
@@ -23,7 +15,7 @@ Controls if the content (panes) are rendered inside the the titlebar content vie
 macos.content_padding = "embedded-content"
 ```
 
-### sidebar_padding
+## sidebar_padding
 
 Controls if the sidebar is rendered inside the the titlebar content view, or padded just below it.
 
@@ -36,7 +28,7 @@ Controls if the sidebar is rendered inside the the titlebar content view, or pad
 macos.sidebar_padding = "embedded-content"
 ```
 
-### decorations
+## decorations
 
 Whether the window should have a border, traffic light, a title bar, etc. or not.
 

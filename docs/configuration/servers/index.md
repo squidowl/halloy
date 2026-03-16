@@ -2,50 +2,6 @@
 
 You can define multiple server sections in the configuration file. Each server section must have a unique name, which is used as the identifier in the `[servers.<name>]` format.
 
-- [Servers](#servers)
-  - [Examples](#examples)
-  - [Configuration](#configuration)
-    - [nickname](#nickname)
-    - [nick_password](#nick_password)
-    - [nick_password_file](#nick_password_file)
-    - [nick_password_file_first_line_only](#nick_password_file_first_line_only)
-    - [nick_password_command](#nick_password_command)
-    - [nick_identify_syntax](#nick_identify_syntax)
-    - [alt_nicks](#alt_nicks)
-    - [username](#username)
-    - [realname](#realname)
-    - [server](#server)
-    - [port](#port)
-    - [password](#password)
-    - [password_file](#password_file)
-    - [password_file_first_line_only](#password_file_first_line_only)
-    - [password_command](#password_command)
-    - [channels](#channels)
-    - [channel_keys](#channel_keys)
-    - [order_channels_by](#order_channels_by)
-    - [queries](#queries)
-    - [ping_time](#ping_time)
-    - [ping_timeout](#ping_timeout)
-    - [reconnect_delay](#reconnect_delay)
-    - [should_ghost](#should_ghost)
-    - [ghost_sequence](#ghost_sequence)
-    - [umodes](#umodes)
-    - [use_tls](#use_tls)
-    - [dangerously_accept_invalid_certs](#dangerously_accept_invalid_certs)
-    - [root_cert_path](#root_cert_path)
-    - [on_connect](#on_connect)
-    - [anti_flood](#anti_flood)
-    - [who_poll_enabled](#who_poll_enabled)
-    - [who_poll_interval](#who_poll_interval)
-    - [monitor](#monitor)
-    - [chathistory](#chathistory)
-    - [proxy](#proxy)
-    - [autoconnect](#autoconnect)
-  - [Filters](#filters)
-  - [SASL Plain](#sasl-plain)
-  - [SASL External](#sasl-external)
-  - [Confirm Message Delivery](#confirm-message-delivery)
-
 ## Examples
 
 Examples can be found in the following guides:
@@ -55,9 +11,7 @@ Examples can be found in the following guides:
 - [Connect with soju](../../guides/connect-with-soju.md)
 - [Connect with ZNC](../../guides/connect-with-znc.md)
 
-## Configuration
-
-### nickname
+## nickname
 
 The client's nickname.
 
@@ -70,7 +24,7 @@ The client's nickname.
 nickname = ""
 ```
 
-### nick_password
+## nick_password
 
 The client's NICKSERV password.
 
@@ -83,7 +37,7 @@ The client's NICKSERV password.
 nick_password = ""
 ```
 
-### nick_password_file
+## nick_password_file
 
 Read `nick_password` from the file at the given path.[^1] [^2]
 
@@ -96,7 +50,7 @@ Read `nick_password` from the file at the given path.[^1] [^2]
 nick_password_file = ""
 ```
 
-### nick_password_file_first_line_only
+## nick_password_file_first_line_only
 
 Read `nick_password` from the first line of `nick_password_file` only.
 
@@ -109,7 +63,7 @@ Read `nick_password` from the first line of `nick_password_file` only.
 nick_password_file_first_line_only = true
 ```
 
-### nick_password_command
+## nick_password_command
 
 Executes the command with `sh` (or equivalent) and reads `nick_password` as the output.
 
@@ -122,7 +76,7 @@ Executes the command with `sh` (or equivalent) and reads `nick_password` as the 
 nick_password_command = ""
 ```
 
-### nick_identify_syntax
+## nick_identify_syntax
 
 The server's NICKSERV IDENTIFY syntax.
 
@@ -135,7 +89,7 @@ The server's NICKSERV IDENTIFY syntax.
 nick_identify_syntax = ""
 ```
 
-### alt_nicks
+## alt_nicks
 
 Alternative nicknames for the client, if the default is taken.
 
@@ -148,7 +102,7 @@ Alternative nicknames for the client, if the default is taken.
 alt_nicks = ["Foo", "Bar"]
 ```
 
-### username
+## username
 
 The client's username.
 
@@ -161,7 +115,7 @@ The client's username.
 username = ""
 ```
 
-### realname
+## realname
 
 The client's real name.
 
@@ -174,7 +128,7 @@ The client's real name.
 realname = ""
 ```
 
-### server
+## server
 
 The server to connect to. Should not contain the protocol, port, username, or password (i.e. should look like `"irc.libera.chat"` not `"ircs://irc.libera.chat:6697"`).
 
@@ -187,7 +141,7 @@ The server to connect to. Should not contain the protocol, port, username, or pa
 server = "irc.libera.chat"
 ```
 
-### port
+## port
 
 The port to connect on. If you want to use a plain text port like 6667 you MUST also change the `use_tls` setting.
 
@@ -200,7 +154,7 @@ The port to connect on. If you want to use a plain text port like 6667 you MUST 
 port = 6697
 ```
 
-### password
+## password
 
 The password to connect to the server.
 
@@ -213,7 +167,7 @@ The password to connect to the server.
 password = ""
 ```
 
-### password_file
+## password_file
 
 Read password from the file at the given path.[^1] [^2]
 
@@ -226,7 +180,7 @@ Read password from the file at the given path.[^1] [^2]
 password_file = ""
 ```
 
-### password_file_first_line_only
+## password_file_first_line_only
 
 Read `password` from the first line of `password_file` only.
 
@@ -239,7 +193,7 @@ Read `password` from the first line of `password_file` only.
 password_file_first_line_only = true
 ```
 
-### password_command
+## password_command
 
 Executes the command with `sh` (or equivalent) and reads `password` as the output.
 
@@ -252,7 +206,7 @@ Executes the command with `sh` (or equivalent) and reads `password` as the outpu
 password_command = ""
 ```
 
-### channels
+## channels
 
 A list of channels to join on connection.
 
@@ -265,7 +219,7 @@ A list of channels to join on connection.
 channels = ["#foo", "#bar"]
 ```
 
-### channel_keys
+## channel_keys
 
 A mapping of channel names to keys (passwords) for join-on-connect.
 
@@ -278,7 +232,7 @@ A mapping of channel names to keys (passwords) for join-on-connect.
 channel_keys = { "#foo" = "password" }
 ```
 
-### order_channels_by
+## order_channels_by
 
 Ordering for channels listed in the sidebar for the current server.
 
@@ -286,7 +240,6 @@ Ordering for channels listed in the sidebar for the current server.
 - `"name-and-prefix"`: Sort channels by name including their chantypes.
 - `"config"`: Sort channels in the order they appear in your server's `channels`
   list. Any channels not in the list appear last, using default (`"name"`) sort.
-
 
 If not set, the value will be taken from the sidebar config: [order_channels_by](../sidebar/#order_channels_by).
 
@@ -303,7 +256,7 @@ channels = ["#rust", "#halloy", "#halloy-test"]
 # Result: #rust → #halloy → #halloy-test → (any other channels are sorted by "name")
 ```
 
-### queries
+## queries
 
 A list of queries to add to the sidebar on connection.
 
@@ -316,7 +269,7 @@ A list of queries to add to the sidebar on connection.
 queries = ["alice", "bob"]
 ```
 
-### ping_time
+## ping_time
 
 The amount of inactivity in seconds before the client will ping the server.
 
@@ -329,7 +282,7 @@ The amount of inactivity in seconds before the client will ping the server.
 ping_time = 180
 ```
 
-### ping_timeout
+## ping_timeout
 
 The amount of time in seconds to wait for a ping response before attempting to reconnect.
 
@@ -342,7 +295,7 @@ The amount of time in seconds to wait for a ping response before attempting to r
 ping_timeout = 20
 ```
 
-### reconnect_delay
+## reconnect_delay
 
 The amount of time in seconds before attempting to reconnect to the server when disconnected.
 
@@ -355,7 +308,7 @@ The amount of time in seconds before attempting to reconnect to the server when 
 reconnect_delay = 10
 ```
 
-### should_ghost
+## should_ghost
 
 Whether the client should use NickServ GHOST to reclaim its primary nickname if it is in use.
 
@@ -368,7 +321,7 @@ Whether the client should use NickServ GHOST to reclaim its primary nickname if 
 should_ghost = false
 ```
 
-### ghost_sequence
+## ghost_sequence
 
 The command(s) that should be sent to NickServ to recover a nickname.
 
@@ -381,7 +334,7 @@ The command(s) that should be sent to NickServ to recover a nickname.
 ghost_sequence = ["REGAIN"]
 ```
 
-### umodes
+## umodes
 
 User modestring to set on connect.
 
@@ -394,7 +347,7 @@ User modestring to set on connect.
 umodes = "+RB-x"
 ```
 
-### use_tls
+## use_tls
 
 Whether or not to use TLS. Clients will automatically panic if this is enabled without TLS support.
 
@@ -407,7 +360,7 @@ Whether or not to use TLS. Clients will automatically panic if this is enabled w
 use_tls = true
 ```
 
-### dangerously_accept_invalid_certs
+## dangerously_accept_invalid_certs
 
 When `true`, all certificate validations are skipped.
 
@@ -420,7 +373,7 @@ When `true`, all certificate validations are skipped.
 dangerously_accept_invalid_certs = false
 ```
 
-### root_cert_path
+## root_cert_path
 
 The path to the root TLS certificate for this server in PEM format.[^1] [^2]
 
@@ -433,7 +386,7 @@ The path to the root TLS certificate for this server in PEM format.[^1] [^2]
 root_cert_path = ""
 ```
 
-### on_connect
+## on_connect
 
 Commands which are executed once connected, in the order they are specified. The `/delay <seconds>` command can be used to add a delay between commands.
 
@@ -446,7 +399,7 @@ Commands which are executed once connected, in the order they are specified. The
 on_connect = ["/msg NickServ IDENTIFY foo bar", "/delay 2", "/join registered-club"]
 ```
 
-### anti_flood
+## anti_flood
 
 The time (in milliseconds) between sending messages to servers without SAFERATE. Timing is not strictly guaranteed; small groups of messages may be allowed to be sent at a faster rate, messages may be delayed in order to be batched, automated messages are included in the queue (most at a lower priority than user messages), etc.
 
@@ -459,7 +412,7 @@ The time (in milliseconds) between sending messages to servers without SAFERATE.
 anti_flood = 2000
 ```
 
-### who_poll_enabled
+## who_poll_enabled
 
 Whether or not to WHO polling is enabled.
 
@@ -472,7 +425,7 @@ Whether or not to WHO polling is enabled.
 who_poll_enabled = true
 ```
 
-### who_poll_interval
+## who_poll_interval
 
 WHO poll interval (in seconds) for servers without away-notify.  Specifically, the time between individual WHO requests. Will be increased automatically if the server sends a rate-limiting message.  When the server does not support SAFERATE (and [anti-flood protections](#anti_flood) are enabled) then `who_poll_interval` will be increased to more than twice [`anti_flood`](#anti_flood) if it is not already.
 
@@ -485,7 +438,7 @@ WHO poll interval (in seconds) for servers without away-notify.  Specifically, t
 who_poll_interval = 2
 ```
 
-### monitor
+## monitor
 
 A list of nicknames to [monitor](https://ircv3.net/specs/extensions/monitor) (if IRCv3 Monitor is supported by the server).
 
@@ -500,7 +453,7 @@ A list of nicknames to [monitor](https://ircv3.net/specs/extensions/monitor) (if
 monitor = ["Foo", "Bar"]
 ```
 
-### chathistory
+## chathistory
 
 Whether or not to enable [IRCv3 Chat History](https://ircv3.net/specs/extensions/chathistory) (if it is supported by the server).
 
@@ -513,7 +466,7 @@ Whether or not to enable [IRCv3 Chat History](https://ircv3.net/specs/extensions
 chathistory = true
 ```
 
-### proxy
+## proxy
 
 Custom proxy for specified server
 
@@ -543,7 +496,7 @@ username = "username"
 password = "password"
 ```
 
-### autoconnect
+## autoconnect
 
 Whether or not to connect to the server when launching Halloy or when changing the connection details in the server configuration.
 
@@ -555,23 +508,3 @@ Whether or not to connect to the server when launching Halloy or when changing t
 [servers.<name>]
 autoconnect = true
 ```
-
-## [Filters](filters.md)
-
-Filter messages based on various criteria
-
-## [SASL Plain](sasl-plain.md)
-
-Plain SASL auth using a username and password
-
-## [SASL External](sasl-external.md)
-
-External SASL auth uses a PEM encoded X509 certificate.
-
-## [Confirm Message Delivery](confirm-message-delivery.md)
-
-Whether and where to confirm delivery of sent messages, if the server supports [`echo-message`](https://ircv3.net/specs/extensions/echo-message)
-
-[^1]: Windows path strings should usually be specified as literal strings (e.g. `'C:\Users\Default\'`), otherwise directory separators will need to be escaped (e.g. `"C:\\Users\\Default\\"`).
-
-[^2]: Relative paths are prefixed with the config directory (i.e. if you have your config.toml in `/home/me/.config/halloy/config.toml`, path `.passwd/libera` will be converted to `/home/me/.config/halloy/.passwd/libera`).

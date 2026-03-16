@@ -2,14 +2,7 @@
 
 Customize how date separators are displayed within a buffer
 
-- [Date Separators](#date-separators)
-  - [Configuration](#configuration)
-    - [format](#format)
-    - [show](#show)
-
-## Configuration
-
-### format
+## format
 
 Controls the date format. The expected format is [strftime](https://pubs.opengroup.org/onlinepubs/007908799/xsh/strftime.html).  
 
@@ -22,7 +15,7 @@ Controls the date format. The expected format is [strftime](https://pubs.opengro
 format = "%A, %B %-d"
 ```
 
-### show
+## show
 
 Show date separators.
 

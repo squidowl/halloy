@@ -2,17 +2,6 @@
 
 Specific card preview settings.
 
-- [Card](#card)
-  - [Example](#example)
-  - [Configuration](#configuration)
-    - [show\_image](#show_image)
-    - [round\_image\_corners](#round_image_corners)
-    - [max\_width](#max_width)
-    - [description\_max\_height](#description_max_height)
-    - [image\_max\_height](#image_max_height)
-    - [include](#include)
-    - [exclude](#exclude)
-
 ## Example 
 
 ```toml
@@ -21,9 +10,7 @@ exclude = "*" # hide card previews in all channels
 include = { channels = ["#halloy"] } # show card previews in #halloy
 ```
 
-## Configuration
-
-### show_image
+## show_image
 
 Show image for card previews.
 
@@ -36,7 +23,7 @@ Show image for card previews.
 show_image = true
 ```
 
-### round_image_corners
+## round_image_corners
 
 Round the corners of the image in the card preview (if shown).
 
@@ -49,7 +36,7 @@ Round the corners of the image in the card preview (if shown).
 round_image_corners = true
 ```
 
-### max_width
+## max_width
 
 Maximum width of the card in pixels.
 
@@ -62,7 +49,7 @@ Maximum width of the card in pixels.
 max_width = 400.0
 ```
 
-### description_max_height
+## description_max_height
 
 Maximum height of the description text in pixels.
 
@@ -75,7 +62,7 @@ Maximum height of the description text in pixels.
 description_max_height = 100.0
 ```
 
-### image_max_height
+## image_max_height
 
 Maximum height of the image in the card preview in pixels.
 
@@ -88,7 +75,7 @@ Maximum height of the image in the card preview in pixels.
 image_max_height = 200.0
 ```
 
-### exclude
+## exclude
 
 [Exclusion conditions](/configuration/conditions.md) for when card previews will
 be hidden. Inclusion conditions will take precedence over exclusion conditions.
@@ -103,7 +90,7 @@ You can also exclude all conditions by setting to `"all"` or `"*"`.
 exclude = { criteria = [{ server_message = "topic", channel = "#linux" }] } # exclude previews from topic messages in #linux
 ```
 
-### include
+## include
 
 [Inclusion conditions](/configuration/conditions.md) for when card previews will
 be shown. Card previews will be shown for all conditions (when enabled) unless

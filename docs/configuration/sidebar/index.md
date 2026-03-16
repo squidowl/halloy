@@ -2,23 +2,7 @@
 
 Sidebar settings for Halloy.
 
-- [Sidebar](#sidebar)
-  - [Configuration](#configuration)
-    - [server_icon](#server_icon)
-    - [position](#position)
-    - [max_width](#max_width)
-    - [user_menu](#user_menu)
-    - [order_by](#order_by)
-    - [order_channels_by](#order_channels_by)
-    - [channel_name_casing](#channel_name_casing)
-  - [Scrollbar](#scrollbar)
-  - [Unread Indicator](#unread-indicator)
-  - [Padding](#padding)
-  - [Spacing](#spacing)
-
-## Configuration
-
-### server_icon
+## server_icon
 
 Configure the server icon display.
 
@@ -38,7 +22,7 @@ Hide the server icon:
 server_icon = "hidden"
 ```
 
-### position
+## position
 
 Sidebar position within the application window.
 
@@ -51,7 +35,7 @@ Sidebar position within the application window.
 position = "left"
 ```
 
-### max_width
+## max_width
 
 Specify sidebar max width in pixels. Only used if `position` is `"left"` or `"right"`.
 
@@ -64,7 +48,7 @@ Specify sidebar max width in pixels. Only used if `position` is `"left"` or `"ri
 max_width = 200
 ```
 
-### user_menu
+## user_menu
 
 Show or hide the user menu button in the sidebar.
 
@@ -77,7 +61,7 @@ Show or hide the user menu button in the sidebar.
 enabled = true
 ```
 
-### order_by
+## order_by
 
 Ordering that servers are listed in the sidebar.
 
@@ -93,7 +77,7 @@ Ordering that servers are listed in the sidebar.
 order_by = "config"
 ```
 
-### order_channels_by
+## order_channels_by
 
 Ordering for channels listed in the sidebar.
 
@@ -116,7 +100,7 @@ channels = ["#rust", "#halloy", "#halloy-test"]
 # Result: #rust → #halloy → #halloy-test → (any other channels are sorted by "name")
 ```
 
-### channel_name_casing
+## channel_name_casing
 
 Transform the channel name casing in the sidebar channel entries.
 
@@ -128,19 +112,3 @@ Transform the channel name casing in the sidebar channel entries.
 [sidebar]
 channel_name_casing = "lowercase"
 ```
-
-## [Scrollbar](scrollbar.md)
-
-Scrollbar in sidebar
-
-## [Unread Indicator](unread-indicator.md)
-
-Unread buffer indicator style
-
-## [Padding](padding.md)
-
-Adjust padding for sidebar
-
-## [Spacing](spacing.md)
-
-Adjust spacing for sidebar

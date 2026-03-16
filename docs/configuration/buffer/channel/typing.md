@@ -2,15 +2,7 @@
 
 Typing settings for channel and query buffers.
 
-- [Typing](#typing)
-  - [Configuration](#configuration)
-    - [font_size](#font_size)
-    - [share](#share)
-    - [show](#show)
-
-## Configuration
-
-### font_size
+## font_size
 
 Control the font size of the typing indicator. This also adjusts the bottom padding reserved for the typing indicator line.
 
@@ -24,7 +16,7 @@ Control the font size of the typing indicator. This also adjusts the bottom padd
 font_size = 12
 ```
 
-### share
+## share
 
 Control whether Halloy shares your typing status with other users.
 
@@ -37,7 +29,7 @@ Control whether Halloy shares your typing status with other users.
 share = false
 ```
 
-### show
+## show
 
 Control whether Halloy shows typing status from other users.
 

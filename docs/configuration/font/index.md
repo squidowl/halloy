@@ -2,23 +2,11 @@
 
 Application wide font settings.
 
-- [Font](#font)
-  - [Configuration](#configuration)
-    - [family](#family)
-    - [size](#size)
-    - [line_height](#line_height)
-    - [weight](#weight)
-    - [bold_weight](#bold_weight)
-    - [only_emojis_size](#only_emojis_size)
-
 > ⚠️  Changes to font settings require an application restart to take effect.
 
 > 💡  If Halloy is unable to load the specified font & weight, an fallback font may be used.  If the font looks wrong, double-check the family name and that the font family has the specified weight.
 
-
-## Configuration
-
-### family
+## family
 
 Monospaced font family to use.
 
@@ -35,7 +23,7 @@ Monospaced font family to use.
 family = "Comic Mono"
 ```
 
-### size
+## size
 
 Font size.
 
@@ -48,7 +36,7 @@ Font size.
 size = 13
 ```
 
-### line_height
+## line_height
 
 Line height (relative to the font size). Changing this also requires a restart to take effect.
 
@@ -61,7 +49,7 @@ Line height (relative to the font size). Changing this also requires a restart t
 line_height = 1.1
 ```
 
-### weight
+## weight
 
 Font weight.
 
@@ -74,7 +62,7 @@ Font weight.
 weight = "light"
 ```
 
-### bold_weight
+## bold_weight
 
 Bold font weight.  If not set, then the font weight three steps above the regular font weight (e.g. font weight `"light"` → bold font weight `"semibold"`).
 
@@ -87,7 +75,7 @@ Bold font weight.  If not set, then the font weight three steps above the regula
 bold_weight = "semibold"
 ```
 
-### only_emojis_size
+## only_emojis_size
 
 Font size for messages that contain only emojis.  If not set, then the regular font size will be used.
 

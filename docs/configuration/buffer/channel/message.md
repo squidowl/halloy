@@ -2,16 +2,7 @@
 
 Message settings within a channel buffer.
 
-- [Message](#message)
-  - [Configuration](#configuration)
-    - [nickname\_color](#nickname_color)
-    - [show\_emoji\_reacts](#show_emoji_reacts)
-    - [max\_reaction\_display](#max_reaction_display)
-    - [max\_reaction\_chars](#max_reaction_chars)
-
-## Configuration
-
-### nickname_color
+## nickname_color
 
 Nickname colors in the message. `"unique"` generates colors by randomizing the hue, while keeping the saturation and lightness from the theme's nickname color.
 
@@ -24,7 +15,7 @@ Nickname colors in the message. `"unique"` generates colors by randomizing the h
 nickname_color = "unique"
 ```
 
-### show_emoji_reacts
+## show_emoji_reacts
 
 Whether to display emoji reactions on messages (if [IRCv3 React](https://ircv3.net/specs/client-tags/react) is supported by the server).
 
@@ -37,7 +28,7 @@ Whether to display emoji reactions on messages (if [IRCv3 React](https://ircv3.n
 show_emoji_reacts = true
 ```
 
-### max_reaction_display
+## max_reaction_display
 
 Maximum number of user-visible characters (Unicode grapheme clusters) in a reaction.
 If a reaction exceeds this value, then its display is truncated to the first `max_reaction_display` grapheme clusters.
@@ -51,7 +42,7 @@ If a reaction exceeds this value, then its display is truncated to the first `ma
 max_reaction_display = 5
 ```
 
-### max_reaction_chars
+## max_reaction_chars
 
 Maximum number of user-visible characters (Unicode grapheme clusters) in a reaction.
 If a reaction exceeds this value, then it is not stored.

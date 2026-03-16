@@ -2,17 +2,6 @@
 
 How buffer actions should be enacted
 
-- [Buffer](#buffer)
-  - [Example](#example)
-  - [Configuration](#configuration)
-    - [click\_channel\_name](#click_channel_name)
-    - [click\_highlight](#click_highlight)
-    - [click\_username](#click_username)
-    - [local](#local)
-    - [message\_channel](#message_channel)
-    - [message\_user](#message_user)
-    - [join\_channel](#join_channel)
-
 ## Example
 
 ```toml
@@ -24,9 +13,7 @@ click_username = "replace-pane"
 ```
 
 
-## Configuration
-
-### click_channel_name
+## click_channel_name
 
 Action when clicking on a channel name in a pane. `"new-pane"` opens a new pane each time. `"replace-pane"` replaces the focused pane with the clicked channel. `"new-window"` opens a new window each time.
 
@@ -39,7 +26,7 @@ Action when clicking on a channel name in a pane. `"new-pane"` opens a new pane 
 click_channel_name = "new-pane"
 ```
 
-### click_highlight
+## click_highlight
 
 Action when clicking on a highlight in the highlights buffer. `"new-pane"` opens a new pane each time. `"replace-pane"` replaces the focused pane with the buffer that contains the highlight. `"new-window"` opens a new window each time.
 
@@ -52,7 +39,7 @@ Action when clicking on a highlight in the highlights buffer. `"new-pane"` opens
 click_highlight = "new-pane"
 ```
 
-### click_username
+## click_username
 
 Action when clicking on a user name in a pane (if `buffer.channel.nicklist` or `buffer.nickname` is set to `"open-query"`). `"new-pane"` opens a new pane each time. `"replace-pane"` replaces the focused pane with a query for clicked user. `"new-window"` opens a new window each time.
 
@@ -65,7 +52,7 @@ Action when clicking on a user name in a pane (if `buffer.channel.nicklist` or `
 click_username = "new-pane"
 ```
 
-### local
+## local
 
 Action when opening a local buffer (the highlights or logs buffer). `"new-pane"` opens a new pane each time. `"replace-pane"` replaces the focused pane with the local buffer. `"new-window"` opens a new window each time.
 
@@ -78,7 +65,7 @@ Action when opening a local buffer (the highlights or logs buffer). `"new-pane"`
 local = "new-pane"
 ```
 
-### message_channel
+## message_channel
 
 Action when sending an empty message to a channel (via the `/msg` or `/notice` command). `"new-pane"` opens a new pane each time. `"replace-pane"` replaces the focused pane with the channel. `"new-window"` opens a new window each time.
 
@@ -91,7 +78,7 @@ Action when sending an empty message to a channel (via the `/msg` or `/notice` c
 message_channel = "replace-pane"
 ```
 
-### message_user
+## message_user
 
 Action when sending an empty message to a user (via `Message` in the user context menu or the `/msg` or `/notice` command). `"new-pane"` opens a new pane each time. `"replace-pane"` replaces the focused pane with a query for the user. `"new-window"` opens a new window each time.
 
@@ -104,7 +91,7 @@ Action when sending an empty message to a user (via `Message` in the user contex
 message_user = "replace-pane"
 ```
 
-### join_channel
+## join_channel
 
 Action when sending joining a channel via `/join` command. `"new-pane"` opens a new pane each time. `"replace-pane"` replaces the focused pane with the channel. `"new-window"` opens a new window each time.
 

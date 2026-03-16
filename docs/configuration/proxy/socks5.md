@@ -2,14 +2,6 @@
 
 Socks5 proxy settings.
 
-- [SOCKS5](#socks5)
-  - [Example](#example)
-  - [Configuration](#configuration)
-    - [host](#host)
-    - [port](#port)
-    - [username](#username)
-    - [password](#password)
-
 ## Example
 
 ```toml
@@ -20,9 +12,7 @@ username = "username"
 password = "password"
 ```
 
-## Configuration
-
-### host
+## host
 
 Proxy host to connect to.
 
@@ -37,7 +27,7 @@ Proxy host to connect to.
 host = "192.168.1.100"
 ```
 
-### port
+## port
 
 Proxy port to connect on.
 
@@ -52,7 +42,7 @@ Proxy port to connect on.
 port = 1080
 ```
 
-### username
+## username
 
 Proxy username.
 
@@ -67,7 +57,7 @@ Proxy username.
 username = "username"
 ```
 
-### password
+## password
 
 Proxy password.
 

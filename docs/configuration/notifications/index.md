@@ -3,19 +3,6 @@
 
 Customize and enable notifications.
 
-- [Notifications](#notifications)
-  - [Example](#example)
-  - [Types](#types)
-  - [Built-in Sounds](#built-in-sounds)
-  - [Configuration](#configuration)
-    - [sound](#sound)
-    - [show\_toast](#show_toast)
-    - [request_attention](#request_attention)
-    - [show\_content](#show_content)
-    - [delay](#delay)
-    - [exclude](#exclude)
-    - [include](#include)
-
 ## Example
 
 ```toml
@@ -70,9 +57,7 @@ The following table shows all available built-in sounds
 | `whistle`  | <audio controls><source src="../../sounds/whistle.ogg" type="audio/ogg"></audio> |
 | `zone`     | <audio controls><source src="../../sounds/zone.ogg" type="audio/ogg"></audio>    |
 
-## Configuration
-
-### sound
+## sound
 
 Notification sound. Supports both built-in sounds, and external sound files
 (`mp3`, `ogg`, `flac` or `wav` placed inside the `sounds` folder within the
@@ -87,7 +72,7 @@ configuration directory).
 sound = "zone"
 ```
 
-### show_toast
+## show_toast
 
 Notification should trigger a OS toast.
 
@@ -100,7 +85,7 @@ Notification should trigger a OS toast.
 show_toast = true
 ```
 
-### request_attention
+## request_attention
 
 Notification should request user attention for its window (aka urgency).  Exact
 behavior is platform specific:
@@ -118,7 +103,7 @@ behavior is platform specific:
 request_attention = true
 ```
 
-### show_content
+## show_content
 
 Notification should show the content of the trigger (as described in the [table above](#types))).
 
@@ -131,7 +116,7 @@ Notification should show the content of the trigger (as described in the [table 
 show_content = true
 ```
 
-### delay
+## delay
 
 Delay in milliseconds before triggering the next notification.
 
@@ -144,7 +129,7 @@ Delay in milliseconds before triggering the next notification.
 delay = 250
 ```
 
-### exclude
+## exclude
 
 [Exclusion conditions](/configuration/conditions.md) in which you won't be
 notified. Inclusion conditions will take precedence over exclusion conditions.
@@ -165,7 +150,7 @@ exclude = { users = ["HalloyUser1"] }
 exclude = { users = ["HalloyUser1", "#halloy"] }
 ```
 
-### include
+## include
 
 [Inclusion conditions](/configuration/conditions.md) in which you will be
 notified. Notifications are enabled in all conditions unless explicitly

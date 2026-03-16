@@ -2,14 +2,6 @@
 
 Emojis settings.
 
-- [Emojis](#emojis)
-  - [Example](#example)
-  - [Configuration](#configuration)
-    - [show\_picker](#show_picker)
-    - [skin\_tone](#skin_tone)
-    - [auto\_replace](#auto_replace)
-    - [characters\_to\_trigger\_picker](#characters_to_trigger_picker)
-
 ## Example
 
 ```toml
@@ -19,9 +11,7 @@ skin_tone = "default"
 auto_replace = true
 ```
 
-## Configuration
-
-### show_picker
+## show_picker
 
 Show the emoji picker when typing `:shortcode:` in text input.
 
@@ -34,7 +24,7 @@ Show the emoji picker when typing `:shortcode:` in text input.
 show_picker = true
 ```
 
-### skin_tone
+## skin_tone
 
 Skin tone selected when picking an emoji.
 
@@ -47,7 +37,7 @@ Skin tone selected when picking an emoji.
 skin_tone = "default"
 ```
 
-### auto_replace
+## auto_replace
 
 Automatically replace `:shortcode:` in text input with the corresponding emoji.
 
@@ -60,7 +50,7 @@ Automatically replace `:shortcode:` in text input with the corresponding emoji.
 auto_replace = true
 ```
 
-### characters_to_trigger_picker
+## characters_to_trigger_picker
 
 Minimum number of characters after `:` required for the emoji picker to show.
 E.g. `:D` will not show the emoji picker unless `characters_to_trigger_picker` is less than or equal to `1`.

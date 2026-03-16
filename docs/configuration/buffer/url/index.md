@@ -2,13 +2,7 @@
 
 Customize how urls behave in buffers
 
-- [Url](#url)
-  - [Configuration](#configuration)
-    - [prompt\_before\_open](#prompt_before_open)
-
-## Configuration
-
-### prompt_before_open
+## prompt_before_open
 
 Prompt before opening a hyperlink.
 

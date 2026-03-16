@@ -2,18 +2,7 @@
 
 File transfer configuration options.
 
-- [File Transfer](#file-transfer)
-  - [Configuration](#configuration)
-    - [enabled](#enabled)
-    - [save\_directory](#save_directory)
-    - [passive](#passive)
-    - [timeout](#timeout)
-  - [Auto Accept](#auto-accept)
-  - [Server](#server)
-
-## Configuration
-
-### enabled
+## enabled
 
 Control if file transfers are shown in the UI (e.g. file transfer requests are
 shown, file transfer options are presented in menus, etc).
@@ -27,7 +16,7 @@ shown, file transfer options are presented in menus, etc).
 enabled = true
 ```
 
-### save_directory
+## save_directory
 
 Default directory to save files in. If not set, user will see a file dialog. [^1]
 
@@ -40,7 +29,7 @@ Default directory to save files in. If not set, user will see a file dialog. [^1
 save_directory = "/Users/halloy/Downloads"
 ```
 
-### passive
+## passive
 
 If true, act as the "client" for the transfer. Requires the remote user act as the [server](./server.md).
 
@@ -53,7 +42,7 @@ If true, act as the "client" for the transfer. Requires the remote user act as t
 passive = true
 ```
 
-### timeout
+## timeout
 
 Time (in seconds) to wait before timing out a transfer waiting to be accepted.
 
@@ -65,13 +54,3 @@ Time (in seconds) to wait before timing out a transfer waiting to be accepted.
 [file_transfer]
 timeout = 300
 ```
-
-## [Auto Accept](auto_accept.md)
-
-Configure automatic acceptance of incoming file transfers
-
-## [Server](server.md)
-
-Server configuration for file transfers (required when `passive = true`)
-
-[^1]: Relative paths are prefixed with the config directory (i.e. if you have your config.toml in `/home/me/.config/halloy/config.toml`, path `.passwd/libera` will be converted to `/home/me/.config/halloy/.passwd/libera`).

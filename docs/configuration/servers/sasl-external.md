@@ -2,15 +2,7 @@
 
 External SASL auth uses a PEM encoded X509 certificate. [Reference](https://libera.chat/guides/certfp).
 
-- [SASL External](#sasl-external)
-  - [Configuration](#configuration)
-    - [cert](#cert)
-    - [key](#key)
-    - [disconnect\_on\_failure](#disconnect_on_failure)
-
-## Configuration
-
-### cert
+## cert
 
 The path to PEM encoded X509 user certificate for external auth.[^1] [^2]
 
@@ -23,7 +15,7 @@ The path to PEM encoded X509 user certificate for external auth.[^1] [^2]
 cert = "/path/to/your/certificate.pem"
 ```
 
-### key
+## key
 
 The path to PEM encoded PKCS#8 private key for external auth (optional).[^1] [^2]
 
@@ -36,7 +28,7 @@ The path to PEM encoded PKCS#8 private key for external auth (optional).[^1] [^2
 key = "/path/to/your/private_key.pem"
 ```
 
-### disconnect_on_failure
+## disconnect_on_failure
 
 Disconnect from the server if SASL authentication fails. This is useful on servers which apply a hostname cloak after identifying, such as Libera.Chat. Without this option, a failed SASL authentication would result in connecting with your real IP/hostname exposed.
 

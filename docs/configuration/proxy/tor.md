@@ -8,9 +8,6 @@ It accepts no further configuration.
 
 > ⚠️ To preserve privacy, [previews](../preview/) are disabled when using the Tor proxy.
 
-- [Tor](#tor)
-  - [Example](#example)
-
 ## Example
 
 ```toml

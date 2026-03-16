@@ -2,13 +2,7 @@
 
 Status message prefix settings.
 
-- [Status Message Prefix](#status-message-prefix)
-  - [Configuration](#configuration)
-    - [brackets](#brackets)
-
-## Configuration
-
-### brackets
+## brackets
 
 Brackets around status message prefix.
 

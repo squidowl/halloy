@@ -2,17 +2,7 @@
 
 Configure which system information components to display when using the `/sysinfo` command
 
-- [Sysinfo](#sysinfo)
-  - [Configuration](#configuration)
-    - [cpu](#cpu)
-    - [memory](#memory)
-    - [gpu](#gpu)
-    - [os](#os)
-    - [uptime](#uptime)
-
-## Configuration
-
-### cpu
+## cpu
 
 Show CPU information (processor brand and model)
 
@@ -25,7 +15,7 @@ Show CPU information (processor brand and model)
 cpu = true
 ```
 
-### memory
+## memory
 
 Show memory information
 
@@ -38,7 +28,7 @@ Show memory information
 memory = true
 ```
 
-### gpu
+## gpu
 
 Show graphics card information (adapter and backend)
 
@@ -51,7 +41,7 @@ Show graphics card information (adapter and backend)
 gpu = true
 ```
 
-### os
+## os
 
 Show operating system information (version and kernel)
 
@@ -64,7 +54,7 @@ Show operating system information (version and kernel)
 os = true
 ```
 
-### uptime
+## uptime
 
 Show system uptime information
 

@@ -3,16 +3,7 @@
 This section is **required** if [passive is true](./#passive). One side of the file transfer must
 operate as the "server", who the other user connects with to establish a connection.
 
-- [Server](#server)
-  - [Configuration](#configuration)
-    - [public\_address](#public_address)
-    - [bind\_address](#bind_address)
-    - [bind\_port\_first](#bind_port_first)
-    - [bind\_port\_last](#bind_port_last)
-
-## Configuration
-
-### public_address
+## public_address
 
 Address advertised to the remote user to connect to.
 
@@ -25,7 +16,7 @@ Address advertised to the remote user to connect to.
 public_address = "<some ip>"
 ```
 
-### bind_address
+## bind_address
 
 Address to bind to when accepting connections.
 
@@ -38,7 +29,7 @@ Address to bind to when accepting connections.
 bind_address = "<some ip>"
 ```
 
-### bind_port_first
+## bind_port_first
 
 First port in port range to bind to.
 
@@ -51,7 +42,7 @@ First port in port range to bind to.
 bind_port_first = 1024
 ```
 
-### bind_port_last
+## bind_port_last
 
 Last port in port range to bind to.
 

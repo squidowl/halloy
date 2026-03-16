@@ -2,14 +2,7 @@
 
 Topic banner settings within a channel buffer.
 
-- [Topic Banner](#topic-banner)
-  - [Configuration](#configuration)
-    - [enabled](#enabled)
-    - [max\_lines](#max_lines)
-
-## Configuration
-
-### enabled
+## enabled
 
 Control if topic banner should be shown or not by default.
 
@@ -22,7 +15,7 @@ Control if topic banner should be shown or not by default.
 enabled = true
 ```
 
-### max_lines
+## max_lines
 
 Amount of visible lines before you have to scroll in topic banner.
 

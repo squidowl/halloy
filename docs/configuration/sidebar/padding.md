@@ -2,14 +2,7 @@
 
 Adjust padding for sidebar
 
-- [Padding](#padding)
-  - [Configuration](#configuration)
-    - [buffer](#buffer)
-
-
-## Configuration
-
-### buffer
+## buffer
 
 Controls padding for buffer buttons (server, channels, queries) in the sidebar
 The value is an array where the first value is vertical padding and the second is horizontal padding. 

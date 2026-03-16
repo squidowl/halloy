@@ -2,13 +2,7 @@
 
 Adjust padding for context menu
 
-- [Padding](#padding)
-  - [Configuration](#configuration)
-    - [entry](#entry)
-
-## Configuration
-
-### entry
+## entry
 
 Controls the padding around each entry in context menus.
 The value is an array where the first value is vertical padding and the second is horizontal padding. 

@@ -2,14 +2,7 @@
 
 Default settings which will be used for all internal messages when a specific value is not provided for the specific internal message type.
 
-- [Default](#default)
-  - [Configuration](#configuration)
-    - [enabled](#enabled)
-    - [smart](#smart)
-
-## Configuration
-
-### enabled
+## enabled
 
 Control if internal messages are enabled by default.
 
@@ -22,7 +15,7 @@ Control if internal messages are enabled by default.
 enabled = true
 ```
 
-### smart
+## smart
 
 By default, only show internal message if received within the given time duration (seconds).
 

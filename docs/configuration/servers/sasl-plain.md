@@ -2,18 +2,7 @@
 
 Plain SASL auth using a username and password
 
-- [SASL Plain](#sasl-plain)
-  - [Configuration](#configuration)
-    - [username](#username)
-    - [password](#password)
-    - [password\_file](#password_file)
-    - [password\_file\_first\_line\_only](#password_file_first_line_only)
-    - [password\_command](#password_command)
-    - [disconnect\_on\_failure](#disconnect_on_failure)
-
-## Configuration
-
-### username
+## username
 
 The account name used for authentication.
 
@@ -26,7 +15,7 @@ The account name used for authentication.
 username = "username"
 ```
 
-### password
+## password
 
 The password associated with the account used for authentication.
 
@@ -39,7 +28,7 @@ The password associated with the account used for authentication.
 password = "password"
 ```
 
-### password_file
+## password_file
 
 Read `password` from the file at the given path.[^1] [^2]
 
@@ -52,7 +41,7 @@ Read `password` from the file at the given path.[^1] [^2]
 password_file = ""
 ```
 
-### password_file_first_line_only
+## password_file_first_line_only
 
 Read `password` from the first line of `password_file` only.
 
@@ -65,7 +54,7 @@ Read `password` from the first line of `password_file` only.
 password_file_first_line_only = true
 ```
 
-### password_command
+## password_command
 
 Executes the command with `sh` (or equivalent) and reads `password` as the output.
 
@@ -78,7 +67,7 @@ Executes the command with `sh` (or equivalent) and reads `password` as the outpu
 password_command = ""
 ```
 
-### disconnect_on_failure
+## disconnect_on_failure
 
 Disconnect from the server if SASL authentication fails. This is useful on servers which apply a hostname cloak after identifying, such as Libera.Chat. Without this option, a failed SASL authentication would result in connecting with your real IP/hostname exposed.
 

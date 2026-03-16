@@ -2,18 +2,6 @@
 
 Server messages are messages sent from an IRC server.
 
-- [Server Messages](#server-messages)
-  - [Example](#example)
-  - [Types](#types)
-  - [Configuration](#configuration)
-    - [enabled](#enabled)
-    - [smart](#smart)
-    - [exclude](#exclude)
-    - [include](#include)
-    - [dimmed](#dimmed)
-    - [username\_format](#username_format)
-  - [Condense](#condense)
-
 ## Example
 
 ```toml
@@ -50,9 +38,7 @@ enabled = false
 | `wallops`             | Message is sent by operators to all users with mode +w on the network                                                          |
 | `default`             | Pseudo-type to provide fallback settings for when a specific event type has not been configured                                |
 
-## Configuration
-
-### enabled
+## enabled
 
 Control if server message type is enabled.
 
@@ -65,7 +51,7 @@ Control if server message type is enabled.
 enabled = true
 ```
 
-### smart
+## smart
 
 Only show server message if the user has sent a message in the given time interval (seconds) prior to the server message.
 
@@ -78,7 +64,7 @@ Only show server message if the user has sent a message in the given time interv
 smart = 180
 ```
 
-### exclude
+## exclude
 
 [Exclusion conditions](/configuration/conditions.md) in which the server message
 will be hidden. Inclusion conditions will take precedence over exclusion
@@ -93,7 +79,7 @@ conditions. You can also exclude all conditions by setting to `"all"` or `"*"`.
 exclude = "*"
 ```
 
-### include
+## include
 
 [Inclusion conditions](/configuration/conditions.md) in which the server message
 will be shown. Server messages will be shown in all conditions (when enabled)
@@ -109,7 +95,7 @@ the `exclude` setting.
 include = { channels = ["#halloy"] }
 ```
 
-### dimmed
+## dimmed
 
 Dim condensed server message.  Either automatically, based on text/background colors (by setting to `true`), or specify a dimming value in the range `0.0` (transparent) to `1.0` (no dimming).
 
@@ -122,7 +108,7 @@ Dim condensed server message.  Either automatically, based on text/background co
 dimmed = true
 ```
 
-### username_format
+## username_format
 
 Adjust the amount of information displayed for a username in server messages. If you choose `"short"`, only the nickname will be shown. If you choose `"full"`, the nickname, username, and hostname (if available) will be displayed.
 
@@ -136,7 +122,3 @@ Adjust the amount of information displayed for a username in server messages. If
 [buffer.server_messages.<server_message>]
 username_format = "full"
 ```
-
-## [Condense](condense.md)
-
-Condense multiple consecutive server messages into a single abbreviated message

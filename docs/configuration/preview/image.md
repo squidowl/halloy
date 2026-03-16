@@ -2,16 +2,6 @@
 
 Specific image preview settings.
 
-- [Image](#image)
-  - [Example](#example)
-  - [Configuration](#configuration)
-    - [action](#action)
-    - [round\_corners](#round_corners)
-    - [max\_width](#max_width)
-    - [max\_height](#max_height)
-    - [include](#include)
-    - [exclude](#exclude)
-
 ## Example 
 
 ```toml
@@ -20,9 +10,7 @@ exclude = "*" # hide image previews in all channels
 include = { channels = ["#halloy"] } # show image previews in #halloy
 ```
 
-## Configuration
-
-### action
+## action
 
 Action when clicking on a image. `open-url` will open the image in the browser, and `preview` will display a larger version of the image in-app.
 
@@ -35,7 +23,7 @@ Action when clicking on a image. `open-url` will open the image in the browser, 
 action = "preview"
 ```
 
-### round_corners
+## round_corners
 
 Round the corners of the image.
 
@@ -48,7 +36,7 @@ Round the corners of the image.
 round_corners = true
 ```
 
-### max_width
+## max_width
 
 Maximum width of the image in pixels.
 
@@ -61,7 +49,7 @@ Maximum width of the image in pixels.
 max_width = 550.0
 ```
 
-### max_height
+## max_height
 
 Maximum height of the image in pixels.
 
@@ -74,7 +62,7 @@ Maximum height of the image in pixels.
 max_height = 350.0
 ```
 
-### exclude
+## exclude
 
 [Exclusion conditions](/configuration/conditions.md) for when image previews
 will be hidden. Inclusion conditions will take precedence over exclusion
@@ -89,7 +77,7 @@ conditions. You can also exclude all conditions by setting to `"all"` or `"*"`.
 exclude = { criteria = [{ server_message = "topic", channel = "#linux" }] } # exclude previews from topic messages in #linux
 ```
 
-### include
+## include
 
 [Inclusion conditions](/configuration/conditions.md) for when image previews
 will be shown. Image previews will be shown for all conditions (when enabled)

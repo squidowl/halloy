@@ -2,13 +2,7 @@
 
 Windows specific settings
 
-- [Windows](#windows)
-  - [Configuration](#configuration)
-    - [decorations](#decorations)
-
-## Configuration
-
-### decorations
+## decorations
 
 Whether the window should have a border, a title bar, etc. or not.
 

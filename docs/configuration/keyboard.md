@@ -3,10 +3,6 @@
 
 Customize keyboard shortcuts. Below is a list of all actions which can be mapped.
 
-- [Keyboard](#keyboard)
-  - [Example](#example)
-  - [Types](#types)
-
 ## Example
 
 ```toml
