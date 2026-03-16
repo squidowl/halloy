@@ -1,0 +1,93 @@
+# Preview
+
+URL preview settings for Halloy.
+
+- [Preview](#preview)
+  - [Configuration](#configuration)
+    - [enabled](#enabled)
+    - [exclude](#exclude)
+    - [max\_per\_message](#max_per_message)
+  - [Request](#request)
+  - [Image](#image)
+  - [Card](#card)
+
+## Configuration
+
+### enabled
+
+Enable or disable previews globally with a boolean, or selectively enable them for URLs matching specific regex patterns.
+
+```toml
+# Type: boolean or array of strings
+# Values: true, false, or array of regex patterns
+# Default: true
+
+[preview]
+enabled = true
+```
+
+Only show previews for matching URLs:
+
+> 💡 Use toml multi-line literal strings `'''\bfoo'd\b'''` when writing a regex. This allows you to write the regex without escaping. You can also use a literal string `'\bfoo\b'`, but then you can't use `'` inside the string.
+>
+> Without literal strings, you'd have to write the above as `"\\bfoo'd\\b"`
+
+```toml
+[preview]
+enabled = [
+    '''https?://(www\.)?imgur\.com/.*''', 
+    '''https?://(www\.)?dr\.dk/.*'''
+]
+```
+
+### exclude
+
+Exclude URLs from showing previews by providing regex patterns.
+
+```toml
+# Type: array of strings
+# Values: array of regex patterns
+# Default: []
+
+[preview]
+exclude = []
+```
+
+Prevent previews from showing for matching URLs:
+
+> 💡 Use toml multi-line literal strings `'''\bfoo'd\b'''` when writing a regex. This allows you to write the regex without escaping. You can also use a literal string `'\bfoo\b'`, but then you can't use `'` inside the string.
+>
+> Without literal strings, you'd have to write the above as `"\\bfoo'd\\b"`
+
+```toml
+[preview]
+exclude = [
+    '''https?://(www\.)?example\.com/.*''', 
+    '''https?://(www\.)?spam-site\.net/.*'''
+]
+```
+
+### max_per_message
+
+Maximum number of previews to show for a single message.
+
+```toml
+# Type: integer
+# Values: any non-negative integer
+# Default: 1
+
+[preview]
+max_per_message = 1
+```
+
+## [Request](request.md)
+
+Request settings for previews.
+
+## [Image](image.md)
+
+Specific image preview settings.
+
+## [Card](card.md)
+
+Specific card preview settings.
