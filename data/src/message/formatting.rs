@@ -1,8 +1,7 @@
 use std::collections::HashSet;
-use std::mem;
+use std::{fmt, mem};
 
 use iced_core::color;
-use itertools::PeekingNext;
 use serde::{Deserialize, Serialize};
 
 pub use self::encode::encode;
@@ -100,133 +99,10 @@ pub fn parse_fragments(
                 }
             }
 
-            match modifier {
-                Modifier::Reset => {
-                    modifiers.clear();
-                    *fg = None;
-                    *bg = None;
-                }
-                Modifier::Color => {
-                    // Trailing digit for new color, otherwise resets
-                    if let Some(c) = iter.peeking_next(char::is_ascii_digit) {
-                        // 1-2 digiits
-                        let mut digits = c.to_string();
-                        if let Some(c) = iter.peeking_next(char::is_ascii_digit)
-                        {
-                            digits.push(c);
-                        }
-
-                        let code = digits.parse().ok()?;
-
-                        *fg = Color::code(code);
-
-                        if let Some(comma) = iter.peeking_next(|c| *c == ',') {
-                            // Has background
-                            if let Some(c) =
-                                iter.peeking_next(char::is_ascii_digit)
-                            {
-                                // 1-2 digits
-                                let mut digits = c.to_string();
-                                if let Some(c) =
-                                    iter.peeking_next(char::is_ascii_digit)
-                                {
-                                    digits.push(c);
-                                }
-
-                                let code = digits.parse().ok()?;
-
-                                *bg = Color::code(code);
-                            }
-                            // Nope, just a normal char
-                            else {
-                                current_text.push(comma);
-                            }
-                        }
-                    } else {
-                        *fg = None;
-                        *bg = None;
-                    }
-                }
-                Modifier::HexColor => {
-                    // Trailing digit for new color, otherwise resets
-                    if let Some(c) = iter.peeking_next(char::is_ascii_hexdigit)
-                    {
-                        // 6 digits (hex)
-                        let mut hex = Vec::from([c]);
-                        for _ in 0..5 {
-                            hex.push(iter.next()?);
-                        }
-
-                        let r = u8::from_str_radix(
-                            &hex.iter().take(2).collect::<String>(),
-                            16,
-                        )
-                        .ok()?;
-                        let g = u8::from_str_radix(
-                            &hex.iter().skip(2).take(2).collect::<String>(),
-                            16,
-                        )
-                        .ok()?;
-                        let b = u8::from_str_radix(
-                            &hex.iter().skip(4).take(2).collect::<String>(),
-                            16,
-                        )
-                        .ok()?;
-
-                        *fg = Some(Color::Rgb(r, g, b));
-
-                        if let Some(comma) = iter.peeking_next(|c| *c == ',') {
-                            // Has background
-                            if let Some(c) =
-                                iter.peeking_next(char::is_ascii_hexdigit)
-                            {
-                                // 6 digits (hex)
-                                let mut hex = Vec::from([c]);
-                                for _ in 0..5 {
-                                    hex.push(iter.next()?);
-                                }
-
-                                let r = u8::from_str_radix(
-                                    &hex.iter().take(2).collect::<String>(),
-                                    16,
-                                )
-                                .ok()?;
-                                let g = u8::from_str_radix(
-                                    &hex.iter()
-                                        .skip(2)
-                                        .take(2)
-                                        .collect::<String>(),
-                                    16,
-                                )
-                                .ok()?;
-                                let b = u8::from_str_radix(
-                                    &hex.iter()
-                                        .skip(4)
-                                        .take(2)
-                                        .collect::<String>(),
-                                    16,
-                                )
-                                .ok()?;
-
-                                *bg = Some(Color::Rgb(r, g, b));
-                            }
-                            // Nope, just a normal char
-                            else {
-                                current_text.push(comma);
-                            }
-                        }
-                    } else {
-                        *fg = None;
-                        *bg = None;
-                    }
-                }
-                m => {
-                    if modifiers.contains(&m) {
-                        modifiers.remove(&m);
-                    } else {
-                        modifiers.insert(m);
-                    }
-                }
+            if let Some(c) =
+                update_with_modifier(modifiers, fg, bg, modifier, &mut iter)
+            {
+                current_text.push(c);
             }
         } else {
             current_text.push(c);
@@ -251,6 +127,133 @@ pub fn parse_fragments(
     Some(fragments)
 }
 
+pub fn update_with_modifier(
+    modifiers: &mut HashSet<Modifier>,
+    fg: &mut Option<Color>,
+    bg: &mut Option<Color>,
+    modifier: Modifier,
+    mut iter: impl itertools::PeekingNext<Item = char>,
+) -> Option<char> {
+    match modifier {
+        Modifier::Reset => {
+            modifiers.clear();
+            *fg = None;
+            *bg = None;
+        }
+        Modifier::Color => {
+            // Trailing digit for new color, otherwise resets
+            if let Some(c) = iter.peeking_next(char::is_ascii_digit) {
+                // 1-2 digiits
+                let mut digits = c.to_string();
+                if let Some(c) = iter.peeking_next(char::is_ascii_digit) {
+                    digits.push(c);
+                }
+
+                let code = digits.parse().ok()?;
+
+                *fg = Color::code(code);
+
+                if let Some(comma) = iter.peeking_next(|c| *c == ',') {
+                    // Has background
+                    if let Some(c) = iter.peeking_next(char::is_ascii_digit) {
+                        // 1-2 digits
+                        let mut digits = c.to_string();
+                        if let Some(c) = iter.peeking_next(char::is_ascii_digit)
+                        {
+                            digits.push(c);
+                        }
+
+                        let code = digits.parse().ok()?;
+
+                        *bg = Color::code(code);
+                    }
+                    // Nope, just a normal char
+                    else {
+                        return Some(comma);
+                    }
+                }
+            } else {
+                *fg = None;
+                *bg = None;
+            }
+        }
+        Modifier::HexColor => {
+            // Trailing digit for new color, otherwise resets
+            if let Some(c) = iter.peeking_next(char::is_ascii_hexdigit) {
+                // 6 digits (hex)
+                let mut hex = Vec::from([c]);
+                for _ in 0..5 {
+                    hex.push(iter.next()?);
+                }
+
+                let r = u8::from_str_radix(
+                    &hex.iter().take(2).collect::<String>(),
+                    16,
+                )
+                .ok()?;
+                let g = u8::from_str_radix(
+                    &hex.iter().skip(2).take(2).collect::<String>(),
+                    16,
+                )
+                .ok()?;
+                let b = u8::from_str_radix(
+                    &hex.iter().skip(4).take(2).collect::<String>(),
+                    16,
+                )
+                .ok()?;
+
+                *fg = Some(Color::Rgb(r, g, b));
+
+                if let Some(comma) = iter.peeking_next(|c| *c == ',') {
+                    // Has background
+                    if let Some(c) = iter.peeking_next(char::is_ascii_hexdigit)
+                    {
+                        // 6 digits (hex)
+                        let mut hex = Vec::from([c]);
+                        for _ in 0..5 {
+                            hex.push(iter.next()?);
+                        }
+
+                        let r = u8::from_str_radix(
+                            &hex.iter().take(2).collect::<String>(),
+                            16,
+                        )
+                        .ok()?;
+                        let g = u8::from_str_radix(
+                            &hex.iter().skip(2).take(2).collect::<String>(),
+                            16,
+                        )
+                        .ok()?;
+                        let b = u8::from_str_radix(
+                            &hex.iter().skip(4).take(2).collect::<String>(),
+                            16,
+                        )
+                        .ok()?;
+
+                        *bg = Some(Color::Rgb(r, g, b));
+                    }
+                    // Nope, just a normal char
+                    else {
+                        return Some(comma);
+                    }
+                }
+            } else {
+                *fg = None;
+                *bg = None;
+            }
+        }
+        m => {
+            if modifiers.contains(&m) {
+                modifiers.remove(&m);
+            } else {
+                modifiers.insert(m);
+            }
+        }
+    }
+
+    None
+}
+
 #[derive(
     Debug, Default, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize,
 )]
@@ -265,7 +268,7 @@ pub struct Formatting {
 }
 
 impl Formatting {
-    fn new(
+    pub fn new(
         modifiers: &HashSet<Modifier>,
         fg: Option<Color>,
         bg: Option<Color>,
@@ -285,6 +288,42 @@ impl Formatting {
             fg,
             bg,
         }
+    }
+}
+
+impl fmt::Display for Formatting {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if self.bold {
+            write!(f, "{}", Modifier::Bold.char())?;
+        }
+
+        if self.italics {
+            write!(f, "{}", Modifier::Italics.char())?;
+        }
+
+        if self.strikethrough {
+            write!(f, "{}", Modifier::Strikethrough.char())?;
+        }
+
+        if self.underline {
+            write!(f, "{}", Modifier::Underline.char())?;
+        }
+
+        if let Some(fg) = self.fg {
+            let c = Modifier::Color.char();
+            let fg = fg.digit();
+            write!(f, "{c}{fg}")?;
+
+            if let Some(bg) = self.bg.map(Color::digit) {
+                write!(f, ",{bg}")?;
+            }
+        }
+
+        if self.monospace {
+            write!(f, "{}", Modifier::Monospace.char())?;
+        }
+
+        Ok(())
     }
 }
 
@@ -310,7 +349,13 @@ pub enum Modifier {
 
 impl Modifier {
     fn char(&self) -> char {
-        *self as u8 as char
+        (*self).into()
+    }
+}
+
+impl From<Modifier> for char {
+    fn from(value: Modifier) -> char {
+        value as u8 as char
     }
 }
 
