@@ -1392,7 +1392,7 @@ impl State {
                                 .concat_bytes(
                                     clients.get_relay_bytes(buffer.server()),
                                     batch_kind,
-                                    target,
+                                    target.as_str(),
                                 );
                         }
 
@@ -1555,52 +1555,61 @@ impl State {
                 })
                 .flatten()
                 .reduce(|mut batch_message, message| {
-                    match &mut batch_message.content {
-                        message::Content::Plain(batch_text) => {
-                            match message.content {
-                                message::Content::Plain(message_text) => {
-                                    batch_text.push('\n');
-                                    batch_text.push_str(message_text.as_str());
-                                }
-                                message::Content::Fragments(
-                                    message_fragments,
-                                ) => {
-                                    batch_text.push('\n');
-                                    let mut fragments =
-                                        vec![message::Fragment::Text(
-                                            batch_text.to_string(),
-                                        )];
-                                    fragments.extend(message_fragments);
+                    match (&mut batch_message.content, message.content) {
+                        (
+                            message::Content::Plain(batch_text),
+                            message::Content::Plain(message_text),
+                        ) => {
+                            batch_text.push('\n');
+                            batch_text.push_str(message_text.as_str());
+                        }
+                        (
+                            message::Content::Plain(batch_text),
+                            message::Content::Fragments(message_fragments),
+                        ) => {
+                            batch_text.push('\n');
+                            let mut fragments = vec![message::Fragment::Text(
+                                batch_text.to_string(),
+                            )];
+                            fragments.extend(message_fragments);
 
-                                    batch_message.content =
-                                        message::Content::Fragments(fragments);
-                                }
-                                message::Content::Log(_) => (),
-                            }
+                            batch_message.content =
+                                message::Content::Fragments(fragments);
                         }
-                        message::Content::Fragments(batch_fragments) => {
-                            match message.content {
-                                message::Content::Plain(message_text) => {
-                                    batch_fragments.push(
-                                        message::Fragment::Text(format!(
-                                            "\n{message_text}"
-                                        )),
-                                    );
-                                }
-                                message::Content::Fragments(
-                                    message_fragments,
-                                ) => {
-                                    batch_fragments.push(
-                                        message::Fragment::Text(
-                                            "\n".to_string(),
-                                        ),
-                                    );
-                                    batch_fragments.extend(message_fragments);
-                                }
-                                message::Content::Log(_) => (),
-                            }
+                        (
+                            message::Content::Fragments(batch_fragments),
+                            message::Content::Plain(message_text),
+                        ) => {
+                            batch_fragments.push(message::Fragment::Text(
+                                format!("\n{message_text}"),
+                            ));
                         }
-                        message::Content::Log(_) => (),
+                        (
+                            message::Content::Fragments(batch_fragments),
+                            message::Content::Fragments(message_fragments),
+                        ) => {
+                            batch_fragments.push(message::Fragment::Text(
+                                "\n".to_string(),
+                            ));
+                            batch_fragments.extend(message_fragments);
+                        }
+                        (message::Content::Log(_), _)
+                        | (_, message::Content::Log(_)) => (),
+                    }
+
+                    match (&mut batch_message.command, message.command) {
+                        (
+                            Some(command::Irc::Msg(_, batch_text)),
+                            Some(command::Irc::Msg(_, text)),
+                        )
+                        | (
+                            Some(command::Irc::Notice(_, batch_text)),
+                            Some(command::Irc::Notice(_, text)),
+                        ) => {
+                            batch_text.push('\n');
+                            batch_text.push_str(text.as_str());
+                        }
+                        _ => (),
                     }
 
                     batch_message

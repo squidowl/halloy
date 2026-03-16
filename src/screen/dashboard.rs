@@ -5,6 +5,7 @@ use std::time::{Duration, Instant};
 use std::{convert, slice};
 
 use chrono::{DateTime, Utc};
+use data::capabilities::{MultilineBatchKind, multiline_concat_lines};
 use data::config::buffer::{ScrollPosition, UsernameFormat};
 use data::dashboard::{self, BufferAction};
 use data::environment::{RELEASE_WEBSITE, WIKI_WEBSITE};
@@ -824,6 +825,57 @@ impl Dashboard {
                                     .map(|nick| User::from(nick.to_owned()))
                                 && let Some(command) = message.command
                             {
+                                let multiline =
+                                    if let Some((target, text, batch_kind)) =
+                                        match &command {
+                                            data::command::Irc::Msg(
+                                                target,
+                                                text,
+                                            ) => Some((
+                                                target,
+                                                text,
+                                                MultilineBatchKind::PRIVMSG,
+                                            )),
+                                            data::command::Irc::Notice(
+                                                target,
+                                                text,
+                                            ) => Some((
+                                                target,
+                                                text,
+                                                MultilineBatchKind::NOTICE,
+                                            )),
+                                            _ => None,
+                                        }
+                                    {
+                                        if text.lines().count() > 1 {
+                                            true
+                                        } else if let Some(multiline_limits) =
+                                            clients.get_multiline_limits(
+                                                buffer.server(),
+                                            )
+                                        {
+                                            let multiline_concat_bytes =
+                                                multiline_limits.concat_bytes(
+                                                    clients.get_relay_bytes(
+                                                        buffer.server(),
+                                                    ),
+                                                    batch_kind,
+                                                    target,
+                                                );
+
+                                            multiline_concat_lines(
+                                                multiline_concat_bytes,
+                                                text,
+                                            )
+                                            .len()
+                                                > 1
+                                        } else {
+                                            false
+                                        }
+                                    } else {
+                                        false
+                                    };
+
                                 let (user, channel_users) =
                                     if let buffer::Upstream::Channel(
                                         server,
@@ -868,11 +920,19 @@ impl Dashboard {
                                         .map(proto::Message::from)
                                         .map(message::Encoded::from)
                                 {
-                                    clients.send(
-                                        buffer,
-                                        encoded,
-                                        TokenPriority::User,
-                                    );
+                                    if multiline {
+                                        clients.send_multiline_batch(
+                                            buffer,
+                                            vec![encoded],
+                                            TokenPriority::User,
+                                        );
+                                    } else {
+                                        clients.send(
+                                            buffer,
+                                            encoded,
+                                            TokenPriority::User,
+                                        );
+                                    }
 
                                     return (
                                         Task::batch(
