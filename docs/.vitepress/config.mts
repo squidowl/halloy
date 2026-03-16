@@ -1,5 +1,7 @@
 import { defineConfig } from "vitepress";
 
+const docsChannel = process.env.DOCS_CHANNEL === "nightly" ? "Nightly" : "Latest Release";
+
 export default defineConfig({
   title: "Halloy",
   description:
@@ -14,7 +16,15 @@ export default defineConfig({
     outline: {
       level: [2, 4],
     },
-    nav: [],
+    nav: [
+      {
+        text: docsChannel,
+        items: [
+          { text: "Latest Release", link: "/release" },
+          { text: "Nightly", link: "/nightly" },
+        ],
+      },
+    ],
     editLink: {
       pattern: "https://github.com/squidowl/halloy/edit/main/docs/:path",
     },
