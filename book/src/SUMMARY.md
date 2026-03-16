@@ -42,6 +42,7 @@
     - [Topic Banner](configuration/buffer/channel/topic-banner.md)
   - [Chat History](configuration/buffer/chat-history/README.md)
   - [Commands](configuration/buffer/commands/README.md)
+    - [Aliases](configuration/buffer/commands/aliases.md)
     - [Sysinfo](configuration/buffer/commands/sysinfo.md)
     - [Quit](configuration/buffer/commands/quit.md)
     - [Part](configuration/buffer/commands/part.md)

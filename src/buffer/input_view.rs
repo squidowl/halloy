@@ -1248,85 +1248,9 @@ impl State {
                     }
                     text_editor::Action::Move(_)
                     | text_editor::Action::Click(_) => {
-                        let cursor_position =
-                            self.input_content.cursor().position;
-
-                        if let Some(line) = self
-                            .input_content
-                            .line(cursor_position.line)
-                            .map(|line| line.text)
-                        {
-                            let users = buffer.channel().and_then(|channel| {
-                                clients
-                                    .get_channel_users(buffer.server(), channel)
-                            });
-                            let last_seen = history.get_last_seen(buffer);
-                            let filters =
-                                FilterChain::borrow(history.get_filters());
-                            let is_connected = clients
-                                .get_server_is_connected(buffer.server());
-                            let supports_detach = clients
-                                .get_server_supports_detach(buffer.server());
-                            let isupport =
-                                clients.get_isupport(buffer.server());
-
-                            self.completion.process(
-                                &line,
-                                cursor_position.column,
-                                clients.nickname(buffer.server()),
-                                users,
-                                filters,
-                                &last_seen,
-                                clients.get_channels(buffer.server()),
-                                current_target.as_ref(),
-                                buffer.server(),
-                                is_connected,
-                                supports_detach,
-                                &isupport,
-                                config,
-                            );
-
-                            // Reset error state
-                            self.error = None;
-
-                            if let Some(Err(error)) =
-                                self.parsed.get(cursor_position.line)
-                                && match error {
-                                    input::Error::ExceedsByteLimit {
-                                        ..
-                                    }
-                                    | input::Error::Command(
-                                        command::Error::InvalidModeString
-                                        | command::Error::ArgTooLong { .. }
-                                        | command::Error::TooManyTargets {
-                                            ..
-                                        }
-                                        | command::Error::NotPositiveInteger
-                                        | command::Error::InvalidChannelName {
-                                            ..
-                                        }
-                                        | command::Error::InvalidServerUrl,
-                                    ) => true,
-                                    input::Error::Command(
-                                        command::Error::IncorrectArgCount {
-                                            actual,
-                                            max,
-                                            ..
-                                        },
-                                    ) => actual > max,
-                                    input::Error::Command(
-                                        command::Error::MissingSlash
-                                        | command::Error::MissingCommand
-                                        | command::Error::NoModeString
-                                        | command::Error::Connected
-                                        | command::Error::Disconnected
-                                        | command::Error::NotInChannel,
-                                    ) => false,
-                                }
-                            {
-                                self.error = Some(error.to_string());
-                            }
-                        }
+                        self.process_completion_and_error(
+                            buffer, clients, history, config,
+                        );
 
                         (Task::none(), None)
                     }
@@ -2015,6 +1939,81 @@ impl State {
         )
     }
 
+    fn process_completion_and_error(
+        &mut self,
+        buffer: &buffer::Upstream,
+        clients: &mut client::Map,
+        history: &mut history::Manager,
+        config: &Config,
+    ) {
+        let cursor_position = self.input_content.cursor().position;
+
+        if let Some(line) = self
+            .input_content
+            .line(cursor_position.line)
+            .map(|line| line.text)
+        {
+            let current_target = buffer.target();
+            let users = buffer.channel().and_then(|channel| {
+                clients.get_channel_users(buffer.server(), channel)
+            });
+            let last_seen = history.get_last_seen(buffer);
+            let filters = FilterChain::borrow(history.get_filters());
+            let is_connected = clients.get_server_is_connected(buffer.server());
+            let supports_detach =
+                clients.get_server_supports_detach(buffer.server());
+            let isupport = clients.get_isupport(buffer.server());
+
+            self.completion.process(
+                &line,
+                cursor_position.column,
+                clients.nickname(buffer.server()),
+                users,
+                filters,
+                &last_seen,
+                clients.get_channels(buffer.server()),
+                current_target.as_ref(),
+                buffer.server(),
+                is_connected,
+                supports_detach,
+                &isupport,
+                config,
+            );
+
+            // Reset error state
+            self.error = None;
+
+            if let Some(Err(error)) = self.parsed.get(cursor_position.line)
+                && match error {
+                    input::Error::ExceedsByteLimit { .. }
+                    | input::Error::Command(
+                        command::Error::InvalidModeString
+                        | command::Error::ArgTooLong { .. }
+                        | command::Error::TooManyTargets { .. }
+                        | command::Error::NotPositiveInteger
+                        | command::Error::InvalidChannelName { .. }
+                        | command::Error::InvalidServerUrl,
+                    ) => true,
+                    input::Error::Command(
+                        command::Error::IncorrectArgCount {
+                            actual, max, ..
+                        },
+                    ) => actual > max,
+                    input::Error::Command(
+                        command::Error::MissingSlash
+                        | command::Error::MissingCommand
+                        | command::Error::NoModeString
+                        | command::Error::Connected
+                        | command::Error::Disconnected
+                        | command::Error::NotInChannel,
+                    ) => false,
+                }
+            {
+                self.error = Some(error.to_string());
+            }
+        }
+    }
+
     fn on_completion(
         &mut self,
         buffer: &buffer::Upstream,
@@ -2066,6 +2065,9 @@ impl State {
             channel_typing_enabled,
             config,
         );
+
+        // Cursor movement above does not always trigger an Action::Move
+        self.process_completion_and_error(buffer, clients, history, config);
 
         (Task::none(), None)
     }

@@ -17,6 +17,9 @@ Commands in Halloy are prefixed with `/`.
 Halloy will first try to run below commands, and lastly send it directly to the server.
 The argument(s) for a command are shown in [tooltips](configuration/tooltips.md), and those marked with a `*` will show an additional tooltip with argument-specific information on mouseover.
 
+You can configure custom command aliases in [`buffer.commands.aliases`](configuration/buffer/commands/aliases.md).
+Aliases are resolved before built-in commands and take precedence when they use the same name.
+
 | Command       | Alias        | Description                                                                        |
 | ------------- | ------------ | ---------------------------------------------------------------------------------- |
 | `away`        |              | Mark yourself as away. If already away, the status is removed                      |
