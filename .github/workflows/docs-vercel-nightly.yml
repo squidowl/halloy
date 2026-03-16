@@ -1,14 +1,17 @@
-name: Docs Vercel
+name: Docs Vercel Nightly
 
 on:
   workflow_dispatch:
   push:
-    tags:
-      - "*"
+    branches:
+      - main
+    paths:
+      - "docs/**"
+      - ".github/workflows/docs-vercel-nightly.yml"
 
 jobs:
   deploy:
-    name: Deploy Docs
+    name: Deploy Nightly Docs
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -26,12 +29,12 @@ jobs:
 
       - name: Build docs
         env:
-          DOCS_CHANNEL: release
+          DOCS_CHANNEL: nightly
         run: bun run docs:build
 
       - name: Deploy to Vercel
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_NIGHTLY }}
         run: bunx vercel deploy .vitepress/dist --prod --yes --token "$VERCEL_TOKEN"
