@@ -440,7 +440,9 @@ who_poll_interval = 2
 
 A list of nicknames to [monitor](https://ircv3.net/specs/extensions/monitor) (if IRCv3 Monitor is supported by the server).
 
-> 💡 Read more about [monitoring users](../guides/monitor-users.md).
+::: info
+Read more about [monitoring users](../guides/monitor-users.md).
+:::
 
 ```toml
 # Type: array of string

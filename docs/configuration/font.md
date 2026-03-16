@@ -2,16 +2,21 @@
 
 Application wide font settings.
 
-> ⚠️  Changes to font settings require an application restart to take effect.
+::: warning
+Changes to font settings require an application restart to take effect.
+:::
 
-> 💡  If Halloy is unable to load the specified font & weight, an fallback font may be used.  If the font looks wrong, double-check the family name and that the font family has the specified weight.
-
+::: info
+If Halloy is unable to load the specified font & weight, an fallback font may be used.  If the font looks wrong, double-check the family name and that the font family has the specified weight.
+:::
 
 ## `family`
 
 Monospaced font family to use.
 
-> ⚠️ Variable-weight fonts are not currently supported.
+::: warning
+Variable-weight fonts are not currently supported.
+:::
 
 ```toml
 # Type: string

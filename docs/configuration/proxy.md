@@ -2,7 +2,9 @@
 
 Proxy settings for Halloy.
 
-> 💡 [Preview](/configuration/preview) requests will be routed through the same proxy that the corresponding message is routed through (i.e. if a proxy is configured for a server, then all previews for messages on that server will be routed through the proxy).  Except for the for the [Tor](#tor) proxy;  when utilizing the Tor proxy preview requests are disabled.
+::: info
+[Preview](/configuration/preview) requests will be routed through the same proxy that the corresponding message is routed through (i.e. if a proxy is configured for a server, then all previews for messages on that server will be routed through the proxy).  Except for the for the [Tor](#tor) proxy;  when utilizing the Tor proxy preview requests are disabled.
+:::
 
 ## `http`
 
@@ -138,9 +140,13 @@ Tor proxy settings. Utilizes [Arti](https://arti.torproject.org/) to integrate T
 
 It accepts no further configuration.
 
-> ⚠️ Tor support is **not included by default**. You must build Halloy with the `tor` feature to use this proxy type. See [Optional Features](../guides/optional-features.md) for build instructions.
+::: warning
+Tor support is **not included by default**. You must build Halloy with the `tor` feature to use this proxy type. See [Optional Features](../guides/optional-features.md) for build instructions.
+:::
 
-> ⚠️ To preserve privacy, [previews](/configuration/preview) are disabled when using the Tor proxy.
+::: warning
+To preserve privacy, [previews](/configuration/preview) are disabled when using the Tor proxy.
+:::
 
 ### Example
 

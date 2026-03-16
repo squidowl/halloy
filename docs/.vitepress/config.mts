@@ -13,6 +13,13 @@ export default defineConfig({
     config: (md) => {
       md.use(footnote);
     },
+    container: {
+      tipLabel: '💡 Tip',
+      warningLabel: '⚠️ Warning',
+      dangerLabel: '⚠️ Danger',
+      infoLabel: '💡 Info',
+      detailsLabel: 'Details'
+    },
   },
   themeConfig: {
     logo: "/logo.png",

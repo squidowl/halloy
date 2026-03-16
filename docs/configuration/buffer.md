@@ -892,8 +892,9 @@ truncate = 10
 
 Hide nickname if consecutive messages are from the same user.  
 
-> ⚠️ `hide_consecutive` does not work in conjunction with `alignment = "top"` .
-
+::: warning
+`hide_consecutive` does not work in conjunction with `alignment = "top"` .
+:::
 
 #### `enabled`
 
@@ -1039,7 +1040,9 @@ dimmed = true
 
 Adjust the amount of information displayed for a username in server messages. If you choose `"short"`, only the nickname will be shown. If you choose `"full"`, the nickname, username, and hostname (if available) will be displayed.
 
-> 💡 Not all server messages uses this setting.
+::: info
+Not all server messages uses this setting.
+:::
 
 ```toml
 # Type: string
@@ -1168,7 +1171,9 @@ Control if the text input should auto format the input. By default text is only 
 auto_format = "markdown"
 ```
 
-> 💡 Read more about [text formatting](/guides/text-formatting).
+::: tip
+Read more about [text formatting](/guides/text-formatting).
+:::
 
 ### `key_bindings`
 
@@ -1196,13 +1201,17 @@ Emacs variant has the following binds:
   `alt+b`: Move the cursor backward one word  
   `alt+f`: Move the cursor forward one word  
 
-> 💡 Global [keyboard shortcuts](/configuration/keyboard) take precedence. Unset any that collide (e.g., set `command_bar = "unset"`).
+::: info
+Global [keyboard shortcuts](/configuration/keyboard) take precedence. Unset any that collide (e.g., set `command_bar = "unset"`).
+:::
 
 ### `max_lines`
 
 Maximum number of lines in a single input.  If [`multiline`](https://ircv3.net/specs/extensions/multiline) is supported by the server then it will be utilized, otherwise messages will be sent individually with [`send_line_delay`](#send_line_delay) milliseconds between them.
 
-> ⚠️ In many IRC communities sending multiple lines in quick succession is frowned upon (and may be a bannable offense); be mindful of community norms when using this feature
+::: warning
+In many IRC communities sending multiple lines in quick succession is frowned upon (and may be a bannable offense); be mindful of community norms when using this feature
+:::
 
 ```toml
 # Type: integer
