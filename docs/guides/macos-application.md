@@ -31,12 +31,12 @@ This guide explains how to build the Halloy `.app` for macOS. If you want to ins
    - Build the Halloy binary for both `x86_64` and `aarch64` architectures.
    - Combine them into a universal binary using `lipo`.
    - Copy the binary and resources into a macOS `.app` bundle template located at `assets/macos/Halloy.app`.
-   - Place the `.app` bundle in `target/release/macos`.
+   - Place the `.app` bundle in `target/packaging/macos`.
 
 3. **Locate the Built Application**
 
    After the script completes, you’ll find the generated `.app` bundle at:
 
    ```
-   target/release/macos/Halloy.app
+   target/packaging/macos/Halloy.app
    ```

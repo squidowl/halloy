@@ -22,7 +22,7 @@
             <Component>
                 <File Id="Application"
                       DiskId="1"
-                      Source="target/release/halloy.exe"
+                      Source="target/packaging/halloy.exe"
                       KeyPath="yes">
                     <Shortcut Id="ApplicationStartMenuShortcutInFile"
                               Name="Halloy"

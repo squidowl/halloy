@@ -3,7 +3,7 @@
 TARGET="halloy"
 PROFILE="packaging"
 ASSETS_DIR="assets"
-RELEASE_DIR="target/release"
+RELEASE_DIR="target/$PROFILE"
 APP_NAME="Halloy.app"
 APP_TEMPLATE="$ASSETS_DIR/macos/$APP_NAME"
 APP_TEMPLATE_PLIST="$APP_TEMPLATE/Contents/Info.plist"
@@ -28,7 +28,7 @@ rustup target add x86_64-apple-darwin
 rustup target add aarch64-apple-darwin
 cargo build --profile $PROFILE --locked --target=x86_64-apple-darwin
 cargo build --profile $PROFILE --locked --target=aarch64-apple-darwin
-lipo "target/x86_64-apple-darwin/release/$TARGET" "target/aarch64-apple-darwin/release/$TARGET" -create -output "$APP_BINARY"
+lipo "target/x86_64-apple-darwin/$PROFILE/$TARGET" "target/aarch64-apple-darwin/$PROFILE/$TARGET" -create -output "$APP_BINARY"
 
 # build app
 mkdir -p "$APP_BINARY_DIR"
