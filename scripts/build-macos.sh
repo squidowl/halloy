@@ -1,6 +1,7 @@
 #! /usr/bin/env -S bash -e
 
 TARGET="halloy"
+PROFILE="packaging"
 ASSETS_DIR="assets"
 RELEASE_DIR="target/release"
 APP_NAME="Halloy.app"
@@ -25,8 +26,8 @@ sed -i '' -e "s/{{ BUILD }}/$BUILD/g" "$APP_TEMPLATE_PLIST"
 export MACOSX_DEPLOYMENT_TARGET="11.0"
 rustup target add x86_64-apple-darwin
 rustup target add aarch64-apple-darwin
-cargo build --release --locked --target=x86_64-apple-darwin
-cargo build --release --locked --target=aarch64-apple-darwin
+cargo build --profile $PROFILE --locked --target=x86_64-apple-darwin
+cargo build --profile $PROFILE --locked --target=aarch64-apple-darwin
 lipo "target/x86_64-apple-darwin/release/$TARGET" "target/aarch64-apple-darwin/release/$TARGET" -create -output "$APP_BINARY"
 
 # build app
