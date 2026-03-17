@@ -1,4 +1,4 @@
-name: Docs Vercel
+name: Docs Deploy Release
 
 on:
   workflow_dispatch:
