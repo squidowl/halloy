@@ -15,7 +15,7 @@ Halloy is a native desktop IRC client built with Rust and the [iced](https://git
 Halloy is free and open source. You can find the source code as well as report issues and feature requests on [GitHub](https://github.com/squidowl/halloy).
 
 
-## Customize Halloy
+## Customization
 
 Halloy is configured through a `config.toml` file. From servers and notifications to themes, fonts, panes, and keyboard shortcuts, there are many options available to tune Halloy to your liking. See [Configuration](./configuration.md) to get started.
 
