@@ -42,6 +42,10 @@ export default defineConfig({
           { text: nightlyLabel, link: "/nightly" },
         ],
       },
+      {
+        text: "Themes",
+        link: "https://themes.halloy.chat/",
+      },
     ],
     editLink: {
       pattern: "https://github.com/squidowl/halloy/edit/main/docs/:path",
