@@ -272,9 +272,11 @@ impl subscription::Recipe for Events {
                     iced::window::Event::Unfocused => {
                         Some((id, Event::Unfocused))
                     }
-                    iced::window::Event::Opened { position, size } => {
-                        Some((id, Event::Opened { position, size }))
-                    }
+                    iced::window::Event::Opened {
+                        position,
+                        size,
+                        scale_factor: _,
+                    } => Some((id, Event::Opened { position, size })),
                     iced::window::Event::CloseRequested => {
                         Some((id, Event::CloseRequested))
                     }
