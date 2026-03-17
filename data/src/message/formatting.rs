@@ -99,9 +99,9 @@ pub fn parse_fragments(
                 }
             }
 
-            if let Some(c) =
-                update_with_modifier(modifiers, fg, bg, modifier, &mut iter)
-            {
+            if let (_, Some(c)) = update_formatting_with_modifier(
+                modifiers, fg, bg, modifier, &mut iter,
+            ) {
                 current_text.push(c);
             }
         } else {
@@ -127,13 +127,15 @@ pub fn parse_fragments(
     Some(fragments)
 }
 
-pub fn update_with_modifier(
+pub fn update_formatting_with_modifier(
     modifiers: &mut HashSet<Modifier>,
     fg: &mut Option<Color>,
     bg: &mut Option<Color>,
     modifier: Modifier,
     mut iter: impl itertools::PeekingNext<Item = char>,
-) -> Option<char> {
+) -> (usize, Option<char>) {
+    let mut sequence_bytes = modifier.char().len_utf8();
+
     match modifier {
         Modifier::Reset => {
             modifiers.clear();
@@ -143,33 +145,41 @@ pub fn update_with_modifier(
         Modifier::Color => {
             // Trailing digit for new color, otherwise resets
             if let Some(c) = iter.peeking_next(char::is_ascii_digit) {
+                sequence_bytes += c.len_utf8();
                 // 1-2 digiits
                 let mut digits = c.to_string();
                 if let Some(c) = iter.peeking_next(char::is_ascii_digit) {
+                    sequence_bytes += c.len_utf8();
                     digits.push(c);
                 }
 
-                let code = digits.parse().ok()?;
+                let Ok(code) = digits.parse() else {
+                    return (sequence_bytes, None);
+                };
 
                 *fg = Color::code(code);
 
                 if let Some(comma) = iter.peeking_next(|c| *c == ',') {
                     // Has background
                     if let Some(c) = iter.peeking_next(char::is_ascii_digit) {
+                        sequence_bytes += comma.len_utf8() + c.len_utf8();
                         // 1-2 digits
                         let mut digits = c.to_string();
                         if let Some(c) = iter.peeking_next(char::is_ascii_digit)
                         {
+                            sequence_bytes += c.len_utf8();
                             digits.push(c);
                         }
 
-                        let code = digits.parse().ok()?;
+                        let Ok(code) = digits.parse() else {
+                            return (sequence_bytes, None);
+                        };
 
                         *bg = Color::code(code);
                     }
                     // Nope, just a normal char
                     else {
-                        return Some(comma);
+                        return (sequence_bytes, Some(comma));
                     }
                 }
             } else {
@@ -180,27 +190,35 @@ pub fn update_with_modifier(
         Modifier::HexColor => {
             // Trailing digit for new color, otherwise resets
             if let Some(c) = iter.peeking_next(char::is_ascii_hexdigit) {
+                sequence_bytes += c.len_utf8();
                 // 6 digits (hex)
                 let mut hex = Vec::from([c]);
                 for _ in 0..5 {
-                    hex.push(iter.next()?);
+                    let Some(hexdigit) = iter.next() else {
+                        return (sequence_bytes, None);
+                    };
+                    sequence_bytes += hexdigit.len_utf8();
+                    hex.push(hexdigit);
                 }
 
-                let r = u8::from_str_radix(
+                let Ok(r) = u8::from_str_radix(
                     &hex.iter().take(2).collect::<String>(),
                     16,
-                )
-                .ok()?;
-                let g = u8::from_str_radix(
+                ) else {
+                    return (sequence_bytes, None);
+                };
+                let Ok(g) = u8::from_str_radix(
                     &hex.iter().skip(2).take(2).collect::<String>(),
                     16,
-                )
-                .ok()?;
-                let b = u8::from_str_radix(
+                ) else {
+                    return (sequence_bytes, None);
+                };
+                let Ok(b) = u8::from_str_radix(
                     &hex.iter().skip(4).take(2).collect::<String>(),
                     16,
-                )
-                .ok()?;
+                ) else {
+                    return (sequence_bytes, None);
+                };
 
                 *fg = Some(Color::Rgb(r, g, b));
 
@@ -208,33 +226,41 @@ pub fn update_with_modifier(
                     // Has background
                     if let Some(c) = iter.peeking_next(char::is_ascii_hexdigit)
                     {
+                        sequence_bytes += comma.len_utf8() + c.len_utf8();
                         // 6 digits (hex)
                         let mut hex = Vec::from([c]);
                         for _ in 0..5 {
-                            hex.push(iter.next()?);
+                            let Some(hexdigit) = iter.next() else {
+                                return (sequence_bytes, None);
+                            };
+                            sequence_bytes += hexdigit.len_utf8();
+                            hex.push(hexdigit);
                         }
 
-                        let r = u8::from_str_radix(
+                        let Ok(r) = u8::from_str_radix(
                             &hex.iter().take(2).collect::<String>(),
                             16,
-                        )
-                        .ok()?;
-                        let g = u8::from_str_radix(
+                        ) else {
+                            return (sequence_bytes, None);
+                        };
+                        let Ok(g) = u8::from_str_radix(
                             &hex.iter().skip(2).take(2).collect::<String>(),
                             16,
-                        )
-                        .ok()?;
-                        let b = u8::from_str_radix(
+                        ) else {
+                            return (sequence_bytes, None);
+                        };
+                        let Ok(b) = u8::from_str_radix(
                             &hex.iter().skip(4).take(2).collect::<String>(),
                             16,
-                        )
-                        .ok()?;
+                        ) else {
+                            return (sequence_bytes, None);
+                        };
 
                         *bg = Some(Color::Rgb(r, g, b));
                     }
                     // Nope, just a normal char
                     else {
-                        return Some(comma);
+                        return (sequence_bytes, Some(comma));
                     }
                 }
             } else {
@@ -251,7 +277,7 @@ pub fn update_with_modifier(
         }
     }
 
-    None
+    (sequence_bytes, None)
 }
 
 #[derive(
