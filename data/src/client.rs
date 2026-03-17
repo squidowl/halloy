@@ -27,7 +27,7 @@ use crate::isupport::{
     ChatHistoryState, ChatHistorySubcommand, MessageReference, WhoToken,
     WhoXPollParameters, find_target_limit,
 };
-use crate::message::source;
+use crate::message::{formatting, source};
 use crate::rate_limit::{BackoffInterval, TokenBucket, TokenPriority};
 use crate::target::{self, Target};
 use crate::time::Posix;
@@ -638,7 +638,7 @@ impl Client {
             let multiline_concat_bytes = multiline_limits.concat_bytes(
                 self.relay_bytes(),
                 batch_kind,
-                target,
+                target.as_str(),
             );
 
             let messages = iter::once(opening_batch)
@@ -646,35 +646,57 @@ impl Client {
                     match &message.command {
                         Command::PRIVMSG(_, text)
                         | Command::NOTICE(_, text) => {
-                            let lines = multiline_concat_lines(
-                                multiline_concat_bytes,
-                                text,
-                            );
+                            let lines = text
+                                .lines()
+                                .map(|line| {
+                                    multiline_concat_lines(
+                                        multiline_concat_bytes,
+                                        line,
+                                    )
+                                })
+                                .collect::<Vec<_>>();
 
-                            if lines.len() < 2 {
+                            if lines.iter().fold(
+                                0,
+                                |message_count, concat_lines| {
+                                    message_count + concat_lines.len()
+                                },
+                            ) < 2
+                            {
                                 vec![message]
                             } else {
-                                let mut lines = lines
-                                    .into_iter()
-                                    .map(|text| {
-                                        multiline_encoded(
-                                            None,
-                                            batch_kind,
-                                            target,
-                                            text,
-                                            message.tags.clone(),
-                                        )
-                                    })
-                                    .collect::<Vec<_>>();
-
-                                for line in lines.iter_mut().skip(1) {
-                                    line.tags.insert(
-                                        "draft/multiline-concat".to_string(),
-                                        String::new(),
-                                    );
-                                }
-
                                 lines
+                                    .into_iter()
+                                    .flat_map(|line| {
+                                        let mut concat_lines = line
+                                            .into_iter()
+                                            .map(|(formatting, text)| {
+                                                multiline_encoded(
+                                                    None,
+                                                    batch_kind,
+                                                    target,
+                                                    format!(
+                                                        "{formatting}{text}"
+                                                    )
+                                                    .as_str(),
+                                                    message.tags.clone(),
+                                                )
+                                            })
+                                            .collect::<Vec<_>>();
+
+                                        for concat_line in
+                                            concat_lines.iter_mut().skip(1)
+                                        {
+                                            concat_line.tags.insert(
+                                                "draft/multiline-concat"
+                                                    .to_string(),
+                                                String::new(),
+                                            );
+                                        }
+
+                                        concat_lines
+                                    })
+                                    .collect()
                             }
                         }
                         _ => vec![],
@@ -697,6 +719,11 @@ impl Client {
                     }
                 }
             }
+        } else {
+            log::warn!(
+                "[{}] unable to send messages as IRCv3 draft/multiline batch; capability not supported: {messages:?}",
+                self.server
+            );
         }
     }
 
@@ -3028,6 +3055,8 @@ impl Client {
                         {
                             text.push('\n');
                         }
+
+                        text.push(formatting::Modifier::Reset.into());
                     } else {
                         *kind = Some(MultilineBatchKind::PRIVMSG);
                     }
@@ -3049,6 +3078,8 @@ impl Client {
                         {
                             text.push('\n');
                         }
+
+                        text.push(formatting::Modifier::Reset.into());
                     } else {
                         *kind = Some(MultilineBatchKind::NOTICE);
                     }
