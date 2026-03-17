@@ -1,5 +1,5 @@
 use std::borrow::Cow;
-use std::sync::OnceLock;
+use std::sync::{LazyLock, OnceLock};
 
 use data::appearance::theme::FontStyle;
 use data::{Config, config};
@@ -10,7 +10,8 @@ pub static MONO: Font = Font::new(false, false);
 pub static MONO_BOLD: Font = Font::new(true, false);
 pub static MONO_ITALICS: Font = Font::new(false, true);
 pub static MONO_BOLD_ITALICS: Font = Font::new(true, true);
-pub const ICON: iced::Font = iced::Font::with_name("halloy-icons");
+pub static ICON: LazyLock<iced::Font> =
+    LazyLock::new(|| iced::Font::with_family("halloy-icons"));
 pub const MESSAGE_MARKER_FONT_SCALE: f32 = 1.33;
 
 static LINE_HEIGHT: OnceLock<LineHeight> = OnceLock::new();
@@ -37,7 +38,6 @@ impl Font {
         weight: font::Weight,
         bold_weight: font::Weight,
     ) {
-        let name = Box::leak(name.into_boxed_str());
         let weight = if self.bold { bold_weight } else { weight };
         let style = if self.italics {
             font::Style::Italic
@@ -48,7 +48,7 @@ impl Font {
         let _ = self.inner.set(iced::Font {
             weight,
             style,
-            ..iced::Font::with_name(name)
+            ..iced::Font::with_family(name.as_str())
         });
     }
 }
@@ -160,7 +160,7 @@ pub fn width_of_message_marker(config: &config::Font) -> f32 {
         bounds: Size::INFINITE,
         size: font_size.into(),
         line_height: line_height(),
-        font: ICON,
+        font: *ICON,
         align_x: text::Alignment::Right,
         align_y: alignment::Vertical::Top,
         shaping: text::Shaping::Basic,

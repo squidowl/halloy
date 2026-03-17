@@ -160,7 +160,7 @@ fn to_text<'a>(unicode: char) -> Text<'a> {
     text(unicode.to_string())
         .line_height(LineHeight::Relative(1.0))
         .size(theme::ICON_SIZE)
-        .font(font::ICON)
+        .font(*font::ICON)
 }
 
 pub fn from_icon<'a>(icon: config::sidebar::Icon) -> Option<Text<'a>> {
