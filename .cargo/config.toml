@@ -1,0 +1,2 @@
+[env]
+AWS_LC_SYS_CFLAGS="-O0"
