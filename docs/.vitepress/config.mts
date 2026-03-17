@@ -11,6 +11,7 @@ export default defineConfig({
   title: "Halloy",
   description:
     "Halloy is an open-source IRC client written in Rust, with the iced GUI library. It aims to provide a simple and fast client for Mac, Windows, and Linux platforms.",
+  appearance: "force-dark",
   cleanUrls: true,
   head: [["link", { rel: "icon", type: "image/png", href: "/favicon.png" }]],
   markdown: {
