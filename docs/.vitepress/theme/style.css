@@ -56,10 +56,22 @@
   --vp-button-alt-hover-bg: #201e21;
   --vp-button-alt-hover-border: #7d6e76;
 
-  --vp-custom-block-tip-border: rgba(156, 209, 187, 0.35);
-  --vp-custom-block-warning-border: rgba(245, 215, 110, 0.35);
-  --vp-custom-block-danger-border: rgba(224, 107, 117, 0.35);
-  --vp-custom-block-info-border: rgba(156, 209, 187, 0.35);
+  --vp-custom-block-tip-border: transparent;
+  --vp-custom-block-tip-bg: rgba(32, 52, 47, 0.55);
+  --vp-custom-block-tip-text: #c6eadc;
+  --vp-custom-block-tip-code-bg: rgba(24, 40, 36, 0.9);
+  --vp-custom-block-warning-border: transparent;
+  --vp-custom-block-warning-bg: rgba(64, 57, 35, 0.62);
+  --vp-custom-block-warning-text: #f7ddb0;
+  --vp-custom-block-warning-code-bg: rgba(50, 45, 28, 0.92);
+  --vp-custom-block-danger-border: transparent;
+  --vp-custom-block-danger-bg: rgba(62, 34, 38, 0.62);
+  --vp-custom-block-danger-text: #f0c1c6;
+  --vp-custom-block-danger-code-bg: rgba(48, 26, 30, 0.92);
+  --vp-custom-block-info-border: transparent;
+  --vp-custom-block-info-bg: rgba(209, 209, 224, 0.08);
+  --vp-custom-block-info-text: #d1d1e0;
+  --vp-custom-block-info-code-bg: rgba(50, 48, 52, 0.9);
 
   --vp-code-block-bg: #201e21;
   --vp-code-block-divider-color: #323034;
@@ -100,7 +112,7 @@ body,
 .VPCard,
 .vp-doc div[class*="language-"] {
   box-shadow: none;
-  border: 1px solid var(--vp-c-border);
+  border: none;
 }
 
 .vp-doc div[class*="language-"] {
@@ -140,6 +152,18 @@ body,
   border-left: 3px solid var(--vp-c-brand-1);
   color: var(--vp-c-text-2);
   background: rgba(50, 48, 52, 0.45);
+}
+
+.vp-doc .custom-block.info .custom-block-title {
+  color: #d1d1e0;
+}
+
+.vp-doc .custom-block.warning .custom-block-title {
+  color: #f5d76e;
+}
+
+.vp-doc .custom-block.danger .custom-block-title {
+  color: #e06b75;
 }
 
 .vp-doc table tr:nth-child(2n) {
