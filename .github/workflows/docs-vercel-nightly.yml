@@ -37,4 +37,4 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_NIGHTLY }}
-        run: bunx vercel deploy .vitepress/dist --prod --yes --token "$VERCEL_TOKEN"
+        run: bunx vercel deploy --prod --yes --token "$VERCEL_TOKEN" --build-env DOCS_CHANNEL=nightly
