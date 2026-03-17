@@ -206,8 +206,7 @@ impl Parsed {
                     Some((text.as_str(), MultilineBatchKind::PRIVMSG))
                 }
                 Content::Command(command) => match command {
-                    command::Irc::Msg(command_target, text)
-                    | command::Irc::Me(command_target, text) => {
+                    command::Irc::Msg(command_target, text) => {
                         input.buffer.target().and_then(|buffer_target| {
                             (buffer_target.as_normalized_str()
                                 == casemapping.normalize(command_target))

@@ -3358,6 +3358,13 @@ pub mod tests {
                     Fragment::Text("reset".into()),
                 ],
             ),
+            (
+                "\u{3}22, testing comma that doesn't indicate background \u{3}reset",
+                vec![
+                    Fragment::Formatted { text: ", testing comma that doesn't indicate background ".into(), formatting: Formatting { fg: Some(Color::Code22), ..Formatting::default() }},
+                    Fragment::Text("reset".into()),
+                ],
+            ),
         ];
 
         for (text, expected) in tests {
