@@ -4,12 +4,11 @@
 
 ![halloy](./assets/animation.gif)
 
-Halloy is an open-source IRC client written in Rust, with the Iced GUI library. It aims to provide a simple and fast client for Mac, Windows, and Linux platforms.
+Halloy is an open-source IRC client for Mac, Windows, and Linux, focused on being simple and fast.
 
-* Documentation for latest release: [https://halloy.chat](https://halloy.chat).
-* Documentation for main branch (when building from source): [https://unstable.halloy.chat](https://unstable.halloy.chat).
+Documentation: [halloy.chat](https://halloy.chat)
 
-Join **#halloy** on libera.chat if you have questions or looking for help.
+Join **#halloy** on libera.chat if you have questions or need help.
 
 ## Installation
 
