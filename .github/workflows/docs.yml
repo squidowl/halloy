@@ -1,0 +1,56 @@
+name: Docs
+
+on:
+  pull_request:
+    paths:
+      - "docs/**"
+      - ".config/lychee-*.toml"
+      - ".github/workflows/docs.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "docs/**"
+      - ".config/lychee-*.toml"
+      - ".github/workflows/docs.yml"
+  merge_group:
+    paths:
+      - "docs/**"
+      - ".config/lychee-*.toml"
+      - ".github/workflows/docs.yml"
+
+jobs:
+  build-linkcheck:
+    name: Build & Link Check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: docs
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@735343b667d3e6f658f44d0eca948eb6282f2b76 # v2.0.2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Check internal links
+        id: lychee-internal
+        uses: lycheeverse/lychee-action@8646ba30535128ac92d33dfc9133794bfdd9b411 # v2
+        with:
+          args: --config ./.config/lychee-internal.toml --root-dir='./docs' './docs/**/*.md'
+          fail: true
+
+      - name: Check external links
+        id: lychee-external
+        uses: lycheeverse/lychee-action@8646ba30535128ac92d33dfc9133794bfdd9b411 # v2
+        with:
+          args: --config ./.config/lychee-external.toml --root-dir='./docs' './docs/**/*.md'
+          fail: true
+        continue-on-error: true
+
+      - name: Build docs
+        run: bun run docs:build
