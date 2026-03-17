@@ -1,7 +1,8 @@
 verbose = "info"
 no_progress = true
 
-index_files = ["README.md"]
+fallback_extensions = ["md"]
+exclude_path = ["docs/node_modules/**", "docs/.vitepress/**"]
 
 include_fragments = true
 

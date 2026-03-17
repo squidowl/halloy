@@ -22,3 +22,8 @@
 # Flatpak generated files
 /assets/flatpak/generated-sources.json
 .flatpak-builder
+
+# VitePress / Node
+/docs/node_modules/
+/docs/.vitepress/cache/
+/docs/.vitepress/dist/
