@@ -1,4 +1,4 @@
-name: Docs Vercel Nightly
+name: Docs Deploy Nightly
 
 on:
   workflow_dispatch:
