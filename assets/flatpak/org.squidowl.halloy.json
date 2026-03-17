@@ -25,7 +25,8 @@
             "buildsystem": "simple",
             "build-options": {
                 "env": {
-                    "CARGO_HOME": "/run/build/halloy/cargo"
+                    "CARGO_HOME": "/run/build/halloy/cargo",
+                    "AWS_LC_SYS_NO_JITTER_ENTROPY": "1"
                 }
             },
             "build-commands": [
