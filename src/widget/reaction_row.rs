@@ -2,9 +2,9 @@ use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet};
 
 use data::user::NickRef;
-use iced::alignment;
 pub use iced::widget::tooltip::Position;
 use iced::widget::{Space, button, container, row};
+use iced::{alignment, padding};
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::{Column, Element, Row};
@@ -96,6 +96,7 @@ where
         )
         .into()
     }))
+    .padding(padding::all(0).top(2))
     .spacing(2.0);
 
     if !m.is_empty()
