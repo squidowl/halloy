@@ -178,7 +178,7 @@ pub fn view<'a>(
                                 )
                             }
                             message::Link::Url(_) => {
-                                context_menu::Entry::url_list(None)
+                                context_menu::Entry::url_list(None, false)
                             }
                             _ => vec![],
                         },
@@ -195,6 +195,8 @@ pub fn view<'a>(
                                 link.url().map(|url| Context::Url {
                                     url,
                                     message: None,
+                                    msgid: None,
+                                    selected_reactions: vec![],
                                 })
                             };
 

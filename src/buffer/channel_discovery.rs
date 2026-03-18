@@ -269,7 +269,7 @@ fn channel_list_view<'a>(
                             Option::<fn(Color) -> Color>::None,
                             move |link| match link {
                                 message::Link::Url(_) => {
-                                    context_menu::Entry::url_list(None)
+                                    context_menu::Entry::url_list(None, false)
                                 }
                                 _ => vec![],
                             },
@@ -279,6 +279,8 @@ fn channel_list_view<'a>(
                                         link.url().map(|url| Context::Url {
                                             url,
                                             message: None,
+                                            msgid: None,
+                                            selected_reactions: vec![],
                                         }),
                                         length,
                                         config,
