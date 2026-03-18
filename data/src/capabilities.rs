@@ -4,7 +4,7 @@ use std::string::ToString;
 
 use irc::proto::{self, Tags, command, format};
 
-use crate::message::formatting::{Formatting, Modifier, update_with_modifier};
+use crate::message::formatting::{Modifier, update_formatting_with_modifier};
 use crate::{Target, User, config, message};
 
 // This is not an exhaustive list of IRCv3 capabilities, just the ones that
@@ -90,57 +90,73 @@ impl MultilineLimits {
     }
 }
 
-pub fn multiline_concat_lines(
-    concat_bytes: usize,
-    text: &str,
-) -> Vec<(Formatting, &str)> {
+// Forbid splitting inside formatting sequences and attempt to split at spaces
+// for better compatibility with clients that don't support multiline.
+pub fn multiline_concat_lines(concat_bytes: usize, text: &str) -> Vec<&str> {
     let mut lines = Vec::new();
 
     let mut line_start = 0;
+    let mut last_space = 0;
     let mut line_bytes = 0;
 
     let mut modifiers = HashSet::new();
     let mut fg = None;
     let mut bg = None;
 
-    let mut line_modifiers = modifiers.clone();
-    let mut line_fg = None;
-    let mut line_bg = None;
-
     let mut iter = text.chars().peekable();
 
     while let Some(c) = iter.next() {
-        if (line_bytes + c.len_utf8()) > concat_bytes {
-            lines.push((
-                Formatting::new(&line_modifiers, line_fg, line_bg),
-                &text[line_start..line_start + line_bytes],
-            ));
-
-            line_start += line_bytes;
-            line_bytes = Formatting::new(&modifiers, fg, bg).to_string().len();
-
-            line_modifiers = modifiers.clone();
-            line_fg = fg;
-            line_bg = bg;
-        }
-
-        if let Ok(modifier) = Modifier::try_from(c) {
-            update_with_modifier(
+        let sequence_bytes = if let Ok(modifier) = Modifier::try_from(c) {
+            let (sequence_bytes, comma) = update_formatting_with_modifier(
                 &mut modifiers,
                 &mut fg,
                 &mut bg,
                 modifier,
                 &mut iter,
             );
+
+            // This will prevent breaking a color modifier away from a
+            // non-modifier, trailing comma; behaves that way solely for
+            // simplicity's sake
+            sequence_bytes + comma.map_or(0, char::len_utf8)
+        } else {
+            c.len_utf8()
+        };
+
+        if (line_bytes + sequence_bytes) > concat_bytes {
+            if last_space > line_start {
+                lines.push(&text[line_start..last_space + ' '.len_utf8()]);
+
+                println!(
+                    "line_bytes {line_bytes} last_space {last_space} line_start {line_start} space_len {}",
+                    ' '.len_utf8()
+                );
+                line_bytes -= last_space + ' '.len_utf8() - line_start;
+                line_start = last_space + ' '.len_utf8();
+                println!("line_bytes {line_bytes} line_start {line_start}");
+
+                if line_bytes > concat_bytes {
+                    lines.push(&text[line_start..line_start + line_bytes]);
+
+                    line_start += line_bytes;
+                    line_bytes = 0;
+                }
+            } else {
+                lines.push(&text[line_start..line_start + line_bytes]);
+
+                line_start += line_bytes;
+                line_bytes = 0;
+            }
         }
 
-        line_bytes += c.len_utf8();
+        if c == ' ' {
+            last_space = line_start + line_bytes;
+        }
+
+        line_bytes += sequence_bytes;
     }
 
-    lines.push((
-        Formatting::new(&line_modifiers, line_fg, line_bg),
-        &text[line_start..],
-    ));
+    lines.push(&text[line_start..]);
 
     lines
 }
