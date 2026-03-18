@@ -255,20 +255,115 @@ impl<'a> ChannelQueryLayout<'a> {
         )
     }
 
-    fn format_user_message(
+    fn not_sent_row(
         &self,
         message: &'a data::Message,
-        right_aligned_width: Option<f32>,
-        user: &'a User,
-        hide_nickname: bool,
-    ) -> (Element<'a, Message>, Element<'a, Message>) {
+    ) -> Option<Element<'a, Message>> {
         let not_sent = self.confirm_message_delivery
             && message.command.is_some()
             && matches!(message.direction, message::Direction::Sent)
             && Utc::now().signed_duration_since(message.server_time)
                 > TimeDelta::seconds(10);
 
-        let dimmed = not_sent.then_some(Dimmed::new(None));
+        if !not_sent {
+            return None;
+        }
+
+        let font_size =
+            0.85 * self.config.font.size.map_or(theme::TEXT_SIZE, f32::from);
+        let icon_size = theme::line_height(&self.config.font)
+            .to_absolute(font_size.into())
+            .0;
+
+        Some(
+            context_menu::not_sent_message(
+                button(
+                    row![
+                        icon::not_sent()
+                            .style(|theme, status| {
+                                theme::svg::error(theme, status)
+                            })
+                            .height(icon_size)
+                            .width(Length::Shrink),
+                        text(" Message failed to send")
+                            .style(theme::text::error)
+                            .size(font_size)
+                    ]
+                    .align_y(alignment::Vertical::Center),
+                )
+                .style(theme::button::bare)
+                .padding(0),
+                &message.server_time,
+                &message.hash,
+                message.command.is_some() && self.connected,
+                self.config,
+                self.theme,
+            )
+            .map(Message::ContextMenu),
+        )
+    }
+
+    fn reaction_row(
+        &self,
+        message: &'a data::Message,
+    ) -> Option<Element<'a, Message>> {
+        if !(self.config.buffer.channel.message.show_emoji_reacts
+            && has_visible_reactions(message))
+        {
+            return None;
+        }
+
+        let selected_reaction_texts =
+            selected_reactions(message, self.our_nick);
+        let mut on_react = None;
+        let mut on_unreact = None;
+        let mut on_open_picker = None;
+
+        if let Some(msgid) = message.id.as_ref() {
+            on_react = Some(|text: &'a str| Message::Reacted {
+                msgid: msgid.clone(),
+                text: text.to_owned().into(),
+            });
+            on_unreact = Some(|text: &'a str| Message::Unreacted {
+                msgid: msgid.clone(),
+                text: text.to_owned().into(),
+            });
+
+            if self.can_send_reactions {
+                on_open_picker = Some(Message::ContextMenu(
+                    context_menu::Message::OpenReactionModal(
+                        msgid.clone(),
+                        selected_reaction_texts.clone(),
+                    ),
+                ));
+            }
+        }
+
+        Some(reaction_row(
+            message,
+            self.our_nick,
+            self.config.font.size.map_or(theme::TEXT_SIZE, f32::from),
+            self.config.buffer.channel.message.max_reaction_display,
+            on_react,
+            on_unreact,
+            on_open_picker,
+        ))
+    }
+
+    fn format_user_message(
+        &self,
+        message: &'a data::Message,
+        right_aligned_width: Option<f32>,
+        user: &'a User,
+        hide_nickname: bool,
+    ) -> (
+        Element<'a, Message>,
+        Element<'a, Message>,
+        Vec<Element<'a, Message>>,
+    ) {
+        let not_sent_row = self.not_sent_row(message);
+
+        let dimmed = not_sent_row.is_some().then_some(Dimmed::new(None));
         let dimmed_background_tuple = dimmed
             .map(|dimmed| (dimmed, self.theme.styles().buffer.background));
 
@@ -371,7 +466,7 @@ impl<'a> ChannelQueryLayout<'a> {
             }
         });
 
-        let mut message_content = message_content::with_context(
+        let message_content = message_content::with_context(
             &message.content,
             self.server,
             self.chantypes,
@@ -404,49 +499,11 @@ impl<'a> ChannelQueryLayout<'a> {
             },
             self.config,
         );
-        message_content = self.with_reactions(message, message_content);
 
-        let content = if not_sent {
-            let font_size = 0.85
-                * self.config.font.size.map_or(theme::TEXT_SIZE, f32::from);
-            let icon_size = theme::line_height(&self.config.font)
-                .to_absolute(font_size.into())
-                .0;
+        let after_content =
+            self.reaction_row(message).into_iter().chain(not_sent_row);
 
-            Element::from(column![
-                message_content,
-                context_menu::not_sent_message(
-                    button(
-                        row![
-                            icon::not_sent()
-                                .style(|theme, status| {
-                                    theme::svg::error(theme, status)
-                                })
-                                .height(icon_size)
-                                .width(Length::Shrink),
-                            text(" Message failed to send")
-                                .style(theme::text::error)
-                                .size(font_size)
-                        ]
-                        .align_y(alignment::Vertical::Center)
-                    )
-                    .style(|theme, status| {
-                        theme::button::bare(theme, status)
-                    })
-                    .padding(0),
-                    &message.server_time,
-                    &message.hash,
-                    message.command.is_some() && self.connected,
-                    self.config,
-                    self.theme,
-                )
-                .map(Message::ContextMenu)
-            ])
-        } else {
-            Element::from(message_content)
-        };
-
-        (nick_element, content)
+        (nick_element, message_content, after_content.collect())
     }
 
     fn format_server_message(
@@ -454,7 +511,11 @@ impl<'a> ChannelQueryLayout<'a> {
         message: &'a data::Message,
         right_aligned_width: Option<f32>,
         server: Option<&'a message::source::Server>,
-    ) -> (Element<'a, Message>, Element<'a, Message>) {
+    ) -> (
+        Element<'a, Message>,
+        Element<'a, Message>,
+        Vec<Element<'a, Message>>,
+    ) {
         let formatter = *self;
 
         let dimmed = formatter
@@ -554,7 +615,11 @@ impl<'a> ChannelQueryLayout<'a> {
             self.config,
         );
 
-        (marker, container(message_content).into())
+        (
+            marker,
+            message_content,
+            formatter.reaction_row(message).into_iter().collect(),
+        )
     }
 
     fn format_condensed_message(
@@ -562,7 +627,11 @@ impl<'a> ChannelQueryLayout<'a> {
         message: &'a data::Message,
         right_aligned_width: Option<f32>,
         hide_timestamp: bool,
-    ) -> (Element<'a, Message>, Element<'a, Message>) {
+    ) -> (
+        Element<'a, Message>,
+        Element<'a, Message>,
+        Vec<Element<'a, Message>>,
+    ) {
         let formatter = *self;
 
         let dimmed = formatter.config.buffer.server_messages.condense.dimmed;
@@ -684,6 +753,7 @@ impl<'a> ChannelQueryLayout<'a> {
                 middle.into()
             },
             container(message_content).into(),
+            vec![],
         )
     }
 
@@ -697,56 +767,6 @@ impl<'a> ChannelQueryLayout<'a> {
             ),
             (Source::User(_), Alignment::Top)
         )
-    }
-
-    fn with_reactions(
-        &self,
-        message: &'a data::Message,
-        message_content: Element<'a, Message>,
-    ) -> Element<'a, Message> {
-        if !(self.config.buffer.channel.message.show_emoji_reacts
-            && has_visible_reactions(message))
-        {
-            return message_content;
-        }
-
-        let selected_reaction_texts =
-            selected_reactions(message, self.our_nick);
-        let mut on_react = None;
-        let mut on_unreact = None;
-        let mut on_open_picker = None;
-
-        if let Some(msgid) = message.id.as_ref() {
-            on_react = Some(|text: &'a str| Message::Reacted {
-                msgid: msgid.clone(),
-                text: text.to_owned().into(),
-            });
-            on_unreact = Some(|text: &'a str| Message::Unreacted {
-                msgid: msgid.clone(),
-                text: text.to_owned().into(),
-            });
-
-            if self.can_send_reactions {
-                on_open_picker = Some(Message::ContextMenu(
-                    context_menu::Message::OpenReactionModal(
-                        msgid.clone(),
-                        selected_reaction_texts.clone(),
-                    ),
-                ));
-            }
-        }
-
-        let reactions = reaction_row(
-            message,
-            self.our_nick,
-            self.config.font.size.map_or(theme::TEXT_SIZE, f32::from),
-            self.config.buffer.channel.message.max_reaction_display,
-            on_react,
-            on_unreact,
-            on_open_picker,
-        );
-
-        column![message_content, reactions].spacing(2).into()
     }
 
     fn link_context<'b>(
@@ -794,142 +814,175 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
 
         let left_is_hidden = prefixes.is_none() && hide_timestamp;
 
-        let (middle, content): (Element<'a, Message>, Element<'a, Message>) =
-            match message.target.source() {
-                message::Source::User(user) => Some(self.format_user_message(
+        let (middle, content, after_content): (
+            Element<'a, Message>,
+            Element<'a, Message>,
+            Vec<Element<'a, Message>>,
+        ) = match message.target.source() {
+            message::Source::User(user) => Some(self.format_user_message(
+                message,
+                right_aligned_width,
+                user,
+                hide_nickname,
+            )),
+            message::Source::Server(server_message) => {
+                Some(self.format_server_message(
                     message,
                     right_aligned_width,
-                    user,
-                    hide_nickname,
-                )),
-                message::Source::Server(server_message) => {
-                    Some(self.format_server_message(
-                        message,
-                        right_aligned_width,
-                        server_message.as_ref(),
-                    ))
-                }
-                message::Source::Action(_) => {
-                    let marker = message_marker(
-                        Marker::Dot,
-                        right_aligned_width,
-                        self.config,
-                        theme::selectable_text::action,
-                        None,
-                    );
+                    server_message.as_ref(),
+                ))
+            }
+            message::Source::Action(_) => {
+                let not_sent_row = self.not_sent_row(message);
 
-                    let formatter = *self;
-                    let message_content = message_content::with_context(
-                        &message.content,
-                        formatter.server,
-                        formatter.chantypes,
-                        formatter.casemapping,
-                        formatter.theme,
-                        Message::Link,
-                        None,
-                        theme::selectable_text::action,
-                        theme::font_style::action,
-                        Option::<fn(Color) -> Color>::None,
-                        move |link| match link {
-                            message::Link::User(_, user) => {
-                                let user_in_channel = formatter
-                                    .target
-                                    .users()
-                                    .into_iter()
-                                    .flatten()
-                                    .find(|u| *u == user);
+                let dimmed =
+                    not_sent_row.is_some().then_some(Dimmed::new(None));
+                let dimmed_background_tuple = dimmed.map(|dimmed| {
+                    (dimmed, self.theme.styles().buffer.background)
+                });
 
-                                context_menu::Entry::user_list(
-                                    formatter.target.is_channel(),
-                                    user_in_channel,
-                                    formatter.target.our_user(),
-                                    formatter.config.file_transfer.enabled,
-                                )
-                            }
-                            message::Link::Url(_) => {
-                                formatter.url_entries(message, link)
-                            }
-                            _ => vec![],
-                        },
-                        move |link, entry, length| {
-                            entry
-                                .view(
-                                    formatter.link_context(message, link),
-                                    length,
-                                    formatter.config,
-                                    formatter.theme,
-                                )
-                                .map(Message::ContextMenu)
-                        },
-                        formatter.config,
-                    );
+                let formatter = *self;
 
-                    Some((
-                        marker,
-                        container(
-                            formatter.with_reactions(message, message_content),
+                let message_style = move |message_theme: &Theme| {
+                    theme::selectable_text::dimmed(
+                        theme::selectable_text::action(message_theme),
+                        message_theme,
+                        dimmed_background_tuple,
+                    )
+                };
+
+                let color_transformation = dimmed.map(|dimmed| {
+                    move |color: Color| -> Color {
+                        dimmed.transform_color(
+                            color,
+                            formatter.theme.styles().buffer.background,
                         )
-                        .into(),
-                    ))
-                }
-                message::Source::Internal(
-                    message::source::Internal::Status(status),
-                ) => {
-                    let message_style = move |message_theme: &Theme| {
-                        theme::selectable_text::status(message_theme, *status)
-                    };
-                    let message_font_style = move |message_theme: &Theme| {
-                        theme::font_style::status(message_theme, *status)
-                    };
+                    }
+                });
 
-                    let marker = message_marker(
-                        Marker::Dot,
-                        right_aligned_width,
-                        self.config,
-                        message_style,
-                        None,
-                    );
+                let marker = message_marker(
+                    Marker::Dot,
+                    right_aligned_width,
+                    self.config,
+                    message_style,
+                    None,
+                );
 
-                    let message = message_content(
-                        &message.content,
-                        self.server,
-                        self.chantypes,
-                        self.casemapping,
-                        self.theme,
-                        Message::Link,
-                        None,
-                        message_style,
-                        message_font_style,
-                        Option::<fn(Color) -> Color>::None,
-                        self.config,
-                    );
+                let message_content = message_content::with_context(
+                    &message.content,
+                    formatter.server,
+                    formatter.chantypes,
+                    formatter.casemapping,
+                    formatter.theme,
+                    Message::Link,
+                    None,
+                    message_style,
+                    theme::font_style::action,
+                    color_transformation,
+                    move |link| match link {
+                        message::Link::User(_, user) => {
+                            let user_in_channel = formatter
+                                .target
+                                .users()
+                                .into_iter()
+                                .flatten()
+                                .find(|u| *u == user);
 
-                    Some((marker, message))
-                }
-                message::Source::Internal(message::source::Internal::Logs(
-                    _,
-                )) => None,
-                message::Source::Internal(
-                    message::source::Internal::Condensed(_),
-                ) => (!message.text().is_empty()).then_some(
-                    self.format_condensed_message(
-                        message,
-                        right_aligned_width,
-                        hide_timestamp,
-                    ),
+                            context_menu::Entry::user_list(
+                                formatter.target.is_channel(),
+                                user_in_channel,
+                                formatter.target.our_user(),
+                                formatter.config.file_transfer.enabled,
+                            )
+                        }
+                        message::Link::Url(_) => {
+                            formatter.url_entries(message, link)
+                        }
+                        _ => vec![],
+                    },
+                    move |link, entry, length| {
+                        entry
+                            .view(
+                                formatter.link_context(message, link),
+                                length,
+                                formatter.config,
+                                formatter.theme,
+                            )
+                            .map(Message::ContextMenu)
+                    },
+                    formatter.config,
+                );
+
+                let after_content =
+                    self.reaction_row(message).into_iter().chain(not_sent_row);
+
+                Some((marker, message_content, after_content.collect()))
+            }
+            message::Source::Internal(message::source::Internal::Status(
+                status,
+            )) => {
+                let message_style = move |message_theme: &Theme| {
+                    theme::selectable_text::status(message_theme, *status)
+                };
+                let message_font_style = move |message_theme: &Theme| {
+                    theme::font_style::status(message_theme, *status)
+                };
+
+                let marker = message_marker(
+                    Marker::Dot,
+                    right_aligned_width,
+                    self.config,
+                    message_style,
+                    None,
+                );
+
+                let message = message_content(
+                    &message.content,
+                    self.server,
+                    self.chantypes,
+                    self.casemapping,
+                    self.theme,
+                    Message::Link,
+                    None,
+                    message_style,
+                    message_font_style,
+                    Option::<fn(Color) -> Color>::None,
+                    self.config,
+                );
+
+                Some((marker, message, vec![]))
+            }
+            message::Source::Internal(message::source::Internal::Logs(_)) => {
+                None
+            }
+            message::Source::Internal(
+                message::source::Internal::Condensed(_),
+            ) => (!message.text().is_empty()).then_some(
+                self.format_condensed_message(
+                    message,
+                    right_aligned_width,
+                    hide_timestamp,
                 ),
-            }?;
+            ),
+        }?;
 
         let selected_reaction_texts =
             selected_reactions(message, self.our_nick);
         let content = context_menu::message(
             content,
+            message.target.source(),
             message.id.as_ref(),
             selected_reaction_texts,
             self.can_send_reactions,
             self.config,
             self.theme,
         );
+
+        let content = if after_content.is_empty() {
+            content
+        } else {
+            column![content].extend(after_content).into()
+        };
 
         let row = row![
             prefixes,

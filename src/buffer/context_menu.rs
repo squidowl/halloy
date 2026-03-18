@@ -485,17 +485,6 @@ impl Entry {
                 theme,
                 config,
             ),
-            (
-                Entry::AddReaction,
-                Context::Message { msgid: None, .. }
-                | Context::Url { msgid: None, .. },
-            ) => menu_button(
-                "Add reaction".to_string(),
-                None,
-                length,
-                theme,
-                config,
-            ),
             _ => row![].into(),
         })
     }
@@ -575,6 +564,7 @@ pub fn update(message: Message) -> Event {
 
 pub fn message<'a, M>(
     content: impl Into<Element<'a, M>>,
+    source: &'a message::Source,
     msgid: Option<&'a message::Id>,
     selected_reactions: Vec<String>,
     can_send_reactions: bool,
@@ -584,7 +574,10 @@ pub fn message<'a, M>(
 where
     M: From<Message> + 'a,
 {
-    if !can_send_reactions {
+    if !can_send_reactions
+        || msgid.is_none()
+        || matches!(source, message::Source::Internal(_))
+    {
         return content.into();
     }
 
