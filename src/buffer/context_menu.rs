@@ -3,7 +3,7 @@ use data::dashboard::BufferAction;
 use data::user::Nick;
 use data::{Config, Server, User, config, ctcp, isupport, message, target};
 use iced::widget::{Space, button, column, container, row, rule};
-use iced::{Length, Padding};
+use iced::{Length, Padding, mouse};
 
 use crate::widget::{Element, context_menu, double_pass, text};
 use crate::{Theme, font, theme, widget};
@@ -560,6 +560,7 @@ where
         context_menu::MouseButton::default(),
         context_menu::Anchor::Cursor,
         context_menu::ToggleBehavior::KeepOpen,
+        mouse::Interaction::Text,
         content,
         entries,
         move |entry, length| {
@@ -615,6 +616,7 @@ pub fn user<'a>(
         context_menu::MouseButton::default(),
         context_menu::Anchor::Cursor,
         context_menu::ToggleBehavior::KeepOpen,
+        mouse::Interaction::Pointer,
         base,
         entries,
         move |entry, length| {
@@ -647,6 +649,7 @@ pub fn timestamp<'a>(
         context_menu::MouseButton::default(),
         context_menu::Anchor::Cursor,
         context_menu::ToggleBehavior::KeepOpen,
+        mouse::Interaction::Text,
         content,
         entries,
         move |entry, length| {
@@ -675,6 +678,7 @@ pub fn not_sent_message<'a>(
         context_menu::MouseButton::Left,
         context_menu::Anchor::Cursor,
         context_menu::ToggleBehavior::KeepOpen,
+        mouse::Interaction::Pointer,
         content,
         entries,
         move |entry, length| {
