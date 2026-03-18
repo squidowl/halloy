@@ -495,17 +495,17 @@ where
                                 .span_bounds(*index)
                                 .into_iter()
                                 .any(|bounds| bounds.contains(position))
-                                .then_some((*index, fg, highlight))
+                                .then_some((*index, *fg, *highlight))
                         })
                     {
+                        state.shown_spoilers.remove(&index);
                         if let Some(span) = state.spans.get_mut(index) {
-                            span.color = Some(*fg);
-                            span.highlight = Some(*highlight);
+                            span.color = Some(fg);
+                            span.highlight = Some(highlight);
                         }
                         state.paragraph = Renderer::Paragraph::with_spans(
                             text_with_spans(state.spans.as_ref()),
                         );
-                        state.shown_spoilers.remove(&index);
                     } else {
                         // Check if we clicked on a hidden spoiler to reveal it
                         for (index, span) in state.spans.iter().enumerate() {
