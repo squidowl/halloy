@@ -37,6 +37,7 @@ pub fn context_menu<'a, T, Message, Theme, Renderer>(
     activation_button: MouseButton,
     anchor: Anchor,
     toggle_behavior: ToggleBehavior,
+    mouse_interaction_on_hover: mouse::Interaction,
     base: impl Into<Element<'a, Message, Theme, Renderer>>,
     entries: Vec<T>,
     entry: impl Fn(T, Length) -> Element<'a, Message, Theme, Renderer> + 'a,
@@ -52,7 +53,7 @@ pub fn context_menu<'a, T, Message, Theme, Renderer>(
         anchor,
         toggle_behavior,
         menu: None,
-        mouse_interaction_on_hover: mouse::Interaction::Pointer,
+        mouse_interaction_on_hover,
     }
 }
 

@@ -429,6 +429,7 @@ pub fn view<'a>(
         context_menu::MouseButton::default(),
         context_menu::Anchor::Cursor,
         context_menu::ToggleBehavior::KeepOpen,
+        mouse::Interaction::Text,
         text_input,
         Actions::list(),
         move |menu, length| {
