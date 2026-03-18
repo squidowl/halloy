@@ -23,6 +23,10 @@ Fixed:
 - Fixed reloading config for channel sorting.
 - Fixed handling of URLs ending with `)`.
 
+Changed:
+
+- Spoilers (`/f ||hello world||`) now reveal on click instead of hove
+
 Thanks:
 
 - Contributions: @KaiKorla, @englut, @mango766
