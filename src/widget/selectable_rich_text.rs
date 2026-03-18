@@ -1,5 +1,5 @@
 use std::borrow::Cow;
-use std::collections::HashSet;
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use iced::advanced::graphics::core::touch;
@@ -248,7 +248,7 @@ struct State<Link, P: Paragraph> {
     link_hovered: bool,
     spoiler_hovered: bool,
     interaction: Interaction,
-    shown_spoilers: Option<(HashSet<usize>, Color, Highlight)>,
+    shown_spoilers: HashMap<usize, (Color, Highlight)>,
 
     context_menu_link: Option<Link>,
     context_menu: context_menu::State,
@@ -261,7 +261,7 @@ struct Snapshot {
     span_pressed: Option<usize>,
     interaction: Interaction,
     context_menu_status: context_menu::Status,
-    shown_spoilers: Option<(HashSet<usize>, Color, Highlight)>,
+    shown_spoilers: HashMap<usize, (Color, Highlight)>,
 }
 
 impl<Link, P: Paragraph> From<&State<Link, P>> for Snapshot {
@@ -311,7 +311,7 @@ where
             span_pressed: None,
             paragraph: Renderer::Paragraph::default(),
             interaction: Interaction::default(),
-            shown_spoilers: None,
+            shown_spoilers: HashMap::new(),
             context_menu_link: None,
             context_menu: context_menu::State::new(),
             hovered: false,
@@ -399,10 +399,8 @@ where
                         highlight.background == Background::Color(fg)
                     });
 
-                let is_shown_spoiler = state
-                    .shown_spoilers
-                    .as_ref()
-                    .is_some_and(|(indices, _, _)| indices.contains(&index));
+                let is_shown_spoiler =
+                    state.shown_spoilers.contains_key(&index);
 
                 if (is_hidden_spoiler || is_shown_spoiler)
                     && state
@@ -487,66 +485,27 @@ where
                         hint_factor: renderer.scale_factor(),
                     };
 
-                    if let Some((indices, fg, highlight)) =
-                        &mut state.shown_spoilers
+                    // If a spoiler is currently shown and we clicked on it, hide it
+                    if let Some((index, fg, highlight)) = state
+                        .shown_spoilers
+                        .iter()
+                        .find_map(|(index, (fg, highlight))| {
+                            state
+                                .paragraph
+                                .span_bounds(*index)
+                                .into_iter()
+                                .any(|bounds| bounds.contains(position))
+                                .then_some((*index, fg, highlight))
+                        })
                     {
-                        // If a spoiler is currently shown and we clicked on it, hide it
-                        if let Some(index) = indices
-                            .iter()
-                            .find(|index| {
-                                state
-                                    .paragraph
-                                    .span_bounds(**index)
-                                    .into_iter()
-                                    .any(|bounds| bounds.contains(position))
-                            })
-                            .copied()
-                        {
-                            if let Some(span) = state.spans.get_mut(index) {
-                                span.color = Some(*fg);
-                                span.highlight = Some(*highlight);
-                            }
-                            state.paragraph = Renderer::Paragraph::with_spans(
-                                text_with_spans(state.spans.as_ref()),
-                            );
-                            indices.remove(&index);
-                            if indices.is_empty() {
-                                state.shown_spoilers = None;
-                            }
-                        } else {
-                            // Check if we clicked on a hidden spoiler to reveal it
-                            for (index, span) in state.spans.iter().enumerate()
-                            {
-                                if let Some((fg, highlight)) =
-                                    span.color.zip(span.highlight)
-                                {
-                                    let is_spoiler = highlight.background
-                                        == Background::Color(fg);
-
-                                    if is_spoiler
-                                        && state
-                                            .paragraph
-                                            .span_bounds(index)
-                                            .into_iter()
-                                            .any(|bounds| {
-                                                bounds.contains(position)
-                                            })
-                                    {
-                                        indices.insert(index);
-                                        let span = &mut state.spans[index];
-                                        span.color = None;
-                                        span.highlight = None;
-                                        state.paragraph =
-                                            Renderer::Paragraph::with_spans(
-                                                text_with_spans(
-                                                    state.spans.as_ref(),
-                                                ),
-                                            );
-                                        break;
-                                    }
-                                }
-                            }
+                        if let Some(span) = state.spans.get_mut(index) {
+                            span.color = Some(*fg);
+                            span.highlight = Some(*highlight);
                         }
+                        state.paragraph = Renderer::Paragraph::with_spans(
+                            text_with_spans(state.spans.as_ref()),
+                        );
+                        state.shown_spoilers.remove(&index);
                     } else {
                         // Check if we clicked on a hidden spoiler to reveal it
                         for (index, span) in state.spans.iter().enumerate() {
@@ -563,12 +522,9 @@ where
                                         .into_iter()
                                         .any(|bounds| bounds.contains(position))
                                 {
-                                    state.shown_spoilers = Some((
-                                        HashSet::from([index]),
-                                        fg,
-                                        highlight,
-                                    ));
-
+                                    state
+                                        .shown_spoilers
+                                        .insert(index, (fg, highlight));
                                     let span = &mut state.spans[index];
                                     span.color = None;
                                     span.highlight = None;
@@ -965,12 +921,10 @@ where
             state.spans = spans.iter().cloned().map(Span::to_static).collect();
 
             // Apply shown spoiler
-            if let Some((indices, _, _)) = &state.shown_spoilers {
-                for index in indices {
-                    if let Some(span) = state.spans.get_mut(*index) {
-                        span.color = None;
-                        span.highlight = None;
-                    }
+            for index in state.shown_spoilers.keys() {
+                if let Some(span) = state.spans.get_mut(*index) {
+                    span.color = None;
+                    span.highlight = None;
                 }
             }
 
@@ -1000,12 +954,10 @@ where
                         spans.iter().cloned().map(Span::to_static).collect();
 
                     // Apply shown spoiler
-                    if let Some((indices, _, _)) = &state.shown_spoilers {
-                        for index in indices {
-                            if let Some(span) = state.spans.get_mut(*index) {
-                                span.color = None;
-                                span.highlight = None;
-                            }
+                    for index in state.shown_spoilers.keys() {
+                        if let Some(span) = state.spans.get_mut(*index) {
+                            span.color = None;
+                            span.highlight = None;
                         }
                     }
 
