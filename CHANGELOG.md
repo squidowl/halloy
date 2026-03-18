@@ -11,6 +11,7 @@ Added:
 - Case insensitive sort of query names in sidebar
 - Copied `order_channels_by` from `sidebar` to `server.<name>`, defaults to `sidebar.order_channels_by` if empty.
 - Alias commands (see `buffer.commands.aliases`)
+- The titlebar now displays the current buffer for each window.
 
 Fixed:
 
