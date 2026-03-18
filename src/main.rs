@@ -402,8 +402,20 @@ impl Halloy {
         Task::none()
     }
 
-    fn title(&self, _window_id: window::Id) -> String {
-        String::from("Halloy")
+    fn title(&self, window_id: window::Id) -> String {
+        let default = "Halloy".to_owned();
+        let s = match &self.screen {
+            Screen::Dashboard(dashboard) => {
+                match dashboard.focused_buffer_name(window_id) {
+                    Some(s) => s,
+                    None => return default,
+                }
+            }
+            Screen::Help(_) => "Help".to_owned(),
+            Screen::Welcome(_) => "Welcome".to_owned(),
+            Screen::Exit { .. } => return default,
+        };
+        format!("{s} – Halloy")
     }
 
     fn update(&mut self, message: Message) -> Task<Message> {
