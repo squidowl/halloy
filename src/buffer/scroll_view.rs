@@ -1926,6 +1926,7 @@ fn preview_row<'a>(
                     .preview
                     .is_enabled(url.as_str())
                     .then_some(message.hidden_urls.contains(url)),
+                false,
             ),
             move |entry, length| {
                 entry
@@ -1933,6 +1934,8 @@ fn preview_row<'a>(
                         Some(context_menu::Context::Url {
                             url: url_string.as_str(),
                             message: Some(message.hash),
+                            msgid: None,
+                            selected_reactions: vec![],
                         }),
                         length,
                         config,

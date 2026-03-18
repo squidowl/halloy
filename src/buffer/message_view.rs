@@ -106,8 +106,15 @@ impl<'a> ChannelQueryLayout<'a> {
         match link {
             message::Link::Url(url) => context_menu::Entry::url_list(
                 self.preview_hidden_for_url(message, url),
+                self.can_send_reactions,
             ),
-            _ => vec![],
+            _ => {
+                if self.can_send_reactions {
+                    vec![context_menu::Entry::AddReaction]
+                } else {
+                    vec![]
+                }
+            }
         }
     }
 
@@ -759,9 +766,14 @@ impl<'a> ChannelQueryLayout<'a> {
                 current_user,
             })
         } else {
-            link.url().map(|url| Context::Url {
+            let selected_reaction_texts =
+                selected_reactions_refs(message, self.our_nick);
+
+            link.url().map(move |url| Context::Url {
                 url,
                 message: Some(message.hash),
+                msgid: message.id.as_ref(),
+                selected_reactions: selected_reaction_texts,
             })
         }
     }
@@ -945,6 +957,16 @@ fn selected_reactions(
     message: &data::Message,
     our_nick: Option<NickRef<'_>>,
 ) -> Vec<String> {
+    selected_reactions_refs(message, our_nick)
+        .into_iter()
+        .map(ToString::to_string)
+        .collect()
+}
+
+fn selected_reactions_refs<'a>(
+    message: &'a data::Message,
+    our_nick: Option<NickRef<'_>>,
+) -> Vec<&'a str> {
     let Some(our_nick) = our_nick else {
         return vec![];
     };
@@ -964,6 +986,6 @@ fn selected_reactions(
 
     selected
         .into_iter()
-        .filter_map(|(text, count)| (count >= 1).then_some(text.to_owned()))
+        .filter_map(|(text, count)| (count >= 1).then_some(text))
         .collect()
 }
