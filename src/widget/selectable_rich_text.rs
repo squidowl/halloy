@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use iced::advanced::graphics::core::touch;
@@ -245,8 +246,9 @@ struct State<Link, P: Paragraph> {
     paragraph: P,
     hovered: bool,
     link_hovered: bool,
+    spoiler_hovered: bool,
     interaction: Interaction,
-    shown_spoiler: Option<(usize, Color, Highlight)>,
+    shown_spoilers: HashMap<usize, (Color, Highlight)>,
 
     context_menu_link: Option<Link>,
     context_menu: context_menu::State,
@@ -255,10 +257,11 @@ struct State<Link, P: Paragraph> {
 struct Snapshot {
     hovered: bool,
     link_hovered: bool,
+    spoiler_hovered: bool,
     span_pressed: Option<usize>,
     interaction: Interaction,
     context_menu_status: context_menu::Status,
-    shown_spoiler: Option<(usize, Color, Highlight)>,
+    shown_spoilers: HashMap<usize, (Color, Highlight)>,
 }
 
 impl<Link, P: Paragraph> From<&State<Link, P>> for Snapshot {
@@ -266,10 +269,11 @@ impl<Link, P: Paragraph> From<&State<Link, P>> for Snapshot {
         Snapshot {
             hovered: value.hovered,
             link_hovered: value.link_hovered,
+            spoiler_hovered: value.spoiler_hovered,
             span_pressed: value.span_pressed,
             interaction: value.interaction,
             context_menu_status: value.context_menu.status,
-            shown_spoiler: value.shown_spoiler,
+            shown_spoilers: value.shown_spoilers.clone(),
         }
     }
 }
@@ -278,10 +282,11 @@ impl Snapshot {
     fn is_changed(&self, other: &Self) -> bool {
         self.hovered != other.hovered
             || self.link_hovered != other.link_hovered
+            || self.spoiler_hovered != other.spoiler_hovered
             || self.span_pressed != other.span_pressed
             || self.interaction != other.interaction
             || self.context_menu_status != other.context_menu_status
-            || self.shown_spoiler != other.shown_spoiler
+            || self.shown_spoilers != other.shown_spoilers
     }
 }
 
@@ -306,11 +311,12 @@ where
             span_pressed: None,
             paragraph: Renderer::Paragraph::default(),
             interaction: Interaction::default(),
-            shown_spoiler: None,
+            shown_spoilers: HashMap::new(),
             context_menu_link: None,
             context_menu: context_menu::State::new(),
             hovered: false,
             link_hovered: false,
+            spoiler_hovered: false,
         })
     }
 
@@ -369,6 +375,7 @@ where
 
         state.hovered = false;
         state.link_hovered = false;
+        state.spoiler_hovered = false;
 
         if let Some(position) = cursor.position_in(layout.bounds()) {
             state.hovered = true;
@@ -381,6 +388,30 @@ where
                 && span.link.is_some()
             {
                 state.link_hovered = true;
+            }
+
+            // Check if cursor is over a spoiler span (hidden or revealed)
+            for (index, span) in state.spans.iter().enumerate() {
+                let is_hidden_spoiler = span
+                    .color
+                    .zip(span.highlight)
+                    .is_some_and(|(fg, highlight)| {
+                        highlight.background == Background::Color(fg)
+                    });
+
+                let is_shown_spoiler =
+                    state.shown_spoilers.contains_key(&index);
+
+                if (is_hidden_spoiler || is_shown_spoiler)
+                    && state
+                        .paragraph
+                        .span_bounds(index)
+                        .into_iter()
+                        .any(|bounds| bounds.contains(position))
+                {
+                    state.spoiler_hovered = true;
+                    break;
+                }
             }
         }
 
@@ -433,41 +464,50 @@ where
                     }
                 }
 
-                if let Interaction::Selecting(raw) = state.interaction {
-                    state.interaction = Interaction::Selected(raw);
-                } else {
-                    state.interaction = Interaction::Idle;
-                }
-            }
-            iced::Event::Mouse(mouse::Event::CursorMoved { .. })
-            | iced::Event::Touch(touch::Event::FingerMoved { .. }) => {
-                if let Some(cursor) = cursor.position()
-                    && let Interaction::Selecting(raw) = &mut state.interaction
-                {
-                    raw.end = cursor;
-                }
+                // Toggle spoiler on click
+                if let Some(position) = cursor.position_in(bounds) {
+                    let size =
+                        self.size.unwrap_or_else(|| renderer.default_size());
+                    let font =
+                        self.font.unwrap_or_else(|| renderer.default_font());
 
-                let size = self.size.unwrap_or_else(|| renderer.default_size());
-                let font = self.font.unwrap_or_else(|| renderer.default_font());
+                    let text_with_spans = |spans| Text {
+                        content: spans,
+                        bounds: bounds.size(),
+                        size,
+                        line_height: self.line_height,
+                        font,
+                        align_x: self.align_x,
+                        align_y: self.align_y,
+                        shaping: Shaping::Advanced,
+                        wrapping: text::Wrapping::WordOrGlyph,
+                        ellipsis: text::Ellipsis::default(),
+                        hint_factor: renderer.scale_factor(),
+                    };
 
-                let text_with_spans = |spans| Text {
-                    content: spans,
-                    bounds: bounds.size(),
-                    size,
-                    line_height: self.line_height,
-                    font,
-                    align_x: self.align_x,
-                    align_y: self.align_y,
-                    shaping: Shaping::Advanced,
-                    wrapping: text::Wrapping::WordOrGlyph,
-                    ellipsis: text::Ellipsis::default(),
-                    hint_factor: renderer.scale_factor(),
-                };
-
-                // Check spoiler
-                if let Some(cursor) = cursor.position_in(bounds) {
-                    if state.shown_spoiler.is_none() {
-                        // Find if spoiler is hovered
+                    // If a spoiler is currently shown and we clicked on it, hide it
+                    if let Some((index, fg, highlight)) = state
+                        .shown_spoilers
+                        .iter()
+                        .find_map(|(index, (fg, highlight))| {
+                            state
+                                .paragraph
+                                .span_bounds(*index)
+                                .into_iter()
+                                .any(|bounds| bounds.contains(position))
+                                .then_some((*index, *fg, *highlight))
+                        })
+                    {
+                        state.shown_spoilers.remove(&index);
+                        if let Some(span) = state.spans.get_mut(index) {
+                            span.color = Some(fg);
+                            span.highlight = Some(highlight);
+                        }
+                        state.paragraph = Renderer::Paragraph::with_spans(
+                            text_with_spans(state.spans.as_ref()),
+                        );
+                    } else {
+                        // Check if we clicked on a hidden spoiler to reveal it
                         for (index, span) in state.spans.iter().enumerate() {
                             if let Some((fg, highlight)) =
                                 span.color.zip(span.highlight)
@@ -480,38 +520,39 @@ where
                                         .paragraph
                                         .span_bounds(index)
                                         .into_iter()
-                                        .any(|bounds| bounds.contains(cursor))
+                                        .any(|bounds| bounds.contains(position))
                                 {
-                                    state.shown_spoiler =
-                                        Some((index, fg, highlight));
+                                    state
+                                        .shown_spoilers
+                                        .insert(index, (fg, highlight));
+                                    let span = &mut state.spans[index];
+                                    span.color = None;
+                                    span.highlight = None;
+                                    state.paragraph =
+                                        Renderer::Paragraph::with_spans(
+                                            text_with_spans(
+                                                state.spans.as_ref(),
+                                            ),
+                                        );
                                     break;
                                 }
                             }
                         }
-
-                        // Show spoiler
-                        if let Some((index, _, _)) = state.shown_spoiler {
-                            // Safe we just got this index
-                            let span = &mut state.spans[index];
-                            span.color = None;
-                            span.highlight = None;
-                            state.paragraph = Renderer::Paragraph::with_spans(
-                                text_with_spans(state.spans.as_ref()),
-                            );
-                        }
                     }
                 }
-                // Hide spoiler
-                else if let Some((index, fg, highlight)) =
-                    state.shown_spoiler.take()
+
+                if let Interaction::Selecting(raw) = state.interaction {
+                    state.interaction = Interaction::Selected(raw);
+                } else {
+                    state.interaction = Interaction::Idle;
+                }
+            }
+            iced::Event::Mouse(mouse::Event::CursorMoved { .. })
+            | iced::Event::Touch(touch::Event::FingerMoved { .. }) => {
+                if let Some(cursor) = cursor.position()
+                    && let Interaction::Selecting(raw) = &mut state.interaction
                 {
-                    if let Some(span) = state.spans.get_mut(index) {
-                        span.color = Some(fg);
-                        span.highlight = Some(highlight);
-                    }
-                    state.paragraph = Renderer::Paragraph::with_spans(
-                        text_with_spans(state.spans.as_ref()),
-                    );
+                    raw.end = cursor;
                 }
             }
             iced::Event::Mouse(mouse::Event::ButtonPressed {
@@ -758,7 +799,7 @@ where
             .downcast_ref::<State<Link, Renderer::Paragraph>>();
 
         if state.hovered {
-            if state.link_hovered {
+            if state.link_hovered || state.spoiler_hovered {
                 mouse::Interaction::Pointer
             } else {
                 mouse::Interaction::Text
@@ -880,11 +921,11 @@ where
             state.spans = spans.iter().cloned().map(Span::to_static).collect();
 
             // Apply shown spoiler
-            if let Some((index, _, _)) = state.shown_spoiler
-                && let Some(span) = state.spans.get_mut(index)
-            {
-                span.color = None;
-                span.highlight = None;
+            for index in state.shown_spoilers.keys() {
+                if let Some(span) = state.spans.get_mut(*index) {
+                    span.color = None;
+                    span.highlight = None;
+                }
             }
 
             state.paragraph = Renderer::Paragraph::with_spans(text_with_spans(
@@ -913,11 +954,11 @@ where
                         spans.iter().cloned().map(Span::to_static).collect();
 
                     // Apply shown spoiler
-                    if let Some((index, _, _)) = state.shown_spoiler
-                        && let Some(span) = state.spans.get_mut(index)
-                    {
-                        span.color = None;
-                        span.highlight = None;
+                    for index in state.shown_spoilers.keys() {
+                        if let Some(span) = state.spans.get_mut(*index) {
+                            span.color = None;
+                            span.highlight = None;
+                        }
                     }
 
                     state.paragraph = Renderer::Paragraph::with_spans(
