@@ -25,7 +25,7 @@ Fixed:
 
 Changed:
 
-- Spoilers (`/f ||hello world||`) now reveal on click instead of hove
+- Spoilers (`/f ||hello world||`) now reveal on click instead of hover
 
 Thanks:
 
