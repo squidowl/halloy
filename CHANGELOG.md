@@ -12,6 +12,7 @@ Added:
 - Copied `order_channels_by` from `sidebar` to `server.<name>`, defaults to `sidebar.order_channels_by` if empty.
 - Alias commands (see `buffer.commands.aliases`)
 - The titlebar now displays the current buffer for each window.
+- `/plain-me`, `/format-me`, `/plain-msg`, `/format-msg`, `/plain-notice`, and `/format-notice` commands were added to provide `/plain`/`/format` functionality to the `/me`, `/msg`, and `/notice` commands
 
 Fixed:
 
@@ -23,6 +24,7 @@ Fixed:
 - Fixed direct message notifications when excludes are present
 - Fixed reloading config for channel sorting.
 - Fixed handling of URLs ending with `)`.
+- Auto-format rules are applied to the content of `/me`, `/msg`, and `/notice` commands
 
 Changed:
 
@@ -32,7 +34,7 @@ Thanks:
 
 - Contributions: @KaiKorla, @englut, @mango766, @ncfavier, @classabbyamp
 - Bug reports: chmod222, @whitequark, @englut, sebbu, @ascarion, @4e554c4c, @BKVad1m, @mango766
-- Feature requests: @gAlleb, @jtbx, @cyrneko, @englut
+- Feature requests: @gAlleb, @jtbx, @cyrneko, @englut, @ascarion
 
 # 2026.4 (2026-03-03)
 
