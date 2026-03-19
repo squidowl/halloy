@@ -31,6 +31,7 @@ Aliases are resolved before built-in commands and take precedence when they use 
 | `delay`       |              | Delay the specified number of seconds[^7]                                          |
 | `detach`      |              | Hide the channel, but leave the bouncer's connection to the channel active[^5][^6] |
 | `format`      | `f`          | Format text with markdown and colors                                               |
+| `format-me`   |              | Send an action with markdown and colors                                            |
 | `hop`         | `rejoin`     | Part the current channel and join a new one                                        |
 | `join`        | `j`          | Join channel(s) with optional key(s)[^9][^10]                                      |
 | `kick`        |              | Kick a user from a channel[^1]                                                     |
@@ -45,6 +46,7 @@ Aliases are resolved before built-in commands and take precedence when they use 
 | `notice`      |              | Send a notice message to a target                                                  |
 | `part`        | `leave`      | Leave and close channel(s)/quer(ies) with an optional reason [^4]                  |
 | `plain`       | `p`          | Send text with markdown and colors disabled                                        |
+| `plain-me`    |              | Send an action with markdown and colors disabled                                   |
 | `quit`        | `disconnect` | Disconnect from the server with an optional reason                                 |
 | `raw`         |              | Send data to the server without modifying it                                       |
 | `reconnect`   |              | Reconnect to a current server if disconnected                                      |
