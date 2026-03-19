@@ -1,3 +1,4 @@
+use std::iter;
 use std::time::Duration;
 
 use data::config::{self, Config, sidebar};
@@ -805,13 +806,11 @@ impl Entry {
                     .collect_vec(),
             },
             if connected {
-                vec![Leave]
+                (matches!(buffer, buffer::Upstream::Channel(_, _))
+                    && supports_detach)
+                    .then_some(Detach)
                     .into_iter()
-                    .chain(
-                        (matches!(buffer, buffer::Upstream::Channel(_, _))
-                            && supports_detach)
-                            .then_some(Detach),
-                    )
+                    .chain(iter::once(Leave))
                     .collect_vec()
             } else {
                 vec![]
