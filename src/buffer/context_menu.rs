@@ -587,7 +587,7 @@ where
         context_menu::MouseButton::default(),
         context_menu::Anchor::Cursor,
         context_menu::ToggleBehavior::KeepOpen,
-        mouse::Interaction::Text,
+        None,
         content,
         entries,
         move |entry, length| {
@@ -643,7 +643,7 @@ pub fn user<'a>(
         context_menu::MouseButton::default(),
         context_menu::Anchor::Cursor,
         context_menu::ToggleBehavior::KeepOpen,
-        mouse::Interaction::Pointer,
+        Some(mouse::Interaction::Pointer),
         base,
         entries,
         move |entry, length| {
@@ -676,7 +676,7 @@ pub fn timestamp<'a>(
         context_menu::MouseButton::default(),
         context_menu::Anchor::Cursor,
         context_menu::ToggleBehavior::KeepOpen,
-        mouse::Interaction::Text,
+        None,
         content,
         entries,
         move |entry, length| {
@@ -705,7 +705,7 @@ pub fn not_sent_message<'a>(
         context_menu::MouseButton::Left,
         context_menu::Anchor::Cursor,
         context_menu::ToggleBehavior::KeepOpen,
-        mouse::Interaction::Pointer,
+        Some(mouse::Interaction::Pointer),
         content,
         entries,
         move |entry, length| {

@@ -1919,7 +1919,7 @@ fn preview_row<'a>(
             crate::widget::context_menu::MouseButton::Right,
             crate::widget::context_menu::Anchor::Cursor,
             crate::widget::context_menu::ToggleBehavior::KeepOpen,
-            mouse::Interaction::Pointer,
+            Some(mouse::Interaction::Pointer),
             content,
             context_menu::Entry::url_list(
                 config

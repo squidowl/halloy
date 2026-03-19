@@ -232,7 +232,7 @@ impl Sidebar {
                     context_menu::MouseButton::Left,
                     context_menu::Anchor::Widget,
                     context_menu::ToggleBehavior::Close,
-                    mouse::Interaction::Pointer,
+                    Some(mouse::Interaction::Pointer),
                     base,
                     menu,
                     move |menu, length| {
@@ -1108,7 +1108,7 @@ fn upstream_buffer_button<'a>(
             context_menu::MouseButton::default(),
             context_menu::Anchor::Cursor,
             context_menu::ToggleBehavior::KeepOpen,
-            mouse::Interaction::Pointer,
+            Some(mouse::Interaction::Pointer),
             base,
             entries,
             move |entry, length| {
