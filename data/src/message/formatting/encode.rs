@@ -103,7 +103,7 @@ fn markdown<'a>(
     };
 
     // A delimiter run is a sequence of one or more characters
-    let delimiter_run = |d, n| count(char(d), n);
+    let delimiter_run = |d, n| terminated(count(char(d), n), not(char(d)));
 
     // A left-flanking delimiter run is a
     let left_flanking = move |d, n| {
@@ -505,6 +505,14 @@ mod test {
             (
                 ("hello there **_fri_end_**!!", false),
                 String::from("hello there \u{2}\u{1d}fri_end\u{1d}\u{2}!!"),
+            ),
+            (
+                ("abc *** def *123* A _ B", false),
+                String::from("abc *** def \u{1d}123\u{1d} A _ B"),
+            ),
+            (
+                ("does that show up as ******* for you too?", false),
+                String::from("does that show up as ******* for you too?"),
             ),
             (
                 ("hello there ~~friend~~!!", false),
