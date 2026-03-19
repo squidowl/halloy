@@ -797,7 +797,43 @@ fn connected_command_list<'a>(
 
             let target_limit = find_target_limit(isupport, "PRIVMSG");
 
-            msg_command(channel_membership_prefixes, target_limit)
+            msg_command(
+                Formatting::Default,
+                channel_membership_prefixes,
+                target_limit,
+            )
+        },
+        // FORMAT-MSG
+        {
+            let channel_membership_prefixes: &[char] =
+                match isupport.get(&isupport::Kind::STATUSMSG) {
+                    Some(isupport::Parameter::STATUSMSG(len)) => len,
+                    _ => &[],
+                };
+
+            let target_limit = find_target_limit(isupport, "PRIVMSG");
+
+            msg_command(
+                Formatting::Format,
+                channel_membership_prefixes,
+                target_limit,
+            )
+        },
+        // PLAIN-MSG
+        {
+            let channel_membership_prefixes: &[char] =
+                match isupport.get(&isupport::Kind::STATUSMSG) {
+                    Some(isupport::Parameter::STATUSMSG(len)) => len,
+                    _ => &[],
+                };
+
+            let target_limit = find_target_limit(isupport, "PRIVMSG");
+
+            msg_command(
+                Formatting::Plain,
+                channel_membership_prefixes,
+                target_limit,
+            )
         },
         // NAMES
         {
@@ -824,7 +860,43 @@ fn connected_command_list<'a>(
 
             let target_limit = find_target_limit(isupport, "NOTICE");
 
-            notice_command(channel_membership_prefixes, target_limit)
+            notice_command(
+                Formatting::Default,
+                channel_membership_prefixes,
+                target_limit,
+            )
+        },
+        // FORMAT-NOTICE
+        {
+            let channel_membership_prefixes: &[char] =
+                match isupport.get(&isupport::Kind::STATUSMSG) {
+                    Some(isupport::Parameter::STATUSMSG(len)) => len,
+                    _ => &[],
+                };
+
+            let target_limit = find_target_limit(isupport, "NOTICE");
+
+            notice_command(
+                Formatting::Format,
+                channel_membership_prefixes,
+                target_limit,
+            )
+        },
+        // PLAIN-NOTICE
+        {
+            let channel_membership_prefixes: &[char] =
+                match isupport.get(&isupport::Kind::STATUSMSG) {
+                    Some(isupport::Parameter::STATUSMSG(len)) => len,
+                    _ => &[],
+                };
+
+            let target_limit = find_target_limit(isupport, "NOTICE");
+
+            notice_command(
+                Formatting::Plain,
+                channel_membership_prefixes,
+                target_limit,
+            )
         },
         // PART
         {
@@ -896,6 +968,34 @@ fn connected_command_list<'a>(
                 subcommands: None,
             }
         },
+        // FORMAT-ME
+        {
+            Command {
+                title: "FORMAT-ME".into(),
+                args: vec![Argument {
+                    text: "action".into(),
+                    kind: ArgumentKind::Required,
+                    tooltip: Some(
+                        include_str!("./format_tooltip.txt")
+                            .trim_end()
+                            .to_string(),
+                    ),
+                }],
+                subcommands: None,
+            }
+        },
+        // PLAIN-ME
+        {
+            Command {
+                title: "PLAIN-ME".into(),
+                args: vec![Argument {
+                    text: "action".into(),
+                    kind: ArgumentKind::Required,
+                    tooltip: None,
+                }],
+                subcommands: None,
+            }
+        },
         // MODE
         {
             let chanmodes = isupport::get_chanmodes_or_default(isupport);
@@ -958,7 +1058,9 @@ fn connected_command_list<'a>(
                     text: "text".into(),
                     kind: ArgumentKind::Required,
                     tooltip: Some(
-                        include_str!("./format_tooltip.txt").to_string(),
+                        include_str!("./format_tooltip.txt")
+                            .trim_end()
+                            .to_string(),
                     ),
                 }],
                 subcommands: None,
@@ -1248,8 +1350,9 @@ impl Command {
                 "For each user in the list being monitored, get the current status",
             ),
             "msg" => Cow::Borrowed(
-                "Open a query with a nickname and send an optional message",
+                "Open a pane with a target and send an optional message",
             ),
+            "notice" => Cow::Borrowed("Send a notice message to a target"),
             "nick" => Cow::Owned(format!("Change your nickname on {server}")),
             "part" => Cow::Borrowed("Leave channel(s) with an optional reason"),
             "quit" => Cow::Owned(format!(
@@ -1268,9 +1371,27 @@ impl Command {
             "format" => {
                 Cow::Borrowed("Format text using markdown or $ sequences")
             }
+            "format-me" => Cow::Borrowed(
+                "Format an action message using markdown or $ sequences",
+            ),
+            "format-msg" => Cow::Borrowed(
+                "Open a pane with a target and send an optional message formatted using markdown or $ sequences",
+            ),
+            "format-notice" => Cow::Borrowed(
+                "Send target a notice message formatted using markdown or $ sequences",
+            ),
             "plain" => {
                 Cow::Borrowed("Send text with automatic formatting disabled")
             }
+            "plain-me" => Cow::Borrowed(
+                "Send an action message with automatic formatting disabled",
+            ),
+            "plain-msg" => Cow::Borrowed(
+                "Open a pane with a target and send an optional message with automatic formatting disabled",
+            ),
+            "plain-notice" => Cow::Borrowed(
+                "Send target a notice message with automatic formatting disabled",
+            ),
             "ctcp" => Cow::Borrowed("Send Client-To-Client requests"),
             "ctcp action" => Cow::Borrowed(
                 "Display <text> as a third-person action or emote",
@@ -2486,6 +2607,7 @@ fn mode_user_command(mode_limit: Option<u16>) -> Command {
 }
 
 fn msg_command(
+    formatting: Formatting,
     channel_membership_prefixes: &[char],
     target_limit: Option<u16>,
 ) -> Command {
@@ -2518,7 +2640,11 @@ fn msg_command(
     }
 
     Command {
-        title: "MSG".into(),
+        title: match formatting {
+            Formatting::Default => "MSG".into(),
+            Formatting::Format => "FORMAT-MSG".into(),
+            Formatting::Plain => "PLAIN-MSG".into(),
+        },
         args: vec![
             Argument {
                 text: "targets".into(),
@@ -2528,7 +2654,9 @@ fn msg_command(
             Argument {
                 text: "text".into(),
                 kind: ArgumentKind::Optional { skipped: false },
-                tooltip: None,
+                tooltip: matches!(formatting, Formatting::Format).then_some(
+                    include_str!("./format_tooltip.txt").trim_end().to_string(),
+                ),
             },
         ],
         subcommands: None,
@@ -2573,6 +2701,7 @@ fn nick_command(max_len: Option<u16>) -> Command {
 }
 
 fn notice_command(
+    formatting: Formatting,
     channel_membership_prefixes: &[char],
     target_limit: Option<u16>,
 ) -> Command {
@@ -2605,7 +2734,11 @@ fn notice_command(
     }
 
     Command {
-        title: "NOTICE".into(),
+        title: match formatting {
+            Formatting::Default => "NOTICE".into(),
+            Formatting::Format => "FORMAT-NOTICE".into(),
+            Formatting::Plain => "PLAIN-NOTICE".into(),
+        },
         args: vec![
             Argument {
                 text: "targets".into(),
@@ -2615,7 +2748,9 @@ fn notice_command(
             Argument {
                 text: "text".into(),
                 kind: ArgumentKind::Optional { skipped: false },
-                tooltip: None,
+                tooltip: matches!(formatting, Formatting::Format).then_some(
+                    include_str!("./format_tooltip.txt").trim_end().to_string(),
+                ),
             },
         ],
         subcommands: None,
@@ -3126,4 +3261,10 @@ fn get_word(input: &str, cursor_position: usize) -> Option<&str> {
     }
 
     None
+}
+
+enum Formatting {
+    Default,
+    Format,
+    Plain,
 }

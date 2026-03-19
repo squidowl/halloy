@@ -8,6 +8,7 @@ use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
 use crate::buffer::{self, Upstream};
+use crate::config::buffer::text_input::AutoFormat;
 use crate::isupport::{self, find_target_limit};
 use crate::message::{self, formatting};
 use crate::user::{ChannelUsers, NickRef};
@@ -207,7 +208,13 @@ pub enum Kind {
     Kick,
     Mode,
     Format,
+    FormatMe,
+    FormatMsg,
+    FormatNotice,
     Plain,
+    PlainMe,
+    PlainMsg,
+    PlainNotice,
     Away,
     SetName,
     Ctcp,
@@ -241,7 +248,13 @@ impl FromStr for Kind {
             "kick" => Ok(Kind::Kick),
             "mode" | "m" => Ok(Kind::Mode),
             "format" | "f" => Ok(Kind::Format),
+            "format-me" => Ok(Kind::FormatMe),
+            "format-msg" => Ok(Kind::FormatMsg),
+            "format-notice" => Ok(Kind::FormatNotice),
             "plain" | "p" => Ok(Kind::Plain),
+            "plain-me" => Ok(Kind::PlainMe),
+            "plain-msg" => Ok(Kind::PlainMsg),
+            "plain-notice" => Ok(Kind::PlainNotice),
             "away" => Ok(Kind::Away),
             "setname" => Ok(Kind::SetName),
             "notice" => Ok(Kind::Notice),
@@ -265,6 +278,7 @@ pub fn parse(
     s: &str,
     buffer: Option<&buffer::Upstream>,
     our_nickname: Option<NickRef>,
+    auto_format: AutoFormat,
     is_connected: bool,
     isupport: &HashMap<isupport::Kind, isupport::Parameter>,
     config: &Config,
@@ -284,6 +298,7 @@ pub fn parse(
         raw_args,
         buffer,
         our_nickname,
+        auto_format,
         is_connected,
         isupport,
         config,
@@ -315,6 +330,7 @@ fn parse_command(
     raw: &str,
     buffer: Option<&buffer::Upstream>,
     our_nickname: Option<NickRef>,
+    auto_format: AutoFormat,
     is_connected: bool,
     isupport: &HashMap<isupport::Kind, isupport::Parameter>,
     config: &Config,
@@ -468,50 +484,74 @@ fn parse_command(
                     config.buffer.commands.quit.default_reason.clone()
                 }))))
             }),
-            Kind::Msg => validated::<1, 1, true>(args, |[targets], [msg]| {
-                let target_limit = find_target_limit(isupport, "PRIVMSG")
-                    .map(|limit| limit as usize);
+            Kind::Msg | Kind::FormatMsg | Kind::PlainMsg => {
+                validated::<1, 1, true>(args, |[targets], [msg]| {
+                    let target_limit = find_target_limit(isupport, "PRIVMSG")
+                        .map(|limit| limit as usize);
 
-                if let Some(target_limit) = target_limit {
-                    let targets = targets.split(',').collect::<Vec<_>>();
+                    if let Some(target_limit) = target_limit {
+                        let targets = targets.split(',').collect::<Vec<_>>();
 
-                    if targets.len() > target_limit {
-                        return Err(Error::TooManyTargets {
-                            name: "targets",
-                            number: targets.len(),
-                            max_number: target_limit,
-                        });
+                        if targets.len() > target_limit {
+                            return Err(Error::TooManyTargets {
+                                name: "targets",
+                                number: targets.len(),
+                                max_number: target_limit,
+                            });
+                        }
                     }
-                }
 
-                if let Some(msg) = msg {
-                    Ok(Command::Irc(Irc::Msg(targets, msg)))
-                } else {
-                    let casemapping =
-                        isupport::get_casemapping_or_default(isupport);
-                    let chantypes =
-                        isupport::get_chantypes_or_default(isupport);
-                    let statusmsg =
-                        isupport::get_statusmsg_or_default(isupport);
+                    if let Some(msg) = msg {
+                        let msg = match kind {
+                            Kind::FormatMsg => formatting::encode(&msg, false),
+                            Kind::PlainMsg => msg,
+                            _ => match auto_format {
+                                AutoFormat::Disabled => msg,
+                                AutoFormat::Markdown => {
+                                    formatting::encode(&msg, true)
+                                }
+                                AutoFormat::All => {
+                                    formatting::encode(&msg, false)
+                                }
+                            },
+                        };
 
-                    Ok(Command::Internal(Internal::OpenBuffers(
-                        targets
-                            .split(",")
-                            .map(|target| {
-                                Target::parse(
-                                    target,
-                                    chantypes,
-                                    statusmsg,
-                                    casemapping,
-                                )
-                            })
-                            .collect(),
-                    )))
-                }
-            }),
+                        Ok(Command::Irc(Irc::Msg(targets, msg)))
+                    } else {
+                        let casemapping =
+                            isupport::get_casemapping_or_default(isupport);
+                        let chantypes =
+                            isupport::get_chantypes_or_default(isupport);
+                        let statusmsg =
+                            isupport::get_statusmsg_or_default(isupport);
+
+                        Ok(Command::Internal(Internal::OpenBuffers(
+                            targets
+                                .split(",")
+                                .map(|target| {
+                                    Target::parse(
+                                        target,
+                                        chantypes,
+                                        statusmsg,
+                                        casemapping,
+                                    )
+                                })
+                                .collect(),
+                        )))
+                    }
+                })
+            }
             Kind::Me => {
                 if let Some(target) = buffer.and_then(Upstream::target) {
                     validated::<1, 0, true>(args, |[text], _| {
+                        let text = match auto_format {
+                            AutoFormat::Disabled => text,
+                            AutoFormat::Markdown => {
+                                formatting::encode(&text, true)
+                            }
+                            AutoFormat::All => formatting::encode(&text, false),
+                        };
+
                         Ok(Command::Irc(Irc::Me(target.to_string(), text)))
                     })
                 } else {
@@ -918,7 +958,7 @@ fn parse_command(
 
                 Ok(Command::Irc(Irc::SetName(realname)))
             }),
-            Kind::Notice => {
+            Kind::Notice | Kind::FormatNotice | Kind::PlainNotice => {
                 validated::<1, 1, true>(args, |[targets], [msg]| {
                     let target_limit = find_target_limit(isupport, "NOTICE")
                         .map(|limit| limit as usize);
@@ -936,6 +976,22 @@ fn parse_command(
                     }
 
                     if let Some(msg) = msg {
+                        let msg = match kind {
+                            Kind::FormatNotice => {
+                                formatting::encode(&msg, false)
+                            }
+                            Kind::PlainNotice => msg,
+                            _ => match auto_format {
+                                AutoFormat::Disabled => msg,
+                                AutoFormat::Markdown => {
+                                    formatting::encode(&msg, true)
+                                }
+                                AutoFormat::All => {
+                                    formatting::encode(&msg, false)
+                                }
+                            },
+                        };
+
                         Ok(Command::Irc(Irc::Notice(targets, msg)))
                     } else {
                         let casemapping =
@@ -972,9 +1028,29 @@ fn parse_command(
                     Ok(unknown())
                 }
             }
+            Kind::FormatMe => {
+                if let Some(target) = buffer.and_then(Upstream::target) {
+                    Ok(Command::Irc(Irc::Me(
+                        target.to_string(),
+                        formatting::encode(raw, false),
+                    )))
+                } else {
+                    Ok(unknown())
+                }
+            }
             Kind::Plain => {
                 if let Some(target) = buffer.and_then(Upstream::target) {
                     Ok(Command::Irc(Irc::Msg(
+                        target.to_string(),
+                        raw.to_string(),
+                    )))
+                } else {
+                    Ok(unknown())
+                }
+            }
+            Kind::PlainMe => {
+                if let Some(target) = buffer.and_then(Upstream::target) {
+                    Ok(Command::Irc(Irc::Me(
                         target.to_string(),
                         raw.to_string(),
                     )))

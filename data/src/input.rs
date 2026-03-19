@@ -68,6 +68,7 @@ pub fn parse(
             input,
             Some(&buffer),
             our_nickname,
+            auto_format,
             is_connected,
             isupport,
             config,
@@ -89,33 +90,9 @@ pub fn parse(
                     return Err(Error::Command(command::Error::Disconnected));
                 }
             }
-            Ok(Command::Irc(command::Irc::Msg(targets, text))) => {
-                let text = match auto_format {
-                    AutoFormat::Disabled => text,
-                    AutoFormat::Markdown => formatting::encode(&text, true),
-                    AutoFormat::All => formatting::encode(&text, false),
-                };
-
-                Content::Command(command::Irc::Msg(targets, text))
-            }
-            Ok(Command::Irc(command::Irc::Me(target, text))) => {
-                let text = match auto_format {
-                    AutoFormat::Disabled => text,
-                    AutoFormat::Markdown => formatting::encode(&text, true),
-                    AutoFormat::All => formatting::encode(&text, false),
-                };
-
-                Content::Command(command::Irc::Me(target, text))
-            }
-            Ok(Command::Irc(command::Irc::Notice(targets, text))) => {
-                let text = match auto_format {
-                    AutoFormat::Disabled => text,
-                    AutoFormat::Markdown => formatting::encode(&text, true),
-                    AutoFormat::All => formatting::encode(&text, false),
-                };
-
-                Content::Command(command::Irc::Notice(targets, text))
-            }
+            // Auto-formatting for commands is done in command parsing, so that
+            // plain/format commands can be parsed directly as their
+            // corresponding IRC command.
             Ok(Command::Irc(command)) => Content::Command(command),
             Err(command::Error::MissingSlash) => {
                 let text = match auto_format {
