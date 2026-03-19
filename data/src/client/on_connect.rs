@@ -50,6 +50,7 @@ pub fn on_connect(
                 command,
                 None,
                 Some(our_nickname),
+                config.buffer.text_input.auto_format,
                 true,
                 isupport,
                 config,
