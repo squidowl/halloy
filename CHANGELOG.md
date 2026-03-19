@@ -30,7 +30,7 @@ Changed:
 
 Thanks:
 
-- Contributions: @KaiKorla, @englut, @mango766, @ncfavier
+- Contributions: @KaiKorla, @englut, @mango766, @ncfavier, @classabbyamp
 - Bug reports: chmod222, @whitequark, @englut, sebbu, @ascarion, @4e554c4c, @BKVad1m, @mango766
 - Feature requests: @gAlleb, @jtbx, @cyrneko, @englut
 
