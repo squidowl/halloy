@@ -564,6 +564,10 @@ regex = [
 ]
 ```
 
+## `reroute`
+
+Reroute selected message types within this server. See [Reroute](reroute.md) for details.
+
 ## `sasl.external`
 
 External SASL auth uses a PEM encoded X509 certificate. [Reference](https://libera.chat/guides/certfp).

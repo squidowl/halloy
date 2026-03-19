@@ -592,6 +592,56 @@ fn error<'a, 'b, Message: 'a>(
     .into()
 }
 
+fn reroute_input_message(
+    message: data::Message,
+    input: &input::Input,
+    private_messages: Option<&data::config::server::reroute::PrivateMessages>,
+    server: &Server,
+    chantypes: &[char],
+    statusmsg: &[char],
+    casemapping: data::isupport::CaseMap,
+) -> data::Message {
+    let original_target = message.target.clone();
+    let rerouted_target = data::message::reroute_private_target(
+        original_target.clone(),
+        private_messages,
+        server,
+        chantypes,
+        statusmsg,
+        casemapping,
+    );
+    let rerouted = rerouted_target != original_target;
+
+    let mut message = message.with_target(rerouted_target);
+
+    if rerouted
+        && message.command.is_none()
+        && let Some(original_target_raw) = original_target.raw()
+        && let Some(command) = input.command()
+    {
+        message.command = rerouted_command(command, original_target_raw);
+    }
+
+    message
+}
+
+fn rerouted_command(
+    command: &command::Irc,
+    original_target_raw: &str,
+) -> Option<command::Irc> {
+    match command {
+        command::Irc::Msg(_, text) => Some(command::Irc::Msg(
+            original_target_raw.to_string(),
+            text.clone(),
+        )),
+        command::Irc::Notice(_, text) => Some(command::Irc::Notice(
+            original_target_raw.to_string(),
+            text.clone(),
+        )),
+        _ => None,
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct State {
     input_id: widget::Id,
@@ -1532,21 +1582,44 @@ impl State {
             }
 
             let mut history_tasks = vec![];
+            let server_config = config.servers.get(buffer.server());
 
-            if let Some(message) = inputs
+            let messages = inputs
                 .into_iter()
                 .filter_map(|input| {
-                    input.messages(
-                        user.clone(),
-                        channel_users,
-                        chantypes,
-                        statusmsg,
-                        casemapping,
-                        supports_echoes,
-                    )
+                    input
+                        .messages(
+                            user.clone(),
+                            channel_users,
+                            chantypes,
+                            statusmsg,
+                            casemapping,
+                            supports_echoes,
+                        )
+                        .map(|messages| {
+                            messages
+                                .into_iter()
+                                .map(|message| {
+                                    reroute_input_message(
+                                        message,
+                                        &input,
+                                        server_config.as_ref().map(|config| {
+                                            &config.reroute.private_messages
+                                        }),
+                                        buffer.server(),
+                                        chantypes,
+                                        statusmsg,
+                                        casemapping,
+                                    )
+                                })
+                                .collect::<Vec<_>>()
+                        })
                 })
                 .flatten()
-                .reduce(|mut batch_message, message| {
+                .collect::<Vec<_>>();
+
+            if let Some(message) =
+                messages.into_iter().reduce(|mut batch_message, message| {
                     match (&mut batch_message.content, message.content) {
                         (
                             message::Content::Plain(batch_text),
@@ -1886,6 +1959,7 @@ impl State {
             }
 
             let mut history_tasks = vec![];
+            let server_config = config.servers.get(buffer.server());
 
             if let Some(messages) = input.messages(
                 user,
@@ -1896,6 +1970,18 @@ impl State {
                 supports_echoes,
             ) {
                 for message in messages {
+                    let message = reroute_input_message(
+                        message,
+                        &input,
+                        server_config
+                            .as_ref()
+                            .map(|config| &config.reroute.private_messages),
+                        buffer.server(),
+                        chantypes,
+                        statusmsg,
+                        casemapping,
+                    );
+
                     history_tasks.extend(
                         history
                             .record_input_message(
