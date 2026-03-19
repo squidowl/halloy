@@ -1,6 +1,7 @@
 #!/bin/bash
 
-RELEASE_DIR="target/release"
+PROFILE="packaging"
+RELEASE_DIR="target/$PROFILE"
 APP_DIR="$RELEASE_DIR/macos"
 APP_NAME="Halloy.app"
 DMG_NAME="halloy.dmg"
