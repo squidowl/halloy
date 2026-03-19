@@ -204,6 +204,18 @@ Executes the command with `sh` (or equivalent) and reads `password` as the outpu
 password_command = ""
 ```
 
+::: tip
+Flatpak users need to grant host command access.
+
+Run the following in terminal:
+
+```sh
+flatpak override org.squidowl.halloy --talk-name=org.freedesktop.Flatpak
+```
+
+Then set `password_command` to `flatpak-spawn --host <password_command>`
+:::
+
 ## `channels`
 
 A list of channels to join on connection.
