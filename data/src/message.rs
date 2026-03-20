@@ -1457,57 +1457,83 @@ fn condense_associated_fragments(
         .into_iter()
         .flat_map(|(chunk_key, nick_fragments)| {
             if let Some((nick, change)) = chunk_key {
-                let mut nick_fragments: Vec<Fragment> =
-                    nick_fragments.collect();
-
                 let user = User::from(nick);
 
-                match change {
-                    Some(Change::Nick(new_nick)) => {
+                // When history is incomplete it is possible to have repeat
+                // Change::Nick or Change::Host fragments.
+                let nick_fragments: Vec<Fragment> = match change {
+                    Some(Change::Nick(new_nick)) => if matches!(
+                        condense.format,
+                        CondensationFormat::Brief
+                            | CondensationFormat::Detailed
+                    ) {
+                        Either::Left(nick_fragments.take(1))
+                    } else {
+                        Either::Right(nick_fragments)
+                    }
+                    .flat_map(|nick_fragment| {
                         let nick = user.nickname().to_string() + "\u{FEFF}";
-
-                        nick_fragments.insert(0, Fragment::User(user, nick));
 
                         let new_user = User::from(new_nick.clone());
 
                         let new_nick = new_user.nickname().to_string();
 
-                        nick_fragments.push(Fragment::User(new_user, new_nick));
-                    }
+                        vec![
+                            Fragment::User(user.clone(), nick),
+                            nick_fragment,
+                            Fragment::User(new_user, new_nick),
+                            Fragment::Text(String::from("  ")),
+                        ]
+                    })
+                    .collect(),
                     Some(Change::Host(old_hostname, new_hostname)) => {
-                        let nick = user.nickname().to_string();
+                        if matches!(
+                            condense.format,
+                            CondensationFormat::Brief
+                                | CondensationFormat::Detailed
+                        ) {
+                            Either::Left(nick_fragments.take(1))
+                        } else {
+                            Either::Right(nick_fragments)
+                        }
+                        .flat_map(|nick_fragment| {
+                            let nick = user.nickname().to_string();
 
-                        nick_fragments
-                            .insert(0, Fragment::User(user.clone(), nick));
-
-                        nick_fragments.insert(
-                            1,
-                            Fragment::Condensed {
-                                text: String::from("@"),
-                                source: source::Server::new(
-                                    Kind::ChangeHost,
-                                    Some(user.nickname().to_owned()),
-                                    None,
+                            vec![
+                                Fragment::User(user.clone(), nick),
+                                Fragment::Condensed {
+                                    text: String::from("@"),
+                                    source: source::Server::new(
+                                        Kind::ChangeHost,
+                                        Some(user.nickname().to_owned()),
+                                        None,
+                                    ),
+                                },
+                                Fragment::User(
+                                    user.clone(),
+                                    old_hostname.clone(),
                                 ),
-                            },
-                        );
-
-                        nick_fragments.insert(
-                            2,
-                            Fragment::User(user.clone(), old_hostname.clone()),
-                        );
-
-                        nick_fragments
-                            .push(Fragment::User(user, new_hostname.clone()));
+                                nick_fragment,
+                                Fragment::User(
+                                    user.clone(),
+                                    new_hostname.clone(),
+                                ),
+                                Fragment::Text(String::from("  ")),
+                            ]
+                        })
+                        .collect()
                     }
                     None => {
                         let nick = user.nickname().to_string();
 
-                        nick_fragments.push(Fragment::User(user, nick));
+                        nick_fragments
+                            .chain(vec![
+                                Fragment::User(user, nick),
+                                Fragment::Text(String::from("  ")),
+                            ])
+                            .collect()
                     }
-                }
-
-                nick_fragments.push(Fragment::Text(String::from("  ")));
+                };
 
                 Some(nick_fragments)
             } else {
