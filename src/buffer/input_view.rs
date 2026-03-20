@@ -1128,7 +1128,6 @@ impl State {
             Message::FilesSelected(_) => (Task::none(), None),
             Message::UploadAnimTick => {
                 if self.uploading > 0 {
-                    // Advance normalized t in [0, 1); 0.1/tick × 20ticks/s = 2 rev/s.
                     self.upload_anim =
                         (self.upload_anim + 0.06).rem_euclid(1.0);
                     (Self::schedule_anim_tick(), None)
