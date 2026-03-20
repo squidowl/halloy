@@ -52,6 +52,7 @@ pub enum Event {
         server: Server,
         target: Target,
         file_paths: Vec<std::path::PathBuf>,
+        abort_registrations: Vec<futures::future::AbortRegistration>,
     },
 }
 
@@ -394,12 +395,14 @@ impl Channel {
                         server,
                         target,
                         file_paths,
+                        abort_registrations,
                     }) => (
                         command,
                         Some(Event::FileHostUpload {
                             server,
                             target,
                             file_paths,
+                            abort_registrations,
                         }),
                     ),
                     None => (command, None),

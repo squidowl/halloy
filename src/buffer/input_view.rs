@@ -19,7 +19,8 @@ use iced::advanced::widget::Tree;
 use iced::advanced::{Clipboard, Layout, Shell, mouse};
 use iced::widget::text::{Shaping, Wrapping};
 use iced::widget::{
-    self, button, column, container, operation, row, rule, text_editor,
+    self, button, column, container, mouse_area, operation, row, rule,
+    text_editor,
 };
 use iced::{Alignment, Length, Task, clipboard, event, keyboard, padding};
 use itertools::Itertools;
@@ -61,6 +62,7 @@ pub enum Event {
         server: Server,
         target: Target,
         file_paths: Vec<std::path::PathBuf>,
+        abort_registrations: Vec<futures::future::AbortRegistration>,
     },
 }
 
@@ -96,6 +98,8 @@ pub enum Message {
     FilesSelected(Vec<std::path::PathBuf>),
     FileHostUrlReady(String),
     UploadAnimTick,
+    CancelUploads,
+    SpinnerHovered(bool),
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -555,8 +559,27 @@ pub fn view<'a>(
 
     let maybe_upload_spinner: Option<crate::widget::Element<'a, Message>> =
         (filehost_url.is_some() && state.uploading > 0).then(|| {
-            let t = state.upload_anim * std::f32::consts::TAU;
-            crate::icon::spinner(t + 0.4 * t.sin()).into()
+            let icon: crate::widget::Element<'a, Message> = if state.spinner_hovered {
+                container(crate::icon::cancel().size(15).style(theme::text::error))
+                    .width(15)
+                    .height(15)
+                    .align_x(iced::alignment::Horizontal::Center)
+                    .align_y(iced::alignment::Vertical::Center)
+                    .into()
+            } else {
+                let t = state.upload_anim * std::f32::consts::TAU;
+                container(crate::icon::spinner(t + 0.4 * t.sin()))
+                    .width(15)
+                    .height(15)
+                    .align_x(iced::alignment::Horizontal::Center)
+                    .align_y(iced::alignment::Vertical::Center)
+                    .into()
+            };
+            mouse_area(icon)
+                .on_enter(Message::SpinnerHovered(true))
+                .on_exit(Message::SpinnerHovered(false))
+                .on_press(Message::CancelUploads)
+                .into()
         });
 
     let maybe_upload_button = filehost_url.is_some().then(|| {
@@ -632,6 +655,8 @@ pub struct State {
     last_typing_at: Option<Instant>,
     uploading: usize,
     upload_anim: f32,
+    spinner_hovered: bool,
+    upload_abort_handles: Vec<futures::future::AbortHandle>,
 }
 
 impl Default for State {
@@ -655,6 +680,8 @@ impl State {
             last_typing_at: None,
             uploading: 0,
             upload_anim: 0.0,
+            spinner_hovered: false,
+            upload_abort_handles: Vec::new(),
         }
     }
 
@@ -1069,10 +1096,19 @@ impl State {
             Message::FilesSelected(file_paths) if !file_paths.is_empty() => {
                 let was_idle = self.uploading == 0;
                 self.uploading += file_paths.len();
+
+                let (handles, registrations): (Vec<_>, Vec<_>) = file_paths
+                    .iter()
+                    .map(|_| futures::future::AbortHandle::new_pair())
+                    .unzip();
+
+                self.upload_abort_handles.extend(handles);
+
                 let event = buffer.target().map(|target| Event::FileHostUpload {
                     server: buffer.server().clone(),
                     target,
                     file_paths,
+                    abort_registrations: registrations,
                 });
                 let anim = was_idle
                     .then(Self::schedule_anim_tick)
@@ -1090,7 +1126,19 @@ impl State {
                     (Task::none(), None)
                 }
             }
-            Message::FileHostUrlReady(url) if !url.is_empty() => {
+            Message::CancelUploads => {
+                for handle in self.upload_abort_handles.drain(..) {
+                    handle.abort();
+                }
+                self.uploading = 0;
+                self.spinner_hovered = false;
+                (Task::none(), None)
+            }
+            Message::SpinnerHovered(hovered) => {
+                self.spinner_hovered = hovered;
+                (Task::none(), None)
+            }
+            Message::FileHostUrlReady(url) if !url.is_empty() && self.uploading > 0 => {
                 self.uploading = self.uploading.saturating_sub(1);
                 // Append the URL to the end of whatever the user has typed.
                 self.input_content.perform(text_editor::Action::Move(
@@ -1108,7 +1156,7 @@ impl State {
                 (Task::none(), None)
             }
             Message::FileHostUrlReady(_) => {
-                // Upload failed (empty string sentinel) — still decrement.
+                // Failed or cancelled — decrement only if not already zeroed.
                 self.uploading = self.uploading.saturating_sub(1);
                 (Task::none(), None)
             }

@@ -2520,6 +2520,7 @@ impl Dashboard {
                 server,
                 target: _,
                 file_paths,
+                abort_registrations,
             } => {
                 let Some(upload_url) =
                     clients.get_filehost(&server).map(String::from)
@@ -2561,30 +2562,32 @@ impl Dashboard {
 
                 let tasks: Vec<_> = file_paths
                     .into_iter()
-                    .map(|file_path| {
+                    .zip(abort_registrations)
+                    .map(|(file_path, registration)| {
                         let upload_url = upload_url.clone();
                         let auth = clients.get_filehost_auth(&server);
                         let http_client = http_client.clone();
                         Task::perform(
                             async move {
-                                upload::upload(
+                                let fut = upload::upload(
                                     &upload_url,
                                     &file_path,
                                     auth,
                                     irc_uses_tls,
                                     http_client,
-                                )
-                                .await
+                                );
+                                futures::future::Abortable::new(fut, registration).await
                             },
                             move |result| {
                                 let url = match result {
-                                    Ok(url) => url,
-                                    Err(e) => {
+                                    Ok(Ok(url)) => url,
+                                    Ok(Err(e)) => {
                                         log::warn!(
                                             "filehost upload failed: {e}"
                                         );
                                         String::new()
                                     }
+                                    Err(_aborted) => String::new(),
                                 };
                                 Message::Pane(
                                     window,
