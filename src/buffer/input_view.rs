@@ -1973,6 +1973,51 @@ impl State {
                             Some(Event::Reconnect(buffer.server().clone())),
                         );
                     }
+                    command::Internal::Upload(None) => {
+                        return (
+                            Task::perform(
+                                async {
+                                    rfd::AsyncFileDialog::new()
+                                        .pick_files()
+                                        .await
+                                        .unwrap_or_default()
+                                        .into_iter()
+                                        .map(|h| h.path().to_path_buf())
+                                        .collect()
+                                },
+                                Message::FilesSelected,
+                            ),
+                            None,
+                        );
+                    }
+                    command::Internal::Upload(Some(path)) => {
+                        let file_path = std::path::PathBuf::from(&path);
+                        if !file_path.exists() {
+                            self.error =
+                                Some(format!("file not found: {path}"));
+                            return (Task::none(), None);
+                        }
+                        let (handle, registration) =
+                            futures::future::AbortHandle::new_pair();
+                        self.upload_abort_handles.push(handle);
+                        let was_idle = self.uploading == 0;
+                        self.uploading += 1;
+                        let anim = was_idle
+                            .then(Self::schedule_anim_tick)
+                            .unwrap_or_else(Task::none);
+                        let event =
+                            buffer.target().map(|target| {
+                                Event::FileHostUpload {
+                                    server: buffer.server().clone(),
+                                    target,
+                                    file_paths: vec![file_path],
+                                    abort_registrations: vec![
+                                        registration,
+                                    ],
+                                }
+                            });
+                        return (anim, event);
+                    }
                 }
             }
             input::Parsed::Input(input) => input,

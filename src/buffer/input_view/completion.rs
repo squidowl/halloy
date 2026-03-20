@@ -1238,6 +1238,20 @@ fn connected_command_list<'a>(
 
     command_list.extend(isupport_commands);
 
+    if isupport.contains_key(&isupport::Kind::FILEHOST) {
+        command_list.push(Command {
+            title: "UPLOAD".into(),
+            args: vec![Argument {
+                text: "file".into(),
+                kind: ArgumentKind::Optional { skipped: false },
+                tooltip: Some(
+                    "Path to file, or omit to open file picker".to_string(),
+                ),
+            }],
+            subcommands: None,
+        });
+    }
+
     command_list
 }
 
@@ -1425,6 +1439,7 @@ impl Command {
             }
             "connect" => Cow::Borrowed("Connect to server"),
             "reconnect" => Cow::Owned(format!("Reconnect to {server}")),
+            "upload" => Cow::Borrowed("Upload a file using the server's filehost"),
             _ => config
                 .buffer
                 .commands
