@@ -103,7 +103,7 @@ impl From<char> for Channel {
             'G' => StripBadWords,
             'H' => History,
             'i' => InviteOnly,
-            'I' => InviteException,
+            'I' => InviteException, // TODO: This mapping should be determined via ISUPPORT
             'j' => JoinThrottle,
             'J' => KickNoRejoin,
             'k' => KeyLock,
@@ -220,7 +220,7 @@ impl From<char> for User {
             'A' => ServerAdmin,
             'B' => Bot,
             'C' => CoAdmin,
-            'D' => Deaf,
+            'D' => Deaf, // TODO: This mapping should be determined via ISUPPORT
             'e' => External,
             'F' => RemoteClientConns,
             'H' => HideOper,

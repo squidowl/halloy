@@ -77,6 +77,9 @@ where
     map_opt(cond(!skip, inner), identity)
 }
 
+// [CommonMark](https://spec.commonmark.org/) is the reference specification for
+// markdown parsing; not all features can/should be supported, but supported
+// features should follow the specification as closely as possible.
 fn markdown<'a>(
     source: &'a str,
     markdown_only: bool,

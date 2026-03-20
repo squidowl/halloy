@@ -126,7 +126,8 @@ pub fn view<'a>(
                         config.file_transfer.enabled,
                     )
                 }
-                message::Link::Url(_) => context_menu::Entry::url_list(None),
+                message::Link::Url(_) =>
+                    context_menu::Entry::url_list(None, false),
                 _ => vec![],
             },
             move |link, entry, length| {
@@ -142,7 +143,12 @@ pub fn view<'a>(
                         current_user,
                     })
                 } else {
-                    link.url().map(|url| Context::Url { url, message: None })
+                    link.url().map(|url| Context::Url {
+                        url,
+                        message: None,
+                        msgid: None,
+                        selected_reactions: vec![],
+                    })
                 };
 
                 entry

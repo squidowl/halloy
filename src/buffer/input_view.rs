@@ -429,6 +429,7 @@ pub fn view<'a>(
         context_menu::MouseButton::default(),
         context_menu::Anchor::Cursor,
         context_menu::ToggleBehavior::KeepOpen,
+        Some(mouse::Interaction::Text),
         text_input,
         Actions::list(),
         move |menu, length| {
@@ -496,7 +497,6 @@ pub fn view<'a>(
             }
         },
     )
-    .mouse_interaction_on_hover(iced::advanced::mouse::Interaction::Text)
     .into();
 
     let our_user_style = {
