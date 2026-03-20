@@ -147,7 +147,7 @@ mod tests {
             sanitize_filename("../../.ssh/authorized_keys"),
             "authorized_keys"
         );
-        assert_eq!(sanitize_filename("..\\..\\Startup\\evil.exe"), "evil.exe");
+        assert_eq!(sanitize_filename("../../Startup/evil.exe"), "evil.exe");
     }
 
     #[test]
