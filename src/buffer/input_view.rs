@@ -31,6 +31,7 @@ use self::completion::Completion;
 use crate::widget::key_press::is_numpad;
 use crate::widget::{
     Element, Renderer, Text, anchored_overlay, context_menu, decorate, text,
+    tooltip,
 };
 use crate::window::Window;
 use crate::{Theme, font, theme, window};
@@ -575,18 +576,27 @@ pub fn view<'a>(
                     .align_y(iced::alignment::Vertical::Center)
                     .into()
             };
-            mouse_area(icon)
-                .on_enter(Message::SpinnerHovered(true))
-                .on_exit(Message::SpinnerHovered(false))
-                .on_press(Message::CancelUploads)
-                .into()
+            tooltip(
+                mouse_area(icon)
+                    .on_enter(Message::SpinnerHovered(true))
+                    .on_exit(Message::SpinnerHovered(false))
+                    .on_press(Message::CancelUploads),
+                Some("Cancel uploads"),
+                tooltip::Position::Top,
+                theme,
+            )
         });
 
     let maybe_upload_button = filehost_url.is_some().then(|| {
-        button(crate::icon::plus().size(15))
-            .padding([2, 4])
-            .style(theme::button::bare)
-            .on_press(Message::UploadFile)
+        tooltip(
+            button(crate::icon::plus().size(15))
+                .padding([2, 4])
+                .style(theme::button::bare)
+                .on_press(Message::UploadFile),
+            Some("Upload file"),
+            tooltip::Position::Top,
+            theme,
+        )
     });
 
     let content = column![
