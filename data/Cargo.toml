@@ -65,6 +65,7 @@ const_format = "0.2.32"
 derive_more = { version = "2.0.1", features = ["full"] }
 image = "0.25.9"
 html-escape = "0.2.13"
+infer = "0.16"
 display-info = "0.5.8"
 sys-locale = "0.3"
 

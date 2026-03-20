@@ -59,7 +59,7 @@ pub async fn upload(
         .map_or_else(|| String::from("upload"), |n| n.to_string_lossy().into_owned());
 
     let bytes = tokio::fs::read(path).await?;
-    let content_type = mime_for_path(path);
+    let content_type = mime_for_bytes(&bytes);
 
     let mut req = client
         .post(base.clone())
@@ -110,23 +110,8 @@ fn auth_header_value(auth: Auth) -> String {
     }
 }
 
-fn mime_for_path(path: &Path) -> &'static str {
-    match path
-        .extension()
-        .and_then(|e| e.to_str())
-        .map(str::to_ascii_lowercase)
-        .as_deref()
-    {
-        Some("jpg" | "jpeg") => "image/jpeg",
-        Some("png") => "image/png",
-        Some("gif") => "image/gif",
-        Some("webp") => "image/webp",
-        Some("svg") => "image/svg+xml",
-        Some("mp4") => "video/mp4",
-        Some("webm") => "video/webm",
-        Some("mov") => "video/quicktime",
-        Some("txt") => "text/plain",
-        Some("pdf") => "application/pdf",
-        _ => "application/octet-stream",
-    }
+fn mime_for_bytes(bytes: &[u8]) -> &'static str {
+    infer::get(bytes)
+        .map(|kind| kind.mime_type())
+        .unwrap_or("application/octet-stream")
 }
