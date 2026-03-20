@@ -276,7 +276,7 @@ impl FromStr for Operation {
                                 Err("value required")
                             }
                         }
-                        "draft/FILEHOST" => {
+                        "draft/FILEHOST" | "soju.im/FILEHOST" => {
                             Ok(Operation::Add(Parameter::FILEHOST(
                                 value.to_owned(),
                             )))
@@ -637,7 +637,7 @@ impl Operation {
                 "CNOTICE" => Some(Kind::CNOTICE),
                 "CPRIVMSG" => Some(Kind::CPRIVMSG),
                 "ELIST" => Some(Kind::ELIST),
-                "draft/FILEHOST" => Some(Kind::FILEHOST),
+                "draft/FILEHOST" | "soju.im/FILEHOST" => Some(Kind::FILEHOST),
                 "HOSTLEN" => Some(Kind::HOSTLEN),
                 "KEYLEN" => Some(Kind::KEYLEN),
                 "KICKLEN" => Some(Kind::KICKLEN),
