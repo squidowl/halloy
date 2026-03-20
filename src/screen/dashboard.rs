@@ -82,6 +82,13 @@ pub enum Message {
     Client(client::Message),
     LoadPreview((url::Url, Result<data::Preview, data::preview::LoadError>)),
     NewWindow(window::Id, Pane),
+    FileHostUploadFailed {
+        window: window::Id,
+        pane_id: pane_grid::Pane,
+        server: data::Server,
+        target: data::target::Target,
+        error: String,
+    },
 }
 
 #[derive(Debug)]
@@ -1700,6 +1707,39 @@ impl Dashboard {
 
                 return (self.focus_pane(window, pane), None);
             }
+            Message::FileHostUploadFailed {
+                window,
+                pane_id,
+                server,
+                target,
+                error,
+            } => {
+                let casemapping = clients.get_casemapping(&server);
+                let history_task = self.broadcast(
+                    &server,
+                    casemapping,
+                    config,
+                    Utc::now(),
+                    Broadcast::FileHostUploadFailed {
+                        error,
+                        target: target.clone(),
+                    },
+                );
+                // Decrement the uploading counter in the input_view.
+                let decrement_msg = match &target {
+                    data::target::Target::Channel(_) => buffer::Message::Channel(
+                        buffer::channel::Message::FileHostUrlReady(String::new()),
+                    ),
+                    data::target::Target::Query(_) => buffer::Message::Query(
+                        buffer::query::Message::FileHostUrlReady(String::new()),
+                    ),
+                };
+                let decrement_task = Task::done(Message::Pane(
+                    window,
+                    pane::Message::Buffer(pane_id, decrement_msg),
+                ));
+                return (Task::batch(vec![history_task, decrement_task]), None);
+            }
         }
 
         (Task::none(), None)
@@ -2518,7 +2558,7 @@ impl Dashboard {
             }
             buffer::Event::FileHostUpload {
                 server,
-                target: _,
+                target,
                 file_paths,
                 abort_registrations,
             } => {
@@ -2567,6 +2607,8 @@ impl Dashboard {
                         let upload_url = upload_url.clone();
                         let auth = clients.get_filehost_auth(&server);
                         let http_client = http_client.clone();
+                        let server = server.clone();
+                        let target = target.clone();
                         Task::perform(
                             async move {
                                 let fut = upload::upload(
@@ -2578,24 +2620,28 @@ impl Dashboard {
                                 );
                                 futures::future::Abortable::new(fut, registration).await
                             },
-                            move |result| {
-                                let url = match result {
-                                    Ok(Ok(url)) => url,
-                                    Ok(Err(e)) => {
-                                        log::warn!(
-                                            "filehost upload failed: {e}"
-                                        );
-                                        String::new()
+                            move |result| match result {
+                                Ok(Ok(url)) => Message::Pane(
+                                    window,
+                                    pane::Message::Buffer(id, make_url_msg(url)),
+                                ),
+                                Ok(Err(e)) => {
+                                    log::warn!("filehost upload failed: {e}");
+                                    Message::FileHostUploadFailed {
+                                        window,
+                                        pane_id: id,
+                                        server,
+                                        target,
+                                        error: e.to_string(),
                                     }
-                                    Err(_aborted) => String::new(),
-                                };
-                                Message::Pane(
+                                }
+                                Err(_aborted) => Message::Pane(
                                     window,
                                     pane::Message::Buffer(
                                         id,
-                                        make_url_msg(url),
+                                        make_url_msg(String::new()),
                                     ),
-                                )
+                                ),
                             },
                         )
                     })
