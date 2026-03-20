@@ -67,6 +67,7 @@ ipc = { version = "0.1.0", path = "ipc" }
 irc = { version = "0.1.0", path = "irc" }
 
 signal-hook = "0.3.18"
+dirs-next = "2.0.0"
 notify-rust = "4.11"
 fern = "0.7.1"
 iced = { version = "0.15.0-dev", default-features = false, features = [

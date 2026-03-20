@@ -2981,6 +2981,7 @@ dependencies = [
  "chrono",
  "const_format",
  "data",
+ "dirs-next",
  "embed-resource 3.0.7",
  "emojis",
  "fern",

@@ -27,6 +27,7 @@ use crate::{emoji, font};
 
 const MAX_SHOWN_COMMAND_ENTRIES: usize = 5;
 const MAX_SHOWN_EMOJI_ENTRIES: usize = 8;
+const MAX_SHOWN_PATH_ENTRIES: usize = 8;
 
 #[derive(Debug, Clone, Default)]
 pub struct Completion {
@@ -130,10 +131,15 @@ impl Completion {
         index: usize,
         config: &Config,
     ) -> Option<Entry> {
+        let is_path = self.text.is_path;
         self.commands
             .select_at(index)
             .map(Entry::Command)
             .or(self.emojis.select_at(index, config).map(Entry::Emoji))
+            .or(self.text.path_select_at(index).map(|next| Entry::Text {
+                next,
+                append_suffix: !is_path,
+            }))
     }
 
     pub fn complete_emoji(
@@ -157,6 +163,7 @@ impl Completion {
             return None;
         }
 
+        let is_path = self.text.is_path;
         self.text.tab(reverse).map_or(
             {
                 if self.text.filtered.is_empty() {
@@ -171,7 +178,7 @@ impl Completion {
             |next| {
                 Some(Entry::Text {
                     next,
-                    append_suffix: true,
+                    append_suffix: !is_path,
                 })
             },
         )
@@ -206,9 +213,10 @@ impl Completion {
             self.commands
                 .view(input, server, config, theme, on_select_command);
         let emojis_view = self.emojis.view(config, on_select_command);
+        let paths_view = self.text.path_view(on_select_command);
 
-        if command_view.is_some() || emojis_view.is_some() {
-            Some(column![emojis_view, command_view].spacing(4).into())
+        if command_view.is_some() || emojis_view.is_some() || paths_view.is_some() {
+            Some(column![emojis_view, paths_view, command_view].spacing(4).into())
         } else {
             None
         }
@@ -1245,7 +1253,7 @@ fn connected_command_list<'a>(
                 text: "file".into(),
                 kind: ArgumentKind::Optional { skipped: false },
                 tooltip: Some(
-                    "Path to file, or omit to open file picker".to_string(),
+                    "Path to a file, or omit to open file picker".to_string(),
                 ),
             }],
             subcommands: None,
@@ -1439,7 +1447,7 @@ impl Command {
             }
             "connect" => Cow::Borrowed("Connect to server"),
             "reconnect" => Cow::Owned(format!("Reconnect to {server}")),
-            "upload" => Cow::Borrowed("Upload files to the server's filehost"),
+            "upload" => Cow::Borrowed("Upload a file to the server's filehost"),
             _ => config
                 .buffer
                 .commands
@@ -1690,6 +1698,7 @@ struct Text {
     prompt: String,
     filtered: Vec<String>,
     selected: Option<usize>,
+    is_path: bool,
 }
 
 impl Text {
@@ -1707,6 +1716,14 @@ impl Text {
         chantypes: &[char],
         config: &Config,
     ) {
+        if input
+            .get(..8)
+            .is_some_and(|s| s.eq_ignore_ascii_case("/upload "))
+        {
+            self.process_paths(input, cursor_position);
+            return;
+        }
+
         if !self.process_channels(
             input,
             cursor_position,
@@ -1729,6 +1746,67 @@ impl Text {
         }
     }
 
+    fn process_paths(&mut self, input: &str, cursor_position: usize) {
+        use std::path::Path;
+
+        let Some(word) = get_word(input, cursor_position) else {
+            *self = Self::default();
+            return;
+        };
+
+        // Expand leading ~ to user's home directory
+        let expanded =
+            if let Some(rest) = word.strip_prefix("~/").or(
+                (word == "~").then_some(""),
+            ) {
+                dirs_next::home_dir()
+                    .map(|h| format!("{}/{rest}", h.to_string_lossy()))
+                    .unwrap_or_else(|| word.to_string())
+            } else {
+                word.to_string()
+            };
+
+        // Split into the directory prefix and the filename prefix being type
+        let (dir_prefix, file_prefix) = expanded
+            .rfind('/')
+            .map(|pos| (&expanded[..=pos], &expanded[pos + 1..]))
+            .unwrap_or(("", expanded.as_str()));
+
+        let dir = if dir_prefix.is_empty() {
+            Path::new(".")
+        } else {
+            Path::new(dir_prefix)
+        };
+
+        let Ok(read_dir) = std::fs::read_dir(dir) else {
+            *self = Self::default();
+            return;
+        };
+
+        // Only show hidden entries on leading dot
+        let show_hidden = file_prefix.starts_with('.');
+
+        self.is_path = true;
+        self.selected = None;
+        self.prompt = word.to_string();
+        self.filtered = read_dir
+            .filter_map(|e| e.ok())
+            .filter(|e| {
+                e.file_name().to_str().is_some_and(|name| {
+                    name.starts_with(file_prefix)
+                        && (show_hidden || !name.starts_with('.'))
+                })
+            })
+            .map(|e| {
+                let name = e.file_name().to_string_lossy().into_owned();
+                let trailing =
+                    if e.file_type().is_ok_and(|t| t.is_dir()) { "/" } else { "" };
+                format!("{dir_prefix}{name}{trailing}")
+            })
+            .sorted()
+            .collect();
+    }
+
     fn process_users(
         &mut self,
         input: &str,
@@ -1741,6 +1819,8 @@ impl Text {
         last_seen: &HashMap<Nick, DateTime<Utc>>,
         config: &Config,
     ) {
+        self.is_path = false;
+
         let autocomplete = &config.buffer.text_input.autocomplete;
 
         let Some(word) = get_word(input, cursor_position) else {
@@ -1802,6 +1882,8 @@ impl Text {
         chantypes: &[char],
         config: &Config,
     ) -> bool {
+        self.is_path = false;
+
         let autocomplete = &config.buffer.text_input.autocomplete;
 
         if let Some(input_channel) = get_word(input, cursor_position)
@@ -1880,6 +1962,61 @@ impl Text {
         } else {
             None
         }
+    }
+
+    fn path_select_at(&mut self, index: usize) -> Option<String> {
+        let item = self.filtered.get(index).cloned()?;
+        self.selected = Some(index);
+        Some(item)
+    }
+
+    fn path_view<'a, Message: Clone + 'a>(
+        &'a self,
+        on_select: impl Fn(usize) -> Message + Copy + 'a,
+    ) -> Option<Element<'a, Message>> {
+        if !self.is_path || self.filtered.is_empty() {
+            return None;
+        }
+
+        let skip = {
+            let index = self.selected.unwrap_or(0);
+            let to = index.max(MAX_SHOWN_PATH_ENTRIES - 1);
+            to.saturating_sub(MAX_SHOWN_PATH_ENTRIES - 1)
+        };
+
+        let entries: Vec<_> = self
+            .filtered
+            .iter()
+            .enumerate()
+            .skip(skip)
+            .take(MAX_SHOWN_PATH_ENTRIES)
+            .collect();
+
+        let content = |width| {
+            column(entries.iter().map(|(index, path)| {
+                let selected = Some(*index) == self.selected;
+                Element::from(
+                    button(text(path.as_str()))
+                        .width(width)
+                        .padding(6)
+                        .style(move |theme, status| {
+                            theme::button::picker(theme, status, selected)
+                        })
+                        .on_press(on_select(*index)),
+                )
+            }))
+        };
+
+        Some(
+            container(double_pass(
+                content(Length::Shrink),
+                content(Length::Fill),
+            ))
+            .padding(4)
+            .style(theme::container::tooltip)
+            .width(Length::Shrink)
+            .into(),
+        )
     }
 }
 

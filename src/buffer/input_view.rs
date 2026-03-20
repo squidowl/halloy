@@ -915,7 +915,12 @@ impl State {
                         config,
                     );
 
-                    self.on_completion(buffer, history, actions, true)
+                    let result =
+                        self.on_completion(buffer, history, actions, true);
+                    self.process_completion_and_error(
+                        buffer, clients, history, config,
+                    );
+                    result
                 } else {
                     (Task::none(), None)
                 }
@@ -934,7 +939,12 @@ impl State {
                         config,
                     );
 
-                    self.on_completion(buffer, history, actions, true)
+                    let result =
+                        self.on_completion(buffer, history, actions, true);
+                    self.process_completion_and_error(
+                        buffer, clients, history, config,
+                    );
+                    result
                 } else {
                     (Task::none(), None)
                 }
@@ -1982,42 +1992,7 @@ impl State {
                             Some(Event::Reconnect(buffer.server().clone())),
                         );
                     }
-                    command::Internal::Upload(paths) if !paths.is_empty() => {
-                        let mut file_paths = Vec::with_capacity(paths.len());
-                        for path in &paths {
-                            let file_path = std::path::PathBuf::from(path);
-                            if !file_path.exists() {
-                                self.error =
-                                    Some(format!("file not found: {path}"));
-                                return (Task::none(), None);
-                            }
-                            file_paths.push(file_path);
-                        }
-                        let (handles, registrations): (Vec<_>, Vec<_>) =
-                            file_paths
-                                .iter()
-                                .map(|_| {
-                                    futures::future::AbortHandle::new_pair()
-                                })
-                                .unzip();
-                        let was_idle = self.uploading == 0;
-                        self.uploading += file_paths.len();
-                        self.upload_abort_handles.extend(handles);
-                        let anim = was_idle
-                            .then(Self::schedule_anim_tick)
-                            .unwrap_or_else(Task::none);
-                        let event =
-                            buffer.target().map(|target| {
-                                Event::FileHostUpload {
-                                    server: buffer.server().clone(),
-                                    target,
-                                    file_paths,
-                                    abort_registrations: registrations,
-                                }
-                            });
-                        return (anim, event);
-                    }
-                    command::Internal::Upload(_) => {
+                    command::Internal::Upload(None) => {
                         return (
                             Task::perform(
                                 async {
@@ -2033,6 +2008,34 @@ impl State {
                             ),
                             None,
                         );
+                    }
+                    command::Internal::Upload(Some(path)) => {
+                        let file_path = std::path::PathBuf::from(&path);
+                        if !file_path.exists() {
+                            self.error =
+                                Some(format!("file not found: {path}"));
+                            return (Task::none(), None);
+                        }
+                        let (handle, registration) =
+                            futures::future::AbortHandle::new_pair();
+                        self.upload_abort_handles.push(handle);
+                        let was_idle = self.uploading == 0;
+                        self.uploading += 1;
+                        let anim = was_idle
+                            .then(Self::schedule_anim_tick)
+                            .unwrap_or_else(Task::none);
+                        let event =
+                            buffer.target().map(|target| {
+                                Event::FileHostUpload {
+                                    server: buffer.server().clone(),
+                                    target,
+                                    file_paths: vec![file_path],
+                                    abort_registrations: vec![
+                                        registration,
+                                    ],
+                                }
+                            });
+                        return (anim, event);
                     }
                 }
             }
