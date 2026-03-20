@@ -27,6 +27,7 @@ pub enum Kind {
     CNOTICE,
     CPRIVMSG,
     ELIST,
+    FILEHOST,
     HOSTLEN,
     KEYLEN,
     KICKLEN,
@@ -274,6 +275,11 @@ impl FromStr for Operation {
                             } else {
                                 Err("value required")
                             }
+                        }
+                        "draft/FILEHOST" => {
+                            Ok(Operation::Add(Parameter::FILEHOST(
+                                value.to_owned(),
+                            )))
                         }
                         "ESILENCE" => Ok(Operation::Add(Parameter::ESILENCE(
                             parse_optional_letters(value)?,
@@ -631,6 +637,7 @@ impl Operation {
                 "CNOTICE" => Some(Kind::CNOTICE),
                 "CPRIVMSG" => Some(Kind::CPRIVMSG),
                 "ELIST" => Some(Kind::ELIST),
+                "draft/FILEHOST" => Some(Kind::FILEHOST),
                 "HOSTLEN" => Some(Kind::HOSTLEN),
                 "KEYLEN" => Some(Kind::KEYLEN),
                 "KICKLEN" => Some(Kind::KICKLEN),
@@ -691,6 +698,7 @@ pub enum Parameter {
     EXCEPTS(char),
     EXTBAN(Option<char>, String),
     FNC,
+    FILEHOST(String),
     HOSTLEN(u16),
     INVEX(char),
     KEYLEN(u16),
@@ -743,6 +751,7 @@ impl Parameter {
             Parameter::CNOTICE => Some(Kind::CNOTICE),
             Parameter::CPRIVMSG => Some(Kind::CPRIVMSG),
             Parameter::ELIST(_) => Some(Kind::ELIST),
+            Parameter::FILEHOST(_) => Some(Kind::FILEHOST),
             Parameter::HOSTLEN(_) => Some(Kind::HOSTLEN),
             Parameter::KEYLEN(_) => Some(Kind::KEYLEN),
             Parameter::KICKLEN(_) => Some(Kind::KICKLEN),
@@ -1311,6 +1320,14 @@ pub fn get_statusmsg_or_default(
             &[]
         }
     })
+}
+
+pub fn get_filehost(isupport: &HashMap<Kind, Parameter>) -> Option<&str> {
+    if let Some(Parameter::FILEHOST(url)) = isupport.get(&Kind::FILEHOST) {
+        Some(url.as_str())
+    } else {
+        None
+    }
 }
 
 pub fn is_client_only_tag_denied(

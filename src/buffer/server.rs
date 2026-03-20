@@ -17,6 +17,7 @@ use crate::{Theme, font, theme};
 pub enum Message {
     ScrollView(scroll_view::Message),
     InputView(input_view::Message),
+    FileHostUrlReady(String),
 }
 
 pub enum Event {
@@ -35,6 +36,11 @@ pub enum Event {
     InputSent {
         history_task: Task<history::manager::Message>,
         open_buffers: Vec<(Target, BufferAction)>,
+    },
+    FileHostUpload {
+        server: data::server::Server,
+        target: Target,
+        file_path: std::path::PathBuf,
     },
 }
 
@@ -177,6 +183,8 @@ pub fn view<'a>(
         data::config::buffer::text_input::Visibility::Always => true,
     };
 
+    let filehost_url = clients.get_filehost(&state.server);
+
     let text_input = show_text_input.then(|| {
         column![
             space::vertical().height(4),
@@ -186,6 +194,7 @@ pub fn view<'a>(
                 &state.server,
                 config,
                 theme,
+                filehost_url,
             )
             .map(Message::InputView)
         ]
@@ -332,8 +341,32 @@ impl Server {
                     Some(input_view::Event::Reconnect(server)) => {
                         (command, Some(Event::Reconnect(server)))
                     }
+                    Some(input_view::Event::FileHostUpload {
+                        server,
+                        target,
+                        file_path,
+                    }) => (
+                        command,
+                        Some(Event::FileHostUpload {
+                            server,
+                            target,
+                            file_path,
+                        }),
+                    ),
                     None => (command, None),
                 }
+            }
+            Message::FileHostUrlReady(url) => {
+                let (task, _) = self.input_view.update(
+                    input_view::Message::FileHostUrlReady(url),
+                    &self.buffer,
+                    clients,
+                    history,
+                    main_window,
+                    config,
+                    false,
+                );
+                (task.map(Message::InputView), None)
             }
         }
     }

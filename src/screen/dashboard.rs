@@ -18,6 +18,7 @@ use data::target::{self, Target};
 use data::{
     Config, Notification, Server, User, Version, client, command, config,
     environment, file_transfer, history, preview, reaction, server, stream,
+    upload,
 };
 use iced::widget::pane_grid::{self, PaneGrid};
 use iced::widget::{Space, column, container, row};
@@ -2514,6 +2515,119 @@ impl Dashboard {
             }
             buffer::Event::Reconnect(server) => {
                 controllers.connect(&server);
+            }
+            buffer::Event::FileHostUpload {
+                server,
+                target: _,
+                file_path,
+            } => {
+                let Some(upload_url) =
+                    clients.get_filehost(&server).map(String::from)
+                else {
+                    return (Task::none(), None);
+                };
+
+                let auth = clients.get_filehost_auth(&server);
+                let irc_uses_tls = clients.get_use_tls(&server);
+                let http_client = self
+                    .preview_client
+                    .clone()
+                    .unwrap_or_else(|| Arc::new(reqwest::Client::new()));
+
+                let buffer_msg = match &pane.buffer {
+                    Buffer::Channel(_) => Some(buffer::Message::Channel(
+                        buffer::channel::Message::FileHostUrlReady(
+                            String::new(),
+                        ),
+                    )),
+                    Buffer::Query(_) => Some(buffer::Message::Query(
+                        buffer::query::Message::FileHostUrlReady(String::new()),
+                    )),
+                    Buffer::Server(_) => Some(buffer::Message::Server(
+                        buffer::server::Message::FileHostUrlReady(String::new()),
+                    )),
+                    _ => None,
+                };
+
+                let Some(buffer_msg) = buffer_msg else {
+                    return (Task::none(), None);
+                };
+
+                // Use `buffer_msg` as a template to know the right variant;
+                // replace the placeholder with the real URL after upload.
+                let is_channel = matches!(
+                    buffer_msg,
+                    buffer::Message::Channel(_)
+                );
+                let is_query = matches!(buffer_msg, buffer::Message::Query(_));
+
+                return (
+                    Task::perform(
+                        async move {
+                            upload::upload(
+                                &upload_url,
+                                &file_path,
+                                auth,
+                                irc_uses_tls,
+                                http_client,
+                            )
+                            .await
+                        },
+                        move |result| match result {
+                            Ok(url) => {
+                                let msg = if is_channel {
+                                    buffer::Message::Channel(
+                                        buffer::channel::Message::FileHostUrlReady(url),
+                                    )
+                                } else if is_query {
+                                    buffer::Message::Query(
+                                        buffer::query::Message::FileHostUrlReady(url),
+                                    )
+                                } else {
+                                    buffer::Message::Server(
+                                        buffer::server::Message::FileHostUrlReady(url),
+                                    )
+                                };
+                                Message::Pane(
+                                    window,
+                                    pane::Message::Buffer(id, msg),
+                                )
+                            }
+                            Err(e) => {
+                                log::warn!(
+                                    "filehost upload failed: {e}"
+                                );
+                                // Nothing to do on failure — log is sufficient.
+                                Message::Pane(
+                                    window,
+                                    pane::Message::Buffer(
+                                        id,
+                                        if is_channel {
+                                            buffer::Message::Channel(
+                                                buffer::channel::Message::FileHostUrlReady(
+                                                    String::new(),
+                                                ),
+                                            )
+                                        } else if is_query {
+                                            buffer::Message::Query(
+                                                buffer::query::Message::FileHostUrlReady(
+                                                    String::new(),
+                                                ),
+                                            )
+                                        } else {
+                                            buffer::Message::Server(
+                                                buffer::server::Message::FileHostUrlReady(
+                                                    String::new(),
+                                                ),
+                                            )
+                                        },
+                                    ),
+                                )
+                            }
+                        },
+                    ),
+                    None,
+                );
             }
         }
 

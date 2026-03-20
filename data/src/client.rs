@@ -34,7 +34,7 @@ use crate::time::Posix;
 use crate::user::{ChannelUsers, Nick, NickRef};
 use crate::{
     Server, User, buffer, channel_discovery, compression, config, ctcp, dcc,
-    environment, file_transfer, history, isupport, message, mode, server,
+    environment, file_transfer, history, isupport, message, mode, server, upload,
 };
 
 pub mod on_connect;
@@ -3881,6 +3881,22 @@ impl Client {
         self.isupport.contains_key(&isupport::Kind::SAFELIST)
     }
 
+    pub fn filehost(&self) -> Option<&str> {
+        isupport::get_filehost(&self.isupport)
+    }
+
+    pub fn filehost_auth(&self) -> Option<upload::Auth> {
+        match self.config.sasl.as_ref()? {
+            config::server::Sasl::Plain {
+                username, password, ..
+            } => Some(upload::Auth::Basic {
+                username: username.clone(),
+                password: password.clone()?,
+            }),
+            config::server::Sasl::External { .. } => None,
+        }
+    }
+
     fn supports_typing(&self) -> bool {
         self.capabilities.acknowledged(Capability::MessageTags)
     }
@@ -4332,6 +4348,18 @@ impl Map {
         self.client(server)
             .map(|client| client.isupport.clone())
             .unwrap_or_default()
+    }
+
+    pub fn get_filehost<'a>(&'a self, server: &Server) -> Option<&'a str> {
+        self.client(server).and_then(Client::filehost)
+    }
+
+    pub fn get_filehost_auth(&self, server: &Server) -> Option<upload::Auth> {
+        self.client(server).and_then(Client::filehost_auth)
+    }
+
+    pub fn get_use_tls(&self, server: &Server) -> bool {
+        self.client(server).is_none_or(|c| c.config.use_tls)
     }
 
     pub fn get_casemapping(&self, server: &Server) -> isupport::CaseMap {

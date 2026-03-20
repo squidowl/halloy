@@ -83,6 +83,11 @@ pub enum Event {
         open_buffers: Vec<(Target, BufferAction)>,
     },
     SendUnsafeList(data::Server),
+    FileHostUpload {
+        server: data::Server,
+        target: Target,
+        file_path: std::path::PathBuf,
+    },
 }
 
 impl Buffer {
@@ -305,6 +310,15 @@ impl Buffer {
                         history_task,
                         open_buffers,
                     },
+                    channel::Event::FileHostUpload {
+                        server,
+                        target,
+                        file_path,
+                    } => Event::FileHostUpload {
+                        server,
+                        target,
+                        file_path,
+                    },
                 });
 
                 (command.map(Message::Channel), event)
@@ -357,6 +371,15 @@ impl Buffer {
                     } => Event::InputSent {
                         history_task,
                         open_buffers,
+                    },
+                    server::Event::FileHostUpload {
+                        server,
+                        target,
+                        file_path,
+                    } => Event::FileHostUpload {
+                        server,
+                        target,
+                        file_path,
                     },
                 });
 
@@ -415,6 +438,15 @@ impl Buffer {
                     } => Event::InputSent {
                         history_task,
                         open_buffers,
+                    },
+                    query::Event::FileHostUpload {
+                        server,
+                        target,
+                        file_path,
+                    } => Event::FileHostUpload {
+                        server,
+                        target,
+                        file_path,
                     },
                 });
 

@@ -57,6 +57,11 @@ pub enum Event {
         history_task: Task<history::manager::Message>,
     },
     Reconnect(Server),
+    FileHostUpload {
+        server: Server,
+        target: Target,
+        file_path: std::path::PathBuf,
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -87,6 +92,9 @@ pub enum Message {
     CopyAll,
     Copy,
     Cut,
+    UploadFile,
+    FileSelected(Option<std::path::PathBuf>),
+    FileHostUrlReady(String),
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -288,6 +296,7 @@ pub fn view<'a>(
     server: &'a Server,
     config: &'a Config,
     theme: &'a Theme,
+    filehost_url: Option<&'a str>,
 ) -> Element<'a, Message> {
     let style = if state.error.is_some() {
         theme::text_editor::error
@@ -543,12 +552,24 @@ pub fn view<'a>(
     let maybe_vertical_rule =
         maybe_our_user.is_some().then(move || rule::vertical(1.0));
 
+    let maybe_upload_button = filehost_url.is_some().then(|| {
+        button(text("\u{1F4CE}").size(theme::TEXT_SIZE))
+            .padding([2, 6])
+            .style(theme::button::bare)
+            .on_press(Message::UploadFile)
+    });
+
     let content = column![
         container(
-            row![maybe_our_user, maybe_vertical_rule, wrapped_input]
-                .spacing(4)
-                .height(Length::Shrink)
-                .align_y(Alignment::Center)
+            row![
+                maybe_our_user,
+                maybe_vertical_rule,
+                wrapped_input,
+                maybe_upload_button,
+            ]
+            .spacing(4)
+            .height(Length::Shrink)
+            .align_y(Alignment::Center)
         )
         .max_height(
             (7.55 * theme::resolve_line_height(&config.font).ceil()).ceil(),
@@ -1018,6 +1039,44 @@ impl State {
                 Self::close_context_menu(main_window.id, vec![])
             }
             Message::CloseContextMenu(_, _) => (Task::none(), None),
+            Message::UploadFile => (
+                Task::perform(
+                    async {
+                        rfd::AsyncFileDialog::new()
+                            .pick_file()
+                            .await
+                            .map(|handle| handle.path().to_path_buf())
+                    },
+                    Message::FileSelected,
+                ),
+                None,
+            ),
+            Message::FileSelected(Some(file_path)) => {
+                let event = buffer.target().map(|target| Event::FileHostUpload {
+                    server: buffer.server().clone(),
+                    target,
+                    file_path,
+                });
+                (Task::none(), event)
+            }
+            Message::FileSelected(None) => (Task::none(), None),
+            Message::FileHostUrlReady(url) if !url.is_empty() => {
+                // Append the URL to the end of whatever the user has typed.
+                self.input_content.perform(text_editor::Action::Move(
+                    text_editor::Motion::DocumentEnd,
+                ));
+                // Add a space separator if the buffer already has content.
+                if !self.input_content.text().trim_end().is_empty() {
+                    self.input_content.perform(text_editor::Action::Edit(
+                        text_editor::Edit::Insert(' '),
+                    ));
+                }
+                self.input_content.perform(text_editor::Action::Edit(
+                    text_editor::Edit::Paste(std::sync::Arc::new(url)),
+                ));
+                (Task::none(), None)
+            }
+            Message::FileHostUrlReady(_) => (Task::none(), None),
             Message::DeleteWordBackward(save_to_clipboard) => {
                 self.input_content.perform(text_editor::Action::Select(
                     text_editor::Motion::WordLeft,
