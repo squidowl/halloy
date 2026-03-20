@@ -1439,7 +1439,7 @@ impl Command {
             }
             "connect" => Cow::Borrowed("Connect to server"),
             "reconnect" => Cow::Owned(format!("Reconnect to {server}")),
-            "upload" => Cow::Borrowed("Upload a file using the server's filehost"),
+            "upload" => Cow::Borrowed("Upload a file to the server's filehost"),
             _ => config
                 .buffer
                 .commands
