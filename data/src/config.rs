@@ -1,9 +1,8 @@
 use std::io::Write;
-use std::path::{Path, PathBuf};
-use std::{str, string};
-
 #[cfg(unix)]
 use std::os::unix::fs::{DirBuilderExt, OpenOptionsExt};
+use std::path::{Path, PathBuf};
+use std::{str, string};
 
 use iced_core::font;
 use indexmap::IndexMap;
