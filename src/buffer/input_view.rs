@@ -563,7 +563,7 @@ pub fn view<'a>(
         button(crate::icon::plus().size(15))
             .padding([2, 4])
             .style(theme::button::bare)
-            .on_press_maybe((state.uploading == 0).then_some(Message::UploadFile))
+            .on_press(Message::UploadFile)
     });
 
     let content = column![
