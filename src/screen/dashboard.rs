@@ -2519,7 +2519,7 @@ impl Dashboard {
             buffer::Event::FileHostUpload {
                 server,
                 target: _,
-                file_path,
+                file_paths,
             } => {
                 let Some(upload_url) =
                     clients.get_filehost(&server).map(String::from)
@@ -2527,107 +2527,78 @@ impl Dashboard {
                     return (Task::none(), None);
                 };
 
-                let auth = clients.get_filehost_auth(&server);
                 let irc_uses_tls = clients.get_use_tls(&server);
                 let http_client = self
                     .preview_client
                     .clone()
                     .unwrap_or_else(|| Arc::new(reqwest::Client::new()));
 
-                let buffer_msg = match &pane.buffer {
-                    Buffer::Channel(_) => Some(buffer::Message::Channel(
-                        buffer::channel::Message::FileHostUrlReady(
-                            String::new(),
-                        ),
-                    )),
-                    Buffer::Query(_) => Some(buffer::Message::Query(
-                        buffer::query::Message::FileHostUrlReady(String::new()),
-                    )),
-                    Buffer::Server(_) => Some(buffer::Message::Server(
-                        buffer::server::Message::FileHostUrlReady(String::new()),
-                    )),
-                    _ => None,
-                };
+                let is_channel = matches!(pane.buffer, Buffer::Channel(_));
+                let is_query = matches!(pane.buffer, Buffer::Query(_));
 
-                let Some(buffer_msg) = buffer_msg else {
+                if !matches!(
+                    pane.buffer,
+                    Buffer::Channel(_) | Buffer::Query(_) | Buffer::Server(_)
+                ) {
                     return (Task::none(), None);
+                }
+
+                let make_url_msg = move |url: String| -> buffer::Message {
+                    if is_channel {
+                        buffer::Message::Channel(
+                            buffer::channel::Message::FileHostUrlReady(url),
+                        )
+                    } else if is_query {
+                        buffer::Message::Query(
+                            buffer::query::Message::FileHostUrlReady(url),
+                        )
+                    } else {
+                        buffer::Message::Server(
+                            buffer::server::Message::FileHostUrlReady(url),
+                        )
+                    }
                 };
 
-                // Use `buffer_msg` as a template to know the right variant;
-                // replace the placeholder with the real URL after upload.
-                let is_channel = matches!(
-                    buffer_msg,
-                    buffer::Message::Channel(_)
-                );
-                let is_query = matches!(buffer_msg, buffer::Message::Query(_));
-
-                return (
-                    Task::perform(
-                        async move {
-                            upload::upload(
-                                &upload_url,
-                                &file_path,
-                                auth,
-                                irc_uses_tls,
-                                http_client,
-                            )
-                            .await
-                        },
-                        move |result| match result {
-                            Ok(url) => {
-                                let msg = if is_channel {
-                                    buffer::Message::Channel(
-                                        buffer::channel::Message::FileHostUrlReady(url),
-                                    )
-                                } else if is_query {
-                                    buffer::Message::Query(
-                                        buffer::query::Message::FileHostUrlReady(url),
-                                    )
-                                } else {
-                                    buffer::Message::Server(
-                                        buffer::server::Message::FileHostUrlReady(url),
-                                    )
-                                };
-                                Message::Pane(
-                                    window,
-                                    pane::Message::Buffer(id, msg),
+                let tasks: Vec<_> = file_paths
+                    .into_iter()
+                    .map(|file_path| {
+                        let upload_url = upload_url.clone();
+                        let auth = clients.get_filehost_auth(&server);
+                        let http_client = http_client.clone();
+                        Task::perform(
+                            async move {
+                                upload::upload(
+                                    &upload_url,
+                                    &file_path,
+                                    auth,
+                                    irc_uses_tls,
+                                    http_client,
                                 )
-                            }
-                            Err(e) => {
-                                log::warn!(
-                                    "filehost upload failed: {e}"
-                                );
-                                // Nothing to do on failure — log is sufficient.
+                                .await
+                            },
+                            move |result| {
+                                let url = match result {
+                                    Ok(url) => url,
+                                    Err(e) => {
+                                        log::warn!(
+                                            "filehost upload failed: {e}"
+                                        );
+                                        String::new()
+                                    }
+                                };
                                 Message::Pane(
                                     window,
                                     pane::Message::Buffer(
                                         id,
-                                        if is_channel {
-                                            buffer::Message::Channel(
-                                                buffer::channel::Message::FileHostUrlReady(
-                                                    String::new(),
-                                                ),
-                                            )
-                                        } else if is_query {
-                                            buffer::Message::Query(
-                                                buffer::query::Message::FileHostUrlReady(
-                                                    String::new(),
-                                                ),
-                                            )
-                                        } else {
-                                            buffer::Message::Server(
-                                                buffer::server::Message::FileHostUrlReady(
-                                                    String::new(),
-                                                ),
-                                            )
-                                        },
+                                        make_url_msg(url),
                                     ),
                                 )
-                            }
-                        },
-                    ),
-                    None,
-                );
+                            },
+                        )
+                    })
+                    .collect();
+
+                return (Task::batch(tasks), None);
             }
         }
 

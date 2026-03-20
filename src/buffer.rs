@@ -86,7 +86,7 @@ pub enum Event {
     FileHostUpload {
         server: data::Server,
         target: Target,
-        file_path: std::path::PathBuf,
+        file_paths: Vec<std::path::PathBuf>,
     },
 }
 
@@ -313,11 +313,11 @@ impl Buffer {
                     channel::Event::FileHostUpload {
                         server,
                         target,
-                        file_path,
+                        file_paths,
                     } => Event::FileHostUpload {
                         server,
                         target,
-                        file_path,
+                        file_paths,
                     },
                 });
 
@@ -375,11 +375,11 @@ impl Buffer {
                     server::Event::FileHostUpload {
                         server,
                         target,
-                        file_path,
+                        file_paths,
                     } => Event::FileHostUpload {
                         server,
                         target,
-                        file_path,
+                        file_paths,
                     },
                 });
 
@@ -442,11 +442,11 @@ impl Buffer {
                     query::Event::FileHostUpload {
                         server,
                         target,
-                        file_path,
+                        file_paths,
                     } => Event::FileHostUpload {
                         server,
                         target,
-                        file_path,
+                        file_paths,
                     },
                 });
 

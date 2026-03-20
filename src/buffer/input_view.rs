@@ -60,7 +60,7 @@ pub enum Event {
     FileHostUpload {
         server: Server,
         target: Target,
-        file_path: std::path::PathBuf,
+        file_paths: Vec<std::path::PathBuf>,
     },
 }
 
@@ -93,7 +93,7 @@ pub enum Message {
     Copy,
     Cut,
     UploadFile,
-    FileSelected(Option<std::path::PathBuf>),
+    FilesSelected(Vec<std::path::PathBuf>),
     FileHostUrlReady(String),
 }
 
@@ -553,10 +553,11 @@ pub fn view<'a>(
         maybe_our_user.is_some().then(move || rule::vertical(1.0));
 
     let maybe_upload_button = filehost_url.is_some().then(|| {
+        let is_uploading = state.uploading > 0;
         button(text("\u{1F4CE}").size(theme::TEXT_SIZE))
             .padding([2, 6])
             .style(theme::button::bare)
-            .on_press(Message::UploadFile)
+            .on_press_maybe((!is_uploading).then_some(Message::UploadFile))
     });
 
     let content = column![
@@ -622,6 +623,7 @@ pub struct State {
     completion: Completion,
     selected_history: Option<usize>,
     last_typing_at: Option<Instant>,
+    uploading: usize,
 }
 
 impl Default for State {
@@ -643,6 +645,7 @@ impl State {
             completion: Completion::default(),
             selected_history: None,
             last_typing_at: None,
+            uploading: 0,
         }
     }
 
@@ -1043,24 +1046,29 @@ impl State {
                 Task::perform(
                     async {
                         rfd::AsyncFileDialog::new()
-                            .pick_file()
+                            .pick_files()
                             .await
+                            .unwrap_or_default()
+                            .into_iter()
                             .map(|handle| handle.path().to_path_buf())
+                            .collect()
                     },
-                    Message::FileSelected,
+                    Message::FilesSelected,
                 ),
                 None,
             ),
-            Message::FileSelected(Some(file_path)) => {
+            Message::FilesSelected(file_paths) if !file_paths.is_empty() => {
+                self.uploading += file_paths.len();
                 let event = buffer.target().map(|target| Event::FileHostUpload {
                     server: buffer.server().clone(),
                     target,
-                    file_path,
+                    file_paths,
                 });
                 (Task::none(), event)
             }
-            Message::FileSelected(None) => (Task::none(), None),
+            Message::FilesSelected(_) => (Task::none(), None),
             Message::FileHostUrlReady(url) if !url.is_empty() => {
+                self.uploading = self.uploading.saturating_sub(1);
                 // Append the URL to the end of whatever the user has typed.
                 self.input_content.perform(text_editor::Action::Move(
                     text_editor::Motion::DocumentEnd,
@@ -1076,7 +1084,11 @@ impl State {
                 ));
                 (Task::none(), None)
             }
-            Message::FileHostUrlReady(_) => (Task::none(), None),
+            Message::FileHostUrlReady(_) => {
+                // Upload failed (empty string sentinel) — still decrement.
+                self.uploading = self.uploading.saturating_sub(1);
+                (Task::none(), None)
+            }
             Message::DeleteWordBackward(save_to_clipboard) => {
                 self.input_content.perform(text_editor::Action::Select(
                     text_editor::Motion::WordLeft,

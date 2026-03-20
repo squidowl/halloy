@@ -51,7 +51,7 @@ pub enum Event {
     FileHostUpload {
         server: Server,
         target: Target,
-        file_path: std::path::PathBuf,
+        file_paths: Vec<std::path::PathBuf>,
     },
 }
 
@@ -393,13 +393,13 @@ impl Channel {
                     Some(input_view::Event::FileHostUpload {
                         server,
                         target,
-                        file_path,
+                        file_paths,
                     }) => (
                         command,
                         Some(Event::FileHostUpload {
                             server,
                             target,
-                            file_path,
+                            file_paths,
                         }),
                     ),
                     None => (command, None),
