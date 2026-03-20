@@ -32,6 +32,7 @@ Changed:
 
 Security:
 
+- Fixed file transfer path traversal vulnerability when using DCC
 - Config directories and `config.toml` are now created with owner-only permissions
 
 Thanks:

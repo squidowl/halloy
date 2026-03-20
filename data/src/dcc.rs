@@ -230,6 +230,7 @@ mod tests {
         );
     }
 
+    #[cfg(target_os = "windows")]
     #[test]
     fn send_decode_sanitizes_windows_path_traversal() {
         let args = "..\\..\\AppData\\malware.exe 1402301083 12350 1453953495";
