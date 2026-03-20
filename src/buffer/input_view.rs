@@ -1190,38 +1190,7 @@ impl State {
 
                             if let Some(Err(error)) =
                                 self.parsed.get(cursor_position.line)
-                                && match error {
-                                    input::Error::ExceedsByteLimit {
-                                        ..
-                                    }
-                                    | input::Error::Command(
-                                        command::Error::InvalidModeString
-                                        | command::Error::ArgTooLong { .. }
-                                        | command::Error::TooManyTargets {
-                                            ..
-                                        }
-                                        | command::Error::NotPositiveInteger
-                                        | command::Error::InvalidChannelName {
-                                            ..
-                                        }
-                                        | command::Error::InvalidServerUrl,
-                                    ) => true,
-                                    input::Error::Command(
-                                        command::Error::IncorrectArgCount {
-                                            actual,
-                                            max,
-                                            ..
-                                        },
-                                    ) => actual > max,
-                                    input::Error::Command(
-                                        command::Error::MissingSlash
-                                        | command::Error::MissingCommand
-                                        | command::Error::NoModeString
-                                        | command::Error::Connected
-                                        | command::Error::Disconnected
-                                        | command::Error::NotInChannel,
-                                    ) => false,
-                                }
+                                && show_while_typing(error)
                             {
                                 self.error = Some(error.to_string());
                             }
@@ -1993,30 +1962,7 @@ impl State {
             self.error = None;
 
             if let Some(Err(error)) = self.parsed.get(cursor_position.line)
-                && match error {
-                    input::Error::ExceedsByteLimit { .. }
-                    | input::Error::Command(
-                        command::Error::InvalidModeString
-                        | command::Error::ArgTooLong { .. }
-                        | command::Error::TooManyTargets { .. }
-                        | command::Error::NotPositiveInteger
-                        | command::Error::InvalidChannelName { .. }
-                        | command::Error::InvalidServerUrl,
-                    ) => true,
-                    input::Error::Command(
-                        command::Error::IncorrectArgCount {
-                            actual, max, ..
-                        },
-                    ) => actual > max,
-                    input::Error::Command(
-                        command::Error::MissingSlash
-                        | command::Error::MissingCommand
-                        | command::Error::NoModeString
-                        | command::Error::Connected
-                        | command::Error::Disconnected
-                        | command::Error::NotInChannel,
-                    ) => false,
-                }
+                && show_while_typing(error)
             {
                 self.error = Some(error.to_string());
             }
@@ -2335,4 +2281,35 @@ impl State {
 
 fn input_lines(text: &str) -> impl Iterator<Item = &str> {
     text.split('\n')
+}
+
+fn show_while_typing(error: &input::Error) -> bool {
+    match error {
+        input::Error::ExceedsByteLimit { .. }
+        | input::Error::Command(
+            command::Error::InvalidModeString
+            | command::Error::ArgTooLong { .. }
+            | command::Error::TooManyTargets { .. }
+            | command::Error::NotPositiveInteger
+            | command::Error::InvalidChannelName { .. }
+            | command::Error::InvalidServerUrl
+            | command::Error::InvalidChathistoryMessageReference
+            | command::Error::InvalidChathistoryTimestamp
+            | command::Error::ChathistoryLimitTooLarge { .. },
+        ) => true,
+        input::Error::Command(command::Error::IncorrectArgCount {
+            actual,
+            max,
+            ..
+        }) => actual > max,
+        input::Error::Command(
+            command::Error::MissingSlash
+            | command::Error::MissingCommand
+            | command::Error::InvalidChathistorySubcommand
+            | command::Error::NoModeString
+            | command::Error::Connected
+            | command::Error::Disconnected
+            | command::Error::NotInChannel,
+        ) => false,
+    }
 }
