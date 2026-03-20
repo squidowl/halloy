@@ -1839,7 +1839,7 @@ fn fmt_channel_name_requirements(chantypes: &[char]) -> String {
 mod tests {
     use std::collections::HashMap;
 
-    use super::{Command, Error, Internal, parse};
+    use super::{AutoFormat, Command, Error, Internal, parse};
     use crate::Config;
 
     #[test]
@@ -1851,6 +1851,7 @@ mod tests {
             "/exec printf '/me hello world'",
             None,
             None,
+            AutoFormat::default(),
             true,
             &HashMap::new(),
             &config,
@@ -1869,9 +1870,16 @@ mod tests {
         let mut config = Config::default();
         config.buffer.commands.exec.enabled = true;
 
-        let error =
-            parse("/exec   ", None, None, true, &HashMap::new(), &config)
-                .unwrap_err();
+        let error = parse(
+            "/exec   ",
+            None,
+            None,
+            AutoFormat::default(),
+            true,
+            &HashMap::new(),
+            &config,
+        )
+        .unwrap_err();
 
         assert!(matches!(
             error,
@@ -1888,9 +1896,16 @@ mod tests {
         let mut config = Config::default();
         config.buffer.commands.exec.enabled = false;
 
-        let command =
-            parse("/exec   ", None, None, true, &HashMap::new(), &config)
-                .unwrap();
+        let command = parse(
+            "/exec   ",
+            None,
+            None,
+            AutoFormat::default(),
+            true,
+            &HashMap::new(),
+            &config,
+        )
+        .unwrap();
 
         assert!(matches!(
             command,
