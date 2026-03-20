@@ -95,6 +95,7 @@ pub enum Message {
     UploadFile,
     FilesSelected(Vec<std::path::PathBuf>),
     FileHostUrlReady(String),
+    UploadAnimTick,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -552,12 +553,17 @@ pub fn view<'a>(
     let maybe_vertical_rule =
         maybe_our_user.is_some().then(move || rule::vertical(1.0));
 
+    let maybe_upload_spinner: Option<crate::widget::Element<'a, Message>> =
+        (filehost_url.is_some() && state.uploading > 0).then(|| {
+            let t = state.upload_anim * std::f32::consts::TAU;
+            crate::icon::spinner(t + 0.4 * t.sin()).into()
+        });
+
     let maybe_upload_button = filehost_url.is_some().then(|| {
-        let is_uploading = state.uploading > 0;
-        button(text("\u{1F4CE}").size(theme::TEXT_SIZE))
-            .padding([2, 6])
+        button(crate::icon::plus().size(15))
+            .padding([2, 4])
             .style(theme::button::bare)
-            .on_press_maybe((!is_uploading).then_some(Message::UploadFile))
+            .on_press_maybe((state.uploading == 0).then_some(Message::UploadFile))
     });
 
     let content = column![
@@ -566,6 +572,7 @@ pub fn view<'a>(
                 maybe_our_user,
                 maybe_vertical_rule,
                 wrapped_input,
+                maybe_upload_spinner,
                 maybe_upload_button,
             ]
             .spacing(4)
@@ -624,6 +631,7 @@ pub struct State {
     selected_history: Option<usize>,
     last_typing_at: Option<Instant>,
     uploading: usize,
+    upload_anim: f32,
 }
 
 impl Default for State {
@@ -646,6 +654,7 @@ impl State {
             selected_history: None,
             last_typing_at: None,
             uploading: 0,
+            upload_anim: 0.0,
         }
     }
 
@@ -1058,15 +1067,29 @@ impl State {
                 None,
             ),
             Message::FilesSelected(file_paths) if !file_paths.is_empty() => {
+                let was_idle = self.uploading == 0;
                 self.uploading += file_paths.len();
                 let event = buffer.target().map(|target| Event::FileHostUpload {
                     server: buffer.server().clone(),
                     target,
                     file_paths,
                 });
-                (Task::none(), event)
+                let anim = was_idle
+                    .then(Self::schedule_anim_tick)
+                    .unwrap_or_else(Task::none);
+                (anim, event)
             }
             Message::FilesSelected(_) => (Task::none(), None),
+            Message::UploadAnimTick => {
+                if self.uploading > 0 {
+                    // Advance normalized t in [0, 1); 0.1/tick × 20ticks/s = 2 rev/s.
+                    self.upload_anim =
+                        (self.upload_anim + 0.06).rem_euclid(1.0);
+                    (Self::schedule_anim_tick(), None)
+                } else {
+                    (Task::none(), None)
+                }
+            }
             Message::FileHostUrlReady(url) if !url.is_empty() => {
                 self.uploading = self.uploading.saturating_sub(1);
                 // Append the URL to the end of whatever the user has typed.
@@ -1398,6 +1421,13 @@ impl State {
                 Some(parsed)
             })
             .collect();
+    }
+
+    fn schedule_anim_tick() -> Task<Message> {
+        Task::perform(
+            time::sleep(Duration::from_millis(50)),
+            |_| Message::UploadAnimTick,
+        )
     }
 
     fn close_context_menu(
