@@ -68,6 +68,8 @@ irc = { version = "0.1.0", path = "irc" }
 
 signal-hook = "0.3.18"
 dirs-next = "2.0.0"
+arboard = { version = "3", default-features = false, features = ["image-data"] }
+image = "0.25"
 notify-rust = "4.11"
 fern = "0.7.1"
 iced = { version = "0.15.0-dev", default-features = false, features = [
@@ -137,6 +139,7 @@ iced = { version = "0.15.0-dev", default-features = false, features = [
 objc2-app-kit = { version = "0.3.2", default-features = false, features = [
     "std",
     "NSWorkspace",
+    "NSPasteboard",
 ] }
 objc2-foundation = { version = "0.3.2", default-features = false, features = [
     "std",

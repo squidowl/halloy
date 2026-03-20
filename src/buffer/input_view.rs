@@ -91,6 +91,7 @@ pub enum Message {
         lines: VecDeque<input::Parsed>,
     },
     Paste,
+    PasteText,
     SelectAll,
     CopyAll,
     Copy,
@@ -251,7 +252,10 @@ fn platform_specific_key_bindings(
         {
             Some(text_editor::Binding::Custom(Message::DeleteToEnd(false)))
         }
-
+        // cmd+v routes to Message::Paste normally, which means we lose our control flow. overwrite it with our own handler
+        iced::keyboard::Key::Character("v") if key_press.modifiers.logo() => {
+            Some(text_editor::Binding::Custom(Message::Paste))
+        }
         _ => None,
     }
 }
@@ -289,6 +293,10 @@ fn platform_specific_key_bindings(
         iced::keyboard::Key::Named(iced::keyboard::key::Named::Insert)
             if key_press.modifiers.shift() && key_press.text.is_none() =>
         {
+            Some(text_editor::Binding::Custom(Message::Paste))
+        }
+        // ctrl+v routes to Message::Paste normally, which means we lose our control flow. overwrite it with our own handler
+        iced::keyboard::Key::Character("v") if key_press.modifiers.control() => {
             Some(text_editor::Binding::Custom(Message::Paste))
         }
 
@@ -1053,6 +1061,24 @@ impl State {
                 config,
             ),
             Message::Paste => {
+                let has_filehost =
+                    clients.get_filehost(buffer.server()).is_some();
+
+                let task = Task::perform(
+                    async move {
+                        has_filehost
+                            .then(try_clipboard_upload)
+                            .flatten()
+                    },
+                    |path| match path {
+                        Some(p) => Message::FilesSelected(vec![p]),
+                        None => Message::PasteText,
+                    },
+                );
+
+                Self::close_context_menu(main_window.id, vec![task])
+            }
+            Message::PasteText => {
                 let task = clipboard::read().and_then(|clipboard| {
                     Task::done(Message::Action(text_editor::Action::Edit(
                         text_editor::Edit::Paste(std::sync::Arc::new(
@@ -2548,4 +2574,53 @@ impl State {
 
 fn input_lines(text: &str) -> impl Iterator<Item = &str> {
     text.split('\n')
+}
+
+fn try_clipboard_upload() -> Option<std::path::PathBuf> {
+    // On macOS, check for a copied file first.
+    #[cfg(target_os = "macos")]
+    if let Some(path) = macos_clipboard_file() {
+        return Some(path);
+    }
+
+    // Try image data (e.g. a screenshot copied to the clipboard).
+    let mut cb = arboard::Clipboard::new().ok()?;
+    let img = cb.get_image().ok()?;
+
+    let rgba: image::RgbaImage = image::ImageBuffer::from_raw(
+        img.width as u32,
+        img.height as u32,
+        img.bytes.into_owned(),
+    )?;
+
+    let path = std::env::temp_dir()
+        .join(format!("halloy-paste-{}.png", uuid::Uuid::new_v4()));
+
+    rgba.save(&path).ok()?;
+
+    Some(path)
+}
+
+#[cfg(target_os = "macos")]
+fn macos_clipboard_file() -> Option<std::path::PathBuf> {
+    use objc2_app_kit::NSPasteboard;
+    use objc2_foundation::{NSURL, NSString};
+
+    let url_str = {
+        let pasteboard = NSPasteboard::generalPasteboard();
+        let type_str = NSString::from_str("public.file-url");
+        pasteboard.stringForType(&type_str)?.to_string()
+    };
+
+    // pasteboard may return a file-reference URL: (e.g. `file:///.file/id=…`) 
+    // rather than a path URL. NSURL.filePathURL resolves either to a real path.
+    let path_str = {
+        let ns_url_str = NSString::from_str(url_str.trim());
+        let nsurl = NSURL::URLWithString(&ns_url_str)?;
+        let path_url = nsurl.filePathURL()?;
+        path_url.path()?.to_string()
+    };
+
+    let path = std::path::PathBuf::from(path_str);
+    path.is_file().then_some(path)
 }
