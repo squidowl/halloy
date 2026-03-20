@@ -19,7 +19,7 @@ use iced::advanced::widget::Tree;
 use iced::advanced::{Clipboard, Layout, Shell, mouse};
 use iced::widget::text::{Shaping, Wrapping};
 use iced::widget::{
-    self, button, column, container, mouse_area, operation, row, rule,
+    self, button, center, column, container, mouse_area, operation, row, rule,
     text_editor,
 };
 use iced::{Alignment, Length, Task, clipboard, event, keyboard, padding};
@@ -561,26 +561,24 @@ pub fn view<'a>(
     let maybe_upload_spinner: Option<crate::widget::Element<'a, Message>> =
         (filehost_url.is_some() && state.uploading > 0).then(|| {
             let icon: crate::widget::Element<'a, Message> = if state.spinner_hovered {
-                container(crate::icon::cancel().size(15).style(theme::text::error))
-                    .width(15)
-                    .height(15)
-                    .align_x(iced::alignment::Horizontal::Center)
-                    .align_y(iced::alignment::Vertical::Center)
-                    .into()
+                crate::icon::cancel().size(15).style(theme::text::error).into()
             } else {
                 let t = state.upload_anim * std::f32::consts::TAU;
-                container(crate::icon::spinner(t + 0.4 * t.sin()))
-                    .width(15)
-                    .height(15)
-                    .align_x(iced::alignment::Horizontal::Center)
-                    .align_y(iced::alignment::Vertical::Center)
-                    .into()
+                crate::icon::spinner(t + 0.4 * t.sin()).into()
             };
             tooltip(
-                mouse_area(icon)
-                    .on_enter(Message::SpinnerHovered(true))
-                    .on_exit(Message::SpinnerHovered(false))
-                    .on_press(Message::CancelUploads),
+                mouse_area(
+                    button(center(icon))
+                        .padding(4)
+                        .width(23)
+                        .height(23)
+                        .style(|theme, status| {
+                            theme::button::secondary(theme, status, false)
+                        })
+                        .on_press(Message::CancelUploads),
+                )
+                .on_enter(Message::SpinnerHovered(true))
+                .on_exit(Message::SpinnerHovered(false)),
                 Some("Cancel uploads"),
                 tooltip::Position::Top,
                 theme,
@@ -589,9 +587,11 @@ pub fn view<'a>(
 
     let maybe_upload_button = filehost_url.is_some().then(|| {
         tooltip(
-            button(crate::icon::plus().size(15))
-                .padding([2, 4])
-                .style(theme::button::bare)
+            button(center(crate::icon::plus().size(15)))
+                .padding(4)
+                .width(23)
+                .height(23)
+                .style(|theme, status| theme::button::secondary(theme, status, false))
                 .on_press(Message::UploadFile),
             Some("Upload file"),
             tooltip::Position::Top,
