@@ -30,6 +30,10 @@ Changed:
 
 - Spoilers (`/f ||hello world||`) now reveal on click instead of hover
 
+Security:
+
+- Config directories and `config.toml` are now created with owner-only permissions
+
 Thanks:
 
 - Contributions: @KaiKorla, @englut, @mango766, @ncfavier, @classabbyamp
