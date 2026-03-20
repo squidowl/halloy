@@ -19,7 +19,9 @@ use iced::widget::{
     self, Scrollable, button, center, column, container, image, mouse_area,
     right, row, rule, scrollable, space, stack, text,
 };
-use iced::{ContentFit, Length, Padding, Size, Task, alignment, padding};
+use iced::{
+    ContentFit, Length, Padding, Size, Task, alignment, mouse, padding,
+};
 use tokio::time;
 
 use self::correct_viewport::correct_viewport;
@@ -1917,12 +1919,14 @@ fn preview_row<'a>(
             crate::widget::context_menu::MouseButton::Right,
             crate::widget::context_menu::Anchor::Cursor,
             crate::widget::context_menu::ToggleBehavior::KeepOpen,
+            Some(mouse::Interaction::Pointer),
             content,
             context_menu::Entry::url_list(
                 config
                     .preview
                     .is_enabled(url.as_str())
                     .then_some(message.hidden_urls.contains(url)),
+                false,
             ),
             move |entry, length| {
                 entry
@@ -1930,6 +1934,8 @@ fn preview_row<'a>(
                         Some(context_menu::Context::Url {
                             url: url_string.as_str(),
                             message: Some(message.hash),
+                            msgid: None,
+                            selected_reactions: vec![],
                         }),
                         length,
                         config,

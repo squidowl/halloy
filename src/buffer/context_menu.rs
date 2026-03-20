@@ -1,9 +1,11 @@
+use std::string::ToString;
+
 use chrono::{DateTime, Utc};
 use data::dashboard::BufferAction;
 use data::user::Nick;
 use data::{Config, Server, User, config, ctcp, isupport, message, target};
 use iced::widget::{Space, button, column, container, row, rule};
-use iced::{Length, Padding};
+use iced::{Length, Padding, mouse};
 
 use crate::widget::{Element, context_menu, double_pass, text};
 use crate::{Theme, font, theme, widget};
@@ -19,6 +21,8 @@ pub enum Context<'a> {
     Url {
         url: &'a str,
         message: Option<message::Hash>,
+        msgid: Option<&'a message::Id>,
+        selected_reactions: Vec<&'a str>,
     },
     Timestamp(&'a DateTime<Utc>),
     NotSentMessage(&'a DateTime<Utc>, &'a message::Hash),
@@ -72,7 +76,10 @@ impl Entry {
         vec![Entry::AddReaction]
     }
 
-    pub fn url_list(preview_hidden: Option<bool>) -> Vec<Self> {
+    pub fn url_list(
+        preview_hidden: Option<bool>,
+        can_send_reactions: bool,
+    ) -> Vec<Self> {
         let mut entries = vec![Entry::CopyUrl, Entry::OpenUrl];
 
         if let Some(preview_hidden) = preview_hidden {
@@ -82,6 +89,11 @@ impl Entry {
             } else {
                 Entry::HidePreview
             });
+        }
+
+        if can_send_reactions {
+            entries.push(Entry::HorizontalRule);
+            entries.push(Entry::AddReaction);
         }
 
         entries
@@ -369,7 +381,7 @@ impl Entry {
                     config,
                 )
             }
-            (Entry::HidePreview, Context::Url { url, message }) => {
+            (Entry::HidePreview, Context::Url { url, message, .. }) => {
                 let message = message.map(|message| {
                     Message::HidePreview(message, url.to_string())
                 });
@@ -382,7 +394,7 @@ impl Entry {
                     config,
                 )
             }
-            (Entry::ShowPreview, Context::Url { url, message }) => {
+            (Entry::ShowPreview, Context::Url { url, message, .. }) => {
                 let message = message.map(|message| {
                     Message::ShowPreview(message, url.to_string())
                 });
@@ -453,15 +465,26 @@ impl Entry {
                 theme,
                 config,
             ),
-            (Entry::AddReaction, Context::Message { msgid: None, .. }) => {
-                menu_button(
-                    "Add reaction".to_string(),
-                    None,
-                    length,
-                    theme,
-                    config,
-                )
-            }
+            (
+                Entry::AddReaction,
+                Context::Url {
+                    msgid: Some(msgid),
+                    selected_reactions,
+                    ..
+                },
+            ) => menu_button(
+                "Add reaction".to_string(),
+                Some(Message::OpenReactionModal(
+                    msgid.clone(),
+                    selected_reactions
+                        .into_iter()
+                        .map(ToString::to_string)
+                        .collect(),
+                )),
+                length,
+                theme,
+                config,
+            ),
             _ => row![].into(),
         })
     }
@@ -541,6 +564,7 @@ pub fn update(message: Message) -> Event {
 
 pub fn message<'a, M>(
     content: impl Into<Element<'a, M>>,
+    source: &'a message::Source,
     msgid: Option<&'a message::Id>,
     selected_reactions: Vec<String>,
     can_send_reactions: bool,
@@ -550,7 +574,10 @@ pub fn message<'a, M>(
 where
     M: From<Message> + 'a,
 {
-    if !can_send_reactions {
+    if !can_send_reactions
+        || msgid.is_none()
+        || matches!(source, message::Source::Internal(_))
+    {
         return content.into();
     }
 
@@ -560,6 +587,7 @@ where
         context_menu::MouseButton::default(),
         context_menu::Anchor::Cursor,
         context_menu::ToggleBehavior::KeepOpen,
+        None,
         content,
         entries,
         move |entry, length| {
@@ -615,6 +643,7 @@ pub fn user<'a>(
         context_menu::MouseButton::default(),
         context_menu::Anchor::Cursor,
         context_menu::ToggleBehavior::KeepOpen,
+        Some(mouse::Interaction::Pointer),
         base,
         entries,
         move |entry, length| {
@@ -647,6 +676,7 @@ pub fn timestamp<'a>(
         context_menu::MouseButton::default(),
         context_menu::Anchor::Cursor,
         context_menu::ToggleBehavior::KeepOpen,
+        None,
         content,
         entries,
         move |entry, length| {
@@ -675,6 +705,7 @@ pub fn not_sent_message<'a>(
         context_menu::MouseButton::Left,
         context_menu::Anchor::Cursor,
         context_menu::ToggleBehavior::KeepOpen,
+        Some(mouse::Interaction::Pointer),
         content,
         entries,
         move |entry, length| {

@@ -37,6 +37,7 @@ pub fn context_menu<'a, T, Message, Theme, Renderer>(
     activation_button: MouseButton,
     anchor: Anchor,
     toggle_behavior: ToggleBehavior,
+    mouse_interaction_on_hover: Option<mouse::Interaction>,
     base: impl Into<Element<'a, Message, Theme, Renderer>>,
     entries: Vec<T>,
     entry: impl Fn(T, Length) -> Element<'a, Message, Theme, Renderer> + 'a,
@@ -52,7 +53,7 @@ pub fn context_menu<'a, T, Message, Theme, Renderer>(
         anchor,
         toggle_behavior,
         menu: None,
-        mouse_interaction_on_hover: mouse::Interaction::Pointer,
+        mouse_interaction_on_hover,
     }
 }
 
@@ -65,7 +66,7 @@ pub struct ContextMenu<'a, T, Message, Theme, Renderer> {
     toggle_behavior: ToggleBehavior,
     // Cached, recreated during overlay if menu is open
     menu: Option<Element<'a, Message, Theme, Renderer>>,
-    mouse_interaction_on_hover: mouse::Interaction,
+    mouse_interaction_on_hover: Option<mouse::Interaction>,
 }
 
 #[derive(Debug)]
@@ -116,7 +117,7 @@ impl<'a, T, Message, Theme, Renderer>
 {
     pub fn mouse_interaction_on_hover(
         mut self,
-        interaction: mouse::Interaction,
+        interaction: Option<mouse::Interaction>,
     ) -> Self {
         self.mouse_interaction_on_hover = interaction;
         self
@@ -336,14 +337,19 @@ where
 
     fn mouse_interaction(
         &self,
-        _tree: &widget::Tree,
+        tree: &widget::Tree,
         layout: Layout<'_>,
         cursor: mouse::Cursor,
-        _viewport: &Rectangle,
-        _renderer: &Renderer,
+        viewport: &Rectangle,
+        renderer: &Renderer,
     ) -> mouse::Interaction {
         if cursor.is_over(layout.bounds()) {
-            self.mouse_interaction_on_hover
+            self.mouse_interaction_on_hover.unwrap_or({
+                let base_state = tree.children.first().unwrap();
+                self.base.as_widget().mouse_interaction(
+                    base_state, layout, cursor, viewport, renderer,
+                )
+            })
         } else {
             mouse::Interaction::default()
         }
