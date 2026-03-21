@@ -2,6 +2,8 @@ name: Deploy Documentation
 
 on:
   push:
+    branches:
+      - main
     tags:
       - "*"
     paths:
@@ -21,11 +23,11 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    env:
-      DOCS_BASE: /
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
@@ -35,18 +37,52 @@ jobs:
         with:
           bun-version: latest
 
-      - name: Install dependencies
+      - name: Resolve stable tag
+        id: stable
+        run: echo "tag=$(git describe --tags --abbrev=0)" >> "$GITHUB_OUTPUT"
+
+      - name: Prepare stable worktree
+        run: git worktree add --detach /tmp/halloy-stable "${{ steps.stable.outputs.tag }}"
+
+      - name: Install stable dependencies
+        working-directory: /tmp/halloy-stable/docs
+        run: bun install --frozen-lockfile
+
+      - name: Build stable docs
+        working-directory: /tmp/halloy-stable/docs
+        env:
+          DOCS_BASE: /
+          DOCS_OUT_DIR: /tmp/halloy-site
+          DOCS_CHANNEL: stable
+          DOCS_STABLE_LABEL: Latest (${{ steps.stable.outputs.tag }})
+          DOCS_NIGHTLY_LABEL: Nightly
+          DOCS_STABLE_URL: https://halloy.chat/
+          DOCS_NIGHTLY_URL: https://halloy.chat/nightly/
+        run: bun run docs:build
+
+      - name: Install nightly dependencies
         working-directory: docs
         run: bun install --frozen-lockfile
 
-      - name: Build docs
+      - name: Build nightly docs
         working-directory: docs
+        env:
+          DOCS_BASE: /nightly/
+          DOCS_OUT_DIR: /tmp/halloy-site/nightly
+          DOCS_CHANNEL: nightly
+          DOCS_STABLE_LABEL: Latest (${{ steps.stable.outputs.tag }})
+          DOCS_NIGHTLY_LABEL: Nightly
+          DOCS_STABLE_URL: https://halloy.chat/
+          DOCS_NIGHTLY_URL: https://halloy.chat/nightly/
         run: bun run docs:build
+
+      - name: Remove nested nightly CNAME
+        run: rm -f /tmp/halloy-site/nightly/CNAME
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: docs/.vitepress/dist
+          path: /tmp/halloy-site
 
   deploy:
     needs: build
