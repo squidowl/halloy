@@ -29,22 +29,26 @@ jobs:
         with:
           bun-version: latest
 
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-
-      - name: Build docs
-        env:
-          DOCS_CHANNEL: nightly
-          DOCS_VERSION: ${{ env.DOCS_VERSION }}
-          DOCS_SHA: ${{ env.DOCS_SHA }}
-        run: bun run docs:build
-
-      - name: Deploy to Vercel
-        working-directory: .
+      - name: Pull Vercel project settings
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_NIGHTLY }}
+        run: bunx vercel pull --yes --environment=production --token "$VERCEL_TOKEN"
+
+      - name: Build docs for Vercel
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_NIGHTLY }}
+          DOCS_CHANNEL: nightly
           DOCS_VERSION: ${{ env.DOCS_VERSION }}
           DOCS_SHA: ${{ env.DOCS_SHA }}
-        run: bunx vercel deploy --prod --yes --token "$VERCEL_TOKEN" --build-env DOCS_CHANNEL=nightly --build-env DOCS_VERSION="$DOCS_VERSION" --build-env DOCS_SHA="$DOCS_SHA"
+        run: bunx vercel build --prod --token "$VERCEL_TOKEN"
+
+      - name: Deploy to Vercel
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_NIGHTLY }}
+        run: bunx vercel deploy --prebuilt --prod --yes --token "$VERCEL_TOKEN"
