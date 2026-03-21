@@ -743,3 +743,33 @@ relevant when combined with the `exclude` setting.
 [servers.<name>.confirm_message_delivery]
 include = { channels = ["#halloy"] }
 ```
+
+## `filehost`
+
+### `enabled`
+
+Enable or disable `draft/FILEHOST` support for this server.
+
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: true
+
+[servers.<name>.filehost]
+enabled = true
+```
+
+### `override_url`
+
+Override the `draft/FILEHOST` ISUPPORT provided by the server with a custom value. This server SHOULD be compatible with the [work-in-progress `draft/FILEHOST` spec](https://github.com/ircv3/ircv3-specifications/pull/562).
+
+
+```toml
+# Type: string
+# Values: any string
+# Default: not set
+
+[servers.<name>.filehost]
+override_url = "https://example.org/upload"
+```
