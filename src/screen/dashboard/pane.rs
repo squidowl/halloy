@@ -1,7 +1,7 @@
 use data::user::ChannelUsers;
 use data::{Config, file_transfer, history, preview};
 use iced::Size;
-use iced::widget::{button, center, container, pane_grid, row, text};
+use iced::widget::{button, center, column, container, pane_grid, row, text};
 
 use super::sidebar;
 use crate::buffer::{self, Buffer};
@@ -167,7 +167,7 @@ impl Pane {
                 move || Message::CloseBufferModal(id),
                 0.2,
             ),
-            None => content,
+            None => column![content].into(),
         };
 
         widget::Content::new(content)

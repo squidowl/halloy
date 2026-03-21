@@ -11,7 +11,7 @@ use rand::RngExt;
 
 use super::{
     Direction, FileTransfer, Id, ReceiveRequest, SendRequest, Status, Task,
-    task,
+    receive_save_path, sanitize_filename, task,
 };
 use crate::{Config, dcc};
 
@@ -89,11 +89,12 @@ impl Manager {
 
         let reverse = config.file_transfer.passive;
 
-        let filename = path
-            .file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or_default()
-            .replace(' ', "_");
+        let filename = sanitize_filename(
+            path.file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or_default(),
+        )
+        .replace(' ', "_");
 
         log::debug!(
             "File transfer send request to {} for {filename:?}",
@@ -188,7 +189,7 @@ impl Manager {
             created_at: Utc::now(),
             direction: Direction::Received,
             remote_user: from.clone(),
-            filename: dcc_send.filename().to_string(),
+            filename: sanitize_filename(dcc_send.filename()),
             size: dcc_send.size(),
             status: Status::PendingApproval,
         };
@@ -223,8 +224,10 @@ impl Manager {
                 if let Some(save_directory) =
                     &config.file_transfer.save_directory
                 {
-                    let save_path =
-                        save_directory.join(&file_transfer.filename);
+                    let save_path = receive_save_path(
+                        save_directory,
+                        &file_transfer.filename,
+                    );
 
                     log::debug!(
                         "Auto-accepting file transfer from {} for {:?}",

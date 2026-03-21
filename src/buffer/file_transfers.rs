@@ -78,17 +78,25 @@ impl FileTransfers {
                     match &config.file_transfer.save_directory {
                         Some(save_directory) => {
                             let file_save_directory =
-                                save_directory.join(transfer.filename);
+                                file_transfer::receive_save_path(
+                                    save_directory,
+                                    &transfer.filename,
+                                );
                             return Task::done(Message::SavePathSelected(
                                 id,
                                 Some(file_save_directory),
                             ));
                         }
                         None => {
+                            let sanitized_filename =
+                                file_transfer::sanitize_filename(
+                                    &transfer.filename,
+                                );
+
                             return Task::perform(
                                 async move {
                                     rfd::AsyncFileDialog::new()
-                                        .set_file_name(transfer.filename)
+                                        .set_file_name(sanitized_filename)
                                         .save_file()
                                         .await
                                         .map(|handle| {

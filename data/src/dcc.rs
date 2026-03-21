@@ -5,6 +5,7 @@ use irc::proto;
 use itertools::Itertools;
 
 use crate::ctcp;
+use crate::file_transfer::sanitize_filename;
 
 pub fn decode(content: &str) -> Option<Command> {
     let query = ctcp::parse_query(content)?;
@@ -85,12 +86,7 @@ impl Send {
                 .filter_map(|(i, arg)| decode_host(arg).map(|_| i))
                 .next_back()?;
 
-        let filename = args
-            .iter()
-            .take(host_pos)
-            .join(" ")
-            .trim_matches('\"')
-            .to_string();
+        let filename = sanitize_filename(&args.iter().take(host_pos).join(" "));
 
         let mut remaining_args = args.into_iter().skip(host_pos);
 
@@ -214,6 +210,39 @@ mod tests {
                 host: IpAddr::V4(Ipv4Addr::from(1402301083)),
                 port: NonZeroU16::new(12350).unwrap(),
                 size: 1453953495
+            })
+        );
+    }
+
+    #[test]
+    fn send_decode_sanitizes_unix_path_traversal() {
+        let args = "../../../tmp/pwned 1402301083 12350 1453953495";
+        let send = Send::decode(args.split_whitespace());
+
+        assert_eq!(
+            send,
+            Some(Send::Direct {
+                filename: "pwned".to_string(),
+                host: IpAddr::V4(Ipv4Addr::from(1402301083)),
+                port: NonZeroU16::new(12350).unwrap(),
+                size: 1453953495,
+            })
+        );
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn send_decode_sanitizes_windows_path_traversal() {
+        let args = "..\\..\\AppData\\malware.exe 1402301083 12350 1453953495";
+        let send = Send::decode(args.split_whitespace());
+
+        assert_eq!(
+            send,
+            Some(Send::Direct {
+                filename: "malware.exe".to_string(),
+                host: IpAddr::V4(Ipv4Addr::from(1402301083)),
+                port: NonZeroU16::new(12350).unwrap(),
+                size: 1453953495,
             })
         );
     }

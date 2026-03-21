@@ -109,12 +109,13 @@ pub fn view<'a>(
                             ShownStatus::Historical => false,
                         };
 
-                    let text =
-                        selectable_text(
-                            config.buffer.nickname.brackets.format(
-                                user.display(with_access_levels, truncate),
-                            ),
-                        )
+                    let (user_display, show_nickname_tooltip) = user
+                        .display_with_truncated(with_access_levels, truncate);
+
+                    let nick_text =
+                        config.buffer.nickname.brackets.format(user_display);
+
+                    let text = selectable_text(nick_text)
                         .font_maybe(
                             theme::font_style::nickname(theme, is_user_offline)
                                 .map(font::get),
@@ -151,8 +152,7 @@ pub fn view<'a>(
                             &config.buffer.nickname.click,
                         )
                         .map(scroll_view::Message::ContextMenu),
-                        // We show the full nickname in the tooltip if truncation is enabled.
-                        truncate.map(|_| user.as_str()),
+                        show_nickname_tooltip.then_some(user.as_str()),
                         tooltip::Position::Bottom,
                         theme,
                     );
@@ -178,7 +178,7 @@ pub fn view<'a>(
                                 )
                             }
                             message::Link::Url(_) => {
-                                context_menu::Entry::url_list(None)
+                                context_menu::Entry::url_list(None, false)
                             }
                             _ => vec![],
                         },
@@ -195,6 +195,8 @@ pub fn view<'a>(
                                 link.url().map(|url| Context::Url {
                                     url,
                                     message: None,
+                                    msgid: None,
+                                    selected_reactions: vec![],
                                 })
                             };
 

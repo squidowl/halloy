@@ -126,6 +126,7 @@ pub fn view<'a>(
 
                         Some(context_menu::message(
                             content,
+                            message.target.source(),
                             None,
                             vec![],
                             false,
@@ -164,6 +165,7 @@ pub fn view<'a>(
 
                         Some(context_menu::message(
                             content,
+                            message.target.source(),
                             None,
                             vec![],
                             false,

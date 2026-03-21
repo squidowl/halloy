@@ -452,6 +452,7 @@ pub fn view<'a>(
         context_menu::MouseButton::default(),
         context_menu::Anchor::Cursor,
         context_menu::ToggleBehavior::KeepOpen,
+        Some(mouse::Interaction::Text),
         text_input,
         Actions::list(),
         move |menu, length| {
@@ -519,7 +520,6 @@ pub fn view<'a>(
             }
         },
     )
-    .mouse_interaction_on_hover(iced::advanced::mouse::Interaction::Text)
     .into();
 
     let our_user_style = {
@@ -1377,38 +1377,7 @@ impl State {
 
                             if let Some(Err(error)) =
                                 self.parsed.get(cursor_position.line)
-                                && match error {
-                                    input::Error::ExceedsByteLimit {
-                                        ..
-                                    }
-                                    | input::Error::Command(
-                                        command::Error::InvalidModeString
-                                        | command::Error::ArgTooLong { .. }
-                                        | command::Error::TooManyTargets {
-                                            ..
-                                        }
-                                        | command::Error::NotPositiveInteger
-                                        | command::Error::InvalidChannelName {
-                                            ..
-                                        }
-                                        | command::Error::InvalidServerUrl,
-                                    ) => true,
-                                    input::Error::Command(
-                                        command::Error::IncorrectArgCount {
-                                            actual,
-                                            max,
-                                            ..
-                                        },
-                                    ) => actual > max,
-                                    input::Error::Command(
-                                        command::Error::MissingSlash
-                                        | command::Error::MissingCommand
-                                        | command::Error::NoModeString
-                                        | command::Error::Connected
-                                        | command::Error::Disconnected
-                                        | command::Error::NotInChannel,
-                                    ) => false,
-                                }
+                                && show_while_typing(error)
                             {
                                 self.error = Some(error.to_string());
                             }
@@ -2232,30 +2201,7 @@ impl State {
             self.error = None;
 
             if let Some(Err(error)) = self.parsed.get(cursor_position.line)
-                && match error {
-                    input::Error::ExceedsByteLimit { .. }
-                    | input::Error::Command(
-                        command::Error::InvalidModeString
-                        | command::Error::ArgTooLong { .. }
-                        | command::Error::TooManyTargets { .. }
-                        | command::Error::NotPositiveInteger
-                        | command::Error::InvalidChannelName { .. }
-                        | command::Error::InvalidServerUrl,
-                    ) => true,
-                    input::Error::Command(
-                        command::Error::IncorrectArgCount {
-                            actual, max, ..
-                        },
-                    ) => actual > max,
-                    input::Error::Command(
-                        command::Error::MissingSlash
-                        | command::Error::MissingCommand
-                        | command::Error::NoModeString
-                        | command::Error::Connected
-                        | command::Error::Disconnected
-                        | command::Error::NotInChannel,
-                    ) => false,
-                }
+                && show_while_typing(error)
             {
                 self.error = Some(error.to_string());
             }
@@ -2576,6 +2522,37 @@ fn input_lines(text: &str) -> impl Iterator<Item = &str> {
     text.split('\n')
 }
 
+fn show_while_typing(error: &input::Error) -> bool {
+    match error {
+        input::Error::ExceedsByteLimit { .. }
+        | input::Error::Command(
+            command::Error::InvalidModeString
+            | command::Error::ArgTooLong { .. }
+            | command::Error::TooManyTargets { .. }
+            | command::Error::NotPositiveInteger
+            | command::Error::InvalidChannelName { .. }
+            | command::Error::InvalidServerUrl
+            | command::Error::InvalidChathistoryMessageReference
+            | command::Error::InvalidChathistoryTimestamp
+            | command::Error::ChathistoryLimitTooLarge { .. },
+        ) => true,
+        input::Error::Command(command::Error::IncorrectArgCount {
+            actual,
+            max,
+            ..
+        }) => actual > max,
+        input::Error::Command(
+            command::Error::MissingSlash
+            | command::Error::MissingCommand
+            | command::Error::InvalidChathistorySubcommand
+            | command::Error::NoModeString
+            | command::Error::Connected
+            | command::Error::Disconnected
+            | command::Error::NotInChannel,
+        ) => false,
+    }
+}
+
 fn try_clipboard_upload() -> Option<std::path::PathBuf> {
     // macos needs special treatment
     #[cfg(target_os = "macos")]
@@ -2611,7 +2588,7 @@ fn macos_clipboard_file() -> Option<std::path::PathBuf> {
         pasteboard.stringForType(&type_str)?.to_string()
     };
 
-    // pasteboard may return a file-reference URL: (e.g. `file:///.file/id=…`) 
+    // pasteboard may return a file-reference URL: (e.g. `file:///.file/id=…`)
     // rather than a path URL. NSURL.filePathURL resolves either to a real path.
     let path_str = {
         let ns_url_str = NSString::from_str(url_str.trim());
