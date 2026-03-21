@@ -1,16 +1,11 @@
 import footnote from "markdown-it-footnote";
 import { defineConfig } from "vitepress";
 
-const releaseLabel = process.env.DOCS_VERSION ?? "Latest Release";
-const nightlyLabel = process.env.DOCS_SHA
-  ? `Nightly (${process.env.DOCS_SHA.slice(0, 7)})`
-  : "Nightly";
-const docsChannel = process.env.DOCS_CHANNEL === "nightly" ? nightlyLabel : releaseLabel;
-
 export default defineConfig({
   title: "Halloy",
   description:
     "Halloy is an open-source IRC client written in Rust, with the iced GUI library. It aims to provide a simple and fast client for Mac, Windows, and Linux platforms.",
+  base: process.env.DOCS_BASE ?? "/",
   appearance: "force-dark",
   cleanUrls: true,
   head: [["link", { rel: "icon", type: "image/png", href: "/favicon.png" }]],
@@ -35,13 +30,6 @@ export default defineConfig({
       level: [2, 4],
     },
     nav: [
-      {
-        text: docsChannel,
-        items: [
-          { text: releaseLabel, link: "/release" },
-          { text: nightlyLabel, link: "/nightly" },
-        ],
-      },
       {
         text: "Themes",
         link: "https://themes.halloy.chat/",
