@@ -26,12 +26,17 @@ jobs:
         with:
           bun-version: latest
 
+      - name: Setup Node
+        uses: actions/setup-node@60edb5dd545a775178f52524783378180af0d1f8 # v4.0.3
+        with:
+          node-version: 22
+
       - name: Pull Vercel project settings
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-        run: bunx vercel pull --yes --environment=production --token "$VERCEL_TOKEN"
+        run: npx vercel pull --yes --environment=production --token "$VERCEL_TOKEN"
 
       - name: Build docs for Vercel
         env:
@@ -41,11 +46,11 @@ jobs:
           DOCS_CHANNEL: release
           DOCS_VERSION: ${{ env.DOCS_VERSION }}
           DOCS_SHA: ${{ env.DOCS_SHA }}
-        run: bunx vercel build --prod --token "$VERCEL_TOKEN"
+        run: npx vercel build --prod --token "$VERCEL_TOKEN"
 
       - name: Deploy to Vercel
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-        run: bunx vercel deploy --prebuilt --prod --yes --token "$VERCEL_TOKEN"
+        run: npx vercel deploy --prebuilt --prod --yes --token "$VERCEL_TOKEN"
