@@ -2577,13 +2577,12 @@ fn input_lines(text: &str) -> impl Iterator<Item = &str> {
 }
 
 fn try_clipboard_upload() -> Option<std::path::PathBuf> {
-    // On macOS, check for a copied file first.
+    // macos needs special treatment
     #[cfg(target_os = "macos")]
     if let Some(path) = macos_clipboard_file() {
         return Some(path);
     }
 
-    // Try image data (e.g. a screenshot copied to the clipboard).
     let mut cb = arboard::Clipboard::new().ok()?;
     let img = cb.get_image().ok()?;
 
