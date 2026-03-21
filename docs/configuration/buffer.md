@@ -373,6 +373,7 @@ op = "/mode #halloy +ooo $1 $2 $3"
 halloy = "/me says halloy to $1!"
 topic = "/topic #halloy $1-"
 deopme = "/mode -o $nick"
+np = "/exec mpc current --format '/me is now playing %artist% - %title%'"
 ```
 
 Use `$1` through `$9` to insert positional arguments.  A hyphen after
@@ -394,6 +395,56 @@ send a regular message the `/msg` command (or equivalent, such as
 
 - Aliases take precedence over built-in commands with the same name.
 - Alias expansion happens once; aliases do not expand other aliases.
+
+### `exec`
+
+Configure `/exec`.
+
+::: warning
+`/exec` runs a local shell command on your machine. Enable it only if you trust the commands you plan to run.
+:::
+
+See the [Exec Command guide](../guides/exec-command.md) for a few simple examples.
+
+#### `enabled`
+
+Enable `/exec`.
+When disabled, submitting `/exec` shows an error instead of running the shell command.
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: false
+
+[buffer.commands.exec]
+enabled = false
+```
+
+#### `timeout`
+
+Time in seconds to wait before timing out `/exec`.
+
+```toml
+# Type: integer
+# Values: any non-negative integer
+# Default: 5
+
+[buffer.commands.exec]
+timeout = 5
+```
+
+#### `max_output_bytes`
+
+Maximum number of stdout bytes accepted from `/exec`.
+
+```toml
+# Type: integer
+# Values: any non-negative integer
+# Default: 4096
+
+[buffer.commands.exec]
+max_output_bytes = 4096
+```
 
 ### `sysinfo`
 
