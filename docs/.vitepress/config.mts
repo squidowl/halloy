@@ -1,10 +1,6 @@
 import footnote from "markdown-it-footnote";
 import { defineConfig } from "vitepress";
 
-const releaseLabel = process.env.DOCS_VERSION ?? "Latest Release";
-const nightlyLabel = "Nightly";
-const docsChannel = process.env.DOCS_CHANNEL === "nightly" ? nightlyLabel : releaseLabel;
-
 export default defineConfig({
   title: "Halloy",
   description:
@@ -33,13 +29,6 @@ export default defineConfig({
       level: [2, 4],
     },
     nav: [
-      {
-        text: docsChannel,
-        items: [
-          { text: releaseLabel, link: "/release" },
-          { text: nightlyLabel, link: "/nightly" },
-        ],
-      },
       {
         text: "Themes",
         link: "https://themes.halloy.chat/",
