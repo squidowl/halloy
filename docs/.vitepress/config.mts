@@ -73,6 +73,7 @@ export default defineConfig({
           { text: "Connect with soju", link: "/guides/connect-with-soju" },
           { text: "Connect with ZNC", link: "/guides/connect-with-znc" },
           { text: "Custom Themes", link: "/guides/custom-themes" },
+          { text: "Exec Command", link: "/guides/exec-command" },
           {
             text: "Example Server Configurations",
             link: "/guides/example-server-configurations",

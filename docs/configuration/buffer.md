@@ -404,6 +404,8 @@ Configure `/exec`.
 `/exec` runs a local shell command on your machine. Enable it only if you trust the commands you plan to run.
 :::
 
+See the [Exec Command guide](../guides/exec-command.md) for a few simple examples.
+
 #### `enabled`
 
 Enable `/exec`.
