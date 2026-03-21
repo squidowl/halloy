@@ -3882,7 +3882,12 @@ impl Client {
     }
 
     pub fn filehost(&self) -> Option<&str> {
-        isupport::get_filehost(&self.isupport)
+        let isupport_url = isupport::get_filehost(&self.isupport);
+        match &self.config.filehost {
+            None => isupport_url,
+            Some(filehost) if !filehost.enabled => None,
+            Some(filehost) => filehost.override_url.as_deref().or(isupport_url),
+        }
     }
 
     pub fn filehost_auth(&self) -> Option<upload::Auth> {
