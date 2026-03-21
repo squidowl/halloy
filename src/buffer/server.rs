@@ -18,6 +18,7 @@ pub enum Message {
     ScrollView(scroll_view::Message),
     InputView(input_view::Message),
     FileHostUrlReady(String),
+    FilesDropped(Vec<std::path::PathBuf>),
 }
 
 pub enum Event {
@@ -370,6 +371,34 @@ impl Server {
                     false,
                 );
                 (task.map(Message::InputView), None)
+            }
+            Message::FilesDropped(paths) => {
+                let (task, event) = self.input_view.update(
+                    input_view::Message::FilesSelected(paths),
+                    &self.buffer,
+                    clients,
+                    history,
+                    main_window,
+                    config,
+                    false,
+                );
+                (
+                    task.map(Message::InputView),
+                    event.and_then(|e| match e {
+                        input_view::Event::FileHostUpload {
+                            server,
+                            target,
+                            file_paths,
+                            abort_registrations,
+                        } => Some(Event::FileHostUpload {
+                            server,
+                            target,
+                            file_paths,
+                            abort_registrations,
+                        }),
+                        _ => None,
+                    }),
+                )
             }
         }
     }

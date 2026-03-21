@@ -21,7 +21,7 @@ use data::{
     upload,
 };
 use iced::widget::pane_grid::{self, PaneGrid};
-use iced::widget::{Space, column, container, row};
+use iced::widget::{Space, center, column, container, row, stack, text};
 use iced::{Length, Padding, Size, Task, Vector, advanced, clipboard};
 use irc::proto;
 
@@ -63,6 +63,7 @@ pub struct Dashboard {
     previews: preview::Collection,
     preview_client: Option<Arc<reqwest::Client>>,
     buffer_settings: dashboard::BufferSettings,
+    pub file_being_hovered: bool,
 }
 
 #[derive(Debug)]
@@ -141,6 +142,7 @@ impl Dashboard {
             previews: preview::Collection::default(),
             preview_client: preview_client_from_config(config).map(Arc::new),
             buffer_settings: dashboard::BufferSettings::default(),
+            file_being_hovered: false,
         };
 
         let command = dashboard.track(None);
@@ -1930,6 +1932,25 @@ impl Dashboard {
             // as `anchored_overlay` to prevent diff
             // from firing when displaying command bar
             column![column![base]].into()
+        };
+
+        let base = if self.file_being_hovered {
+            stack![
+                base,
+                container(
+                    center(
+                        text("Drop to upload file").style(theme::text::primary),
+                    )
+                    .width(Length::Fill)
+                    .height(Length::Fill),
+                )
+                .width(Length::Fill)
+                .height(Length::Fill)
+                .style(theme::container::transparent_overlay),
+            ]
+            .into()
+        } else {
+            base
         };
 
         shortcut(base, config.keyboard.shortcuts(), Message::Shortcut)
@@ -3962,6 +3983,7 @@ impl Dashboard {
             previews: preview::Collection::default(),
             preview_client: preview_client_from_config(config).map(Arc::new),
             buffer_settings: data.buffer_settings.clone(),
+            file_being_hovered: false,
         };
 
         let mut tasks = vec![sidebar_task.map(Message::Sidebar)];
@@ -3996,6 +4018,36 @@ impl Dashboard {
         self.history.get_filters()
     }
 
+    pub fn handle_file_drop(&mut self, path: PathBuf) -> Task<Message> {
+        let Focus { window, pane } = self.focus;
+
+        let Some(pane_state) = self.panes.get(window, pane) else {
+            return Task::none();
+        };
+
+        let msg = match &pane_state.buffer {
+            Buffer::Channel(_) => Some(buffer::Message::Channel(
+                buffer::channel::Message::FilesDropped(vec![path]),
+            )),
+            Buffer::Query(_) => Some(buffer::Message::Query(
+                buffer::query::Message::FilesDropped(vec![path]),
+            )),
+            Buffer::Server(_) => Some(buffer::Message::Server(
+                buffer::server::Message::FilesDropped(vec![path]),
+            )),
+            _ => None,
+        };
+
+        if let Some(msg) = msg {
+            Task::done(Message::Pane(
+                window,
+                pane::Message::Buffer(pane, msg),
+            ))
+        } else {
+            Task::none()
+        }
+    }
+
     pub fn handle_window_event(
         &mut self,
         id: window::Id,
@@ -4015,6 +4067,16 @@ impl Dashboard {
                 | window::Event::Resized(_)
                 | window::Event::Unfocused
                 | window::Event::Opened { .. } => {}
+                window::Event::FileHovered => {
+                    self.file_being_hovered = true;
+                }
+                window::Event::FilesHoveredLeft => {
+                    self.file_being_hovered = false;
+                }
+                window::Event::FileDropped(path) => {
+                    self.file_being_hovered = false;
+                    return self.handle_file_drop(path);
+                }
             }
         } else if self.theme_editor.as_ref().is_some_and(|e| e.window == id) {
             match event {
@@ -4028,7 +4090,10 @@ impl Dashboard {
                 | window::Event::Resized(_)
                 | window::Event::Focused
                 | window::Event::Unfocused
-                | window::Event::Opened { .. } => {}
+                | window::Event::Opened { .. }
+                | window::Event::FileHovered
+                | window::Event::FilesHoveredLeft
+                | window::Event::FileDropped(_) => {}
             }
         }
 

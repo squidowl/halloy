@@ -26,6 +26,7 @@ pub enum Message {
     ContextMenu(context_menu::Message),
     Topic(topic::Message),
     FileHostUrlReady(String),
+    FilesDropped(Vec<std::path::PathBuf>),
 }
 
 pub enum Event {
@@ -423,6 +424,34 @@ impl Channel {
                     share_typing,
                 );
                 (task.map(Message::InputView), None)
+            }
+            Message::FilesDropped(paths) => {
+                let (task, event) = self.input_view.update(
+                    input_view::Message::FilesSelected(paths),
+                    &self.buffer,
+                    clients,
+                    history,
+                    main_window,
+                    config,
+                    share_typing,
+                );
+                (
+                    task.map(Message::InputView),
+                    event.and_then(|e| match e {
+                        input_view::Event::FileHostUpload {
+                            server,
+                            target,
+                            file_paths,
+                            abort_registrations,
+                        } => Some(Event::FileHostUpload {
+                            server,
+                            target,
+                            file_paths,
+                            abort_registrations,
+                        }),
+                        _ => None,
+                    }),
+                )
             }
             Message::Topic(message) => (
                 Task::none(),

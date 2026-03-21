@@ -933,7 +933,10 @@ impl Halloy {
                     window::Event::Opened { .. }
                     | window::Event::Moved(_)
                     | window::Event::Resized(_)
-                    | window::Event::CloseRequested => {}
+                    | window::Event::CloseRequested
+                    | window::Event::FileHovered
+                    | window::Event::FilesHoveredLeft
+                    | window::Event::FileDropped(_) => {}
                 }
 
                 if id == self.main_window.id {
@@ -969,6 +972,30 @@ impl Halloy {
                                 );
                             } else {
                                 return save.chain(iced::exit());
+                            }
+                        }
+                        window::Event::FileHovered => {
+                            if let Screen::Dashboard(dashboard) =
+                                &mut self.screen
+                            {
+                                dashboard.file_being_hovered = true;
+                            }
+                        }
+                        window::Event::FilesHoveredLeft => {
+                            if let Screen::Dashboard(dashboard) =
+                                &mut self.screen
+                            {
+                                dashboard.file_being_hovered = false;
+                            }
+                        }
+                        window::Event::FileDropped(ref path) => {
+                            if let Screen::Dashboard(dashboard) =
+                                &mut self.screen
+                            {
+                                dashboard.file_being_hovered = false;
+                                return dashboard
+                                    .handle_file_drop(path.clone())
+                                    .map(Message::Dashboard);
                             }
                         }
                     }
