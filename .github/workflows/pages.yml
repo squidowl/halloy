@@ -2,8 +2,8 @@ name: Deploy Documentation
 
 on:
   push:
-    branches:
-      - main
+    tags:
+      - "*"
     paths:
       - "docs/**"
       - ".github/workflows/pages.yml"
