@@ -1511,7 +1511,7 @@ fn parse_command(
                 let command = raw.trim();
 
                 if !config.buffer.commands.exec.enabled {
-                    Ok(Command::Internal(Internal::Exec(command.to_string())))
+                    Err(Error::ExecDisabled)
                 } else if command.is_empty() {
                     Err(Error::IncorrectArgCount {
                         min: 1,
@@ -1797,6 +1797,8 @@ pub enum Error {
     InvalidChathistoryTimestamp,
     #[error("too large (maximum limit: {maximum_limit})")]
     ChathistoryLimitTooLarge { maximum_limit: u16 },
+    #[error("exec is not enabled by the user")]
+    ExecDisabled,
 }
 
 fn fmt_incorrect_arg_count(min: usize, max: usize, actual: usize) -> String {
@@ -1892,12 +1894,12 @@ mod tests {
     }
 
     #[test]
-    fn parse_exec_without_command_when_disabled() {
+    fn parse_exec_when_disabled() {
         let mut config = Config::default();
         config.buffer.commands.exec.enabled = false;
 
-        let command = parse(
-            "/exec   ",
+        let error = parse(
+            "/exec echo hi",
             None,
             None,
             AutoFormat::default(),
@@ -1905,11 +1907,8 @@ mod tests {
             &HashMap::new(),
             &config,
         )
-        .unwrap();
+        .unwrap_err();
 
-        assert!(matches!(
-            command,
-            Command::Internal(Internal::Exec(command)) if command.is_empty()
-        ));
+        assert!(matches!(error, Error::ExecDisabled));
     }
 }

@@ -2372,7 +2372,8 @@ fn show_while_typing(error: &input::Error) -> bool {
             | command::Error::InvalidServerUrl
             | command::Error::InvalidChathistoryMessageReference
             | command::Error::InvalidChathistoryTimestamp
-            | command::Error::ChathistoryLimitTooLarge { .. },
+            | command::Error::ChathistoryLimitTooLarge { .. }
+            | command::Error::ExecDisabled,
         ) => true,
         input::Error::Command(command::Error::IncorrectArgCount {
             actual,
