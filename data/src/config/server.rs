@@ -241,8 +241,11 @@ impl Default for Server {
 pub struct Filehost {
     /// Whether to use filehost for file uploads. Defaults to `true`.
     pub enabled: bool,
-    /// Override the filehost URL advertised by the server via ISUPPORT.
+    /// Override the filehost URL advertised by the server via ISUPPORT
     pub override_url: Option<String>,
+    /// Send an `Authorization` header with requests that match the buffer username:password. 
+    /// Defaults to `false`.
+    pub send_credentials: bool,
 }
 
 impl Default for Filehost {
@@ -250,6 +253,7 @@ impl Default for Filehost {
         Self {
             enabled: true,
             override_url: None,
+            send_credentials: false
         }
     }
 }

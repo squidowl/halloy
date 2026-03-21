@@ -3891,6 +3891,16 @@ impl Client {
     }
 
     pub fn filehost_auth(&self) -> Option<upload::Auth> {
+        let send_credentials = self
+            .config
+            .filehost
+            .as_ref()
+            .is_some_and(|f| f.send_credentials);
+
+        if !send_credentials {
+            return None;
+        }
+
         match self.config.sasl.as_ref()? {
             config::server::Sasl::Plain {
                 username, password, ..

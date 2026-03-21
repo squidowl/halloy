@@ -760,6 +760,21 @@ Enable or disable `draft/FILEHOST` support for this server.
 enabled = true
 ```
 
+### `send_credentials`
+
+Send an `Authorization` header with uploads. This will send your username and
+password or other credential to the filehost.
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: false
+
+[servers.<name>.filehost]
+send_credentials = true
+```
+
+
 ### `override_url`
 
 Override the `draft/FILEHOST` ISUPPORT provided by the server with a custom value. This server SHOULD be compatible with the [work-in-progress `draft/FILEHOST` spec](https://github.com/ircv3/ircv3-specifications/pull/562).
