@@ -801,7 +801,7 @@ impl<'a> ChannelQueryLayout<'a> {
 
 impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
     fn format(
-        &self,
+        &mut self,
         message: &'a data::Message,
         right_aligned_width: Option<f32>,
         max_prefix_width: Option<f32>,

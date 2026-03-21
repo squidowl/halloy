@@ -94,6 +94,16 @@ pub fn table(theme: &Theme, idx: usize) -> Style {
     }
 }
 
+pub fn table_header(theme: &Theme) -> Style {
+    let buffer = theme.styles().buffer;
+
+    Style {
+        background: Some(Background::Color(buffer.background_title_bar)),
+        text_color: Some(theme.styles().text.primary.color),
+        ..Default::default()
+    }
+}
+
 pub fn none(_theme: &Theme) -> Style {
     Style {
         background: None,

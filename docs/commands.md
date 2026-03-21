@@ -54,6 +54,7 @@ Aliases are resolved before built-in commands and take precedence when they use 
 | `quit`          | `disconnect` | Disconnect from the server with an optional reason                                       |
 | `raw`           |              | Send data to the server without modifying it                                             |
 | `reconnect`     |              | Reconnect to a current server if disconnected                                            |
+| `search`        |              | Search message history by content, sender, and/or time[^5]                               |
 | `setname`       |              | Change your realname[^5]                                                                 |
 | `sysinfo`       |              | Send system information (OS, CPU, memory, GPU, uptime)                                   |
 | `topic`         | `t`          | Retrieve the topic of a channel or set a new topic[^1]                                   |
