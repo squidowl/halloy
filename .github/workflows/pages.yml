@@ -39,7 +39,15 @@ jobs:
 
       - name: Resolve stable tag
         id: stable
-        run: echo "tag=$(git describe --tags --abbrev=0)" >> "$GITHUB_OUTPUT"
+        run: |
+          for tag in $(git tag --sort=-creatordate); do
+            if git ls-tree --name-only "$tag":docs >/dev/null 2>&1; then
+              echo "tag=$tag" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          done
+          echo "No tag with docs/ found" >&2
+          exit 1
 
       - name: Prepare stable worktree
         run: git worktree add --detach /tmp/halloy-stable "${{ steps.stable.outputs.tag }}"
