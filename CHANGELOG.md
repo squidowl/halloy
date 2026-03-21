@@ -1,5 +1,7 @@
 # Unreleased
 
+# 2026.5 (2026-03-21)
+
 Added:
 
 - Setting to limit reaction display length (`buffer.channel.message.max_reaction_display`) and maximum length (`buffer.channel.message.max_reaction_chars`)
