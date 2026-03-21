@@ -22,7 +22,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      DOCS_BASE: /halloy/
+      DOCS_BASE: /
     steps:
       - name: Checkout
         uses: actions/checkout@v5
