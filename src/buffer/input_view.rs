@@ -1404,6 +1404,8 @@ impl State {
                                 .get_server_supports_detach(buffer.server());
                             let isupport =
                                 clients.get_isupport(buffer.server());
+                            let has_filehost =
+                                clients.get_filehost(buffer.server()).is_some();
 
                             self.completion.process(
                                 &line,
@@ -1418,6 +1420,7 @@ impl State {
                                 is_connected,
                                 supports_detach,
                                 &isupport,
+                                has_filehost,
                                 config,
                             );
 
@@ -2257,6 +2260,7 @@ impl State {
             let supports_detach =
                 clients.get_server_supports_detach(buffer.server());
             let isupport = clients.get_isupport(buffer.server());
+            let has_filehost = clients.get_filehost(buffer.server()).is_some();
 
             self.completion.process(
                 &line,
@@ -2271,6 +2275,7 @@ impl State {
                 is_connected,
                 supports_detach,
                 &isupport,
+                has_filehost,
                 config,
             );
 

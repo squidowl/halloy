@@ -56,6 +56,7 @@ impl Completion {
         is_connected: bool,
         supports_detach: bool,
         isupport: &HashMap<isupport::Kind, isupport::Parameter>,
+        has_filehost: bool,
         config: &Config,
     ) {
         let channels: Vec<_> = channels.into_iter().collect();
@@ -71,6 +72,7 @@ impl Completion {
                 is_connected,
                 supports_detach,
                 isupport,
+                has_filehost,
                 config,
             );
 
@@ -318,6 +320,7 @@ impl Commands {
         is_connected: bool,
         supports_detach: bool,
         isupport: &HashMap<isupport::Kind, isupport::Parameter>,
+        has_filehost: bool,
         config: &Config,
     ) {
         let Some((head, rest)) = input.split_once('/') else {
@@ -348,6 +351,7 @@ impl Commands {
                 current_target,
                 supports_detach,
                 isupport,
+                has_filehost,
             )
         } else {
             disconnected_command_list(server)
@@ -706,6 +710,7 @@ fn connected_command_list<'a>(
     current_target: Option<&Target>,
     supports_detach: bool,
     isupport: &HashMap<isupport::Kind, isupport::Parameter>,
+    has_filehost: bool,
 ) -> Vec<Command> {
     let channels: Vec<_> = channels.into_iter().collect();
     let mut command_list = vec![
@@ -1248,7 +1253,7 @@ fn connected_command_list<'a>(
 
     command_list.extend(isupport_commands);
 
-    if isupport.contains_key(&isupport::Kind::FILEHOST) {
+    if has_filehost {
         command_list.push(Command {
             title: "UPLOAD".into(),
             args: vec![Argument {
