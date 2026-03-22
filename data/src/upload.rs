@@ -61,6 +61,8 @@ pub async fn upload(
     let bytes = tokio::fs::read(path).await?;
     let content_type = mime_for_bytes(&bytes);
 
+    log::info!("uploading file to {base}");
+
     let mut req = client
         .post(base.clone())
         .header(header::CONTENT_TYPE, content_type)

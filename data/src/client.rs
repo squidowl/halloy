@@ -1044,12 +1044,14 @@ impl Client {
                 }
 
                 let network = BouncerNetwork::parse(netid, network)?;
+                let mut network_config = self.config.bouncer_config();
+                network_config.bouncer_filehost_url = self.filehost().map(String::from);
                 return Ok(vec![Event::BouncerNetwork(
                     Server {
                         network: Some(network.into()),
                         ..self.server.clone()
                     },
-                    self.config.bouncer_config(),
+                    network_config,
                 )]);
             }
             Command::CAP(_, sub, a, b) if sub == "LS" => {
@@ -3886,19 +3888,29 @@ impl Client {
         match &self.config.filehost {
             None => isupport_url,
             Some(filehost) if !filehost.enabled => None,
+            Some(filehost) if self.server.is_bouncer_network() => {
+                // prefer network's own filehost over bouncer
+                isupport_url.or(filehost.override_url.as_deref())
+            }
             Some(filehost) => filehost.override_url.as_deref().or(isupport_url),
         }
     }
 
     pub fn filehost_auth(&self) -> Option<upload::Auth> {
-        let send_credentials = self
-            .config
-            .filehost
-            .as_ref()
-            .is_some_and(|f| f.send_credentials);
+        let filehost = self.config.filehost.as_ref()?;
 
-        if !send_credentials {
+        if !filehost.send_credentials {
             return None;
+        }
+
+        if self.server.is_bouncer_network() {
+            // only send credentials if the network's filehost URL matches bouncer
+            // — otherwise the URL has changed, so we should reset the settings
+            let child_url = self.filehost();
+            let bouncer_url = self.config.bouncer_filehost_url.as_deref();
+            if child_url != bouncer_url {
+                return None;
+            }
         }
 
         match self.config.sasl.as_ref()? {
@@ -3908,7 +3920,7 @@ impl Client {
                 username: username.clone(),
                 password: password.clone()?,
             }),
-            config::server::Sasl::External { .. } => None,
+            config::server::Sasl::External { .. } => None, // ¯\_(ツ)_/¯
         }
     }
 
