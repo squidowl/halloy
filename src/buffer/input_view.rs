@@ -1198,12 +1198,12 @@ impl State {
                 self.input_content.perform(text_editor::Action::Edit(
                     text_editor::Edit::Paste(std::sync::Arc::new(url)),
                 ));
-                (Task::none(), None)
+                (self.focus(), None)
             }
             Message::FileHostUrlReady(_) => {
                 // Failed or cancelled — decrement only if not already zeroed.
                 self.uploading = self.uploading.saturating_sub(1);
-                (Task::none(), None)
+                (self.focus(), None)
             }
             Message::DeleteWordBackward(save_to_clipboard) => {
                 self.input_content.perform(text_editor::Action::Select(
