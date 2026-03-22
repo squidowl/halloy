@@ -47,7 +47,7 @@ If your server does not allow advertising a filehost token, or you do not contro
 
 ## Authentication
 
-Set [`filehost.send_credentials`](/configuration/servers#send_credentials) to `true` and Halloy will send your server credentials using HTTP Basic Auth.
+Set [`filehost.send_credentials`](/configuration/servers#send_credentials) to `true` and Halloy will attach your server credentials when uploading.
 
 ::: warning
 Only enable `send_credentials` if you trust the filehost server. Your username and password will be sent with every upload.
