@@ -746,10 +746,11 @@ include = { channels = ["#halloy"] }
 
 ## `filehost`
 
+See the [Filehost](/guides/filehost) guide for usage information.
+
 ### `enabled`
 
-Enable or disable `draft/FILEHOST` support for this server.
-
+Enable or disable filehost support for this server.
 
 ```toml
 # Type: boolean
@@ -762,8 +763,7 @@ enabled = true
 
 ### `send_credentials`
 
-Send an `Authorization` header with uploads. This will send your username and
-password or other credential to the filehost.
+Send an `Authorization` header with uploads using your SASL plain credentials.
 
 ```toml
 # Type: boolean
@@ -771,14 +771,12 @@ password or other credential to the filehost.
 # Default: false
 
 [servers.<name>.filehost]
-send_credentials = true
+send_credentials = false
 ```
-
 
 ### `override_url`
 
-Override the `draft/FILEHOST` ISUPPORT provided by the server with a custom value. This server SHOULD be compatible with the [work-in-progress `draft/FILEHOST` spec](https://github.com/ircv3/ircv3-specifications/pull/562).
-
+Override the filehost URL advertised by the server via ISUPPORT. Must be compatible with the [`draft/FILEHOST` spec](https://github.com/ircv3/ircv3-specifications/pull/562).
 
 ```toml
 # Type: string

@@ -58,7 +58,7 @@ Aliases are resolved before built-in commands and take precedence when they use 
 | `setname`       |              | Change your realname[^5]                                                                 |
 | `sysinfo`       |              | Send system information (OS, CPU, memory, GPU, uptime)                                   |
 | `topic`         | `t`          | Retrieve the topic of a channel or set a new topic[^1]                                   |
-| `upload`        |              | Upload a file via `draft/FILEHOST` with an optional path[^12]                            |
+| `upload`        |              | Upload a file via `draft/FILEHOST`[^12]                            |
 | `whois`         |              | Retrieve information about user(s)                                                       |
 
 [^1]: The `channel` argument can be skipped when used in a channel buffer to target the channel in the buffer.

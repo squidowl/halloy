@@ -112,6 +112,10 @@ export default defineConfig({
             text: "File Transfer",
             link: "/configuration/file-transfer",
           },
+          {
+            text: "Filehost",
+            link: "/guides/filehost",
+          },
           { text: "Font", link: "/configuration/font" },
           {
             text: "Highlights",
