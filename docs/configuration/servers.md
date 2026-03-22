@@ -776,7 +776,7 @@ send_credentials = false
 
 ### `override_url`
 
-Override the filehost URL advertised by the server via ISUPPORT. Must be compatible with the [`draft/FILEHOST` spec](https://github.com/ircv3/ircv3-specifications/pull/562).
+Override the filehost URL advertised by the server via ISUPPORT. The filehost must be compatible with the [`draft/FILEHOST` spec](https://github.com/progval/ircv3-specifications/blob/filehost/extensions/filehost.md).
 
 ```toml
 # Type: string
