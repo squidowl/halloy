@@ -655,15 +655,24 @@ impl Manager {
         message.blocked = false;
 
         if let message::Source::Server(source) = message.target.source() {
-            // Check if target is a channel, and if included/excluded.
-            if let message::Target::Channel { channel, .. } = &message.target
+            // Check if target is included/excluded.
+            let target_ref = match &message.target {
+                message::Target::Channel { channel, .. }
+                | message::Target::Highlights { channel, .. } => {
+                    Some(channel.as_target_ref())
+                }
+
+                message::Target::Query { query, .. } => {
+                    Some(query.as_target_ref())
+                }
+                message::Target::Server { .. }
+                | message::Target::Logs { .. } => None,
+            };
+
+            if let Some(target_ref) = target_ref
                 && !buffer_config.server_messages.should_send_message(
-                    source.as_ref().map(message::source::server::Server::kind),
-                    source
-                        .as_ref()
-                        .and_then(|source| source.nick())
-                        .map(Nick::as_nickref),
-                    channel,
+                    source.as_ref(),
+                    target_ref,
                     server,
                     casemapping,
                 )
@@ -866,21 +875,26 @@ impl Manager {
                             clients.get_casemapping_or_default(server);
 
                         // Check if target is a channel, and if included/excluded.
-                        if let message::Target::Channel { channel, .. }
-                        | message::Target::Highlights { channel, .. } =
-                            &message.target
+                        let target_ref = match &message.target {
+                            message::Target::Channel { channel, .. }
+                            | message::Target::Highlights { channel, .. } => {
+                                Some(channel.as_target_ref())
+                            }
+
+                            message::Target::Query { query, .. } => {
+                                Some(query.as_target_ref())
+                            }
+                            message::Target::Server { .. }
+                            | message::Target::Logs { .. } => None,
+                        };
+
+                        if let Some(target_ref) = target_ref
                             && let Some(server) = server
                             && !buffer_config
                                 .server_messages
                                 .should_send_message(
-                                    source.as_ref().map(
-                                        message::source::server::Server::kind,
-                                    ),
-                                    source
-                                        .as_ref()
-                                        .and_then(|source| source.nick())
-                                        .map(Nick::as_nickref),
-                                    channel,
+                                    source.as_ref(),
+                                    target_ref,
                                     server,
                                     casemapping,
                                 )
