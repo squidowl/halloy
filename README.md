@@ -51,7 +51,7 @@ We strive to be a leading irc client with a rich ircv3 feature set. currently su
 - [`WHOX`](https://ircv3.net/specs/extensions/whox)
 - [`soju.im/bouncer-networks`](https://codeberg.org/emersion/soju/src/branch/master/doc/ext/bouncer-networks.md)
 - [`soju.im/filehost`](https://codeberg.org/emersion/soju/src/branch/master/doc/ext/filehost.md)
-- [a work-in-progress of `draft/filehost`](https://github.com/ircv3/ircv3-specifications/pull/562)
+- [a work-in-progress version of `draft/filehost`](https://github.com/ircv3/ircv3-specifications/pull/562)
 
 ## Why?
 
