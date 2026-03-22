@@ -6,9 +6,9 @@ license.workspace = true
 edition.workspace = true
 
 [dependencies]
-itertools = "0.14.0"
-nom = "8.0"
-thiserror = "2.0.18"
+itertools = { workspace = true }
+nom = { workspace = true }
+thiserror = { workspace = true }
 
 [lints]
 workspace = true
