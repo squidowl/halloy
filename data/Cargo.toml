@@ -68,6 +68,7 @@ html-escape = "0.2.13"
 infer = "0.16"
 display-info = "0.5.8"
 sys-locale = "0.3"
+mime_guess = "2.0.5"
 
 [dev-dependencies]
 serde_test = "1.0"

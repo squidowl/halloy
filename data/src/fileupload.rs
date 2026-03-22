@@ -59,7 +59,7 @@ pub async fn upload(
         .map_or_else(|| String::from("upload"), |n| n.to_string_lossy().into_owned());
 
     let bytes = tokio::fs::read(path).await?;
-    let content_type = mime_for_bytes(&bytes);
+    let content_type = infer_mime_type(path, &bytes);
 
     log::debug!("uploading file to {base}");
 
@@ -110,7 +110,11 @@ fn auth_header_value(auth: Auth) -> String {
     }
 }
 
-fn mime_for_bytes(bytes: &[u8]) -> &'static str {
+fn infer_mime_type(path: &Path, bytes: &[u8]) -> &'static str {
+    // prefer extension-based detection, fall back to byte sniffing
+    if let Some(mime) = mime_guess::from_path(path).first_raw() {
+        return mime;
+    }
     infer::get(bytes)
         .map(|kind| kind.mime_type())
         .unwrap_or("application/octet-stream")
