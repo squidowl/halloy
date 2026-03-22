@@ -18,7 +18,7 @@ use data::target::{self, Target};
 use data::{
     Config, Notification, Server, User, Version, client, command, config,
     environment, file_transfer, history, preview, reaction, server, stream,
-    upload,
+    fileupload,
 };
 use iced::widget::pane_grid::{self, PaneGrid};
 use iced::widget::{Space, center, column, container, row, stack, text};
@@ -2632,7 +2632,7 @@ impl Dashboard {
                         let target = target.clone();
                         Task::perform(
                             async move {
-                                let fut = upload::upload(
+                                let fut = fileupload::upload(
                                     &upload_url,
                                     &file_path,
                                     auth,

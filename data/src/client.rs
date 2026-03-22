@@ -34,7 +34,7 @@ use crate::time::Posix;
 use crate::user::{ChannelUsers, Nick, NickRef};
 use crate::{
     Server, User, buffer, channel_discovery, compression, config, ctcp, dcc,
-    environment, file_transfer, history, isupport, message, mode, server, upload,
+    environment, file_transfer, history, isupport, message, mode, server, fileupload,
 };
 
 pub mod on_connect;
@@ -3896,7 +3896,7 @@ impl Client {
         }
     }
 
-    pub fn filehost_auth(&self) -> Option<upload::Auth> {
+    pub fn filehost_auth(&self) -> Option<fileupload::Auth> {
         let filehost = self.config.filehost.as_ref()?;
 
         if !filehost.send_credentials {
@@ -3916,7 +3916,7 @@ impl Client {
         match self.config.sasl.as_ref()? {
             config::server::Sasl::Plain {
                 username, password, ..
-            } => Some(upload::Auth::Basic {
+            } => Some(fileupload::Auth::Basic {
                 username: username.clone(),
                 password: password.clone()?,
             }),
@@ -4381,7 +4381,7 @@ impl Map {
         self.client(server).and_then(Client::filehost)
     }
 
-    pub fn get_filehost_auth(&self, server: &Server) -> Option<upload::Auth> {
+    pub fn get_filehost_auth(&self, server: &Server) -> Option<fileupload::Auth> {
         self.client(server).and_then(Client::filehost_auth)
     }
 

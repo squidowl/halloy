@@ -52,7 +52,7 @@ pub mod shortcut;
 pub mod stream;
 pub mod target;
 pub mod time;
-pub mod upload;
+pub mod fileupload;
 pub mod url;
 pub mod user;
 pub mod version;
