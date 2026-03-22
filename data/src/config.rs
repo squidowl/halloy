@@ -612,6 +612,24 @@ fn create_owned_file(path: &Path, contents: &[u8]) -> std::io::Result<()> {
     file.write_all(contents)
 }
 
+#[cfg(unix)]
+pub fn check_password_file_permissions(path: &Path) {
+    use std::os::unix::fs::PermissionsExt;
+    if let Ok(meta) = std::fs::metadata(path) {
+        let mode = meta.permissions().mode();
+        if mode & 0o077 != 0 {
+            log::warn!(
+                "password file {:?} has permissions {:#o}; consider restricting to 0600",
+                path,
+                mode & 0o777,
+            );
+        }
+    }
+}
+
+#[cfg(not(unix))]
+pub fn check_password_file_permissions(_path: &Path) {}
+
 pub fn random_nickname() -> String {
     let mut rng = ChaCha8Rng::from_rng(&mut rand::rng());
     random_nickname_with_seed(&mut rng)
