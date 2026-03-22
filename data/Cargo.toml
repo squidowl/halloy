@@ -38,6 +38,13 @@ palette = { workspace = true }
 log = { workspace = true }
 nucleo-matcher = { workspace = true }
 reqwest = { workspace = true }
+const_format = { workspace = true }
+iced = { workspace = true, features = [
+    "sysinfo",
+    "tokio",
+    "wayland",
+] }
+nom = { workspace = true }
 
 base64 = "0.22.1"
 dirs-next = "2.0.0"
@@ -46,11 +53,6 @@ flate2 = "1.0"
 hex = "0.4.3"
 iced_core = "0.15.0-dev"
 iced_wgpu = "0.15.0-dev"
-iced = { version = "0.15.0-dev", default-features = false, features = [
-    "sysinfo",
-    "tokio",
-    "wayland",
-] }
 indexmap = { version = "2.13", features = ["std", "serde"] }
 seahash = "4.1.0"
 serde_json = "1.0"
@@ -60,8 +62,6 @@ sha2 = "0.10.8"
 toml = "0.9.12"
 fancy-regex = "0.17"
 walkdir = "2.5.0"
-nom = "8.0"
-const_format = "0.2.32"
 derive_more = { version = "2.0.1", features = ["full"] }
 image = "0.25.9"
 html-escape = "0.2.13"

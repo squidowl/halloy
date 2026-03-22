@@ -41,6 +41,9 @@ log = { version = "0.4.26", features = ['std'] }
 uptime_lib = "0.3.1"
 nucleo-matcher = "0.3.1"
 reqwest = { version = "0.13", features = ["json", "socks"] }
+const_format = "0.2.32"
+iced = { version = "0.15.0-dev", default-features = false }
+nom = "8.0"
 
 [dependencies]
 tokio = { workspace = true, features = ["rt", "fs", "process"] }
@@ -61,15 +64,8 @@ log = { workspace = true }
 uptime_lib = { workspace = true }
 nucleo-matcher = { workspace = true }
 reqwest = { workspace = true }
-
-data = { version = "0.1.0", path = "data" }
-ipc = { version = "0.1.0", path = "ipc" }
-irc = { version = "0.1.0", path = "irc" }
-
-signal-hook = "0.3.18"
-notify-rust = "4.11"
-fern = "0.7.1"
-iced = { version = "0.15.0-dev", default-features = false, features = [
+const_format = { workspace = true }
+iced = { workspace = true, features = [
     "wgpu",
     "tiny-skia",
     "fira-sans",
@@ -83,10 +79,17 @@ iced = { version = "0.15.0-dev", default-features = false, features = [
     "crisp",
     "web-colors",
 ] }
+
+data = { version = "0.1.0", path = "data" }
+ipc = { version = "0.1.0", path = "ipc" }
+irc = { version = "0.1.0", path = "irc" }
+
+signal-hook = "0.3.18"
+notify-rust = "4.11"
+fern = "0.7.1"
 unicode-segmentation = "1.6"
 open = "5.0.1"
 bytesize = "2.0.1"
-const_format = "0.2.32"
 rodio = "0.21.0"
 humantime = "2.2.0"
 strsim = "0.11.1"
@@ -102,7 +105,7 @@ mundy = { version = "0.1.9", default-features = false, features = [
 ] }
 
 [dev-dependencies]
-iced = { version = "0.15.0-dev", default-features = false, features = [
+iced = { workspace = true, features = [
     "wgpu",
     "tiny-skia",
     "fira-sans",
@@ -120,13 +123,13 @@ iced = { version = "0.15.0-dev", default-features = false, features = [
 
 [target.'cfg(windows)'.dependencies]
 image = "0.24.6"
-iced = { version = "0.15.0-dev", default-features = false, features = [
+iced = { workspace = true, features = [
     "web-colors",
     "sysinfo",
 ] }
 
 [target.'cfg(windows)'.dev-dependencies]
-iced = { version = "0.15.0-dev", default-features = false, features = [
+iced = { workspace = true, features = [
     "web-colors",
     "sysinfo",
     "debug",
