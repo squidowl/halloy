@@ -5,12 +5,12 @@ Customize keyboard shortcuts. Below is a list of all actions which can be mapped
 
 ```toml
 [keyboard]
-move_up = "alt+k"
-move_down = "alt+j"
-move_left = "alt+h"
-move_right = "alt+l"
-quit_application = ["alt+q", "ctrl+q"]
-command_bar = "noop" # <- use noop or none to disable key bind.
+move_up = ["alt+up", "alt+k"]
+move_down = ["alt+down", "alt+j"]
+move_left = ["alt+left", "alt+h"]
+move_right = ["alt+right", "alt+l"]
+quit_application = "alt+q"
+command_bar = "noop"
 ```
 
 Note you can disable a key bind by setting it to `"noop"` or `"none"`.
