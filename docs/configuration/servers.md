@@ -746,7 +746,7 @@ include = { channels = ["#halloy"] }
 
 ## `filehost`
 
-See the [Filehost](/guides/filehost) guide for usage information.
+See the [Filehost guide](/guides/filehost) for usage information.
 
 ### `enabled`
 
