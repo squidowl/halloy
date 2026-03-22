@@ -41,6 +41,7 @@ pub enum Internal {
     Detach(Vec<target::Channel>),
     Connect(String),
     Reconnect,
+    Upload(Option<String>),
     Exec(String),
 }
 
@@ -232,6 +233,7 @@ pub enum Kind {
     Detach,
     Connect,
     Reconnect,
+    Upload,
     Exec,
     Raw,
 }
@@ -275,6 +277,7 @@ impl FromStr for Kind {
             "detach" => Ok(Kind::Detach),
             "connect" => Ok(Kind::Connect),
             "reconnect" => Ok(Kind::Reconnect),
+            "upload" => Ok(Kind::Upload),
             "exec" => Ok(Kind::Exec),
             _ => Err(()),
         }
@@ -1506,6 +1509,9 @@ fn parse_command(
             }),
             Kind::Reconnect => validated::<0, 0, false>(args, |_, _| {
                 Ok(Command::Internal(Internal::Reconnect))
+            }),
+            Kind::Upload => validated::<0, 1, true>(args, |_, [path]| {
+                Ok(Command::Internal(Internal::Upload(path)))
             }),
             Kind::Exec => {
                 let command = raw.trim();

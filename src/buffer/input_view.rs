@@ -19,7 +19,8 @@ use iced::advanced::widget::Tree;
 use iced::advanced::{Clipboard, Layout, Shell, mouse};
 use iced::widget::text::{Shaping, Wrapping};
 use iced::widget::{
-    self, button, column, container, operation, row, rule, text_editor,
+    self, button, center, column, container, mouse_area, operation, row, rule,
+    text_editor,
 };
 use iced::{Alignment, Length, Task, clipboard, event, keyboard, padding};
 use itertools::Itertools;
@@ -31,6 +32,7 @@ use self::exec::run as execute_shell_command;
 use crate::widget::key_press::is_numpad;
 use crate::widget::{
     Element, Renderer, Text, anchored_overlay, context_menu, decorate, text,
+    tooltip,
 };
 use crate::window::Window;
 use crate::{Theme, font, theme, window};
@@ -59,6 +61,12 @@ pub enum Event {
         history_task: Task<history::manager::Message>,
     },
     Reconnect(Server),
+    FileHostUpload {
+        server: Server,
+        target: Target,
+        file_paths: Vec<std::path::PathBuf>,
+        abort_registrations: Vec<futures::future::AbortRegistration>,
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -89,10 +97,17 @@ pub enum Message {
         lines: VecDeque<input::Parsed>,
     },
     Paste,
+    PasteText,
     SelectAll,
     CopyAll,
     Copy,
     Cut,
+    UploadFile,
+    FilesSelected(Vec<std::path::PathBuf>),
+    FileHostUrlReady(String),
+    UploadAnimTick,
+    CancelUploads,
+    SpinnerHovered(bool),
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -243,7 +258,10 @@ fn platform_specific_key_bindings(
         {
             Some(text_editor::Binding::Custom(Message::DeleteToEnd(false)))
         }
-
+        // cmd+v routes to Message::Paste normally, which means we lose our control flow. overwrite it with our own handler
+        iced::keyboard::Key::Character("v") if key_press.modifiers.logo() => {
+            Some(text_editor::Binding::Custom(Message::Paste))
+        }
         _ => None,
     }
 }
@@ -283,6 +301,10 @@ fn platform_specific_key_bindings(
         {
             Some(text_editor::Binding::Custom(Message::Paste))
         }
+        // ctrl+v routes to Message::Paste normally, which means we lose our control flow. overwrite it with our own handler
+        iced::keyboard::Key::Character("v") if key_press.modifiers.control() => {
+            Some(text_editor::Binding::Custom(Message::Paste))
+        }
 
         _ => None,
     }
@@ -294,6 +316,7 @@ pub fn view<'a>(
     server: &'a Server,
     config: &'a Config,
     theme: &'a Theme,
+    filehost_url: Option<&'a str>,
 ) -> Element<'a, Message> {
     let style = if state.error.is_some() {
         theme::text_editor::error
@@ -549,12 +572,59 @@ pub fn view<'a>(
     let maybe_vertical_rule =
         maybe_our_user.is_some().then(move || rule::vertical(1.0));
 
+    let maybe_upload_spinner: Option<crate::widget::Element<'a, Message>> =
+        (filehost_url.is_some() && state.uploading > 0).then(|| {
+            let icon: crate::widget::Element<'a, Message> = if state.spinner_hovered {
+                crate::icon::cancel().size(15).style(theme::text::error).into()
+            } else {
+                let t = state.upload_anim * std::f32::consts::TAU;
+                crate::icon::spinner(t + 0.4 * t.sin()).into()
+            };
+            tooltip(
+                mouse_area(
+                    button(center(icon))
+                        .padding(4)
+                        .width(23)
+                        .height(23)
+                        .style(|theme, status| {
+                            theme::button::secondary(theme, status, false)
+                        })
+                        .on_press(Message::CancelUploads),
+                )
+                .on_enter(Message::SpinnerHovered(true))
+                .on_exit(Message::SpinnerHovered(false)),
+                Some("Cancel uploads"),
+                tooltip::Position::Top,
+                theme,
+            )
+        });
+
+    let maybe_upload_button = filehost_url.is_some().then(|| {
+        tooltip(
+            button(center(crate::icon::plus().size(15)))
+                .padding(4)
+                .width(23)
+                .height(23)
+                .style(|theme, status| theme::button::secondary(theme, status, false))
+                .on_press(Message::UploadFile),
+            Some("Upload file"),
+            tooltip::Position::Top,
+            theme,
+        )
+    });
+
     let content = column![
         container(
-            row![maybe_our_user, maybe_vertical_rule, wrapped_input]
-                .spacing(4)
-                .height(Length::Shrink)
-                .align_y(Alignment::Center)
+            row![
+                maybe_our_user,
+                maybe_vertical_rule,
+                wrapped_input,
+                maybe_upload_spinner,
+                maybe_upload_button,
+            ]
+            .spacing(4)
+            .height(Length::Shrink)
+            .align_y(Alignment::Center)
         )
         .max_height(
             (7.55 * theme::resolve_line_height(&config.font).ceil()).ceil(),
@@ -607,6 +677,10 @@ pub struct State {
     completion: Completion,
     selected_history: Option<usize>,
     last_typing_at: Option<Instant>,
+    uploading: usize,
+    upload_anim: f32,
+    spinner_hovered: bool,
+    upload_abort_handles: Vec<futures::future::AbortHandle>,
 }
 
 impl Default for State {
@@ -628,6 +702,10 @@ impl State {
             completion: Completion::default(),
             selected_history: None,
             last_typing_at: None,
+            uploading: 0,
+            upload_anim: 0.0,
+            spinner_hovered: false,
+            upload_abort_handles: Vec::new(),
         }
     }
 
@@ -895,7 +973,12 @@ impl State {
                         config,
                     );
 
-                    self.on_completion(buffer, history, actions, true)
+                    let result =
+                        self.on_completion(buffer, history, actions, true);
+                    self.process_completion_and_error(
+                        buffer, clients, history, config,
+                    );
+                    result
                 } else {
                     (Task::none(), None)
                 }
@@ -914,7 +997,12 @@ impl State {
                         config,
                     );
 
-                    self.on_completion(buffer, history, actions, true)
+                    let result =
+                        self.on_completion(buffer, history, actions, true);
+                    self.process_completion_and_error(
+                        buffer, clients, history, config,
+                    );
+                    result
                 } else {
                     (Task::none(), None)
                 }
@@ -1023,6 +1111,24 @@ impl State {
                 config,
             ),
             Message::Paste => {
+                let has_filehost =
+                    clients.get_filehost(buffer.server()).is_some();
+
+                let task = Task::perform(
+                    async move {
+                        has_filehost
+                            .then(try_clipboard_upload)
+                            .flatten()
+                    },
+                    |path| match path {
+                        Some(p) => Message::FilesSelected(vec![p]),
+                        None => Message::PasteText,
+                    },
+                );
+
+                Self::close_context_menu(main_window.id, vec![task])
+            }
+            Message::PasteText => {
                 let task = clipboard::read().and_then(|clipboard| {
                     Task::done(Message::Action(text_editor::Action::Edit(
                         text_editor::Edit::Paste(std::sync::Arc::new(
@@ -1068,6 +1174,87 @@ impl State {
                 Self::close_context_menu(main_window.id, vec![])
             }
             Message::CloseContextMenu(_, _) => (Task::none(), None),
+            Message::UploadFile => (
+                Task::perform(
+                    async {
+                        rfd::AsyncFileDialog::new()
+                            .pick_files()
+                            .await
+                            .unwrap_or_default()
+                            .into_iter()
+                            .map(|handle| handle.path().to_path_buf())
+                            .collect()
+                    },
+                    Message::FilesSelected,
+                ),
+                None,
+            ),
+            Message::FilesSelected(file_paths) if !file_paths.is_empty() => {
+                let was_idle = self.uploading == 0;
+                self.uploading += file_paths.len();
+
+                let (handles, registrations): (Vec<_>, Vec<_>) = file_paths
+                    .iter()
+                    .map(|_| futures::future::AbortHandle::new_pair())
+                    .unzip();
+
+                self.upload_abort_handles.extend(handles);
+
+                let event = buffer.target().map(|target| Event::FileHostUpload {
+                    server: buffer.server().clone(),
+                    target,
+                    file_paths,
+                    abort_registrations: registrations,
+                });
+                let anim = was_idle
+                    .then(Self::schedule_anim_tick)
+                    .unwrap_or_else(Task::none);
+                (anim, event)
+            }
+            Message::FilesSelected(_) => (Task::none(), None),
+            Message::UploadAnimTick => {
+                if self.uploading > 0 {
+                    self.upload_anim =
+                        (self.upload_anim + 0.06).rem_euclid(1.0);
+                    (Self::schedule_anim_tick(), None)
+                } else {
+                    (Task::none(), None)
+                }
+            }
+            Message::CancelUploads => {
+                for handle in self.upload_abort_handles.drain(..) {
+                    handle.abort();
+                }
+                self.uploading = 0;
+                self.spinner_hovered = false;
+                (Task::none(), None)
+            }
+            Message::SpinnerHovered(hovered) => {
+                self.spinner_hovered = hovered;
+                (Task::none(), None)
+            }
+            Message::FileHostUrlReady(url) if !url.is_empty() && self.uploading > 0 => {
+                self.uploading = self.uploading.saturating_sub(1);
+                // Append the URL to the end of whatever the user has typed.
+                self.input_content.perform(text_editor::Action::Move(
+                    text_editor::Motion::DocumentEnd,
+                ));
+                // Add a space separator if the buffer already has content.
+                if !self.input_content.text().trim_end().is_empty() {
+                    self.input_content.perform(text_editor::Action::Edit(
+                        text_editor::Edit::Insert(' '),
+                    ));
+                }
+                self.input_content.perform(text_editor::Action::Edit(
+                    text_editor::Edit::Paste(std::sync::Arc::new(url)),
+                ));
+                (self.focus(), None)
+            }
+            Message::FileHostUrlReady(_) => {
+                // Failed or cancelled — decrement only if not already zeroed.
+                self.uploading = self.uploading.saturating_sub(1);
+                (self.focus(), None)
+            }
             Message::DeleteWordBackward(save_to_clipboard) => {
                 self.input_content.perform(text_editor::Action::Select(
                     text_editor::Motion::WordLeft,
@@ -1217,6 +1404,8 @@ impl State {
                                 .get_server_supports_detach(buffer.server());
                             let isupport =
                                 clients.get_isupport(buffer.server());
+                            let has_filehost =
+                                clients.get_filehost(buffer.server()).is_some();
 
                             self.completion.process(
                                 &line,
@@ -1231,6 +1420,7 @@ impl State {
                                 is_connected,
                                 supports_detach,
                                 &isupport,
+                                has_filehost,
                                 config,
                             );
 
@@ -1346,6 +1536,13 @@ impl State {
                 Some(parsed)
             })
             .collect();
+    }
+
+    fn schedule_anim_tick() -> Task<Message> {
+        Task::perform(
+            time::sleep(Duration::from_millis(50)),
+            |_| Message::UploadAnimTick,
+        )
     }
 
     fn close_context_menu(
@@ -1843,6 +2040,51 @@ impl State {
                             Some(Event::Reconnect(buffer.server().clone())),
                         );
                     }
+                    command::Internal::Upload(None) => {
+                        return (
+                            Task::perform(
+                                async {
+                                    rfd::AsyncFileDialog::new()
+                                        .pick_files()
+                                        .await
+                                        .unwrap_or_default()
+                                        .into_iter()
+                                        .map(|h| h.path().to_path_buf())
+                                        .collect()
+                                },
+                                Message::FilesSelected,
+                            ),
+                            None,
+                        );
+                    }
+                    command::Internal::Upload(Some(path)) => {
+                        let file_path = std::path::PathBuf::from(&path);
+                        if !file_path.exists() {
+                            self.error =
+                                Some(format!("file not found: {path}"));
+                            return (Task::none(), None);
+                        }
+                        let (handle, registration) =
+                            futures::future::AbortHandle::new_pair();
+                        self.upload_abort_handles.push(handle);
+                        let was_idle = self.uploading == 0;
+                        self.uploading += 1;
+                        let anim = was_idle
+                            .then(Self::schedule_anim_tick)
+                            .unwrap_or_else(Task::none);
+                        let event =
+                            buffer.target().map(|target| {
+                                Event::FileHostUpload {
+                                    server: buffer.server().clone(),
+                                    target,
+                                    file_paths: vec![file_path],
+                                    abort_registrations: vec![
+                                        registration,
+                                    ],
+                                }
+                            });
+                        return (anim, event);
+                    }
                     command::Internal::Exec(command) => {
                         if !config.buffer.commands.exec.enabled {
                             self.error = Some(String::from(
@@ -2018,6 +2260,7 @@ impl State {
             let supports_detach =
                 clients.get_server_supports_detach(buffer.server());
             let isupport = clients.get_isupport(buffer.server());
+            let has_filehost = clients.get_filehost(buffer.server()).is_some();
 
             self.completion.process(
                 &line,
@@ -2032,6 +2275,7 @@ impl State {
                 is_connected,
                 supports_detach,
                 &isupport,
+                has_filehost,
                 config,
             );
 
@@ -2390,4 +2634,52 @@ fn show_while_typing(error: &input::Error) -> bool {
             | command::Error::NotInChannel,
         ) => false,
     }
+}
+
+fn try_clipboard_upload() -> Option<std::path::PathBuf> {
+    // macos needs special treatment
+    #[cfg(target_os = "macos")]
+    if let Some(path) = macos_clipboard_file() {
+        return Some(path);
+    }
+
+    let mut cb = arboard::Clipboard::new().ok()?;
+    let img = cb.get_image().ok()?;
+
+    let rgba: image::RgbaImage = image::ImageBuffer::from_raw(
+        img.width as u32,
+        img.height as u32,
+        img.bytes.into_owned(),
+    )?;
+
+    let path = std::env::temp_dir()
+        .join(format!("halloy-paste-{}.png", uuid::Uuid::new_v4()));
+
+    rgba.save(&path).ok()?;
+
+    Some(path)
+}
+
+#[cfg(target_os = "macos")]
+fn macos_clipboard_file() -> Option<std::path::PathBuf> {
+    use objc2_app_kit::NSPasteboard;
+    use objc2_foundation::{NSURL, NSString};
+
+    let url_str = {
+        let pasteboard = NSPasteboard::generalPasteboard();
+        let type_str = NSString::from_str("public.file-url");
+        pasteboard.stringForType(&type_str)?.to_string()
+    };
+
+    // pasteboard may return a file-reference URL: (e.g. `file:///.file/id=…`)
+    // rather than a path URL. NSURL.filePathURL resolves either to a real path.
+    let path_str = {
+        let ns_url_str = NSString::from_str(url_str.trim());
+        let nsurl = NSURL::URLWithString(&ns_url_str)?;
+        let path_url = nsurl.filePathURL()?;
+        path_url.path()?.to_string()
+    };
+
+    let path = std::path::PathBuf::from(path_str);
+    path.is_file().then_some(path)
 }

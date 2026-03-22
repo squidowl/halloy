@@ -743,3 +743,46 @@ relevant when combined with the `exclude` setting.
 [servers.<name>.confirm_message_delivery]
 include = { channels = ["#halloy"] }
 ```
+
+## `filehost`
+
+See the [Filehost guide](/guides/filehost) for usage information.
+
+### `enabled`
+
+Enable or disable filehost support for this server.
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: true
+
+[servers.<name>.filehost]
+enabled = true
+```
+
+### `send_credentials`
+
+Send an `Authorization` header with uploads using your SASL plain credentials.
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: false
+
+[servers.<name>.filehost]
+send_credentials = false
+```
+
+### `override_url`
+
+Override the filehost URL advertised by the server via ISUPPORT. The filehost must be compatible with the [`draft/FILEHOST` spec](https://github.com/progval/ircv3-specifications/blob/filehost/extensions/filehost.md).
+
+```toml
+# Type: string
+# Values: any string
+# Default: not set
+
+[servers.<name>.filehost]
+override_url = "https://example.org/upload"
+```

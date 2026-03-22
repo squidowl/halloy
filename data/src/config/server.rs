@@ -114,6 +114,11 @@ pub struct Server {
     pub proxy: Option<config::Proxy>,
     pub confirm_message_delivery: ConfirmMessageDelivery,
     pub autoconnect: bool,
+    pub filehost: Option<Filehost>,
+    /// The bouncer's resolved filehost URL, omly set when this config is derived
+    /// for a bouncer network.
+    #[serde(skip)]
+    pub bouncer_filehost_url: Option<String>,
 }
 
 impl Server {
@@ -230,6 +235,30 @@ impl Default for Server {
             proxy: None,
             confirm_message_delivery: ConfirmMessageDelivery::default(),
             autoconnect: true,
+            filehost: None,
+            bouncer_filehost_url: None,
+        }
+    }
+}
+
+#[derive(PartialEq, Eq, Debug, Clone, Deserialize)]
+#[serde(default)]
+pub struct Filehost {
+    /// Whether to use filehost for file uploads. Defaults to `true`.
+    pub enabled: bool,
+    /// Override the filehost URL advertised by the server via ISUPPORT
+    pub override_url: Option<String>,
+    /// Send an `Authorization` header with requests that match the buffer username:password.
+    /// Defaults to `false`.
+    pub send_credentials: bool,
+}
+
+impl Default for Filehost {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            override_url: None,
+            send_credentials: false,
         }
     }
 }

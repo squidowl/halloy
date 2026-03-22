@@ -18,9 +18,10 @@ use data::target::{self, Target};
 use data::{
     Config, Notification, Server, User, Version, client, command, config,
     environment, file_transfer, history, preview, reaction, server, stream,
+    fileupload,
 };
 use iced::widget::pane_grid::{self, PaneGrid};
-use iced::widget::{Space, column, container, row};
+use iced::widget::{Space, center, column, container, row, stack, text};
 use iced::{Length, Padding, Size, Task, Vector, advanced, clipboard};
 use irc::proto;
 
@@ -48,6 +49,17 @@ mod theme_editor;
 const FOCUS_HISTORY_LEN: usize = 8;
 const SAVE_AFTER: Duration = Duration::from_secs(3);
 
+struct PendingFilehostUpload {
+    window: window::Id,
+    pane_id: pane_grid::Pane,
+    server: data::Server,
+    target: Target,
+    upload_url: String,
+    has_credentials: bool,
+    file_paths: Vec<std::path::PathBuf>,
+    abort_registrations: Vec<futures::future::AbortRegistration>,
+}
+
 pub struct Dashboard {
     panes: Panes,
     focus: Focus,
@@ -62,6 +74,9 @@ pub struct Dashboard {
     previews: preview::Collection,
     preview_client: Option<Arc<reqwest::Client>>,
     buffer_settings: dashboard::BufferSettings,
+    pub file_being_hovered: bool,
+    known_filehosts: data::KnownFilehosts,
+    pending_filehost_upload: Option<PendingFilehostUpload>,
 }
 
 #[derive(Debug)]
@@ -81,6 +96,16 @@ pub enum Message {
     Client(client::Message),
     LoadPreview((url::Url, Result<data::Preview, data::preview::LoadError>)),
     NewWindow(window::Id, Pane),
+    FileHostUploadFailed {
+        window: window::Id,
+        pane_id: pane_grid::Pane,
+        server: data::Server,
+        target: data::target::Target,
+        error: String,
+    },
+    ProceedWithFileHostUpload,
+    CancelFileHostUpload,
+    KnownFilehostsSaved(Result<(), data::known_filehosts::Error>),
 }
 
 #[derive(Debug)]
@@ -100,6 +125,11 @@ pub enum Event {
     ImagePreview(PathBuf, url::Url),
     ToggleFullscreen,
     Remove(Server),
+    PromptBeforeFileUpload {
+        upload_url: String,
+        has_credentials: bool,
+        window: window::Id,
+    },
 }
 
 impl Dashboard {
@@ -133,6 +163,9 @@ impl Dashboard {
             previews: preview::Collection::default(),
             preview_client: preview_client_from_config(config).map(Arc::new),
             buffer_settings: dashboard::BufferSettings::default(),
+            file_being_hovered: false,
+            known_filehosts: data::KnownFilehosts::load(),
+            pending_filehost_upload: None,
         };
 
         let command = dashboard.track(None);
@@ -1699,6 +1732,110 @@ impl Dashboard {
 
                 return (self.focus_pane(window, pane), None);
             }
+            Message::FileHostUploadFailed {
+                window,
+                pane_id,
+                server,
+                target,
+                error,
+            } => {
+                let casemapping = clients.get_casemapping(&server);
+                let history_task = self.broadcast(
+                    &server,
+                    casemapping,
+                    config,
+                    Utc::now(),
+                    Broadcast::FileHostUploadFailed {
+                        error,
+                        target: target.clone(),
+                    },
+                );
+                // Decrement the uploading counter in the input_view.
+                let decrement_msg = match &target {
+                    data::target::Target::Channel(_) => buffer::Message::Channel(
+                        buffer::channel::Message::FileHostUrlReady(String::new()),
+                    ),
+                    data::target::Target::Query(_) => buffer::Message::Query(
+                        buffer::query::Message::FileHostUrlReady(String::new()),
+                    ),
+                };
+                let decrement_task = Task::done(Message::Pane(
+                    window,
+                    pane::Message::Buffer(pane_id, decrement_msg),
+                ));
+                return (Task::batch(vec![history_task, decrement_task]), None);
+            }
+            Message::ProceedWithFileHostUpload => {
+                let Some(pending) = self.pending_filehost_upload.take() else {
+                    return (Task::none(), None);
+                };
+
+                self.known_filehosts.insert(pending.upload_url.clone());
+
+                let irc_uses_tls = clients.get_use_tls(&pending.server);
+                let http_client = self
+                    .preview_client
+                    .clone()
+                    .unwrap_or_else(|| Arc::new(reqwest::Client::new()));
+
+                let upload_task = self.start_file_upload_tasks(
+                    pending,
+                    clients,
+                    irc_uses_tls,
+                    http_client,
+                );
+
+                let known = self.known_filehosts.clone();
+                let save_task = Task::perform(
+                    async move { known.save().await },
+                    Message::KnownFilehostsSaved,
+                );
+
+                return (Task::batch(vec![upload_task, save_task]), None);
+            }
+            Message::CancelFileHostUpload => {
+                let Some(pending) = self.pending_filehost_upload.take() else {
+                    return (Task::none(), None);
+                };
+
+                let is_channel = matches!(pending.target, Target::Channel(_));
+                let is_query = matches!(pending.target, Target::Query(_));
+
+                let tasks: Vec<_> = (0..pending.file_paths.len())
+                    .map(|_| {
+                        let msg = if is_channel {
+                            buffer::Message::Channel(
+                                buffer::channel::Message::FileHostUrlReady(
+                                    String::new(),
+                                ),
+                            )
+                        } else if is_query {
+                            buffer::Message::Query(
+                                buffer::query::Message::FileHostUrlReady(
+                                    String::new(),
+                                ),
+                            )
+                        } else {
+                            buffer::Message::Server(
+                                buffer::server::Message::FileHostUrlReady(
+                                    String::new(),
+                                ),
+                            )
+                        };
+                        Task::done(Message::Pane(
+                            pending.window,
+                            pane::Message::Buffer(pending.pane_id, msg),
+                        ))
+                    })
+                    .collect();
+
+                return (Task::batch(tasks), None);
+            }
+            Message::KnownFilehostsSaved(result) => {
+                if let Err(e) = result {
+                    log::warn!("failed to save known filehost URLs: {e}");
+                }
+            }
         }
 
         (Task::none(), None)
@@ -1889,6 +2026,25 @@ impl Dashboard {
             // as `anchored_overlay` to prevent diff
             // from firing when displaying command bar
             column![column![base]].into()
+        };
+
+        let base = if self.file_being_hovered {
+            stack![
+                base,
+                container(
+                    center(
+                        text("Drop to upload file").style(theme::text::primary),
+                    )
+                    .width(Length::Fill)
+                    .height(Length::Fill),
+                )
+                .width(Length::Fill)
+                .height(Length::Fill)
+                .style(theme::container::transparent_overlay),
+            ]
+            .into()
+        } else {
+            base
         };
 
         shortcut(base, config.keyboard.shortcuts(), Message::Shortcut)
@@ -2515,9 +2671,176 @@ impl Dashboard {
             buffer::Event::Reconnect(server) => {
                 controllers.connect(&server);
             }
+            buffer::Event::FileHostUpload {
+                server,
+                target,
+                file_paths,
+                abort_registrations,
+            } => {
+                let Some(upload_url) =
+                    clients.get_filehost(&server).map(String::from)
+                else {
+                    return (Task::none(), None);
+                };
+
+                let irc_uses_tls = clients.get_use_tls(&server);
+                let http_client = self
+                    .preview_client
+                    .clone()
+                    .unwrap_or_else(|| Arc::new(reqwest::Client::new()));
+
+                if !matches!(
+                    pane.buffer,
+                    Buffer::Channel(_) | Buffer::Query(_) | Buffer::Server(_)
+                ) {
+                    return (Task::none(), None);
+                }
+
+                let pending = PendingFilehostUpload {
+                    window,
+                    pane_id: id,
+                    has_credentials: clients
+                        .get_filehost_auth(&server)
+                        .is_some(),
+                    server,
+                    target,
+                    upload_url: upload_url.clone(),
+                    file_paths,
+                    abort_registrations,
+                };
+
+                if self.known_filehosts.contains(&upload_url) {
+                    return (
+                        self.start_file_upload_tasks(
+                            pending,
+                            clients,
+                            irc_uses_tls,
+                            http_client,
+                        ),
+                        None,
+                    );
+                } else {
+                    let has_credentials = pending.has_credentials;
+                    self.pending_filehost_upload = Some(pending);
+
+                    return (
+                        Task::none(),
+                        Some(Event::PromptBeforeFileUpload {
+                            upload_url,
+                            has_credentials,
+                            window,
+                        }),
+                    );
+                }
+            }
         }
 
         (Task::none(), None)
+    }
+
+    fn start_file_upload_tasks(
+        &self,
+        pending: PendingFilehostUpload,
+        clients: &client::Map,
+        irc_uses_tls: bool,
+        http_client: Arc<reqwest::Client>,
+    ) -> Task<Message> {
+        let PendingFilehostUpload {
+            window,
+            pane_id: id,
+            server,
+            target,
+            upload_url,
+            has_credentials: _,
+            file_paths,
+            abort_registrations,
+        } = pending;
+
+        let is_channel = matches!(target, Target::Channel(_));
+        let is_query = matches!(target, Target::Query(_));
+
+        let tasks: Vec<_> = file_paths
+            .into_iter()
+            .zip(abort_registrations)
+            .map(|(file_path, registration)| {
+                let upload_url = upload_url.clone();
+                let auth = clients.get_filehost_auth(&server);
+                let http_client = http_client.clone();
+                let server = server.clone();
+                let target = target.clone();
+                Task::perform(
+                    async move {
+                        let fut = fileupload::upload(
+                            &upload_url,
+                            &file_path,
+                            auth,
+                            irc_uses_tls,
+                            http_client,
+                        );
+                        futures::future::Abortable::new(fut, registration)
+                            .await
+                    },
+                    move |result| {
+                        let msg = if is_channel {
+                            buffer::Message::Channel(
+                                buffer::channel::Message::FileHostUrlReady(
+                                    String::new(),
+                                ),
+                            )
+                        } else if is_query {
+                            buffer::Message::Query(
+                                buffer::query::Message::FileHostUrlReady(
+                                    String::new(),
+                                ),
+                            )
+                        } else {
+                            buffer::Message::Server(
+                                buffer::server::Message::FileHostUrlReady(
+                                    String::new(),
+                                ),
+                            )
+                        };
+                        match result {
+                            Ok(Ok(url)) => {
+                                let success_msg = if is_channel {
+                                    buffer::Message::Channel(
+                                        buffer::channel::Message::FileHostUrlReady(url),
+                                    )
+                                } else if is_query {
+                                    buffer::Message::Query(
+                                        buffer::query::Message::FileHostUrlReady(url),
+                                    )
+                                } else {
+                                    buffer::Message::Server(
+                                        buffer::server::Message::FileHostUrlReady(url),
+                                    )
+                                };
+                                Message::Pane(
+                                    window,
+                                    pane::Message::Buffer(id, success_msg),
+                                )
+                            }
+                            Ok(Err(e)) => {
+                                log::warn!("filehost upload failed: {e}");
+                                Message::FileHostUploadFailed {
+                                    window,
+                                    pane_id: id,
+                                    server,
+                                    target,
+                                    error: e.to_string(),
+                                }
+                            }
+                            Err(_aborted) => Message::Pane(
+                                window,
+                                pane::Message::Buffer(id, msg),
+                            ),
+                        }
+                    },
+                )
+            })
+            .collect();
+
+        Task::batch(tasks)
     }
 
     pub fn handle_event(
@@ -3828,6 +4151,9 @@ impl Dashboard {
             previews: preview::Collection::default(),
             preview_client: preview_client_from_config(config).map(Arc::new),
             buffer_settings: data.buffer_settings.clone(),
+            file_being_hovered: false,
+            known_filehosts: data::KnownFilehosts::load(),
+            pending_filehost_upload: None,
         };
 
         let mut tasks = vec![sidebar_task.map(Message::Sidebar)];
@@ -3862,6 +4188,36 @@ impl Dashboard {
         self.history.get_filters()
     }
 
+    pub fn handle_file_drop(&mut self, path: PathBuf) -> Task<Message> {
+        let Focus { window, pane } = self.focus;
+
+        let Some(pane_state) = self.panes.get(window, pane) else {
+            return Task::none();
+        };
+
+        let msg = match &pane_state.buffer {
+            Buffer::Channel(_) => Some(buffer::Message::Channel(
+                buffer::channel::Message::FilesDropped(vec![path]),
+            )),
+            Buffer::Query(_) => Some(buffer::Message::Query(
+                buffer::query::Message::FilesDropped(vec![path]),
+            )),
+            Buffer::Server(_) => Some(buffer::Message::Server(
+                buffer::server::Message::FilesDropped(vec![path]),
+            )),
+            _ => None,
+        };
+
+        if let Some(msg) = msg {
+            Task::done(Message::Pane(
+                window,
+                pane::Message::Buffer(pane, msg),
+            ))
+        } else {
+            Task::none()
+        }
+    }
+
     pub fn handle_window_event(
         &mut self,
         id: window::Id,
@@ -3881,6 +4237,16 @@ impl Dashboard {
                 | window::Event::Resized(_)
                 | window::Event::Unfocused
                 | window::Event::Opened { .. } => {}
+                window::Event::FileHovered => {
+                    self.file_being_hovered = true;
+                }
+                window::Event::FilesHoveredLeft => {
+                    self.file_being_hovered = false;
+                }
+                window::Event::FileDropped(path) => {
+                    self.file_being_hovered = false;
+                    return self.handle_file_drop(path);
+                }
             }
         } else if self.theme_editor.as_ref().is_some_and(|e| e.window == id) {
             match event {
@@ -3894,7 +4260,10 @@ impl Dashboard {
                 | window::Event::Resized(_)
                 | window::Event::Focused
                 | window::Event::Unfocused
-                | window::Event::Opened { .. } => {}
+                | window::Event::Opened { .. }
+                | window::Event::FileHovered
+                | window::Event::FilesHoveredLeft
+                | window::Event::FileDropped(_) => {}
             }
         }
 

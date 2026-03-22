@@ -367,6 +367,10 @@ pub enum Broadcast {
         channel: target::Channel,
         casemapping: isupport::CaseMap,
     },
+    FileHostUploadFailed {
+        error: String,
+        target: target::Target,
+    },
 }
 
 pub fn into_messages(
@@ -499,6 +503,35 @@ pub fn into_messages(
             reason,
             channel,
             casemapping,
+            sent_time,
+        ),
+        Broadcast::FileHostUploadFailed { error, target } => {
+            upload_failed(error, target, sent_time)
+        }
+    }
+}
+
+pub fn upload_failed(
+    error: String,
+    target: target::Target,
+    sent_time: DateTime<Utc>,
+) -> Vec<Message> {
+    let content = plain(format!("upload failed ({error})"));
+    match target {
+        target::Target::Channel(channel) => expand(
+            [channel],
+            [],
+            false,
+            Cause::Status(source::Status::Error),
+            content,
+            sent_time,
+        ),
+        target::Target::Query(query) => expand(
+            [],
+            [query],
+            false,
+            Cause::Status(source::Status::Error),
+            content,
             sent_time,
         ),
     }
