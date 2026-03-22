@@ -42,6 +42,7 @@ pub enum Internal {
     Connect(String),
     Reconnect,
     Upload(Option<String>),
+    Exec(String),
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
@@ -233,6 +234,7 @@ pub enum Kind {
     Connect,
     Reconnect,
     Upload,
+    Exec,
     Raw,
 }
 
@@ -276,6 +278,7 @@ impl FromStr for Kind {
             "connect" => Ok(Kind::Connect),
             "reconnect" => Ok(Kind::Reconnect),
             "upload" => Ok(Kind::Upload),
+            "exec" => Ok(Kind::Exec),
             _ => Err(()),
         }
     }
@@ -1510,6 +1513,21 @@ fn parse_command(
             Kind::Upload => validated::<0, 1, true>(args, |_, [path]| {
                 Ok(Command::Internal(Internal::Upload(path)))
             }),
+            Kind::Exec => {
+                let command = raw.trim();
+
+                if !config.buffer.commands.exec.enabled {
+                    Err(Error::ExecDisabled)
+                } else if command.is_empty() {
+                    Err(Error::IncorrectArgCount {
+                        min: 1,
+                        max: 1,
+                        actual: 0,
+                    })
+                } else {
+                    Ok(Command::Internal(Internal::Exec(command.to_string())))
+                }
+            }
         },
         Err(()) => Ok(unknown()),
     }
@@ -1785,6 +1803,8 @@ pub enum Error {
     InvalidChathistoryTimestamp,
     #[error("too large (maximum limit: {maximum_limit})")]
     ChathistoryLimitTooLarge { maximum_limit: u16 },
+    #[error("exec is not enabled by the user")]
+    ExecDisabled,
 }
 
 fn fmt_incorrect_arg_count(min: usize, max: usize, actual: usize) -> String {
@@ -1821,4 +1841,80 @@ fn fmt_channel_name_requirements(chantypes: &[char]) -> String {
     requirements.push_str(" and cannot contain a ',' or '^G'");
 
     requirements
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+
+    use super::{AutoFormat, Command, Error, Internal, parse};
+    use crate::Config;
+
+    #[test]
+    fn parse_exec_preserves_raw_command() {
+        let mut config = Config::default();
+        config.buffer.commands.exec.enabled = true;
+
+        let command = parse(
+            "/exec printf '/me hello world'",
+            None,
+            None,
+            AutoFormat::default(),
+            true,
+            &HashMap::new(),
+            &config,
+        )
+        .unwrap();
+
+        assert!(matches!(
+            command,
+            Command::Internal(Internal::Exec(command))
+                if command == "printf '/me hello world'"
+        ));
+    }
+
+    #[test]
+    fn parse_exec_requires_command() {
+        let mut config = Config::default();
+        config.buffer.commands.exec.enabled = true;
+
+        let error = parse(
+            "/exec   ",
+            None,
+            None,
+            AutoFormat::default(),
+            true,
+            &HashMap::new(),
+            &config,
+        )
+        .unwrap_err();
+
+        assert!(matches!(
+            error,
+            Error::IncorrectArgCount {
+                min: 1,
+                max: 1,
+                actual: 0
+            }
+        ));
+    }
+
+    #[test]
+    fn parse_exec_when_disabled() {
+        let mut config = Config::default();
+        config.buffer.commands.exec.enabled = false;
+
+        let error = parse(
+            "/exec echo hi",
+            None,
+            None,
+            AutoFormat::default(),
+            true,
+            &HashMap::new(),
+            &config,
+        )
+        .unwrap_err();
+
+        assert!(matches!(error, Error::ExecDisabled));
+    }
 }

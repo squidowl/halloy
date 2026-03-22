@@ -1,5 +1,7 @@
 # Unreleased
 
+# 2026.5 (2026-03-21)
+
 Added:
 
 - Setting to limit reaction display length (`buffer.channel.message.max_reaction_display`) and maximum length (`buffer.channel.message.max_reaction_chars`)
@@ -11,6 +13,7 @@ Added:
 - Case insensitive sort of query names in sidebar
 - Copied `order_channels_by` from `sidebar` to `server.<name>`, defaults to `sidebar.order_channels_by` if empty.
 - Alias commands (see `buffer.commands.aliases`)
+- Exec command support for generating input from shell command output (see `buffer.commands.exec`)
 - The titlebar now displays the current buffer for each window.
 - `/plain-me`, `/format-me`, `/plain-msg`, `/format-msg`, `/plain-notice`, and `/format-notice` commands were added to provide `/plain`/`/format` functionality to the `/me`, `/msg`, and `/notice` commands
 

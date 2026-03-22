@@ -1115,6 +1115,8 @@ fn connected_command_list<'a>(
                 subcommands: None,
             }
         },
+        // EXEC
+        exec_command(),
         // CLEAR
         {
             Command {
@@ -1265,6 +1267,8 @@ fn connected_command_list<'a>(
 
 fn disconnected_command_list(server: &Server) -> Vec<Command> {
     vec![
+        // EXEC
+        exec_command(),
         // CONNECT
         {
             Command {
@@ -1289,6 +1293,21 @@ fn disconnected_command_list(server: &Server) -> Vec<Command> {
             }
         },
     ]
+}
+
+fn exec_command() -> Command {
+    Command {
+        title: "EXEC".into(),
+        args: vec![Argument {
+            text: "command".into(),
+            kind: ArgumentKind::Required,
+            tooltip: Some(
+                "runs a local shell command and sends the first line of stdout to the current buffer"
+                    .to_string(),
+            ),
+        }],
+        subcommands: None,
+    }
 }
 
 fn commands_from_aliases(aliases: &[command::Alias]) -> Vec<Command> {
