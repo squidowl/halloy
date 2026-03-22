@@ -20,7 +20,7 @@ pub use self::card::Card;
 pub use self::image::Image;
 use crate::message::Source;
 use crate::server::Server;
-use crate::target::{self, Target};
+use crate::target::{self, TargetRef};
 use crate::{config, isupport};
 
 mod cache;
@@ -49,16 +49,20 @@ pub struct Previews<'a> {
 impl<'a> Previews<'a> {
     pub fn new(
         collection: &'a Collection,
-        target: &Target,
+        target_ref: TargetRef,
         server: &Server,
         config: &config::Preview,
         casemapping: isupport::CaseMap,
     ) -> Previews<'a> {
         Self {
             collection,
-            cards_are_visible: config.card.visible(target, server, casemapping),
+            cards_are_visible: config.card.visible(
+                target_ref,
+                server,
+                casemapping,
+            ),
             images_are_visible: config.image.visible(
-                target,
+                target_ref,
                 server,
                 casemapping,
             ),

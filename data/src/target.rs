@@ -8,6 +8,76 @@ use serde::{Deserialize, Serialize};
 use crate::isupport;
 use crate::user::{Nick, NickRef, User};
 
+#[derive(Debug, Clone, Copy)]
+pub enum TargetRef<'a> {
+    Channel(&'a Channel),
+    Query(&'a Query),
+}
+
+impl PartialOrd for TargetRef<'_> {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for TargetRef<'_> {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        match (self, other) {
+            (
+                TargetRef::Channel(channel),
+                TargetRef::Channel(other_channel),
+            ) => channel.cmp(other_channel),
+            (TargetRef::Channel(_), TargetRef::Query(_)) => cmp::Ordering::Less,
+            (TargetRef::Query(query), TargetRef::Query(other_query)) => {
+                query.cmp(other_query)
+            }
+            (TargetRef::Query(_), TargetRef::Channel(_)) => {
+                cmp::Ordering::Greater
+            }
+        }
+    }
+}
+
+impl PartialEq for TargetRef<'_> {
+    fn eq(&self, other: &TargetRef) -> bool {
+        match (self, other) {
+            (
+                TargetRef::Channel(channel),
+                TargetRef::Channel(other_channel),
+            ) => channel.eq(other_channel),
+            (TargetRef::Query(query), TargetRef::Query(other_query)) => {
+                query.eq(other_query)
+            }
+            _ => false,
+        }
+    }
+}
+
+impl Eq for TargetRef<'_> {}
+
+impl Hash for TargetRef<'_> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        match self {
+            TargetRef::Channel(channel) => channel.hash(state),
+            TargetRef::Query(query) => query.hash(state),
+        }
+    }
+}
+
+impl PartialEq<Target> for TargetRef<'_> {
+    fn eq(&self, other: &Target) -> bool {
+        match (self, other) {
+            (TargetRef::Channel(channel), Target::Channel(other_channel)) => {
+                (*channel).eq(other_channel)
+            }
+            (TargetRef::Query(query), Target::Query(other_query)) => {
+                (*query).eq(other_query)
+            }
+            _ => false,
+        }
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Target {
     Channel(Channel),
@@ -216,6 +286,10 @@ impl Channel {
     pub fn to_target(&self) -> Target {
         Target::Channel(self.clone())
     }
+
+    pub fn as_target_ref<'a>(&'a self) -> TargetRef<'a> {
+        TargetRef::Channel(self)
+    }
 }
 
 impl PartialEq for Channel {
@@ -328,6 +402,10 @@ impl Query {
 
     pub fn to_target(&self) -> Target {
         Target::Query(self.clone())
+    }
+
+    pub fn as_target_ref<'a>(&'a self) -> TargetRef<'a> {
+        TargetRef::Query(self)
     }
 }
 
