@@ -61,7 +61,7 @@ pub async fn upload(
     let bytes = tokio::fs::read(path).await?;
     let content_type = mime_for_bytes(&bytes);
 
-    log::info!("uploading file to {base}");
+    log::debug!("uploading file to {base}");
 
     let mut req = client
         .post(base.clone())
@@ -80,10 +80,8 @@ pub async fn upload(
     let resp = req.send().await?;
 
     if resp.status().as_u16() != 201 {
-        // Propagate HTTP error status.
         resp.error_for_status()?;
-        // Should not be reached, but satisfies the compiler.
-        return Err(Error::NoLocation);
+        return Err(Error::NoLocation); // satisfy compiler
     }
 
     let location = resp
@@ -92,7 +90,7 @@ pub async fn upload(
         .and_then(|v| v.to_str().ok())
         .ok_or(Error::NoLocation)?;
 
-    // Resolve relative Location URIs against the upload base URL.
+    // Resolve relative Location from host
     let file_url = base
         .join(location)
         .map_err(|e| Error::InvalidUri(e.to_string()))?;
