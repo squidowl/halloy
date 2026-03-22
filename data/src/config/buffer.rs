@@ -9,9 +9,12 @@ pub use self::channel::{Channel, ChannelNameCasing};
 pub use crate::appearance::theme::{alpha_color, alpha_color_calculate};
 use crate::config::buffer::nickname::Nickname;
 use crate::config::buffer::text_input::TextInput;
-use crate::config::inclusivities::{Inclusivities, is_target_channel_included};
-use crate::user::NickRef;
-use crate::{Server, isupport, target};
+use crate::config::inclusivities::{
+    Inclusivities, is_target_channel_included, is_target_query_included,
+};
+use crate::target::TargetRef;
+use crate::user::Nick;
+use crate::{Server, isupport};
 
 pub mod channel;
 pub mod hide_consecutive;
@@ -411,25 +414,35 @@ impl ServerMessages {
 
     pub fn should_send_message(
         &self,
-        kind: Option<source::server::Kind>,
-        nick: Option<NickRef>,
-        channel: &target::Channel,
+        source: Option<&source::Server>,
+        target_ref: TargetRef,
         server: &Server,
         casemapping: isupport::CaseMap,
     ) -> bool {
+        let kind = source.map(source::server::Server::kind);
+
         // Server Message is not enabled.
         if !self.enabled(kind) {
             return false;
         }
 
-        is_target_channel_included(
-            self.include(kind),
-            self.exclude(kind),
-            nick,
-            channel,
-            server,
-            casemapping,
-        )
+        match target_ref {
+            TargetRef::Channel(channel) => is_target_channel_included(
+                self.include(kind),
+                self.exclude(kind),
+                source.and_then(|source| source.nick().map(Nick::as_nickref)),
+                channel,
+                server,
+                casemapping,
+            ),
+            TargetRef::Query(query) => is_target_query_included(
+                self.include(kind),
+                self.exclude(kind),
+                query,
+                server,
+                casemapping,
+            ),
+        }
     }
 
     pub fn smart(&self, kind: Option<source::server::Kind>) -> Option<i64> {
