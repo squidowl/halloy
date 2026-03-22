@@ -562,6 +562,18 @@ impl Halloy {
                     Some(dashboard::Event::Remove(server)) => {
                         self.remove(server)
                     }
+                    Some(dashboard::Event::PromptBeforeFileUpload {
+                        upload_url,
+                        has_credentials,
+                        window,
+                    }) => {
+                        self.modal = Some(Modal::ConfirmFileUpload {
+                            url: upload_url,
+                            has_credentials,
+                            window,
+                        });
+                        Task::none()
+                    }
                     None => Task::none(),
                 };
 
@@ -856,7 +868,32 @@ impl Halloy {
                 if let Some(event) = event {
                     match event {
                         modal::Event::CloseModal => {
+                            let cancel_upload = matches!(
+                                self.modal,
+                                Some(Modal::ConfirmFileUpload { .. })
+                            );
                             self.modal = None;
+                            if cancel_upload {
+                                if let Screen::Dashboard(_) = &self.screen {
+                                    return Task::batch(vec![
+                                        command.map(Message::Modal),
+                                        Task::done(Message::Dashboard(
+                                            dashboard::Message::CancelFileHostUpload,
+                                        )),
+                                    ]);
+                                }
+                            }
+                        }
+                        modal::Event::ConfirmFileUpload => {
+                            self.modal = None;
+                            if let Screen::Dashboard(_) = &self.screen {
+                                return Task::batch(vec![
+                                    command.map(Message::Modal),
+                                    Task::done(Message::Dashboard(
+                                        dashboard::Message::ProceedWithFileHostUpload,
+                                    )),
+                                ]);
+                            }
                         }
                         modal::Event::AcceptNewServer => {
                             if let Some(Modal::ServerConnect {
