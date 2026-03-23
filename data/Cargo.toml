@@ -59,7 +59,7 @@ serde_json = "1.0"
 serde_ignored = "0.1"
 serde-untagged = "0.1"
 sha2 = "0.10.8"
-toml = "0.9.12"
+toml = { version = "0.9.12", features = ["preserve_order"] }
 fancy-regex = "0.17"
 walkdir = "2.5.0"
 derive_more = { version = "2.0.1", features = ["full"] }
