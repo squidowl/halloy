@@ -110,6 +110,7 @@ pub fn server(
             }
             Kind::WAllOps => styles.wallops.color,
             Kind::Kick => styles.kick.color,
+            Kind::Away => styles.away.color,
         })
         .or(Some(styles.default.color));
 

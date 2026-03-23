@@ -681,10 +681,12 @@ impl Manager {
                 return;
             }
 
-            if let Some(seconds) = buffer_config.server_messages.smart(
-                source.as_ref().map(message::source::server::Server::kind),
-            ) {
-                let nick =
+            let source_kind =
+                source.as_ref().map(message::source::server::Server::kind);
+
+            if let Some(seconds) =
+                buffer_config.server_messages.smart(source_kind)
+                && let Some(nick) =
                     match source.as_ref().and_then(|source| source.nick()) {
                         Some(nick) => Some(nick.clone()),
                         None => message.plain().and_then(|s| {
@@ -692,16 +694,55 @@ impl Manager {
                                 .nth(1)
                                 .map(|nick| Nick::from_str(nick, casemapping))
                         }),
-                    };
+                    }
+                && let Some(history) = self.data.map.get(kind)
+            {
+                let messages = match history {
+                    History::Full { messages, .. } => messages,
+                    History::Partial { messages, .. } => messages,
+                };
 
-                if let Some(nick) = nick
-                    && let Some(history) = self.data.map.get(kind)
-                {
-                    let messages = match history {
-                        History::Full { messages, .. } => messages,
-                        History::Partial { messages, .. } => messages,
-                    };
+                if matches!(source_kind, Some(message::Kind::Away)) {
+                    message.blocked = messages
+                        .iter()
+                        .rev()
+                        .find_map(|historical_message| {
+                            if let crate::message::Source::Server(
+                                historical_source,
+                            ) = historical_message.target.source()
+                                && let Some(historical_source_kind) = source
+                                    .as_ref()
+                                    .map(message::source::server::Server::kind)
+                                && matches!(
+                                    historical_source_kind,
+                                    message::Kind::Away
+                                )
+                                && let Some(historical_nick) = historical_source
+                                    .as_ref()
+                                    .and_then(|historical_source| {
+                                        historical_source.nick()
+                                    })
+                                && *historical_nick == nick
+                            {
+                                return Some(smart_filter_repeat(
+                                    message,
+                                    &seconds,
+                                    Some(&historical_message.server_time),
+                                ));
+                            }
 
+                            if !smart_filter_repeat(
+                                message,
+                                &seconds,
+                                Some(&historical_message.server_time),
+                            ) {
+                                return Some(false);
+                            }
+
+                            None
+                        })
+                        .unwrap_or(false);
+                } else {
                     message.blocked = messages
                         .iter()
                         .rev()
@@ -853,6 +894,7 @@ impl Manager {
             };
 
             let mut last_seen = HashMap::<Nick, DateTime<Utc>>::new();
+            let mut last_away = HashMap::<Nick, DateTime<Utc>>::new();
 
             messages.iter_mut().for_each(|message| {
                 message.blocked = false;
@@ -874,7 +916,7 @@ impl Manager {
                         let casemapping =
                             clients.get_casemapping_or_default(server);
 
-                        // Check if target is a channel, and if included/excluded.
+                        // Check if target is included/excluded.
                         let target_ref = match &message.target {
                             message::Target::Channel { channel, .. }
                             | message::Target::Highlights { channel, .. } => {
@@ -887,6 +929,10 @@ impl Manager {
                             message::Target::Server { .. }
                             | message::Target::Logs { .. } => None,
                         };
+
+                        let source_kind = source
+                            .as_ref()
+                            .map(message::source::server::Server::kind);
 
                         if let Some(target_ref) = target_ref
                             && let Some(server) = server
@@ -901,11 +947,7 @@ impl Manager {
                         {
                             message.blocked = true;
                         } else if let Some(seconds) =
-                            buffer_config.server_messages.smart(
-                                source
-                                    .as_ref()
-                                    .map(message::source::server::Server::kind),
-                            )
+                            buffer_config.server_messages.smart(source_kind)
                         {
                             let nick = match source
                                 .as_ref()
@@ -920,11 +962,29 @@ impl Manager {
                             };
 
                             if let Some(nick) = nick {
-                                message.blocked = smart_filter_message(
-                                    message,
-                                    &seconds,
-                                    last_seen.get(&nick),
-                                );
+                                match source_kind {
+                                    Some(message::Kind::Away) => {
+                                        message.blocked = smart_filter_repeat(
+                                            message,
+                                            &seconds,
+                                            last_away.get(&nick),
+                                        );
+
+                                        if !message.blocked {
+                                            last_away.insert(
+                                                nick.clone(),
+                                                message.server_time,
+                                            );
+                                        }
+                                    }
+                                    _ => {
+                                        message.blocked = smart_filter_message(
+                                            message,
+                                            &seconds,
+                                            last_seen.get(&nick),
+                                        );
+                                    }
+                                }
                             }
                         }
                     }
@@ -1644,6 +1704,23 @@ fn smart_filter_message(
         .num_seconds();
 
     duration_seconds > *seconds
+}
+
+fn smart_filter_repeat(
+    message: &crate::Message,
+    seconds: &i64,
+    last_seen_server_time: Option<&DateTime<Utc>>,
+) -> bool {
+    let Some(server_time) = last_seen_server_time else {
+        return false;
+    };
+
+    let duration_seconds = message
+        .server_time
+        .signed_duration_since(*server_time)
+        .num_seconds();
+
+    duration_seconds <= *seconds
 }
 
 fn smart_filter_internal_message(

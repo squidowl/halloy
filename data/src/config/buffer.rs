@@ -350,6 +350,7 @@ pub struct ServerMessages {
     pub wallops: ServerMessage,
     pub kick: ServerMessage,
     pub change_topic: ServerMessage,
+    pub away: ServerMessage,
     pub default: ServerMessageDefault,
 }
 
@@ -377,6 +378,7 @@ impl ServerMessages {
             source::server::Kind::WAllOps => &self.wallops,
             source::server::Kind::Kick => &self.kick,
             source::server::Kind::ChangeTopic => &self.change_topic,
+            source::server::Kind::Away => &self.away,
         }
     }
 
@@ -515,7 +517,8 @@ impl Condensation {
             | source::server::Kind::MonitoredOffline
             | source::server::Kind::StandardReply(_)
             | source::server::Kind::WAllOps
-            | source::server::Kind::ChangeTopic => false,
+            | source::server::Kind::ChangeTopic
+            | source::server::Kind::Away => false,
         }
     }
 
