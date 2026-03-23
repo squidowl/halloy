@@ -5,6 +5,8 @@ Added:
 - <kbd>ctrl</kbd> + <kbd>,</kbd> now opens the config file (<kbd>⌘</kbd> + <kbd>,</kbd> on macOs)
 - Windows MSI installer does not automatically start Halloy during passive or quiet installations
 - Per-server `typing` settings (`servers.<name>.typing`)
+- `buffer.server_messages.away` setting to control when automated away messages are shown
+- `buffer.server_messages.away` theme setting to control how automated away messages appear
 
 Changed:
 
@@ -24,6 +26,7 @@ Thanks:
 
 - Contributions: @furudean, @omentic, @KaiKorla
 - Bug reports: sebbu, @whitequark, @SnoopJ, esden, @miyukoc, @ld-cd
+- Feature requests: @omentic
 
 # 2026.5 (2026-03-21)
 
