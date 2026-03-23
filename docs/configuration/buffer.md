@@ -957,6 +957,7 @@ enabled = false
 
 | **Event Type**        | **Description**                                                                                                                |
 | --------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `away`                | Message is an automated reply to a direct message, sent when a user is away                                                    |
 | `change_host`         | Message is sent when a user changes host                                                                                       |
 | `change_mode`         | Message is sent when a mode is set                                                                                             |
 | `change_nick`         | Message is sent when a user changes nick                                                                                       |
@@ -989,7 +990,10 @@ enabled = true
 
 ### `smart`
 
-Only show server message if the user has sent a message in the given time interval (seconds) prior to the server message.
+| **Event Type**        | **Behavior**                                                                                                             |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `away`                | Only show if an `away` message has not been shown in the given time interval (seconds) prior to the new `away` message   |
+| all other types       | Only show server message if the user has sent a message in the given time interval (seconds) prior to the server message |
 
 ```toml
 # Type: integer
