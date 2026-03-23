@@ -1,5 +1,13 @@
 # Unreleased
 
+Fixed:
+
+- `sidebar.order_by` setting works when set to `"config"`
+
+Thanks:
+
+- Bug reports: sebbu
+
 # 2026.5 (2026-03-21)
 
 Added:
