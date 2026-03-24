@@ -1508,7 +1508,7 @@ impl Dashboard {
                                 TokenPriority::User,
                             );
                         }
-                    },
+                    }
                     OpenConfigFile => {
                         let _ = open_url::open(Config::path());
                     }
