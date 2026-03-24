@@ -123,9 +123,9 @@ pub fn server(
 pub fn nicklist_nickname(theme: &Theme, config: &Config, user: &User) -> Style {
     nickname_style(
         theme,
-        config.buffer.channel.nicklist.color,
+        config.buffer.nickname.color,
         user,
-        config.buffer.channel.nicklist.away.is_away(user.is_away()),
+        config.buffer.nickname.away.is_away(user.is_away()),
         false,
     )
 }
