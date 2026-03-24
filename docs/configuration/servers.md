@@ -743,3 +743,34 @@ relevant when combined with the `exclude` setting.
 [servers.<name>.confirm_message_delivery]
 include = { channels = ["#halloy"] }
 ```
+
+
+### `typing`
+
+Typing settings for channel and query buffers on server.
+
+#### `share`
+
+Control whether Halloy shares your typing status with other users on the server.
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: `buffer.typing.share` is used if no value is provided for the server
+
+[servers.<name>.typing]
+share = false
+```
+
+#### `show`
+
+Control whether Halloy shows typing status from other users on the server.
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: `buffer.typing.show` is used if no value is provided for the server
+
+[servers.<name>.typing]
+show = true
+```

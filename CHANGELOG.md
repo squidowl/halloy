@@ -5,6 +5,10 @@ Added:
 - <kbd>ctrl</kbd> + <kbd>,</kbd> now opens the config file (<kbd>⌘</kbd> + <kbd>,</kbd> on macOs)
 - Windows MSI installer does not automatically start Halloy during passive or quiet installations
 
+Changed:
+
+- Moved `typing` settings from `buffer.channel.typing` to `buffer.typing` to clarify that they appliy to queries as well as channels
+
 Fixed:
 
 - `sidebar.order_by` setting works when set to `"config"`
