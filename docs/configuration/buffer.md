@@ -79,19 +79,6 @@ channel_name_casing = "lowercase"
 
 Message settings within a channel buffer.
 
-#### `nickname_color`
-
-Nickname colors in the message. `"unique"` generates colors by randomizing the hue, while keeping the saturation and lightness from the theme's nickname color.
-
-```toml
-# Type: string
-# Values: "solid", "unique"
-# Default: "unique"
-
-[buffer.channel.message]
-nickname_color = "unique"
-```
-
 #### `show_emoji_reacts`
 
 Whether to display emoji reactions on messages (if [IRCv3 React](https://ircv3.net/specs/client-tags/react) is supported by the server).
@@ -769,7 +756,7 @@ brackets = { left = "<", right = ">" }
 
 ### `color`
 
-Nickname colors in a channel buffer. `"unique"` generates colors by randomizing the hue, while keeping the saturation and lightness from the theme's nickname color.
+Nickname colors across nickname UI, including channel messages, nicklists, and nickname-related controls. `"unique"` generates colors by randomizing the hue, while keeping the saturation and lightness from the theme's nickname color.
 
 ```toml
 # Type: string
