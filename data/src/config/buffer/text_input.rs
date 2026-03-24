@@ -14,6 +14,7 @@ pub struct TextInput {
     #[serde(deserialize_with = "deserialize_usize_positive_integer")]
     pub max_lines: usize,
     pub send_line_delay: u64,
+    pub persist: bool,
 }
 
 impl Default for TextInput {
@@ -26,6 +27,7 @@ impl Default for TextInput {
             key_bindings: KeyBindings::default(),
             max_lines: 5,
             send_line_delay: 100,
+            persist: true,
         }
     }
 }

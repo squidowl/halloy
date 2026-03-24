@@ -1286,6 +1286,19 @@ Delay (milliseconds) between each line when sending multiple lines.  When the se
 send_line_delay = 100
 ```
 
+### `persist`
+
+If enabled, saves unsent messages on disk.
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: true
+
+[buffer.text_input]
+persist = true
+```
+
 ### `autocomplete`
 
 Customize autocomplete.
