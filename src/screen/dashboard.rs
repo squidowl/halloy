@@ -403,6 +403,34 @@ impl Dashboard {
                             return (Task::none(), None);
                         }
                     }
+                    pane::Message::ToggleShowTyping => {
+                        if let Some((_, _, pane)) = self.get_focused_mut() {
+                            if let Some(buffer) = pane.buffer.data() {
+                                let settings = self.buffer_settings.entry(
+                                    &buffer,
+                                    Some(config.buffer.clone().into()),
+                                );
+                                settings.channel.typing.toggle_show();
+                            }
+
+                            self.last_changed = Some(Instant::now());
+                            return (Task::none(), None);
+                        }
+                    }
+                    pane::Message::ToggleShareTyping => {
+                        if let Some((_, _, pane)) = self.get_focused_mut() {
+                            if let Some(buffer) = pane.buffer.data() {
+                                let settings = self.buffer_settings.entry(
+                                    &buffer,
+                                    Some(config.buffer.clone().into()),
+                                );
+                                settings.channel.typing.toggle_share();
+                            }
+
+                            self.last_changed = Some(Instant::now());
+                            return (Task::none(), None);
+                        }
+                    }
                     pane::Message::MaximizePane => self.maximize_pane(),
                     pane::Message::Popout => {
                         return (self.popout_pane(clients, config), None);
