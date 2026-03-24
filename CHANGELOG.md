@@ -4,6 +4,7 @@ Added:
 
 - <kbd>ctrl</kbd> + <kbd>,</kbd> now opens the config file (<kbd>⌘</kbd> + <kbd>,</kbd> on macOs)
 - Windows MSI installer does not automatically start Halloy during passive or quiet installations
+- Per-server `typing` settings (`servers.<name>.typing`)
 
 Changed:
 
