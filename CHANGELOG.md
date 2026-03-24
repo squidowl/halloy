@@ -1,11 +1,16 @@
 # Unreleased
 
+Added:
+
+- <kbd>⌘</kbd> + <kbd>,</kbd> now opens the config file on macOs
+
 Fixed:
 
 - `sidebar.order_by` setting works when set to `"config"`
 
 Thanks:
 
+- Contributions: @furudean
 - Bug reports: sebbu
 
 # 2026.5 (2026-03-21)
