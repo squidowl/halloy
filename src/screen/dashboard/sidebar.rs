@@ -415,7 +415,7 @@ impl Sidebar {
                             ),
                             Menu::OpenConfigFile => context_button(
                                 text("Open config file"),
-                                None,
+                                Some(&keyboard.open_config_file),
                                 icon::config(),
                                 Message::OpenConfigFile,
                             ),
