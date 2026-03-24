@@ -2,7 +2,7 @@
 
 Added:
 
-- <kbd>⌘</kbd> + <kbd>,</kbd> now opens the config file on macOs
+- <kbd>ctrl</kbd> + <kbd>,</kbd> now opens the config file (<kbd>⌘</kbd> + <kbd>,</kbd> on macOs)
 
 Fixed:
 
