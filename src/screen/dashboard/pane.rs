@@ -19,6 +19,8 @@ pub enum Message {
     MaximizePane,
     ToggleShowUserList,
     ToggleShowTopic,
+    ToggleShareTyping,
+    ToggleShowTyping,
     Popout,
     Merge,
     ScrollToBottom,
@@ -251,6 +253,76 @@ impl TitleBar {
 
         // Pane controls.
         let controls = row![
+            if let Some(server) = match &buffer {
+                Buffer::Channel(state) => Some(&state.server),
+                Buffer::Query(state) => Some(&state.server),
+                _ => None,
+            } && clients.get_server_supports_typing(server)
+            {
+                let share_typing_enabled = settings
+                    .map_or(config.buffer.channel.typing.share, |settings| {
+                        settings.channel.typing.share
+                    });
+
+                let share_typing_button = button(center(icon::keyboard()))
+                    .padding(5)
+                    .width(22)
+                    .height(22)
+                    .on_press(Message::ToggleShareTyping)
+                    .style(move |theme, status| {
+                        theme::button::secondary(
+                            theme,
+                            status,
+                            share_typing_enabled,
+                        )
+                    });
+
+                let share_typing_button_with_tooltip = tooltip(
+                    share_typing_button,
+                    share_typing_enabled.then_some("Share Typing"),
+                    tooltip::Position::Bottom,
+                    theme,
+                );
+
+                Some(share_typing_button_with_tooltip)
+            } else {
+                None
+            },
+            if let Some(server) = match &buffer {
+                Buffer::Channel(state) => Some(&state.server),
+                Buffer::Query(state) => Some(&state.server),
+                _ => None,
+            } && clients.get_server_supports_typing(server)
+            {
+                let show_typing_enabled = settings
+                    .map_or(config.buffer.channel.typing.show, |settings| {
+                        settings.channel.typing.show
+                    });
+
+                let show_typing_button = button(center(icon::keyboard()))
+                    .padding(5)
+                    .width(22)
+                    .height(22)
+                    .on_press(Message::ToggleShowTyping)
+                    .style(move |theme, status| {
+                        theme::button::secondary(
+                            theme,
+                            status,
+                            show_typing_enabled,
+                        )
+                    });
+
+                let show_typing_button_with_tooltip = tooltip(
+                    show_typing_button,
+                    show_typing_enabled.then_some("Show Typing"),
+                    tooltip::Position::Bottom,
+                    theme,
+                );
+
+                Some(show_typing_button_with_tooltip)
+            } else {
+                None
+            },
             if maybe_buffer_kind.is_some() {
                 let mark_as_read_button = button(center(icon::mark_as_read()))
                     .padding(5)

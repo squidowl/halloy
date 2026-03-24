@@ -96,3 +96,13 @@ impl From<config::buffer::channel::Typing> for Typing {
         }
     }
 }
+
+impl Typing {
+    pub fn toggle_share(&mut self) {
+        self.share = !self.share;
+    }
+
+    pub fn toggle_show(&mut self) {
+        self.show = !self.show;
+    }
+}
