@@ -152,12 +152,7 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a>(
                             data::message::Fragment::User(user, text) => {
                                 let color =
                                     theme.styles().buffer.nickname.color;
-                                let seed = match &config
-                                    .buffer
-                                    .channel
-                                    .message
-                                    .nickname_color
-                                {
+                                let seed = match &config.buffer.nickname.color {
                                     data::buffer::Color::Solid => None,
                                     data::buffer::Color::Unique => {
                                         Some(user.seed())
@@ -190,12 +185,7 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a>(
                             ) => {
                                 let color =
                                     theme.styles().buffer.nickname.color;
-                                let seed = match &config
-                                    .buffer
-                                    .channel
-                                    .message
-                                    .nickname_color
-                                {
+                                let seed = match &config.buffer.nickname.color {
                                     data::buffer::Color::Solid => None,
                                     data::buffer::Color::Unique => {
                                         Some(user.seed())
