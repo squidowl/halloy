@@ -297,7 +297,7 @@ impl KeyBind {
     #[cfg(target_os = "macos")]
     default!(open_config_file, ",", COMMAND);
     #[cfg(not(target_os = "macos"))]
-    default!(open_config_file);
+    default!(open_config_file, ",", CTRL);
 }
 
 impl From<(keyboard::Key, keyboard::Modifiers)> for KeyBind {
