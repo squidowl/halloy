@@ -322,18 +322,6 @@ impl Dashboard {
                         return (self.split_pane(axis), None);
                     }
                     pane::Message::Buffer(id, message) => {
-                        let share_typing = self
-                            .panes
-                            .get(window, id)
-                            .and_then(|pane| pane.buffer.data())
-                            .and_then(|buffer| {
-                                self.buffer_settings.get(&buffer)
-                            })
-                            .map_or(
-                                config.buffer.channel.typing.share,
-                                |settings| settings.channel.typing.share,
-                            );
-
                         if let Some(pane) = self.panes.get_mut(window, id) {
                             let (command, event) = pane.buffer.update(
                                 message,
@@ -342,7 +330,6 @@ impl Dashboard {
                                 &mut self.file_transfers,
                                 main_window,
                                 config,
-                                share_typing,
                             );
 
                             let task = command.map(move |message| {
@@ -397,34 +384,6 @@ impl Dashboard {
                                     .channel
                                     .topic_banner
                                     .toggle_visibility();
-                            }
-
-                            self.last_changed = Some(Instant::now());
-                            return (Task::none(), None);
-                        }
-                    }
-                    pane::Message::ToggleShowTyping => {
-                        if let Some((_, _, pane)) = self.get_focused_mut() {
-                            if let Some(buffer) = pane.buffer.data() {
-                                let settings = self.buffer_settings.entry(
-                                    &buffer,
-                                    Some(config.buffer.clone().into()),
-                                );
-                                settings.channel.typing.toggle_show();
-                            }
-
-                            self.last_changed = Some(Instant::now());
-                            return (Task::none(), None);
-                        }
-                    }
-                    pane::Message::ToggleShareTyping => {
-                        if let Some((_, _, pane)) = self.get_focused_mut() {
-                            if let Some(buffer) = pane.buffer.data() {
-                                let settings = self.buffer_settings.entry(
-                                    &buffer,
-                                    Some(config.buffer.clone().into()),
-                                );
-                                settings.channel.typing.toggle_share();
                             }
 
                             self.last_changed = Some(Instant::now());
@@ -521,7 +480,6 @@ impl Dashboard {
                                 &mut self.file_transfers,
                                 main_window,
                                 config,
-                                false,
                             );
 
                             let task = command.map(move |message| {
