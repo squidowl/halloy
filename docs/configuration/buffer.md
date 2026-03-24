@@ -150,39 +150,6 @@ Horizontal alignment of nicknames.
 alignment = "left"
 ```
 
-#### `away`
-
-Controls the appearance of away nicknames.
-
-```toml
-# Type: string or object
-# Values: "dimmed", "none" or { dimmed = float }
-# Default: "dimmed"
-[buffer.channel.nicklist]
-away = "dimmed"
-
-# with custom dimming alpha value (0.0-1.0)
-[buffer.channel.nicklist]
-away = { dimmed = 0.5 }
-
-# no away indication
-[buffer.channel.nicklist]
-away = "none"
-```
-
-#### `color`
-
-Nickname colors in the nicklist. `"unique"` generates colors by randomizing the hue, while keeping the saturation and lightness from the theme's nickname color.
-
-```toml
-# Type: string
-# Values: "solid", "unique"
-# Default: "unique"
-
-[buffer.channel.nicklist]
-color = "unique"
-```
-
 #### `enabled`
 
 Control if nicklist should be shown or not by default.
@@ -207,19 +174,6 @@ Nicklist position in the pane.
 
 [buffer.channel.nicklist]
 position = "right"
-```
-
-#### `show_access_levels`
-
-Show access level(s) in front of nicknames (`@`, `+`, `~`, etc.).
-
-```toml
-# Type: string
-# Values: "all", "highest", or "none"
-# Default: "highest"
-
-[buffer.channel.nicklist]
-show_access_levels = "all"
 ```
 
 #### `width`

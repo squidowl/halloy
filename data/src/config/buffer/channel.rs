@@ -3,7 +3,6 @@ use serde::Deserialize;
 use super::NicknameClickAction;
 use crate::buffer::Color;
 use crate::channel::Position;
-use crate::config::buffer::{AccessLevelFormat, Away};
 use crate::isupport;
 use crate::serde::deserialize_u32_positive_integer;
 
@@ -56,26 +55,20 @@ impl Default for Message {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
 pub struct Nicklist {
-    pub away: Away,
     pub enabled: bool,
     pub position: Position,
-    pub color: Color,
     pub width: Option<f32>,
     pub alignment: Alignment,
-    pub show_access_levels: AccessLevelFormat,
     pub click: NicknameClickAction,
 }
 
 impl Default for Nicklist {
     fn default() -> Self {
         Self {
-            away: Away::default(),
             enabled: true,
             position: Position::default(),
-            color: Color::default(),
             width: None,
             alignment: Alignment::default(),
-            show_access_levels: AccessLevelFormat::default(),
             click: NicknameClickAction::default(),
         }
     }
