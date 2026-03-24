@@ -1,5 +1,6 @@
 use std::cmp::Ord;
 use std::collections::{HashMap, HashSet, hash_map};
+use std::time::Duration;
 
 use chrono::{DateTime, Local, NaiveDate, Utc};
 use futures::future::BoxFuture;
@@ -15,6 +16,8 @@ use crate::reaction::{self, Reaction};
 use crate::target::{self, Target};
 use crate::user::Nick;
 use crate::{Config, Server, buffer, client, config, input, isupport, server};
+
+const DRAFT_SAVE_AFTER: Duration = Duration::from_secs(3);
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Resource {
@@ -49,6 +52,7 @@ pub enum Message {
     Exited(Vec<(history::Kind, Result<(), history::Error>)>),
     SentMessageUpdated(history::Kind, history::ReadMarker),
     ResendMessage(history::Kind, message::Message),
+    DraftsSaved,
 }
 
 pub enum Event {
@@ -63,6 +67,7 @@ pub struct Manager {
     resources: HashSet<Resource>,
     filters: Vec<Filter>,
     data: Data,
+    last_draft_changed: Option<tokio::time::Instant>,
 }
 
 impl Manager {
@@ -202,6 +207,7 @@ impl Manager {
             Message::ResendMessage(kind, message) => {
                 return Some(Event::ResendMessage(kind, message));
             }
+            Message::DraftsSaved => {}
         }
 
         None
@@ -270,6 +276,35 @@ impl Manager {
         }
     }
 
+    pub fn maybe_save_drafts(
+        &mut self,
+        now: tokio::time::Instant,
+    ) -> Option<BoxFuture<'static, Message>> {
+        let last_changed = self.last_draft_changed?;
+
+        if now.duration_since(last_changed) < DRAFT_SAVE_AFTER {
+            return None;
+        }
+
+        self.last_draft_changed = None;
+        let drafts = self.data.input.clone_draft_map();
+
+        Some(
+            async move {
+                input::save_drafts(drafts).await;
+                Message::DraftsSaved
+            }
+            .boxed(),
+        )
+    }
+
+    pub fn preload_drafts(
+        &mut self,
+        drafts: HashMap<buffer::Upstream, String>,
+    ) {
+        self.data.input.load_into(drafts);
+    }
+
     pub fn record_input_message(
         &mut self,
         message: message::Message,
@@ -312,6 +347,7 @@ impl Manager {
 
     pub fn record_draft(&mut self, raw_input: input::RawInput) {
         self.data.input.store_draft(raw_input);
+        self.last_draft_changed = Some(tokio::time::Instant::now());
     }
 
     // The message's blocked state should be determined prior to using this

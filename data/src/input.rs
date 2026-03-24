@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::path::PathBuf;
 
 use irc::proto;
 use irc::proto::format;
@@ -10,6 +11,7 @@ use nom::{Finish, IResult, Parser};
 use crate::buffer::{self};
 use crate::capabilities::{MultilineBatchKind, MultilineLimits};
 use crate::config::buffer::text_input::AutoFormat;
+use crate::environment;
 use crate::message::formatting;
 use crate::target::Target;
 use crate::user::{ChannelUsers, NickRef};
@@ -357,8 +359,50 @@ impl Storage {
     }
 
     pub fn store_draft(&mut self, raw_input: RawInput) {
-        self.draft.insert(raw_input.buffer, raw_input.text);
+        if raw_input.text.is_empty() {
+            self.draft.remove(&raw_input.buffer);
+        } else {
+            self.draft.insert(raw_input.buffer, raw_input.text);
+        }
     }
+
+    pub fn clone_draft_map(&self) -> HashMap<buffer::Upstream, String> {
+        self.draft.clone()
+    }
+
+    pub fn load_into(&mut self, drafts: HashMap<buffer::Upstream, String>) {
+        self.draft = drafts;
+    }
+}
+
+fn draft_path() -> PathBuf {
+    environment::data_dir().join("drafts.json")
+}
+
+pub async fn save_drafts(drafts: HashMap<buffer::Upstream, String>) {
+    if drafts.is_empty() {
+        let _ = tokio::fs::remove_file(draft_path()).await;
+        return;
+    }
+    let pairs: Vec<(buffer::Upstream, String)> = drafts.into_iter().collect();
+    match serde_json::to_vec(&pairs) {
+        Ok(bytes) => {
+            if let Err(e) = tokio::fs::write(draft_path(), bytes).await {
+                log::warn!("failed to save input drafts: {e}");
+            }
+        }
+        Err(e) => log::warn!("failed to serialize input drafts: {e}"),
+    }
+}
+
+pub fn load_drafts_sync() -> HashMap<buffer::Upstream, String> {
+    let Ok(bytes) = std::fs::read(draft_path()) else {
+        return HashMap::new();
+    };
+    serde_json::from_slice::<Vec<(buffer::Upstream, String)>>(&bytes)
+        .unwrap_or_default()
+        .into_iter()
+        .collect()
 }
 
 /// Cached values for a buffers input
