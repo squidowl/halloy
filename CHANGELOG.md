@@ -13,11 +13,12 @@ Fixed:
 - chathistory: support for TARGETS pagination and more conservative treatment of pagination on reconnect
 - Keyboard shortcuts now work in popped out buffer windows, including command bar shortcuts
 - IRC URIs now handle bracketed IPv6 hosts and percent-encoded channel targets correctly
+- `typing` settings for buffers could get in a stuck state without any way to control them
 
 Thanks:
 
 - Contributions: @furudean, @omentic, @KaiKorla
-- Bug reports: sebbu, @whitequark, @SnoopJ, esden, @miyukoc
+- Bug reports: sebbu, @whitequark, @SnoopJ, esden, @miyukoc, @ld-cd
 
 # 2026.5 (2026-03-21)
 
