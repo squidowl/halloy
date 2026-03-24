@@ -1509,6 +1509,9 @@ impl Dashboard {
                             );
                         }
                     }
+                    OpenConfigFile => {
+                        let _ = open_url::open(Config::path());
+                    }
                 }
             }
             Message::FileTransfer(update) => {

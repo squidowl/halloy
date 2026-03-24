@@ -107,6 +107,7 @@ pub enum Command {
     CycleNextUnreadBuffer,
     CyclePreviousUnreadBuffer,
     MarkAsRead,
+    OpenConfigFile,
 }
 
 macro_rules! default {
@@ -293,6 +294,10 @@ impl KeyBind {
     default!(quit_application, "q", CTRL);
     #[cfg(not(target_os = "linux"))]
     default!(quit_application);
+    #[cfg(target_os = "macos")]
+    default!(open_config_file, ",", COMMAND);
+    #[cfg(not(target_os = "macos"))]
+    default!(open_config_file, ",", CTRL);
 }
 
 impl From<(keyboard::Key, keyboard::Modifiers)> for KeyBind {
