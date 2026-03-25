@@ -655,26 +655,33 @@ impl History {
                 ..
             } => {
                 let kind = kind.clone();
-                let messages = std::mem::take(messages);
+                let last_seen = last_seen.clone();
                 let read_marker = *read_marker;
                 let max_triggers_unread =
-                    metadata::latest_triggers_unread(&messages);
+                    metadata::latest_triggers_unread(messages);
                 let max_triggers_highlight =
-                    metadata::latest_triggers_highlight(&messages);
-
+                    metadata::latest_triggers_highlight(messages);
                 let chathistory_references =
-                    metadata::latest_can_reference(&messages);
+                    metadata::latest_can_reference(messages);
 
-                *self = Self::Partial {
-                    kind: kind.clone(),
-                    messages: vec![],
-                    last_updated_at: None,
-                    read_marker,
-                    max_triggers_unread,
-                    max_triggers_highlight,
-                    chathistory_references,
-                    last_seen: last_seen.clone(),
-                    pending_reactions: HashMap::new(),
+                let full_history = std::mem::replace(
+                    self,
+                    Self::Partial {
+                        kind,
+                        messages: vec![],
+                        last_updated_at: None,
+                        read_marker,
+                        max_triggers_unread,
+                        max_triggers_highlight,
+                        chathistory_references,
+                        last_seen,
+                        pending_reactions: HashMap::new(),
+                    },
+                );
+
+                let (kind, messages) = match full_history {
+                    History::Partial { kind, messages, .. }
+                    | History::Full { kind, messages, .. } => (kind, messages),
                 };
 
                 Some(
