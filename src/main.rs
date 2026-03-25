@@ -1162,7 +1162,13 @@ impl Halloy {
         } else if let Screen::Dashboard(dashboard) = &self.screen {
             let content = container(
                 dashboard
-                    .view_window(id, &self.clients, &self.config, &self.theme)
+                    .view_window(
+                        id,
+                        &self.clients,
+                        &self.version,
+                        &self.config,
+                        &self.theme,
+                    )
                     .map(Message::Dashboard),
             )
             .padding(padding::top(platform_specific_padding));
