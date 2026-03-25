@@ -56,6 +56,7 @@ pub struct Dashboard {
     history: history::Manager,
     last_changed: Option<Instant>,
     command_bar: Option<CommandBar>,
+    command_bar_window: Option<window::Id>,
     file_transfers: file_transfer::Manager,
     theme_editor: Option<ThemeEditor>,
     notifications: notification::Notifications,
@@ -127,6 +128,7 @@ impl Dashboard {
             history: history::Manager::default(),
             last_changed: None,
             command_bar: None,
+            command_bar_window: None,
             file_transfers: file_transfer::Manager::default(),
             theme_editor: None,
             notifications: notification::Notifications::new(config),
@@ -1711,6 +1713,7 @@ impl Dashboard {
         &'a self,
         window: window::Id,
         clients: &'a client::Map,
+        version: &'a Version,
         config: &'a Config,
         theme: &'a Theme,
     ) -> Element<'a, Message> {
@@ -1752,8 +1755,13 @@ impl Dashboard {
             .height(Length::Fill)
             .padding(padding);
 
-            return Element::new(content)
+            let base = Element::new(content)
                 .map(move |message| Message::Pane(window, message));
+            let base = self.with_command_bar_overlay(
+                base, window, clients, version, config,
+            );
+
+            return self.with_keyboard_shortcuts(base, config);
         } else if let Some(editor) = self.theme_editor.as_ref()
             && editor.window == window
         {
@@ -1858,7 +1866,28 @@ impl Dashboard {
                 .into()
         };
 
-        let base = if let Some(command_bar) = self.command_bar.as_ref() {
+        let base = self.with_command_bar_overlay(
+            base,
+            self.main_window(),
+            clients,
+            version,
+            config,
+        );
+
+        self.with_keyboard_shortcuts(base, config)
+    }
+
+    fn with_command_bar_overlay<'a>(
+        &'a self,
+        base: Element<'a, Message>,
+        window: window::Id,
+        clients: &'a client::Map,
+        version: &'a Version,
+        config: &'a Config,
+    ) -> Element<'a, Message> {
+        if self.command_bar_window == Some(window)
+            && let Some(command_bar) = self.command_bar.as_ref()
+        {
             let background = anchored_overlay(
                 base,
                 container(
@@ -1871,7 +1900,6 @@ impl Dashboard {
                 0.0,
             );
 
-            // Task bar
             anchored_overlay(
                 background,
                 command_bar
@@ -1892,8 +1920,14 @@ impl Dashboard {
             // as `anchored_overlay` to prevent diff
             // from firing when displaying command bar
             column![column![base]].into()
-        };
+        }
+    }
 
+    fn with_keyboard_shortcuts<'a>(
+        &'a self,
+        base: Element<'a, Message>,
+        config: &'a Config,
+    ) -> Element<'a, Message> {
         shortcut(base, config.keyboard.shortcuts(), Message::Shortcut)
     }
 
@@ -2538,11 +2572,11 @@ impl Dashboard {
             Escape => {
                 // Order of operations
                 //
-                // - Close command bar (if main window)
+                // - Close command bar (if this window owns it)
                 // - Close context menu
                 // - Close command/emoji picker
                 // - Restore maximized pane (if main window)
-                if self.command_bar.is_some() && window == self.main_window() {
+                if self.command_bar_window == Some(window) {
                     self.toggle_command_bar(
                         &closed_buffers(self, clients),
                         version,
@@ -3459,6 +3493,10 @@ impl Dashboard {
                 pane.buffer = Buffer::Empty;
             }
         } else if self.panes.popout.remove(&window).is_some() {
+            if self.command_bar_window == Some(window) {
+                self.close_command_bar();
+            }
+
             return window::close(window)
                 .chain(self.focus_window(self.main_window()));
         }
@@ -3609,17 +3647,28 @@ impl Dashboard {
         config: &Config,
         theme: &mut Theme,
     ) -> Task<Message> {
-        if self.command_bar.is_some() {
-            // Remove theme preview
-            *theme = theme.selected();
+        match self.command_bar_window {
+            Some(window) if window == self.focus.window => {
+                // Remove theme preview
+                *theme = theme.selected();
 
-            self.close_command_bar();
-            // Refocus the pane so text input gets refocused
-            let Focus { window, pane } = self.focus;
-            self.focus_pane(window, pane)
-        } else {
-            self.open_command_bar(buffers, version, config);
-            Task::none()
+                self.close_command_bar();
+                // Refocus the pane so text input gets refocused
+                let Focus { window, pane } = self.focus;
+                self.focus_pane(window, pane)
+            }
+            Some(_) => {
+                *theme = theme.selected();
+
+                self.close_command_bar();
+                self.open_command_bar(buffers, version, config);
+
+                Task::none()
+            }
+            None => {
+                self.open_command_bar(buffers, version, config);
+                Task::none()
+            }
         }
     }
 
@@ -3629,6 +3678,7 @@ impl Dashboard {
         version: &Version,
         config: &Config,
     ) {
+        self.command_bar_window = Some(self.focus.window);
         self.command_bar = Some(CommandBar::new(
             buffers,
             version,
@@ -3641,6 +3691,7 @@ impl Dashboard {
 
     fn close_command_bar(&mut self) {
         self.command_bar = None;
+        self.command_bar_window = None;
     }
 
     fn buffer_resize_action(&self) -> data::buffer::Resize {
@@ -3825,6 +3876,7 @@ impl Dashboard {
             history: history::Manager::default(),
             last_changed: None,
             command_bar: None,
+            command_bar_window: None,
             file_transfers: file_transfer::Manager::default(),
             theme_editor: None,
             notifications: notification::Notifications::new(config),
@@ -3874,6 +3926,11 @@ impl Dashboard {
         if self.panes.popout.contains_key(&id) {
             match event {
                 window::Event::CloseRequested => {
+                    if self.command_bar_window == Some(id) {
+                        *theme = theme.selected();
+                        self.close_command_bar();
+                    }
+
                     self.panes.popout.remove(&id);
                     return window::close(id);
                 }
