@@ -1223,6 +1223,7 @@ auto_format = "markdown"
 ```
 
 ::: tip
+Token-based formatting is included in `"all"`, in addition to Markdown formatting, which provides underline and color formatting that `"markdown"` does not.
 Read more about [text formatting](/guides/text-formatting).
 :::
 

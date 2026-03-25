@@ -79,6 +79,6 @@ By default, Halloy will only format text when using the `/format` command. This,
 auto_format = "disabled" | "markdown" | "all"
 ```
 
-Token-based formatting is included in `"all"`, which has colors while `"markdown"` does not.
+Token-based formatting is included in `"all"`, in addition to Markdown formatting, which provides underline and color formatting that `"markdown"` does not.
 
 When `auto_format` is enabled, it can be disabled for an individual message by using the `/plain` command.
