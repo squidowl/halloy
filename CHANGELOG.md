@@ -10,7 +10,7 @@ Fixed:
 
 Thanks:
 
-- Contributions: @furudean
+- Contributions: @furudean, @omentic
 - Bug reports: sebbu
 
 # 2026.5 (2026-03-21)
