@@ -169,6 +169,7 @@ pub fn view<'a>(
 
                         Some(context_menu::message(
                             row_with_timestamp(timestamp, text_content),
+                            message.target.source(),
                             None,
                             vec![],
                             false,
@@ -240,7 +241,7 @@ pub fn view<'a>(
                                 &state.server,
                             );
 
-                        let message = message_content(
+                        let content = message_content(
                             &message.content,
                             &state.server,
                             chantypes,
@@ -262,7 +263,7 @@ pub fn view<'a>(
 
                         Some(context_menu::message(
                             row_with_timestamp_and_nick(
-                                timestamp, nick, message,
+                                timestamp, nick, content,
                             ),
                             message.target.source(),
                             None,
