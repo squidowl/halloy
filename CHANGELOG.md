@@ -11,6 +11,7 @@ Fixed:
 - Fix URLs with non-ASCII characters getting percent-encoded when rendered in buffers
 - chathistory: support for TARGETS pagination and more conservative treatment of pagination on reconnect
 - Keyboard shortcuts now work in popped out buffer windows, including command bar shortcuts
+- IRC URIs now handle bracketed IPv6 hosts and percent-encoded channel targets correctly
 
 Thanks:
 
