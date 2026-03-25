@@ -11,12 +11,12 @@ use nom::{Finish, IResult, Parser};
 use crate::buffer::{self};
 use crate::capabilities::{MultilineBatchKind, MultilineLimits};
 use crate::config::buffer::text_input::AutoFormat;
-use crate::environment;
 use crate::message::formatting;
 use crate::target::Target;
 use crate::user::{ChannelUsers, NickRef};
 use crate::{
-    Command, Config, Message, Server, User, command, isupport, message,
+    Command, Config, Message, Server, User, command, environment, isupport,
+    message,
 };
 
 const INPUT_HISTORY_LENGTH: usize = 100;
