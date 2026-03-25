@@ -3,6 +3,7 @@
 Added:
 
 - <kbd>ctrl</kbd> + <kbd>,</kbd> now opens the config file (<kbd>⌘</kbd> + <kbd>,</kbd> on macOs)
+- Drafts are remembered across Halloy sessions. Can be disabled with `buffer.text_input.persist`
 
 Fixed:
 
