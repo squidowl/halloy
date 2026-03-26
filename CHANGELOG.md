@@ -7,6 +7,7 @@ Added:
 Fixed:
 
 - `sidebar.order_by` setting works when set to `"config"`
+- Server notices with wildcard targets (for example `NOTICE *`) are shown in the server buffer again
 
 Thanks:
 
