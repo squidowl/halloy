@@ -854,6 +854,14 @@ impl Client {
                                 .and_then(|batch| self.batches.get_mut(batch))
                             {
                                 parent.events.extend(finished.events);
+
+                                // Ergo treats a multiline message a single
+                                // message toward the chathistory limit while
+                                // soju treats it as the number of batch
+                                // messages;  for our purposes the number of
+                                // batch messages is the more conservative
+                                // option
+                                parent.size += finished.size;
                             } else {
                                 match &finished.kind {
                                     Some(BatchKind::ChathistoryTarget(
@@ -862,6 +870,7 @@ impl Client {
                                         let continuation_subcommand = self
                                             .finish_chathistory_request(
                                                 batch_target,
+                                                finished.size,
                                                 &finished.events,
                                             );
 
@@ -949,6 +958,9 @@ impl Client {
             }
             _ if batch_tag.is_some() => {
                 if let Some(batch_tag) = batch_tag.as_ref() {
+                    let is_chathistory_context =
+                        message.tags.contains_key("draft/chathistory-context");
+
                     let events = match self
                         .batches
                         .get(batch_tag)
@@ -970,7 +982,12 @@ impl Client {
                     };
 
                     if let Some(batch) = self.batches.get_mut(batch_tag) {
+                        if !is_chathistory_context {
+                            batch.size += 1;
+                        }
+
                         batch.events.extend(events);
+
                         return Ok(vec![]);
                     } else {
                         return Ok(events);
@@ -3350,6 +3367,7 @@ impl Client {
     fn finish_chathistory_request(
         &mut self,
         target: &Target,
+        size: u16,
         events: &[Event],
     ) -> Option<ChatHistorySubcommand> {
         if let Some(ChatHistoryRequest {
@@ -3366,7 +3384,7 @@ impl Client {
             ) = subcommand
             {
                 self.chathistory_exhausted
-                    .insert(target.clone(), events.len() < *limit as usize);
+                    .insert(target.clone(), size < *limit);
             }
 
             match subcommand {
@@ -3378,14 +3396,14 @@ impl Client {
                     log::debug!(
                         "[{}] received latest {} messages in {} since {}",
                         self.server,
-                        events.len(),
+                        size,
                         target,
                         message_reference,
                     );
 
                     if matches!(message_reference, MessageReference::None) {
                         None
-                    } else if *autorequest && events.len() == *limit as usize {
+                    } else if *autorequest && size >= *limit {
                         continue_chathistory_between(
                             target,
                             events,
@@ -3400,7 +3418,7 @@ impl Client {
                     log::debug!(
                         "[{}] received {} messages in {} before {}",
                         self.server,
-                        events.len(),
+                        size,
                         target,
                         message_reference,
                     );
@@ -3416,13 +3434,13 @@ impl Client {
                     log::debug!(
                         "[{}] received {} messages in {} between {} and {}",
                         self.server,
-                        events.len(),
+                        size,
                         target,
                         start_message_reference,
                         end_message_reference,
                     );
 
-                    if *autorequest && events.len() == *limit as usize {
+                    if *autorequest && size >= *limit {
                         continue_chathistory_between(
                             target,
                             events,
@@ -4020,19 +4038,16 @@ fn continue_chathistory_between(
             Event::Single(message, _)
             | Event::PrivOrNotice(message, _, _)
             | Event::WithTarget(message, _, _)
-            | Event::DirectMessage(message, _, _) => {
-                match end_message_reference {
-                    MessageReference::MessageId(_) => {
-                        message.message_id().map(MessageReference::MessageId)
-                    }
-                    MessageReference::Timestamp(_) => {
-                        Some(MessageReference::Timestamp(
-                            message.server_time_or_now(),
-                        ))
-                    }
-                    MessageReference::None => None,
+            | Event::DirectMessage(message, _, _)
+            | Event::Reaction(message) => match end_message_reference {
+                MessageReference::MessageId(_) => {
+                    message.message_id().map(MessageReference::MessageId)
                 }
-            }
+                MessageReference::Timestamp(_) => Some(
+                    MessageReference::Timestamp(message.server_time_or_now()),
+                ),
+                MessageReference::None => None,
+            },
             Event::Broadcast(_)
             | Event::FileTransferRequest(_)
             | Event::UpdateReadMarker(_, _)
@@ -4045,7 +4060,6 @@ fn continue_chathistory_between(
             | Event::MonitoredOffline(_)
             | Event::OnConnect(_)
             | Event::BouncerNetwork(_, _)
-            | Event::Reaction(_)
             | Event::AddToSidebar(_)
             | Event::Disconnect(_) => None,
         });
@@ -4693,6 +4707,7 @@ pub struct Batch {
     context: Option<Context>,
     events: Vec<Event>,
     kind: Option<BatchKind>,
+    size: u16,
 }
 
 impl Batch {
@@ -4701,6 +4716,7 @@ impl Batch {
             context,
             events: vec![],
             kind: None,
+            size: 0,
         }
     }
 }
