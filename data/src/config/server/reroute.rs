@@ -49,30 +49,6 @@ pub enum RerouteTarget {
 }
 
 impl PrivateMessages {
-    pub fn has_reroute_rule_for(&self, user: &str, channel: &str) -> bool {
-        self.targets_for_user(user).any(|target| {
-            matches!(
-                target,
-                RerouteTarget::Channel { channel: rule_channel }
-                    if rule_channel.eq_ignore_ascii_case(channel)
-            )
-        })
-    }
-
-    pub fn has_server_reroute_rule_for(
-        &self,
-        user: &str,
-        server: &Server,
-    ) -> bool {
-        self.targets_for_user(user).any(|target| {
-            matches!(
-                target,
-                RerouteTarget::Server { server: rule_server }
-                    if matches_server_label(rule_server, server)
-            )
-        })
-    }
-
     pub fn has_reroute_rule_for_query(
         &self,
         query: &target::Query,
@@ -118,15 +94,6 @@ impl PrivateMessages {
                 } => matches_server_label(rule_server, server)
                     .then_some(&rule.target),
             }
-        })
-    }
-
-    fn targets_for_user<'a>(
-        &'a self,
-        user: &'a str,
-    ) -> impl Iterator<Item = &'a RerouteTarget> + 'a {
-        self.reroute.iter().filter_map(move |rule| {
-            rule.user.eq_ignore_ascii_case(user).then_some(&rule.target)
         })
     }
 }
