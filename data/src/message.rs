@@ -2117,6 +2117,19 @@ fn target(
         }
         Command::PRIVMSG(target, text) | Command::NOTICE(target, text) => {
             let is_action = is_action(&text);
+            let source = |user| {
+                if is_action {
+                    Source::Action(Some(user))
+                } else {
+                    Source::User(user)
+                }
+            };
+
+            if target == "*" {
+                let source = user.map_or(Source::Server(None), source);
+
+                return Some(Target::Server { source });
+            }
 
             // CTCP Handling.
             if ctcp::is_query(&text) && !is_action {
@@ -2135,14 +2148,6 @@ fn target(
                     source: Source::Server(None),
                 })
             } else {
-                let source = |user| {
-                    if is_action {
-                        Source::Action(Some(user))
-                    } else {
-                        Source::User(user)
-                    }
-                };
-
                 match (
                     target::Target::parse(
                         &target,
@@ -3651,6 +3656,28 @@ pub mod tests {
             }
         ));
         assert_eq!(message.text(), "*** Notice -- [snip]");
+    }
+
+    #[test]
+    fn wildcard_target_with_user_source_uses_server_buffer() {
+        let server = Server {
+            name: "Test Server".into(),
+            network: None,
+        };
+
+        let (message, highlight) = message_with_highlight_from_irc_message(
+            ":dan!d@localhost NOTICE * :maintenance window\r\n",
+            &server,
+        );
+
+        assert!(highlight.is_none());
+        assert!(matches!(
+            &message.target,
+            crate::message::Target::Server {
+                source: crate::message::Source::User(user),
+            } if user.nickname().to_string() == "dan"
+        ));
+        assert_eq!(message.text(), "maintenance window");
     }
 
     pub fn serde_broadcasts() -> Vec<Broadcast> {
