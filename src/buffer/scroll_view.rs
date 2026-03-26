@@ -182,18 +182,17 @@ fn has_visible_preview(
         return fragments.iter().filter_map(message::Fragment::url).any(
             |url| {
                 // Check if URL is hidden by user
-                if message.hidden_urls.contains(&url) {
+                if message.hidden_urls.contains(url) {
                     return false;
                 }
 
                 // Check if URL is in visible URLs list
-                if !visible_urls.contains(&url) {
+                if !visible_urls.contains(url) {
                     return false;
                 }
 
                 // Check if preview is loaded and visible for source
-                if let Some(preview::State::Loaded(preview)) =
-                    previews.get(&url)
+                if let Some(preview::State::Loaded(preview)) = previews.get(url)
                 {
                     let is_visible_for_source =
                         if let Some(visible_for_source) = visible_for_source {
@@ -212,14 +211,15 @@ fn has_visible_preview(
     false
 }
 
-fn eligible_preview_urls(
-    urls: impl IntoIterator<Item = url::Url>,
+fn eligible_preview_urls<'a>(
+    urls: impl IntoIterator<Item = &'a url::Url>,
     hidden_urls: &HashSet<url::Url>,
     max_per_message: usize,
 ) -> Vec<url::Url> {
     urls.into_iter()
-        .filter(|url| !hidden_urls.contains(url))
+        .filter(|url| !hidden_urls.contains(*url))
         .take(max_per_message)
+        .cloned()
         .collect()
 }
 

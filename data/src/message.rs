@@ -1746,7 +1746,9 @@ fn parse_fragments_inner<'a>(
                             url.to_string()
                         };
 
-                        Url::parse(&url).ok().map(|_| Fragment::Url(url))
+                        Url::parse(&url)
+                            .ok()
+                            .map(|canonical| Fragment::Url(canonical, url))
                     })
                     .into_iter(),
                 );
@@ -1891,7 +1893,7 @@ pub enum Fragment {
     Text(String),
     Channel(String),
     User(User, String),
-    Url(String),
+    Url(url::Url, String),
     Formatted {
         text: String,
         formatting: Formatting,
@@ -1905,9 +1907,9 @@ pub enum Fragment {
 }
 
 impl Fragment {
-    pub fn url(&self) -> Option<url::Url> {
-        if let Self::Url(url) = self {
-            url::Url::parse(url).ok()
+    pub fn url(&self) -> Option<&url::Url> {
+        if let Self::Url(url, _) = self {
+            Some(url)
         } else {
             None
         }
@@ -1918,7 +1920,7 @@ impl Fragment {
             Fragment::Text(s) => s,
             Fragment::Channel(c) => c,
             Fragment::User(_, t) => t,
-            Fragment::Url(s) => s,
+            Fragment::Url(_, s) => s,
             Fragment::Formatted { text, .. } => text,
             Fragment::HighlightNick(_, s) => s,
             Fragment::HighlightMatch(s) => s,
@@ -3234,20 +3236,20 @@ pub mod tests {
                 "Checkout https://foo.bar/asdf?1=2 now!",
                 vec![
                     Fragment::Text("Checkout ".into()),
-                    Fragment::Url("https://foo.bar/asdf?1=2".to_string()),
+                    Fragment::Url("https://foo.bar/asdf?1=2".parse().unwrap(), "https://foo.bar/asdf?1=2".to_string()),
                     Fragment::Text(" now!".into()),
                 ],
             ),
             (
                 "http://google.us.edi?34535/534534?dfg=g&fg",
                 vec![Fragment::Url(
-                    "http://google.us.edi?34535/534534?dfg=g&fg".to_string(),
+                    "http://google.us.edi?34535/534534?dfg=g&fg".parse().unwrap(), "http://google.us.edi?34535/534534?dfg=g&fg".to_string(),
                 )],
             ),
             (
                 "http://regexr.com is a great tool",
                 vec![
-                    Fragment::Url("http://regexr.com".to_string()),
+                    Fragment::Url("http://regexr.com".parse().unwrap(), "http://regexr.com".to_string()),
                     Fragment::Text(" is a great tool".into()),
                 ],
             ),
@@ -3255,54 +3257,54 @@ pub mod tests {
                 "We have a wiki at https://halloy.chat",
                 vec![
                     Fragment::Text("We have a wiki at ".into()),
-                    Fragment::Url("https://halloy.chat".to_string()),
+                    Fragment::Url("https://halloy.chat".parse().unwrap(), "https://halloy.chat".to_string()),
                 ],
             ),
             (
                 "https://catgirl.delivery/2024/07/25/sometimes-it-is-correct-to-blame-the-compiler/",
                 vec![Fragment::Url(
-                    "https://catgirl.delivery/2024/07/25/sometimes-it-is-correct-to-blame-the-compiler/".to_string()
+                    "https://catgirl.delivery/2024/07/25/sometimes-it-is-correct-to-blame-the-compiler/".parse().unwrap(), "https://catgirl.delivery/2024/07/25/sometimes-it-is-correct-to-blame-the-compiler/".to_string()
                 )],
             ),
             (
                 "https://www.google.com/maps/@61.0873595,-27.322408,3z?entry=ttu",
                 vec![Fragment::Url(
-                    "https://www.google.com/maps/@61.0873595,-27.322408,3z?entry=ttu".to_string()
+                    "https://www.google.com/maps/@61.0873595,-27.322408,3z?entry=ttu".parse().unwrap(), "https://www.google.com/maps/@61.0873595,-27.322408,3z?entry=ttu".to_string()
                 )],
             ),
             (
                 "https://doc.rust-lang.org/book/ch03-05-control-flow.html#loop-labels-to-disambiguate-between-multiple-loops",
                 vec![Fragment::Url(
-                    "https://doc.rust-lang.org/book/ch03-05-control-flow.html#loop-labels-to-disambiguate-between-multiple-loops".to_string()
+                    "https://doc.rust-lang.org/book/ch03-05-control-flow.html#loop-labels-to-disambiguate-between-multiple-loops".parse().unwrap(), "https://doc.rust-lang.org/book/ch03-05-control-flow.html#loop-labels-to-disambiguate-between-multiple-loops".to_string()
                 )],
             ),
             (
                 "(https://yt.drgnz.club/watch?v=s_VH36ChGXw and https://invidious.incogniweb.net/watch?v=H3v9unphfi0).",
                 vec![
                     Fragment::Text("(".into()),
-                    Fragment::Url("https://yt.drgnz.club/watch?v=s_VH36ChGXw".to_string()),
+                    Fragment::Url("https://yt.drgnz.club/watch?v=s_VH36ChGXw".parse().unwrap(), "https://yt.drgnz.club/watch?v=s_VH36ChGXw".to_string()),
                     Fragment::Text(" and ".into()),
-                    Fragment::Url("https://invidious.incogniweb.net/watch?v=H3v9unphfi0".to_string()),
+                    Fragment::Url("https://invidious.incogniweb.net/watch?v=H3v9unphfi0".parse().unwrap(), "https://invidious.incogniweb.net/watch?v=H3v9unphfi0".to_string()),
                     Fragment::Text(").".into()),
                 ],
             ),
             (
                 "https://www.reddit.com/r/witze/comments/1fcoz5a/ein_vampir_auf_einem_tandem_gerät_in_eine/", // spellchecker:disable-line
                 vec![Fragment::Url(
-                    "https://www.reddit.com/r/witze/comments/1fcoz5a/ein_vampir_auf_einem_tandem_gerät_in_eine/".to_string() // spellchecker:disable-line
+                    "https://www.reddit.com/r/witze/comments/1fcoz5a/ein_vampir_auf_einem_tandem_gerät_in_eine/".parse().unwrap(), "https://www.reddit.com/r/witze/comments/1fcoz5a/ein_vampir_auf_einem_tandem_gerät_in_eine/".to_string() // spellchecker:disable-line
                 )],
             ),
             (
                 "http://öbb.at",
                 vec![
-                    Fragment::Url("http://öbb.at".to_string()),
+                    Fragment::Url("http://öbb.at".parse().unwrap(), "http://öbb.at".to_string()),
                 ],
             ),
             (
                 "(Example brackets https://example.com)",
                 vec![
                     Fragment::Text("(Example brackets ".into()),
-                    Fragment::Url("https://example.com".to_string()),
+                    Fragment::Url("https://example.com".parse().unwrap(), "https://example.com".to_string()),
                     Fragment::Text(")".into()),
                 ]
             ),
@@ -3310,7 +3312,7 @@ pub mod tests {
                 "see website (https://website-url.com)",
                 vec![
                     Fragment::Text("see website (".into()),
-                    Fragment::Url("https://website-url.com".to_string()),
+                    Fragment::Url("https://website-url.com".parse().unwrap(), "https://website-url.com".to_string()),
                     Fragment::Text(")".into()),
                 ]
             ),
@@ -3318,14 +3320,14 @@ pub mod tests {
                 "This is a valid url https://www.example.com/test_(example)",
                 vec![
                     Fragment::Text("This is a valid url ".into()),
-                    Fragment::Url("https://www.example.com/test_(example)".to_string()),
+                    Fragment::Url("https://www.example.com/test_(example)".parse().unwrap(), "https://www.example.com/test_(example)".to_string()),
                 ]
             ),
             (
                 "(This is also a valid url https://www.example.com/another_test_(example))",
                 vec![
                     Fragment::Text("(This is also a valid url ".into()),
-                    Fragment::Url("https://www.example.com/another_test_(example)".to_string()),
+                    Fragment::Url("https://www.example.com/another_test_(example)".parse().unwrap(), "https://www.example.com/another_test_(example)".to_string()),
                     Fragment::Text(")".into()),
                 ]
             ),
@@ -3338,9 +3340,9 @@ pub mod tests {
                     Fragment::Text(" ".into()),
                     Fragment::Formatted{ text: "somenick".into(), formatting: Formatting { fg: Some(Color::Magenta), ..Formatting::default() }},
                     Fragment::Text(" ".into()),
-                    Fragment::Url("http://some.website.com/".to_string()),
+                    Fragment::Url("http://some.website.com/".parse().unwrap(), "http://some.website.com/".to_string()),
                     Fragment::Text(" * describe commit * ".into()),
-                    Fragment::Url("https://code.videolan.org/videolan/vlc/".to_string()),
+                    Fragment::Url("https://code.videolan.org/videolan/vlc/".parse().unwrap(), "https://code.videolan.org/videolan/vlc/".to_string()),
                 ],
             ),
             (
@@ -3353,7 +3355,7 @@ pub mod tests {
                 "\u{f}\u{3}09color that wraps a https://www.website.com/ like so\u{f}",
                 vec![
                     Fragment::Formatted{ text: "color that wraps a ".into(), formatting: Formatting { fg: Some(Color::LightGreen), ..Formatting::default() }},
-                    Fragment::Url("https://www.website.com/".to_string()),
+                    Fragment::Url("https://www.website.com/".parse().unwrap(), "https://www.website.com/".to_string()),
                     Fragment::Formatted{ text: " like so".into(), formatting: Formatting { fg: Some(Color::LightGreen), ..Formatting::default() }},
                 ],
             ),
@@ -3389,7 +3391,7 @@ pub mod tests {
             (
                 "https://en.wiktionary.org/wiki/百聞は一見に如かず",
                 vec![Fragment::Url(
-                    "https://en.wiktionary.org/wiki/百聞は一見に如かず".to_string()
+                    "https://en.wiktionary.org/wiki/百聞は一見に如かず".parse().unwrap(), "https://en.wiktionary.org/wiki/百聞は一見に如かず".to_string()
                 )],
             ),
         ];
@@ -3402,6 +3404,27 @@ pub mod tests {
 
             assert_eq!(expected, actual);
         }
+    }
+
+    #[test]
+    fn fragment_url_preserves_raw_and_canonical() {
+        // Non-ASCII URLs should display as is, but expose
+        // percent-encoded canonical form for cache lookups and opening.
+        let Content::Fragments(fragments) = parse_fragments(
+            "https://en.wiktionary.org/wiki/百聞は一見に如かず".to_string(),
+        ) else {
+            panic!("expected fragments");
+        };
+
+        let [Fragment::Url(canonical, raw)] = fragments.as_slice() else {
+            panic!("expected single Url fragment");
+        };
+
+        assert_eq!(raw, "https://en.wiktionary.org/wiki/百聞は一見に如かず");
+        assert_eq!(
+            canonical.as_str(),
+            "https://en.wiktionary.org/wiki/%E7%99%BE%E8%81%9E%E3%81%AF%E4%B8%80%E8%A6%8B%E3%81%AB%E5%A6%82%E3%81%8B%E3%81%9A"
+        );
     }
 
     #[test]
