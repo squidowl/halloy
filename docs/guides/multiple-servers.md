@@ -19,4 +19,13 @@ use_tls = true # default value
 port = 6697 # default value when use_tls = true
 
 nickname = "nickname-on-oftc"
+
+[servers.2600net]
+server = "irc.scuttled.net"
+use_tls = true # default value
+port = 6697 # default value when use_tls = true
+
+nickname = "nickname-on-2600net"
+
+channels = [#2600"]
 ```

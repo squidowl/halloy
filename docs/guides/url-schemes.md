@@ -33,6 +33,9 @@ Below is a few URL examples.
 - **Connect to OFTC on port 9999 and join #oftc and #asahi-dev:**  
   [ircs://irc.oftc.net:9999/#oftc,#asahi-dev](ircs://irc.oftc.net:9999/#oftc,#asahi-dev)
 
+- **Connect to 2600net on port 6697 and join #2600 and #halloy:**  
+  [ircs://irc.scuttled.net:6697/#2600,#halloy](ircs://irc.scuttled.net:6697/#2600,#halloy)
+
 ## Halloy
 
 The `halloy://` scheme is used to import themes.
