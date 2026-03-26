@@ -27,5 +27,5 @@ port = 6697 # default value when use_tls = true
 
 nickname = "nickname-on-2600net"
 
-channels = [#2600"]
+channels = ["#2600"]
 ```
