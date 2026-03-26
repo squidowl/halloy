@@ -45,3 +45,14 @@ port = 6667 # default value when use_tls = false
 
 nickname = "halloy-user"
 ```
+
+## [2600net](https://scuttled.net/)
+
+```toml
+[servers.2600net]
+server = "irc.scuttled.net"
+use_tls = true
+port = 6697 # default value when use_tls = true
+
+nickname = "halloy-user"
+```
