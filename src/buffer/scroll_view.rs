@@ -192,7 +192,8 @@ fn has_visible_preview(
                 }
 
                 // Check if preview is loaded and visible for source
-                if let Some(preview::State::Loaded(preview)) = previews.get(&url)
+                if let Some(preview::State::Loaded(preview)) =
+                    previews.get(&url)
                 {
                     let is_visible_for_source =
                         if let Some(visible_for_source) = visible_for_source {
@@ -415,9 +416,7 @@ pub fn view<'a>(
                 ) = (&message.content, previews)
                 {
                     let urls = eligible_preview_urls(
-                        fragments
-                            .iter()
-                            .filter_map(message::Fragment::url),
+                        fragments.iter().filter_map(message::Fragment::url),
                         &message.hidden_urls,
                         config.preview.max_per_message,
                     );
