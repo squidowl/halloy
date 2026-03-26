@@ -2158,6 +2158,12 @@ fn target(
                         );
                         Some(Target::Channel { channel, source })
                     }
+                    (target::Target::Channel(channel), None) => {
+                        Some(Target::Channel {
+                            channel,
+                            source: Source::Server(None),
+                        })
+                    }
                     (target::Target::Query(query), Some(user)) => {
                         let query = if user.nickname() == *our_nick {
                             // Message from ourself, from another client.
@@ -2178,15 +2184,9 @@ fn target(
                             source: source(user),
                         })
                     }
-                    (target::Target::Query(query), None)
-                        if query.as_normalized_str()
-                            == our_nick.as_normalized_str() =>
-                    {
-                        Some(Target::Server {
-                            source: Source::Server(None),
-                        })
-                    }
-                    _ => None,
+                    (target::Target::Query(_), None) => Some(Target::Server {
+                        source: Source::Server(None),
+                    }),
                 }
             }
         }
@@ -3629,6 +3629,28 @@ pub mod tests {
             isupport::get_prefix_or_default(&isupport),
         )
         .unwrap_or_else(|| panic!("failed to create Message from {encoded:?}"))
+    }
+
+    #[test]
+    fn server_notice_with_wildcard_target_uses_server_buffer() {
+        let server = Server {
+            name: "Test Server".into(),
+            network: None,
+        };
+
+        let (message, highlight) = message_with_highlight_from_irc_message(
+            "@time=2026-03-22T02:29:14.051Z :osmium.libera.chat NOTICE * :*** Notice -- [snip]\r\n",
+            &server,
+        );
+
+        assert!(highlight.is_none());
+        assert!(matches!(
+            &message.target,
+            crate::message::Target::Server {
+                source: crate::message::Source::Server(None),
+            }
+        ));
+        assert_eq!(message.text(), "*** Notice -- [snip]");
     }
 
     pub fn serde_broadcasts() -> Vec<Broadcast> {
