@@ -238,21 +238,23 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a>(
                                     ))
                                     .background(theme.styles().buffer.highlight)
                             }
-                            data::message::Fragment::Url(s) => span(s.as_str())
-                                .font_maybe(
-                                    theme
-                                        .styles()
-                                        .buffer
-                                        .url
-                                        .font_style
-                                        .map(font::get),
-                                )
-                                .color(transform_color(
-                                    theme.styles().buffer.url.color,
-                                ))
-                                .link(message::Link::Url(
-                                    s.as_str().to_string(),
-                                )),
+                            data::message::Fragment::Url(_, s) => {
+                                span(s.as_str())
+                                    .font_maybe(
+                                        theme
+                                            .styles()
+                                            .buffer
+                                            .url
+                                            .font_style
+                                            .map(font::get),
+                                    )
+                                    .color(transform_color(
+                                        theme.styles().buffer.url.color,
+                                    ))
+                                    .link(message::Link::Url(
+                                        s.as_str().to_string(),
+                                    ))
+                            }
                             data::message::Fragment::Formatted {
                                 text,
                                 formatting,
