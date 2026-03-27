@@ -262,17 +262,20 @@ impl Manager {
         &mut self,
         clients: &client::Map,
     ) -> impl Future<Output = Message> + use<> {
-        let map = std::mem::take(&mut self.data).map;
+        let data = std::mem::take(&mut self.data);
+        let drafts = data.input.clone_draft_map();
         let seeds: Vec<Option<history::Seed>> =
-            map.keys().map(|kind| clients.get_seed(kind)).collect();
-        let seeded_map = map.into_iter().zip(seeds);
+            data.map.keys().map(|kind| clients.get_seed(kind)).collect();
+        let seeded_map = data.map.into_iter().zip(seeds);
 
         async move {
             let tasks = seeded_map.into_iter().map(|((kind, state), seed)| {
                 state.close(seed).map(move |result| (kind, result))
             });
 
-            Message::Exited(future::join_all(tasks).await)
+            let results = future::join_all(tasks).await;
+            input::save_drafts(drafts).await;
+            Message::Exited(results)
         }
     }
 
