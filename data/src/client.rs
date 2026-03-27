@@ -897,6 +897,22 @@ impl Client {
 
                                         self.clear_chathistory_request(None);
 
+                                        // Chathistory is automatically
+                                        // requested when JOIN is received, so
+                                        // we can filter out unprefixed channels
+                                        // once continuation_subcommand has been
+                                        // created.
+                                        finished.events.retain(|event| match event {
+                                            Event::ChatHistoryTargetReceived(target, _) => match target {
+                                                Target::Channel(channel) => {
+                                                    !channel.prefixes().is_empty()
+                                                        && self.chanmap.contains_key(channel)
+                                                }
+                                                Target::Query(_) => true,
+                                            },
+                                            _ => true,
+                                        });
+
                                         if let Some(continuation_subcommand) =
                                             continuation_subcommand
                                         {
@@ -2642,26 +2658,10 @@ impl Client {
                         DateTime::parse_from_rfc3339(timestamp)
                             .map(|date_time| date_time.to_utc())
                     {
-                        match target {
-                            Target::Channel(ref channel) => {
-                                if !channel.prefixes().is_empty()
-                                    && self.chanmap.contains_key(channel)
-                                {
-                                    events.push(
-                                        Event::ChatHistoryTargetReceived(
-                                            target,
-                                            server_time,
-                                        ),
-                                    );
-                                }
-                            }
-                            Target::Query(_) => {
-                                events.push(Event::ChatHistoryTargetReceived(
-                                    target,
-                                    server_time,
-                                ));
-                            }
-                        }
+                        events.push(Event::ChatHistoryTargetReceived(
+                            target,
+                            server_time,
+                        ));
                     }
 
                     if self.chathistory_targets_request.is_none() {
