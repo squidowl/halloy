@@ -10,11 +10,12 @@ Fixed:
 - Server notices with wildcard targets (for example `NOTICE *`) are shown in the server buffer again
 - Fix URLs with non-ASCII characters getting percent-encoded when rendered in buffers
 - chathistory: support for TARGETS pagination and more conservative treatment of pagination on reconnect
+- Keyboard shortcuts now work in popped out buffer windows, including command bar shortcuts
 
 Thanks:
 
-- Contributions: @furudean, @omentic
-- Bug reports: sebbu, @whitequark, @SnoopJ, esden
+- Contributions: @furudean, @omentic, @KaiKorla
+- Bug reports: sebbu, @whitequark, @SnoopJ, esden, @miyukoc
 
 # 2026.5 (2026-03-21)
 
