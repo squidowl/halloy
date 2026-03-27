@@ -505,7 +505,7 @@ impl Halloy {
                         }
                     }
                     Some(dashboard::Event::OpenUrl(
-                        url,
+                        raw_url,
                         prompt_before_open,
                     )) => {
                         let Some((id, _, _)) = dashboard.get_focused() else {
@@ -514,11 +514,13 @@ impl Halloy {
 
                         if prompt_before_open {
                             self.modal = Some(Modal::PromptBeforeOpenUrl {
-                                url,
+                                url: raw_url,
                                 window: id,
                             });
                         } else {
-                            let _ = open_url::open(url);
+                            let canonical = ::url::Url::parse(&raw_url)
+                                .map_or(raw_url, |u| u.to_string());
+                            let _ = open_url::open(canonical);
                         }
 
                         Task::none()
