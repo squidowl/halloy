@@ -860,7 +860,10 @@ impl Client {
                                 // soju treats it as the number of batch
                                 // messages;  for our purposes the number of
                                 // batch messages is the more conservative
-                                // option
+                                // option.  This is expected to change in the
+                                // future, for all chathistory implementation to
+                                // treat a multiline message as a single
+                                // message.
                                 parent.size += finished.size;
                             } else {
                                 match &finished.kind {
