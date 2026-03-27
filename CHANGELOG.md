@@ -9,11 +9,12 @@ Fixed:
 - `sidebar.order_by` setting works when set to `"config"`
 - Server notices with wildcard targets (for example `NOTICE *`) are shown in the server buffer again
 - Fix URLs with non-ASCII characters getting percent-encoded when rendered in buffers
+- chathistory: support for TARGETS pagination and more conservative treatment of pagination on reconnect
 
 Thanks:
 
 - Contributions: @furudean, @omentic
-- Bug reports: sebbu, @whitequark, @SnoopJ
+- Bug reports: sebbu, @whitequark, @SnoopJ, esden
 
 # 2026.5 (2026-03-21)
 
