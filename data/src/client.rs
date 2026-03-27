@@ -869,7 +869,7 @@ impl Client {
                                     )) => {
                                         let continuation_subcommand = self
                                             .finish_chathistory_request(
-                                                batch_target,
+                                                Some(batch_target),
                                                 finished.size,
                                                 &finished.events,
                                             );
@@ -888,35 +888,29 @@ impl Client {
                                         }
                                     }
                                     Some(BatchKind::ChathistoryTargets) => {
-                                        if let Some(ChatHistoryRequest {
-                                            subcommand,
-                                            ..
-                                        }) =
-                                            &self.chathistory_targets_request
-                                        {
-                                            if let ChatHistorySubcommand::Targets(
-                                                start_message_reference,
-                                                end_message_reference,
-                                                _,
-                                            ) = subcommand
-                                            {
-                                                log::debug!(
-                                                    "[{}] received {} targets between {} and {}",
-                                                    self.server,
-                                                    finished.events.len(),
-                                                    start_message_reference,
-                                                    end_message_reference,
-                                                );
-                                            }
+                                        let continuation_subcommand = self
+                                            .finish_chathistory_request(
+                                                None,
+                                                finished.size,
+                                                &finished.events,
+                                            );
 
+                                        self.clear_chathistory_request(None);
+
+                                        if let Some(continuation_subcommand) =
+                                            continuation_subcommand
+                                        {
+                                            self.send_chathistory_request(
+                                                continuation_subcommand,
+                                                TokenPriority::High,
+                                            );
+                                        } else {
                                             finished.events.push(
                                                 Event::ChatHistoryTargetsReceived(
-                                                    message.server_time_or_now(),
+                                                    Utc::now(),
                                                 ),
                                             );
                                         }
-
-                                        self.clear_chathistory_request(None);
                                     }
                                     Some(BatchKind::Multiline(
                                         tags,
@@ -2642,22 +2636,31 @@ impl Client {
                         self.casemapping(),
                     );
 
-                    match target {
-                        Target::Channel(ref channel) => {
-                            if !channel.prefixes().is_empty()
-                                && self.chanmap.contains_key(channel)
-                            {
+                    let timestamp = ok!(args.get(1));
+
+                    if let Ok(server_time) =
+                        DateTime::parse_from_rfc3339(timestamp)
+                            .map(|date_time| date_time.to_utc())
+                    {
+                        match target {
+                            Target::Channel(ref channel) => {
+                                if !channel.prefixes().is_empty()
+                                    && self.chanmap.contains_key(channel)
+                                {
+                                    events.push(
+                                        Event::ChatHistoryTargetReceived(
+                                            target,
+                                            server_time,
+                                        ),
+                                    );
+                                }
+                            }
+                            Target::Query(_) => {
                                 events.push(Event::ChatHistoryTargetReceived(
                                     target,
-                                    message.server_time_or_now(),
+                                    server_time,
                                 ));
                             }
-                        }
-                        Target::Query(_) => {
-                            events.push(Event::ChatHistoryTargetReceived(
-                                target,
-                                message.server_time_or_now(),
-                            ));
                         }
                     }
 
@@ -3366,7 +3369,7 @@ impl Client {
 
     fn finish_chathistory_request(
         &mut self,
-        target: &Target,
+        target: Option<&Target>,
         size: u16,
         events: &[Event],
     ) -> Option<ChatHistorySubcommand> {
@@ -3374,14 +3377,18 @@ impl Client {
             subcommand,
             autorequest,
             ..
-        }) = self.chathistory_requests.get(target)
-        {
-            if let ChatHistorySubcommand::Before(_, _, limit)
-            | ChatHistorySubcommand::Latest(
-                _,
-                MessageReference::None,
-                limit,
-            ) = subcommand
+        }) = if let Some(target) = target {
+            self.chathistory_requests.get(target)
+        } else {
+            self.chathistory_targets_request.as_ref()
+        } {
+            if let Some(target) = target
+                && let ChatHistorySubcommand::Before(_, _, limit)
+                | ChatHistorySubcommand::Latest(
+                    _,
+                    MessageReference::None,
+                    limit,
+                ) = subcommand
             {
                 self.chathistory_exhausted
                     .insert(target.clone(), size < *limit);
@@ -3451,13 +3458,28 @@ impl Client {
                         None
                     }
                 }
-                ChatHistorySubcommand::Targets(_, _, _) => {
+                ChatHistorySubcommand::Targets(
+                    start_message_reference,
+                    end_message_reference,
+                    limit,
+                ) => {
                     log::debug!(
-                        "[{}] chathistory batch received for TARGETS request (draft/chathistory-targets batch expected)",
-                        self.server
+                        "[{}] received {} targets between {} and {}",
+                        self.server,
+                        size,
+                        start_message_reference,
+                        end_message_reference,
                     );
 
-                    None
+                    if *autorequest && size >= *limit {
+                        continue_chathistory_targets(
+                            events,
+                            end_message_reference,
+                            self.chathistory_limit(),
+                        )
+                    } else {
+                        None
+                    }
                 }
             }
         } else {
@@ -4067,6 +4089,45 @@ fn continue_chathistory_between(
     start_message_reference.map(|start_message_reference| {
         ChatHistorySubcommand::Between(
             target.clone(),
+            start_message_reference,
+            end_message_reference.clone(),
+            limit,
+        )
+    })
+}
+
+fn continue_chathistory_targets(
+    events: &[Event],
+    end_message_reference: &MessageReference,
+    limit: u16,
+) -> Option<ChatHistorySubcommand> {
+    let start_message_reference =
+        events.last().and_then(|first_event| match first_event {
+            Event::ChatHistoryTargetReceived(_, server_time) => {
+                Some(MessageReference::Timestamp(*server_time))
+            }
+            Event::Single(_, _)
+            | Event::PrivOrNotice(_, _, _)
+            | Event::WithTarget(_, _, _)
+            | Event::DirectMessage(_, _, _)
+            | Event::Reaction(_)
+            | Event::Broadcast(_)
+            | Event::FileTransferRequest(_)
+            | Event::UpdateReadMarker(_, _)
+            | Event::JoinedChannel(_, _)
+            | Event::LoggedIn(_)
+            | Event::AddedIsupportParam(_)
+            | Event::ChatHistoryTargetsReceived(_)
+            | Event::MonitoredOnline(_)
+            | Event::MonitoredOffline(_)
+            | Event::OnConnect(_)
+            | Event::BouncerNetwork(_, _)
+            | Event::AddToSidebar(_)
+            | Event::Disconnect(_) => None,
+        });
+
+    start_message_reference.map(|start_message_reference| {
+        ChatHistorySubcommand::Targets(
             start_message_reference,
             end_message_reference.clone(),
             limit,
