@@ -123,7 +123,7 @@ pub fn server(
 pub fn nicklist_nickname(theme: &Theme, config: &Config, user: &User) -> Style {
     nickname_style(
         theme,
-        config.buffer.nickname.color,
+        &config.buffer.nickname.color,
         user,
         config.buffer.nickname.away.is_away(user.is_away()),
         false,
@@ -138,7 +138,7 @@ pub fn nickname(
 ) -> Style {
     nickname_style(
         theme,
-        config.buffer.nickname.color,
+        &config.buffer.nickname.color,
         user,
         config
             .buffer
@@ -155,22 +155,19 @@ pub fn topic_nickname(
     user: &User,
     is_offline: bool,
 ) -> Style {
-    nickname_style(theme, config.buffer.nickname.color, user, None, is_offline)
+    nickname_style(theme, &config.buffer.nickname.color, user, None, is_offline)
 }
 
 fn nickname_style(
     theme: &Theme,
-    kind: data::buffer::Color,
+    kind: &data::buffer::Color,
     user: &User,
     is_away: Option<buffer::Away>,
     is_offline: bool,
 ) -> Style {
-    let seed = match kind {
-        data::buffer::Color::Solid => None,
-        data::buffer::Color::Unique => Some(user.seed()),
-    };
-
-    let color = text::nickname(theme, seed, is_away, is_offline).color;
+    let color =
+        text::nickname(theme, kind, Some(user.seed()), is_away, is_offline)
+            .color;
 
     Style {
         color,

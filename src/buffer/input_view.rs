@@ -512,15 +512,13 @@ pub fn view<'a>(
             .away
             .is_away(our_user.is_none_or(User::is_away));
 
-        let seed = match config.buffer.nickname.color {
-            data::buffer::Color::Solid => None,
-            data::buffer::Color::Unique => {
-                our_user.map(|user| Some(user.seed()))
-            }
-        }
-        .flatten();
-
-        theme::text::nickname(theme, seed, is_user_away, false)
+        theme::text::nickname(
+            theme,
+            &config.buffer.nickname.color,
+            our_user.map(User::seed),
+            is_user_away,
+            false,
+        )
     };
 
     let maybe_our_user = config
