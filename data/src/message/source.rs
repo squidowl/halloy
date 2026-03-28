@@ -113,6 +113,7 @@ pub mod server {
         WAllOps,
         Kick,
         ChangeTopic,
+        Away,
     }
 
     #[derive(

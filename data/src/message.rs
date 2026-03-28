@@ -2081,17 +2081,19 @@ fn target(
             })
         }
         Command::Numeric(RPL_AWAY, params) => {
-            let query = target::Query::parse(
-                params.get(1)?,
-                chantypes,
-                statusmsg,
-                casemapping,
-            )
-            .ok()?;
+            let user = params.get(1)?;
+
+            let query =
+                target::Query::parse(user, chantypes, statusmsg, casemapping)
+                    .ok()?;
 
             Some(Target::Query {
                 query,
-                source: Source::Action(None),
+                source: Source::Server(Some(source::Server::new(
+                    Kind::Away,
+                    Some(Nick::from_string(user.clone(), casemapping)),
+                    None,
+                ))),
             })
         }
         Command::Numeric(
