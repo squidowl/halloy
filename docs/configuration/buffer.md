@@ -756,15 +756,18 @@ brackets = { left = "<", right = ">" }
 
 ### `color`
 
-Nickname colors across nickname UI, including channel messages, nicklists, and nickname-related controls. `"unique"` generates colors by randomizing the hue, while keeping the saturation and lightness from the theme's nickname color.
+Nickname colors across nickname UI, including channel messages, nicklists, and nickname-related controls. `"unique"` generates colors by randomizing the hue, while keeping the saturation and lightness from the theme's nickname color. `{ palette = [...] }` assigns each nickname one of the provided hex colors.
 
 ```toml
-# Type: string
-# Values: "solid", "unique"
+# Type: string or object
+# Values: "solid", "unique", or { palette = ["#RRGGBB", ...] }
 # Default: "unique"
 
 [buffer.nickname]
 color = "unique"
+
+[buffer.nickname]
+color = { palette = ["#B11E3A", "#2A7FFF", "#1E9E5A"] }
 ```
 
 ### `offline`

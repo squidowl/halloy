@@ -1,4 +1,4 @@
-use data::appearance::theme::randomize_color;
+use data::appearance::theme::nickname_color;
 use data::config::buffer;
 use iced::widget::text::{Catalog, Style, StyleFn};
 
@@ -96,9 +96,10 @@ pub fn url(theme: &Theme) -> Style {
     }
 }
 
-pub fn nickname<T: AsRef<str>>(
+pub fn nickname(
     theme: &Theme,
-    seed: Option<T>,
+    kind: &data::buffer::Color,
+    seed: Option<&str>,
     is_away: Option<buffer::Away>,
     is_offline: bool,
 ) -> Style {
@@ -121,14 +122,8 @@ pub fn nickname<T: AsRef<str>>(
 
     let nickname = theme.styles().buffer.nickname;
 
-    // If we have a seed we randomize the color based on the seed before adding any alpha value.
-    let color = match seed {
-        Some(seed) => calculate_alpha_color(randomize_color(
-            nickname.color,
-            seed.as_ref(),
-        )),
-        None => calculate_alpha_color(nickname.color),
-    };
+    let color =
+        calculate_alpha_color(nickname_color(nickname.color, kind, seed));
 
     Style { color: Some(color) }
 }
