@@ -11,7 +11,6 @@ use crate::{Theme, font, theme};
 pub fn typing_font_size(config: &Config) -> f32 {
     config
         .buffer
-        .channel
         .typing
         .font_size
         .or(config.font.size)

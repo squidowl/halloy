@@ -3933,6 +3933,16 @@ impl Client {
             && isupport::is_client_tag_allowed(&self.isupport, "typing")
     }
 
+    fn show_typing(&self) -> bool {
+        self.supports_typing()
+            && self.config.typing.show.is_some_and(|show| show)
+    }
+
+    fn share_typing(&self) -> bool {
+        self.can_send_typing()
+            && self.config.typing.share.is_some_and(|share| share)
+    }
+
     fn can_send_reactions(&self) -> bool {
         self.capabilities.acknowledged(Capability::MessageTags)
             && isupport::is_client_tag_allowed(&self.isupport, "draft/react")
@@ -4499,6 +4509,14 @@ impl Map {
 
     pub fn get_server_can_send_typing(&self, server: &Server) -> bool {
         self.client(server).is_some_and(Client::can_send_typing)
+    }
+
+    pub fn get_server_show_typing(&self, server: &Server) -> bool {
+        self.client(server).is_some_and(Client::show_typing)
+    }
+
+    pub fn get_server_share_typing(&self, server: &Server) -> bool {
+        self.client(server).is_some_and(Client::share_typing)
     }
 
     pub fn get_channel_typing_users(

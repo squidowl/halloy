@@ -10,6 +10,7 @@ pub use crate::appearance::theme::{alpha_color, alpha_color_calculate};
 use crate::config::buffer::nickname::Nickname;
 use crate::config::buffer::text_input::TextInput;
 use crate::config::inclusivities::{Inclusivities, is_target_channel_included};
+use crate::serde::deserialize_u8_positive_integer_maybe;
 use crate::user::NickRef;
 use crate::{Server, isupport, target};
 
@@ -43,6 +44,7 @@ pub struct Buffer {
     pub url: Url,
     pub line_spacing: u32,
     pub scroll_position_on_open: ScrollPosition,
+    pub typing: Typing,
 }
 
 #[derive(Debug, Clone, Deserialize, Default)]
@@ -859,4 +861,23 @@ where
             alpha: Some(dim),
         },
     }))
+}
+
+#[derive(Debug, Clone, Copy, Deserialize)]
+#[serde(default)]
+pub struct Typing {
+    pub share: bool,
+    pub show: bool,
+    #[serde(deserialize_with = "deserialize_u8_positive_integer_maybe")]
+    pub font_size: Option<u8>,
+}
+
+impl Default for Typing {
+    fn default() -> Self {
+        Self {
+            share: false,
+            show: true,
+            font_size: None,
+        }
+    }
 }
