@@ -9,10 +9,12 @@ Added:
 - `buffer.server_messages.away` theme setting to control how automated away messages appear
 - Drafts are remembered across Halloy sessions. Can be disabled with `buffer.text_input.persist`
 - Animate typing dots
+- `buffer.nickname.color` now supports `{ palette = ["#RRGGBB", ...] }` for nickname colors from a fixed set
 
 Changed:
 
 - Moved `typing` settings from `buffer.channel.typing` to `buffer.typing` to clarify that they appliy to queries as well as channels
+- Moved nicklist nickname settings from `buffer.channel.nicklist` to `buffer.nickname` (`away`, `color`, and `show_access_levels`)
 
 Fixed:
 
@@ -24,6 +26,9 @@ Fixed:
 - IRC URIs now handle bracketed IPv6 hosts and percent-encoded channel targets correctly
 - `typing` settings for buffers could get in a stuck state without any way to control them
 - +typing=done should not be sent when the message is sent
+
+Removed:
+- `buffer.channel.message.nickname_color` in favor of `buffer.nickname.color`
 
 Thanks:
 
