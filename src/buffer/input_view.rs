@@ -639,7 +639,6 @@ impl State {
         history: &mut history::Manager,
         main_window: &Window,
         config: &Config,
-        channel_typing_enabled: bool,
     ) -> (Task<Message>, Option<Event>) {
         let current_target = buffer.target();
 
@@ -862,7 +861,7 @@ impl State {
                         self.input_content.text().clone(),
                     );
                     self.input_content = text_editor::Content::new();
-                    self.clear_typing(buffer, clients, channel_typing_enabled);
+                    self.clear_typing(buffer, clients);
 
                     let lines = self
                         .parsed
@@ -951,13 +950,7 @@ impl State {
                         .clone();
 
                     return self.on_history_navigation(
-                        buffer,
-                        clients,
-                        history,
-                        channel_typing_enabled,
-                        config,
-                        &new_input,
-                        false,
+                        buffer, clients, history, config, &new_input, false,
                     );
                 }
 
@@ -982,13 +975,7 @@ impl State {
                     };
 
                     return self.on_history_navigation(
-                        buffer,
-                        clients,
-                        history,
-                        channel_typing_enabled,
-                        config,
-                        &new_input,
-                        false,
+                        buffer, clients, history, config, &new_input, false,
                     );
                 } else {
                     self.input_content.perform(text_editor::Action::Move(
@@ -1187,10 +1174,7 @@ impl State {
                 match &action {
                     text_editor::Action::Edit(_) => {
                         self.parse_lines_and_maybe_send_typing_status(
-                            buffer,
-                            clients,
-                            channel_typing_enabled,
-                            config,
+                            buffer, clients, config,
                         );
 
                         let cursor_position =
@@ -1252,11 +1236,7 @@ impl State {
                             }
                         }
 
-                        self.maybe_send_typing_status(
-                            buffer,
-                            clients,
-                            channel_typing_enabled,
-                        );
+                        self.maybe_send_typing_status(buffer, clients);
 
                         history.record_draft(RawInput {
                             buffer: buffer.clone(),
@@ -2072,7 +2052,6 @@ impl State {
         buffer: &buffer::Upstream,
         clients: &mut client::Map,
         history: &mut history::Manager,
-        channel_typing_enabled: bool,
         config: &Config,
         text: &str,
         record_draft: bool,
@@ -2091,12 +2070,7 @@ impl State {
             text_editor::Motion::DocumentEnd,
         ));
 
-        self.parse_lines_and_maybe_send_typing_status(
-            buffer,
-            clients,
-            channel_typing_enabled,
-            config,
-        );
+        self.parse_lines_and_maybe_send_typing_status(buffer, clients, config);
 
         // Cursor movement above does not always trigger an Action::Move
         self.process_completion_and_error(buffer, clients, history, config);
@@ -2195,11 +2169,10 @@ impl State {
         &mut self,
         buffer: &buffer::Upstream,
         clients: &mut client::Map,
-        channel_typing_enabled: bool,
         config: &Config,
     ) {
         self.parse_lines(buffer, clients, config);
-        self.maybe_send_typing_status(buffer, clients, channel_typing_enabled);
+        self.maybe_send_typing_status(buffer, clients);
     }
 
     fn typing_transition(
@@ -2233,19 +2206,12 @@ impl State {
         &mut self,
         buffer: &buffer::Upstream,
         clients: &mut client::Map,
-        channel_typing_enabled: bool,
     ) {
         let text = self.current_line_text();
-        let enabled = self.can_send_typing_status(
-            buffer,
-            clients,
-            channel_typing_enabled,
-        );
+        let enabled = self.can_send_typing_status(buffer, clients);
 
         if !enabled {
-            if self.can_send_typing_done(buffer, clients)
-                && self.last_typing_at.is_some()
-            {
+            if self.last_typing_at.is_some() {
                 self.send_typing_status(buffer, clients, command::Typing::Done);
             }
 
@@ -2274,10 +2240,8 @@ impl State {
         &mut self,
         buffer: &buffer::Upstream,
         clients: &mut client::Map,
-        channel_typing_enabled: bool,
     ) {
-        let enabled =
-            self.typing_allowed(buffer, clients, channel_typing_enabled);
+        let enabled = self.typing_allowed(buffer, clients);
 
         if enabled && self.last_typing_at.is_some() {
             self.send_typing_status(buffer, clients, command::Typing::Done);
@@ -2314,9 +2278,8 @@ impl State {
         &self,
         buffer: &buffer::Upstream,
         clients: &client::Map,
-        channel_typing_enabled: bool,
     ) -> bool {
-        self.typing_allowed(buffer, clients, channel_typing_enabled)
+        clients.get_server_share_typing(buffer.server())
             && self.is_message_like_input(buffer, clients)
     }
 
@@ -2324,20 +2287,9 @@ impl State {
         &self,
         buffer: &buffer::Upstream,
         clients: &client::Map,
-        channel_typing_enabled: bool,
     ) -> bool {
         buffer.target().is_some()
-            && channel_typing_enabled
-            && clients.get_server_can_send_typing(buffer.server())
-    }
-
-    fn can_send_typing_done(
-        &self,
-        buffer: &buffer::Upstream,
-        clients: &client::Map,
-    ) -> bool {
-        buffer.target().is_some()
-            && clients.get_server_can_send_typing(buffer.server())
+            && clients.get_server_share_typing(buffer.server())
     }
 
     fn is_message_like_input(

@@ -88,19 +88,19 @@ where
 
     let (text, font_size, line_height) = match marker {
         Marker::Dot => (
-            "\u{E81A}",
+            "\u{2022}",
             font_size * font::MESSAGE_MARKER_FONT_SCALE,
             LineHeight::Relative(
                 cfg_line_height / font::MESSAGE_MARKER_FONT_SCALE,
             ),
         ),
         Marker::Expand => (
-            "\u{E81B}",
+            "\u{003E}",
             font_size * 0.75,
             LineHeight::Relative(1.75 * line_height_ratio),
         ),
         Marker::Contract => (
-            "\u{E81C}",
+            "\u{0076}",
             font_size * 0.75,
             LineHeight::Relative(1.75 * line_height_ratio),
         ),
