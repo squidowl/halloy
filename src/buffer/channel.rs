@@ -90,7 +90,7 @@ pub fn view<'a>(
 
     let previews = Some(Previews::new(
         previews,
-        &channel.to_target(),
+        channel.as_target_ref(),
         server,
         &config.preview,
         casemapping,
