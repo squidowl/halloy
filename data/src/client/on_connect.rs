@@ -106,7 +106,8 @@ pub fn on_connect(
                             | command::Internal::Exec(_)
                             | command::Internal::Hop(_, _)
                             | command::Internal::SysInfo
-                            | command::Internal::Reconnect => None,
+                            | command::Internal::Reconnect
+                            | command::Internal::Upload(_) => None,
                         },
                     }
                 }

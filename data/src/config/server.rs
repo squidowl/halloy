@@ -115,6 +115,7 @@ pub struct Server {
     pub confirm_message_delivery: ConfirmMessageDelivery,
     pub autoconnect: bool,
     pub typing: OptionalTyping,
+    pub filehost: Option<Filehost>,
 }
 
 impl Server {
@@ -232,6 +233,29 @@ impl Default for Server {
             confirm_message_delivery: ConfirmMessageDelivery::default(),
             autoconnect: true,
             typing: OptionalTyping::default(),
+            filehost: None,
+        }
+    }
+}
+
+#[derive(PartialEq, Eq, Debug, Clone, Deserialize)]
+#[serde(default)]
+pub struct Filehost {
+    /// Whether to use the server's filehost. Defaults to `true`.
+    pub enabled: bool,
+    /// Override the filehost URL advertised by the server via ISUPPORT
+    pub override_url: Option<String>,
+    /// Send an `Authorization` header with file upload requests.
+    /// Defaults to `true`.
+    pub send_credentials: bool,
+}
+
+impl Default for Filehost {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            override_url: None,
+            send_credentials: true,
         }
     }
 }
