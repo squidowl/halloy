@@ -58,6 +58,7 @@ Aliases are resolved before built-in commands and take precedence when they use 
 | `setname`       |              | Change your realname[^5]                                                                 |
 | `sysinfo`       |              | Send system information (OS, CPU, memory, GPU, uptime)                                   |
 | `topic`         | `t`          | Retrieve the topic of a channel or set a new topic[^1]                                   |
+| `upload`        |              | Upload a file via `draft/FILEHOST`[^12]                            |
 | `whois`         |              | Retrieve information about user(s)                                                       |
 
 [^1]: The `channel` argument can be skipped when used in a channel buffer to target the channel in the buffer.
@@ -71,3 +72,4 @@ Aliases are resolved before built-in commands and take precedence when they use 
 [^9]: Channels joined will not be remembered after quitting Halloy (i.e. when next starting Halloy it will not re-join the channels).  Add the channel information to the [channels setting for the server](configuration/servers#channels) in the configuration file.
 [^10]: If not joined to the channel in the buffer, then the `chanlist` argument can be skipped to target the channel in the buffer.
 [^11]: The command is executed locally with `sh -c` on Unix-like systems and `cmd /C` on Windows. Only the first non-empty line of stdout is used. If that line starts with `/`, it is treated as a command; otherwise it is sent as a normal message. `/exec` is disabled by default and must be explicitly enabled in [`buffer.commands.exec`](configuration/buffer#exec).
+[^12]: Requires the server to advertise `draft/FILEHOST` support, or [`filehost.override_url`](./configuration/servers#filehost) to be set.

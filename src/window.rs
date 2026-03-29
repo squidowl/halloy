@@ -97,7 +97,7 @@ pub fn toggle_fullscreen<Message: 'static + Send>() -> Task<Message> {
     })
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub enum Event {
     Moved(Point),
     Resized(Size),
@@ -105,6 +105,9 @@ pub enum Event {
     Unfocused,
     Opened { position: Option<Point>, size: Size },
     CloseRequested,
+    FileHovered,
+    FilesHoveredLeft,
+    FileDropped(std::path::PathBuf),
 }
 
 #[cfg(not(any(
@@ -280,6 +283,15 @@ impl subscription::Recipe for Events {
                     iced::window::Event::CloseRequested => {
                         Some((id, Event::CloseRequested))
                     }
+                    iced::window::Event::FileHovered(_) => {
+                        Some((id, Event::FileHovered))
+                    }
+                    iced::window::Event::FilesHoveredLeft => {
+                        Some((id, Event::FilesHoveredLeft))
+                    }
+                    iced::window::Event::FileDropped(path) => {
+                        Some((id, Event::FileDropped(path)))
+                    }
                     _ => None,
                 },
                 _ => None,
@@ -319,6 +331,18 @@ impl subscription::Recipe for Events {
                             ),
                             Event::CloseRequested => (
                                 vec![(id, Event::CloseRequested)],
+                                State::Idle { stream },
+                            ),
+                            Event::FileHovered => (
+                                vec![(id, Event::FileHovered)],
+                                State::Idle { stream },
+                            ),
+                            Event::FilesHoveredLeft => (
+                                vec![(id, Event::FilesHoveredLeft)],
+                                State::Idle { stream },
+                            ),
+                            Event::FileDropped(path) => (
+                                vec![(id, Event::FileDropped(path))],
                                 State::Idle { stream },
                             ),
                         })

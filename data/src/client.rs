@@ -34,7 +34,8 @@ use crate::time::Posix;
 use crate::user::{ChannelUsers, Nick, NickRef};
 use crate::{
     Server, User, buffer, channel_discovery, compression, config, ctcp, dcc,
-    environment, file_transfer, history, isupport, message, mode, server,
+    environment, file_transfer, fileupload, history, isupport, message, mode,
+    server,
 };
 
 pub mod on_connect;
@@ -1087,12 +1088,13 @@ impl Client {
                 }
 
                 let network = BouncerNetwork::parse(netid, network)?;
+                let network_config = self.config.bouncer_config();
                 return Ok(vec![Event::BouncerNetwork(
                     Server {
                         network: Some(network.into()),
                         ..self.server.clone()
                     },
-                    self.config.bouncer_config(),
+                    network_config,
                 )]);
             }
             Command::CAP(_, sub, a, b) if sub == "LS" => {
@@ -4443,6 +4445,83 @@ impl Map {
         self.client(server)
             .map(|client| client.isupport.clone())
             .unwrap_or_default()
+    }
+
+    pub fn get_filehost<'a>(&'a self, server: &Server) -> Option<&'a str> {
+        let client = self.client(server)?;
+
+        if server.is_bouncer_network() {
+            match &client.config.filehost {
+                Some(f) if !f.enabled => return None,
+                Some(f) if f.override_url.is_some() => {
+                    return f.override_url.as_deref();
+                }
+                _ => {
+                    return server
+                        .parent()
+                        .as_ref()
+                        .and_then(|p| self.get_filehost(p));
+                }
+            }
+        }
+
+        let isupport_url = isupport::get_filehost(&client.isupport);
+        match &client.config.filehost {
+            None => isupport_url,
+            Some(f) if !f.enabled => None,
+            Some(f) => f.override_url.as_deref().or(isupport_url),
+        }
+    }
+
+    pub fn get_filehost_auth(
+        &self,
+        server: &Server,
+    ) -> Option<fileupload::Auth> {
+        if server.is_bouncer_network() {
+            let client = self.client(server)?;
+            let has_override = client
+                .config
+                .filehost
+                .as_ref()
+                .filter(|f| f.enabled)
+                .and_then(|f| f.override_url.as_ref())
+                .is_some();
+
+            if !has_override {
+                return server
+                    .parent()
+                    .as_ref()
+                    .and_then(|p| self.get_filehost_auth(p));
+            }
+        }
+
+        let client = self.client(server)?;
+        let default_filehost = config::server::Filehost::default();
+        let filehost =
+            client.config.filehost.as_ref().unwrap_or(&default_filehost);
+
+        if !filehost.send_credentials {
+            return None;
+        }
+
+        match client.config.sasl.as_ref()? {
+            config::server::Sasl::Plain {
+                username, password, ..
+            } => Some(fileupload::Auth::Basic {
+                username: username.clone(),
+                password: password.clone()?,
+            }),
+            config::server::Sasl::External { cert, key, .. } => {
+                Some(fileupload::Auth::External {
+                    cert: cert.clone(),
+                    key: key.clone(),
+                })
+            }
+        }
+    }
+
+    pub fn get_use_tls(&self, server: &Server) -> bool {
+        self.client(server).is_none_or(|c| c.config.use_tls)
     }
 
     pub fn get_casemapping(&self, server: &Server) -> isupport::CaseMap {

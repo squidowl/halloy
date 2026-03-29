@@ -84,6 +84,12 @@ pub enum Event {
         open_buffers: Vec<(Target, BufferAction)>,
     },
     SendUnsafeList(data::Server),
+    FileHostUpload {
+        server: data::Server,
+        target: Target,
+        file_paths: Vec<std::path::PathBuf>,
+        abort_registrations: Vec<futures::future::AbortRegistration>,
+    },
 }
 
 impl Buffer {
@@ -304,6 +310,17 @@ impl Buffer {
                         history_task,
                         open_buffers,
                     },
+                    channel::Event::FileHostUpload {
+                        server,
+                        target,
+                        file_paths,
+                        abort_registrations,
+                    } => Event::FileHostUpload {
+                        server,
+                        target,
+                        file_paths,
+                        abort_registrations,
+                    },
                 });
 
                 (command.map(Message::Channel), event)
@@ -356,6 +373,17 @@ impl Buffer {
                     } => Event::InputSent {
                         history_task,
                         open_buffers,
+                    },
+                    server::Event::FileHostUpload {
+                        server,
+                        target,
+                        file_paths,
+                        abort_registrations,
+                    } => Event::FileHostUpload {
+                        server,
+                        target,
+                        file_paths,
+                        abort_registrations,
                     },
                 });
 
@@ -413,6 +441,17 @@ impl Buffer {
                     } => Event::InputSent {
                         history_task,
                         open_buffers,
+                    },
+                    query::Event::FileHostUpload {
+                        server,
+                        target,
+                        file_paths,
+                        abort_registrations,
+                    } => Event::FileHostUpload {
+                        server,
+                        target,
+                        file_paths,
+                        abort_registrations,
                     },
                 });
 
