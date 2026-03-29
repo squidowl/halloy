@@ -1,10 +1,11 @@
 use std::str::FromStr;
 
 use fancy_regex::Regex;
+use percent_encoding::percent_decode_str;
 
 use crate::appearance::theme;
-use crate::config;
 use crate::server::ServerName;
+use crate::{config, isupport};
 
 #[derive(Debug, Clone)]
 pub enum Url {
@@ -109,7 +110,13 @@ fn generate_server_name(host: &str) -> &str {
 
 fn parse_server_config(url: &url::Url) -> Option<config::Server> {
     let nickname = config::random_nickname();
-    let server = url.host()?.to_string();
+
+    // Match on the host so IPv6 literals are stored without the square
+    // brackets that `url::Host::to_string()` would include.
+    let server = match url.host()? {
+        url::Host::Ipv6(address) => address.to_string(),
+        host => host.to_string(),
+    };
     let port = url.port();
     let use_tls = match url.scheme().to_lowercase().as_str() {
         "irc" | "irc+insecure" => Some(false),
@@ -117,15 +124,23 @@ fn parse_server_config(url: &url::Url) -> Option<config::Server> {
         _ => None,
     }?;
     let channels = {
-        let add_hashtag_if_needed = |channel: &str| -> Option<String> {
+        let default_chantype =
+            isupport::DEFAULT_CHANTYPES.first().copied().unwrap_or('#');
+
+        let normalize_channel = |channel: &str| -> Option<String> {
+            let channel = percent_decode_str(channel).decode_utf8_lossy();
+
             if channel.is_empty() {
                 return None;
             }
 
-            if channel.starts_with('#') {
-                Some(channel.to_string())
+            // URL parsing runs before we know the server's CHANTYPES, so fall
+            // back to the default chantype set and prepend its first prefix
+            // for bare targets.
+            if channel.starts_with(isupport::DEFAULT_CHANTYPES) {
+                Some(channel.into_owned())
             } else {
-                Some(format!("#{channel}"))
+                Some(format!("{default_chantype}{channel}"))
             }
         };
 
@@ -134,7 +149,7 @@ fn parse_server_config(url: &url::Url) -> Option<config::Server> {
             // Eg: [...]/#channel1,#channel2
             fragment
                 .split(',')
-                .filter_map(add_hashtag_if_needed)
+                .filter_map(normalize_channel)
                 .collect::<Vec<_>>()
         });
 
@@ -144,7 +159,7 @@ fn parse_server_config(url: &url::Url) -> Option<config::Server> {
             channels.extend(
                 url.path()[1..]
                     .split(',')
-                    .filter_map(add_hashtag_if_needed)
+                    .filter_map(normalize_channel)
                     .collect::<Vec<_>>(),
             );
         }
@@ -169,4 +184,127 @@ pub enum Error {
     MissingQueryPair,
     #[error("failed to parse encoded theme: {0}")]
     ParseEncodedTheme(#[from] theme::Error),
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[track_caller]
+    fn assert_server_connect(
+        input: &str,
+        expected_server_name: &str,
+        expected_host: &str,
+        expected_port: u16,
+        expected_channels: &[&str],
+        expected_use_tls: bool,
+    ) {
+        let url = Url::from_str(input).unwrap();
+
+        let Url::ServerConnect { server, config, .. } = url else {
+            panic!("expected server connect URL");
+        };
+
+        assert_eq!(&*server, expected_server_name);
+        assert_eq!(config.server, expected_host);
+        assert_eq!(config.port, expected_port);
+        assert_eq!(config.use_tls, expected_use_tls);
+        assert_eq!(
+            config.channels,
+            expected_channels
+                .iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn parses_hostname_without_channels() {
+        assert_server_connect(
+            "irc://irc.libera.chat",
+            "libera",
+            "irc.libera.chat",
+            6667,
+            &[],
+            false,
+        );
+    }
+
+    #[test]
+    fn parses_hostname_with_fragment_channels_and_explicit_tls_port() {
+        assert_server_connect(
+            "ircs://irc.libera.chat:7000/#halloy,#rust",
+            "libera",
+            "irc.libera.chat",
+            7000,
+            &["#halloy", "#rust"],
+            true,
+        );
+    }
+
+    #[test]
+    fn parses_ipv4_host_with_path_channels() {
+        assert_server_connect(
+            "irc://127.0.0.1:6669/channel,%26local,%2Bops,!safe",
+            "127.0.0.1",
+            "127.0.0.1",
+            6669,
+            &["#channel", "&local", "#+ops", "#!safe"],
+            false,
+        );
+    }
+
+    #[test]
+    fn parses_ipv6_host_without_channels() {
+        assert_server_connect(
+            "ircs://[2001:db8::1]",
+            "2001:db8::1",
+            "2001:db8::1",
+            6697,
+            &[],
+            true,
+        );
+    }
+
+    #[test]
+    fn parse_server_config_strips_ipv6_brackets() {
+        let url = url::Url::parse("irc://[2001:db8::1]/channel").unwrap();
+        let config = parse_server_config(&url).unwrap();
+
+        assert_eq!(config.server, "2001:db8::1");
+        assert_eq!(config.port, 6667);
+        assert_eq!(config.channels, vec!["#channel"]);
+        assert!(!config.use_tls);
+    }
+
+    #[test]
+    fn parse_server_config_decodes_percent_encoded_path_channels() {
+        let url =
+            url::Url::parse("irc://irc.example.org/%23foo%25bar,%26local")
+                .unwrap();
+        let config = parse_server_config(&url).unwrap();
+
+        assert_eq!(config.channels, vec!["#foo%bar", "&local"]);
+    }
+
+    #[test]
+    fn parse_server_config_decodes_percent_encoded_fragment_channels() {
+        let url =
+            url::Url::parse("irc://irc.example.org/#foo%25bar,%2Bops").unwrap();
+        let config = parse_server_config(&url).unwrap();
+
+        assert_eq!(config.channels, vec!["#foo%bar", "#+ops"]);
+    }
+
+    #[test]
+    fn parses_channels_with_percent_encoded_special_characters() {
+        assert_server_connect(
+            "irc://irc.example.org/%23ops%5Btest%5D%7Bdev%7D%5Efoo,%23foo%25bar",
+            "example",
+            "irc.example.org",
+            6667,
+            &["#ops[test]{dev}^foo", "#foo%bar"],
+            false,
+        );
+    }
 }

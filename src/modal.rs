@@ -102,8 +102,10 @@ impl Modal {
                     (Task::none(), None)
                 }
             },
-            Message::OpenURL(url) => {
-                let _ = open_url::open(url);
+            Message::OpenURL(raw_url) => {
+                let canonical = url::Url::parse(&raw_url)
+                    .map_or(raw_url, |u| u.to_string());
+                let _ = open_url::open(canonical);
                 (Task::none(), Some(Event::CloseModal))
             }
             Message::ImagePreview(image_preview) => match image_preview {

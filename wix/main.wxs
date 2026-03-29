@@ -211,7 +211,8 @@
                       Return="asyncNoWait" />
         <InstallExecuteSequence>
             <Custom Action="LaunchApp"
-                    Before="InstallFinalize" />
+                    Before="InstallFinalize"
+                    Condition="UILevel >= 4" />
         </InstallExecuteSequence>
         <WixVariable Id="WixUILicenseRtf"
                      Value="wix/license.rtf" />

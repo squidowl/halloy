@@ -81,10 +81,7 @@ pub fn view<'a>(
             clients.resolve_user_attributes(&state.server, channel, &user)
         });
     let server_supports_typing = clients.get_server_supports_typing(server);
-    let show_typing =
-        settings.map_or(config.buffer.channel.typing.show, |settings| {
-            settings.channel.typing.show
-        }) && server_supports_typing;
+    let show_typing = clients.get_server_show_typing(server);
 
     let users = clients.get_channel_users(&state.server, channel);
 
@@ -93,7 +90,7 @@ pub fn view<'a>(
 
     let previews = Some(Previews::new(
         previews,
-        &channel.to_target(),
+        channel.as_target_ref(),
         server,
         &config.preview,
         casemapping,
@@ -267,7 +264,6 @@ impl Channel {
         history: &mut history::Manager,
         main_window: &Window,
         config: &Config,
-        share_typing: bool,
     ) -> (Task<Message>, Option<Event>) {
         match message {
             Message::ScrollView(message) => {
@@ -337,7 +333,6 @@ impl Channel {
                     history,
                     main_window,
                     config,
-                    share_typing,
                 );
                 let command = command.map(Message::InputView);
 

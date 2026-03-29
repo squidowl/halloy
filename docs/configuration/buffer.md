@@ -251,49 +251,6 @@ Click action for when interaction with nicknames.
 click = "open-query"
 ```
 
-### `typing`
-
-Typing settings for channel and query buffers.
-
-#### `font_size`
-
-Control the font size of the typing indicator. This also adjusts the bottom padding reserved for the typing indicator line.
-
-```toml
-# Type: integer
-# Values: positive integers
-# Default: not set
-# When omitted, Halloy uses the main configured font size.
-
-[buffer.channel.typing]
-font_size = 12
-```
-
-#### `share`
-
-Control whether Halloy shares your typing status with other users.
-
-```toml
-# Type: boolean
-# Values: true, false
-# Default: false
-
-[buffer.channel.typing]
-share = false
-```
-
-#### `show`
-
-Control whether Halloy shows typing status from other users.
-
-```toml
-# Type: boolean
-# Values: true, false
-# Default: true
-
-[buffer.channel.typing]
-show = true
-```
 
 ### `topic_banner`
 
@@ -1000,6 +957,7 @@ enabled = false
 
 | **Event Type**        | **Description**                                                                                                                |
 | --------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `away`                | Message is an automated reply to a direct message, sent when a user is away                                                    |
 | `change_host`         | Message is sent when a user changes host                                                                                       |
 | `change_mode`         | Message is sent when a mode is set                                                                                             |
 | `change_nick`         | Message is sent when a user changes nick                                                                                       |
@@ -1032,7 +990,10 @@ enabled = true
 
 ### `smart`
 
-Only show server message if the user has sent a message in the given time interval (seconds) prior to the server message.
+| **Event Type**        | **Behavior**                                                                                                             |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `away`                | Only show if an `away` message has not been shown in the given time interval (seconds) prior to the new `away` message   |
+| all other types       | Only show server message if the user has sent a message in the given time interval (seconds) prior to the server message |
 
 ```toml
 # Type: integer
@@ -1223,6 +1184,7 @@ auto_format = "markdown"
 ```
 
 ::: tip
+Token-based formatting is included in `"all"`, in addition to Markdown formatting, which provides underline and color formatting that `"markdown"` does not.
 Read more about [text formatting](/guides/text-formatting).
 :::
 
@@ -1376,6 +1338,50 @@ Show access level(s) in front of nickname (`@`, `+`, `~`, etc.).
 
 [buffer.text_input.nickname]
 show_access_level = "highest"
+```
+
+### `typing`
+
+Typing settings for channel and query buffers.
+
+#### `font_size`
+
+Control the font size of the typing indicator. This also adjusts the bottom padding reserved for the typing indicator line.
+
+```toml
+# Type: integer
+# Values: positive integers
+# Default: not set
+# When omitted, Halloy uses the main configured font size.
+
+[buffer.typing]
+font_size = 12
+```
+
+#### `share`
+
+Control whether Halloy shares your typing status with other users.
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: false
+
+[buffer.typing]
+share = false
+```
+
+#### `show`
+
+Control whether Halloy shows typing status from other users.
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: true
+
+[buffer.typing]
+show = true
 ```
 
 ## `timestamp`

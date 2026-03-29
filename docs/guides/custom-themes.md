@@ -78,6 +78,7 @@ backlog_rule = "<color string>"
 # Set below if you want to have a unique color for each.
 # Otherwise simply set `default` to use that for all server messages.
 #
+# away = <text style>
 # change_host = <text style>
 # change_mode = <text style>
 # change_nick = <text style>

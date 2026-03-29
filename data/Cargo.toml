@@ -51,6 +51,7 @@ dirs-next = "2.0.0"
 xdg = "3.0.0"
 flate2 = "1.0"
 hex = "0.4.3"
+percent-encoding = "2.3.2"
 iced_core = "0.15.0-dev"
 iced_wgpu = "0.15.0-dev"
 indexmap = { version = "2.13", features = ["std", "serde"] }

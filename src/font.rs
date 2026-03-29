@@ -156,7 +156,7 @@ pub fn width_of_message_marker(config: &config::Font) -> f32 {
         * MESSAGE_MARKER_FONT_SCALE;
 
     Paragraph::with_text(Text {
-        content: "\u{E81A}",
+        content: "\u{2022}",
         bounds: Size::INFINITE,
         size: font_size.into(),
         line_height: line_height(),

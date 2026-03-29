@@ -230,6 +230,7 @@ pub struct ServerMessages {
     pub standard_reply_note: OptionalTextStyle,
     pub wallops: OptionalTextStyle,
     pub kick: OptionalTextStyle,
+    pub away: OptionalTextStyle,
     pub default: TextStyle,
 }
 
