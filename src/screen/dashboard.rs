@@ -137,6 +137,12 @@ impl Dashboard {
             buffer_settings: dashboard::BufferSettings::default(),
         };
 
+        if config.buffer.text_input.persist {
+            dashboard
+                .history
+                .preload_drafts(data::input::load_drafts_sync());
+        }
+
         let command = dashboard.track(None);
         let sidebar_task = sidebar_task.map(Message::Sidebar);
 
@@ -3601,14 +3607,26 @@ impl Dashboard {
         &mut self,
         now: Instant,
         clients: &data::client::Map,
+        config: &Config,
     ) -> Task<Message> {
-        let history = Task::batch(
+        let history_ticks = Task::batch(
             self.history
                 .tick(now.into(), clients)
                 .into_iter()
                 .map(|task| Task::perform(task, Message::History))
                 .collect::<Vec<_>>(),
         );
+
+        let draft_save = config
+            .buffer
+            .text_input
+            .persist
+            .then(|| {
+                self.history
+                    .maybe_save_drafts(now.into())
+                    .map(|fut| Task::perform(fut, Message::History))
+            })
+            .flatten();
 
         if let Some(last_changed) = self.last_changed
             && now.duration_since(last_changed) >= SAVE_AFTER
@@ -3617,13 +3635,23 @@ impl Dashboard {
 
             self.last_changed = None;
 
-            return Task::batch(vec![
-                Task::perform(dashboard.save(), Message::DashboardSaved),
-                history,
-            ]);
+            return Task::batch(
+                [
+                    Task::perform(dashboard.save(), Message::DashboardSaved),
+                    history_ticks,
+                ]
+                .into_iter()
+                .chain(draft_save)
+                .collect::<Vec<_>>(),
+            );
         }
 
-        history
+        Task::batch(
+            [history_ticks]
+                .into_iter()
+                .chain(draft_save)
+                .collect::<Vec<_>>(),
+        )
     }
 
     pub fn toggle_command_bar(
@@ -3795,6 +3823,7 @@ impl Dashboard {
 
         fn configuration(
             pane: data::Pane,
+            history: &history::Manager,
             config: &Config,
         ) -> Configuration<Pane> {
             match pane {
@@ -3809,14 +3838,14 @@ impl Dashboard {
                             }
                         },
                         ratio,
-                        a: Box::new(configuration(*a, config)),
-                        b: Box::new(configuration(*b, config)),
+                        a: Box::new(configuration(*a, history, config)),
+                        b: Box::new(configuration(*b, history, config)),
                     }
                 }
                 data::Pane::Buffer { buffer } => {
                     Configuration::Pane(Pane::new(Buffer::from_data(
                         buffer,
-                        &history::Manager::default(),
+                        history,
                         Size::default(),
                         config,
                     )))
@@ -3827,10 +3856,15 @@ impl Dashboard {
             }
         }
 
+        let mut history = history::Manager::default();
+        if config.buffer.text_input.persist {
+            history.preload_drafts(data::input::load_drafts_sync());
+        }
+
         let panes = Panes {
             main_window: main_window.id,
             main: pane_grid::State::with_configuration(configuration(
-                data.pane, config,
+                data.pane, &history, config,
             )),
             popout: HashMap::new(),
         };
@@ -3859,7 +3893,7 @@ impl Dashboard {
             focus,
             focus_history: VecDeque::from([focus.pane]),
             side_menu: sidebar,
-            history: history::Manager::default(),
+            history,
             last_changed: None,
             command_bar: None,
             command_bar_window: None,
@@ -3875,7 +3909,9 @@ impl Dashboard {
 
         for pane in data.popout_panes {
             // Popouts are only a single pane
-            let Configuration::Pane(pane) = configuration(pane, config) else {
+            let Configuration::Pane(pane) =
+                configuration(pane, &dashboard.history, config)
+            else {
                 continue;
             };
 
