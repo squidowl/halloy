@@ -21,6 +21,7 @@ pub use self::source::Source;
 pub use self::source::server::{Change, Kind, StandardReply};
 use crate::config::buffer::{CondensationFormat, UsernameFormat};
 use crate::config::{self, Highlights};
+use crate::history::reroute::RerouteRules;
 use crate::log::Level;
 use crate::reaction::Reaction;
 use crate::serde::fail_as_none;
@@ -103,51 +104,12 @@ pub mod source;
 
 pub fn reroute_private_target(
     target: &Target,
-    reroute_private: Option<&config::server::reroute::PrivateMessages>,
+    reroute_rules: &RerouteRules,
     server: &Server,
-    chantypes: &[char],
-    statusmsg: &[char],
-    casemapping: isupport::CaseMap,
 ) -> Option<Target> {
     match target {
         Target::Query { query, source } => {
-            if let Some(target) = reroute_private?.target_for_query(
-                query,
-                server,
-                chantypes,
-                statusmsg,
-                casemapping,
-            ) {
-                match target {
-                    config::server::reroute::RerouteTarget::Channel {
-                        channel,
-                    } => {
-                        if let Ok(channel) = target::Channel::parse(
-                            channel,
-                            chantypes,
-                            statusmsg,
-                            casemapping,
-                        ) {
-                            Some(Target::Channel {
-                                channel,
-                                source: source.clone(),
-                            })
-                        } else {
-                            Some(Target::Query {
-                                query: query.clone(),
-                                source: source.clone(),
-                            })
-                        }
-                    }
-                    config::server::reroute::RerouteTarget::Server {
-                        ..
-                    } => Some(Target::Server {
-                        source: source.clone(),
-                    }),
-                }
-            } else {
-                None
-            }
+            reroute_rules.target_for_query(query, server, source)
         }
         _ => None,
     }
@@ -417,6 +379,7 @@ impl Message {
         encoded: Encoded,
         our_nick: Nick,
         config: &'a Config,
+        reroute_rules: &RerouteRules,
         resolve_attributes: impl Fn(&User, &target::Channel) -> Option<User>,
         channel_users: impl Fn(&target::Channel) -> Option<&'a ChannelUsers>,
         server: &Server,
@@ -446,7 +409,7 @@ impl Message {
         let (target, rerouted_from) = target(
             encoded,
             &our_nick,
-            config,
+            reroute_rules,
             &resolve_attributes,
             server,
             chantypes,
@@ -479,6 +442,7 @@ impl Message {
         encoded: Encoded,
         our_nick: Nick,
         config: &'a Config,
+        reroute_rules: &RerouteRules,
         resolve_attributes: impl Fn(&User, &target::Channel) -> Option<User>,
         channel_users: impl Fn(&target::Channel) -> Option<&'a ChannelUsers>,
         server: &Server,
@@ -508,7 +472,7 @@ impl Message {
         let (target, rerouted_from) = target(
             encoded,
             &our_nick,
-            config,
+            reroute_rules,
             &resolve_attributes,
             server,
             chantypes,
@@ -2050,7 +2014,7 @@ impl From<formatting::Fragment> for Fragment {
 fn target(
     message: Encoded,
     our_nick: &Nick,
-    config: &Config,
+    reroute_rules: &RerouteRules,
     resolve_attributes: &dyn Fn(&User, &target::Channel) -> Option<User>,
     server: &Server,
     chantypes: &[char],
@@ -2336,18 +2300,11 @@ fn target(
                             source: source(user),
                         };
 
-                        if let Some(rerouted_target) =
-                            reroute_private_target(
-                                &target,
-                                config.servers.get(server).as_ref().map(
-                                    |config| &config.reroute.private_messages,
-                                ),
-                                server,
-                                chantypes,
-                                statusmsg,
-                                casemapping,
-                            )
-                        {
+                        if let Some(rerouted_target) = reroute_private_target(
+                            &target,
+                            reroute_rules,
+                            server,
+                        ) {
                             Some((rerouted_target, Some(target)))
                         } else {
                             Some((target, None))
@@ -3802,6 +3759,7 @@ pub mod tests {
         use irc::proto;
 
         use crate::config::Config;
+        use crate::history::reroute::RerouteRules;
         use crate::message::Encoded;
 
         let isupport = HashMap::<isupport::Kind, isupport::Parameter>::new();
@@ -3831,6 +3789,7 @@ pub mod tests {
             Encoded::from(encoded.clone()),
             our_nick.clone(),
             &Config::default(),
+            &RerouteRules::default(),
             |user: &User, _channel: &target::Channel| {
                 channel_users
                     .iter()

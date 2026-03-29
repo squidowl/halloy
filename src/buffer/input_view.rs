@@ -8,6 +8,7 @@ use data::capabilities::{MultilineBatchKind, multiline_concat_lines};
 use data::config::buffer::text_input::{AutoFormat, Autocomplete, KeyBindings};
 use data::dashboard::BufferAction;
 use data::history::filter::FilterChain;
+use data::history::reroute::RerouteRules;
 use data::history::{self, ReadMarker};
 use data::input::{self, CodeFence, RawInput};
 use data::rate_limit::TokenPriority;
@@ -598,19 +599,13 @@ fn error<'a, 'b, Message: 'a>(
 
 fn reroute_input_message(
     message: data::Message,
-    private_messages: Option<&data::config::server::reroute::PrivateMessages>,
+    reroute_rules: &RerouteRules,
     server: &Server,
-    chantypes: &[char],
-    statusmsg: &[char],
-    casemapping: data::isupport::CaseMap,
 ) -> data::Message {
     if let Some(rerouted_target) = data::message::reroute_private_target(
         &message.target,
-        private_messages,
+        reroute_rules,
         server,
-        chantypes,
-        statusmsg,
-        casemapping,
     ) {
         message.reroute_with_target(rerouted_target)
     } else {
@@ -1551,7 +1546,6 @@ impl State {
             }
 
             let mut history_tasks = vec![];
-            let server_config = config.servers.get(buffer.server());
 
             let messages = inputs
                 .into_iter()
@@ -1571,13 +1565,8 @@ impl State {
                                 .map(|message| {
                                     reroute_input_message(
                                         message,
-                                        server_config.as_ref().map(|config| {
-                                            &config.reroute.private_messages
-                                        }),
+                                        history.get_reroute_rules(),
                                         buffer.server(),
-                                        chantypes,
-                                        statusmsg,
-                                        casemapping,
                                     )
                                 })
                                 .collect::<Vec<_>>()
@@ -1954,7 +1943,6 @@ impl State {
             }
 
             let mut history_tasks = vec![];
-            let server_config = config.servers.get(buffer.server());
 
             if let Some(messages) = input.messages(
                 user,
@@ -1967,13 +1955,8 @@ impl State {
                 for message in messages {
                     let message = reroute_input_message(
                         message,
-                        server_config
-                            .as_ref()
-                            .map(|config| &config.reroute.private_messages),
+                        history.get_reroute_rules(),
                         buffer.server(),
-                        chantypes,
-                        statusmsg,
-                        casemapping,
                     );
 
                     history_tasks.extend(

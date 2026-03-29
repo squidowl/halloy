@@ -23,6 +23,7 @@ use crate::{
 pub mod filter;
 pub mod manager;
 pub mod metadata;
+pub mod reroute;
 
 // TODO: Make this configurable?
 /// Max # messages to persist

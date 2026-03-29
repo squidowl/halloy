@@ -19,7 +19,7 @@ pub mod filters;
 pub mod reroute;
 
 pub use self::filters::{FancyRegex, Filters, Ignore};
-pub use self::reroute::Reroute;
+pub use self::reroute::{Reroute, RerouteRule, RerouteTarget};
 
 const DEFAULT_PORT: u16 = 6667;
 const DEFAULT_TLS_PORT: u16 = 6697;
