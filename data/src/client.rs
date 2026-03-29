@@ -848,12 +848,10 @@ impl Client {
                         if let Some(mut finished) =
                             self.batches.remove(&reference)
                         {
-                            // If nested multiline, assemble into a
-                            // single message before extending into
-                            // parent. Route through chathistory
-                            // handler when parent is a chathistory
-                            // batch to preserve history semantics
-                            // (no notifications, CTCP filtering).
+                            // If nested multiline, assemble into a single
+                            // message here as it needs to be done before
+                            // extending into parent batch or finishing as an
+                            // indepdent batch.
                             if let Some(BatchKind::Multiline(
                                 tags,
                                 user,
@@ -862,37 +860,19 @@ impl Client {
                                 text,
                             )) = &finished.kind
                             {
-                                let mut clean_tags = tags.clone();
-                                clean_tags.remove("batch");
-
                                 let encoded = multiline_encoded(
                                     user.as_ref(),
                                     *batch_kind,
                                     target,
                                     text,
-                                    clean_tags,
+                                    tags.clone(),
                                 );
 
-                                let parent_kind = batch_tag
-                                    .as_ref()
-                                    .and_then(|tag| self.batches.get(tag))
-                                    .and_then(|b| b.kind.as_ref());
-
-                                let events = match parent_kind {
-                                    Some(BatchKind::ChathistoryTarget(
-                                        batch_target,
-                                    )) => self.handle_chathistory(
-                                        encoded,
-                                        batch_target.clone(),
-                                    ),
-                                    _ => self.handle(
-                                        encoded,
-                                        context.clone(),
-                                        config,
-                                    )?,
-                                };
-
-                                finished.events.extend(events);
+                                finished.events.extend(self.handle(
+                                    encoded,
+                                    context.clone(),
+                                    config,
+                                )?);
                             }
 
                             if let Some(parent) = batch_tag
@@ -978,29 +958,10 @@ impl Client {
                                         }
                                     }
                                     Some(BatchKind::Multiline(
-                                        tags,
-                                        user,
-                                        target,
-                                        Some(batch_kind),
-                                        text,
-                                    )) => {
-                                        let encoded = multiline_encoded(
-                                            user.as_ref(),
-                                            *batch_kind,
-                                            target,
-                                            text,
-                                            tags.clone(),
-                                        );
-
-                                        finished.events.extend(self.handle(
-                                            encoded, context, config,
-                                        )?);
-                                    }
-                                    Some(BatchKind::Multiline(
                                         _,
                                         _,
                                         _,
-                                        None,
+                                        _,
                                         _,
                                     ))
                                     | None => (),
