@@ -9,6 +9,7 @@ use itertools::Itertools;
 use tokio::time::Instant;
 
 use super::filter::{Filter, FilterChain};
+use super::reroute::RerouteRules;
 use crate::history::{self, History, MessageReferences, ReadMarker};
 use crate::message::broadcast::{self, Broadcast};
 use crate::message::{self, Limit};
@@ -66,6 +67,7 @@ pub enum Event {
 pub struct Manager {
     resources: HashSet<Resource>,
     filters: Vec<Filter>,
+    reroute_rules: RerouteRules,
     data: Data,
     last_draft_changed: Option<tokio::time::Instant>,
 }
@@ -227,6 +229,14 @@ impl Manager {
 
     pub fn filters(&self) -> &[Filter] {
         &self.filters
+    }
+
+    pub fn get_reroute_rules_mut(&mut self) -> &mut RerouteRules {
+        &mut self.reroute_rules
+    }
+
+    pub fn get_reroute_rules(&self) -> &RerouteRules {
+        &self.reroute_rules
     }
 
     pub fn tick(
