@@ -3654,6 +3654,18 @@ impl Dashboard {
         )
     }
 
+    pub fn animation_tick(
+        &mut self,
+        now: Instant,
+        clients: &data::client::Map,
+    ) -> Task<Message> {
+        self.panes.iter_mut().for_each(|(_, _, pane)| {
+            pane.buffer.tick(now, clients, &self.history);
+        });
+
+        Task::none()
+    }
+
     pub fn toggle_command_bar(
         &mut self,
         buffers: &[buffer::Upstream],

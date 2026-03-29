@@ -1,6 +1,7 @@
 use std::borrow::Cow;
 use std::fmt;
 use std::path::PathBuf;
+use std::time::Instant;
 
 use chrono::{DateTime, Utc};
 pub use data::buffer::{Internal, Settings, Upstream};
@@ -1023,6 +1024,24 @@ impl Buffer {
             Buffer::Highlights(highlights) => {
                 Some(highlights.scroll_view.is_scrolled_to_bottom())
             }
+        }
+    }
+
+    pub fn tick(
+        &mut self,
+        now: Instant,
+        clients: &data::client::Map,
+        history: &history::Manager,
+    ) {
+        match self {
+            Buffer::Channel(channel) => channel.tick(now, clients, history),
+            Buffer::Query(query) => query.tick(now, clients, history),
+            Buffer::Empty
+            | Buffer::Server(_)
+            | Buffer::FileTransfers(_)
+            | Buffer::Logs(_)
+            | Buffer::Highlights(_)
+            | Buffer::ChannelDiscovery(_) => {}
         }
     }
 

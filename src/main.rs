@@ -281,6 +281,7 @@ pub enum Message {
     Welcome(welcome::Message),
     Event(window::Id, Event),
     Tick(Instant),
+    AnimationTick(Instant),
     Version(Option<String>),
     Modal(modal::Message),
     RouteReceived(String),
@@ -850,6 +851,15 @@ impl Halloy {
                     Task::none()
                 }
             }
+            Message::AnimationTick(now) => {
+                if let Screen::Dashboard(dashboard) = &mut self.screen {
+                    dashboard
+                        .animation_tick(now, &self.clients)
+                        .map(Message::Dashboard)
+                } else {
+                    Task::none()
+                }
+            }
             Message::Modal(message) => {
                 let Some(modal) = &mut self.modal else {
                     return Task::none();
@@ -1201,6 +1211,8 @@ impl Halloy {
 
     fn subscription(&self) -> Subscription<Message> {
         let tick = iced::time::every(Duration::from_secs(1)).map(Message::Tick);
+        let animation_tick = iced::time::every(Duration::from_millis(50))
+            .map(Message::AnimationTick);
 
         let streams = Subscription::batch(
             self.servers
@@ -1215,6 +1227,7 @@ impl Halloy {
             window::events()
                 .map(|(window, event)| Message::Window(window, event)),
             tick,
+            animation_tick,
             streams,
         ];
 
