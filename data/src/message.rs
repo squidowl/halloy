@@ -1638,15 +1638,7 @@ pub fn parse_fragments_with_highlights(
             .collect();
     }
 
-    if fragments.len() == 1 && matches!(&fragments[0], Fragment::Text(_)) {
-        let Some(Fragment::Text(text)) = fragments.into_iter().next() else {
-            unreachable!();
-        };
-
-        (Content::Plain(text), None)
-    } else {
-        (Content::Fragments(fragments), highlight_kind)
-    }
+    (content_from_fragments(fragments), highlight_kind)
 }
 
 pub fn parse_fragments_with_user(
@@ -1671,21 +1663,20 @@ pub fn parse_fragments_with_users(
         parse_fragments_with_users_inner(text, channel_users, casemapping)
             .collect::<Vec<_>>();
 
-    if fragments.len() == 1 && matches!(&fragments[0], Fragment::Text(_)) {
-        let Some(Fragment::Text(text)) = fragments.into_iter().next() else {
-            unreachable!();
-        };
-
-        Content::Plain(text)
-    } else {
-        Content::Fragments(fragments)
-    }
+    content_from_fragments(fragments)
 }
 
 pub fn parse_fragments(text: String) -> Content {
     let fragments = parse_fragments_inner(text).collect::<Vec<_>>();
 
-    if fragments.len() == 1 && matches!(&fragments[0], Fragment::Text(_)) {
+    content_from_fragments(fragments)
+}
+
+fn content_from_fragments(fragments: Vec<Fragment>) -> Content {
+    if fragments.is_empty() {
+        Content::Plain(String::new())
+    } else if fragments.len() == 1 && matches!(&fragments[0], Fragment::Text(_))
+    {
         let Some(Fragment::Text(text)) = fragments.into_iter().next() else {
             unreachable!();
         };
