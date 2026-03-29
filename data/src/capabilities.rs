@@ -127,13 +127,8 @@ pub fn multiline_concat_lines(concat_bytes: usize, text: &str) -> Vec<&str> {
             if last_space > line_start {
                 lines.push(&text[line_start..last_space + ' '.len_utf8()]);
 
-                println!(
-                    "line_bytes {line_bytes} last_space {last_space} line_start {line_start} space_len {}",
-                    ' '.len_utf8()
-                );
                 line_bytes -= last_space + ' '.len_utf8() - line_start;
                 line_start = last_space + ' '.len_utf8();
-                println!("line_bytes {line_bytes} line_start {line_start}");
 
                 if line_bytes > concat_bytes {
                     lines.push(&text[line_start..line_start + line_bytes]);

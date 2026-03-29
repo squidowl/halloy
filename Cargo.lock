@@ -1705,6 +1705,7 @@ dependencies = [
  "nom 8.0.0",
  "nucleo-matcher",
  "palette",
+ "percent-encoding",
  "rand 0.10.0",
  "rand_chacha 0.10.0",
  "reqwest",

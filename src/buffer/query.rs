@@ -49,7 +49,6 @@ pub fn view<'a>(
     clients: &'a data::client::Map,
     history: &'a history::Manager,
     previews: &'a preview::Collection,
-    settings: Option<&'a buffer::Settings>,
     config: &'a Config,
     theme: &'a Theme,
     is_focused: bool,
@@ -70,17 +69,14 @@ pub fn view<'a>(
     let our_nick = clients.nickname(server);
     let our_user = our_nick.map(|our_nick| User::from(Nick::from(our_nick)));
     let server_supports_typing = clients.get_server_supports_typing(server);
-    let show_typing =
-        settings.map_or(config.buffer.channel.typing.show, |settings| {
-            settings.channel.typing.show
-        }) && server_supports_typing;
+    let show_typing = clients.get_server_show_typing(server);
 
     let chathistory_state =
         clients.get_chathistory_state(server, &query.to_target());
 
     let previews = Some(Previews::new(
         previews,
-        &query.to_target(),
+        query.as_target_ref(),
         server,
         &config.preview,
         casemapping,
@@ -219,7 +215,6 @@ impl Query {
         history: &mut history::Manager,
         main_window: &Window,
         config: &Config,
-        share_typing: bool,
     ) -> (Task<Message>, Option<Event>) {
         match message {
             Message::ScrollView(message) => {
@@ -289,7 +284,6 @@ impl Query {
                     history,
                     main_window,
                     config,
-                    share_typing,
                 );
                 let command = command.map(Message::InputView);
 

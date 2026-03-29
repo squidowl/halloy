@@ -211,14 +211,15 @@ fn has_visible_preview(
     false
 }
 
-fn eligible_preview_urls(
-    urls: impl IntoIterator<Item = url::Url>,
+fn eligible_preview_urls<'a>(
+    urls: impl IntoIterator<Item = &'a url::Url>,
     hidden_urls: &HashSet<url::Url>,
     max_per_message: usize,
 ) -> Vec<url::Url> {
     urls.into_iter()
-        .filter(|url| !hidden_urls.contains(url))
+        .filter(|url| !hidden_urls.contains(*url))
         .take(max_per_message)
+        .cloned()
         .collect()
 }
 
@@ -415,10 +416,7 @@ pub fn view<'a>(
                 ) = (&message.content, previews)
                 {
                     let urls = eligible_preview_urls(
-                        fragments
-                            .iter()
-                            .filter_map(message::Fragment::url)
-                            .cloned(),
+                        fragments.iter().filter_map(message::Fragment::url),
                         &message.hidden_urls,
                         config.preview.max_per_message,
                     );

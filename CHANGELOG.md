@@ -3,16 +3,31 @@
 Added:
 
 - <kbd>ctrl</kbd> + <kbd>,</kbd> now opens the config file (<kbd>⌘</kbd> + <kbd>,</kbd> on macOs)
+- Windows MSI installer does not automatically start Halloy during passive or quiet installations
+- Per-server `typing` settings (`servers.<name>.typing`)
+- `buffer.server_messages.away` setting to control when automated away messages are shown
+- `buffer.server_messages.away` theme setting to control how automated away messages appear
 - Drafts are remembered across Halloy sessions. Can be disabled with `buffer.text_input.persist`
+
+Changed:
+
+- Moved `typing` settings from `buffer.channel.typing` to `buffer.typing` to clarify that they appliy to queries as well as channels
 
 Fixed:
 
 - `sidebar.order_by` setting works when set to `"config"`
+- Server notices with wildcard targets (for example `NOTICE *`) are shown in the server buffer again
+- Fix URLs with non-ASCII characters getting percent-encoded when rendered in buffers
+- chathistory: support for TARGETS pagination and more conservative treatment of pagination on reconnect
+- Keyboard shortcuts now work in popped out buffer windows, including command bar shortcuts
+- IRC URIs now handle bracketed IPv6 hosts and percent-encoded channel targets correctly
+- `typing` settings for buffers could get in a stuck state without any way to control them
 
 Thanks:
 
-- Contributions: @furudean
-- Bug reports: sebbu
+- Contributions: @furudean, @omentic, @KaiKorla
+- Bug reports: sebbu, @whitequark, @SnoopJ, esden, @miyukoc, @ld-cd
+- Feature requests: @omentic
 
 # 2026.5 (2026-03-21)
 

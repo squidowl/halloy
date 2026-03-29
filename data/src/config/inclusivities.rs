@@ -4,7 +4,7 @@ use serde::{Deserialize, Deserializer};
 use crate::isupport;
 use crate::message::Source;
 use crate::server::Server;
-use crate::target::{Channel, Query, Target};
+use crate::target::{Channel, Query, Target, TargetRef};
 use crate::user::NickRef;
 
 // Skips inclusivity checks without a source, as those are expected to be
@@ -124,6 +124,33 @@ pub fn is_target_included(
             casemapping,
         ),
         Target::Query(query) => is_target_query_included(
+            include,
+            exclude,
+            query,
+            server,
+            casemapping,
+        ),
+    }
+}
+
+pub fn is_target_ref_included(
+    include: Option<&Inclusivities>,
+    exclude: Option<&Inclusivities>,
+    user: Option<NickRef>,
+    target_ref: TargetRef,
+    server: &Server,
+    casemapping: isupport::CaseMap,
+) -> bool {
+    match target_ref {
+        TargetRef::Channel(channel) => is_target_channel_included(
+            include,
+            exclude,
+            user,
+            channel,
+            server,
+            casemapping,
+        ),
+        TargetRef::Query(query) => is_target_query_included(
             include,
             exclude,
             query,

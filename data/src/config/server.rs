@@ -114,6 +114,7 @@ pub struct Server {
     pub proxy: Option<config::Proxy>,
     pub confirm_message_delivery: ConfirmMessageDelivery,
     pub autoconnect: bool,
+    pub typing: OptionalTyping,
 }
 
 impl Server {
@@ -230,6 +231,7 @@ impl Default for Server {
             proxy: None,
             confirm_message_delivery: ConfirmMessageDelivery::default(),
             autoconnect: true,
+            typing: OptionalTyping::default(),
         }
     }
 }
@@ -521,6 +523,13 @@ impl ConfirmMessageDelivery {
                 casemapping,
             )
     }
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
+#[serde(default)]
+pub struct OptionalTyping {
+    pub share: Option<bool>,
+    pub show: Option<bool>,
 }
 
 fn deserialize_anti_flood<'de, D>(deserializer: D) -> Result<Duration, D::Error>

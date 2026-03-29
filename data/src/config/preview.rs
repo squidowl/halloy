@@ -2,11 +2,12 @@ use fancy_regex::{Regex, RegexBuilder};
 use serde::{Deserialize, Deserializer};
 
 use crate::config::inclusivities::{
-    Inclusivities, is_source_included, is_target_included,
+    Inclusivities, is_source_included, is_target_ref_included,
 };
 use crate::message::Source;
 use crate::serde::deserialize_u64_positive_integer_limit;
-use crate::{Server, Target, isupport, target};
+use crate::target::{self, TargetRef};
+use crate::{Server, isupport};
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
@@ -247,15 +248,15 @@ impl Default for Card {
 impl Card {
     pub fn visible(
         &self,
-        target: &Target,
+        target_ref: TargetRef,
         server: &Server,
         casemapping: isupport::CaseMap,
     ) -> bool {
-        is_target_included(
+        is_target_ref_included(
             self.include.as_ref(),
             self.exclude.as_ref(),
             None,
-            target,
+            target_ref,
             server,
             casemapping,
         )
@@ -316,15 +317,15 @@ pub enum ImageAction {
 impl Image {
     pub fn visible(
         &self,
-        target: &Target,
+        target_ref: TargetRef,
         server: &Server,
         casemapping: isupport::CaseMap,
     ) -> bool {
-        is_target_included(
+        is_target_ref_included(
             self.include.as_ref(),
             self.exclude.as_ref(),
             None,
-            target,
+            target_ref,
             server,
             casemapping,
         )
