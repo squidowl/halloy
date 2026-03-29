@@ -38,6 +38,7 @@ pub fn view<'a>(
             None,
             Option::<fn(&Preview, &message::Source) -> bool>::None,
             None,
+            config.buffer.typing.style,
             false,
             config,
             theme,

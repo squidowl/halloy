@@ -1,6 +1,7 @@
 use std::f32::consts::PI;
 use std::time::{Duration, Instant};
 
+use data::config::buffer::Style;
 use data::history::filter::FilterChain;
 use data::isupport::CaseMap;
 use data::user::Nick;
@@ -60,14 +61,31 @@ pub fn typing_line_height(config: &Config) -> f32 {
 }
 
 pub fn reserved_bottom_padding(
-    reserve_bottom_line_for_typing: bool,
+    show_typing: bool,
+    style: Style,
     config: &Config,
 ) -> f32 {
-    if reserve_bottom_line_for_typing {
+    if reserve_space(show_typing, style) {
         typing_line_height(config) + 2.0
     } else {
         0.0
     }
+}
+
+pub fn reserve_space(show_typing: bool, style: Style) -> bool {
+    show_typing && matches!(style, Style::Padded)
+}
+
+pub fn show_row(
+    show_typing: bool,
+    style: Style,
+    has_typing_text: bool,
+) -> bool {
+    show_typing
+        && match style {
+            Style::Padded => true,
+            Style::Popped => has_typing_text,
+        }
 }
 
 pub fn view<'a, Message: 'a>(

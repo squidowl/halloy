@@ -1303,7 +1303,7 @@ Typing settings for channel and query buffers.
 
 #### `font_size`
 
-Control the font size of the typing indicator. This also adjusts the bottom padding reserved for the typing indicator line.
+Control the font size of the typing indicator. This also adjusts the height of the typing row when it is shown, and the reserved bottom padding when `style = "padded"`.
 
 ```toml
 # Type: integer
@@ -1313,6 +1313,19 @@ Control the font size of the typing indicator. This also adjusts the bottom padd
 
 [buffer.typing]
 font_size = 12
+```
+
+#### `style`
+
+Control how the typing indicator uses vertical space.
+
+```toml
+# Type: string
+# Values: "padded", "popped"
+# Default: "popped"
+
+[buffer.typing]
+style = "padded"
 ```
 
 #### `share`

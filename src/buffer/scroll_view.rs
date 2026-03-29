@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use chrono::{DateTime, Local, NaiveDate, Utc};
 use data::command::Irc;
-use data::config::buffer::{CondensationIcon, HideConsecutiveEnabled};
+use data::config::buffer::{CondensationIcon, HideConsecutiveEnabled, Style};
 use data::dashboard::BufferAction;
 use data::isupport::ChatHistoryState;
 use data::message::{self, Limit};
@@ -246,7 +246,8 @@ pub fn view<'a>(
     previews: Option<Previews<'a>>,
     visible_for_source: Option<impl Fn(&Preview, &message::Source) -> bool>,
     chathistory_state: Option<ChatHistoryState>,
-    reserve_bottom_line_for_typing: bool,
+    typing_style: Style,
+    show_typing: bool,
     config: &'a Config,
     theme: &'a Theme,
     formatter: impl LayoutMessage<'a> + 'a,
@@ -681,7 +682,8 @@ pub fn view<'a>(
             space::vertical().height(line_spacing),
         ]
         .padding(padding::bottom(typing::reserved_bottom_padding(
-            reserve_bottom_line_for_typing,
+            show_typing,
+            typing_style,
             config,
         )))
         .spacing(line_spacing),
