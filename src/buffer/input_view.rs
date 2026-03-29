@@ -861,7 +861,7 @@ impl State {
                         self.input_content.text().clone(),
                     );
                     self.input_content = text_editor::Content::new();
-                    self.clear_typing(buffer, clients);
+                    self.reset_typing();
 
                     let lines = self
                         .parsed
@@ -2236,17 +2236,7 @@ impl State {
             .unwrap_or_default()
     }
 
-    fn clear_typing(
-        &mut self,
-        buffer: &buffer::Upstream,
-        clients: &mut client::Map,
-    ) {
-        let enabled = self.typing_allowed(buffer, clients);
-
-        if enabled && self.last_typing_at.is_some() {
-            self.send_typing_status(buffer, clients, command::Typing::Done);
-        }
-
+    fn reset_typing(&mut self) {
         self.last_typing_at = None;
     }
 
@@ -2281,15 +2271,6 @@ impl State {
     ) -> bool {
         clients.get_server_share_typing(buffer.server())
             && self.is_message_like_input(buffer, clients)
-    }
-
-    fn typing_allowed(
-        &self,
-        buffer: &buffer::Upstream,
-        clients: &client::Map,
-    ) -> bool {
-        buffer.target().is_some()
-            && clients.get_server_share_typing(buffer.server())
     }
 
     fn is_message_like_input(
