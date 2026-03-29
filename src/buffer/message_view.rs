@@ -974,6 +974,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
             message.id.as_ref(),
             selected_reaction_texts,
             self.can_send_reactions,
+            &message.content,
             self.config,
             self.theme,
         );
