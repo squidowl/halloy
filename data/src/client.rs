@@ -851,7 +851,7 @@ impl Client {
                             // If nested multiline, assemble into a single
                             // message here as it needs to be done before
                             // extending into parent batch or finishing as an
-                            // indepdent batch.
+                            // independent batch.
                             if let Some(BatchKind::Multiline(
                                 tags,
                                 user,
