@@ -11,11 +11,13 @@ Added:
 - Animate typing dots
 - `buffer.nickname.color` now supports `{ palette = ["#RRGGBB", ...] }` for nickname colors from a fixed set
 - Right-click context menu on messages now includes "Copy message" to copy the message text to the clipboard
+- `buffer.typing.style` setting with `padded` and `popped` modes for typing indicators
 
 Changed:
 
 - Moved `typing` settings from `buffer.channel.typing` to `buffer.typing` to clarify that they appliy to queries as well as channels
 - Moved nicklist nickname settings from `buffer.channel.nicklist` to `buffer.nickname` (`away` and `color`)
+- Default typing style is now `popped`
 
 Fixed:
 

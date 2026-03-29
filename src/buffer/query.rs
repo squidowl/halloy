@@ -70,6 +70,7 @@ pub fn view<'a>(
     let our_nick = clients.nickname(server);
     let our_user = our_nick.map(|our_nick| User::from(Nick::from(our_nick)));
     let show_typing = clients.get_server_show_typing(server);
+    let typing_style = config.buffer.typing.style;
 
     let chathistory_state =
         clients.get_chathistory_state(server, &query.to_target());
@@ -105,6 +106,7 @@ pub fn view<'a>(
             previews,
             Option::<fn(&Preview, &message::Source) -> bool>::None,
             chathistory_state,
+            typing_style,
             show_typing,
             config,
             theme,
@@ -115,6 +117,7 @@ pub fn view<'a>(
     .height(Length::Fill);
 
     let typing_text = state.typing_text(clients, history);
+    let has_typing_text = typing_text.is_some();
     let typing = typing::view(
         typing_text,
         state.typing_animation.as_ref(),
@@ -144,23 +147,24 @@ pub fn view<'a>(
 
     let content = column![messages];
 
-    let scrollable: Element<'a, Message> = if show_typing {
-        let typing_overlay: Element<'a, Message> = container(typing)
-            .width(Length::Fill)
-            .height(Length::Fill)
-            .padding(padding::left(2))
-            .align_y(iced::alignment::Vertical::Bottom)
-            .into();
+    let scrollable: Element<'a, Message> =
+        if typing::show_row(show_typing, typing_style, has_typing_text) {
+            let typing_overlay: Element<'a, Message> = container(typing)
+                .width(Length::Fill)
+                .height(Length::Fill)
+                .padding(padding::left(2))
+                .align_y(iced::alignment::Vertical::Bottom)
+                .into();
 
-        column![
-            stack![content, typing_overlay].height(Length::Fill),
-            text_input
-        ]
-        .height(Length::Fill)
-        .into()
-    } else {
-        column![content, text_input].height(Length::Fill).into()
-    };
+            column![
+                stack![content, typing_overlay].height(Length::Fill),
+                text_input
+            ]
+            .height(Length::Fill)
+            .into()
+        } else {
+            column![content, text_input].height(Length::Fill).into()
+        };
 
     container(scrollable)
         .width(Length::Fill)
