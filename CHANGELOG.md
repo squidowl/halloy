@@ -21,6 +21,7 @@ Fixed:
 - Keyboard shortcuts now work in popped out buffer windows, including command bar shortcuts
 - IRC URIs now handle bracketed IPv6 hosts and percent-encoded channel targets correctly
 - `typing` settings for buffers could get in a stuck state without any way to control them
+- +typing=done should not be sent when the message is sent
 
 Thanks:
 
