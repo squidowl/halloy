@@ -843,7 +843,9 @@ impl Halloy {
                 }
 
                 if let Screen::Dashboard(dashboard) = &mut self.screen {
-                    dashboard.tick(now, &self.clients).map(Message::Dashboard)
+                    dashboard
+                        .tick(now, &self.clients, &self.config)
+                        .map(Message::Dashboard)
                 } else {
                     Task::none()
                 }
