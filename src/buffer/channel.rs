@@ -9,7 +9,7 @@ use data::server::Server;
 use data::target::{self, Target};
 use data::user::{ChannelUsers, Nick};
 use data::{Config, Preview, User, buffer, client, history, message};
-use iced::widget::{column, container, row, stack};
+use iced::widget::{column, container, row};
 use iced::{Length, Size, Task, padding};
 
 use super::message_view::{ChannelQueryLayout, TargetInfo};
