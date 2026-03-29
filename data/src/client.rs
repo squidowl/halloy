@@ -848,7 +848,33 @@ impl Client {
                         if let Some(mut finished) =
                             self.batches.remove(&reference)
                         {
-                            // If nested, extend events into parent batch
+                            // If nested multiline, assemble into a single
+                            // message here as it needs to be done before
+                            // extending into parent batch or finishing as an
+                            // independent batch.
+                            if let Some(BatchKind::Multiline(
+                                tags,
+                                user,
+                                target,
+                                Some(batch_kind),
+                                text,
+                            )) = &finished.kind
+                            {
+                                let encoded = multiline_encoded(
+                                    user.as_ref(),
+                                    *batch_kind,
+                                    target,
+                                    text,
+                                    tags.clone(),
+                                );
+
+                                finished.events.extend(self.handle(
+                                    encoded,
+                                    context.clone(),
+                                    config,
+                                )?);
+                            }
+
                             if let Some(parent) = batch_tag
                                 .as_ref()
                                 .and_then(|batch| self.batches.get_mut(batch))
@@ -932,29 +958,10 @@ impl Client {
                                         }
                                     }
                                     Some(BatchKind::Multiline(
-                                        tags,
-                                        user,
-                                        target,
-                                        Some(batch_kind),
-                                        text,
-                                    )) => {
-                                        let encoded = multiline_encoded(
-                                            user.as_ref(),
-                                            *batch_kind,
-                                            target,
-                                            text,
-                                            tags.clone(),
-                                        );
-
-                                        finished.events.extend(self.handle(
-                                            encoded, context, config,
-                                        )?);
-                                    }
-                                    Some(BatchKind::Multiline(
                                         _,
                                         _,
                                         _,
-                                        None,
+                                        _,
                                         _,
                                     ))
                                     | None => (),
@@ -5139,6 +5146,152 @@ mod tests {
         client.querymap.entry(canonical.clone()).or_default();
 
         assert_eq!(client.resolve_query(&query("foobar")), Some(&canonical));
+    }
+
+    #[test]
+    fn chathistory_multiline_batch_assembles_into_single_message() {
+        let mut client = test_client("tester");
+        let config = config::Config::default();
+
+        let alice = proto::Source::User(proto::User {
+            nickname: "alice".to_string(),
+            username: Some("alice".to_string()),
+            hostname: Some("example.test".to_string()),
+        });
+        let server = proto::Source::Server("irc.test".to_string());
+
+        // BATCH +1 chathistory #test
+        client
+            .handle(
+                message::Encoded(proto::Message {
+                    tags: BTreeMap::default(),
+                    source: Some(server.clone()),
+                    command: Command::BATCH(
+                        "+1".to_string(),
+                        vec!["chathistory".to_string(), "#test".to_string()],
+                    ),
+                }),
+                None,
+                &config,
+            )
+            .unwrap();
+
+        // @batch=1 BATCH +2 draft/multiline #test
+        client
+            .handle(
+                message::Encoded(proto::Message {
+                    tags: BTreeMap::from([(
+                        "batch".to_string(),
+                        "1".to_string(),
+                    )]),
+                    source: Some(alice.clone()),
+                    command: Command::BATCH(
+                        "+2".to_string(),
+                        vec![
+                            "draft/multiline".to_string(),
+                            "#test".to_string(),
+                        ],
+                    ),
+                }),
+                None,
+                &config,
+            )
+            .unwrap();
+
+        // @batch=2 PRIVMSG #test :line one
+        client
+            .handle(
+                message::Encoded(proto::Message {
+                    tags: BTreeMap::from([(
+                        "batch".to_string(),
+                        "2".to_string(),
+                    )]),
+                    source: Some(alice.clone()),
+                    command: Command::PRIVMSG(
+                        "#test".to_string(),
+                        "line one".to_string(),
+                    ),
+                }),
+                None,
+                &config,
+            )
+            .unwrap();
+
+        // @batch=2 PRIVMSG #test :line two
+        client
+            .handle(
+                message::Encoded(proto::Message {
+                    tags: BTreeMap::from([(
+                        "batch".to_string(),
+                        "2".to_string(),
+                    )]),
+                    source: Some(alice.clone()),
+                    command: Command::PRIVMSG(
+                        "#test".to_string(),
+                        "line two".to_string(),
+                    ),
+                }),
+                None,
+                &config,
+            )
+            .unwrap();
+
+        // @batch=1 BATCH -2
+        client
+            .handle(
+                message::Encoded(proto::Message {
+                    tags: BTreeMap::from([(
+                        "batch".to_string(),
+                        "1".to_string(),
+                    )]),
+                    source: Some(server.clone()),
+                    command: Command::BATCH("-2".to_string(), vec![]),
+                }),
+                None,
+                &config,
+            )
+            .unwrap();
+
+        // BATCH -1
+        let events = client
+            .handle(
+                message::Encoded(proto::Message {
+                    tags: BTreeMap::default(),
+                    source: Some(server.clone()),
+                    command: Command::BATCH("-1".to_string(), vec![]),
+                }),
+                None,
+                &config,
+            )
+            .unwrap();
+
+        // The multiline message should appear as a single PrivOrNotice
+        // with combined text "line one\nline two"
+        let priv_events: Vec<_> = events
+            .iter()
+            .filter(|e| matches!(e, Event::PrivOrNotice(..)))
+            .collect();
+
+        assert_eq!(
+            priv_events.len(),
+            1,
+            "expected 1 assembled multiline message, got {}",
+            priv_events.len()
+        );
+
+        if let Event::PrivOrNotice(msg, _, _) = &priv_events[0] {
+            match &msg.0.command {
+                Command::PRIVMSG(_, text) => {
+                    assert_eq!(
+                        text, "line one\nline two",
+                        "multiline text should be joined with newline"
+                    );
+                }
+                other => panic!("expected PRIVMSG, got {other:?}"),
+            }
+        } else {
+            panic!("expected PrivOrNotice event");
+        }
     }
 
     #[test]
