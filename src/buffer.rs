@@ -84,7 +84,7 @@ pub enum Event {
         open_buffers: Vec<(Target, BufferAction)>,
     },
     SendUnsafeList(data::Server),
-    FileHostUpload {
+    FilehostUpload {
         server: data::Server,
         target: Target,
         file_paths: Vec<std::path::PathBuf>,
@@ -310,12 +310,12 @@ impl Buffer {
                         history_task,
                         open_buffers,
                     },
-                    channel::Event::FileHostUpload {
+                    channel::Event::FilehostUpload {
                         server,
                         target,
                         file_paths,
                         abort_registrations,
-                    } => Event::FileHostUpload {
+                    } => Event::FilehostUpload {
                         server,
                         target,
                         file_paths,
@@ -374,12 +374,12 @@ impl Buffer {
                         history_task,
                         open_buffers,
                     },
-                    server::Event::FileHostUpload {
+                    server::Event::FilehostUpload {
                         server,
                         target,
                         file_paths,
                         abort_registrations,
-                    } => Event::FileHostUpload {
+                    } => Event::FilehostUpload {
                         server,
                         target,
                         file_paths,
@@ -442,12 +442,12 @@ impl Buffer {
                         history_task,
                         open_buffers,
                     },
-                    query::Event::FileHostUpload {
+                    query::Event::FilehostUpload {
                         server,
                         target,
                         file_paths,
                         abort_registrations,
-                    } => Event::FileHostUpload {
+                    } => Event::FilehostUpload {
                         server,
                         target,
                         file_paths,

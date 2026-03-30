@@ -61,7 +61,7 @@ pub enum Event {
         history_task: Task<history::manager::Message>,
     },
     Reconnect(Server),
-    FileHostUpload {
+    FilehostUpload {
         server: Server,
         target: Target,
         file_paths: Vec<std::path::PathBuf>,
@@ -104,7 +104,7 @@ pub enum Message {
     Cut,
     UploadFile,
     FilesSelected(Vec<std::path::PathBuf>),
-    FileHostUrlReady(String),
+    FilehostUrlReady(String),
     UploadAnimTick,
     CancelUploads,
     SpinnerHovered(bool),
@@ -1209,7 +1209,7 @@ impl State {
                 self.upload_abort_handles.extend(handles);
 
                 let event =
-                    buffer.target().map(|target| Event::FileHostUpload {
+                    buffer.target().map(|target| Event::FilehostUpload {
                         server: buffer.server().clone(),
                         target,
                         file_paths,
@@ -1242,7 +1242,7 @@ impl State {
                 self.spinner_hovered = hovered;
                 (Task::none(), None)
             }
-            Message::FileHostUrlReady(url)
+            Message::FilehostUrlReady(url)
                 if !url.is_empty() && self.uploading > 0 =>
             {
                 self.uploading = self.uploading.saturating_sub(1);
@@ -1265,7 +1265,7 @@ impl State {
                 });
                 (self.focus(), None)
             }
-            Message::FileHostUrlReady(_) => {
+            Message::FilehostUrlReady(_) => {
                 // Failed or cancelled — decrement only if not already zeroed.
                 self.uploading = self.uploading.saturating_sub(1);
                 (self.focus(), None)
@@ -2070,7 +2070,7 @@ impl State {
                             .then(Self::schedule_anim_tick)
                             .unwrap_or_else(Task::none);
                         let event = buffer.target().map(|target| {
-                            Event::FileHostUpload {
+                            Event::FilehostUpload {
                                 server: buffer.server().clone(),
                                 target,
                                 file_paths: vec![file_path],

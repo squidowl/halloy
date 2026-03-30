@@ -2,7 +2,7 @@ use serde::Deserialize;
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
-pub struct FileHost {
+pub struct Filehost {
     /// Master switch to disable all file upload functionality. Defaults to `true`.
     pub enabled: bool,
     /// Show the upload button in the input bar. Defaults to `true`.
@@ -13,7 +13,7 @@ pub struct FileHost {
     pub file_drop: bool,
 }
 
-impl Default for FileHost {
+impl Default for Filehost {
     fn default() -> Self {
         Self {
             enabled: true,
@@ -24,7 +24,7 @@ impl Default for FileHost {
     }
 }
 
-impl FileHost {
+impl Filehost {
     pub fn button(&self) -> bool {
         self.enabled && self.button
     }

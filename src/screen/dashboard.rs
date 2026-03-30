@@ -86,8 +86,8 @@ pub enum Message {
     LoadPreview((url::Url, Result<data::Preview, data::preview::LoadError>)),
     NewWindow(window::Id, Pane),
     Filehost(filehost::Message),
-    ProceedWithFileHostUpload,
-    CancelFileHostUpload,
+    ProceedWithFilehostUpload,
+    CancelFilehostUpload,
 }
 
 #[derive(Debug)]
@@ -1711,7 +1711,7 @@ impl Dashboard {
             Message::Filehost(msg) => {
                 return (self.handle_filehost_message(msg, clients, config), None);
             }
-            Message::ProceedWithFileHostUpload => {
+            Message::ProceedWithFilehostUpload => {
                 let http_client = self
                     .preview_client
                     .clone()
@@ -1722,7 +1722,7 @@ impl Dashboard {
                     .map(Message::Filehost);
                 return (task, None);
             }
-            Message::CancelFileHostUpload => {
+            Message::CancelFilehostUpload => {
                 let task = self.filehost.cancel().map(Message::Filehost);
                 return (task, None);
             }
@@ -2611,7 +2611,7 @@ impl Dashboard {
             buffer::Event::Reconnect(server) => {
                 controllers.connect(&server);
             }
-            buffer::Event::FileHostUpload {
+            buffer::Event::FilehostUpload {
                 server,
                 target,
                 file_paths,
@@ -2691,10 +2691,10 @@ impl Dashboard {
             } => {
                 let buf_msg = match &target {
                     Target::Channel(_) => buffer::Message::Channel(
-                        buffer::channel::Message::FileHostUrlReady(url),
+                        buffer::channel::Message::FilehostUrlReady(url),
                     ),
                     Target::Query(_) => buffer::Message::Query(
-                        buffer::query::Message::FileHostUrlReady(url),
+                        buffer::query::Message::FilehostUrlReady(url),
                     ),
                 };
                 Task::done(Message::Pane(
@@ -2715,19 +2715,19 @@ impl Dashboard {
                     casemapping,
                     config,
                     Utc::now(),
-                    Broadcast::FileHostUploadFailed {
+                    Broadcast::FilehostUploadFailed {
                         error,
                         target: target.clone(),
                     },
                 );
                 let decrement_msg = match &target {
                     Target::Channel(_) => buffer::Message::Channel(
-                        buffer::channel::Message::FileHostUrlReady(
+                        buffer::channel::Message::FilehostUrlReady(
                             String::new(),
                         ),
                     ),
                     Target::Query(_) => buffer::Message::Query(
-                        buffer::query::Message::FileHostUrlReady(String::new()),
+                        buffer::query::Message::FilehostUrlReady(String::new()),
                     ),
                 };
                 let decrement_task = Task::done(Message::Pane(

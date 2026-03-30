@@ -894,7 +894,7 @@ impl Halloy {
                                 return Task::batch(vec![
                                         command.map(Message::Modal),
                                         Task::done(Message::Dashboard(
-                                            dashboard::Message::CancelFileHostUpload,
+                                            dashboard::Message::CancelFilehostUpload,
                                         )),
                                     ]);
                             }
@@ -905,7 +905,7 @@ impl Halloy {
                                 return Task::batch(vec![
                                     command.map(Message::Modal),
                                     Task::done(Message::Dashboard(
-                                        dashboard::Message::ProceedWithFileHostUpload,
+                                        dashboard::Message::ProceedWithFilehostUpload,
                                     )),
                                 ]);
                             }

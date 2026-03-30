@@ -26,7 +26,7 @@ pub enum Message {
     InputView(input_view::Message),
     ContextMenu(context_menu::Message),
     Topic(topic::Message),
-    FileHostUrlReady(String),
+    FilehostUrlReady(String),
     FilesDropped(Vec<std::path::PathBuf>),
 }
 
@@ -50,7 +50,7 @@ pub enum Event {
         history_task: Task<history::manager::Message>,
         open_buffers: Vec<(Target, BufferAction)>,
     },
-    FileHostUpload {
+    FilehostUpload {
         server: Server,
         target: Target,
         file_paths: Vec<std::path::PathBuf>,
@@ -386,14 +386,14 @@ impl Channel {
                     Some(input_view::Event::Reconnect(server)) => {
                         (command, Some(Event::Reconnect(server)))
                     }
-                    Some(input_view::Event::FileHostUpload {
+                    Some(input_view::Event::FilehostUpload {
                         server,
                         target,
                         file_paths,
                         abort_registrations,
                     }) => (
                         command,
-                        Some(Event::FileHostUpload {
+                        Some(Event::FilehostUpload {
                             server,
                             target,
                             file_paths,
@@ -407,9 +407,9 @@ impl Channel {
                 Task::none(),
                 Some(Event::ContextMenu(context_menu::update(message))),
             ),
-            Message::FileHostUrlReady(url) => {
+            Message::FilehostUrlReady(url) => {
                 let (task, _) = self.input_view.update(
-                    input_view::Message::FileHostUrlReady(url),
+                    input_view::Message::FilehostUrlReady(url),
                     &self.buffer,
                     clients,
                     history,
@@ -430,12 +430,12 @@ impl Channel {
                 (
                     task.map(Message::InputView),
                     event.and_then(|e| match e {
-                        input_view::Event::FileHostUpload {
+                        input_view::Event::FilehostUpload {
                             server,
                             target,
                             file_paths,
                             abort_registrations,
-                        } => Some(Event::FileHostUpload {
+                        } => Some(Event::FilehostUpload {
                             server,
                             target,
                             file_paths,
