@@ -3,8 +3,8 @@ use std::sync::Arc;
 
 use data::target::Target;
 use data::{client, fileupload};
-use iced::widget::pane_grid;
 use iced::Task;
+use iced::widget::pane_grid;
 
 use crate::window;
 
@@ -75,7 +75,10 @@ impl Manager {
 
         if self.known.contains(&upload_url) {
             let irc_uses_tls = clients.get_use_tls(&pending.server);
-            (start_tasks(pending, clients, irc_uses_tls, http_client), None)
+            (
+                start_tasks(pending, clients, irc_uses_tls, http_client),
+                None,
+            )
         } else {
             self.pending = Some(pending);
             (
@@ -102,7 +105,8 @@ impl Manager {
         self.known.insert(pending.upload_url.clone());
 
         let irc_uses_tls = clients.get_use_tls(&pending.server);
-        let upload_task = start_tasks(pending, clients, irc_uses_tls, http_client);
+        let upload_task =
+            start_tasks(pending, clients, irc_uses_tls, http_client);
 
         let known = self.known.clone();
         let save_task = Task::perform(
