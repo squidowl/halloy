@@ -8,6 +8,7 @@ Added:
 - `buffer.server_messages.away` setting to control when automated away messages are shown
 - `buffer.server_messages.away` theme setting to control how automated away messages appear
 - Drafts are remembered across Halloy sessions. Can be disabled with `buffer.text_input.persist`
+- Animate typing dots
 
 Changed:
 

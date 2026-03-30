@@ -1,4 +1,5 @@
 use std::path::PathBuf;
+use std::time::Instant;
 
 use chrono::{DateTime, Utc};
 use data::dashboard::BufferAction;
@@ -68,7 +69,6 @@ pub fn view<'a>(
         });
     let our_nick = clients.nickname(server);
     let our_user = our_nick.map(|our_nick| User::from(Nick::from(our_nick)));
-    let server_supports_typing = clients.get_server_supports_typing(server);
     let show_typing = clients.get_server_show_typing(server);
 
     let chathistory_state =
@@ -114,20 +114,10 @@ pub fn view<'a>(
     )
     .height(Length::Fill);
 
+    let typing_text = state.typing_text(clients, history);
     let typing = typing::view(
-        typing::typing_text(
-            show_typing,
-            server_supports_typing,
-            our_nick.as_ref().map(data::user::NickRef::as_str),
-            &typing::visible_nicks(
-                &clients.get_query_typing_users(server, query),
-                None,
-                server,
-                FilterChain::borrow(history.filters()),
-                casemapping,
-            ),
-            casemapping,
-        ),
+        typing_text,
+        state.typing_animation.as_ref(),
         typing::typing_font_size(config),
         theme,
     );
@@ -185,6 +175,7 @@ pub struct Query {
     pub target: target::Query,
     pub scroll_view: scroll_view::State,
     pub input_view: input_view::State,
+    typing_animation: Option<typing::Animation>,
 }
 
 impl Query {
@@ -205,6 +196,7 @@ impl Query {
             server,
             target,
             scroll_view: scroll_view::State::new(pane_size, config),
+            typing_animation: None,
         }
     }
 
@@ -339,5 +331,42 @@ impl Query {
 
     pub fn reset(&mut self) {
         self.input_view.reset();
+    }
+
+    pub fn tick(
+        &mut self,
+        now: Instant,
+        clients: &data::client::Map,
+        history: &history::Manager,
+    ) {
+        let is_typing = self.typing_text(clients, history).is_some();
+        typing::update(&mut self.typing_animation, is_typing, now);
+    }
+
+    fn typing_text(
+        &self,
+        clients: &data::client::Map,
+        history: &history::Manager,
+    ) -> Option<String> {
+        let server = &self.server;
+        let query = &self.target;
+        let casemapping = clients.get_casemapping(server);
+
+        typing::typing_text(
+            clients.get_server_show_typing(server),
+            clients.get_server_supports_typing(server),
+            clients
+                .nickname(server)
+                .as_ref()
+                .map(data::user::NickRef::as_str),
+            &typing::visible_nicks(
+                &clients.get_query_typing_users(server, query),
+                None,
+                server,
+                FilterChain::borrow(history.filters()),
+                casemapping,
+            ),
+            casemapping,
+        )
     }
 }
