@@ -1267,7 +1267,7 @@ fn connected_command_list<'a>(
                 text: "file".into(),
                 kind: ArgumentKind::Optional { skipped: false },
                 tooltip: Some(
-                    "Path to a file, or omit to open file picker".to_string(),
+                    "Path to a file".to_string(),
                 ),
             }],
             subcommands: None,
