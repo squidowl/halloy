@@ -1266,9 +1266,7 @@ fn connected_command_list<'a>(
             args: vec![Argument {
                 text: "file".into(),
                 kind: ArgumentKind::Optional { skipped: false },
-                tooltip: Some(
-                    "Path to a file".to_string(),
-                ),
+                tooltip: Some("Path to a file".to_string()),
             }],
             subcommands: None,
         });
