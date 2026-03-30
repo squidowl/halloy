@@ -57,6 +57,10 @@ We strive to be a leading irc client with a rich ircv3 feature set. currently su
   <img src="https://imgs.xkcd.com/comics/team_chat.png" title="2078: He announces that he's finally making the jump from screen+irssi to tmux+weechat.">
 </a>
 
+## Contributing
+
+See the [contributing guide](https://halloy.chat/contributing) to get started.
+
 ## License
 
 Halloy is released under the GPL-3.0 License. For more details, see the [LICENSE](LICENSE) file.
