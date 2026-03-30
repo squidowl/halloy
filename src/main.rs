@@ -6,6 +6,7 @@ mod audio;
 mod buffer;
 mod emoji;
 mod event;
+mod filehost;
 mod font;
 mod icon;
 mod logger;
@@ -1037,21 +1038,21 @@ impl Halloy {
                             if let Screen::Dashboard(dashboard) =
                                 &mut self.screen
                             {
-                                dashboard.file_being_hovered = true;
+                                dashboard.filehost.file_being_hovered = true;
                             }
                         }
                         window::Event::FilesHoveredLeft => {
                             if let Screen::Dashboard(dashboard) =
                                 &mut self.screen
                             {
-                                dashboard.file_being_hovered = false;
+                                dashboard.filehost.file_being_hovered = false;
                             }
                         }
                         window::Event::FileDropped(ref path) => {
                             if let Screen::Dashboard(dashboard) =
                                 &mut self.screen
                             {
-                                dashboard.file_being_hovered = false;
+                                dashboard.filehost.file_being_hovered = false;
                                 return dashboard
                                     .handle_file_drop(path.clone())
                                     .map(Message::Dashboard);
