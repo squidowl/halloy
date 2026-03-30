@@ -825,6 +825,12 @@ impl Client {
                                             label_tag,
                                         );
                                     }
+                                    if let Some(batch_tag) = batch_tag {
+                                        tags.insert(
+                                            "batch".to_string(),
+                                            batch_tag,
+                                        );
+                                    }
                                     BatchKind::Multiline(
                                         tags,
                                         message.user(self.casemapping()),
