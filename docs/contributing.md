@@ -1,4 +1,4 @@
-# Contribution for Halloy
+# Contributing to Halloy
 
 Thank you for your interest in contributing to Halloy.
 
