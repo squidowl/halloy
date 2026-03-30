@@ -33,10 +33,6 @@ soju supports filehost via its own `soju.im/FILEHOST` token. Configure filehost 
 
 soju will advertise the configured URL to clients via `soju.im/FILEHOST`. For networks provided by bouncer, Halloy will use the bouncer's filehost.
 
-::: info
-soju requires you to [authenticate](#Authentication) your upload requests
-:::
-
 ### convoyeur
 
 [convoyeur](https://codeberg.org/classabbyamp/convoyeur) can act as a proxy to external file upload services. 
@@ -51,10 +47,6 @@ If your server does not allow advertising a filehost token, or you do not contro
 
 - **SASL PLAIN** — sends an `Authorization` header with server `username:password`
 - **SASL EXTERNAL** — presents the client certificate
-
-::: warning
-Only send credentials to filehosts you trust.
-:::
 
 ```toml
 [servers.<name>]
