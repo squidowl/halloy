@@ -5,7 +5,6 @@ use data::history::filter::FilterChain;
 use data::isupport::CaseMap;
 use data::user::Nick;
 use data::{Config, Server, User, target};
-use iced::widget::text::LineHeight;
 use iced::widget::{column, container, row};
 use iced::{Color, Length, padding};
 
@@ -16,7 +15,7 @@ const DOT_COUNT: usize = 3;
 const DOT_BASE_OPACITY: f32 = 0.35;
 const DOT_PEAK_OPACITY: f32 = 1.0;
 const DOT_DURATION: Duration = Duration::from_millis(520);
-const DOTS: [&str; DOT_COUNT] = ["•"; DOT_COUNT];
+const DOTS: [&str; DOT_COUNT] = ["\u{2022}"; DOT_COUNT];
 
 #[derive(Debug, Clone, Copy)]
 pub struct Animation {
@@ -84,7 +83,6 @@ pub fn view<'a, Message: 'a>(
             let dot_color = theme.styles().text.secondary.color;
             let dot_opacities = animation
                 .map_or([DOT_BASE_OPACITY; DOT_COUNT], Animation::opacities);
-            let dot_width = font_size * 0.55;
 
             container(
                 row![
@@ -102,11 +100,10 @@ pub fn view<'a, Message: 'a>(
                             container(
                                 iced::widget::text(dot)
                                     .size(font_size)
-                                    .line_height(LineHeight::Relative(1.0))
                                     .font_maybe(secondary_font.clone())
                                     .color(color),
                             )
-                            .width(Length::Fixed(dot_width))
+                            .width(Length::Shrink)
                             .height(Length::Fixed(font_size))
                             .align_x(iced::Alignment::Center)
                             .align_y(iced::alignment::Vertical::Bottom)
