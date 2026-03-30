@@ -367,7 +367,7 @@ pub enum Broadcast {
         channel: target::Channel,
         casemapping: isupport::CaseMap,
     },
-    FileHostUploadFailed {
+    FilehostUploadFailed {
         error: String,
         target: target::Target,
     },
@@ -505,7 +505,7 @@ pub fn into_messages(
             casemapping,
             sent_time,
         ),
-        Broadcast::FileHostUploadFailed { error, target } => {
+        Broadcast::FilehostUploadFailed { error, target } => {
             upload_failed(error, target, sent_time)
         }
     }
