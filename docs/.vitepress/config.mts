@@ -49,7 +49,7 @@ export default defineConfig({
           { text: "Installation", link: "/installation" },
           { text: "Getting Started", link: "/getting-started" },
           { text: "Configuration", link: "/configuration" },
-          { text: "Contribution", link: "/contribution" },
+          { text: "Contributing", link: "/contributing" },
           { text: "Get in Touch", link: "/get-in-touch" },
         ],
       },
