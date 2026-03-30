@@ -27,8 +27,8 @@ Fixed:
 
 Thanks:
 
-- Contributions: @furudean, @omentic, @KaiKorla
-- Bug reports: sebbu, @whitequark, @SnoopJ, esden, @miyukoc, @ld-cd
+- Contributions: @furudean, @omentic, @KaiKorla, @achille
+- Bug reports: sebbu, @whitequark, @SnoopJ, esden, @miyukoc, @ld-cd, @achille
 - Feature requests: @omentic
 
 # 2026.5 (2026-03-21)
