@@ -17,8 +17,7 @@ use data::rate_limit::TokenPriority;
 use data::target::{self, Target};
 use data::{
     Config, Notification, Server, User, Version, client, command, config,
-    environment, file_transfer, history, preview, reaction, server,
-    stream,
+    environment, file_transfer, history, preview, reaction, server, stream,
 };
 use iced::widget::pane_grid::{self, PaneGrid};
 use iced::widget::{Space, center, column, container, row, stack, text};
@@ -1709,7 +1708,10 @@ impl Dashboard {
                 return (self.focus_pane(window, pane), None);
             }
             Message::Filehost(msg) => {
-                return (self.handle_filehost_message(msg, clients, config), None);
+                return (
+                    self.handle_filehost_message(msg, clients, config),
+                    None,
+                );
             }
             Message::ProceedWithFilehostUpload => {
                 let http_client = self
