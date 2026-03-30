@@ -30,14 +30,14 @@ use self::pane::Pane;
 use self::sidebar::Sidebar;
 use self::theme_editor::ThemeEditor;
 use crate::buffer::{self, Buffer};
-use crate::filehost;
 use crate::widget::{
     Column, Element, Row, anchored_overlay, context_menu, selectable_text,
     shortcut,
 };
 use crate::window::Window;
 use crate::{
-    Theme, event, notification, open_url, platform_specific, theme, window,
+    Theme, event, filehost, notification, open_url, platform_specific, theme,
+    window,
 };
 
 mod command_bar;
