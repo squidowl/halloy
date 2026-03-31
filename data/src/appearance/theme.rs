@@ -546,6 +546,29 @@ pub fn randomize_color(original_color: Color, seed: &str) -> Color {
     from_hsl(randomized_hsl)
 }
 
+pub fn nickname_color(
+    original_color: Color,
+    kind: &crate::buffer::Color,
+    seed: Option<&str>,
+) -> Color {
+    match (kind, seed) {
+        (crate::buffer::Color::Solid, _) | (_, None) => original_color,
+        (crate::buffer::Color::Unique, Some(seed)) => {
+            randomize_color(original_color, seed)
+        }
+        (crate::buffer::Color::Palette(colors), Some(seed)) => {
+            if colors.is_empty() {
+                return original_color;
+            }
+
+            let index =
+                (seahash::hash(seed.as_bytes()) % colors.len() as u64) as usize;
+
+            colors[index]
+        }
+    }
+}
+
 pub fn to_hsl(color: Color) -> Okhsl {
     let mut hsl = Okhsl::from_color(to_rgb(color));
     if hsl.saturation.is_nan() {

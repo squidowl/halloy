@@ -1,4 +1,4 @@
-use data::appearance::theme::{FontStyle, randomize_color};
+use data::appearance::theme::{FontStyle, nickname_color};
 use data::{Config, Server, isupport, message, target};
 use iced::widget::span;
 use iced::widget::text::Span;
@@ -150,24 +150,11 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a>(
                                     ))
                             }
                             data::message::Fragment::User(user, text) => {
-                                let color =
-                                    theme.styles().buffer.nickname.color;
-                                let seed = match &config
-                                    .buffer
-                                    .channel
-                                    .message
-                                    .nickname_color
-                                {
-                                    data::buffer::Color::Solid => None,
-                                    data::buffer::Color::Unique => {
-                                        Some(user.seed())
-                                    }
-                                };
-
-                                let color = match seed {
-                                    Some(seed) => randomize_color(color, seed),
-                                    None => theme.styles().text.primary.color,
-                                };
+                                let color = nickname_color(
+                                    theme.styles().buffer.nickname.color,
+                                    &config.buffer.nickname.color,
+                                    Some(user.seed()),
+                                );
 
                                 span(text)
                                     .font_maybe(
@@ -188,24 +175,11 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a>(
                                 user,
                                 text,
                             ) => {
-                                let color =
-                                    theme.styles().buffer.nickname.color;
-                                let seed = match &config
-                                    .buffer
-                                    .channel
-                                    .message
-                                    .nickname_color
-                                {
-                                    data::buffer::Color::Solid => None,
-                                    data::buffer::Color::Unique => {
-                                        Some(user.seed())
-                                    }
-                                };
-
-                                let color = match seed {
-                                    Some(seed) => randomize_color(color, seed),
-                                    None => theme.styles().text.primary.color,
-                                };
+                                let color = nickname_color(
+                                    theme.styles().buffer.nickname.color,
+                                    &config.buffer.nickname.color,
+                                    Some(user.seed()),
+                                );
 
                                 span(text)
                                     .font_maybe(
