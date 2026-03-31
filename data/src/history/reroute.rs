@@ -20,9 +20,12 @@ impl RerouteRules {
             direct_messages: servers
                 .entries()
                 .filter_map(|entry| {
-                    let chantypes = clients.get_chantypes(&entry.server);
-                    let statusmsg = clients.get_statusmsg(&entry.server);
-                    let casemapping = clients.get_casemapping(&entry.server);
+                    let chantypes =
+                        clients.get_server_chantypes_or_default(&entry.server);
+                    let statusmsg =
+                        clients.get_server_statusmsg_or_default(&entry.server);
+                    let casemapping = clients
+                        .get_server_casemapping_or_default(&entry.server);
 
                     let reroute_rules = parse_reroute_rules(
                         &entry.server,
@@ -66,8 +69,8 @@ impl RerouteRules {
 fn parse_reroute_rules(
     server: &Server,
     config: Arc<config::Server>,
-    statusmsg: &[char],
     chantypes: &[char],
+    statusmsg: &[char],
     casemapping: isupport::CaseMap,
 ) -> Vec<DirectMessageRerouteRule> {
     config

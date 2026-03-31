@@ -901,12 +901,18 @@ impl Dashboard {
                                     } else {
                                         (user, None)
                                     };
-                                let chantypes =
-                                    clients.get_chantypes(buffer.server());
-                                let statusmsg =
-                                    clients.get_statusmsg(buffer.server());
-                                let casemapping =
-                                    clients.get_casemapping(buffer.server());
+                                let chantypes = clients
+                                    .get_server_chantypes_or_default(
+                                        buffer.server(),
+                                    );
+                                let statusmsg = clients
+                                    .get_server_statusmsg_or_default(
+                                        buffer.server(),
+                                    );
+                                let casemapping = clients
+                                    .get_server_casemapping_or_default(
+                                        buffer.server(),
+                                    );
                                 let supports_echoes = clients
                                     .get_server_supports_echoes(
                                         buffer.server(),
@@ -2065,12 +2071,18 @@ impl Dashboard {
                         if let Some(nick) = clients.nickname(buffer.server()) {
                             let mut user = nick.to_owned().into();
                             let mut channel_users = None;
-                            let chantypes =
-                                clients.get_chantypes(buffer.server());
-                            let statusmsg =
-                                clients.get_statusmsg(buffer.server());
-                            let casemapping =
-                                clients.get_casemapping(buffer.server());
+                            let chantypes = clients
+                                .get_server_chantypes_or_default(
+                                    buffer.server(),
+                                );
+                            let statusmsg = clients
+                                .get_server_statusmsg_or_default(
+                                    buffer.server(),
+                                );
+                            let casemapping = clients
+                                .get_server_casemapping_or_default(
+                                    buffer.server(),
+                                );
                             let supports_echoes = clients
                                 .get_server_supports_echoes(buffer.server());
 
@@ -2140,12 +2152,18 @@ impl Dashboard {
                         if let Some(nick) = clients.nickname(buffer.server()) {
                             let mut user = nick.to_owned().into();
                             let mut channel_users = None;
-                            let chantypes =
-                                clients.get_chantypes(buffer.server());
-                            let statusmsg =
-                                clients.get_statusmsg(buffer.server());
-                            let casemapping =
-                                clients.get_casemapping(buffer.server());
+                            let chantypes = clients
+                                .get_server_chantypes_or_default(
+                                    buffer.server(),
+                                );
+                            let statusmsg = clients
+                                .get_server_statusmsg_or_default(
+                                    buffer.server(),
+                                );
+                            let casemapping = clients
+                                .get_server_casemapping_or_default(
+                                    buffer.server(),
+                                );
                             let supports_echoes = clients
                                 .get_server_supports_echoes(buffer.server());
 

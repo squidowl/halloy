@@ -134,9 +134,11 @@ pub fn view<'a>(
                             )
                         });
 
-                    let chantypes = clients.get_chantypes(server);
-                    let casemapping = clients.get_casemapping(server);
-                    let prefix = clients.get_prefix(server);
+                    let chantypes =
+                        clients.get_server_chantypes_or_default(server);
+                    let casemapping =
+                        clients.get_server_casemapping_or_default(server);
+                    let prefix = clients.get_server_prefix_or_default(server);
 
                     let nick = tooltip(
                         context_menu::user(
@@ -249,8 +251,10 @@ pub fn view<'a>(
                         ])
                         .on_link(scroll_view::Message::Link);
 
-                    let chantypes = clients.get_chantypes(server);
-                    let casemapping = clients.get_casemapping(server);
+                    let chantypes =
+                        clients.get_server_chantypes_or_default(server);
+                    let casemapping =
+                        clients.get_server_casemapping_or_default(server);
 
                     let text = message_content(
                         &message.content,

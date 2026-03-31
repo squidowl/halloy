@@ -72,7 +72,8 @@ impl Pane {
                 let display_channel = if let Some(casing) =
                     config.buffer.channel.channel_name_casing
                 {
-                    let casemapping = clients.get_casemapping(&state.server);
+                    let casemapping = clients
+                        .get_server_casemapping_or_default(&state.server);
                     casing.apply(raw_channel, casemapping)
                 } else {
                     raw_channel.to_owned()

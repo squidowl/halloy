@@ -69,9 +69,9 @@ pub fn view<'a>(
     theme: &'a Theme,
     is_focused: bool,
 ) -> Element<'a, Message> {
-    let chantypes = clients.get_chantypes(&state.server);
-    let prefix = clients.get_prefix(&state.server);
-    let casemapping = clients.get_casemapping(&state.server);
+    let chantypes = clients.get_server_chantypes_or_default(&state.server);
+    let prefix = clients.get_server_prefix_or_default(&state.server);
+    let casemapping = clients.get_server_casemapping_or_default(&state.server);
     let our_nick: Option<data::user::NickRef<'_>> =
         clients.nickname(&state.server);
     let our_user = our_nick.map(|our_nick| User::from(Nick::from(our_nick)));

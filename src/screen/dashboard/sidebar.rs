@@ -473,7 +473,8 @@ impl Sidebar {
             }
 
             for server in servers.keys() {
-                let casemapping = clients.get_casemapping(server);
+                let casemapping =
+                    clients.get_server_casemapping_or_default(server);
 
                 let button =
                     |buffer: buffer::Upstream,
