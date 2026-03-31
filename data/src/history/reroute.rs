@@ -28,7 +28,6 @@ impl RerouteRules {
                         .get_server_casemapping_or_default(&entry.server);
 
                     let reroute_rules = parse_reroute_rules(
-                        &entry.server,
                         entry.config,
                         chantypes,
                         statusmsg,
@@ -50,13 +49,8 @@ impl RerouteRules {
         statusmsg: &[char],
         casemapping: isupport::CaseMap,
     ) {
-        let reroute_rules = parse_reroute_rules(
-            server,
-            config,
-            statusmsg,
-            chantypes,
-            casemapping,
-        );
+        let reroute_rules =
+            parse_reroute_rules(config, chantypes, statusmsg, casemapping);
 
         if reroute_rules.is_empty() {
             self.direct_messages.remove(server);
@@ -67,7 +61,6 @@ impl RerouteRules {
 }
 
 fn parse_reroute_rules(
-    server: &Server,
     config: Arc<config::Server>,
     chantypes: &[char],
     statusmsg: &[char],
@@ -82,20 +75,19 @@ fn parse_reroute_rules(
             let nick = Nick::from_str(&reroute_rule.user, casemapping);
 
             match &reroute_rule.target {
-                config::server::RerouteTarget::Channel {
-                    channel: config_channel,
-                } => target::Channel::parse(
-                    config_channel,
-                    chantypes,
-                    statusmsg,
-                    casemapping,
-                )
-                .ok()
-                .map(DirectMessageRerouteTarget::Channel),
-                config::server::RerouteTarget::Server {
-                    server: config_server,
-                } => matches_server_label(config_server, server)
-                    .then_some(DirectMessageRerouteTarget::Server),
+                config::server::RerouteTarget::Channel(config_channel) => {
+                    target::Channel::parse(
+                        config_channel,
+                        chantypes,
+                        statusmsg,
+                        casemapping,
+                    )
+                    .ok()
+                    .map(DirectMessageRerouteTarget::Channel)
+                }
+                config::server::RerouteTarget::Server => {
+                    Some(DirectMessageRerouteTarget::Server)
+                }
             }
             .map(|target| DirectMessageRerouteRule {
                 from: nick,
@@ -180,12 +172,4 @@ impl RerouteRules {
             })
         })
     }
-}
-
-fn matches_server_label(rule_server: &str, server: &Server) -> bool {
-    rule_server.eq_ignore_ascii_case(&server.name)
-        || server.network.as_ref().is_some_and(|network| {
-            rule_server.eq_ignore_ascii_case(&network.name)
-                || rule_server.eq_ignore_ascii_case(&network.id)
-        })
 }

@@ -1477,7 +1477,6 @@ impl Client {
                                 .private_messages
                                 .has_reroute_rule_for_query(
                                     &user_query,
-                                    &self.server,
                                     self.chantypes(),
                                     self.statusmsg(),
                                     self.casemapping(),
