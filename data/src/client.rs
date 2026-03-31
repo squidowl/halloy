@@ -4524,13 +4524,14 @@ impl Map {
         self.client(server).is_none_or(|c| c.config.use_tls)
     }
 
-    pub fn get_casemapping(&self, server: &Server) -> isupport::CaseMap {
-        self.client(server)
-            .map(Client::casemapping)
-            .unwrap_or_default()
+    pub fn get_server_casemapping_or_default(
+        &self,
+        server: &Server,
+    ) -> isupport::CaseMap {
+        self.get_maybe_server_casemapping_or_default(Some(server))
     }
 
-    pub fn get_casemapping_or_default(
+    pub fn get_maybe_server_casemapping_or_default(
         &self,
         server: Option<&Server>,
     ) -> isupport::CaseMap {
@@ -4539,7 +4540,7 @@ impl Map {
             .unwrap_or_default()
     }
 
-    pub fn get_chanmodes<'a>(
+    pub fn get_server_chanmodes_or_default<'a>(
         &'a self,
         server: &Server,
     ) -> &'a [isupport::ModeKind] {
@@ -4548,32 +4549,43 @@ impl Map {
             .unwrap_or_default()
     }
 
-    pub fn get_chantypes<'a>(&'a self, server: &Server) -> &'a [char] {
-        self.client(server)
-            .map(Client::chantypes)
-            .unwrap_or_default()
+    pub fn get_server_chantypes_or_default<'a>(
+        &'a self,
+        server: &Server,
+    ) -> &'a [char] {
+        self.get_maybe_server_chantypes_or_default(Some(server))
     }
 
-    pub fn get_chantypes_or_default<'a>(
+    pub fn get_maybe_server_chantypes_or_default<'a>(
         &'a self,
         server: Option<&Server>,
     ) -> &'a [char] {
         server
             .and_then(|server| self.client(server).map(Client::chantypes))
-            .unwrap_or_default()
+            .unwrap_or(proto::DEFAULT_CHANNEL_PREFIXES)
     }
 
-    pub fn get_prefix<'a>(
+    pub fn get_server_prefix_or_default<'a>(
         &'a self,
         server: &Server,
     ) -> &'a [isupport::PrefixMap] {
         self.client(server).map(Client::prefix).unwrap_or_default()
     }
 
-    pub fn get_statusmsg<'a>(&'a self, server: &Server) -> &'a [char] {
-        self.client(server)
-            .map(Client::statusmsg)
-            .unwrap_or_default()
+    pub fn get_server_statusmsg_or_default<'a>(
+        &'a self,
+        server: &Server,
+    ) -> &'a [char] {
+        self.get_maybe_server_statusmsg_or_default(Some(server))
+    }
+
+    pub fn get_maybe_server_statusmsg_or_default<'a>(
+        &'a self,
+        server: Option<&Server>,
+    ) -> &'a [char] {
+        server
+            .and_then(|server| self.client(server).map(Client::statusmsg))
+            .unwrap_or(proto::DEFAULT_CHANNEL_MEMBERSHIP_PREFIXES)
     }
 
     // The default value is chosen to be a reasonable, conservative

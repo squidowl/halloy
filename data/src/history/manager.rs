@@ -952,8 +952,8 @@ impl Manager {
                             None
                         };
 
-                        let casemapping =
-                            clients.get_casemapping_or_default(server);
+                        let casemapping = clients
+                            .get_maybe_server_casemapping_or_default(server);
 
                         // Check if target is included/excluded.
                         let target_ref = match &message.target {

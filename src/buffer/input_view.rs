@@ -887,7 +887,8 @@ impl State {
                         .line(cursor_position.line)
                         .map(|line| line.text)
                 {
-                    let chantypes = clients.get_chantypes(buffer.server());
+                    let chantypes = clients
+                        .get_server_chantypes_or_default(buffer.server());
                     let actions = entry.complete_input(
                         &line,
                         cursor_position.column,
@@ -988,7 +989,8 @@ impl State {
                         .line(cursor_position.line)
                         .map(|line| line.text)
                 {
-                    let chantypes = clients.get_chantypes(buffer.server());
+                    let chantypes = clients
+                        .get_server_chantypes_or_default(buffer.server());
                     let actions = entry.complete_input(
                         &line,
                         cursor_position.column,
@@ -1012,7 +1014,8 @@ impl State {
                     self.input_content.cursor().position.column;
 
                 if let Some(entry) = self.completion.select_at(index, config) {
-                    let chantypes = clients.get_chantypes(buffer.server());
+                    let chantypes = clients
+                        .get_server_chantypes_or_default(buffer.server());
                     let actions = entry.complete_input(
                         input.as_str(),
                         cursor_position,
@@ -1585,7 +1588,8 @@ impl State {
             clients.get_multiline_limits(buffer.server())
             && let Some(target) = buffer.target().as_ref()
         {
-            let casemapping = clients.get_casemapping(buffer.server());
+            let casemapping =
+                clients.get_server_casemapping_or_default(buffer.server());
 
             let mut multiline_byte_count = 0;
             let mut multiline_line_count = 0;
@@ -1713,9 +1717,12 @@ impl State {
             // If the server supports echoes, then send MARKREAD on echo only
             // (not when recording the input)
             if config.buffer.mark_as_read.on_message_sent && !supports_echoes {
-                let chantypes = clients.get_chantypes(buffer.server());
-                let statusmsg = clients.get_statusmsg(buffer.server());
-                let casemapping = clients.get_casemapping(buffer.server());
+                let chantypes =
+                    clients.get_server_chantypes_or_default(buffer.server());
+                let statusmsg =
+                    clients.get_server_statusmsg_or_default(buffer.server());
+                let casemapping =
+                    clients.get_server_casemapping_or_default(buffer.server());
 
                 if let Some(input) = inputs.first()
                     && let Some(targets) =
@@ -1739,9 +1746,12 @@ impl State {
             let mut user = nick.to_owned().into();
             let mut channel_users = None;
 
-            let chantypes = clients.get_chantypes(buffer.server());
-            let statusmsg = clients.get_statusmsg(buffer.server());
-            let casemapping = clients.get_casemapping(buffer.server());
+            let chantypes =
+                clients.get_server_chantypes_or_default(buffer.server());
+            let statusmsg =
+                clients.get_server_statusmsg_or_default(buffer.server());
+            let casemapping =
+                clients.get_server_casemapping_or_default(buffer.server());
             let supports_echoes =
                 clients.get_server_supports_echoes(buffer.server());
 
@@ -1976,10 +1986,12 @@ impl State {
                             },
                         );
 
-                        let chantypes = clients.get_chantypes(buffer.server());
-                        let statusmsg = clients.get_statusmsg(buffer.server());
-                        let casemapping =
-                            clients.get_casemapping(buffer.server());
+                        let chantypes = clients
+                            .get_server_chantypes_or_default(buffer.server());
+                        let statusmsg = clients
+                            .get_server_statusmsg_or_default(buffer.server());
+                        let casemapping = clients
+                            .get_server_casemapping_or_default(buffer.server());
 
                         let target = Target::parse(
                             target_channel.as_str(),
@@ -2125,9 +2137,12 @@ impl State {
             // If the server supports echoes, then send MARKREAD on echo only
             // (not when recording the input)
             if config.buffer.mark_as_read.on_message_sent && !supports_echoes {
-                let chantypes = clients.get_chantypes(buffer.server());
-                let statusmsg = clients.get_statusmsg(buffer.server());
-                let casemapping = clients.get_casemapping(buffer.server());
+                let chantypes =
+                    clients.get_server_chantypes_or_default(buffer.server());
+                let statusmsg =
+                    clients.get_server_statusmsg_or_default(buffer.server());
+                let casemapping =
+                    clients.get_server_casemapping_or_default(buffer.server());
 
                 if let Some(targets) =
                     input.targets(chantypes, statusmsg, casemapping)
@@ -2150,9 +2165,12 @@ impl State {
             let mut user = nick.to_owned().into();
             let mut channel_users = None;
 
-            let chantypes = clients.get_chantypes(buffer.server());
-            let statusmsg = clients.get_statusmsg(buffer.server());
-            let casemapping = clients.get_casemapping(buffer.server());
+            let chantypes =
+                clients.get_server_chantypes_or_default(buffer.server());
+            let statusmsg =
+                clients.get_server_statusmsg_or_default(buffer.server());
+            let casemapping =
+                clients.get_server_casemapping_or_default(buffer.server());
             let supports_echoes =
                 clients.get_server_supports_echoes(buffer.server());
 
@@ -2199,9 +2217,12 @@ impl State {
             input.command()
             && let Some(buffer_action) = config.actions.buffer.join_channel
         {
-            let chantypes = clients.get_chantypes(buffer.server());
-            let statusmsg = clients.get_statusmsg(buffer.server());
-            let casemapping = clients.get_casemapping(buffer.server());
+            let chantypes =
+                clients.get_server_chantypes_or_default(buffer.server());
+            let statusmsg =
+                clients.get_server_statusmsg_or_default(buffer.server());
+            let casemapping =
+                clients.get_server_casemapping_or_default(buffer.server());
 
             targets
                 .split(',')
@@ -2538,7 +2559,8 @@ impl State {
         clients: &client::Map,
     ) -> bool {
         let cursor_position = self.input_content.cursor().position;
-        let casemapping = clients.get_casemapping(buffer.server());
+        let casemapping =
+            clients.get_server_casemapping_or_default(buffer.server());
 
         self.parsed
             .get(cursor_position.line)
