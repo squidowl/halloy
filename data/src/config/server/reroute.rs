@@ -1,6 +1,6 @@
 use serde::Deserialize;
 
-use crate::{Server, isupport, target};
+use crate::{isupport, target};
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Default)]
 #[serde(default)]
@@ -42,29 +42,27 @@ pub struct RerouteRule {
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
-#[serde(untagged)]
+#[serde(rename_all = "kebab-case")]
 pub enum RerouteTarget {
-    Channel { channel: String },
-    Server { server: String },
+    Channel(String),
+    Server,
 }
 
 impl PrivateMessages {
     pub fn has_reroute_rule_for_query(
         &self,
         query: &target::Query,
-        server: &Server,
         chantypes: &[char],
         statusmsg: &[char],
         casemapping: isupport::CaseMap,
     ) -> bool {
-        self.target_for_query(query, server, chantypes, statusmsg, casemapping)
+        self.target_for_query(query, chantypes, statusmsg, casemapping)
             .is_some()
     }
 
     pub fn target_for_query(
         &self,
         query: &target::Query,
-        server: &Server,
         chantypes: &[char],
         statusmsg: &[char],
         casemapping: isupport::CaseMap,
@@ -81,7 +79,7 @@ impl PrivateMessages {
             }
 
             match &rule.target {
-                RerouteTarget::Channel { channel } => target::Channel::parse(
+                RerouteTarget::Channel(channel) => target::Channel::parse(
                     channel,
                     chantypes,
                     statusmsg,
@@ -89,10 +87,7 @@ impl PrivateMessages {
                 )
                 .ok()
                 .map(|_| &rule.target),
-                RerouteTarget::Server {
-                    server: rule_server,
-                } => matches_server_label(rule_server, server)
-                    .then_some(&rule.target),
+                RerouteTarget::Server => Some(&rule.target),
             }
         })
     }
@@ -109,13 +104,5 @@ fn query_matches_user(
         .ok()
         .is_some_and(|user_query| {
             user_query.as_normalized_str() == query.as_normalized_str()
-        })
-}
-
-fn matches_server_label(rule_server: &str, server: &Server) -> bool {
-    rule_server.eq_ignore_ascii_case(&server.name)
-        || server.network.as_ref().is_some_and(|network| {
-            rule_server.eq_ignore_ascii_case(&network.name)
-                || rule_server.eq_ignore_ascii_case(&network.id)
         })
 }
