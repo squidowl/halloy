@@ -42,8 +42,10 @@ impl Filter {
             .entries()
             .filter_map(|entry| {
                 entry.config.filters.as_ref().map(|filters| {
-                    let chantypes = clients.get_chantypes(&entry.server);
-                    let casemapping = clients.get_casemapping(&entry.server);
+                    let chantypes =
+                        clients.get_server_chantypes_or_default(&entry.server);
+                    let casemapping = clients
+                        .get_server_casemapping_or_default(&entry.server);
 
                     filters
                         .ignore

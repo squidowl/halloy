@@ -654,7 +654,10 @@ impl Halloy {
                             dashboard
                                 .broadcast(
                                     &server,
-                                    self.clients.get_casemapping(&server),
+                                    self.clients
+                                        .get_server_casemapping_or_default(
+                                            &server,
+                                        ),
                                     &self.config,
                                     sent_time,
                                     Broadcast::Disconnected { error },
@@ -678,7 +681,8 @@ impl Halloy {
                     dashboard
                         .broadcast(
                             &server,
-                            self.clients.get_casemapping(&server),
+                            self.clients
+                                .get_server_casemapping_or_default(&server),
                             &self.config,
                             sent_time,
                             Broadcast::Connecting,
@@ -719,7 +723,8 @@ impl Halloy {
                     let broadcast = dashboard
                         .broadcast(
                             &server,
-                            self.clients.get_casemapping(&server),
+                            self.clients
+                                .get_server_casemapping_or_default(&server),
                             &self.config,
                             sent_time,
                             broadcast_kind,
@@ -749,7 +754,8 @@ impl Halloy {
                     dashboard
                         .broadcast(
                             &server,
-                            self.clients.get_casemapping(&server),
+                            self.clients
+                                .get_server_casemapping_or_default(&server),
                             &self.config,
                             sent_time,
                             Broadcast::ConnectionFailed { error },
@@ -1478,7 +1484,7 @@ fn handle_client_events(
 ) -> Task<Message> {
     use data::client::Event;
 
-    let casemapping = clients.get_casemapping(server);
+    let casemapping = clients.get_server_casemapping_or_default(server);
 
     let mut commands = vec![];
     let mut reactions = vec![];
@@ -1678,9 +1684,9 @@ fn handle_client_events(
             Event::Reaction(encoded) => {
                 if let Some(reaction) = Reaction::received(
                     encoded,
-                    clients.get_chantypes(server),
-                    clients.get_statusmsg(server),
-                    clients.get_casemapping(server),
+                    clients.get_server_chantypes_or_default(server),
+                    clients.get_server_statusmsg_or_default(server),
+                    clients.get_server_casemapping_or_default(server),
                     config.buffer.channel.message.max_reaction_chars,
                 ) {
                     reactions.push(
@@ -1714,10 +1720,10 @@ fn create_message(
         },
         |channel| clients.get_channel_users(server, channel),
         server,
-        clients.get_chantypes(server),
-        clients.get_statusmsg(server),
-        clients.get_casemapping(server),
-        clients.get_prefix(server),
+        clients.get_server_chantypes_or_default(server),
+        clients.get_server_statusmsg_or_default(server),
+        clients.get_server_casemapping_or_default(server),
+        clients.get_server_prefix_or_default(server),
     )
 }
 
@@ -1739,10 +1745,10 @@ fn create_message_with_highlight(
         },
         |channel| clients.get_channel_users(server, channel),
         server,
-        clients.get_chantypes(server),
-        clients.get_statusmsg(server),
-        clients.get_casemapping(server),
-        clients.get_prefix(server),
+        clients.get_server_chantypes_or_default(server),
+        clients.get_server_statusmsg_or_default(server),
+        clients.get_server_casemapping_or_default(server),
+        clients.get_server_prefix_or_default(server),
     )
 }
 
@@ -1765,7 +1771,7 @@ fn handle_single_event(
         dashboard
             .block_and_record_message(
                 server,
-                clients.get_casemapping(server),
+                clients.get_server_casemapping_or_default(server),
                 message,
                 &config.buffer,
             )
@@ -1793,7 +1799,7 @@ fn handle_with_target_event(
         dashboard
             .block_and_record_message(
                 server,
-                clients.get_casemapping(server),
+                clients.get_server_casemapping_or_default(server),
                 message.with_target(target),
                 &config.buffer,
             )
@@ -1819,7 +1825,7 @@ fn handle_priv_or_notice(
         return;
     };
 
-    let casemapping = clients.get_casemapping(server);
+    let casemapping = clients.get_server_casemapping_or_default(server);
     let kind = history::Kind::from_server_message(server.clone(), &msg);
 
     if let Some(kind) = &kind {
@@ -2007,7 +2013,7 @@ fn handle_broadcast(
     clients: &data::client::Map,
     config: &Config,
 ) {
-    let casemapping = clients.get_casemapping(server);
+    let casemapping = clients.get_server_casemapping_or_default(server);
 
     let task = match broadcast {
         data::client::Broadcast::Quit {
@@ -2133,9 +2139,9 @@ fn handle_direct_message(
         return;
     };
 
-    let chantypes = clients.get_chantypes(server);
-    let statusmsg = clients.get_statusmsg(server);
-    let casemapping = clients.get_casemapping(server);
+    let chantypes = clients.get_server_chantypes_or_default(server);
+    let statusmsg = clients.get_server_statusmsg_or_default(server);
+    let casemapping = clients.get_server_casemapping_or_default(server);
 
     let Ok(query) = target::Query::parse(
         user.nickname().as_str(),
@@ -2184,8 +2190,8 @@ fn handle_isupport_param(
     match param {
         data::isupport::Parameter::CASEMAPPING(_)
         | data::isupport::Parameter::CHANTYPES(_) => {
-            let chantypes = clients.get_chantypes(server);
-            let casemapping = clients.get_casemapping(server);
+            let chantypes = clients.get_server_chantypes_or_default(server);
+            let casemapping = clients.get_server_casemapping_or_default(server);
 
             FilterChain::sync_isupport(
                 dashboard.get_filters(),

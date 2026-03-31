@@ -125,6 +125,9 @@ pub const CHANNEL_MEMBERSHIP_PREFIXES: &[char] = &[
     VOICED_PREFIX,
 ];
 
+pub const DEFAULT_CHANNEL_MEMBERSHIP_PREFIXES: &[char] =
+    &[OPERATOR_PREFIX, VOICED_PREFIX];
+
 #[cfg(test)]
 mod tests {
     use super::*;
