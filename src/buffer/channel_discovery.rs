@@ -110,7 +110,8 @@ pub fn view<'a>(
         .as_ref()
         .and_then(|server| clients.get_channel_discovery_manager(server));
 
-    let chantypes = clients.get_chantypes_or_default(state.server.as_ref());
+    let chantypes =
+        clients.get_maybe_server_chantypes_or_default(state.server.as_ref());
 
     let selected_server = state.server.as_ref();
 
@@ -227,25 +228,29 @@ fn channel_list_view<'a>(
                     let channel_text =
                         selectable_rich_text::<_, message::Link, (), _, _>(
                             vec![
-                                span(channel.as_str())
-                                    .font_maybe(
-                                        theme
-                                            .styles()
-                                            .buffer
-                                            .url
-                                            .font_style
-                                            .map(font::get),
-                                    )
-                                    .color(theme.styles().buffer.url.color)
-                                    .link(message::Link::Channel(
-                                        server.clone(),
-                                        target::Channel::from_str(
-                                            channel.as_str(),
-                                            clients.get_chantypes(server),
-                                            clients.get_casemapping(server),
-                                        ),
-                                    )),
-                            ],
+                        span(channel.as_str())
+                            .font_maybe(
+                                theme
+                                    .styles()
+                                    .buffer
+                                    .url
+                                    .font_style
+                                    .map(font::get),
+                            )
+                            .color(theme.styles().buffer.url.color)
+                            .link(message::Link::Channel(
+                                server.clone(),
+                                target::Channel::from_str(
+                                    channel.as_str(),
+                                    clients.get_server_chantypes_or_default(
+                                        server,
+                                    ),
+                                    clients.get_server_casemapping_or_default(
+                                        server,
+                                    ),
+                                ),
+                            )),
+                    ],
                         )
                         .on_link(Message::Link);
                     let user_count_text =
@@ -259,8 +264,8 @@ fn channel_list_view<'a>(
                         Some(message_content::with_context(
                             topic_content,
                             server,
-                            clients.get_chantypes(server),
-                            clients.get_casemapping(server),
+                            clients.get_server_chantypes_or_default(server),
+                            clients.get_server_casemapping_or_default(server),
                             theme,
                             Message::Link,
                             None,
