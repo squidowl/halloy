@@ -2,11 +2,13 @@ use core::fmt;
 use std::str::FromStr;
 
 use chrono::Locale;
+use iced_core::Color as IcedColor;
 use serde::{Deserialize, Deserializer, Serialize};
 
 pub mod timestamp;
 
 pub use self::timestamp::Timestamp;
+use crate::appearance::theme::hex_to_color;
 use crate::serde::deserialize_strftime_date;
 use crate::target::{self, Target};
 use crate::{Server, channel, config, message};
@@ -239,12 +241,56 @@ impl Brackets {
     }
 }
 
-#[derive(Debug, Clone, Copy, Default, Deserialize)]
-#[serde(rename_all = "kebab-case")]
+#[derive(Debug, Clone, Default)]
 pub enum Color {
     Solid,
     #[default]
     Unique,
+    Palette(Vec<IcedColor>),
+}
+
+impl<'de> Deserialize<'de> for Color {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum Repr {
+            String(String),
+            Palette { palette: Vec<String> },
+        }
+
+        match Repr::deserialize(deserializer)? {
+            Repr::String(value) => match value.as_str() {
+                "solid" => Ok(Self::Solid),
+                "unique" => Ok(Self::Unique),
+                _ => Err(serde::de::Error::custom(format!(
+                    "unknown color: {value}",
+                ))),
+            },
+            Repr::Palette { palette } => {
+                if palette.is_empty() {
+                    return Err(serde::de::Error::custom(
+                        "palette must contain at least one hex color",
+                    ));
+                }
+
+                let colors = palette
+                    .into_iter()
+                    .map(|hex| {
+                        hex_to_color(&hex).ok_or_else(|| {
+                            serde::de::Error::custom(format!(
+                                "invalid hex color in palette: {hex}",
+                            ))
+                        })
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+
+                Ok(Self::Palette(colors))
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize)]
@@ -284,6 +330,50 @@ impl Resize {
         } else {
             Self::None
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Color;
+
+    #[derive(Debug, serde::Deserialize)]
+    struct Root {
+        color: Color,
+    }
+
+    #[test]
+    fn color_deserializes_palette() {
+        let root: Root = toml::from_str(
+            r##"color = { palette = ["#112233", "#445566", "#778899"] }"##,
+        )
+        .expect("valid palette color");
+
+        match root.color {
+            Color::Palette(colors) => assert_eq!(colors.len(), 3),
+            _ => panic!("expected palette color"),
+        }
+    }
+
+    #[test]
+    fn color_rejects_empty_palette() {
+        let err = toml::from_str::<Root>(r#"color = { palette = [] }"#)
+            .expect_err("empty palette should be rejected");
+
+        assert!(
+            err.to_string()
+                .contains("palette must contain at least one")
+        );
+    }
+
+    #[test]
+    fn color_rejects_invalid_palette_hex() {
+        let err = toml::from_str::<Root>(
+            r##"color = { palette = ["#112233", "not-a-color"] }"##,
+        )
+        .expect_err("invalid palette hex should be rejected");
+
+        assert!(err.to_string().contains("invalid hex color in palette"));
     }
 }
 

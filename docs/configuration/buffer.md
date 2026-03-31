@@ -79,19 +79,6 @@ channel_name_casing = "lowercase"
 
 Message settings within a channel buffer.
 
-#### `nickname_color`
-
-Nickname colors in the message. `"unique"` generates colors by randomizing the hue, while keeping the saturation and lightness from the theme's nickname color.
-
-```toml
-# Type: string
-# Values: "solid", "unique"
-# Default: "unique"
-
-[buffer.channel.message]
-nickname_color = "unique"
-```
-
 #### `show_emoji_reacts`
 
 Whether to display emoji reactions on messages (if [IRCv3 React](https://ircv3.net/specs/client-tags/react) is supported by the server).
@@ -148,39 +135,6 @@ Horizontal alignment of nicknames.
 
 [buffer.channel.nicklist]
 alignment = "left"
-```
-
-#### `away`
-
-Controls the appearance of away nicknames.
-
-```toml
-# Type: string or object
-# Values: "dimmed", "none" or { dimmed = float }
-# Default: "dimmed"
-[buffer.channel.nicklist]
-away = "dimmed"
-
-# with custom dimming alpha value (0.0-1.0)
-[buffer.channel.nicklist]
-away = { dimmed = 0.5 }
-
-# no away indication
-[buffer.channel.nicklist]
-away = "none"
-```
-
-#### `color`
-
-Nickname colors in the nicklist. `"unique"` generates colors by randomizing the hue, while keeping the saturation and lightness from the theme's nickname color.
-
-```toml
-# Type: string
-# Values: "solid", "unique"
-# Default: "unique"
-
-[buffer.channel.nicklist]
-color = "unique"
 ```
 
 #### `enabled`
@@ -815,15 +769,18 @@ brackets = { left = "<", right = ">" }
 
 ### `color`
 
-Nickname colors in a channel buffer. `"unique"` generates colors by randomizing the hue, while keeping the saturation and lightness from the theme's nickname color.
+Nickname colors across nickname UI, including channel messages, nicklists, and nickname-related controls. `"unique"` generates colors by randomizing the hue, while keeping the saturation and lightness from the theme's nickname color. `{ palette = [...] }` assigns each nickname one of the provided hex colors.
 
 ```toml
-# Type: string
-# Values: "solid", "unique"
+# Type: string or object
+# Values: "solid", "unique", or { palette = ["#RRGGBB", ...] }
 # Default: "unique"
 
 [buffer.nickname]
 color = "unique"
+
+[buffer.nickname]
+color = { palette = ["#B11E3A", "#2A7FFF", "#1E9E5A"] }
 ```
 
 ### `offline`
