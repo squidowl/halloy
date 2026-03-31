@@ -20,7 +20,7 @@ private and are not visible to other users in the channel.
 [servers.<name>.reroute]
 private_messages = [
   { user = "Q", target = { channel = "#foo" } },
-  { user = "ChanServ", target = { server = "libera" } },
+  { user = "ChanServ", target = "server" },
 ]
 ```
 
@@ -31,4 +31,4 @@ Each entry supports:
 - `user` - the private-message sender/target to match
 - `target` - destination buffer for matching private messages:
   - `{ channel = "#name" }` routes to a channel buffer
-  - `{ server = "name" }` routes to the server buffer for the named server
+  - `"server"` routes to the server buffer
