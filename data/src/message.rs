@@ -109,7 +109,7 @@ pub fn reroute_private_target(
 ) -> Option<Target> {
     match target {
         Target::Query { query, source } => {
-            reroute_rules.target_for_query(query, server, source)
+            reroute_rules.message_target_for_query(query, server, source)
         }
         _ => None,
     }
@@ -335,11 +335,39 @@ impl Message {
         }
     }
 
-    pub fn can_reference(&self) -> bool {
+    pub fn can_reference(
+        &self,
+        rerouted_from: Option<&target::Target>,
+    ) -> bool {
         if matches!(self.direction, Direction::Sent)
             || self.is_echo
             || matches!(self.target.source(), Source::Internal(_))
-            || is_rerouted_private_message(self)
+            || self.rerouted_from.as_ref().zip(rerouted_from).is_some_and(
+                |(message_target, target)| match target {
+                    target::Target::Channel(channel) => {
+                        if let message::Target::Channel {
+                            channel: message_channel,
+                            ..
+                        } = &message_target
+                        {
+                            *channel == *message_channel
+                        } else {
+                            false
+                        }
+                    }
+                    target::Target::Query(query) => {
+                        if let message::Target::Query {
+                            query: message_query,
+                            ..
+                        } = &message_target
+                        {
+                            *query == *message_query
+                        } else {
+                            false
+                        }
+                    }
+                },
+            )
         {
             return false;
         } else if let Source::Server(Some(source)) = self.target.source()

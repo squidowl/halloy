@@ -2,7 +2,9 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use crate::user::Nick;
-use crate::{Server, client, config, isupport, message, server, target};
+use crate::{
+    Server, client, config, history, isupport, message, server, target,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct RerouteRules {
@@ -128,7 +130,7 @@ impl RerouteRules {
             })
     }
 
-    pub fn target_for_query(
+    pub fn message_target_for_query(
         &self,
         query: &target::Query,
         server: &Server,
@@ -149,6 +151,27 @@ impl RerouteRules {
                         message::Target::Server {
                             source: source.clone(),
                         }
+                    }
+                })
+            })
+        })
+    }
+
+    pub fn history_kind_for_query(
+        &self,
+        query: &target::Query,
+        server: &Server,
+    ) -> Option<history::Kind> {
+        self.direct_messages.get(server).and_then(|reroute_rules| {
+            reroute_rules.iter().find_map(|reroute_rule| {
+                (query.as_normalized_str()
+                    == reroute_rule.from.as_normalized_str())
+                .then_some(match &reroute_rule.to {
+                    DirectMessageRerouteTarget::Channel(channel) => {
+                        history::Kind::Channel(server.clone(), channel.clone())
+                    }
+                    DirectMessageRerouteTarget::Server => {
+                        history::Kind::Server(server.clone())
                     }
                 })
             })
