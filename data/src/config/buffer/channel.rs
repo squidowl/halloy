@@ -2,6 +2,7 @@ use serde::Deserialize;
 
 use super::NicknameClickAction;
 use crate::channel::Position;
+use crate::config::buffer::AccessLevelFormat;
 use crate::isupport;
 use crate::serde::deserialize_u32_positive_integer;
 
@@ -56,6 +57,7 @@ pub struct Nicklist {
     pub position: Position,
     pub width: Option<f32>,
     pub alignment: Alignment,
+    pub show_access_levels: AccessLevelFormat,
     pub click: NicknameClickAction,
 }
 
@@ -66,6 +68,7 @@ impl Default for Nicklist {
             position: Position::default(),
             width: None,
             alignment: Alignment::default(),
+            show_access_levels: AccessLevelFormat::default(),
             click: NicknameClickAction::default(),
         }
     }
