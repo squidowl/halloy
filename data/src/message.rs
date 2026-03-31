@@ -2277,9 +2277,12 @@ fn target(
                                 == our_nick.as_normalized_str()
                             {
                                 // Mass-message echo
-                                return Some(Target::Server {
-                                    source: source(user),
-                                });
+                                return Some((
+                                    Target::Server {
+                                        source: source(user),
+                                    },
+                                    None,
+                                ));
                             }
 
                             // Message from ourself, from another client.
@@ -2407,14 +2410,20 @@ fn target(
 
             if invitee.nickname() == *our_nick {
                 if let Some(user) = user {
-                    return Some(Target::Query {
-                        query: target::Query::from(user),
-                        source: Source::Server(None),
-                    });
+                    return Some((
+                        Target::Query {
+                            query: target::Query::from(user),
+                            source: Source::Server(None),
+                        },
+                        None,
+                    ));
                 } else {
-                    return Some(Target::Server {
-                        source: Source::Server(None),
-                    });
+                    return Some((
+                        Target::Server {
+                            source: Source::Server(None),
+                        },
+                        None,
+                    ));
                 }
             }
 
@@ -2426,10 +2435,13 @@ fn target(
             )
             .ok()?;
 
-            Some(Target::Channel {
-                channel,
-                source: Source::Server(None),
-            })
+            Some((
+                Target::Channel {
+                    channel,
+                    source: Source::Server(None),
+                },
+                None,
+            ))
         }
         // Server
         Command::PASS(_)
@@ -3469,11 +3481,13 @@ pub mod tests {
     #[allow(unused_imports)]
     use crate::bouncer::BouncerNetwork;
     #[allow(unused_imports)]
+    use crate::config::Highlights;
+    #[allow(unused_imports)]
     use crate::config::highlights::Nickname;
     #[allow(unused_imports)]
     use crate::config::inclusivities::Inclusivities;
     #[allow(unused_imports)]
-    use crate::config::{Config, Highlights};
+    use crate::history::reroute::RerouteRules;
     #[allow(unused_imports)]
     use crate::message::formatting::Color;
     #[allow(unused_imports)]
@@ -3494,7 +3508,7 @@ pub mod tests {
 
         use irc::proto;
 
-        let config = Config::default();
+        let reroute_rules = RerouteRules::default();
 
         let server = Server::from(ServerName::from("test-server"));
 
@@ -3511,12 +3525,15 @@ pub mod tests {
 
         let tests = [(
             ":dan!d@localhost PRIVMSG $$* :Mass message! \r\n",
-            Some(Target::Server {
-                source: Source::User(User::from(Nick::from_str(
-                    "dan",
-                    casemapping,
-                ))),
-            }),
+            Some((
+                Target::Server {
+                    source: Source::User(User::from(Nick::from_str(
+                        "dan",
+                        casemapping,
+                    ))),
+                },
+                None,
+            )),
         )];
 
         for (irc_message, expected) in tests {
@@ -3525,7 +3542,7 @@ pub mod tests {
             let actual = message::target(
                 message::Encoded(encoded),
                 &our_nick,
-                &config,
+                &reroute_rules,
                 &|_: &User, _: &target::Channel| None,
                 &server,
                 chantypes,
