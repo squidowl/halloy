@@ -41,11 +41,40 @@ pub struct RerouteRule {
     pub target: RerouteTarget,
 }
 
-#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "kebab-case")]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RerouteTarget {
     Channel(String),
-    Server,
+    Server(Option<String>),
+}
+
+impl<'de> Deserialize<'de> for RerouteTarget {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum Data {
+            Channel { channel: String },
+            Server { server: String },
+            Unnamed(String),
+        }
+
+        match Data::deserialize(deserializer)? {
+            Data::Channel { channel } => Ok(Self::Channel(channel)),
+            Data::Server { server } => Ok(Self::Server(Some(server))),
+            Data::Unnamed(target) => {
+                if target == "server" {
+                    Ok(Self::Server(None))
+                } else {
+                    Err(serde::de::Error::invalid_value(
+                        serde::de::Unexpected::Str(&target),
+                        &"unnamed target can only be \"server\"",
+                    ))
+                }
+            }
+        }
+    }
 }
 
 impl PrivateMessages {
@@ -87,7 +116,7 @@ impl PrivateMessages {
                 )
                 .ok()
                 .map(|_| &rule.target),
-                RerouteTarget::Server => Some(&rule.target),
+                RerouteTarget::Server(_) => Some(&rule.target),
             }
         })
     }

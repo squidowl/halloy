@@ -85,7 +85,7 @@ fn parse_reroute_rules(
                     .ok()
                     .map(DirectMessageRerouteTarget::Channel)
                 }
-                config::server::RerouteTarget::Server => {
+                config::server::RerouteTarget::Server(_) => {
                     Some(DirectMessageRerouteTarget::Server)
                 }
             }
