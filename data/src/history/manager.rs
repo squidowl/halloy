@@ -573,7 +573,10 @@ impl Manager {
                 history::Kind::Query(s, query) => (s == server
                     && self.filters.iter().all(|filter| {
                         filter.match_query(query, server) == false
-                    }))
+                    })
+                    && !self
+                        .reroute_rules
+                        .has_reroute_rule_for_query(query, server))
                 .then_some(query),
                 _ => None,
             })
