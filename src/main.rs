@@ -1674,6 +1674,8 @@ fn handle_client_events(
             Event::BouncerNetwork(server, server_config) => {
                 servers.insert(server, server_config.into());
 
+                dashboard.set_reroute_rules(servers, clients);
+
                 dashboard.update_filters(servers, clients, &config.buffer);
             }
             Event::AddToSidebar(query) => {
@@ -2203,8 +2205,8 @@ fn handle_isupport_param(
                 reroute_rules.sync_isupport(
                     server,
                     server_config,
-                    statusmsg,
                     chantypes,
+                    statusmsg,
                     casemapping,
                 );
             }
