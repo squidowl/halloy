@@ -14,7 +14,7 @@ Added:
 Changed:
 
 - Moved `typing` settings from `buffer.channel.typing` to `buffer.typing` to clarify that they appliy to queries as well as channels
-- Moved nicklist nickname settings from `buffer.channel.nicklist` to `buffer.nickname` (`away`, `color`, and `show_access_levels`)
+- Moved nicklist nickname settings from `buffer.channel.nicklist` to `buffer.nickname` (`away` and `color`)
 
 Fixed:
 

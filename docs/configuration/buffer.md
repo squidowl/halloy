@@ -163,6 +163,19 @@ Nicklist position in the pane.
 position = "right"
 ```
 
+#### `show_access_levels`
+
+Show access level(s) in front of nicknames (`@`, `+`, `~`, etc.).
+
+```toml
+# Type: string
+# Values: "all", "highest", or "none"
+# Default: "highest"
+
+[buffer.channel.nicklist]
+show_access_levels = "all"
+```
+
 #### `width`
 
 Overwrite nicklist width in pixels.
