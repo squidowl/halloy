@@ -6,13 +6,13 @@ use iced::Color;
 use serde::{Deserialize, Deserializer};
 
 pub use self::channel::{Channel, ChannelNameCasing};
+pub use self::typing::Typing;
 pub use crate::appearance::theme::{alpha_color, alpha_color_calculate};
 use crate::config::buffer::nickname::Nickname;
 use crate::config::buffer::text_input::TextInput;
 use crate::config::inclusivities::{
     Inclusivities, is_target_channel_included, is_target_query_included,
 };
-use crate::serde::deserialize_u8_positive_integer_maybe;
 use crate::target::TargetRef;
 use crate::user::Nick;
 use crate::{Server, isupport};
@@ -21,6 +21,7 @@ pub mod channel;
 pub mod hide_consecutive;
 pub mod nickname;
 pub mod text_input;
+pub mod typing;
 
 pub use self::hide_consecutive::{HideConsecutive, HideConsecutiveEnabled};
 use crate::buffer::{
