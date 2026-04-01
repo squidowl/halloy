@@ -248,6 +248,11 @@ impl TitleBar {
         } else {
             false
         };
+        let has_unread = if let Some(kind) = &maybe_buffer_kind {
+            history.has_unread(kind)
+        } else {
+            false
+        };
 
         // Pane controls.
         let controls = row![
@@ -260,7 +265,7 @@ impl TitleBar {
                         can_mark_as_read.then_some(Message::MarkAsRead),
                     )
                     .style(move |theme, status| {
-                        theme::button::secondary(theme, status, false)
+                        theme::button::secondary(theme, status, has_unread)
                     });
 
                 let mark_as_read_button_with_tooltip = tooltip(
