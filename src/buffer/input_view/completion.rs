@@ -1749,7 +1749,7 @@ impl Text {
             .get(..8)
             .is_some_and(|s| s.eq_ignore_ascii_case("/upload "))
         {
-            self.process_paths(input, cursor_position);
+            self.process_paths(input);
             return;
         }
 
@@ -1775,24 +1775,24 @@ impl Text {
         }
     }
 
-    fn process_paths(&mut self, input: &str, cursor_position: usize) {
+    fn process_paths(&mut self, input: &str) {
         use std::path::Path;
 
-        let Some(word) = get_word(input, cursor_position) else {
+        let Some((_, path)) = input.split_once(' ') else {
             *self = Self::default();
             return;
         };
 
         // Expand leading ~ to user's home directory
         let expanded = if let Some(rest) =
-            word.strip_prefix("~/").or((word == "~").then_some(""))
+            path.strip_prefix("~/").or((path == "~").then_some(""))
         {
             dirs_next::home_dir().map_or_else(
-                || word.to_string(),
+                || path.to_string(),
                 |h| format!("{}/{rest}", h.to_string_lossy()),
             )
         } else {
-            word.to_string()
+            path.to_string()
         };
 
         // Split into the directory prefix and the filename prefix being type
@@ -1817,7 +1817,7 @@ impl Text {
 
         self.is_path = true;
         self.selected = None;
-        self.prompt = word.to_string();
+        self.prompt = path.to_string();
         self.filtered = read_dir
             .filter_map(std::result::Result::ok)
             .filter(|e| {
