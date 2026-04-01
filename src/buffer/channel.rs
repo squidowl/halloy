@@ -132,8 +132,6 @@ pub fn view<'a>(
                 )
             }),
             chathistory_state,
-            typing_style,
-            show_typing,
             config,
             theme,
             message_formatter,
@@ -168,14 +166,17 @@ pub fn view<'a>(
     );
 
     let text_input = show_text_input.then(move || {
-        input_view::view(
-            &state.input_view,
-            our_user,
-            &state.server,
-            config,
-            theme,
-        )
-        .map(Message::InputView)
+        column![
+            input_view::view(
+                &state.input_view,
+                our_user,
+                &state.server,
+                config,
+                theme,
+            )
+            .map(Message::InputView)
+        ]
+        .width(Length::Fill)
     });
 
     let content = column![topic, messages];
@@ -196,13 +197,13 @@ pub fn view<'a>(
 
     let body: Element<Message> =
         if typing::show_row(show_typing, typing_style, has_typing_text) {
-            let typing_overlay: Element<'a, Message> = container(typing)
+            let typing: Element<'a, Message> = container(typing)
                 .width(Length::Fill)
                 .align_y(iced::alignment::Vertical::Bottom)
                 .padding(padding::left(2))
                 .into();
 
-            column![content, typing_overlay, text_input]
+            column![content, typing, text_input]
                 .height(Length::Fill)
                 .into()
         } else {
