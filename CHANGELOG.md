@@ -27,6 +27,7 @@ Fixed:
 - IRC URIs now handle bracketed IPv6 hosts and percent-encoded channel targets correctly
 - `typing` settings for buffers could get in a stuck state without any way to control them
 - +typing=done should not be sent when the message is sent
+- `/MOTD` will not trigger end-of-registration actions
 
 Removed:
 - `buffer.channel.message.nickname_color` in favor of `buffer.nickname.color`
@@ -34,7 +35,7 @@ Removed:
 Thanks:
 
 - Contributions: @furudean, @omentic, @KaiKorla, @achille
-- Bug reports: sebbu, @whitequark, @SnoopJ, esden, @miyukoc, @ld-cd, @achille
+- Bug reports: sebbu, @whitequark, @SnoopJ, esden, @miyukoc, @ld-cd, @achille, @classabbyamp
 - Feature requests: @omentic
 
 # 2026.5 (2026-03-21)
