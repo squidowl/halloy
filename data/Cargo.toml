@@ -38,6 +38,7 @@ palette = { workspace = true }
 log = { workspace = true }
 nucleo-matcher = { workspace = true }
 reqwest = { workspace = true }
+tokio-util = { workspace = true }
 const_format = { workspace = true }
 iced = { workspace = true, features = [
     "sysinfo",
