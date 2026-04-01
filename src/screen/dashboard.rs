@@ -1946,26 +1946,38 @@ impl Dashboard {
             column![column![base]].into()
         };
 
-        let focused_buffer_has_filehost = self
+        let focused_target_info = self
             .panes
             .get(self.focus.window, self.focus.pane)
-            .is_some_and(|pane| {
-                pane.buffer.target().is_some()
-                    && pane
-                        .buffer
-                        .server()
-                        .is_some_and(|s| clients.get_filehost(&s).is_some())
+            .and_then(|pane| {
+                let target = pane.buffer.target()?;
+                let server = pane.buffer.server()?;
+                Some((target, server))
             });
 
-        if self.filehost.file_being_hovered
-            && focused_buffer_has_filehost
-            && config.filehost.file_drop()
-        {
+        if self.filehost.file_being_hovered && config.filehost.file_drop() {
+            let (overlay_text, is_error) = if let Some((target, server)) =
+                focused_target_info
+            {
+                (format!("Drop to upload file to {target} @ {server}"), false)
+            } else {
+                (String::from("Upload is not valid here"), true)
+            };
+
+            let text_style: fn(&Theme) -> iced::widget::text::Style =
+                if is_error {
+                    theme::text::error
+                } else {
+                    theme::text::primary
+                };
+
             stack![
                 base,
                 container(
                     center(
-                        text("Drop to upload file").style(theme::text::primary),
+                        container(text(overlay_text).style(text_style))
+                            .style(theme::container::tooltip)
+                            .padding(8),
                     )
                     .width(Length::Fill)
                     .height(Length::Fill),
@@ -2622,15 +2634,21 @@ impl Dashboard {
                 let Some(upload_url) =
                     clients.get_filehost(&server).map(String::from)
                 else {
-                    return (Task::none(), None);
+                    let casemapping = clients.get_casemapping(&server);
+                    let task = self.broadcast(
+                        &server,
+                        casemapping,
+                        config,
+                        Utc::now(),
+                        Broadcast::FilehostUploadFailed {
+                            error: format!(
+                                "no filehost configured for server {server}"
+                            ),
+                            target,
+                        },
+                    );
+                    return (task, None);
                 };
-
-                if !matches!(
-                    pane.buffer,
-                    Buffer::Channel(_) | Buffer::Query(_) | Buffer::Server(_)
-                ) {
-                    return (Task::none(), None);
-                }
 
                 let http_client = self
                     .preview_client
