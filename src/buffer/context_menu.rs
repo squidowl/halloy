@@ -29,6 +29,7 @@ pub enum Context<'a> {
     Message {
         msgid: Option<&'a message::Id>,
         selected_reactions: &'a [String],
+        content: &'a message::Content,
     },
 }
 
@@ -56,6 +57,7 @@ pub enum Entry {
     DeleteMessage,
     ResendMessage,
     // message context
+    CopyMessage,
     AddReaction,
 }
 
@@ -72,8 +74,12 @@ impl Entry {
         vec![Entry::Timestamp]
     }
 
-    pub fn message_list() -> Vec<Self> {
-        vec![Entry::AddReaction]
+    pub fn message_list(can_send_reactions: bool) -> Vec<Self> {
+        let mut entries = vec![Entry::CopyMessage];
+        if can_send_reactions {
+            entries.push(Entry::AddReaction);
+        }
+        entries
     }
 
     pub fn url_list(
@@ -449,11 +455,21 @@ impl Entry {
                     config,
                 )
             }
+            (Entry::CopyMessage, Context::Message { content, .. }) => {
+                menu_button(
+                    "Copy message".to_string(),
+                    Some(Message::CopyMessage(content.text().into_owned())),
+                    length,
+                    theme,
+                    config,
+                )
+            }
             (
                 Entry::AddReaction,
                 Context::Message {
                     msgid: Some(msgid),
                     selected_reactions,
+                    ..
                 },
             ) => menu_button(
                 "Add reaction".to_string(),
@@ -500,6 +516,8 @@ pub enum Message {
     InsertNickname(Nick),
     CtcpRequest(ctcp::Command, Server, Nick, Option<String>),
     CopyUrl(String),
+    #[allow(clippy::enum_variant_names)]
+    CopyMessage(String),
     OpenUrl(String),
     HidePreview(message::Hash, String),
     ShowPreview(message::Hash, String),
@@ -521,6 +539,8 @@ pub enum Event {
     InsertNickname(Nick),
     CtcpRequest(ctcp::Command, Server, Nick, Option<String>),
     CopyUrl(String),
+    #[allow(clippy::enum_variant_names)]
+    CopyMessage(String),
     OpenUrl(String),
     HidePreview(message::Hash, String),
     ShowPreview(message::Hash, String),
@@ -546,6 +566,7 @@ pub fn update(message: Message) -> Event {
             Event::CtcpRequest(command, server, nick, params)
         }
         Message::CopyUrl(url) => Event::CopyUrl(url),
+        Message::CopyMessage(text) => Event::CopyMessage(text),
         Message::OpenUrl(url) => Event::OpenUrl(url),
         Message::HidePreview(message, url) => Event::HidePreview(message, url),
         Message::ShowPreview(message, url) => Event::ShowPreview(message, url),
@@ -568,20 +589,18 @@ pub fn message<'a, M>(
     msgid: Option<&'a message::Id>,
     selected_reactions: Vec<String>,
     can_send_reactions: bool,
+    message_content: &'a message::Content,
     config: &'a Config,
     theme: &'a Theme,
 ) -> Element<'a, M>
 where
     M: From<Message> + 'a,
 {
-    if !can_send_reactions
-        || msgid.is_none()
-        || matches!(source, message::Source::Internal(_))
-    {
+    if matches!(source, message::Source::Internal(_)) {
         return content.into();
     }
 
-    let entries = Entry::message_list();
+    let entries = Entry::message_list(can_send_reactions && msgid.is_some());
 
     context_menu(
         context_menu::MouseButton::default(),
@@ -596,6 +615,7 @@ where
                     Some(Context::Message {
                         msgid,
                         selected_reactions: &selected_reactions,
+                        content: message_content,
                     }),
                     length,
                     config,
