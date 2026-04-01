@@ -6,7 +6,7 @@ use data::history::filter::FilterChain;
 use data::isupport::CaseMap;
 use data::user::Nick;
 use data::{Config, Server, User, target};
-use iced::widget::{column, container, row};
+use iced::widget::{container, row};
 use iced::{Color, Length, padding};
 
 use crate::widget::{self, Element};
@@ -54,28 +54,6 @@ pub fn typing_font_size(config: &Config) -> f32 {
         .map_or(theme::TEXT_SIZE, f32::from)
 }
 
-pub fn typing_line_height(config: &Config) -> f32 {
-    theme::line_height(&config.font)
-        .to_absolute(typing_font_size(config).into())
-        .0
-}
-
-pub fn reserved_bottom_padding(
-    show_typing: bool,
-    style: Style,
-    config: &Config,
-) -> f32 {
-    if reserve_space(show_typing, style) {
-        typing_line_height(config) + 2.0
-    } else {
-        0.0
-    }
-}
-
-pub fn reserve_space(show_typing: bool, style: Style) -> bool {
-    show_typing && matches!(style, Style::Padded)
-}
-
 pub fn show_row(
     show_typing: bool,
     style: Style,
@@ -94,10 +72,10 @@ pub fn view<'a, Message: 'a>(
     font_size: f32,
     theme: &'a Theme,
 ) -> Element<'a, Message> {
+    let secondary_font = theme::font_style::secondary(theme).map(font::get);
+
     let typing: Element<'a, Message> = match typing {
         Some(text) => {
-            let secondary_font =
-                theme::font_style::secondary(theme).map(font::get);
             let dot_color = theme.styles().text.secondary.color;
             let dot_opacities = animation
                 .map_or([DOT_BASE_OPACITY; DOT_COUNT], Animation::opacities);
@@ -139,7 +117,13 @@ pub fn view<'a, Message: 'a>(
         .align_y(iced::alignment::Vertical::Bottom)
         .style(theme::container::typing)
         .into(),
-        None => column![].into(),
+        None => row![
+            widget::text("")
+                .size(font_size)
+                .font_maybe(secondary_font.clone())
+        ]
+        .padding(padding::top(2))
+        .into(),
     };
 
     typing

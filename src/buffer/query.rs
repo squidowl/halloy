@@ -8,7 +8,7 @@ use data::preview::{self, Previews};
 use data::target::{self, Target};
 use data::user::Nick;
 use data::{Config, Preview, Server, User, buffer, client, history, message};
-use iced::widget::{column, container, space, stack};
+use iced::widget::{column, container};
 use iced::{Length, Size, Task, padding};
 
 use super::message_view::{ChannelQueryLayout, TargetInfo};
@@ -106,8 +106,6 @@ pub fn view<'a>(
             previews,
             Option::<fn(&Preview, &message::Source) -> bool>::None,
             chathistory_state,
-            typing_style,
-            show_typing,
             config,
             theme,
             message_formatter,
@@ -132,7 +130,6 @@ pub fn view<'a>(
 
     let text_input = show_text_input.then(|| {
         column![
-            space::vertical().height(4),
             input_view::view(
                 &state.input_view,
                 our_user.as_ref(),
@@ -147,26 +144,24 @@ pub fn view<'a>(
 
     let content = column![messages];
 
-    let scrollable: Element<'a, Message> =
+    let body: Element<'a, Message> =
         if typing::show_row(show_typing, typing_style, has_typing_text) {
-            let typing_overlay: Element<'a, Message> = container(typing)
+            let typing: Element<'a, Message> = container(typing)
                 .width(Length::Fill)
-                .height(Length::Fill)
-                .padding(padding::left(2))
                 .align_y(iced::alignment::Vertical::Bottom)
+                .padding(padding::left(2))
                 .into();
 
-            column![
-                stack![content, typing_overlay].height(Length::Fill),
-                text_input
-            ]
-            .height(Length::Fill)
-            .into()
+            column![content, typing, text_input]
+                .height(Length::Fill)
+                .into()
         } else {
-            column![content, text_input].height(Length::Fill).into()
+            column![container(content).height(Length::Fill), text_input]
+                .height(Length::Fill)
+                .into()
         };
 
-    container(scrollable)
+    container(body)
         .width(Length::Fill)
         .height(Length::Fill)
         .into()

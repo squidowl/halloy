@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use chrono::{DateTime, Local, NaiveDate, Utc};
 use data::command::Irc;
-use data::config::buffer::{CondensationIcon, HideConsecutiveEnabled, Style};
+use data::config::buffer::{CondensationIcon, HideConsecutiveEnabled};
 use data::dashboard::BufferAction;
 use data::isupport::ChatHistoryState;
 use data::message::{self, Limit};
@@ -26,7 +26,7 @@ use tokio::time;
 
 use self::correct_viewport::correct_viewport;
 use self::keyed::keyed;
-use super::{context_menu, typing};
+use super::context_menu;
 use crate::widget::{
     Element, notify_visibility, on_resize, selectable_text, tooltip,
 };
@@ -246,8 +246,6 @@ pub fn view<'a>(
     previews: Option<Previews<'a>>,
     visible_for_source: Option<impl Fn(&Preview, &message::Source) -> bool>,
     chathistory_state: Option<ChatHistoryState>,
-    typing_style: Style,
-    show_typing: bool,
     config: &'a Config,
     theme: &'a Theme,
     formatter: impl LayoutMessage<'a> + 'a,
@@ -628,7 +626,7 @@ pub fn view<'a>(
         space::vertical().height(h)
     });
 
-    let show_backlog_divier = if old.is_empty() {
+    let show_backlog_divider = if old.is_empty() {
         // If all newer messages in viewport, only show backlog divider at the top
         // if we don't have any older messages at all (we're scrolled all the way up)
         !has_more_older_messages
@@ -641,7 +639,7 @@ pub fn view<'a>(
         }
     };
 
-    let divider = if show_backlog_divier {
+    let divider = if show_backlog_divider {
         match &config.buffer.backlog_separator.text {
             data::buffer::BacklogText::Hidden => row![
                 container(rule::horizontal(1).style(theme::rule::backlog))
@@ -679,13 +677,7 @@ pub fn view<'a>(
             keyed(keyed::Key::Divider, divider),
             column(new).spacing(line_spacing),
             bottom_spacer,
-            space::vertical().height(line_spacing),
         ]
-        .padding(padding::bottom(typing::reserved_bottom_padding(
-            show_typing,
-            typing_style,
-            config,
-        )))
         .spacing(line_spacing),
         Message::ContentResized,
     );

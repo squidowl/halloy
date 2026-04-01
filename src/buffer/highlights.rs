@@ -46,8 +46,6 @@ pub fn view<'a>(
             None,
             Option::<fn(&Preview, &message::Source) -> bool>::None,
             None,
-            config.buffer.typing.style,
-            false,
             config,
             theme,
             move |message: &'a data::Message, _, _, _, _| match &message.target
