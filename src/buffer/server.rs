@@ -122,6 +122,7 @@ pub fn view<'a>(
                             None,
                             vec![],
                             false,
+                            &message.content,
                             config,
                             theme,
                         ))
@@ -161,6 +162,7 @@ pub fn view<'a>(
                             None,
                             vec![],
                             false,
+                            &message.content,
                             config,
                             theme,
                         ))

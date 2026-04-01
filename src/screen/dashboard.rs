@@ -1968,6 +1968,10 @@ impl Dashboard {
                         tasks.push(clipboard::write(url));
                         None
                     }
+                    buffer::context_menu::Event::CopyMessage(text) => {
+                        tasks.push(clipboard::write(text));
+                        None
+                    }
                     buffer::context_menu::Event::OpenUrl(url) => {
                         Some(Event::OpenUrl(
                             url,
