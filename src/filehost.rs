@@ -49,7 +49,7 @@ pub enum Event {
 pub struct Manager {
     pub file_being_hovered: bool,
     known: data::KnownFilehosts,
-    pending: Option<PendingUpload>,
+    pending: Vec<PendingUpload>,
 }
 
 impl Manager {
@@ -57,7 +57,7 @@ impl Manager {
         Self {
             file_being_hovered: false,
             known: data::KnownFilehosts::load(),
-            pending: None,
+            pending: vec![],
         }
     }
 
@@ -80,7 +80,7 @@ impl Manager {
                 None,
             )
         } else {
-            self.pending = Some(pending);
+            self.pending.push(pending);
             (
                 Task::none(),
                 Some(Event::PromptBeforeUpload {
@@ -98,15 +98,19 @@ impl Manager {
         clients: &client::Map,
         http_client: Arc<reqwest::Client>,
     ) -> Task<Message> {
-        let Some(pending) = self.pending.take() else {
+        let pending = std::mem::take(&mut self.pending);
+        if pending.is_empty() {
             return Task::none();
-        };
+        }
 
-        self.known.insert(pending.upload_url.clone());
-
-        let irc_uses_tls = clients.get_use_tls(&pending.server);
-        let upload_task =
-            start_tasks(pending, clients, irc_uses_tls, http_client);
+        let tasks: Vec<_> = pending
+            .into_iter()
+            .map(|p| {
+                self.known.insert(p.upload_url.clone());
+                let irc_uses_tls = clients.get_use_tls(&p.server);
+                start_tasks(p, clients, irc_uses_tls, http_client.clone())
+            })
+            .collect();
 
         let known = self.known.clone();
         let save_task = Task::perform(
@@ -114,22 +118,26 @@ impl Manager {
             Message::KnownSaved,
         );
 
-        Task::batch(vec![upload_task, save_task])
+        Task::batch(tasks.into_iter().chain([save_task]).collect::<Vec<_>>())
     }
 
     /// Handle user cancel
     pub fn cancel(&mut self) -> Task<Message> {
-        let Some(pending) = self.pending.take() else {
+        let pending = std::mem::take(&mut self.pending);
+        if pending.is_empty() {
             return Task::none();
-        };
+        }
 
-        let tasks: Vec<_> = (0..pending.file_paths.len())
-            .map(|_| {
-                Task::done(Message::UrlReady {
-                    window: pending.window,
-                    pane_id: pending.pane_id,
-                    target: pending.target.clone(),
-                    url: String::new(),
+        let tasks: Vec<_> = pending
+            .into_iter()
+            .flat_map(|p| {
+                (0..p.file_paths.len()).map(move |_| {
+                    Task::done(Message::UrlReady {
+                        window: p.window,
+                        pane_id: p.pane_id,
+                        target: p.target.clone(),
+                        url: String::new(),
+                    })
                 })
             })
             .collect();
