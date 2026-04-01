@@ -32,13 +32,13 @@ pub fn view<'a>(
                 .on_link(|()| Message::OpenURL(url.to_string()))
                 .align_x(iced::Alignment::Center),
             row![
-                button(text("Really upload"))
+                button(text("Upload"))
                     .padding(5)
                     .style(|theme, status| theme::button::secondary(
                         theme, status, false
                     ))
                     .on_press(Message::ConfirmFileUpload),
-                button(text("Do not"))
+                button(text("Close"))
                     .padding(5)
                     .style(|theme, status| theme::button::secondary(
                         theme, status, false
