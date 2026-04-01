@@ -19,7 +19,7 @@ impl Default for Filehost {
             enabled: true,
             button: true,
             paste: true,
-            file_drop: true,
+            file_drop: false,
         }
     }
 }

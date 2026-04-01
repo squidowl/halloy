@@ -48,8 +48,8 @@ Handle files dropped into the window.
 ```toml
 # Type: boolean
 # Values: true, false
-# Default: true
+# Default: false
 
 [filehost]
-file_drop = false
+file_drop = true
 ```
