@@ -12,6 +12,7 @@ Added:
 - `buffer.nickname.color` now supports `{ palette = ["#RRGGBB", ...] }` for nickname colors from a fixed set
 - Right-click context menu on messages now includes "Copy message" to copy the message text to the clipboard
 - `buffer.typing.style` setting with `padded` and `popped` modes for typing indicators
+- Files can be uploaded to server using `soju.im/FILEHOST` and `draft/FILEHOST`
 
 Changed:
 
