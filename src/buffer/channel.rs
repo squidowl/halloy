@@ -168,6 +168,7 @@ pub fn view<'a>(
         state.typing_animation.as_ref(),
         typing::typing_font_size(config),
         config.buffer.line_spacing,
+        &config.buffer.typing.animation,
         theme,
     );
 
