@@ -7,7 +7,7 @@ use data::isupport::CaseMap;
 use data::user::Nick;
 use data::{Config, Server, User, target};
 use iced::widget::{column, container, row};
-use iced::{Color, Length, padding};
+use iced::{Color, padding};
 
 use crate::widget::{self, Element};
 use crate::{Theme, font, icon, theme};
@@ -97,7 +97,7 @@ pub fn view<'a, Message: 'a>(
             let dot_color = theme.styles().text.secondary.color;
             let dot_opacities = animation
                 .map_or([DOT_BASE_OPACITY; DOT_COUNT], Animation::opacities);
-            let dont_font_size = font_size * 0.33;
+            let dot_font_size = font_size * 0.33;
             container(
                 row![
                     widget::text(text)
@@ -111,7 +111,7 @@ pub fn view<'a, Message: 'a>(
                                 ..dot_color
                             };
 
-                            icon::dot().size(dont_font_size).color(color).into()
+                            icon::dot().size(dot_font_size).color(color).into()
                         }
                     ),)
                     .spacing(4)
