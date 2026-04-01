@@ -9,7 +9,7 @@ use data::server::Server;
 use data::target::{self, Target};
 use data::user::{ChannelUsers, Nick};
 use data::{Config, Preview, User, buffer, client, history, message};
-use iced::widget::{column, container, row};
+use iced::widget::{column, container, row, stack};
 use iced::{Length, Size, Task, padding};
 
 use super::message_view::{ChannelQueryLayout, TargetInfo};
@@ -83,6 +83,8 @@ pub fn view<'a>(
         });
     let show_typing = clients.get_server_show_typing(server);
     let typing_style = config.buffer.typing.style;
+    let typing_text = state.typing_text(clients, history);
+    let has_typing_text = typing_text.is_some();
 
     let users = clients.get_channel_users(&state.server, channel);
 
@@ -132,6 +134,11 @@ pub fn view<'a>(
                 )
             }),
             chathistory_state,
+            typing::reserved_bottom_padding(
+                has_typing_text,
+                typing_style,
+                config,
+            ),
             config,
             theme,
             message_formatter,
@@ -156,27 +163,23 @@ pub fn view<'a>(
         data::config::buffer::text_input::Visibility::Always => true,
     };
 
-    let typing_text = state.typing_text(clients, history);
-    let has_typing_text = typing_text.is_some();
     let typing = typing::view(
         typing_text,
         state.typing_animation.as_ref(),
         typing::typing_font_size(config),
+        config.buffer.line_spacing,
         theme,
     );
 
     let text_input = show_text_input.then(move || {
-        column![
-            input_view::view(
-                &state.input_view,
-                our_user,
-                &state.server,
-                config,
-                theme,
-            )
-            .map(Message::InputView)
-        ]
-        .width(Length::Fill)
+        input_view::view(
+            &state.input_view,
+            our_user,
+            &state.server,
+            config,
+            theme,
+        )
+        .map(Message::InputView)
     });
 
     let content = column![topic, messages];
@@ -197,17 +200,21 @@ pub fn view<'a>(
 
     let body: Element<Message> =
         if typing::show_row(show_typing, typing_style, has_typing_text) {
-            let typing: Element<'a, Message> = container(typing)
+            let typing_overlay: Element<'a, Message> = container(typing)
                 .width(Length::Fill)
-                .align_y(iced::alignment::Vertical::Bottom)
+                .height(Length::Fill)
                 .padding(padding::left(2))
+                .align_y(iced::alignment::Vertical::Bottom)
                 .into();
 
-            column![content, typing, text_input]
-                .height(Length::Fill)
-                .into()
+            column![
+                stack![content, typing_overlay].height(Length::Fill),
+                text_input
+            ]
+            .height(Length::Fill)
+            .into()
         } else {
-            column![container(content).height(Length::Fill), text_input]
+            column![column![content].height(Length::Fill), text_input]
                 .height(Length::Fill)
                 .into()
         };

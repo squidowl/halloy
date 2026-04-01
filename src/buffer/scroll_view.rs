@@ -246,6 +246,7 @@ pub fn view<'a>(
     previews: Option<Previews<'a>>,
     visible_for_source: Option<impl Fn(&Preview, &message::Source) -> bool>,
     chathistory_state: Option<ChatHistoryState>,
+    reserved_bottom_padding: f32,
     config: &'a Config,
     theme: &'a Theme,
     formatter: impl LayoutMessage<'a> + 'a,
@@ -626,7 +627,7 @@ pub fn view<'a>(
         space::vertical().height(h)
     });
 
-    let show_backlog_divider = if old.is_empty() {
+    let show_backlog_divier = if old.is_empty() {
         // If all newer messages in viewport, only show backlog divider at the top
         // if we don't have any older messages at all (we're scrolled all the way up)
         !has_more_older_messages
@@ -639,7 +640,7 @@ pub fn view<'a>(
         }
     };
 
-    let divider = if show_backlog_divider {
+    let divider = if show_backlog_divier {
         match &config.buffer.backlog_separator.text {
             data::buffer::BacklogText::Hidden => row![
                 container(rule::horizontal(1).style(theme::rule::backlog))
@@ -677,7 +678,9 @@ pub fn view<'a>(
             keyed(keyed::Key::Divider, divider),
             column(new).spacing(line_spacing),
             bottom_spacer,
+            space::vertical().height(line_spacing),
         ]
+        .padding(padding::bottom(reserved_bottom_padding))
         .spacing(line_spacing),
         Message::ContentResized,
     );
