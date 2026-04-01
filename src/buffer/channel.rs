@@ -82,6 +82,9 @@ pub fn view<'a>(
             clients.resolve_user_attributes(&state.server, channel, &user)
         });
     let show_typing = clients.get_server_show_typing(server);
+    let typing_style = config.buffer.typing.style;
+    let typing_text = state.typing_text(clients, history);
+    let has_typing_text = typing_text.is_some();
 
     let users = clients.get_channel_users(&state.server, channel);
 
@@ -131,7 +134,11 @@ pub fn view<'a>(
                 )
             }),
             chathistory_state,
-            show_typing,
+            typing::reserved_bottom_padding(
+                has_typing_text,
+                typing_style,
+                config,
+            ),
             config,
             theme,
             message_formatter,
@@ -156,11 +163,11 @@ pub fn view<'a>(
         data::config::buffer::text_input::Visibility::Always => true,
     };
 
-    let typing_text = state.typing_text(clients, history);
     let typing = typing::view(
         typing_text,
         state.typing_animation.as_ref(),
         typing::typing_font_size(config),
+        config.buffer.line_spacing,
         theme,
     );
 
@@ -191,25 +198,26 @@ pub fn view<'a>(
         .spacing(4)
         .padding(padding::left(8).right(8));
 
-    let body: Element<Message> = if show_typing {
-        let typing_overlay: Element<'a, Message> = container(typing)
-            .width(Length::Fill)
-            .height(Length::Fill)
-            .align_y(iced::alignment::Vertical::Bottom)
-            .padding(padding::left(2))
-            .into();
+    let body: Element<Message> =
+        if typing::show_row(show_typing, typing_style, has_typing_text) {
+            let typing_overlay: Element<'a, Message> = container(typing)
+                .width(Length::Fill)
+                .height(Length::Fill)
+                .padding(padding::left(2))
+                .align_y(iced::alignment::Vertical::Bottom)
+                .into();
 
-        column![
-            stack![content, typing_overlay].height(Length::Fill),
-            text_input,
-        ]
-        .height(Length::Fill)
-        .into()
-    } else {
-        column![container(content).height(Length::Fill), text_input]
+            column![
+                stack![content, typing_overlay].height(Length::Fill),
+                text_input
+            ]
             .height(Length::Fill)
             .into()
-    };
+        } else {
+            column![column![content].height(Length::Fill), text_input]
+                .height(Length::Fill)
+                .into()
+        };
 
     container(body)
         .width(Length::Fill)

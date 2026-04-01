@@ -884,8 +884,17 @@ where
 pub struct Typing {
     pub share: bool,
     pub show: bool,
+    pub style: Style,
     #[serde(deserialize_with = "deserialize_u8_positive_integer_maybe")]
     pub font_size: Option<u8>,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum Style {
+    Padded,
+    #[default]
+    Popped,
 }
 
 impl Default for Typing {
@@ -893,6 +902,7 @@ impl Default for Typing {
         Self {
             share: false,
             show: true,
+            style: Style::default(),
             font_size: None,
         }
     }

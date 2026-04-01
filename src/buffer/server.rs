@@ -60,7 +60,7 @@ pub fn view<'a>(
             None,
             Option::<fn(&Preview, &message::Source) -> bool>::None,
             None,
-            false,
+            0.0,
             config,
             theme,
             move |message: &'a data::Message, _, _, _, _| {
