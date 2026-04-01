@@ -1,7 +1,10 @@
+use std::io::Cursor;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use reqwest::{Client, header};
+use tokio::io::AsyncReadExt as _;
+use tokio_util::io::ReaderStream;
 use url::Url;
 
 #[derive(Debug, thiserror::Error)]
@@ -62,8 +65,19 @@ pub async fn upload(
         |n| n.to_string_lossy().into_owned(),
     );
 
-    let bytes = tokio::fs::read(path).await?;
-    let content_type = infer_mime_type(path, &bytes);
+    let mut file = tokio::fs::File::open(path).await?;
+    let file_size = file.metadata().await?.len();
+
+    // read 36 bytes to infer file type
+    let magic_len = (36usize).min(file_size as usize);
+    let mut magic_buffer = vec![0u8; magic_len];
+    file.read_exact(&mut magic_buffer).await?;
+
+    let content_type = infer_mime_type(path, &magic_buffer);
+
+    // merge magic_buffer into remaining file stream
+    let stream = ReaderStream::new(Cursor::new(magic_buffer).chain(file));
+    let body = reqwest::Body::wrap_stream(stream);
 
     let (external_client, auth_header) = match &auth {
         Some(Auth::External { cert, key }) => (
@@ -86,8 +100,8 @@ pub async fn upload(
             header::CONTENT_DISPOSITION,
             format!("attachment; filename=\"{file_name}\""),
         )
-        .header(header::CONTENT_LENGTH, bytes.len())
-        .body(bytes);
+        .header(header::CONTENT_LENGTH, file_size)
+        .body(body);
 
     if let Some(value) = auth_header {
         req = req.header(header::AUTHORIZATION, value);
