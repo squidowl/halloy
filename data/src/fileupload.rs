@@ -111,6 +111,8 @@ pub async fn upload(
         .join(location)
         .map_err(|e| Error::InvalidUri(e.to_string()))?;
 
+    log::info!("file uploaded successfully: {file_url}");
+
     Ok(file_url.to_string())
 }
 
