@@ -1,6 +1,7 @@
 use std::f32::consts::PI;
 use std::time::{Duration, Instant};
 
+use data::config::buffer::Style;
 use data::history::filter::FilterChain;
 use data::isupport::CaseMap;
 use data::user::Nick;
@@ -60,20 +61,35 @@ pub fn typing_line_height(config: &Config) -> f32 {
 }
 
 pub fn reserved_bottom_padding(
-    reserve_bottom_line_for_typing: bool,
+    has_typing_text: bool,
+    style: Style,
     config: &Config,
 ) -> f32 {
-    if reserve_bottom_line_for_typing {
+    if has_typing_text || matches!(style, Style::Padded) {
+        // Do not include line-spacing in the reserved height
         typing_line_height(config) + 2.0
     } else {
         0.0
     }
 }
 
+pub fn show_row(
+    show_typing: bool,
+    style: Style,
+    has_typing_text: bool,
+) -> bool {
+    show_typing
+        && match style {
+            Style::Padded => true,
+            Style::Popped => has_typing_text,
+        }
+}
+
 pub fn view<'a, Message: 'a>(
     typing: Option<String>,
     animation: Option<&Animation>,
     font_size: f32,
+    line_spacing: u32,
     theme: &'a Theme,
 ) -> Element<'a, Message> {
     let typing: Element<'a, Message> = match typing {
@@ -117,7 +133,7 @@ pub fn view<'a, Message: 'a>(
                 .spacing(0),
             )
         }
-        .padding(padding::left(14).top(2).right(14))
+        .padding(padding::left(14).top(2 + line_spacing).right(14))
         .align_y(iced::alignment::Vertical::Bottom)
         .style(theme::container::typing)
         .into(),

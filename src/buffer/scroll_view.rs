@@ -26,7 +26,7 @@ use tokio::time;
 
 use self::correct_viewport::correct_viewport;
 use self::keyed::keyed;
-use super::{context_menu, typing};
+use super::context_menu;
 use crate::widget::{
     Element, notify_visibility, on_resize, selectable_text, tooltip,
 };
@@ -246,7 +246,7 @@ pub fn view<'a>(
     previews: Option<Previews<'a>>,
     visible_for_source: Option<impl Fn(&Preview, &message::Source) -> bool>,
     chathistory_state: Option<ChatHistoryState>,
-    reserve_bottom_line_for_typing: bool,
+    reserved_bottom_padding: f32,
     config: &'a Config,
     theme: &'a Theme,
     formatter: impl LayoutMessage<'a> + 'a,
@@ -680,10 +680,7 @@ pub fn view<'a>(
             bottom_spacer,
             space::vertical().height(line_spacing),
         ]
-        .padding(padding::bottom(typing::reserved_bottom_padding(
-            reserve_bottom_line_for_typing,
-            config,
-        )))
+        .padding(padding::bottom(reserved_bottom_padding))
         .spacing(line_spacing),
         Message::ContentResized,
     );
