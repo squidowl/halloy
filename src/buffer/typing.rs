@@ -88,37 +88,34 @@ pub fn view<'a, Message: 'a>(
     animation: Option<&Animation>,
     font_size: f32,
     line_spacing: u32,
+    animation_config: &data::config::buffer::Animation,
     theme: &'a Theme,
 ) -> Element<'a, Message> {
     let typing: Element<'a, Message> = match typing {
         Some(text) => {
             let secondary_font =
                 theme::font_style::secondary(theme).map(font::get);
-            let dot_color = theme.styles().text.secondary.color;
-            let dot_opacities = animation
-                .map_or([DOT_BASE_OPACITY; DOT_COUNT], Animation::opacities);
-            let dot_font_size = font_size * 0.33;
-            container(
-                row![
-                    widget::text(text)
-                        .size(font_size)
-                        .style(theme::text::secondary)
-                        .font_maybe(secondary_font.clone()),
-                    row((0..DOT_COUNT).zip(dot_opacities).map(
-                        |(_, opacity)| {
-                            let color = Color {
-                                a: dot_color.a * opacity,
-                                ..dot_color
-                            };
+            let text = widget::text(text)
+                .size(font_size)
+                .style(theme::text::secondary)
+                .font_maybe(secondary_font.clone());
 
-                            icon::dot().size(dot_font_size).color(color).into()
-                        }
-                    ),)
-                    .spacing(4)
-                ]
-                .align_y(iced::Alignment::Center)
-                .spacing(0),
-            )
+            let indicator = animate(
+                animation,
+                font_size,
+                animation_config,
+                theme.styles().text.secondary.color,
+            );
+            let content: Element<'a, Message> =
+                if let Some(indicator) = indicator {
+                    row![text, indicator]
+                        .align_y(iced::Alignment::Center)
+                        .into()
+                } else {
+                    text.into()
+                };
+
+            container(content)
         }
         .padding(padding::left(14).top(2 + line_spacing).right(14))
         .align_y(iced::alignment::Vertical::Bottom)
@@ -128,6 +125,37 @@ pub fn view<'a, Message: 'a>(
     };
 
     typing
+}
+
+fn animate<'a, Message: 'a>(
+    animation: Option<&Animation>,
+    font_size: f32,
+    animation_config: &data::config::buffer::Animation,
+    dot_color: Color,
+) -> Option<Element<'a, Message>> {
+    if !animation_config.enabled {
+        return None;
+    }
+
+    let dot_opacities = animation
+        .map_or_else(|| [DOT_BASE_OPACITY; DOT_COUNT], Animation::opacities);
+    let dot_font_size =
+        animation_config.size.map_or(font_size * 0.33, f32::from);
+
+    Some(
+        container(
+            row((0..DOT_COUNT).zip(dot_opacities).map(|(_, opacity)| {
+                let color = Color {
+                    a: dot_color.a * opacity,
+                    ..dot_color
+                };
+
+                icon::dot().size(dot_font_size).color(color).into()
+            }))
+            .spacing(4),
+        )
+        .into(),
+    )
 }
 
 pub fn visible_nicks(
