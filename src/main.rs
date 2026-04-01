@@ -935,8 +935,16 @@ impl Halloy {
                 Task::none()
             }
             Message::Window(id, event) => {
+                let mut tasks = vec![];
+
                 match &event {
                     window::Event::Focused => {
+                        if self.focused_window != Some(id) {
+                            tasks.push(iced::window::request_user_attention(
+                                id, None,
+                            ));
+                        }
+
                         self.focused_window = Some(id);
                     }
                     window::Event::Unfocused => {
@@ -987,10 +995,10 @@ impl Halloy {
                         }
                     }
 
-                    let mut tasks = vec![
+                    tasks.push(
                         iced::window::is_maximized(self.main_window.id)
                             .map(Message::WindowMaximizeChecked),
-                    ];
+                    );
 
                     if let Some(Screen::Dashboard(dashboard)) =
                         matches!(event, window::Event::Focused)
@@ -1002,15 +1010,15 @@ impl Halloy {
                                 .map(Message::Dashboard),
                         );
                     }
-
-                    Task::batch(tasks)
                 } else if let Screen::Dashboard(dashboard) = &mut self.screen {
-                    dashboard
-                        .handle_window_event(id, event, &mut self.theme)
-                        .map(Message::Dashboard)
-                } else {
-                    Task::none()
+                    tasks.push(
+                        dashboard
+                            .handle_window_event(id, event, &mut self.theme)
+                            .map(Message::Dashboard),
+                    );
                 }
+
+                Task::batch(tasks)
             }
             Message::WindowMaximizeChecked(is_maximized) => {
                 self.main_window.update_maximize(is_maximized);
