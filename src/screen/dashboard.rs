@@ -1955,10 +1955,10 @@ impl Dashboard {
                 Some((target, server))
             });
 
-        if self.filehost.file_being_hovered && config.filehost.file_drop() {
-            let (overlay_text, is_error) = if let Some((target, server)) =
-                focused_target_info
-            {
+        if self.filehost.file_being_hovered {
+            let (overlay_text, is_error) = if !config.filehost.file_drop() {
+                (String::from("File drop is disabled here"), true)
+            } else if let Some((target, server)) = focused_target_info {
                 (format!("Drop to upload file to {target} @ {server}"), false)
             } else {
                 (String::from("Upload is not valid here"), true)
@@ -4220,9 +4220,7 @@ impl Dashboard {
                 | window::Event::Unfocused
                 | window::Event::Opened { .. } => {}
                 window::Event::FileHovered => {
-                    if config.filehost.file_drop() {
-                        self.filehost.file_being_hovered = true;
-                    }
+                    self.filehost.file_being_hovered = true;
                 }
                 window::Event::FilesHoveredLeft => {
                     self.filehost.file_being_hovered = false;
