@@ -38,6 +38,7 @@ pub fn view<'a>(
             None,
             Option::<fn(&Preview, &message::Source) -> bool>::None,
             None,
+            0.0,
             config,
             theme,
             move |message: &'a data::Message, _, _, _, _| match message
