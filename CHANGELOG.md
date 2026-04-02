@@ -37,7 +37,7 @@ Removed:
 Thanks:
 
 - Contributions: @furudean, @omentic, @KaiKorla, @achille
-- Bug reports: sebbu, @whitequark, @SnoopJ, esden, @miyukoc, @ld-cd, @achille, @classabbyamp
+- Bug reports: sebbu, @whitequark, @SnoopJ, esden, @miyukoc, @ld-cd, @achille, @classabbyamp, vignoux
 - Feature requests: @omentic
 
 # 2026.5 (2026-03-21)

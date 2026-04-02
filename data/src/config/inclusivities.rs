@@ -341,7 +341,7 @@ impl Inclusivities {
                 Inclusivity::All => true,
                 Inclusivity::Any(inclusivity_servers) => {
                     inclusivity_servers.iter().any(|inclusivity_server| {
-                        server.name.as_ref() == inclusivity_server.as_str()
+                        match_server(server, inclusivity_server.as_str())
                     })
                 }
             })
@@ -423,13 +423,62 @@ impl<'de> Deserialize<'de> for Inclusivity {
     }
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
-#[serde(default)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Criterion {
-    user: Option<String>,
-    channel: Option<String>,
+    users: Option<Vec<String>>,
+    channels: Option<Vec<String>>,
     server: Option<String>,
     server_message: Option<String>,
+}
+
+impl<'de> Deserialize<'de> for Criterion {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Debug, Clone, Deserialize)]
+        #[serde(untagged)]
+        pub enum Data {
+            Criterion {
+                user: Option<String>,
+                users: Option<Vec<String>>,
+                channel: Option<String>,
+                channels: Option<Vec<String>>,
+                server: Option<String>,
+                server_message: Option<String>,
+            },
+        }
+
+        match Data::deserialize(deserializer)? {
+            Data::Criterion {
+                user,
+                users,
+                channel,
+                channels,
+                server,
+                server_message,
+            } => {
+                let users = users
+                    .unwrap_or_default()
+                    .into_iter()
+                    .chain(user)
+                    .collect::<Vec<_>>();
+
+                let channels = channels
+                    .unwrap_or_default()
+                    .into_iter()
+                    .chain(channel)
+                    .collect::<Vec<_>>();
+
+                Ok(Criterion {
+                    users: (!users.is_empty()).then_some(users),
+                    channels: (!channels.is_empty()).then_some(channels),
+                    server,
+                    server_message,
+                })
+            }
+        }
+    }
 }
 
 impl Criterion {
@@ -449,18 +498,20 @@ impl Criterion {
                     false
                 }
             })
-            && self.channel.as_ref().is_none_or(|channel_criterion| {
+            && self.channels.as_ref().is_none_or(|channels_criterion| {
                 channel.is_some_and(|channel| {
-                    channel.as_normalized_str()
-                        == casemapping.normalize(channel_criterion).as_str()
+                    channels_criterion.iter().any(|channel_criterion| {
+                        channel.as_normalized_str()
+                            == casemapping.normalize(channel_criterion).as_str()
+                    })
                 })
             })
             && self.server.as_ref().is_none_or(|server_criterion| {
                 server.is_some_and(|server| {
-                    server.name.as_ref() == server_criterion
+                    match_server(server, server_criterion)
                 })
             })
-            && self.user.is_none()
+            && self.users.is_none()
     }
 
     pub fn is_user_channel_server_inclusive(
@@ -470,19 +521,22 @@ impl Criterion {
         server: Option<&Server>,
         casemapping: isupport::CaseMap,
     ) -> bool {
-        self.user.as_ref().is_none_or(|user_criterion| {
+        self.users.as_ref().is_none_or(|users_criterion| {
             user.is_some_and(|user| {
-                user.as_normalized_str()
-                    == casemapping.normalize(user_criterion).as_str()
+                users_criterion.iter().any(|user_criterion| {
+                    user.as_normalized_str()
+                        == casemapping.normalize(user_criterion).as_str()
+                })
             })
-        }) && self.channel.as_ref().is_none_or(|channel_criterion| {
+        }) && self.channels.as_ref().is_none_or(|channels_criterion| {
             channel.is_some_and(|channel| {
-                channel.as_normalized_str()
-                    == casemapping.normalize(channel_criterion).as_str()
+                channels_criterion.iter().any(|channel_criterion| {
+                    channel.as_normalized_str()
+                        == casemapping.normalize(channel_criterion).as_str()
+                })
             })
         }) && self.server.as_ref().is_none_or(|server_criterion| {
-            server
-                .is_some_and(|server| server.name.as_ref() == server_criterion)
+            server.is_some_and(|server| match_server(server, server_criterion))
         }) && self.server_message.is_none()
     }
 
@@ -492,13 +546,23 @@ impl Criterion {
         server: &Server,
         casemapping: isupport::CaseMap,
     ) -> bool {
-        self.user.as_ref().is_none_or(|user_criterion| {
-            query.as_normalized_str()
-                == casemapping.normalize(user_criterion).as_str()
-        }) && self.channel.is_none()
+        self.users.as_ref().is_none_or(|users_criterion| {
+            users_criterion.iter().any(|user_criterion| {
+                query.as_normalized_str()
+                    == casemapping.normalize(user_criterion).as_str()
+            })
+        }) && self.channels.is_none()
             && self.server.as_ref().is_none_or(|server_criterion| {
-                server.name.as_ref() == server_criterion
+                match_server(server, server_criterion)
             })
             && self.server_message.is_none()
     }
+}
+
+fn match_server(server: &Server, inclusivity_server: &str) -> bool {
+    server.name.as_ref() == inclusivity_server
+        || server
+            .network
+            .as_ref()
+            .is_some_and(|network| network.name == inclusivity_server)
 }
