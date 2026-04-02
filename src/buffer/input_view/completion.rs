@@ -1325,11 +1325,15 @@ fn commands_from_aliases(aliases: &[command::Alias]) -> Vec<Command> {
         .iter()
         .map(|alias| Command {
             title: alias.name.clone().into(),
-            args: command::alias::placeholder_args(alias.min_args)
-                .into_iter()
-                .map(|arg| Argument {
-                    text: arg.into(),
-                    kind: ArgumentKind::Required,
+            args: command::alias::placeholder_args(&alias.body)
+                .iter()
+                .map(|(text, optional)| Argument {
+                    text: text.clone().into(),
+                    kind: if *optional {
+                        ArgumentKind::Optional { skipped: false }
+                    } else {
+                        ArgumentKind::Required
+                    },
                     tooltip: None,
                 })
                 .collect(),
