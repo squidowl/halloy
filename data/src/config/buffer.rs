@@ -6,13 +6,13 @@ use iced::Color;
 use serde::{Deserialize, Deserializer};
 
 pub use self::channel::{Channel, ChannelNameCasing};
+pub use self::typing::{Animation, Style, Typing};
 pub use crate::appearance::theme::{alpha_color, alpha_color_calculate};
 use crate::config::buffer::nickname::Nickname;
 use crate::config::buffer::text_input::TextInput;
 use crate::config::inclusivities::{
     Inclusivities, is_target_channel_included, is_target_query_included,
 };
-use crate::serde::deserialize_u8_positive_integer_maybe;
 use crate::target::TargetRef;
 use crate::user::Nick;
 use crate::{Server, isupport};
@@ -21,6 +21,7 @@ pub mod channel;
 pub mod hide_consecutive;
 pub mod nickname;
 pub mod text_input;
+pub mod typing;
 
 pub use self::hide_consecutive::{HideConsecutive, HideConsecutiveEnabled};
 use crate::buffer::{
@@ -877,33 +878,4 @@ where
             alpha: Some(dim),
         },
     }))
-}
-
-#[derive(Debug, Clone, Copy, Deserialize)]
-#[serde(default)]
-pub struct Typing {
-    pub share: bool,
-    pub show: bool,
-    pub style: Style,
-    #[serde(deserialize_with = "deserialize_u8_positive_integer_maybe")]
-    pub font_size: Option<u8>,
-}
-
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
-#[serde(rename_all = "kebab-case")]
-pub enum Style {
-    Padded,
-    #[default]
-    Popped,
-}
-
-impl Default for Typing {
-    fn default() -> Self {
-        Self {
-            share: false,
-            show: true,
-            style: Style::default(),
-            font_size: None,
-        }
-    }
 }

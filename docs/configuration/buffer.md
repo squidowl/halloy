@@ -1354,6 +1354,36 @@ Control whether Halloy shows typing status from other users.
 show = true
 ```
 
+#### `animation`
+
+Configure the animated dots shown next to the typing indicator text.
+
+##### `enabled`
+
+Control whether the animated dots are shown.
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: true
+
+[buffer.typing.animation]
+enabled = true
+```
+
+##### `size`
+
+Control the size of the animated typing dots. If not set we use `typing.font_size * 0.33`.
+
+```toml
+# Type: integer
+# Values: positive integers
+# Default: not set
+
+[buffer.typing.animation]
+size = 12
+```
+
 ## `timestamp`
 
 Customize how timestamps are displayed within a buffer.
