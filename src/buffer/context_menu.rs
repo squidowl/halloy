@@ -111,10 +111,8 @@ impl Entry {
         our_user: Option<&User>,
         file_transfer_enabled: bool,
     ) -> Vec<Self> {
-        let user_is_online = user_in_channel.is_some();
-
         if is_channel {
-            if !user_is_online {
+            if user_in_channel.is_none() {
                 vec![Entry::UserInfo, Entry::HorizontalRule, Entry::Whowas]
             } else if our_user.is_some_and(|u| {
                 u.has_access_level(data::user::AccessLevel::Oper)
@@ -161,11 +159,9 @@ impl Entry {
                 list
             }
         } else {
-            let mut list = vec![if user_is_online {
-                Entry::Whois
-            } else {
-                Entry::Whowas
-            }];
+            // In a query, server notice, or WALLOPS scenario we don't know
+            // whether the user is online or not
+            let mut list = vec![Entry::Whois, Entry::Whowas];
 
             if file_transfer_enabled {
                 list.push(Entry::SendFile);
