@@ -91,7 +91,7 @@ pub fn view<'a, Message: 'a>(
 ) -> Element<'a, Message> {
     let font_size = typing_font_size(config);
     let line_spacing = config.buffer.line_spacing;
-    let animation_config = config.buffer.typing.animation;
+    let animation_config = &config.buffer.typing.animation;
 
     let typing: Element<'a, Message> = match typing {
         Some(text) => {

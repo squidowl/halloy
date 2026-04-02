@@ -7,6 +7,7 @@ use crate::serde::deserialize_u8_positive_integer_maybe;
 pub struct Typing {
     pub share: bool,
     pub show: bool,
+    pub style: Style,
     #[serde(deserialize_with = "deserialize_u8_positive_integer_maybe")]
     pub font_size: Option<u8>,
     pub animation: Animation,
@@ -17,6 +18,7 @@ impl Default for Typing {
         Self {
             share: false,
             show: true,
+            style: Default::default(),
             font_size: None,
             animation: Animation::default(),
         }
@@ -38,4 +40,12 @@ impl Default for Animation {
             size: None,
         }
     }
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum Style {
+    Padded,
+    #[default]
+    Popped,
 }
