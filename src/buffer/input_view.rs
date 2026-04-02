@@ -2594,10 +2594,13 @@ fn show_while_typing(error: &input::Error) -> bool {
             max,
             ..
         }) => actual > max,
+        input::Error::Command(command::Error::InvalidSubcommand {
+            is_partial_valid,
+            ..
+        }) => !is_partial_valid,
         input::Error::Command(
             command::Error::MissingSlash
             | command::Error::MissingCommand
-            | command::Error::InvalidChathistorySubcommand
             | command::Error::NoModeString
             | command::Error::Connected
             | command::Error::Disconnected
