@@ -13,6 +13,7 @@ Added:
 - Right-click context menu on messages now includes "Copy message" to copy the message text to the clipboard
 - `buffer.typing.style` setting with `padded` and `popped` modes for typing indicators
 - Files can be uploaded to server using `soju.im/FILEHOST` and `draft/FILEHOST`
+- Record Ergo/Solanum mass-messages to the server buffer
 
 Changed:
 
@@ -38,7 +39,7 @@ Removed:
 Thanks:
 
 - Contributions: @furudean, @omentic, @KaiKorla, @achille
-- Bug reports: sebbu, @whitequark, @SnoopJ, esden, @miyukoc, @ld-cd, @achille, @classabbyamp, vignoux
+- Bug reports: sebbu, @whitequark, @SnoopJ, esden, @miyukoc, @ld-cd, @achille, @classabbyamp, vignoux, @esden
 - Feature requests: @omentic
 
 # 2026.5 (2026-03-21)
@@ -82,7 +83,7 @@ Security:
 Thanks:
 
 - Contributions: @KaiKorla, @englut, @mango766, @ncfavier, @classabbyamp, @melocene
-- Bug reports: chmod222, @whitequark, @englut, sebbu, @ascarion, @4e554c4c, @BKVad1m, @mango766, esden
+- Bug reports: chmod222, @whitequark, @englut, sebbu, @ascarion, @4e554c4c, @BKVad1m, @mango766, @esden
 - Feature requests: @gAlleb, @jtbx, @cyrneko, @englut, @ascarion
 
 # 2026.4 (2026-03-03)
