@@ -4439,13 +4439,12 @@ impl Map {
             .and_then(|client| client.resolve_query(query))
     }
 
-    pub fn get_isupport(
+    pub fn get_isupport_ref(
         &self,
         server: &Server,
-    ) -> HashMap<isupport::Kind, isupport::Parameter> {
+    ) -> &HashMap<isupport::Kind, isupport::Parameter> {
         self.client(server)
-            .map(|client| client.isupport.clone())
-            .unwrap_or_default()
+            .map_or(&isupport::DEFAULT, |client| &client.isupport)
     }
 
     pub fn get_filehost<'a>(&'a self, server: &Server) -> Option<&'a str> {
@@ -4534,7 +4533,7 @@ impl Map {
     ) -> &'a [char] {
         server
             .and_then(|server| self.client(server).map(Client::chantypes))
-            .unwrap_or(proto::DEFAULT_CHANNEL_PREFIXES)
+            .unwrap_or(isupport::DEFAULT_CHANTYPES)
     }
 
     pub fn get_server_prefix_or_default<'a>(
@@ -4557,7 +4556,7 @@ impl Map {
     ) -> &'a [char] {
         server
             .and_then(|server| self.client(server).map(Client::statusmsg))
-            .unwrap_or(proto::DEFAULT_CHANNEL_MEMBERSHIP_PREFIXES)
+            .unwrap_or(isupport::DEFAULT_STATUSMSG)
     }
 
     // The default value is chosen to be a reasonable, conservative
