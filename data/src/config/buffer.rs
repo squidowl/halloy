@@ -264,6 +264,12 @@ where
                 return Ok(normalized);
             }
 
+            if !crate::command::alias::has_trailing_optional_args(&command) {
+                return Err(serde::de::Error::custom(format!(
+                    "alias '{alias}' has a required argument after an optional one"
+                )));
+            }
+
             if normalized.contains_key(&alias) {
                 return Err(serde::de::Error::custom(format!(
                     "duplicate alias name after normalization: '{alias}'"
