@@ -19,14 +19,14 @@ Changed:
 
 - Moved `typing` settings from `buffer.channel.typing` to `buffer.typing` to clarify that they appliy to queries as well as channels
 - Moved nicklist nickname settings from `buffer.channel.nicklist` to `buffer.nickname` (`away` and `color`)
-- Default typing style is now `popped`
+- Default typing style (`buffer.typing.style`) is now `popped` (from `padded`)
 
 Fixed:
 
 - `sidebar.order_by` setting works when set to `"config"`
 - Server notices with wildcard targets (for example `NOTICE *`) are shown in the server buffer again
 - Fix URLs with non-ASCII characters getting percent-encoded when rendered in buffers
-- chathistory: support for TARGETS pagination and more conservative treatment of pagination on reconnect
+- chathistory: support for multiline messages and TARGETS pagination and more conservative treatment of pagination on reconnect
 - Keyboard shortcuts now work in popped out buffer windows, including command bar shortcuts
 - IRC URIs now handle bracketed IPv6 hosts and percent-encoded channel targets correctly
 - `typing` settings for buffers could get in a stuck state without any way to control them
@@ -34,6 +34,7 @@ Fixed:
 - `/MOTD` will not trigger end-of-registration actions
 
 Removed:
+
 - `buffer.channel.message.nickname_color` in favor of `buffer.nickname.color`
 
 Thanks:
