@@ -81,6 +81,7 @@ pub enum Irc {
     Unknown(String, Vec<String>),
     Ctcp(ctcp::Command, String, Option<String>),
     Chathistory(String, Vec<String>),
+    Monitor(String, Option<String>),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
@@ -225,6 +226,7 @@ pub enum Kind {
     SetName,
     Ctcp,
     Chathistory,
+    Monitor,
     Hop,
     Notice,
     Delay,
@@ -270,6 +272,7 @@ impl FromStr for Kind {
             "raw" => Ok(Kind::Raw),
             "ctcp" => Ok(Kind::Ctcp),
             "chathistory" => Ok(Kind::Chathistory),
+            "monitor" => Ok(Kind::Monitor),
             "hop" | "rejoin" => Ok(Kind::Hop),
             "delay" => Ok(Kind::Delay),
             "clear" => Ok(Kind::Clear),
@@ -1358,7 +1361,76 @@ fn parse_command(
                                 })
                             }
                         }
-                        _ => Err(Error::InvalidChathistorySubcommand),
+                        _ => Err(Error::InvalidSubcommand {
+                            command: "chathistory",
+                            is_partial_valid: [
+                                "BEFORE", "AFTER", "AROUND", "LATEST",
+                                "BETWEEN", "TARGETS",
+                            ]
+                            .iter()
+                            .any(|valid_subcommand| {
+                                valid_subcommand.starts_with(&subcommand)
+                            }),
+                        }),
+                    }
+                })
+            }
+            Kind::Monitor => {
+                validated::<1, 1, false>(args, |[subcommand], [targets]| {
+                    let limit =
+                        if let Some(isupport::Parameter::MONITOR(limit)) =
+                            isupport.get(&isupport::Kind::MONITOR)
+                        {
+                            limit.map(|limit| limit as usize)
+                        } else {
+                            None
+                        };
+
+                    let subcommand = subcommand.to_uppercase();
+
+                    match subcommand.as_str() {
+                        "+" | "-" => {
+                            if let Some(targets) = targets {
+                                if let Some(limit) = limit {
+                                    let targets =
+                                        targets.split(',').collect::<Vec<_>>();
+
+                                    if targets.len() > limit {
+                                        return Err(Error::TooManyTargets {
+                                            name: "targets",
+                                            number: targets.len(),
+                                            max_number: limit,
+                                        });
+                                    }
+                                }
+
+                                Ok(Command::Irc(Irc::Monitor(
+                                    subcommand,
+                                    Some(targets),
+                                )))
+                            } else {
+                                Err(Error::IncorrectArgCount {
+                                    min: 2,
+                                    max: 2,
+                                    actual: 1,
+                                })
+                            }
+                        }
+                        "C" | "L" | "S" => {
+                            if targets.is_none() {
+                                Ok(Command::Irc(Irc::Monitor(subcommand, None)))
+                            } else {
+                                Err(Error::IncorrectArgCount {
+                                    min: 1,
+                                    max: 1,
+                                    actual: 2,
+                                })
+                            }
+                        }
+                        _ => Err(Error::InvalidSubcommand {
+                            command: "monitor",
+                            is_partial_valid: false,
+                        }),
                     }
                 })
             }
@@ -1723,6 +1795,9 @@ impl TryFrom<Irc> for proto::Command {
             Irc::List(channels, elistcond) => {
                 proto::Command::LIST(channels, elistcond)
             }
+            Irc::Monitor(subcommand, targets) => {
+                proto::Command::MONITOR(subcommand, targets)
+            }
         })
     }
 }
@@ -1797,8 +1872,11 @@ pub enum Error {
     Connected,
     #[error("not in channel")]
     NotInChannel,
-    #[error("invalid chathistory subcommand")]
-    InvalidChathistorySubcommand,
+    #[error("invalid {command} subcommand")]
+    InvalidSubcommand {
+        command: &'static str,
+        is_partial_valid: bool,
+    },
     #[error("invalid timestamp or message id")]
     InvalidChathistoryMessageReference,
     #[error("invalid timestamp")]
