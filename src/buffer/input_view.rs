@@ -1263,7 +1263,7 @@ impl State {
                     buffer: buffer.clone(),
                     text: self.input_content.text(),
                 });
-                (self.focus(), None)
+                (Task::none(), None)
             }
             Message::FilehostUrlReady(_) => {
                 // Failed or cancelled — decrement only if not already zeroed.
