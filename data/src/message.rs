@@ -3231,7 +3231,8 @@ pub mod tests {
     use crate::message::formatting::Color;
     #[allow(unused_imports)]
     use crate::message::{
-        Broadcast, Content, Formatting, Fragment, Highlight, Message, broadcast,
+        self, Broadcast, Content, Formatting, Fragment, Highlight, Message,
+        Source, Target, broadcast,
     };
     #[allow(unused_imports)]
     use crate::server::Server;
@@ -3239,6 +3240,49 @@ pub mod tests {
     use crate::user::{ChannelUsers, Nick, User};
     #[allow(unused_imports)]
     use crate::{isupport, target};
+
+    #[test]
+    fn special_targets() {
+        use std::collections::HashMap;
+
+        use irc::proto;
+
+        let isupport = HashMap::<isupport::Kind, isupport::Parameter>::new();
+
+        let chantypes = isupport::get_chantypes_or_default(&isupport);
+        let statusmsg = isupport::get_statusmsg_or_default(&isupport);
+        let casemapping = isupport::get_casemapping_or_default(&isupport);
+
+        let our_nick = Nick::from_str(
+            "our_nick",
+            isupport::get_casemapping_or_default(&isupport),
+        );
+
+        let tests = [(
+            ":dan!d@localhost PRIVMSG $$* :Mass message! \r\n",
+            Some(Target::Server {
+                source: Source::User(User::from(Nick::from_str(
+                    "dan",
+                    casemapping,
+                ))),
+            }),
+        )];
+
+        for (irc_message, expected) in tests {
+            let encoded = proto::parse::message(irc_message).unwrap();
+
+            let actual = message::target(
+                message::Encoded(encoded),
+                &our_nick,
+                &|_: &User, _: &target::Channel| None,
+                chantypes,
+                statusmsg,
+                casemapping,
+            );
+
+            assert_eq!(expected, actual);
+        }
+    }
 
     #[test]
     fn fragments_parsing() {
@@ -3703,8 +3747,8 @@ pub mod tests {
         assert!(highlight.is_none());
         assert!(matches!(
             &message.target,
-            crate::message::Target::Server {
-                source: crate::message::Source::User(user),
+            Target::Server {
+                source: Source::User(user),
             } if user.nickname().to_string() == "dan"
         ));
         assert_eq!(message.text(), "maintenance window");
