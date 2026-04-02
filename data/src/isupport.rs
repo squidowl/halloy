@@ -2,6 +2,7 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::fmt;
 use std::str::FromStr;
+use std::sync::LazyLock;
 
 use chrono::format::SecondsFormat;
 use chrono::{DateTime, Utc};
@@ -986,6 +987,9 @@ pub struct PrefixMap {
     pub mode: char,
 }
 
+pub static DEFAULT: LazyLock<HashMap<Kind, Parameter>> =
+    LazyLock::new(HashMap::new);
+
 const DEFAULT_BAN_EXCEPTION_CHANNEL_LETTER: char = 'e';
 
 const DEFAULT_CALLER_ID_LETTER: char = 'g';
@@ -1039,6 +1043,9 @@ pub const DEFAULT_PREFIX: &[PrefixMap] = &[
         mode: 'v',
     },
 ];
+
+pub const DEFAULT_STATUSMSG: &[char] =
+    proto::DEFAULT_CHANNEL_MEMBERSHIP_PREFIXES;
 
 const FUZZ_SECONDS: chrono::Duration = chrono::Duration::seconds(5);
 

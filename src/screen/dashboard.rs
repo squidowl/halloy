@@ -2652,7 +2652,8 @@ impl Dashboard {
                 let Some(upload_url) =
                     clients.get_filehost(&server).map(String::from)
                 else {
-                    let casemapping = clients.get_casemapping(&server);
+                    let casemapping =
+                        clients.get_server_casemapping_or_default(&server);
                     let task = self.broadcast(
                         &server,
                         casemapping,
@@ -2747,7 +2748,8 @@ impl Dashboard {
                 target,
                 error,
             } => {
-                let casemapping = clients.get_casemapping(&server);
+                let casemapping =
+                    clients.get_server_casemapping_or_default(&server);
                 let history_task = self.broadcast(
                     &server,
                     casemapping,

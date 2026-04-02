@@ -759,7 +759,7 @@ impl State {
                                 .any(|channel| target == channel)
                         }),
                         clients.get_server_is_connected(buffer.server()),
-                        &clients.get_isupport(buffer.server()),
+                        clients.get_isupport_ref(buffer.server()),
                         clients.get_multiline_limits(buffer.server()).as_ref(),
                         clients.get_relay_bytes(buffer.server()),
                         config,
@@ -861,7 +861,7 @@ impl State {
                             .any(|channel| target == channel)
                     }),
                     clients.get_server_is_connected(buffer.server()),
-                    &clients.get_isupport(buffer.server()),
+                    clients.get_isupport_ref(buffer.server()),
                     clients.get_multiline_limits(buffer.server()).as_ref(),
                     clients.get_relay_bytes(buffer.server()),
                     config,
@@ -1418,7 +1418,7 @@ impl State {
                             let supports_detach = clients
                                 .get_server_supports_detach(buffer.server());
                             let isupport =
-                                clients.get_isupport(buffer.server());
+                                clients.get_isupport_ref(buffer.server());
                             let has_filehost = buffer.target().is_some()
                                 && clients
                                     .get_filehost(buffer.server())
@@ -1436,7 +1436,7 @@ impl State {
                                 buffer.server(),
                                 is_connected,
                                 supports_detach,
-                                &isupport,
+                                isupport,
                                 has_filehost,
                                 config,
                             );
@@ -1497,7 +1497,7 @@ impl State {
                 .any(|channel| target == channel)
         });
         let is_connected = clients.get_server_is_connected(buffer.server());
-        let isupport = clients.get_isupport(buffer.server());
+        let isupport = clients.get_isupport_ref(buffer.server());
         let relay_bytes = clients.get_relay_bytes(buffer.server());
         let multiline_limits = clients.get_multiline_limits(buffer.server());
 
@@ -1525,7 +1525,7 @@ impl State {
                     nickname,
                     in_channel,
                     is_connected,
-                    &isupport,
+                    isupport,
                     multiline_limits.as_ref(),
                     relay_bytes,
                     config,
@@ -2274,7 +2274,7 @@ impl State {
             let is_connected = clients.get_server_is_connected(buffer.server());
             let supports_detach =
                 clients.get_server_supports_detach(buffer.server());
-            let isupport = clients.get_isupport(buffer.server());
+            let isupport = clients.get_isupport_ref(buffer.server());
             let has_filehost = buffer.target().is_some()
                 && clients.get_filehost(buffer.server()).is_some();
 
@@ -2290,7 +2290,7 @@ impl State {
                 buffer.server(),
                 is_connected,
                 supports_detach,
-                &isupport,
+                isupport,
                 has_filehost,
                 config,
             );
