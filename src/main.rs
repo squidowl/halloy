@@ -1078,7 +1078,12 @@ impl Halloy {
                 } else if let Screen::Dashboard(dashboard) = &mut self.screen {
                     tasks.push(
                         dashboard
-                            .handle_window_event(id, event, &mut self.theme, &self.config)
+                            .handle_window_event(
+                                id,
+                                event,
+                                &mut self.theme,
+                                &self.config,
+                            )
                             .map(Message::Dashboard),
                     );
                 }
