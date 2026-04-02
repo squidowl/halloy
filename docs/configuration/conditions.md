@@ -20,7 +20,7 @@ You can specify all conditions by setting to `"all"` or `"*"`.
 | `channels`         | An array of channel names.  Conditions will apply to messages in any of the specified channels.                               |
 | `servers`          | An array of server names.  Conditions will apply to all messages on any of the specified servers.                             |
 | `server_messages`  | An array of [server message types](/configuration/buffer#types). Conditions will apply to server messages of any of the specified types. |
-| `criteria`         | Each criterion in the array can have a specified `user`, `channel`, `server`, and/or `server_message`. All specified fields must match for the criterion to match. |
+| `criteria`         | Each criterion in the array can have a specified `user`, `users`, `channel`, `channels`, `server`, and/or `server_message`. All specified fields must match for the criterion to match. |
 
 ## Examples
 
