@@ -124,9 +124,7 @@ pub fn view<'a>(
     let typing = typing::view(
         typing_text,
         state.typing_animation.as_ref(),
-        typing::typing_font_size(config),
-        config.buffer.line_spacing,
-        &config.buffer.typing.animation,
+        config,
         theme,
     );
 
