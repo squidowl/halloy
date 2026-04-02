@@ -18,7 +18,7 @@ impl Default for Typing {
         Self {
             share: false,
             show: true,
-            style: Default::default(),
+            style: Style::default(),
             font_size: None,
             animation: Animation::default(),
         }
