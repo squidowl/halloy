@@ -7,17 +7,15 @@ use data::isupport::CaseMap;
 use data::user::Nick;
 use data::{Config, Server, User, target};
 use iced::widget::{column, container, row};
-use iced::{Color, Length, padding};
+use iced::{Color, padding};
 
 use crate::widget::{self, Element};
-use crate::{Theme, font, theme};
+use crate::{Theme, font, icon, theme};
 
 const DOT_COUNT: usize = 3;
 const DOT_BASE_OPACITY: f32 = 0.35;
 const DOT_PEAK_OPACITY: f32 = 1.0;
 const DOT_DURATION: Duration = Duration::from_millis(520);
-const DOTS: [&str; DOT_COUNT] = ["\u{2022}"; DOT_COUNT];
-
 #[derive(Debug, Clone, Copy)]
 pub struct Animation {
     started_at: Instant,
@@ -88,50 +86,38 @@ pub fn show_row(
 pub fn view<'a, Message: 'a>(
     typing: Option<String>,
     animation: Option<&Animation>,
-    font_size: f32,
-    line_spacing: u32,
+    config: &'a Config,
     theme: &'a Theme,
 ) -> Element<'a, Message> {
+    let font_size = typing_font_size(config);
+    let line_spacing = config.buffer.line_spacing;
+    let animation_config = &config.buffer.typing.animation;
+
     let typing: Element<'a, Message> = match typing {
         Some(text) => {
             let secondary_font =
                 theme::font_style::secondary(theme).map(font::get);
-            let dot_color = theme.styles().text.secondary.color;
-            let dot_opacities = animation
-                .map_or([DOT_BASE_OPACITY; DOT_COUNT], Animation::opacities);
+            let text = widget::text(text)
+                .size(font_size)
+                .style(theme::text::secondary)
+                .font_maybe(secondary_font.clone());
 
-            container(
-                row![
-                    widget::text(text)
-                        .size(font_size)
-                        .style(theme::text::secondary)
-                        .font_maybe(secondary_font.clone()),
-                    row(DOTS.into_iter().zip(dot_opacities).map(
-                        |(dot, opacity)| {
-                            let color = Color {
-                                a: dot_color.a * opacity,
-                                ..dot_color
-                            };
+            let indicator = animate(
+                animation,
+                font_size,
+                animation_config,
+                theme.styles().text.secondary.color,
+            );
+            let content: Element<'a, Message> =
+                if let Some(indicator) = indicator {
+                    row![text, indicator]
+                        .align_y(iced::Alignment::Center)
+                        .into()
+                } else {
+                    text.into()
+                };
 
-                            container(
-                                iced::widget::text(dot)
-                                    .size(font_size)
-                                    .font_maybe(secondary_font.clone())
-                                    .color(color),
-                            )
-                            .width(Length::Shrink)
-                            .height(Length::Fixed(font_size))
-                            .align_x(iced::Alignment::Center)
-                            .align_y(iced::alignment::Vertical::Bottom)
-                            .into()
-                        }
-                    ),)
-                    .align_y(iced::Alignment::End)
-                    .spacing(0)
-                ]
-                .align_y(iced::Alignment::End)
-                .spacing(0),
-            )
+            container(content)
         }
         .padding(padding::left(14).top(2 + line_spacing).right(14))
         .align_y(iced::alignment::Vertical::Bottom)
@@ -141,6 +127,37 @@ pub fn view<'a, Message: 'a>(
     };
 
     typing
+}
+
+fn animate<'a, Message: 'a>(
+    animation: Option<&Animation>,
+    font_size: f32,
+    animation_config: &data::config::buffer::Animation,
+    dot_color: Color,
+) -> Option<Element<'a, Message>> {
+    if !animation_config.enabled {
+        return None;
+    }
+
+    let dot_opacities = animation
+        .map_or_else(|| [DOT_BASE_OPACITY; DOT_COUNT], Animation::opacities);
+    let dot_font_size =
+        animation_config.size.map_or(font_size * 0.33, f32::from);
+
+    Some(
+        container(
+            row((0..DOT_COUNT).zip(dot_opacities).map(|(_, opacity)| {
+                let color = Color {
+                    a: dot_color.a * opacity,
+                    ..dot_color
+                };
+
+                icon::dot().size(dot_font_size).color(color).into()
+            }))
+            .spacing(4),
+        )
+        .into(),
+    )
 }
 
 pub fn visible_nicks(

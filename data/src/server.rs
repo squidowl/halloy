@@ -10,7 +10,7 @@ use tokio::fs;
 use tokio::process::Command;
 
 use crate::bouncer::BouncerNetwork;
-use crate::config::buffer::Typing;
+use crate::config::buffer::typing::Typing;
 use crate::config::server::Sasl;
 use crate::config::sidebar::{OrderBy, OrderChannelsBy};
 use crate::config::{self, Error, sidebar};
