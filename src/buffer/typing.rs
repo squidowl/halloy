@@ -86,11 +86,13 @@ pub fn show_row(
 pub fn view<'a, Message: 'a>(
     typing: Option<String>,
     animation: Option<&Animation>,
-    font_size: f32,
-    line_spacing: u32,
-    animation_config: &data::config::buffer::Animation,
+    config: &'a Config,
     theme: &'a Theme,
 ) -> Element<'a, Message> {
+    let font_size = typing_font_size(config);
+    let line_spacing = config.buffer.line_spacing;
+    let animation_config = config.buffer.typing.animation;
+
     let typing: Element<'a, Message> = match typing {
         Some(text) => {
             let secondary_font =
