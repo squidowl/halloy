@@ -2175,6 +2175,15 @@ fn target(
                     }
                     (target::Target::Query(query), Some(user)) => {
                         let query = if user.nickname() == *our_nick {
+                            if query.as_normalized_str()
+                                == our_nick.as_normalized_str()
+                            {
+                                // Mass-message echo
+                                return Some(Target::Server {
+                                    source: source(user),
+                                });
+                            }
+
                             // Message from ourself, from another client.
                             query
                         } else {
