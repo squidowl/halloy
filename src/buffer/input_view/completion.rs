@@ -741,7 +741,7 @@ fn connected_command_list<'a>(
                 subcommands: None,
             }
         },
-        // Away
+        // AWAY
         {
             let max_len = match isupport.get(&isupport::Kind::AWAYLEN) {
                 Some(isupport::Parameter::AWAYLEN(len)) => Some(*len),
@@ -1093,6 +1093,14 @@ fn connected_command_list<'a>(
                 }],
                 subcommands: None,
             }
+        },
+        // INVITE
+        {
+            let default = current_target
+                .and_then(|target| target.as_channel())
+                .map(target::Channel::to_string);
+
+            invite_command(default)
         },
         // HOP
         {
@@ -1558,6 +1566,7 @@ impl Command {
             "connect" => Cow::Borrowed("Connect to server"),
             "reconnect" => Cow::Owned(format!("Reconnect to {server}")),
             "upload" => Cow::Borrowed("Upload a file to the server's filehost"),
+            "invite" => Cow::Borrowed("Invite user to channel"),
             _ => config
                 .buffer
                 .commands
@@ -2485,6 +2494,31 @@ fn detach_command(
             },
             tooltip: Some(channels_tooltip),
         }],
+        subcommands: None,
+    }
+}
+
+fn invite_command(default: Option<String>) -> Command {
+    Command {
+        title: "INVITE".into(),
+        args: vec![
+            Argument {
+                text: "nickname".into(),
+                kind: ArgumentKind::Required,
+                tooltip: None,
+            },
+            Argument {
+                text: "channel".into(),
+                kind: if default.is_some() {
+                    ArgumentKind::Optional { skipped: false }
+                } else {
+                    ArgumentKind::Required
+                },
+                tooltip: default.map(|default| {
+                    format!("may be omitted (default: {default})")
+                }),
+            },
+        ],
         subcommands: None,
     }
 }
