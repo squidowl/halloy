@@ -83,6 +83,7 @@ pub enum Irc {
     Ctcp(ctcp::Command, String, Option<String>),
     Chathistory(String, Vec<String>),
     Monitor(String, Option<String>),
+    Invite(String, String),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
@@ -228,6 +229,7 @@ pub enum Kind {
     Ctcp,
     Chathistory,
     Monitor,
+    Invite,
     Hop,
     Notice,
     Delay,
@@ -274,6 +276,7 @@ impl FromStr for Kind {
             "ctcp" => Ok(Kind::Ctcp),
             "chathistory" => Ok(Kind::Chathistory),
             "monitor" => Ok(Kind::Monitor),
+            "invite" => Ok(Kind::Invite),
             "hop" | "rejoin" => Ok(Kind::Hop),
             "delay" => Ok(Kind::Delay),
             "clear" => Ok(Kind::Clear),
@@ -1469,6 +1472,29 @@ fn parse_command(
                     })
                 }
             }
+            Kind::Invite => {
+                validated::<1, 1, true>(args, |[nickname], [channel]| {
+                    if let Some(channel) = channel {
+                        Ok(Command::Irc(Irc::Invite(nickname, channel)))
+                    } else if let Some(channel) = buffer
+                        .and_then(Upstream::target)
+                        .and_then(Target::to_channel)
+                    {
+                        Ok(Command::Irc(Irc::Invite(
+                            nickname,
+                            channel.to_string(),
+                        )))
+                    } else {
+                        // If not in a channel then a channel argument is
+                        // required
+                        Err(Error::IncorrectArgCount {
+                            min: 2,
+                            max: 2,
+                            actual: 0,
+                        })
+                    }
+                })
+            }
             Kind::Hop => {
                 validated::<0, 2, true>(args, |_, [channel, message]| {
                     Ok(Command::Internal(Internal::Hop(channel, message)))
@@ -1841,6 +1867,9 @@ impl TryFrom<Irc> for proto::Command {
             }
             Irc::Monitor(subcommand, targets) => {
                 proto::Command::MONITOR(subcommand, targets)
+            }
+            Irc::Invite(nickname, channel) => {
+                proto::Command::INVITE(nickname, channel)
             }
         })
     }
