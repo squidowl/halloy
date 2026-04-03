@@ -760,7 +760,8 @@ impl State {
                         }),
                         clients.get_server_is_connected(buffer.server()),
                         clients.get_isupport_ref(buffer.server()),
-                        clients.get_multiline_limits(buffer.server()).as_ref(),
+                        clients.get_capabilities_ref(buffer.server()),
+                        clients.get_server_supports_detach(buffer.server()),
                         clients.get_relay_bytes(buffer.server()),
                         config,
                     );
@@ -862,7 +863,8 @@ impl State {
                     }),
                     clients.get_server_is_connected(buffer.server()),
                     clients.get_isupport_ref(buffer.server()),
-                    clients.get_multiline_limits(buffer.server()).as_ref(),
+                    clients.get_capabilities_ref(buffer.server()),
+                    clients.get_server_supports_detach(buffer.server()),
                     clients.get_relay_bytes(buffer.server()),
                     config,
                 ) {
@@ -1415,8 +1417,6 @@ impl State {
                                 FilterChain::borrow(history.get_filters());
                             let is_connected = clients
                                 .get_server_is_connected(buffer.server());
-                            let supports_detach = clients
-                                .get_server_supports_detach(buffer.server());
                             let isupport =
                                 clients.get_isupport_ref(buffer.server());
                             let has_filehost = buffer.target().is_some()
@@ -1435,7 +1435,6 @@ impl State {
                                 current_target.as_ref(),
                                 buffer.server(),
                                 is_connected,
-                                supports_detach,
                                 isupport,
                                 has_filehost,
                                 config,
@@ -1498,8 +1497,10 @@ impl State {
         });
         let is_connected = clients.get_server_is_connected(buffer.server());
         let isupport = clients.get_isupport_ref(buffer.server());
+        let capabilities = clients.get_capabilities_ref(buffer.server());
+        let supports_detach =
+            clients.get_server_supports_detach(buffer.server());
         let relay_bytes = clients.get_relay_bytes(buffer.server());
-        let multiline_limits = clients.get_multiline_limits(buffer.server());
 
         if self.input_content.text().is_empty() {
             self.parsed = Vec::new();
@@ -1510,7 +1511,9 @@ impl State {
 
         self.parsed = input_lines(&text)
             .scan(None, |open_code_fence: &mut Option<CodeFence>, line| {
-                let line = if line.is_empty() && multiline_limits.is_none() {
+                let line = if line.is_empty()
+                    && !capabilities.contains_multiline_limits()
+                {
                     // Send a space to emulate an empty line
                     Cow::Owned(String::from(' '))
                 } else {
@@ -1526,7 +1529,8 @@ impl State {
                     in_channel,
                     is_connected,
                     isupport,
-                    multiline_limits.as_ref(),
+                    capabilities,
+                    supports_detach,
                     relay_bytes,
                     config,
                 );
@@ -2272,8 +2276,6 @@ impl State {
             let last_seen = history.get_last_seen(buffer);
             let filters = FilterChain::borrow(history.get_filters());
             let is_connected = clients.get_server_is_connected(buffer.server());
-            let supports_detach =
-                clients.get_server_supports_detach(buffer.server());
             let isupport = clients.get_isupport_ref(buffer.server());
             let has_filehost = buffer.target().is_some()
                 && clients.get_filehost(buffer.server()).is_some();
@@ -2289,7 +2291,6 @@ impl State {
                 current_target.as_ref(),
                 buffer.server(),
                 is_connected,
-                supports_detach,
                 isupport,
                 has_filehost,
                 config,
@@ -2587,7 +2588,8 @@ fn show_while_typing(error: &input::Error) -> bool {
             | command::Error::InvalidChathistoryMessageReference
             | command::Error::InvalidChathistoryTimestamp
             | command::Error::ChathistoryLimitTooLarge { .. }
-            | command::Error::ExecDisabled,
+            | command::Error::ExecDisabled
+            | command::Error::CommandNotAvailable { .. },
         ) => true,
         input::Error::Command(command::Error::IncorrectArgCount {
             actual,
