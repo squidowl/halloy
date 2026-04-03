@@ -36,6 +36,7 @@ pub enum Internal {
     /// - Part message
     Hop(Option<String>, Option<String>),
     ChannelDiscovery,
+    SearchResults(Option<String>),
     Delay(u64),
     SysInfo,
     Detach(Vec<target::Channel>),
@@ -77,6 +78,7 @@ pub enum Irc {
         value: Typing,
     },
     Raw(String),
+    Search(String),
     Unknown(String, Vec<String>),
     Ctcp(ctcp::Command, String, Option<String>),
     Chathistory(String, Vec<String>),
@@ -192,6 +194,18 @@ impl Irc {
                     supports_echoes.then_some(self.clone()),
                 )])
             }
+            Irc::Search(search_query) => {
+                let message_target = message::Target::SearchResults {
+                    target: None,
+                    source: message::Source::Server(None),
+                };
+
+                Some(vec![Message::sent(
+                    message_target,
+                    message::search_query_text(search_query)?,
+                    None,
+                )])
+            }
             _ => None,
         }
     }
@@ -233,6 +247,7 @@ pub enum Kind {
     Connect,
     Reconnect,
     Exec,
+    Search,
     Raw,
 }
 
@@ -276,6 +291,7 @@ impl FromStr for Kind {
             "connect" => Ok(Kind::Connect),
             "reconnect" => Ok(Kind::Reconnect),
             "exec" => Ok(Kind::Exec),
+            "search" => Ok(Kind::Search),
             _ => Err(()),
         }
     }
@@ -1522,6 +1538,9 @@ fn parse_command(
                     Ok(Command::Internal(Internal::Exec(command.to_string())))
                 }
             }
+            Kind::Search => validated::<0, 1, true>(args, |_, [text]| {
+                Ok(Command::Internal(Internal::SearchResults(text)))
+            }),
         },
         Err(()) => Ok(unknown()),
     }
@@ -1715,6 +1734,7 @@ impl TryFrom<Irc> for proto::Command {
             Irc::List(channels, elistcond) => {
                 proto::Command::LIST(channels, elistcond)
             }
+            Irc::Search(params) => proto::Command::SEARCH(params),
         })
     }
 }

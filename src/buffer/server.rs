@@ -25,6 +25,11 @@ pub enum Event {
     OpenInternalBuffer(buffer::Internal),
     OpenServer(String),
     Reconnect(data::server::Server),
+    OpenSearchResults {
+        server: data::Server,
+        target: Option<Target>,
+        text: Option<String>,
+    },
     LeaveBuffers(Vec<Target>, Option<String>),
     History(Task<history::manager::Message>),
     MarkAsRead(history::Kind),
@@ -335,6 +340,18 @@ impl Server {
                     Some(input_view::Event::Reconnect(server)) => {
                         (command, Some(Event::Reconnect(server)))
                     }
+                    Some(input_view::Event::OpenSearchResults {
+                        server,
+                        target,
+                        text,
+                    }) => (
+                        command,
+                        Some(Event::OpenSearchResults {
+                            server,
+                            target,
+                            text,
+                        }),
+                    ),
                     None => (command, None),
                 }
             }
