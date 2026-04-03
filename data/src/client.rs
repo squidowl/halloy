@@ -449,14 +449,17 @@ impl Client {
         if let MODE(target, _, _) = command {
             !self.is_channel(target)
         } else {
-            matches!(command, WHO(..) | WHOIS(..) | WHOWAS(..))
+            matches!(command, WHO(..) | WHOIS(..) | WHOWAS(..) | INVITE(..))
         }
     }
 
-    fn stop_reroute(&self, command: &Command) -> bool {
+    fn stop_reroute(&self, message: &message::Encoded) -> bool {
         use command::Numeric::*;
 
-        match &command {
+        match &message.command {
+            Command::INVITE(..) => message
+                .user(self.casemapping())
+                .is_some_and(|user| user.nickname() == self.nickname()),
             Command::Numeric(RPL_ENDOFWHO, args) => {
                 let mask = args.get(1).cloned().unwrap_or_default();
 
@@ -492,7 +495,7 @@ impl Client {
                 }
             }
             _ => matches!(
-                command,
+                &message.command,
                 Command::Numeric(
                     RPL_ENDOFWHOIS
                         | RPL_ENDOFWHOWAS
@@ -503,7 +506,12 @@ impl Client {
                         | ERR_NEEDMOREPARAMS
                         | ERR_USERSDONTMATCH
                         | RPL_UMODEIS
-                        | ERR_UMODEUNKNOWNFLAG,
+                        | ERR_UMODEUNKNOWNFLAG
+                        | RPL_INVITING
+                        | ERR_NOSUCHCHANNEL
+                        | ERR_NOTONCHANNEL
+                        | ERR_CHANOPRIVSNEEDED
+                        | ERR_USERONCHANNEL,
                     _
                 )
             ),
@@ -733,7 +741,7 @@ impl Client {
     ) -> Result<Vec<Event>> {
         log::trace!("[{}] Message received => {:?}", self.server, *message);
 
-        let stop_reroute = self.stop_reroute(&message.command);
+        let stop_reroute = self.stop_reroute(&message);
 
         let events = self.handle(message, None, config)?;
 
@@ -1038,7 +1046,7 @@ impl Client {
             _ if is_reaction(&message) => {
                 return Ok(vec![Event::Reaction(message)]);
             }
-            // Reroute whois, whowas, and user mode responses
+            // Reroute whois, whowas, mode, and invite responses
             Command::Numeric(
                 RPL_WHOISCERTFP | RPL_WHOISREGNICK | RPL_WHOISUSER
                 | RPL_WHOISSERVER | RPL_WHOISOPERATOR | RPL_WHOISIDLE
@@ -1048,7 +1056,8 @@ impl Client {
                 | RPL_ENDOFWHOWAS | RPL_UMODEIS | ERR_NOSUCHNICK
                 | ERR_NOSUCHSERVER | ERR_NONICKNAMEGIVEN | ERR_WASNOSUCHNICK
                 | ERR_NEEDMOREPARAMS | ERR_USERSDONTMATCH
-                | ERR_UMODEUNKNOWNFLAG,
+                | ERR_UMODEUNKNOWNFLAG | RPL_INVITING | ERR_NOSUCHCHANNEL
+                | ERR_NOTONCHANNEL | ERR_CHANOPRIVSNEEDED | ERR_USERONCHANNEL,
                 _,
             ) if self.reroute_responses_to.is_some() => {
                 if let Some(source) = self
@@ -1521,12 +1530,18 @@ impl Client {
                 let inviter = ok!(message.user(self.casemapping()));
                 let user_channels = self.user_channels(user.nickname());
 
-                return Ok(vec![Event::Broadcast(Broadcast::Invite {
-                    inviter,
-                    channel,
-                    user_channels,
-                    sent_time: message.server_time_or_now(),
-                })]);
+                if user.nickname() == self.nickname() {
+                    return Ok(vec![Event::Broadcast(Broadcast::Invite {
+                        inviter,
+                        channel,
+                        user_channels,
+                        sent_time: message.server_time_or_now(),
+                    })]);
+                } else if inviter.nickname() == self.nickname() {
+                    // Ignore since we should receive a RPL_INVITING for
+                    // invites sent by the user
+                    return Ok(vec![]);
+                }
             }
             Command::NICK(nick) => {
                 let old_user = ok!(message.user(self.casemapping()));
