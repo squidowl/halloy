@@ -18,7 +18,7 @@ use tokio::fs;
 pub use self::on_connect::on_connect;
 use crate::bouncer::{self, BouncerNetwork};
 use crate::capabilities::{
-    Capabilities, Capability, MultilineBatchKind, MultilineLimits,
+    self, Capabilities, Capability, MultilineBatchKind, MultilineLimits,
     multiline_concat_lines, multiline_encoded,
 };
 use crate::environment::{SOURCE_WEBSITE, VERSION};
@@ -2932,6 +2932,8 @@ impl Client {
                             self.config.clone(),
                             self.nickname(),
                             &self.isupport,
+                            &self.capabilities,
+                            self.supports_detach,
                             config,
                         ))))
                         .collect::<Vec<_>>();
@@ -4446,6 +4448,11 @@ impl Map {
             .map_or(&isupport::DEFAULT, |client| &client.isupport)
     }
 
+    pub fn get_capabilities_ref(&self, server: &Server) -> &Capabilities {
+        self.client(server)
+            .map_or(&capabilities::DEFAULT, |client| &client.capabilities)
+    }
+        
     pub fn get_filehost<'a>(&'a self, server: &Server) -> Option<&'a str> {
         let client = self.client(server)?;
 

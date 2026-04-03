@@ -9,7 +9,7 @@ use nom::multi::{many_m_n, many0_count, many1_count};
 use nom::{Finish, IResult, Parser};
 
 use crate::buffer::{self};
-use crate::capabilities::{MultilineBatchKind, MultilineLimits};
+use crate::capabilities::{Capabilities, MultilineBatchKind};
 use crate::config::buffer::text_input::AutoFormat;
 use crate::message::formatting;
 use crate::target::Target;
@@ -30,7 +30,8 @@ pub fn parse(
     in_channel: Option<bool>,
     is_connected: bool,
     isupport: &HashMap<isupport::Kind, isupport::Parameter>,
-    multiline_limits: Option<&MultilineLimits>,
+    capabilities: &Capabilities,
+    supports_detach: bool,
     relay_bytes: usize,
     config: &Config,
 ) -> Result<Parsed, Error> {
@@ -73,6 +74,8 @@ pub fn parse(
             auto_format,
             is_connected,
             isupport,
+            capabilities,
+            supports_detach,
             config,
         ) {
             Ok(Command::Internal(command)) => {
@@ -112,7 +115,7 @@ pub fn parse(
 
     let parsed = Parsed::Input(Input { buffer, content });
 
-    if let Some(multiline_limits) = multiline_limits
+    if let Some(multiline_limits) = capabilities.multiline_limits()
         && let Some((text, _)) = parsed
             .multiline_content(isupport::get_casemapping_or_default(isupport))
     {
@@ -473,9 +476,7 @@ pub enum Error {
 
 #[cfg(test)]
 mod test {
-    use std::collections::HashMap;
-
-    use crate::capabilities::MultilineLimits;
+    use crate::capabilities::Capabilities;
     use crate::config::buffer::text_input::AutoFormat;
     use crate::input::{CodeFence, Content, Input, Parsed, parse};
     use crate::user::Nick;
@@ -484,14 +485,16 @@ mod test {
     #[test]
     fn parsing() {
         let config = Config::default();
-        let isupport = HashMap::<isupport::Kind, isupport::Parameter>::new();
-        let multiline_limits = MultilineLimits {
-            max_bytes: 4096,
-            max_lines: Some(24),
-        };
+        let isupport = &isupport::DEFAULT;
+        let mut capabilities = Capabilities::default();
+        capabilities.acknowledge(
+            [String::from("draft/multiline=max-bytes=4096,max-lines=24")]
+                .into_iter(),
+        );
+
         let nick = Nick::from_str(
             "tester",
-            isupport::get_casemapping_or_default(&isupport),
+            isupport::get_casemapping_or_default(isupport),
         );
         let buffer = buffer::Upstream::Channel(
             Server {
@@ -500,8 +503,8 @@ mod test {
             },
             target::Channel::from_str(
                 "##chat",
-                isupport::get_chantypes_or_default(&isupport),
-                isupport::get_casemapping_or_default(&isupport),
+                isupport::get_chantypes_or_default(isupport),
+                isupport::get_casemapping_or_default(isupport),
             ),
         );
         let tests = [
@@ -633,8 +636,9 @@ mod test {
                 Some(nick.as_nickref()),
                 Some(true),
                 true,
-                &isupport,
-                Some(&multiline_limits),
+                isupport,
+                &capabilities,
+                false,
                 128,
                 &config,
             );

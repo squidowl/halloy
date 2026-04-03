@@ -9,6 +9,7 @@ use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
 use crate::buffer::{self, Upstream};
+use crate::capabilities::{Capabilities, Capability};
 use crate::config::buffer::text_input::AutoFormat;
 use crate::isupport::{self, find_target_limit};
 use crate::message::{self, formatting};
@@ -296,6 +297,8 @@ pub fn parse(
     auto_format: AutoFormat,
     is_connected: bool,
     isupport: &HashMap<isupport::Kind, isupport::Parameter>,
+    capabilities: &Capabilities,
+    supports_detach: bool,
     config: &Config,
 ) -> Result<Command, Error> {
     let parsed = parse_input(s)?;
@@ -316,6 +319,8 @@ pub fn parse(
         auto_format,
         is_connected,
         isupport,
+        capabilities,
+        supports_detach,
         config,
     )
 }
@@ -348,6 +353,8 @@ fn parse_command(
     auto_format: AutoFormat,
     is_connected: bool,
     isupport: &HashMap<isupport::Kind, isupport::Parameter>,
+    capabilities: &Capabilities,
+    supports_detach: bool,
     config: &Config,
 ) -> Result<Command, Error> {
     let unknown = || {
@@ -956,23 +963,32 @@ fn parse_command(
 
                 Ok(Command::Irc(Irc::Away(comment)))
             }),
-            Kind::SetName => validated::<1, 0, true>(args, |[realname], _| {
+            Kind::SetName => {
                 if let Some(isupport::Parameter::NAMELEN(max_len)) =
                     isupport.get(&isupport::Kind::NAMELEN)
                 {
-                    let max_len = *max_len as usize;
+                    validated::<1, 0, true>(args, |[realname], _| {
+                        let max_len = *max_len as usize;
 
-                    if realname.len() > max_len {
-                        return Err(Error::ArgTooLong {
-                            name: "realname",
-                            len: realname.len(),
-                            max_len,
-                        });
-                    }
+                        if realname.len() > max_len {
+                            return Err(Error::ArgTooLong {
+                                name: "realname",
+                                len: realname.len(),
+                                max_len,
+                            });
+                        }
+
+                        Ok(Command::Irc(Irc::SetName(realname)))
+                    })
+                } else {
+                    Err(Error::CommandNotAvailable {
+                        command: "setname",
+                        context: buffer.map_or(String::new(), |buffer| {
+                            format!(" on {}", buffer.server())
+                        }),
+                    })
                 }
-
-                Ok(Command::Irc(Irc::SetName(realname)))
-            }),
+            }
             Kind::Notice | Kind::FormatNotice | Kind::PlainNotice => {
                 validated::<1, 1, true>(args, |[targets], [msg]| {
                     let target_limit = find_target_limit(isupport, "NOTICE")
@@ -1118,6 +1134,15 @@ fn parse_command(
                 )
             }
             Kind::Chathistory => {
+                if !capabilities.acknowledged(Capability::Chathistory) {
+                    return Err(Error::CommandNotAvailable {
+                        command: "chathistory",
+                        context: buffer.map_or(String::new(), |buffer| {
+                            format!(" on {}", buffer.server())
+                        }),
+                    });
+                }
+
                 validated::<1, 4, false>(args, |[subcommand], params| {
                     let maximum_limit = if let Some(
                         isupport::Parameter::CHATHISTORY(maximum_limit),
@@ -1376,63 +1401,73 @@ fn parse_command(
                 })
             }
             Kind::Monitor => {
-                validated::<1, 1, false>(args, |[subcommand], [targets]| {
-                    let limit =
-                        if let Some(isupport::Parameter::MONITOR(limit)) =
-                            isupport.get(&isupport::Kind::MONITOR)
-                        {
-                            limit.map(|limit| limit as usize)
-                        } else {
-                            None
-                        };
+                if let Some(isupport::Parameter::MONITOR(target_limit)) =
+                    isupport.get(&isupport::Kind::MONITOR)
+                {
+                    validated::<1, 1, false>(args, |[subcommand], [targets]| {
+                        let target_limit = target_limit
+                            .map(|target_limit| target_limit as usize);
 
-                    let subcommand = subcommand.to_uppercase();
+                        let subcommand = subcommand.to_uppercase();
 
-                    match subcommand.as_str() {
-                        "+" | "-" => {
-                            if let Some(targets) = targets {
-                                if let Some(limit) = limit {
-                                    let targets =
-                                        targets.split(',').collect::<Vec<_>>();
+                        match subcommand.as_str() {
+                            "+" | "-" => {
+                                if let Some(targets) = targets {
+                                    if let Some(target_limit) = target_limit {
+                                        let targets = targets
+                                            .split(',')
+                                            .collect::<Vec<_>>();
 
-                                    if targets.len() > limit {
-                                        return Err(Error::TooManyTargets {
-                                            name: "targets",
-                                            number: targets.len(),
-                                            max_number: limit,
-                                        });
+                                        if targets.len() > target_limit {
+                                            return Err(
+                                                Error::TooManyTargets {
+                                                    name: "targets",
+                                                    number: targets.len(),
+                                                    max_number: target_limit,
+                                                },
+                                            );
+                                        }
                                     }
-                                }
 
-                                Ok(Command::Irc(Irc::Monitor(
-                                    subcommand,
-                                    Some(targets),
-                                )))
-                            } else {
-                                Err(Error::IncorrectArgCount {
-                                    min: 2,
-                                    max: 2,
-                                    actual: 1,
-                                })
+                                    Ok(Command::Irc(Irc::Monitor(
+                                        subcommand,
+                                        Some(targets),
+                                    )))
+                                } else {
+                                    Err(Error::IncorrectArgCount {
+                                        min: 2,
+                                        max: 2,
+                                        actual: 1,
+                                    })
+                                }
                             }
-                        }
-                        "C" | "L" | "S" => {
-                            if targets.is_none() {
-                                Ok(Command::Irc(Irc::Monitor(subcommand, None)))
-                            } else {
-                                Err(Error::IncorrectArgCount {
-                                    min: 1,
-                                    max: 1,
-                                    actual: 2,
-                                })
+                            "C" | "L" | "S" => {
+                                if targets.is_none() {
+                                    Ok(Command::Irc(Irc::Monitor(
+                                        subcommand, None,
+                                    )))
+                                } else {
+                                    Err(Error::IncorrectArgCount {
+                                        min: 1,
+                                        max: 1,
+                                        actual: 2,
+                                    })
+                                }
                             }
+                            _ => Err(Error::InvalidSubcommand {
+                                command: "monitor",
+                                is_partial_valid: false,
+                            }),
                         }
-                        _ => Err(Error::InvalidSubcommand {
-                            command: "monitor",
-                            is_partial_valid: false,
+                    })
+                } else {
+                    Err(Error::CommandNotAvailable {
+                        command: "monitor",
+                        context: buffer.map_or(String::new(), |buffer| {
+                            format!(" on {}", buffer.server())
                         }),
-                    }
-                })
+                    })
+                }
             }
             Kind::Hop => {
                 validated::<0, 2, true>(args, |_, [channel, message]| {
@@ -1449,6 +1484,15 @@ fn parse_command(
                 Ok(Command::Internal(Internal::SysInfo))
             }),
             Kind::Detach => {
+                if !supports_detach {
+                    return Err(Error::CommandNotAvailable {
+                        command: "detach",
+                        context: buffer.map_or(String::new(), |buffer| {
+                            format!(" on {}", buffer.server())
+                        }),
+                    });
+                }
+
                 validated::<0, 1, false>(args, |_, [target_list]| {
                     let channels = if let Some(target_list) = target_list {
                         let casemapping =
@@ -1885,6 +1929,11 @@ pub enum Error {
     ChathistoryLimitTooLarge { maximum_limit: u16 },
     #[error("exec is not enabled by the user")]
     ExecDisabled,
+    #[error("/{command} is not available{context}")]
+    CommandNotAvailable {
+        command: &'static str,
+        context: String,
+    },
 }
 
 fn fmt_incorrect_arg_count(min: usize, max: usize, actual: usize) -> String {
@@ -1925,10 +1974,9 @@ fn fmt_channel_name_requirements(chantypes: &[char]) -> String {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
-
-    use super::{AutoFormat, Command, Error, Internal, parse};
+    use super::{AutoFormat, Command, Error, Internal, isupport, parse};
     use crate::Config;
+    use crate::capabilities::Capabilities;
 
     #[test]
     fn parse_exec_preserves_raw_command() {
@@ -1941,7 +1989,9 @@ mod tests {
             None,
             AutoFormat::default(),
             true,
-            &HashMap::new(),
+            &isupport::DEFAULT,
+            &Capabilities::default(),
+            false,
             &config,
         )
         .unwrap();
@@ -1964,7 +2014,9 @@ mod tests {
             None,
             AutoFormat::default(),
             true,
-            &HashMap::new(),
+            &isupport::DEFAULT,
+            &Capabilities::default(),
+            false,
             &config,
         )
         .unwrap_err();
@@ -1990,7 +2042,9 @@ mod tests {
             None,
             AutoFormat::default(),
             true,
-            &HashMap::new(),
+            &isupport::DEFAULT,
+            &Capabilities::default(),
+            false,
             &config,
         )
         .unwrap_err();
