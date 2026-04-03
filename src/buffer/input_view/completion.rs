@@ -54,7 +54,6 @@ impl Completion {
         current_target: Option<&Target>,
         server: &Server,
         is_connected: bool,
-        supports_detach: bool,
         isupport: &HashMap<isupport::Kind, isupport::Parameter>,
         has_filehost: bool,
         config: &Config,
@@ -70,7 +69,6 @@ impl Completion {
                 current_target,
                 server,
                 is_connected,
-                supports_detach,
                 isupport,
                 has_filehost,
                 config,
@@ -325,7 +323,6 @@ impl Commands {
         current_target: Option<&Target>,
         server: &Server,
         is_connected: bool,
-        supports_detach: bool,
         isupport: &HashMap<isupport::Kind, isupport::Parameter>,
         has_filehost: bool,
         config: &Config,
@@ -356,7 +353,6 @@ impl Commands {
                 our_nickname,
                 channels,
                 current_target,
-                supports_detach,
                 isupport,
                 has_filehost && config.filehost.enabled,
             )
@@ -715,12 +711,12 @@ fn connected_command_list<'a>(
     our_nickname: Option<NickRef>,
     channels: impl IntoIterator<Item = &'a target::Channel>,
     current_target: Option<&Target>,
-    supports_detach: bool,
     isupport: &HashMap<isupport::Kind, isupport::Parameter>,
     has_filehost: bool,
 ) -> Vec<Command> {
     let channels: Vec<_> = channels.into_iter().collect();
-    let mut command_list = vec![
+
+    vec![
         // MOTD
         {
             Command {
@@ -1227,41 +1223,124 @@ fn connected_command_list<'a>(
                 subcommands: None,
             }
         },
-    ];
+        // CHATHISTORY
+        {
+            let maximum_limit = match isupport.get(&isupport::Kind::CHATHISTORY)
+            {
+                Some(isupport::Parameter::CHATHISTORY(maximum_limit)) => {
+                    Some(*maximum_limit)
+                }
+                _ => None,
+            };
 
-    if supports_detach {
-        let default = current_target
-            .and_then(|target| target.as_channel())
-            .map(target::Channel::to_string);
+            chathistory_command(maximum_limit)
+        },
+        // MONITOR
+        {
+            let target_limit = match isupport.get(&isupport::Kind::MONITOR) {
+                Some(isupport::Parameter::MONITOR(target_limit)) => {
+                    *target_limit
+                }
+                _ => None,
+            };
 
-        let channel_len = match isupport.get(&isupport::Kind::CHANNELLEN) {
-            Some(isupport::Parameter::CHANNELLEN(len)) => Some(*len),
-            _ => None,
-        };
+            monitor_command(target_limit)
+        },
+        // SETNAME
+        {
+            let max_len = match isupport.get(&isupport::Kind::NAMELEN) {
+                Some(isupport::Parameter::NAMELEN(max_len)) => Some(*max_len),
+                _ => None,
+            };
 
-        command_list.push(detach_command(default, channel_len));
-    }
+            setname_command(max_len)
+        },
+        // DETACH
+        {
+            let default = current_target
+                .and_then(|target| target.as_channel())
+                .map(target::Channel::to_string);
 
-    let isupport_commands = isupport
-        .iter()
-        .filter_map(|(_, isupport_parameter)| match isupport_parameter {
-            isupport::Parameter::CHATHISTORY(maximum_limit) => {
-                Some(chathistory_command(maximum_limit))
-            }
-            isupport::Parameter::MONITOR(target_limit) => {
-                Some(monitor_command(target_limit))
-            }
-            isupport::Parameter::NAMELEN(max_len) => {
-                Some(setname_command(max_len))
-            }
-            _ => isupport_parameter_to_command(isupport_parameter),
-        })
-        .collect::<Vec<Command>>();
+            let channel_len = match isupport.get(&isupport::Kind::CHANNELLEN) {
+                Some(isupport::Parameter::CHANNELLEN(len)) => Some(*len),
+                _ => None,
+            };
 
-    command_list.extend(isupport_commands);
-
-    if has_filehost {
-        command_list.push(Command {
+            detach_command(default, channel_len)
+        },
+        // CPRIVMSG
+        Command {
+            title: "CPRIVMSG".into(),
+            args: vec![
+                Argument {
+                    text: "nickname".into(),
+                    kind: ArgumentKind::Required,
+                    tooltip: None,
+                },
+                Argument {
+                    text: "channel".into(),
+                    kind: ArgumentKind::Required,
+                    tooltip: None,
+                },
+                Argument {
+                    text: "message".into(),
+                    kind: ArgumentKind::Required,
+                    tooltip: None,
+                },
+            ],
+            subcommands: None,
+        },
+        // CNOTICE
+        Command {
+            title: "CNOTICE".into(),
+            args: vec![
+                Argument {
+                    text: "nickname".into(),
+                    kind: ArgumentKind::Required,
+                    tooltip: None,
+                },
+                Argument {
+                    text: "channel".into(),
+                    kind: ArgumentKind::Required,
+                    tooltip: None,
+                },
+                Argument {
+                    text: "message".into(),
+                    kind: ArgumentKind::Required,
+                    tooltip: None,
+                },
+            ],
+            subcommands: None,
+        },
+        // KNOCK
+        Command {
+            title: "KNOCK".into(),
+            args: vec![
+                Argument {
+                    text: "channel".into(),
+                    kind: ArgumentKind::Required,
+                    tooltip: None,
+                },
+                Argument {
+                    text: "message".into(),
+                    kind: ArgumentKind::Optional { skipped: false },
+                    tooltip: None,
+                },
+            ],
+            subcommands: None,
+        },
+        // USERIP
+        Command {
+            title: "USERIP".into(),
+            args: vec![Argument {
+                text: "nickname".into(),
+                kind: ArgumentKind::Required,
+                tooltip: None,
+            }],
+            subcommands: None,
+        },
+        // UPLOAD
+        Command {
             title: "UPLOAD".into(),
             args: vec![Argument {
                 text: "file".into(),
@@ -1269,10 +1348,8 @@ fn connected_command_list<'a>(
                 tooltip: Some("Path to a file".to_string()),
             }],
             subcommands: None,
-        });
-    }
-
-    command_list
+        }
+    ]
 }
 
 fn disconnected_command_list(server: &Server) -> Vec<Command> {
@@ -1507,6 +1584,7 @@ impl Command {
             "plain" => vec!["p"],
             "hop" => vec!["rejoin"],
             "clear" => vec![],
+            "cleartopic" => vec!["ct"],
             "sysinfo" => vec![],
             _ => vec![],
         }
@@ -2056,18 +2134,6 @@ impl Text {
     }
 }
 
-fn isupport_parameter_to_command(
-    isupport_parameter: &isupport::Parameter,
-) -> Option<Command> {
-    match isupport_parameter {
-        isupport::Parameter::KNOCK => Some(KNOCK_COMMAND.clone()),
-        isupport::Parameter::USERIP => Some(USERIP_COMMAND.clone()),
-        isupport::Parameter::CNOTICE => Some(CNOTICE_COMMAND.clone()),
-        isupport::Parameter::CPRIVMSG => Some(CPRIVMSG_COMMAND.clone()),
-        _ => None,
-    }
-}
-
 fn away_command(max_len: Option<u16>) -> Command {
     let tooltip = max_len.map(|max_len| format!("maximum length: {max_len}"));
 
@@ -2150,7 +2216,7 @@ fn ctcp_version_command() -> Command {
     }
 }
 
-fn chathistory_command(maximum_limit: &u16) -> Command {
+fn chathistory_command(maximum_limit: Option<u16>) -> Command {
     Command {
         title: "CHATHISTORY".into(),
         args: vec![Argument {
@@ -2176,12 +2242,14 @@ fn chathistory_command(maximum_limit: &u16) -> Command {
     }
 }
 
-fn chathistory_after_command(maximum_limit: &u16) -> Command {
-    let limit_tooltip = if *maximum_limit == 1 {
-        String::from("up to 1 message")
-    } else {
-        format!("up to {maximum_limit} messages")
-    };
+fn chathistory_after_command(maximum_limit: Option<u16>) -> Command {
+    let limit_tooltip = maximum_limit.map(|maximum_limit| {
+        if maximum_limit == 1 {
+            String::from("up to 1 message")
+        } else {
+            format!("up to {maximum_limit} messages")
+        }
+    });
 
     Command {
         title: "CHATHISTORY AFTER".into(),
@@ -2201,19 +2269,21 @@ fn chathistory_after_command(maximum_limit: &u16) -> Command {
             Argument {
                 text: "limit".into(),
                 kind: ArgumentKind::Required,
-                tooltip: Some(limit_tooltip),
+                tooltip: limit_tooltip,
             },
         ],
         subcommands: None,
     }
 }
 
-fn chathistory_around_command(maximum_limit: &u16) -> Command {
-    let limit_tooltip = if *maximum_limit == 1 {
-        String::from("up to 1 message")
-    } else {
-        format!("up to {maximum_limit} messages")
-    };
+fn chathistory_around_command(maximum_limit: Option<u16>) -> Command {
+    let limit_tooltip = maximum_limit.map(|maximum_limit| {
+        if maximum_limit == 1 {
+            String::from("up to 1 message")
+        } else {
+            format!("up to {maximum_limit} messages")
+        }
+    });
 
     Command {
         title: "CHATHISTORY AROUND".into(),
@@ -2233,19 +2303,21 @@ fn chathistory_around_command(maximum_limit: &u16) -> Command {
             Argument {
                 text: "limit".into(),
                 kind: ArgumentKind::Required,
-                tooltip: Some(limit_tooltip),
+                tooltip: limit_tooltip,
             },
         ],
         subcommands: None,
     }
 }
 
-fn chathistory_before_command(maximum_limit: &u16) -> Command {
-    let limit_tooltip = if *maximum_limit == 1 {
-        String::from("up to 1 message")
-    } else {
-        format!("up to {maximum_limit} messages")
-    };
+fn chathistory_before_command(maximum_limit: Option<u16>) -> Command {
+    let limit_tooltip = maximum_limit.map(|maximum_limit| {
+        if maximum_limit == 1 {
+            String::from("up to 1 message")
+        } else {
+            format!("up to {maximum_limit} messages")
+        }
+    });
 
     Command {
         title: "CHATHISTORY BEFORE".into(),
@@ -2265,19 +2337,21 @@ fn chathistory_before_command(maximum_limit: &u16) -> Command {
             Argument {
                 text: "limit".into(),
                 kind: ArgumentKind::Required,
-                tooltip: Some(limit_tooltip),
+                tooltip: limit_tooltip,
             },
         ],
         subcommands: None,
     }
 }
 
-fn chathistory_between_command(maximum_limit: &u16) -> Command {
-    let limit_tooltip = if *maximum_limit == 1 {
-        String::from("up to 1 message")
-    } else {
-        format!("up to {maximum_limit} messages")
-    };
+fn chathistory_between_command(maximum_limit: Option<u16>) -> Command {
+    let limit_tooltip = maximum_limit.map(|maximum_limit| {
+        if maximum_limit == 1 {
+            String::from("up to 1 message")
+        } else {
+            format!("up to {maximum_limit} messages")
+        }
+    });
 
     Command {
         title: "CHATHISTORY BETWEEN".into(),
@@ -2304,19 +2378,21 @@ fn chathistory_between_command(maximum_limit: &u16) -> Command {
             Argument {
                 text: "limit".into(),
                 kind: ArgumentKind::Required,
-                tooltip: Some(limit_tooltip),
+                tooltip: limit_tooltip,
             },
         ],
         subcommands: None,
     }
 }
 
-fn chathistory_latest_command(maximum_limit: &u16) -> Command {
-    let limit_tooltip = if *maximum_limit == 1 {
-        String::from("up to 1 message")
-    } else {
-        format!("up to {maximum_limit} messages")
-    };
+fn chathistory_latest_command(maximum_limit: Option<u16>) -> Command {
+    let limit_tooltip = maximum_limit.map(|maximum_limit| {
+        if maximum_limit == 1 {
+            String::from("up to 1 message")
+        } else {
+            format!("up to {maximum_limit} messages")
+        }
+    });
 
     Command {
         title: "CHATHISTORY LATEST".into(),
@@ -2337,19 +2413,21 @@ fn chathistory_latest_command(maximum_limit: &u16) -> Command {
             Argument {
                 text: "limit".into(),
                 kind: ArgumentKind::Required,
-                tooltip: Some(limit_tooltip),
+                tooltip: limit_tooltip,
             },
         ],
         subcommands: None,
     }
 }
 
-fn chathistory_targets_command(maximum_limit: &u16) -> Command {
-    let limit_tooltip = if *maximum_limit == 1 {
-        String::from("up to 1 target")
-    } else {
-        format!("up to {maximum_limit} targets")
-    };
+fn chathistory_targets_command(maximum_limit: Option<u16>) -> Command {
+    let limit_tooltip = maximum_limit.map(|maximum_limit| {
+        if maximum_limit == 1 {
+            String::from("up to 1 target")
+        } else {
+            format!("up to {maximum_limit} targets")
+        }
+    });
 
     Command {
         title: "CHATHISTORY TARGETS".into(),
@@ -2371,56 +2449,12 @@ fn chathistory_targets_command(maximum_limit: &u16) -> Command {
             Argument {
                 text: "limit".into(),
                 kind: ArgumentKind::Required,
-                tooltip: Some(limit_tooltip),
+                tooltip: limit_tooltip,
             },
         ],
         subcommands: None,
     }
 }
-
-static CNOTICE_COMMAND: LazyLock<Command> = LazyLock::new(|| Command {
-    title: "CNOTICE".into(),
-    args: vec![
-        Argument {
-            text: "nickname".into(),
-            kind: ArgumentKind::Required,
-            tooltip: None,
-        },
-        Argument {
-            text: "channel".into(),
-            kind: ArgumentKind::Required,
-            tooltip: None,
-        },
-        Argument {
-            text: "message".into(),
-            kind: ArgumentKind::Required,
-            tooltip: None,
-        },
-    ],
-    subcommands: None,
-});
-
-static CPRIVMSG_COMMAND: LazyLock<Command> = LazyLock::new(|| Command {
-    title: "CPRIVMSG".into(),
-    args: vec![
-        Argument {
-            text: "nickname".into(),
-            kind: ArgumentKind::Required,
-            tooltip: None,
-        },
-        Argument {
-            text: "channel".into(),
-            kind: ArgumentKind::Required,
-            tooltip: None,
-        },
-        Argument {
-            text: "message".into(),
-            kind: ArgumentKind::Required,
-            tooltip: None,
-        },
-    ],
-    subcommands: None,
-});
 
 fn detach_command(
     default: Option<String>,
@@ -2572,24 +2606,7 @@ fn kick_command(
     }
 }
 
-static KNOCK_COMMAND: LazyLock<Command> = LazyLock::new(|| Command {
-    title: "KNOCK".into(),
-    args: vec![
-        Argument {
-            text: "channel".into(),
-            kind: ArgumentKind::Required,
-            tooltip: None,
-        },
-        Argument {
-            text: "message".into(),
-            kind: ArgumentKind::Optional { skipped: false },
-            tooltip: None,
-        },
-    ],
-    subcommands: None,
-});
-
-fn monitor_command(target_limit: &Option<u16>) -> Command {
+fn monitor_command(target_limit: Option<u16>) -> Command {
     Command {
         title: "MONITOR".into(),
         args: vec![Argument {
@@ -2613,13 +2630,13 @@ fn monitor_command(target_limit: &Option<u16>) -> Command {
     }
 }
 
-fn monitor_add_command(target_limit: &Option<u16>) -> Command {
+fn monitor_add_command(target_limit: Option<u16>) -> Command {
     let mut targets_tooltip = String::from("comma-separated users");
 
     if let Some(target_limit) = target_limit {
         targets_tooltip
             .push_str(format!("\nup to {target_limit} target").as_str());
-        if *target_limit != 1 {
+        if target_limit != 1 {
             targets_tooltip.push('s');
         }
         targets_tooltip.push_str(" in total");
@@ -2983,13 +3000,14 @@ fn part_command(default: Option<String>, max_len: Option<u16>) -> Command {
     }
 }
 
-fn setname_command(max_len: &u16) -> Command {
+fn setname_command(max_len: Option<u16>) -> Command {
     Command {
         title: "SETNAME".into(),
         args: vec![Argument {
             text: "realname".into(),
             kind: ArgumentKind::Required,
-            tooltip: Some(format!("maximum length: {max_len}")),
+            tooltip: max_len
+                .map(|max_len| format!("maximum length: {max_len}")),
         }],
         subcommands: None,
     }
@@ -3026,16 +3044,6 @@ fn topic_command(default: Option<String>, max_len: Option<u16>) -> Command {
         subcommands: None,
     }
 }
-
-static USERIP_COMMAND: LazyLock<Command> = LazyLock::new(|| Command {
-    title: "USERIP".into(),
-    args: vec![Argument {
-        text: "nickname".into(),
-        kind: ArgumentKind::Required,
-        tooltip: None,
-    }],
-    subcommands: None,
-});
 
 fn whox_command() -> Command {
     Command {
