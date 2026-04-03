@@ -1461,6 +1461,7 @@ impl Client {
                         }
                     }
 
+                    let user_query = target::Query::from(&user);
                     let direct_message = self
                         .message_query_target(&message.command)
                         .as_ref()
@@ -1468,17 +1469,30 @@ impl Client {
                             query.as_normalized_str()
                                 == self.nickname().as_normalized_str()
                         });
+                    let server_config = config.servers.get(&self.server);
+                    let rerouted_private = direct_message
+                        && server_config.as_ref().is_some_and(|config| {
+                            config
+                                .reroute
+                                .private_messages
+                                .has_reroute_rule_for_query(
+                                    &user_query,
+                                    self.chantypes(),
+                                    self.statusmsg(),
+                                    self.casemapping(),
+                                )
+                        });
 
                     if let Some(channel) =
                         self.message_channel_target(&message.command)
                     {
                         self.clear_channel_typing(&channel, user.nickname());
                     } else if direct_message {
-                        self.clear_query_typing(&target::Query::from(&user));
+                        self.clear_query_typing(&user_query);
                     }
 
                     if direct_message {
-                        self.record_query(&target::Query::from(&user));
+                        self.record_query(&user_query);
                     }
 
                     let event = Event::PrivOrNotice(
@@ -1490,7 +1504,10 @@ impl Client {
                     // Event::DirectMessage is currently only used to send a
                     // notification, so only return the event it notifications
                     // are allowed.
-                    if direct_message && self.notification_blackout.allowed() {
+                    if direct_message
+                        && self.notification_blackout.allowed()
+                        && !rerouted_private
+                    {
                         return Ok(vec![
                             event,
                             Event::DirectMessage(
@@ -4445,13 +4462,14 @@ impl Map {
             .unwrap_or_default()
     }
 
-    pub fn get_casemapping(&self, server: &Server) -> isupport::CaseMap {
-        self.client(server)
-            .map(Client::casemapping)
-            .unwrap_or_default()
+    pub fn get_server_casemapping_or_default(
+        &self,
+        server: &Server,
+    ) -> isupport::CaseMap {
+        self.get_maybe_server_casemapping_or_default(Some(server))
     }
 
-    pub fn get_casemapping_or_default(
+    pub fn get_maybe_server_casemapping_or_default(
         &self,
         server: Option<&Server>,
     ) -> isupport::CaseMap {
@@ -4460,7 +4478,7 @@ impl Map {
             .unwrap_or_default()
     }
 
-    pub fn get_chanmodes<'a>(
+    pub fn get_server_chanmodes_or_default<'a>(
         &'a self,
         server: &Server,
     ) -> &'a [isupport::ModeKind] {
@@ -4469,32 +4487,43 @@ impl Map {
             .unwrap_or_default()
     }
 
-    pub fn get_chantypes<'a>(&'a self, server: &Server) -> &'a [char] {
-        self.client(server)
-            .map(Client::chantypes)
-            .unwrap_or_default()
+    pub fn get_server_chantypes_or_default<'a>(
+        &'a self,
+        server: &Server,
+    ) -> &'a [char] {
+        self.get_maybe_server_chantypes_or_default(Some(server))
     }
 
-    pub fn get_chantypes_or_default<'a>(
+    pub fn get_maybe_server_chantypes_or_default<'a>(
         &'a self,
         server: Option<&Server>,
     ) -> &'a [char] {
         server
             .and_then(|server| self.client(server).map(Client::chantypes))
-            .unwrap_or_default()
+            .unwrap_or(proto::DEFAULT_CHANNEL_PREFIXES)
     }
 
-    pub fn get_prefix<'a>(
+    pub fn get_server_prefix_or_default<'a>(
         &'a self,
         server: &Server,
     ) -> &'a [isupport::PrefixMap] {
         self.client(server).map(Client::prefix).unwrap_or_default()
     }
 
-    pub fn get_statusmsg<'a>(&'a self, server: &Server) -> &'a [char] {
-        self.client(server)
-            .map(Client::statusmsg)
-            .unwrap_or_default()
+    pub fn get_server_statusmsg_or_default<'a>(
+        &'a self,
+        server: &Server,
+    ) -> &'a [char] {
+        self.get_maybe_server_statusmsg_or_default(Some(server))
+    }
+
+    pub fn get_maybe_server_statusmsg_or_default<'a>(
+        &'a self,
+        server: Option<&Server>,
+    ) -> &'a [char] {
+        server
+            .and_then(|server| self.client(server).map(Client::statusmsg))
+            .unwrap_or(proto::DEFAULT_CHANNEL_MEMBERSHIP_PREFIXES)
     }
 
     // The default value is chosen to be a reasonable, conservative

@@ -9,6 +9,7 @@ use itertools::Itertools;
 use tokio::time::Instant;
 
 use super::filter::{Filter, FilterChain};
+use super::reroute::RerouteRules;
 use crate::history::{self, History, MessageReferences, ReadMarker};
 use crate::message::broadcast::{self, Broadcast};
 use crate::message::{self, Limit};
@@ -66,6 +67,7 @@ pub enum Event {
 pub struct Manager {
     resources: HashSet<Resource>,
     filters: Vec<Filter>,
+    reroute_rules: RerouteRules,
     data: Data,
     last_draft_changed: Option<tokio::time::Instant>,
 }
@@ -227,6 +229,14 @@ impl Manager {
 
     pub fn filters(&self) -> &[Filter] {
         &self.filters
+    }
+
+    pub fn get_reroute_rules_mut(&mut self) -> &mut RerouteRules {
+        &mut self.reroute_rules
+    }
+
+    pub fn get_reroute_rules(&self) -> &RerouteRules {
+        &self.reroute_rules
     }
 
     pub fn tick(
@@ -509,8 +519,19 @@ impl Manager {
         target: Target,
         server_time: DateTime<Utc>,
     ) -> Option<MessageReferences> {
-        self.data
-            .last_can_reference_before(server, target, server_time)
+        let reroute_target = match &target {
+            Target::Channel(_) => None,
+            Target::Query(query) => {
+                self.reroute_rules.history_kind_for_query(query, &server)
+            }
+        };
+
+        self.data.last_can_reference_before(
+            server,
+            target,
+            server_time,
+            reroute_target,
+        )
     }
 
     pub fn mark_as_read(&mut self, kind: &history::Kind) -> Option<ReadMarker> {
@@ -552,7 +573,10 @@ impl Manager {
                 history::Kind::Query(s, query) => (s == server
                     && self.filters.iter().all(|filter| {
                         filter.match_query(query, server) == false
-                    }))
+                    })
+                    && !self
+                        .reroute_rules
+                        .has_reroute_rule_for_query(query, server))
                 .then_some(query),
                 _ => None,
             })
@@ -952,8 +976,8 @@ impl Manager {
                             None
                         };
 
-                        let casemapping =
-                            clients.get_casemapping_or_default(server);
+                        let casemapping = clients
+                            .get_maybe_server_casemapping_or_default(server);
 
                         // Check if target is included/excluded.
                         let target_ref = match &message.target {
@@ -1626,12 +1650,22 @@ impl Data {
         server: Server,
         target: Target,
         server_time: DateTime<Utc>,
+        reroute_target: Option<history::Kind>,
     ) -> Option<MessageReferences> {
+        let reroute_reference = reroute_target
+            .and_then(|kind| self.map.get(&kind))
+            .and_then(|history| {
+                history.last_can_reference_before(server_time, Some(&target))
+            });
+
         let kind = history::Kind::from_target(server, target);
 
         self.map
             .get(&kind)
-            .and_then(|history| history.last_can_reference_before(server_time))
+            .and_then(|history| {
+                history.last_can_reference_before(server_time, None)
+            })
+            .max(reroute_reference)
     }
 
     fn mark_as_read(&mut self, kind: &history::Kind) -> Option<ReadMarker> {

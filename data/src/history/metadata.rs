@@ -10,6 +10,7 @@ use tokio::fs;
 use crate::Message;
 use crate::history::{Error, Kind, dir_path};
 use crate::message::{MessageReferences, source};
+use crate::target::Target;
 
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct Metadata {
@@ -97,11 +98,14 @@ pub fn latest_triggers_highlight(
         .map(|message| message.server_time)
 }
 
-pub fn latest_can_reference(messages: &[Message]) -> Option<MessageReferences> {
+pub fn latest_can_reference(
+    messages: &[Message],
+    rerouted_from: Option<&Target>,
+) -> Option<MessageReferences> {
     messages
         .iter()
         .rev()
-        .find(|message| message.can_reference())
+        .find(|message| message.can_reference(rerouted_from))
         .map(Message::references)
 }
 
@@ -124,7 +128,7 @@ pub async fn save(
         read_marker,
         last_triggers_unread: latest_triggers_unread(messages),
         last_triggers_highlight: latest_triggers_highlight(messages),
-        chathistory_references: latest_can_reference(messages),
+        chathistory_references: latest_can_reference(messages, None),
     })?;
 
     let path = path(kind).await?;

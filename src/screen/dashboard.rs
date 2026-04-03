@@ -11,6 +11,7 @@ use data::dashboard::{self, BufferAction};
 use data::environment::{RELEASE_WEBSITE, WIKI_WEBSITE};
 use data::history::ReadMarker;
 use data::history::filter::Filter;
+use data::history::reroute::RerouteRules;
 use data::isupport::{self, ChatHistorySubcommand, MessageReference};
 use data::message::{self, Broadcast};
 use data::rate_limit::TokenPriority;
@@ -200,6 +201,16 @@ impl Dashboard {
         self.init_filters(servers, clients);
 
         self.reprocess_history(clients, buffer_config);
+    }
+
+    pub fn set_reroute_rules(
+        &mut self,
+        servers: &server::Map,
+        clients: &client::Map,
+    ) {
+        let reroute_rules = self.get_reroute_rules_mut();
+
+        *reroute_rules = RerouteRules::from_server_map(servers, clients);
     }
 
     pub fn reload_visible_previews(
@@ -890,12 +901,18 @@ impl Dashboard {
                                     } else {
                                         (user, None)
                                     };
-                                let chantypes =
-                                    clients.get_chantypes(buffer.server());
-                                let statusmsg =
-                                    clients.get_statusmsg(buffer.server());
-                                let casemapping =
-                                    clients.get_casemapping(buffer.server());
+                                let chantypes = clients
+                                    .get_server_chantypes_or_default(
+                                        buffer.server(),
+                                    );
+                                let statusmsg = clients
+                                    .get_server_statusmsg_or_default(
+                                        buffer.server(),
+                                    );
+                                let casemapping = clients
+                                    .get_server_casemapping_or_default(
+                                        buffer.server(),
+                                    );
                                 let supports_echoes = clients
                                     .get_server_supports_echoes(
                                         buffer.server(),
@@ -2058,12 +2075,18 @@ impl Dashboard {
                         if let Some(nick) = clients.nickname(buffer.server()) {
                             let mut user = nick.to_owned().into();
                             let mut channel_users = None;
-                            let chantypes =
-                                clients.get_chantypes(buffer.server());
-                            let statusmsg =
-                                clients.get_statusmsg(buffer.server());
-                            let casemapping =
-                                clients.get_casemapping(buffer.server());
+                            let chantypes = clients
+                                .get_server_chantypes_or_default(
+                                    buffer.server(),
+                                );
+                            let statusmsg = clients
+                                .get_server_statusmsg_or_default(
+                                    buffer.server(),
+                                );
+                            let casemapping = clients
+                                .get_server_casemapping_or_default(
+                                    buffer.server(),
+                                );
                             let supports_echoes = clients
                                 .get_server_supports_echoes(buffer.server());
 
@@ -2133,12 +2156,18 @@ impl Dashboard {
                         if let Some(nick) = clients.nickname(buffer.server()) {
                             let mut user = nick.to_owned().into();
                             let mut channel_users = None;
-                            let chantypes =
-                                clients.get_chantypes(buffer.server());
-                            let statusmsg =
-                                clients.get_statusmsg(buffer.server());
-                            let casemapping =
-                                clients.get_casemapping(buffer.server());
+                            let chantypes = clients
+                                .get_server_chantypes_or_default(
+                                    buffer.server(),
+                                );
+                            let statusmsg = clients
+                                .get_server_statusmsg_or_default(
+                                    buffer.server(),
+                                );
+                            let casemapping = clients
+                                .get_server_casemapping_or_default(
+                                    buffer.server(),
+                                );
                             let supports_echoes = clients
                                 .get_server_supports_echoes(buffer.server());
 
@@ -3953,6 +3982,14 @@ impl Dashboard {
 
     pub fn get_filters(&mut self) -> &mut Vec<Filter> {
         self.history.get_filters()
+    }
+
+    pub fn get_reroute_rules(&self) -> &RerouteRules {
+        self.history.get_reroute_rules()
+    }
+
+    pub fn get_reroute_rules_mut(&mut self) -> &mut RerouteRules {
+        self.history.get_reroute_rules_mut()
     }
 
     pub fn handle_window_event(

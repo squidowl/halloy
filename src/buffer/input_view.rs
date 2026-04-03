@@ -8,6 +8,7 @@ use data::capabilities::{MultilineBatchKind, multiline_concat_lines};
 use data::config::buffer::text_input::{AutoFormat, Autocomplete, KeyBindings};
 use data::dashboard::BufferAction;
 use data::history::filter::FilterChain;
+use data::history::reroute::RerouteRules;
 use data::history::{self, ReadMarker};
 use data::input::{self, CodeFence, RawInput};
 use data::rate_limit::TokenPriority;
@@ -596,6 +597,22 @@ fn error<'a, 'b, Message: 'a>(
     .into()
 }
 
+fn reroute_input_message(
+    message: data::Message,
+    reroute_rules: &RerouteRules,
+    server: &Server,
+) -> data::Message {
+    if let Some(rerouted_target) = data::message::reroute_private_target(
+        &message.target,
+        reroute_rules,
+        server,
+    ) {
+        message.reroute_with_target(rerouted_target)
+    } else {
+        message
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct State {
     input_id: widget::Id,
@@ -783,7 +800,8 @@ impl State {
                         .line(cursor_position.line)
                         .map(|line| line.text)
                 {
-                    let chantypes = clients.get_chantypes(buffer.server());
+                    let chantypes = clients
+                        .get_server_chantypes_or_default(buffer.server());
                     let actions = entry.complete_input(
                         &line,
                         cursor_position.column,
@@ -884,7 +902,8 @@ impl State {
                         .line(cursor_position.line)
                         .map(|line| line.text)
                 {
-                    let chantypes = clients.get_chantypes(buffer.server());
+                    let chantypes = clients
+                        .get_server_chantypes_or_default(buffer.server());
                     let actions = entry.complete_input(
                         &line,
                         cursor_position.column,
@@ -903,7 +922,8 @@ impl State {
                     self.input_content.cursor().position.column;
 
                 if let Some(entry) = self.completion.select_at(index, config) {
-                    let chantypes = clients.get_chantypes(buffer.server());
+                    let chantypes = clients
+                        .get_server_chantypes_or_default(buffer.server());
                     let actions = entry.complete_input(
                         input.as_str(),
                         cursor_position,
@@ -1357,7 +1377,8 @@ impl State {
             clients.get_multiline_limits(buffer.server())
             && let Some(target) = buffer.target().as_ref()
         {
-            let casemapping = clients.get_casemapping(buffer.server());
+            let casemapping =
+                clients.get_server_casemapping_or_default(buffer.server());
 
             let mut multiline_byte_count = 0;
             let mut multiline_line_count = 0;
@@ -1485,9 +1506,12 @@ impl State {
             // If the server supports echoes, then send MARKREAD on echo only
             // (not when recording the input)
             if config.buffer.mark_as_read.on_message_sent && !supports_echoes {
-                let chantypes = clients.get_chantypes(buffer.server());
-                let statusmsg = clients.get_statusmsg(buffer.server());
-                let casemapping = clients.get_casemapping(buffer.server());
+                let chantypes =
+                    clients.get_server_chantypes_or_default(buffer.server());
+                let statusmsg =
+                    clients.get_server_statusmsg_or_default(buffer.server());
+                let casemapping =
+                    clients.get_server_casemapping_or_default(buffer.server());
 
                 if let Some(input) = inputs.first()
                     && let Some(targets) =
@@ -1511,9 +1535,12 @@ impl State {
             let mut user = nick.to_owned().into();
             let mut channel_users = None;
 
-            let chantypes = clients.get_chantypes(buffer.server());
-            let statusmsg = clients.get_statusmsg(buffer.server());
-            let casemapping = clients.get_casemapping(buffer.server());
+            let chantypes =
+                clients.get_server_chantypes_or_default(buffer.server());
+            let statusmsg =
+                clients.get_server_statusmsg_or_default(buffer.server());
+            let casemapping =
+                clients.get_server_casemapping_or_default(buffer.server());
             let supports_echoes =
                 clients.get_server_supports_echoes(buffer.server());
 
@@ -1530,20 +1557,36 @@ impl State {
 
             let mut history_tasks = vec![];
 
-            if let Some(message) = inputs
+            let messages = inputs
                 .into_iter()
                 .filter_map(|input| {
-                    input.messages(
-                        user.clone(),
-                        channel_users,
-                        chantypes,
-                        statusmsg,
-                        casemapping,
-                        supports_echoes,
-                    )
+                    input
+                        .messages(
+                            user.clone(),
+                            channel_users,
+                            chantypes,
+                            statusmsg,
+                            casemapping,
+                            supports_echoes,
+                        )
+                        .map(|messages| {
+                            messages
+                                .into_iter()
+                                .map(|message| {
+                                    reroute_input_message(
+                                        message,
+                                        history.get_reroute_rules(),
+                                        buffer.server(),
+                                    )
+                                })
+                                .collect::<Vec<_>>()
+                        })
                 })
                 .flatten()
-                .reduce(|mut batch_message, message| {
+                .collect::<Vec<_>>();
+
+            if let Some(message) =
+                messages.into_iter().reduce(|mut batch_message, message| {
                     match (&mut batch_message.content, message.content) {
                         (
                             message::Content::Plain(batch_text),
@@ -1748,10 +1791,12 @@ impl State {
                             },
                         );
 
-                        let chantypes = clients.get_chantypes(buffer.server());
-                        let statusmsg = clients.get_statusmsg(buffer.server());
-                        let casemapping =
-                            clients.get_casemapping(buffer.server());
+                        let chantypes = clients
+                            .get_server_chantypes_or_default(buffer.server());
+                        let statusmsg = clients
+                            .get_server_statusmsg_or_default(buffer.server());
+                        let casemapping = clients
+                            .get_server_casemapping_or_default(buffer.server());
 
                         let target = Target::parse(
                             target_channel.as_str(),
@@ -1867,9 +1912,12 @@ impl State {
             // If the server supports echoes, then send MARKREAD on echo only
             // (not when recording the input)
             if config.buffer.mark_as_read.on_message_sent && !supports_echoes {
-                let chantypes = clients.get_chantypes(buffer.server());
-                let statusmsg = clients.get_statusmsg(buffer.server());
-                let casemapping = clients.get_casemapping(buffer.server());
+                let chantypes =
+                    clients.get_server_chantypes_or_default(buffer.server());
+                let statusmsg =
+                    clients.get_server_statusmsg_or_default(buffer.server());
+                let casemapping =
+                    clients.get_server_casemapping_or_default(buffer.server());
 
                 if let Some(targets) =
                     input.targets(chantypes, statusmsg, casemapping)
@@ -1892,9 +1940,12 @@ impl State {
             let mut user = nick.to_owned().into();
             let mut channel_users = None;
 
-            let chantypes = clients.get_chantypes(buffer.server());
-            let statusmsg = clients.get_statusmsg(buffer.server());
-            let casemapping = clients.get_casemapping(buffer.server());
+            let chantypes =
+                clients.get_server_chantypes_or_default(buffer.server());
+            let statusmsg =
+                clients.get_server_statusmsg_or_default(buffer.server());
+            let casemapping =
+                clients.get_server_casemapping_or_default(buffer.server());
             let supports_echoes =
                 clients.get_server_supports_echoes(buffer.server());
 
@@ -1920,6 +1971,12 @@ impl State {
                 supports_echoes,
             ) {
                 for message in messages {
+                    let message = reroute_input_message(
+                        message,
+                        history.get_reroute_rules(),
+                        buffer.server(),
+                    );
+
                     history_tasks.extend(
                         history
                             .record_input_message(
@@ -1941,9 +1998,12 @@ impl State {
             input.command()
             && let Some(buffer_action) = config.actions.buffer.join_channel
         {
-            let chantypes = clients.get_chantypes(buffer.server());
-            let statusmsg = clients.get_statusmsg(buffer.server());
-            let casemapping = clients.get_casemapping(buffer.server());
+            let chantypes =
+                clients.get_server_chantypes_or_default(buffer.server());
+            let statusmsg =
+                clients.get_server_statusmsg_or_default(buffer.server());
+            let casemapping =
+                clients.get_server_casemapping_or_default(buffer.server());
 
             targets
                 .split(',')
@@ -2277,7 +2337,8 @@ impl State {
         clients: &client::Map,
     ) -> bool {
         let cursor_position = self.input_content.cursor().position;
-        let casemapping = clients.get_casemapping(buffer.server());
+        let casemapping =
+            clients.get_server_casemapping_or_default(buffer.server());
 
         self.parsed
             .get(cursor_position.line)

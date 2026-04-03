@@ -1302,15 +1302,18 @@ pub fn get_prefix_or_default(
 pub fn get_statusmsg_or_default(
     isupport: &HashMap<Kind, Parameter>,
 ) -> &[char] {
-    isupport.get(&Kind::STATUSMSG).map_or(&[], |statusmsg| {
-        if let Parameter::STATUSMSG(prefixes) = statusmsg {
-            prefixes.as_ref()
-        } else {
-            log::debug!("Corruption in isupport table.");
+    isupport
+        .get(&Kind::STATUSMSG)
+        .and_then(|statusmsg| {
+            if let Parameter::STATUSMSG(prefixes) = statusmsg {
+                Some(prefixes.as_ref())
+            } else {
+                log::debug!("Corruption in isupport table.");
 
-            &[]
-        }
-    })
+                None
+            }
+        })
+        .unwrap_or(proto::DEFAULT_CHANNEL_MEMBERSHIP_PREFIXES)
 }
 
 pub fn is_client_only_tag_denied(
