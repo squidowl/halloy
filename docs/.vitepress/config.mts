@@ -82,6 +82,7 @@ export default defineConfig({
             text: "Storing Passwords in a File",
             link: "/guides/password-file",
           },
+          { text: "File Uploads", link: "/guides/filehost" },
           { text: "Unix Signals", link: "/guides/unix-signals" },
           { text: "Text Formatting", link: "/guides/text-formatting" },
           { text: "URL Schemes", link: "/guides/url-schemes" },
@@ -112,6 +113,10 @@ export default defineConfig({
           {
             text: "File Transfer",
             link: "/configuration/file-transfer",
+          },
+          {
+            text: "File Upload",
+            link: "/configuration/file-upload",
           },
           { text: "Font", link: "/configuration/font" },
           {

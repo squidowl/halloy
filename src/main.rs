@@ -6,6 +6,7 @@ mod audio;
 mod buffer;
 mod emoji;
 mod event;
+mod filehost;
 mod font;
 mod icon;
 mod logger;
@@ -565,6 +566,18 @@ impl Halloy {
                     Some(dashboard::Event::Remove(server)) => {
                         self.remove(server)
                     }
+                    Some(dashboard::Event::PromptBeforeFileUpload {
+                        upload_url,
+                        has_credentials,
+                        window,
+                    }) => {
+                        self.modal = Some(Modal::ConfirmFileUpload {
+                            url: upload_url,
+                            has_credentials,
+                            window,
+                        });
+                        Task::none()
+                    }
                     None => Task::none(),
                 };
 
@@ -870,7 +883,32 @@ impl Halloy {
                 if let Some(event) = event {
                     match event {
                         modal::Event::CloseModal => {
+                            let cancel_upload = matches!(
+                                self.modal,
+                                Some(Modal::ConfirmFileUpload { .. })
+                            );
                             self.modal = None;
+                            if cancel_upload
+                                && let Screen::Dashboard(_) = &self.screen
+                            {
+                                return Task::batch(vec![
+                                        command.map(Message::Modal),
+                                        Task::done(Message::Dashboard(
+                                            dashboard::Message::CancelFilehostUpload,
+                                        )),
+                                    ]);
+                            }
+                        }
+                        modal::Event::ConfirmFileUpload => {
+                            self.modal = None;
+                            if let Screen::Dashboard(_) = &self.screen {
+                                return Task::batch(vec![
+                                    command.map(Message::Modal),
+                                    Task::done(Message::Dashboard(
+                                        dashboard::Message::ProceedWithFilehostUpload,
+                                    )),
+                                ]);
+                            }
                         }
                         modal::Event::AcceptNewServer => {
                             if let Some(Modal::ServerConnect {
@@ -955,7 +993,10 @@ impl Halloy {
                     window::Event::Opened { .. }
                     | window::Event::Moved(_)
                     | window::Event::Resized(_)
-                    | window::Event::CloseRequested => {}
+                    | window::Event::CloseRequested
+                    | window::Event::FileHovered
+                    | window::Event::FilesHoveredLeft
+                    | window::Event::FileDropped(_) => {}
                 }
 
                 if id == self.main_window.id {
@@ -993,6 +1034,30 @@ impl Halloy {
                                 return save.chain(iced::exit());
                             }
                         }
+                        window::Event::FileHovered => {
+                            if let Screen::Dashboard(dashboard) =
+                                &mut self.screen
+                            {
+                                dashboard.filehost.file_being_hovered = true;
+                            }
+                        }
+                        window::Event::FilesHoveredLeft => {
+                            if let Screen::Dashboard(dashboard) =
+                                &mut self.screen
+                            {
+                                dashboard.filehost.file_being_hovered = false;
+                            }
+                        }
+                        window::Event::FileDropped(ref path) => {
+                            if let Screen::Dashboard(dashboard) =
+                                &mut self.screen
+                            {
+                                dashboard.filehost.file_being_hovered = false;
+                                return dashboard
+                                    .handle_file_drop(path.clone())
+                                    .map(Message::Dashboard);
+                            }
+                        }
                     }
 
                     tasks.push(
@@ -1013,7 +1078,12 @@ impl Halloy {
                 } else if let Screen::Dashboard(dashboard) = &mut self.screen {
                     tasks.push(
                         dashboard
-                            .handle_window_event(id, event, &mut self.theme)
+                            .handle_window_event(
+                                id,
+                                event,
+                                &mut self.theme,
+                                &self.config,
+                            )
                             .map(Message::Dashboard),
                     );
                 }
