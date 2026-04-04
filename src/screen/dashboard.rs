@@ -2729,11 +2729,14 @@ impl Dashboard {
                 url,
             } => {
                 let buf_msg = match &target {
-                    Target::Channel(_) => buffer::Message::Channel(
+                    Some(Target::Channel(_)) => buffer::Message::Channel(
                         buffer::channel::Message::FilehostUrlReady(url),
                     ),
-                    Target::Query(_) => buffer::Message::Query(
+                    Some(Target::Query(_)) => buffer::Message::Query(
                         buffer::query::Message::FilehostUrlReady(url),
+                    ),
+                    None => buffer::Message::Server(
+                        buffer::server::Message::FilehostUrlReady(url),
                     ),
                 };
                 Task::done(Message::Pane(
@@ -2761,13 +2764,16 @@ impl Dashboard {
                     },
                 );
                 let decrement_msg = match &target {
-                    Target::Channel(_) => buffer::Message::Channel(
+                    Some(Target::Channel(_)) => buffer::Message::Channel(
                         buffer::channel::Message::FilehostUrlReady(
                             String::new(),
                         ),
                     ),
-                    Target::Query(_) => buffer::Message::Query(
+                    Some(Target::Query(_)) => buffer::Message::Query(
                         buffer::query::Message::FilehostUrlReady(String::new()),
+                    ),
+                    None => buffer::Message::Server(
+                        buffer::server::Message::FilehostUrlReady(String::new()),
                     ),
                 };
                 let decrement_task = Task::done(Message::Pane(

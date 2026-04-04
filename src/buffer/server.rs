@@ -63,7 +63,7 @@ pub enum Event {
     },
     FilehostUpload {
         server: data::server::Server,
-        target: Target,
+        target: Option<Target>,
         file_paths: Vec<std::path::PathBuf>,
         abort_registrations: Vec<futures::future::AbortRegistration>,
     },
@@ -283,6 +283,8 @@ pub fn view<'a>(
         data::config::buffer::text_input::Visibility::Always => true,
     };
 
+    let filehost_url = clients.get_filehost(&state.server);
+
     let text_input = show_text_input.then(|| {
         column![
             space::vertical().height(4),
@@ -292,7 +294,7 @@ pub fn view<'a>(
                 &state.server,
                 config,
                 theme,
-                None,
+                filehost_url,
             )
             .map(Message::InputView)
         ]

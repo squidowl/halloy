@@ -52,7 +52,7 @@ pub enum Event {
     },
     FilehostUpload {
         server: Server,
-        target: Target,
+        target: Option<Target>,
         file_paths: Vec<std::path::PathBuf>,
         abort_registrations: Vec<futures::future::AbortRegistration>,
     },

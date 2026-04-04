@@ -1678,9 +1678,24 @@ fn parse_command(
             Kind::Reconnect => validated::<0, 0, false>(args, |_, _| {
                 Ok(Command::Internal(Internal::Reconnect))
             }),
-            Kind::Upload => validated::<1, 0, true>(args, |[path], _| {
-                Ok(Command::Internal(Internal::Upload(path)))
-            }),
+            Kind::Upload => {
+                if isupport.contains_key(&isupport::Kind::FILEHOST) {
+                    if config.filehost.enabled {
+                        validated::<1, 0, true>(args, |[path], _| {
+                            Ok(Command::Internal(Internal::Upload(path)))
+                        })
+                    } else {
+                        Err(Error::CommandNotEnabled { command: "upload" })
+                    }
+                } else {
+                    Err(Error::CommandNotAvailable {
+                        command: "upload",
+                        context: buffer.map_or(String::new(), |buffer| {
+                            format!(" on {}", buffer.server())
+                        }),
+                    })
+                }
+            }
             Kind::Exec => {
                 let command = raw.trim();
 
@@ -1987,6 +2002,8 @@ pub enum Error {
         command: &'static str,
         context: String,
     },
+    #[error("/{command} is not enabled in configuration")]
+    CommandNotEnabled { command: &'static str },
 }
 
 fn fmt_incorrect_arg_count(min: usize, max: usize, actual: usize) -> String {

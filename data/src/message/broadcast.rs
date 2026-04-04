@@ -369,7 +369,7 @@ pub enum Broadcast {
     },
     FilehostUploadFailed {
         error: String,
-        target: target::Target,
+        target: Option<target::Target>,
     },
 }
 
@@ -513,12 +513,12 @@ pub fn into_messages(
 
 pub fn upload_failed(
     error: String,
-    target: target::Target,
+    target: Option<target::Target>,
     sent_time: DateTime<Utc>,
 ) -> Vec<Message> {
     let content = plain(format!("upload failed ({error})"));
     match target {
-        target::Target::Channel(channel) => expand(
+        Some(target::Target::Channel(channel)) => expand(
             [channel],
             [],
             false,
@@ -526,10 +526,18 @@ pub fn upload_failed(
             content,
             sent_time,
         ),
-        target::Target::Query(query) => expand(
+        Some(target::Target::Query(query)) => expand(
             [],
             [query],
             false,
+            Cause::Status(source::Status::Error),
+            content,
+            sent_time,
+        ),
+        None => expand(
+            [],
+            [],
+            true,
             Cause::Status(source::Status::Error),
             content,
             sent_time,
