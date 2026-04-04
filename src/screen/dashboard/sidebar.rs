@@ -473,30 +473,30 @@ impl Sidebar {
             }
 
             for server in servers.keys() {
+                let server_has_unread = history.server_has_unread(server);
+                let supports_detach =
+                    clients.get_server_supports_detach(server);
                 let casemapping =
                     clients.get_server_casemapping_or_default(server);
 
-                let button =
-                    |buffer: buffer::Upstream,
-                     kind: history::Kind,
-                     connected: bool,
-                     server_has_unread: bool,
-                     supports_detach: bool| {
-                        upstream_buffer_button(
-                            config,
-                            panes,
-                            focus,
-                            buffer,
-                            kind,
-                            connected,
-                            server_has_unread,
-                            supports_detach,
-                            casemapping,
-                            history,
-                            width,
-                            theme,
-                        )
-                    };
+                let button = |buffer: buffer::Upstream,
+                              kind: history::Kind,
+                              connected: bool| {
+                    upstream_buffer_button(
+                        config,
+                        panes,
+                        focus,
+                        buffer,
+                        kind,
+                        connected,
+                        server_has_unread,
+                        supports_detach,
+                        casemapping,
+                        history,
+                        width,
+                        theme,
+                    )
+                };
 
                 if let Some(state) = clients.state(server) {
                     client_enumeration += 1;
@@ -508,8 +508,6 @@ impl Sidebar {
                                 buffer::Upstream::Server(server.clone()),
                                 history::Kind::Server(server.clone()),
                                 false,
-                                history.server_has_unread(server.clone()),
-                                clients.get_server_supports_detach(server),
                             ));
                         }
                         data::client::State::Ready(connection) => {
@@ -518,8 +516,6 @@ impl Sidebar {
                                 buffer::Upstream::Server(server.clone()),
                                 history::Kind::Server(server.clone()),
                                 true,
-                                history.server_has_unread(server.clone()),
-                                clients.get_server_supports_detach(server),
                             ));
 
                             // Channels from the connected server.
@@ -534,8 +530,6 @@ impl Sidebar {
                                         channel.clone(),
                                     ),
                                     true,
-                                    history.server_has_unread(server.clone()),
-                                    clients.get_server_supports_detach(server),
                                 ));
                             }
 
@@ -556,8 +550,6 @@ impl Sidebar {
                                         query.clone(),
                                     ),
                                     true,
-                                    history.server_has_unread(server.clone()),
-                                    clients.get_server_supports_detach(server),
                                 ));
                             }
 

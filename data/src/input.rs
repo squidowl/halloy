@@ -8,15 +8,15 @@ use nom::combinator::{cut, map, rest, verify};
 use nom::multi::{many_m_n, many0_count, many1_count};
 use nom::{Finish, IResult, Parser};
 
-use crate::buffer::{self};
 use crate::capabilities::{Capabilities, MultilineBatchKind};
 use crate::config::buffer::text_input::AutoFormat;
+use crate::features::Features;
 use crate::message::formatting;
 use crate::target::Target;
 use crate::user::{ChannelUsers, NickRef};
 use crate::{
-    Command, Config, Message, Server, User, command, environment, isupport,
-    message,
+    Command, Config, Message, Server, User, buffer, command, environment,
+    isupport, message,
 };
 
 const INPUT_HISTORY_LENGTH: usize = 100;
@@ -31,7 +31,7 @@ pub fn parse(
     is_connected: bool,
     isupport: &HashMap<isupport::Kind, isupport::Parameter>,
     capabilities: &Capabilities,
-    supports_detach: bool,
+    features: &Features,
     relay_bytes: usize,
     config: &Config,
 ) -> Result<Parsed, Error> {
@@ -75,7 +75,7 @@ pub fn parse(
             is_connected,
             isupport,
             capabilities,
-            supports_detach,
+            features,
             config,
         ) {
             Ok(Command::Internal(command)) => {
@@ -480,7 +480,7 @@ mod test {
     use crate::config::buffer::text_input::AutoFormat;
     use crate::input::{CodeFence, Content, Input, Parsed, parse};
     use crate::user::Nick;
-    use crate::{Config, Server, buffer, command, isupport, target};
+    use crate::{Config, Server, buffer, command, features, isupport, target};
 
     #[test]
     fn parsing() {
@@ -491,6 +491,7 @@ mod test {
             [String::from("draft/multiline=max-bytes=4096,max-lines=24")]
                 .into_iter(),
         );
+        let features = &features::DEFAULT;
 
         let nick = Nick::from_str(
             "tester",
@@ -638,7 +639,7 @@ mod test {
                 true,
                 isupport,
                 &capabilities,
-                false,
+                features,
                 128,
                 &config,
             );

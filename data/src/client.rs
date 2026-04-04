@@ -23,6 +23,7 @@ use crate::capabilities::{
 };
 use crate::config::server::filehost;
 use crate::environment::{SOURCE_WEBSITE, VERSION};
+use crate::features::{self, Features, VersionRequest};
 use crate::history::ReadMarker;
 use crate::isupport::{
     ChatHistoryState, ChatHistorySubcommand, MessageReference, WhoToken,
@@ -164,7 +165,7 @@ pub struct Client {
     logged_in: bool,
     registration_step: RegistrationStep,
     capabilities: Capabilities,
-    supports_detach: bool,
+    features: Features,
     sasl_succeeded: bool,
     chathistory_requests: HashMap<Target, ChatHistoryRequest>,
     chathistory_exhausted: HashMap<Target, bool>,
@@ -225,7 +226,7 @@ impl Client {
             logged_in: false,
             registration_step: RegistrationStep::Start,
             capabilities: Capabilities::default(),
-            supports_detach: false,
+            features: Features::default(),
             sasl_succeeded: false,
             chathistory_requests: HashMap::new(),
             chathistory_exhausted: HashMap::new(),
@@ -1610,9 +1611,7 @@ impl Client {
             Command::Numeric(RPL_MYINFO, args) => {
                 let server_version = ok!(args.get(2));
 
-                if server_version == "soju" {
-                    self.supports_detach = true;
-                }
+                self.features.enable_supported(server_version);
             }
             // QUIT
             Command::QUIT(comment) => {
@@ -2949,12 +2948,37 @@ impl Client {
                             self.nickname(),
                             &self.isupport,
                             &self.capabilities,
-                            self.supports_detach,
+                            &self.features,
                             config,
                         ))))
                         .collect::<Vec<_>>();
 
+                    if matches!(
+                        self.features.version_request,
+                        VersionRequest::Need(true)
+                    ) {
+                        self.features.version_request = VersionRequest::Sent;
+
+                        self.send(
+                            None,
+                            command!("VERSION").into(),
+                            TokenPriority::Low,
+                        );
+                    }
+
                     return Ok(events);
+                }
+            }
+            Command::Numeric(RPL_VERSION, args) => {
+                if matches!(self.features.version_request, VersionRequest::Sent)
+                {
+                    self.features.version_request = VersionRequest::Need(false);
+
+                    let server_version = ok!(args.get(1));
+
+                    self.features.enable_supported(server_version);
+
+                    return Ok(vec![]);
                 }
             }
             _ => {}
@@ -4517,6 +4541,11 @@ impl Map {
         self.client(server).is_none_or(|c| c.config.use_tls)
     }
 
+    pub fn get_features_ref(&self, server: &Server) -> &Features {
+        self.client(server)
+            .map_or(&features::DEFAULT, |client| &client.features)
+    }
+
     pub fn get_server_casemapping_or_default(
         &self,
         server: &Server,
@@ -4749,7 +4778,7 @@ impl Map {
 
     pub fn get_server_supports_detach(&self, server: &Server) -> bool {
         self.client(server)
-            .is_some_and(|client| client.supports_detach)
+            .is_some_and(|client| client.features.detach)
     }
 
     pub fn get_server_supports_list(&self, server: &Server) -> bool {
