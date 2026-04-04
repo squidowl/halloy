@@ -4491,7 +4491,7 @@ impl Map {
         self.client(server)
             .map_or(&capabilities::DEFAULT, |client| &client.capabilities)
     }
-        
+
     pub fn get_filehost<'a>(&'a self, server: &Server) -> Option<&'a str> {
         let client = self.client(server)?;
 
