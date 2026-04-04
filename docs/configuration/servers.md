@@ -745,6 +745,49 @@ include = { channels = ["#halloy"] }
 ```
 
 
+## `filehost`
+
+See the [Filehost guide](/guides/filehost) for usage information. For global upload options see [File Upload](/configuration/file-upload).
+
+### `enabled`
+
+Enable or disable filehost support for this server.
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: true
+
+[servers.<name>.filehost]
+enabled = true
+```
+
+### `send_credentials`
+
+Controls whether or not authentication should be performed with the filehost. For SASL PLAIN, an Authorization header with the `username:password`, and for SASL EXTERNAL, the client certificate.
+
+```toml
+# Type: bool
+# Values: true, false
+# Default: true
+
+[servers.<name>.filehost]
+send_credentials = false
+```
+
+### `override_url`
+
+Override the filehost URL advertised by the server via ISUPPORT. The filehost must be compatible with the `draft/FILEHOST` spec.
+
+```toml
+# Type: string
+# Values: any string
+# Default: not set
+
+[servers.<name>.filehost]
+override_url = "https://example.org/upload"
+```
+
 ### `typing`
 
 Typing settings for channel and query buffers on server.

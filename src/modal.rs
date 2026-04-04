@@ -8,6 +8,7 @@ use crate::widget::Element;
 use crate::{Theme, open_url, window};
 
 pub mod about;
+pub mod confirm_file_upload;
 pub mod connect_to_server;
 pub mod image_preview;
 pub mod prompt_before_open_url;
@@ -32,12 +33,18 @@ pub enum Modal {
         timer: Option<Instant>,
         window: window::Id,
     },
+    ConfirmFileUpload {
+        url: String,
+        has_credentials: bool,
+        window: window::Id,
+    },
 }
 
 #[derive(Debug, Clone)]
 pub enum Message {
     Cancel,
     OpenURL(String),
+    ConfirmFileUpload,
     // Modal specific messages
     ServerConnect(ServerConnect),
     About(about::Action),
@@ -59,6 +66,7 @@ pub enum ServerConnect {
 pub enum Event {
     CloseModal,
     AcceptNewServer,
+    ConfirmFileUpload,
 }
 
 impl Modal {
@@ -74,6 +82,7 @@ impl Modal {
                 timer: _,
                 window,
             } => Some(*window),
+            Modal::ConfirmFileUpload { window, .. } => Some(*window),
         }
     }
 
@@ -83,6 +92,9 @@ impl Modal {
     ) -> (Task<Message>, Option<Event>) {
         match message {
             Message::Cancel => (Task::none(), Some(Event::CloseModal)),
+            Message::ConfirmFileUpload => {
+                (Task::none(), Some(Event::ConfirmFileUpload))
+            }
             Message::About(action) => {
                 if let Modal::About(about) = self {
                     (about.update(action), None)
@@ -106,7 +118,8 @@ impl Modal {
                 let canonical = url::Url::parse(&raw_url)
                     .map_or(raw_url, |u| u.to_string());
                 let _ = open_url::open(canonical);
-                (Task::none(), Some(Event::CloseModal))
+                let close = !matches!(self, Modal::ConfirmFileUpload { .. });
+                (Task::none(), close.then_some(Event::CloseModal))
             }
             Message::ImagePreview(image_preview) => match image_preview {
                 ImagePreview::SaveImage(source) => (
@@ -164,6 +177,11 @@ impl Modal {
             Modal::PromptBeforeOpenUrl { url, window: _ } => {
                 prompt_before_open_url::view(url, theme)
             }
+            Modal::ConfirmFileUpload {
+                url,
+                has_credentials,
+                window: _,
+            } => confirm_file_upload::view(url, *has_credentials, theme),
             Modal::ImagePreview {
                 source,
                 url,

@@ -20,7 +20,7 @@ use data::{
     environment, file_transfer, history, preview, reaction, server, stream,
 };
 use iced::widget::pane_grid::{self, PaneGrid};
-use iced::widget::{Space, column, container, row};
+use iced::widget::{Space, center, column, container, row, stack, text};
 use iced::{Length, Padding, Size, Task, Vector, advanced, clipboard};
 use irc::proto;
 
@@ -36,7 +36,8 @@ use crate::widget::{
 };
 use crate::window::Window;
 use crate::{
-    Theme, event, notification, open_url, platform_specific, theme, window,
+    Theme, event, filehost, notification, open_url, platform_specific, theme,
+    window,
 };
 
 mod command_bar;
@@ -63,6 +64,7 @@ pub struct Dashboard {
     previews: preview::Collection,
     preview_client: Option<Arc<reqwest::Client>>,
     buffer_settings: dashboard::BufferSettings,
+    pub filehost: filehost::Manager,
 }
 
 #[derive(Debug)]
@@ -82,6 +84,9 @@ pub enum Message {
     Client(client::Message),
     LoadPreview((url::Url, Result<data::Preview, data::preview::LoadError>)),
     NewWindow(window::Id, Pane),
+    Filehost(filehost::Message),
+    ProceedWithFilehostUpload,
+    CancelFilehostUpload,
 }
 
 #[derive(Debug)]
@@ -101,6 +106,11 @@ pub enum Event {
     ImagePreview(PathBuf, url::Url),
     ToggleFullscreen,
     Remove(Server),
+    PromptBeforeFileUpload {
+        upload_url: String,
+        has_credentials: bool,
+        window: window::Id,
+    },
 }
 
 impl Dashboard {
@@ -135,6 +145,7 @@ impl Dashboard {
             previews: preview::Collection::default(),
             preview_client: preview_client_from_config(config).map(Arc::new),
             buffer_settings: dashboard::BufferSettings::default(),
+            filehost: filehost::Manager::new(),
         };
 
         if config.buffer.text_input.persist {
@@ -1696,6 +1707,27 @@ impl Dashboard {
 
                 return (self.focus_pane(window, pane), None);
             }
+            Message::Filehost(msg) => {
+                return (
+                    self.handle_filehost_message(msg, clients, config),
+                    None,
+                );
+            }
+            Message::ProceedWithFilehostUpload => {
+                let http_client = self
+                    .preview_client
+                    .clone()
+                    .unwrap_or_else(|| Arc::new(reqwest::Client::new()));
+                let task = self
+                    .filehost
+                    .proceed(clients, http_client)
+                    .map(Message::Filehost);
+                return (task, None);
+            }
+            Message::CancelFilehostUpload => {
+                let task = self.filehost.cancel().map(Message::Filehost);
+                return (task, None);
+            }
         }
 
         (Task::none(), None)
@@ -1877,7 +1909,7 @@ impl Dashboard {
         version: &'a Version,
         config: &'a Config,
     ) -> Element<'a, Message> {
-        if self.command_bar_window == Some(window)
+        let base = if self.command_bar_window == Some(window)
             && let Some(command_bar) = self.command_bar.as_ref()
         {
             let background = anchored_overlay(
@@ -1912,6 +1944,51 @@ impl Dashboard {
             // as `anchored_overlay` to prevent diff
             // from firing when displaying command bar
             column![column![base]].into()
+        };
+
+        let focused_target_info = self
+            .panes
+            .get(self.focus.window, self.focus.pane)
+            .and_then(|pane| {
+                let target = pane.buffer.target()?;
+                let server = pane.buffer.server()?;
+                Some((target, server))
+            });
+
+        if self.filehost.file_being_hovered {
+            let (overlay_text, is_error) = if !config.filehost.file_drop() {
+                (String::from("File drop is disabled here"), true)
+            } else if let Some((target, server)) = focused_target_info {
+                (format!("Drop to upload file to {target} @ {server}"), false)
+            } else {
+                (String::from("Upload is not valid here"), true)
+            };
+
+            let text_style: fn(&Theme) -> iced::widget::text::Style =
+                if is_error {
+                    theme::text::error
+                } else {
+                    theme::text::primary
+                };
+
+            stack![
+                base,
+                container(
+                    center(
+                        container(text(overlay_text).style(text_style))
+                            .style(theme::container::tooltip)
+                            .padding(8),
+                    )
+                    .width(Length::Fill)
+                    .height(Length::Fill),
+                )
+                .width(Length::Fill)
+                .height(Length::Fill)
+                .style(theme::container::transparent_overlay),
+            ]
+            .into()
+        } else {
+            base
         }
     }
 
@@ -2548,9 +2625,143 @@ impl Dashboard {
             buffer::Event::Reconnect(server) => {
                 controllers.connect(&server);
             }
+            buffer::Event::FilehostUpload {
+                server,
+                target,
+                file_paths,
+                abort_registrations,
+            } => {
+                let Some(upload_url) =
+                    clients.get_filehost(&server).map(String::from)
+                else {
+                    let casemapping = clients.get_casemapping(&server);
+                    let task = self.broadcast(
+                        &server,
+                        casemapping,
+                        config,
+                        Utc::now(),
+                        Broadcast::FilehostUploadFailed {
+                            error: format!(
+                                "no filehost configured for server {server}"
+                            ),
+                            target,
+                        },
+                    );
+                    return (task, None);
+                };
+
+                let http_client = self
+                    .preview_client
+                    .clone()
+                    .unwrap_or_else(|| Arc::new(reqwest::Client::new()));
+
+                let pending = filehost::PendingUpload {
+                    window,
+                    pane_id: id,
+                    has_credentials: clients
+                        .get_filehost_auth(&server)
+                        .is_some(),
+                    server,
+                    target,
+                    upload_url,
+                    file_paths,
+                    abort_registrations,
+                };
+
+                let (task, event) =
+                    self.filehost.upload(pending, clients, http_client);
+
+                let task = task.map(Message::Filehost);
+
+                if let Some(filehost::Event::PromptBeforeUpload {
+                    upload_url,
+                    has_credentials,
+                    window,
+                }) = event
+                {
+                    return (
+                        task,
+                        Some(Event::PromptBeforeFileUpload {
+                            upload_url,
+                            has_credentials,
+                            window,
+                        }),
+                    );
+                }
+
+                return (task, None);
+            }
         }
 
         (Task::none(), None)
+    }
+
+    fn handle_filehost_message(
+        &mut self,
+        msg: filehost::Message,
+        clients: &client::Map,
+        config: &Config,
+    ) -> Task<Message> {
+        match msg {
+            filehost::Message::UrlReady {
+                window,
+                pane_id,
+                target,
+                url,
+            } => {
+                let buf_msg = match &target {
+                    Target::Channel(_) => buffer::Message::Channel(
+                        buffer::channel::Message::FilehostUrlReady(url),
+                    ),
+                    Target::Query(_) => buffer::Message::Query(
+                        buffer::query::Message::FilehostUrlReady(url),
+                    ),
+                };
+                Task::done(Message::Pane(
+                    window,
+                    pane::Message::Buffer(pane_id, buf_msg),
+                ))
+            }
+            filehost::Message::UploadFailed {
+                window,
+                pane_id,
+                server,
+                target,
+                error,
+            } => {
+                let casemapping = clients.get_casemapping(&server);
+                let history_task = self.broadcast(
+                    &server,
+                    casemapping,
+                    config,
+                    Utc::now(),
+                    Broadcast::FilehostUploadFailed {
+                        error,
+                        target: target.clone(),
+                    },
+                );
+                let decrement_msg = match &target {
+                    Target::Channel(_) => buffer::Message::Channel(
+                        buffer::channel::Message::FilehostUrlReady(
+                            String::new(),
+                        ),
+                    ),
+                    Target::Query(_) => buffer::Message::Query(
+                        buffer::query::Message::FilehostUrlReady(String::new()),
+                    ),
+                };
+                let decrement_task = Task::done(Message::Pane(
+                    window,
+                    pane::Message::Buffer(pane_id, decrement_msg),
+                ));
+                Task::batch(vec![history_task, decrement_task])
+            }
+            filehost::Message::KnownSaved(Err(e)) => {
+                log::error!("failed to save known filehost URLs: {e}");
+                Task::none()
+            }
+            filehost::Message::KnownSaved(Ok(())) => Task::none(),
+        }
     }
 
     pub fn handle_event(
@@ -3919,6 +4130,7 @@ impl Dashboard {
             previews: preview::Collection::default(),
             preview_client: preview_client_from_config(config).map(Arc::new),
             buffer_settings: data.buffer_settings.clone(),
+            filehost: filehost::Manager::new(),
         };
 
         let mut tasks = vec![sidebar_task.map(Message::Sidebar)];
@@ -3955,11 +4167,39 @@ impl Dashboard {
         self.history.get_filters()
     }
 
+    pub fn handle_file_drop(&mut self, path: PathBuf) -> Task<Message> {
+        let Focus { window, pane } = self.focus;
+
+        let Some(pane_state) = self.panes.get(window, pane) else {
+            return Task::none();
+        };
+
+        let msg = match &pane_state.buffer {
+            Buffer::Channel(_) => Some(buffer::Message::Channel(
+                buffer::channel::Message::FilesDropped(vec![path]),
+            )),
+            Buffer::Query(_) => Some(buffer::Message::Query(
+                buffer::query::Message::FilesDropped(vec![path]),
+            )),
+            Buffer::Server(_) => Some(buffer::Message::Server(
+                buffer::server::Message::FilesDropped(vec![path]),
+            )),
+            _ => None,
+        };
+
+        if let Some(msg) = msg {
+            Task::done(Message::Pane(window, pane::Message::Buffer(pane, msg)))
+        } else {
+            Task::none()
+        }
+    }
+
     pub fn handle_window_event(
         &mut self,
         id: window::Id,
         event: window::Event,
         theme: &mut Theme,
+        config: &Config,
     ) -> Task<Message> {
         if self.panes.popout.contains_key(&id) {
             match event {
@@ -3979,6 +4219,18 @@ impl Dashboard {
                 | window::Event::Resized(_)
                 | window::Event::Unfocused
                 | window::Event::Opened { .. } => {}
+                window::Event::FileHovered => {
+                    self.filehost.file_being_hovered = true;
+                }
+                window::Event::FilesHoveredLeft => {
+                    self.filehost.file_being_hovered = false;
+                }
+                window::Event::FileDropped(path) => {
+                    self.filehost.file_being_hovered = false;
+                    if config.filehost.file_drop() {
+                        return self.handle_file_drop(path);
+                    }
+                }
             }
         } else if self.theme_editor.as_ref().is_some_and(|e| e.window == id) {
             match event {
@@ -3992,7 +4244,10 @@ impl Dashboard {
                 | window::Event::Resized(_)
                 | window::Event::Focused
                 | window::Event::Unfocused
-                | window::Event::Opened { .. } => {}
+                | window::Event::Opened { .. }
+                | window::Event::FileHovered
+                | window::Event::FilesHoveredLeft
+                | window::Event::FileDropped(_) => {}
             }
         }
 

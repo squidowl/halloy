@@ -18,6 +18,7 @@ pub use self::buffer::Buffer;
 pub use self::context_menu::ContextMenu;
 pub use self::ctcp::Ctcp;
 pub use self::file_transfer::FileTransfer;
+pub use self::filehost::Filehost;
 pub use self::highlights::Highlights;
 pub use self::keys::Keyboard;
 pub use self::logs::Logs;
@@ -43,6 +44,7 @@ pub mod buffer;
 pub mod context_menu;
 pub mod ctcp;
 pub mod file_transfer;
+pub mod filehost;
 pub mod highlights;
 pub mod inclusivities;
 pub mod keys;
@@ -73,6 +75,7 @@ pub struct Config {
     pub keyboard: Keyboard,
     pub notifications: Notifications,
     pub file_transfer: FileTransfer,
+    pub filehost: Filehost,
     pub tooltips: bool,
     pub window: Window,
     pub preview: Preview,
@@ -99,6 +102,7 @@ impl Default for Config {
             keyboard: Keyboard::default(),
             notifications: Notifications::default(),
             file_transfer: FileTransfer::default(),
+            filehost: Filehost::default(),
             tooltips: true,
             window: Window::default(),
             preview: Preview::default(),
@@ -358,6 +362,7 @@ impl Config {
             pub keyboard: Keyboard,
             pub notifications: Notifications,
             pub file_transfer: FileTransfer,
+            pub filehost: Filehost,
             pub tooltips: bool,
             pub window: Window,
             pub preview: Preview,
@@ -384,6 +389,7 @@ impl Config {
                     keyboard: Keyboard::default(),
                     notifications: Notifications::default(),
                     file_transfer: FileTransfer::default(),
+                    filehost: Filehost::default(),
                     tooltips: true,
                     window: Window::default(),
                     preview: Preview::default(),
@@ -420,6 +426,7 @@ impl Config {
             keyboard,
             notifications,
             file_transfer,
+            filehost,
             tooltips,
             window,
             preview,
@@ -458,6 +465,7 @@ impl Config {
             keyboard,
             notifications,
             file_transfer,
+            filehost,
             tooltips,
             window,
             preview,
