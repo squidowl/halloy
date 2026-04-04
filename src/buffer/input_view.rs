@@ -63,7 +63,7 @@ pub enum Event {
     Reconnect(Server),
     FilehostUpload {
         server: Server,
-        target: Target,
+        target: Option<Target>,
         file_paths: Vec<std::path::PathBuf>,
         abort_registrations: Vec<futures::future::AbortRegistration>,
     },
@@ -1127,9 +1127,9 @@ impl State {
                 config,
             ),
             Message::Paste => {
-                let has_filehost = buffer.target().is_some()
-                    && clients.get_filehost(buffer.server()).is_some()
-                    && config.filehost.paste();
+                let has_filehost =
+                    clients.get_filehost(buffer.server()).is_some()
+                        && config.filehost.paste();
 
                 let task = Task::perform(
                     async move { has_filehost.then(try_clipboard_upload).flatten() },
@@ -1213,17 +1213,16 @@ impl State {
 
                 self.upload_abort_handles.extend(handles);
 
-                let event =
-                    buffer.target().map(|target| Event::FilehostUpload {
-                        server: buffer.server().clone(),
-                        target,
-                        file_paths,
-                        abort_registrations: registrations,
-                    });
+                let event = Event::FilehostUpload {
+                    server: buffer.server().clone(),
+                    target: buffer.target(),
+                    file_paths,
+                    abort_registrations: registrations,
+                };
                 let anim = was_idle
                     .then(Self::schedule_anim_tick)
                     .unwrap_or_else(Task::none);
-                (anim, event)
+                (anim, Some(event))
             }
             Message::FilesSelected(_) => (Task::none(), None),
             Message::UploadAnimTick => {
@@ -1421,10 +1420,6 @@ impl State {
                                 clients.get_isupport_ref(buffer.server());
                             let features =
                                 clients.get_features_ref(buffer.server());
-                            let has_filehost = buffer.target().is_some()
-                                && clients
-                                    .get_filehost(buffer.server())
-                                    .is_some();
 
                             self.completion.process(
                                 &line,
@@ -1439,7 +1434,6 @@ impl State {
                                 is_connected,
                                 isupport,
                                 features,
-                                has_filehost,
                                 config,
                             );
 
@@ -2087,15 +2081,13 @@ impl State {
                         let anim = was_idle
                             .then(Self::schedule_anim_tick)
                             .unwrap_or_else(Task::none);
-                        let event = buffer.target().map(|target| {
-                            Event::FilehostUpload {
-                                server: buffer.server().clone(),
-                                target,
-                                file_paths: vec![file_path],
-                                abort_registrations: vec![registration],
-                            }
-                        });
-                        return (anim, event);
+                        let event = Event::FilehostUpload {
+                            server: buffer.server().clone(),
+                            target: buffer.target(),
+                            file_paths: vec![file_path],
+                            abort_registrations: vec![registration],
+                        };
+                        return (anim, Some(event));
                     }
                     command::Internal::Exec(command) => {
                         if !config.buffer.commands.exec.enabled {
@@ -2280,8 +2272,6 @@ impl State {
             let is_connected = clients.get_server_is_connected(buffer.server());
             let isupport = clients.get_isupport_ref(buffer.server());
             let features = clients.get_features_ref(buffer.server());
-            let has_filehost = buffer.target().is_some()
-                && clients.get_filehost(buffer.server()).is_some();
 
             self.completion.process(
                 &line,
@@ -2296,7 +2286,6 @@ impl State {
                 is_connected,
                 isupport,
                 features,
-                has_filehost,
                 config,
             );
 
@@ -2593,7 +2582,8 @@ fn show_while_typing(error: &input::Error) -> bool {
             | command::Error::InvalidChathistoryTimestamp
             | command::Error::ChathistoryLimitTooLarge { .. }
             | command::Error::ExecDisabled
-            | command::Error::CommandNotAvailable { .. },
+            | command::Error::CommandNotAvailable { .. }
+            | command::Error::CommandNotEnabled { .. },
         ) => true,
         input::Error::Command(command::Error::IncorrectArgCount {
             actual,

@@ -57,7 +57,6 @@ impl Completion {
         is_connected: bool,
         isupport: &HashMap<isupport::Kind, isupport::Parameter>,
         features: &Features,
-        has_filehost: bool,
         config: &Config,
     ) {
         let channels: Vec<_> = channels.into_iter().collect();
@@ -73,7 +72,6 @@ impl Completion {
                 is_connected,
                 isupport,
                 features,
-                has_filehost,
                 config,
             );
 
@@ -328,7 +326,6 @@ impl Commands {
         is_connected: bool,
         isupport: &HashMap<isupport::Kind, isupport::Parameter>,
         features: &Features,
-        has_filehost: bool,
         config: &Config,
     ) {
         let Some((head, rest)) = input.split_once('/') else {
@@ -358,7 +355,6 @@ impl Commands {
                 channels,
                 current_target,
                 isupport,
-                has_filehost && config.filehost.enabled,
             )
         } else {
             disconnected_command_list(server)
@@ -721,7 +717,6 @@ fn connected_command_list<'a>(
     channels: impl IntoIterator<Item = &'a target::Channel>,
     current_target: Option<&Target>,
     isupport: &HashMap<isupport::Kind, isupport::Parameter>,
-    has_filehost: bool,
 ) -> Vec<Command> {
     let channels: Vec<_> = channels.into_iter().collect();
 
@@ -1365,7 +1360,7 @@ fn connected_command_list<'a>(
                 tooltip: Some("Path to a file".to_string()),
             }],
             subcommands: None,
-        }
+        },
     ]
 }
 
