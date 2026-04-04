@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 use crate::buffer::{self, Upstream};
 use crate::capabilities::{Capabilities, Capability};
 use crate::config::buffer::text_input::AutoFormat;
+use crate::features::Features;
 use crate::isupport::{self, find_target_limit};
 use crate::message::{self, formatting};
 use crate::user::{ChannelUsers, NickRef};
@@ -301,7 +302,7 @@ pub fn parse(
     is_connected: bool,
     isupport: &HashMap<isupport::Kind, isupport::Parameter>,
     capabilities: &Capabilities,
-    supports_detach: bool,
+    features: &Features,
     config: &Config,
 ) -> Result<Command, Error> {
     let parsed = parse_input(s)?;
@@ -323,7 +324,7 @@ pub fn parse(
         is_connected,
         isupport,
         capabilities,
-        supports_detach,
+        features,
         config,
     )
 }
@@ -357,7 +358,7 @@ fn parse_command(
     is_connected: bool,
     isupport: &HashMap<isupport::Kind, isupport::Parameter>,
     capabilities: &Capabilities,
-    supports_detach: bool,
+    features: &Features,
     config: &Config,
 ) -> Result<Command, Error> {
     let unknown = || {
@@ -839,26 +840,29 @@ fn parse_command(
                             (None, mode_string, mode_arguments)
                         };
 
-                    let target = target.unwrap_or(
-                        buffer
+                    let Some(target) = target
+                        .or(buffer
                             .and_then(Upstream::target)
-                            .map(|buffer_target| buffer_target.to_string())
-                            .unwrap_or(
-                                our_nickname
-                                    .ok_or(Error::IncorrectArgCount {
-                                        min: 1,
-                                        max: 2,
-                                        actual: 0,
-                                    })?
-                                    .to_string(),
-                            ),
-                    );
+                            .map(|buffer_target| buffer_target.to_string()))
+                        .or(our_nickname
+                            .map(|our_nickname| our_nickname.to_string()))
+                    else {
+                        return Err(Error::IncorrectArgCount {
+                            min: 1,
+                            max: 2,
+                            actual: 0,
+                        });
+                    };
 
                     let mode_limit =
                         isupport::get_mode_limit_or_default(isupport);
 
                     if let Some(mode_string) = mode_string {
-                        if mode_string == "+" || mode_string == "-" {
+                        if mode_string == "+"
+                            || mode_string == "-"
+                            || (mode_string == "="
+                                && features.list_mode_with_equal)
+                        {
                             Err(Error::NoModeString)
                         } else {
                             let mode_string_regex = if proto::is_channel(
@@ -890,6 +894,26 @@ fn parse_command(
                                 } else {
                                     channel_modes_regex += r"+";
                                 }
+
+                                if features.list_mode_with_equal
+                                    && let Some(chanmode) = chanmodes
+                                        .iter()
+                                        .find(|chanmode| chanmode.kind == 'A')
+                                {
+                                    channel_modes_regex += r"|=[";
+                                    channel_modes_regex +=
+                                        chanmode.modes.as_ref();
+                                    channel_modes_regex += r"]";
+                                    if let Some(mode_limit) = mode_limit {
+                                        channel_modes_regex += r"{1,";
+                                        channel_modes_regex +=
+                                            &format!("{mode_limit}");
+                                        channel_modes_regex += r"}";
+                                    } else {
+                                        channel_modes_regex += r"+";
+                                    }
+                                }
+
                                 channel_modes_regex += r")+$";
 
                                 Regex::new(&channel_modes_regex).unwrap_or(
@@ -1510,7 +1534,7 @@ fn parse_command(
                 Ok(Command::Internal(Internal::SysInfo))
             }),
             Kind::Detach => {
-                if !supports_detach {
+                if !features.detach {
                     return Err(Error::CommandNotAvailable {
                         command: "detach",
                         context: buffer.map_or(String::new(), |buffer| {
@@ -2006,6 +2030,70 @@ mod tests {
     use super::{AutoFormat, Command, Error, Internal, isupport, parse};
     use crate::Config;
     use crate::capabilities::Capabilities;
+    use crate::features::Features;
+
+    #[test]
+    fn validate_mode_string() {
+        use std::borrow::Cow;
+        use std::collections::HashMap;
+
+        let mut isupport: HashMap<isupport::Kind, isupport::Parameter> =
+            HashMap::new();
+
+        isupport.insert(
+            isupport::Kind::CHANMODES,
+            isupport::Parameter::CHANMODES(
+                [
+                    isupport::ModeKind {
+                        kind: 'A',
+                        modes: Cow::Borrowed("eIbq"),
+                    },
+                    isupport::ModeKind {
+                        kind: 'B',
+                        modes: Cow::Borrowed("k"),
+                    },
+                    isupport::ModeKind {
+                        kind: 'C',
+                        modes: Cow::Borrowed("flj"),
+                    },
+                    isupport::ModeKind {
+                        kind: 'D',
+                        modes: Cow::Borrowed("CFLMPQRSTcgimnprstuz"),
+                    },
+                ]
+                .to_vec(),
+            ),
+        );
+
+        let tests = [
+            ("/mode dan +i", Features::default()),
+            ("/mode #foobar +mb *@127.0.0.1", Features::default()),
+            (
+                "/mode #channel =b",
+                Features {
+                    list_mode_with_equal: true,
+                    ..Features::default()
+                },
+            ),
+        ];
+
+        for (test, features) in tests {
+            assert!(
+                parse(
+                    test,
+                    None,
+                    None,
+                    AutoFormat::default(),
+                    true,
+                    &isupport,
+                    &Capabilities::default(),
+                    &features,
+                    &Config::default(),
+                )
+                .is_ok()
+            );
+        }
+    }
 
     #[test]
     fn parse_exec_preserves_raw_command() {
@@ -2020,7 +2108,7 @@ mod tests {
             true,
             &isupport::DEFAULT,
             &Capabilities::default(),
-            false,
+            &Features::default(),
             &config,
         )
         .unwrap();
@@ -2045,7 +2133,7 @@ mod tests {
             true,
             &isupport::DEFAULT,
             &Capabilities::default(),
-            false,
+            &Features::default(),
             &config,
         )
         .unwrap_err();
@@ -2073,7 +2161,7 @@ mod tests {
             true,
             &isupport::DEFAULT,
             &Capabilities::default(),
-            false,
+            &Features::default(),
             &config,
         )
         .unwrap_err();

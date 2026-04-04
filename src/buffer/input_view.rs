@@ -761,7 +761,7 @@ impl State {
                         clients.get_server_is_connected(buffer.server()),
                         clients.get_isupport_ref(buffer.server()),
                         clients.get_capabilities_ref(buffer.server()),
-                        clients.get_server_supports_detach(buffer.server()),
+                        clients.get_features_ref(buffer.server()),
                         clients.get_relay_bytes(buffer.server()),
                         config,
                     );
@@ -864,7 +864,7 @@ impl State {
                     clients.get_server_is_connected(buffer.server()),
                     clients.get_isupport_ref(buffer.server()),
                     clients.get_capabilities_ref(buffer.server()),
-                    clients.get_server_supports_detach(buffer.server()),
+                    clients.get_features_ref(buffer.server()),
                     clients.get_relay_bytes(buffer.server()),
                     config,
                 ) {
@@ -1419,6 +1419,8 @@ impl State {
                                 .get_server_is_connected(buffer.server());
                             let isupport =
                                 clients.get_isupport_ref(buffer.server());
+                            let features =
+                                clients.get_features_ref(buffer.server());
                             let has_filehost = buffer.target().is_some()
                                 && clients
                                     .get_filehost(buffer.server())
@@ -1436,6 +1438,7 @@ impl State {
                                 buffer.server(),
                                 is_connected,
                                 isupport,
+                                features,
                                 has_filehost,
                                 config,
                             );
@@ -1498,8 +1501,7 @@ impl State {
         let is_connected = clients.get_server_is_connected(buffer.server());
         let isupport = clients.get_isupport_ref(buffer.server());
         let capabilities = clients.get_capabilities_ref(buffer.server());
-        let supports_detach =
-            clients.get_server_supports_detach(buffer.server());
+        let features = clients.get_features_ref(buffer.server());
         let relay_bytes = clients.get_relay_bytes(buffer.server());
 
         if self.input_content.text().is_empty() {
@@ -1530,7 +1532,7 @@ impl State {
                     is_connected,
                     isupport,
                     capabilities,
-                    supports_detach,
+                    features,
                     relay_bytes,
                     config,
                 );
@@ -2277,6 +2279,7 @@ impl State {
             let filters = FilterChain::borrow(history.get_filters());
             let is_connected = clients.get_server_is_connected(buffer.server());
             let isupport = clients.get_isupport_ref(buffer.server());
+            let features = clients.get_features_ref(buffer.server());
             let has_filehost = buffer.target().is_some()
                 && clients.get_filehost(buffer.server()).is_some();
 
@@ -2292,6 +2295,7 @@ impl State {
                 buffer.server(),
                 is_connected,
                 isupport,
+                features,
                 has_filehost,
                 config,
             );
