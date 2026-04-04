@@ -9,6 +9,7 @@ use chrono::{DateTime, Utc};
 use const_format::concatcp;
 use data::buffer::SkinTone;
 use data::config::buffer::text_input::{OrderBy, SortDirection};
+use data::features::Features;
 use data::history::filter::FilterChain;
 use data::isupport::{self, find_target_limit};
 use data::server::Server;
@@ -55,6 +56,7 @@ impl Completion {
         server: &Server,
         is_connected: bool,
         isupport: &HashMap<isupport::Kind, isupport::Parameter>,
+        features: &Features,
         has_filehost: bool,
         config: &Config,
     ) {
@@ -70,6 +72,7 @@ impl Completion {
                 server,
                 is_connected,
                 isupport,
+                features,
                 has_filehost,
                 config,
             );
@@ -324,6 +327,7 @@ impl Commands {
         server: &Server,
         is_connected: bool,
         isupport: &HashMap<isupport::Kind, isupport::Parameter>,
+        features: &Features,
         has_filehost: bool,
         config: &Config,
     ) {
@@ -490,7 +494,9 @@ impl Commands {
                 }
                 "MODE" => {
                     if let Some(target) = rest.split_ascii_whitespace().nth(1)
-                        && target.starts_with(['+', '-'])
+                        && (target.starts_with(['+', '-'])
+                            || (features.list_mode_with_equal
+                                && target.starts_with('=')))
                         && let Some(target) = command.args.get_mut(0)
                     {
                         target.kind.skip();
@@ -527,7 +533,10 @@ impl Commands {
                     let subcmd = if command.title != "MODE" {
                         format!("{} {}", command.title, subcmd).to_lowercase()
                     } else {
-                        let text = if subcmd.starts_with(['+', '-']) {
+                        let text = if subcmd.starts_with(['+', '-'])
+                            || (features.list_mode_with_equal
+                                && subcmd.starts_with('='))
+                        {
                             if let Some(target) = current_target {
                                 match target {
                                     Target::Channel(_) => "channel",

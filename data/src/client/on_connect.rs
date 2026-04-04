@@ -8,6 +8,7 @@ use futures::{SinkExt, StreamExt};
 use tokio::time;
 
 use crate::capabilities::Capabilities;
+use crate::features::Features;
 use crate::user::NickRef;
 use crate::{Command, Target, command, config, isupport, message, server};
 
@@ -42,7 +43,7 @@ pub fn on_connect(
     our_nickname: NickRef,
     isupport: &HashMap<isupport::Kind, isupport::Parameter>,
     capabilities: &Capabilities,
-    supports_detach: bool,
+    features: &Features,
     config: &config::Config,
 ) -> Stream {
     let commands = server_config
@@ -57,7 +58,7 @@ pub fn on_connect(
                 true,
                 isupport,
                 capabilities,
-                supports_detach,
+                features,
                 config,
             )
             .ok()
