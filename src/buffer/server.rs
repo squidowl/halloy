@@ -5,13 +5,36 @@ use data::dashboard::BufferAction;
 use data::target::Target;
 use data::user::Nick;
 use data::{Config, Preview, User, buffer, history, message};
-use iced::widget::{column, container, row, space};
+use iced::advanced::text;
+use iced::widget::{Space, column, container, row, space};
 use iced::{Color, Length, Size, Task, padding};
 
 use super::{context_menu, input_view, scroll_view};
-use crate::widget::{Element, message_content, selectable_text};
+use crate::widget::{Element, message_content, selectable_text, tooltip};
 use crate::window::Window;
 use crate::{Theme, font, theme};
+
+fn row_with_timestamp<'a>(
+    timestamp: Option<Element<'a, scroll_view::Message>>,
+    content: Element<'a, scroll_view::Message>,
+) -> Element<'a, scroll_view::Message> {
+    container(row![timestamp, selectable_text(" "), content]).into()
+}
+
+fn row_with_timestamp_and_nick<'a>(
+    timestamp: Option<Element<'a, scroll_view::Message>>,
+    nick: Element<'a, scroll_view::Message>,
+    content: Element<'a, scroll_view::Message>,
+) -> Element<'a, scroll_view::Message> {
+    container(row![
+        timestamp,
+        selectable_text(" "),
+        nick,
+        selectable_text(" "),
+        content
+    ])
+    .into()
+}
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -55,6 +78,7 @@ pub fn view<'a>(
     is_focused: bool,
 ) -> Element<'a, Message> {
     let chantypes = clients.get_chantypes(&state.server);
+    let prefix = clients.get_prefix(&state.server);
     let casemapping = clients.get_casemapping(&state.server);
     let our_nick: Option<data::user::NickRef<'_>> =
         clients.nickname(&state.server);
@@ -71,7 +95,11 @@ pub fn view<'a>(
             0.0,
             config,
             theme,
-            move |message: &'a data::Message, _, _, _, _| {
+            move |message: &'a data::Message,
+                  right_aligned_width: Option<f32>,
+                  _,
+                  _,
+                  hide_nickname| {
                 let timestamp = config
                     .buffer
                     .format_timestamp(&message.server_time)
@@ -116,16 +144,8 @@ pub fn view<'a>(
                             config,
                         );
 
-                        let content: Element<'a, scroll_view::Message> =
-                            container(row![
-                                timestamp,
-                                selectable_text(" "),
-                                text_content
-                            ])
-                            .into();
-
                         Some(context_menu::message(
-                            content,
+                            row_with_timestamp(timestamp, text_content),
                             message.target.source(),
                             None,
                             vec![],
@@ -138,7 +158,7 @@ pub fn view<'a>(
                     message::Source::Internal(
                         message::source::Internal::Status(status),
                     ) => {
-                        let text_content = message_content(
+                        let content = message_content(
                             &message.content,
                             &state.server,
                             chantypes,
@@ -156,16 +176,90 @@ pub fn view<'a>(
                             config,
                         );
 
-                        let content: Element<'a, scroll_view::Message> =
-                            container(row![
-                                timestamp,
-                                selectable_text(" "),
-                                text_content
-                            ])
-                            .into();
+                        Some(row_with_timestamp(timestamp, content))
+                    }
+                    message::Source::User(user) => {
+                        let truncate = config.buffer.nickname.truncate;
+                        let with_access_levels =
+                            config.buffer.nickname.show_access_levels;
+
+                        let (user_display, show_nickname_tooltip) = user
+                            .display_with_truncated(
+                                with_access_levels,
+                                truncate,
+                            );
+
+                        let nick: Element<_> = if hide_nickname {
+                            let width = match config.buffer.nickname.alignment {
+                                data::buffer::Alignment::Left
+                                | data::buffer::Alignment::Top => 0.0,
+                                data::buffer::Alignment::Right => {
+                                    right_aligned_width.unwrap_or_default()
+                                }
+                            };
+                            Space::new().width(width).into()
+                        } else {
+                            let mut nick_text = selectable_text(
+                                config
+                                    .buffer
+                                    .nickname
+                                    .brackets
+                                    .format(user_display),
+                            )
+                            .style(move |_| {
+                                theme::selectable_text::nickname(
+                                    theme, config, user, false,
+                                )
+                            })
+                            .font_maybe(
+                                theme::font_style::nickname(theme, false)
+                                    .map(font::get),
+                            );
+
+                            if let Some(width) = right_aligned_width {
+                                nick_text = nick_text
+                                    .width(width)
+                                    .align_x(text::Alignment::Right);
+                            }
+
+                            tooltip(
+                                context_menu::user(
+                                    nick_text,
+                                    &state.server,
+                                    prefix,
+                                    None,
+                                    user,
+                                    None,
+                                    None,
+                                    config,
+                                    theme,
+                                    &config.buffer.nickname.click,
+                                )
+                                .map(scroll_view::Message::ContextMenu),
+                                show_nickname_tooltip.then_some(user.as_str()),
+                                tooltip::Position::Bottom,
+                                theme,
+                            )
+                        };
+
+                        let content = message_content(
+                            &message.content,
+                            &state.server,
+                            chantypes,
+                            casemapping,
+                            theme,
+                            scroll_view::Message::Link,
+                            None,
+                            theme::selectable_text::default,
+                            theme::font_style::primary,
+                            Option::<fn(Color) -> Color>::None,
+                            config,
+                        );
 
                         Some(context_menu::message(
-                            content,
+                            row_with_timestamp_and_nick(
+                                timestamp, nick, content,
+                            ),
                             message.target.source(),
                             None,
                             vec![],
