@@ -242,6 +242,7 @@ pub enum Kind {
     Connect,
     Reconnect,
     Upload,
+    MassMessage,
     Exec,
     Raw,
 }
@@ -288,6 +289,7 @@ impl FromStr for Kind {
             "connect" => Ok(Kind::Connect),
             "reconnect" => Ok(Kind::Reconnect),
             "upload" => Ok(Kind::Upload),
+            "massmessage" | "mm" => Ok(Kind::MassMessage),
             "exec" => Ok(Kind::Exec),
             _ => Err(()),
         }
@@ -1114,6 +1116,21 @@ fn parse_command(
                     )))
                 } else {
                     Ok(unknown())
+                }
+            }
+            Kind::MassMessage => {
+                if features.mass_message {
+                    Ok(Command::Irc(Irc::Notice(
+                        "$$*".to_string(),
+                        raw.to_string(),
+                    )))
+                } else {
+                    Err(Error::CommandNotAvailable {
+                        command: "massmessage",
+                        context: buffer.map_or(String::new(), |buffer| {
+                            format!(" on {}", buffer.server())
+                        }),
+                    })
                 }
             }
             Kind::Ctcp => {

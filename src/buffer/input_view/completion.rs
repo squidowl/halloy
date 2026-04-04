@@ -1280,6 +1280,16 @@ fn connected_command_list<'a>(
 
             detach_command(default, channel_len)
         },
+        // MASSMESSAGE
+        Command {
+            title: "MASSMESSAGE".into(),
+            args: vec![Argument {
+                text: "message".into(),
+                kind: ArgumentKind::Required,
+                tooltip: None,
+            }],
+            subcommands: None,
+        },
         // CPRIVMSG
         Command {
             title: "CPRIVMSG".into(),
@@ -1564,6 +1574,9 @@ impl Command {
             "detach" => Cow::Borrowed(
                 "Hide the channel, leaving the bouncer's connection to the channel active",
             ),
+            "massmessage" => {
+                Cow::Borrowed("Send announcement to all connected users")
+            }
             "list" => {
                 Cow::Owned(format!("Open Channel Discovery for {server}"))
             }
@@ -1582,23 +1595,18 @@ impl Command {
 
     fn aliases(&self) -> Vec<&str> {
         match self.title.to_lowercase().as_str() {
-            "away" => vec![],
             "join" => vec!["j"],
             "me" => vec!["describe"],
             "mode" => vec!["m"],
             "msg" => vec!["query"],
-            "nick" => vec![],
             "part" => vec!["leave"],
             "quit" => vec!["disconnect"],
-            "raw" => vec![],
             "topic" => vec!["t"],
-            "whois" => vec![],
             "format" => vec!["f"],
             "plain" => vec!["p"],
             "hop" => vec!["rejoin"],
-            "clear" => vec![],
             "cleartopic" => vec!["ct"],
-            "sysinfo" => vec![],
+            "massmessage" => vec!["mm"],
             _ => vec![],
         }
     }
