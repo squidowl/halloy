@@ -15,6 +15,7 @@ Added:
 - Files can be uploaded to server using `soju.im/FILEHOST` and `draft/FILEHOST`
 - Record Ergo/Solanum mass-messages to the server buffer
 - Setting to control whether unread indicators are shown on open buffers (`sidebar.unread_indicator.show_on_open_buffers`)
+- Ability to add optional arguments in custom aliases (`/msg ChanServ op $channel $1?-`)
 
 Changed:
 
@@ -42,7 +43,7 @@ Thanks:
 
 - Contributions: @furudean, @omentic, @KaiKorla, @achille
 - Bug reports: sebbu, @whitequark, @SnoopJ, esden, @miyukoc, @ld-cd, @achille, @classabbyamp, vignoux, @esden
-- Feature requests: @omentic
+- Feature requests: @omentic, @classabbyamp
 
 # 2026.5 (2026-03-21)
 
