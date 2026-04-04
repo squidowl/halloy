@@ -13,19 +13,20 @@ Added:
 - Right-click context menu on messages now includes "Copy message" to copy the message text to the clipboard
 - `buffer.typing.style` setting with `padded` and `popped` modes for typing indicators
 - Files can be uploaded to server using `soju.im/FILEHOST` and `draft/FILEHOST`
+- Record Ergo/Solanum mass-messages to the server buffer
 
 Changed:
 
 - Moved `typing` settings from `buffer.channel.typing` to `buffer.typing` to clarify that they appliy to queries as well as channels
 - Moved nicklist nickname settings from `buffer.channel.nicklist` to `buffer.nickname` (`away` and `color`)
-- Default typing style is now `popped`
+- Default typing style (`buffer.typing.style`) is now `popped` (from `padded`)
 
 Fixed:
 
 - `sidebar.order_by` setting works when set to `"config"`
 - Server notices with wildcard targets (for example `NOTICE *`) are shown in the server buffer again
 - Fix URLs with non-ASCII characters getting percent-encoded when rendered in buffers
-- chathistory: support for TARGETS pagination and more conservative treatment of pagination on reconnect
+- chathistory: support for multiline messages and TARGETS pagination and more conservative treatment of pagination on reconnect
 - Keyboard shortcuts now work in popped out buffer windows, including command bar shortcuts
 - IRC URIs now handle bracketed IPv6 hosts and percent-encoded channel targets correctly
 - `typing` settings for buffers could get in a stuck state without any way to control them
@@ -33,12 +34,13 @@ Fixed:
 - `/MOTD` will not trigger end-of-registration actions
 
 Removed:
+
 - `buffer.channel.message.nickname_color` in favor of `buffer.nickname.color`
 
 Thanks:
 
 - Contributions: @furudean, @omentic, @KaiKorla, @achille
-- Bug reports: sebbu, @whitequark, @SnoopJ, esden, @miyukoc, @ld-cd, @achille, @classabbyamp, vignoux
+- Bug reports: sebbu, @whitequark, @SnoopJ, esden, @miyukoc, @ld-cd, @achille, @classabbyamp, vignoux, @esden
 - Feature requests: @omentic
 
 # 2026.5 (2026-03-21)
@@ -82,7 +84,7 @@ Security:
 Thanks:
 
 - Contributions: @KaiKorla, @englut, @mango766, @ncfavier, @classabbyamp, @melocene
-- Bug reports: chmod222, @whitequark, @englut, sebbu, @ascarion, @4e554c4c, @BKVad1m, @mango766, esden
+- Bug reports: chmod222, @whitequark, @englut, sebbu, @ascarion, @4e554c4c, @BKVad1m, @mango766, @esden
 - Feature requests: @gAlleb, @jtbx, @cyrneko, @englut, @ascarion
 
 # 2026.4 (2026-03-03)
