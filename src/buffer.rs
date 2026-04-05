@@ -101,9 +101,9 @@ impl Buffer {
     ) -> Self {
         match buffer {
             data::Buffer::Upstream(upstream) => match upstream {
-                buffer::Upstream::Server(server) => {
-                    Self::Server(Server::new(server, pane_size, config))
-                }
+                buffer::Upstream::Server(server) => Self::Server(Server::new(
+                    server, history, pane_size, config,
+                )),
                 buffer::Upstream::Channel(server, channel) => Self::Channel(
                     Channel::new(server, channel, history, pane_size, config),
                 ),
