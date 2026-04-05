@@ -45,7 +45,7 @@ Removed:
 
 Thanks:
 
-- Contributions: @furudean, @omentic, @KaiKorla, @achille
+- Contributions: @furudean, @omentic, @KaiKorla, @achille, @ncfavier
 - Bug reports: sebbu, @whitequark, @SnoopJ, esden, @miyukoc, @ld-cd, @achille, @classabbyamp, vignoux, @esden, @ncfavier
 - Feature requests: @omentic, @classabbyamp, @ncfavier
 
