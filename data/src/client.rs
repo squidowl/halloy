@@ -21,6 +21,7 @@ use crate::capabilities::{
     Capabilities, Capability, MultilineBatchKind, MultilineLimits,
     multiline_concat_lines, multiline_encoded,
 };
+use crate::config::server::FilehostCredentials;
 use crate::environment::{SOURCE_WEBSITE, VERSION};
 use crate::history::ReadMarker;
 use crate::isupport::{
@@ -4450,73 +4451,44 @@ impl Map {
     pub fn get_filehost<'a>(&'a self, server: &Server) -> Option<&'a str> {
         let client = self.client(server)?;
 
-        if server.is_bouncer_network() {
-            match &client.config.filehost {
-                Some(f) if !f.enabled => return None,
-                Some(f) if f.override_url.is_some() => {
-                    return f.override_url.as_deref();
-                }
-                _ => {
-                    return server
-                        .parent()
-                        .as_ref()
-                        .and_then(|p| self.get_filehost(p));
-                }
-            }
+        if !client.config.filehost.enabled {
+            return None;
         }
 
-        let isupport_url = isupport::get_filehost(&client.isupport);
-        match &client.config.filehost {
-            None => isupport_url,
-            Some(f) if !f.enabled => None,
-            Some(f) => f.override_url.as_deref().or(isupport_url),
-        }
+        client.config.filehost.override_url.as_deref().or(
+            if server.is_bouncer_network() {
+                server.parent().as_ref().and_then(|p| self.get_filehost(p))
+            } else {
+                isupport::get_filehost(&client.isupport)
+            },
+        )
     }
 
     pub fn get_filehost_auth(
         &self,
         server: &Server,
     ) -> Option<fileupload::Auth> {
-        if server.is_bouncer_network() {
-            let client = self.client(server)?;
-            let has_override = client
-                .config
-                .filehost
-                .as_ref()
-                .filter(|f| f.enabled)
-                .and_then(|f| f.override_url.as_ref())
-                .is_some();
-
-            if !has_override {
-                return server
-                    .parent()
-                    .as_ref()
-                    .and_then(|p| self.get_filehost_auth(p));
-            }
-        }
-
         let client = self.client(server)?;
-        let default_filehost = config::server::Filehost::default();
-        let filehost =
-            client.config.filehost.as_ref().unwrap_or(&default_filehost);
 
-        if !filehost.send_credentials {
+        if !client.config.filehost.enabled {
             return None;
         }
 
-        match client.config.sasl.as_ref()? {
-            config::server::Sasl::Plain {
-                username, password, ..
-            } => Some(fileupload::Auth::Basic {
-                username: username.clone(),
-                password: password.clone()?,
-            }),
-            config::server::Sasl::External { cert, key, .. } => {
-                Some(fileupload::Auth::External {
-                    cert: cert.clone(),
-                    key: key.clone(),
-                })
+        match &client.config.filehost.credentials {
+            FilehostCredentials::Server => {
+                if server.is_bouncer_network() {
+                    return server
+                        .parent()
+                        .as_ref()
+                        .and_then(|parent| self.get_filehost_auth(parent));
+                }
+
+                fileupload::Auth::try_from(client.config.sasl.as_ref()?).ok()
             }
+            FilehostCredentials::Sasl(credentials) => {
+                fileupload::Auth::try_from(credentials).ok()
+            }
+            FilehostCredentials::None => None,
         }
     }
 

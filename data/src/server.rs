@@ -7,11 +7,10 @@ use indexmap::IndexMap;
 use irc::proto;
 use serde::{Deserialize, Serialize};
 use tokio::fs;
-use tokio::process::Command;
 
 use crate::bouncer::BouncerNetwork;
 use crate::config::buffer::typing::Typing;
-use crate::config::server::Sasl;
+use crate::config::server::{FilehostCredentials, read_from_command};
 use crate::config::sidebar::{OrderBy, OrderChannelsBy};
 use crate::config::{self, Error, sidebar};
 
@@ -151,31 +150,6 @@ impl<'a> From<(&'a Server, &'a Arc<config::Server>)> for Entry {
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct ConfigMap(IndexMap<ServerName, Arc<config::Server>>);
 
-async fn read_from_command(pass_command: &str) -> Result<String, Error> {
-    let output = if cfg!(target_os = "windows") {
-        Command::new("cmd")
-            .arg("/C")
-            .arg(pass_command)
-            .output()
-            .await?
-    } else {
-        Command::new("sh")
-            .arg("-c")
-            .arg(pass_command)
-            .output()
-            .await?
-    };
-    if output.status.success() {
-        // we remove trailing whitespace, which might be present from unix pipelines with a
-        // trailing newline
-        Ok(str::from_utf8(&output.stdout)?.trim_end().to_string())
-    } else {
-        Err(Error::ExecutePasswordCommand(String::from_utf8(
-            output.stderr,
-        )?))
-    }
-}
-
 impl ConfigMap {
     pub fn contains(&self, server: &ServerName) -> bool {
         self.0.contains_key(server)
@@ -243,65 +217,14 @@ impl ConfigMap {
                     Some(read_from_command(nick_pass_command).await?);
             }
             if let Some(sasl) = &mut config.sasl {
-                match sasl {
-                    Sasl::Plain {
-                        password: Some(_),
-                        password_file: None,
-                        password_command: None,
-                        ..
-                    } => {}
-                    Sasl::Plain {
-                        password: password @ None,
-                        password_file: Some(pass_file),
-                        password_file_first_line_only,
-                        password_command: None,
-                        ..
-                    } => {
-                        config::check_sensitive_file_permissions(
-                            &server,
-                            pass_file,
-                            "SASL password file",
-                        );
-                        let mut pass = fs::read_to_string(pass_file).await?;
-                        if password_file_first_line_only
-                            .is_none_or(|first_line_only| first_line_only)
-                        {
-                            pass = pass
-                                .lines()
-                                .next()
-                                .map(String::from)
-                                .unwrap_or_default();
-                        }
-
-                        *password = Some(pass);
-                    }
-                    Sasl::Plain {
-                        password: password @ None,
-                        password_file: None,
-                        password_command: Some(pass_command),
-                        ..
-                    } => {
-                        let pass = read_from_command(pass_command).await?;
-                        *password = Some(pass);
-                    }
-                    Sasl::Plain { .. } => {
-                        return Err(Error::DuplicateSaslPassword);
-                    }
-                    Sasl::External { cert, key, .. } => {
-                        config::check_sensitive_file_permissions(
-                            &server,
-                            cert,
-                            "SASL external cert",
-                        );
-                        if let Some(key) = key {
-                            config::check_sensitive_file_permissions(
-                                &server,
-                                key,
-                                "SASL external key",
-                            );
-                        }
-                    }
-                }
+                sasl.check_permissions(&server);
+                sasl.set_password().await?;
+            }
+            if let FilehostCredentials::Sasl(credentials) =
+                &mut config.filehost.credentials
+            {
+                credentials.check_permissions(&server);
+                credentials.set_password().await?;
             }
 
             config.order_channels_by =

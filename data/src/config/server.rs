@@ -5,6 +5,8 @@ use std::time::Duration;
 use fancy_regex::{Regex, RegexBuilder};
 use irc::connection;
 use serde::{Deserialize, Deserializer};
+use tokio::fs;
+use tokio::process::Command;
 
 use crate::config::inclusivities::{
     Inclusivities, is_target_channel_included, is_target_query_included,
@@ -115,7 +117,7 @@ pub struct Server {
     pub confirm_message_delivery: ConfirmMessageDelivery,
     pub autoconnect: bool,
     pub typing: OptionalTyping,
-    pub filehost: Option<Filehost>,
+    pub filehost: Filehost,
 }
 
 impl Server {
@@ -233,7 +235,7 @@ impl Default for Server {
             confirm_message_delivery: ConfirmMessageDelivery::default(),
             autoconnect: true,
             typing: OptionalTyping::default(),
-            filehost: None,
+            filehost: Filehost::default(),
         }
     }
 }
@@ -245,9 +247,7 @@ pub struct Filehost {
     pub enabled: bool,
     /// Override the filehost URL advertised by the server via ISUPPORT
     pub override_url: Option<String>,
-    /// Send an `Authorization` header with file upload requests.
-    /// Defaults to `true`.
-    pub send_credentials: bool,
+    pub credentials: FilehostCredentials,
 }
 
 impl Default for Filehost {
@@ -255,7 +255,41 @@ impl Default for Filehost {
         Self {
             enabled: true,
             override_url: None,
-            send_credentials: true,
+            credentials: FilehostCredentials::default(),
+        }
+    }
+}
+
+#[derive(PartialEq, Eq, Debug, Default, Clone)]
+pub enum FilehostCredentials {
+    #[default]
+    Server,
+    Sasl(Sasl),
+    None,
+}
+
+impl<'de> Deserialize<'de> for FilehostCredentials {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Debug, Clone, Deserialize)]
+        #[serde(untagged)]
+        pub enum Data {
+            String(String),
+            Sasl(Sasl),
+        }
+
+        match Data::deserialize(deserializer)? {
+            Data::String(string) => match string.as_str() {
+                "server" => Ok(FilehostCredentials::Server),
+                "none" => Ok(FilehostCredentials::None),
+                _ => Err(serde::de::Error::invalid_value(
+                    serde::de::Unexpected::Str(&string),
+                    &"valid non-SASL values are \"server\" and \"none\"",
+                )),
+            },
+            Data::Sasl(sasl) => Ok(FilehostCredentials::Sasl(sasl)),
         }
     }
 }
@@ -306,6 +340,83 @@ pub enum Sasl {
 }
 
 impl Sasl {
+    pub fn check_permissions(&self, server: &str) {
+        match self {
+            Sasl::Plain { password_file, .. } => {
+                if let Some(pass_file) = password_file {
+                    config::check_sensitive_file_permissions(
+                        server,
+                        pass_file,
+                        "SASL password file",
+                    );
+                }
+            }
+            Sasl::External { cert, key, .. } => {
+                config::check_sensitive_file_permissions(
+                    server,
+                    cert,
+                    "SASL external cert",
+                );
+
+                if let Some(key) = key {
+                    config::check_sensitive_file_permissions(
+                        server,
+                        key,
+                        "SASL external key",
+                    );
+                }
+            }
+        }
+    }
+
+    pub async fn set_password(&mut self) -> Result<(), config::Error> {
+        match self {
+            Sasl::Plain {
+                password: Some(_),
+                password_file: None,
+                password_command: None,
+                ..
+            } => {}
+            Sasl::Plain {
+                password: password @ None,
+                password_file: Some(pass_file),
+                password_file_first_line_only,
+                password_command: None,
+                ..
+            } => {
+                let mut pass = fs::read_to_string(pass_file).await?;
+
+                if password_file_first_line_only
+                    .is_none_or(|first_line_only| first_line_only)
+                {
+                    pass = pass
+                        .lines()
+                        .next()
+                        .map(String::from)
+                        .unwrap_or_default();
+                }
+
+                *password = Some(pass);
+            }
+            Sasl::Plain {
+                password: password @ None,
+                password_file: None,
+                password_command: Some(pass_command),
+                ..
+            } => {
+                let pass = read_from_command(pass_command).await?;
+
+                *password = Some(pass);
+            }
+            Sasl::Plain { .. } => {
+                return Err(config::Error::DuplicateSaslPassword);
+            }
+            Sasl::External { .. } => {}
+        }
+
+        Ok(())
+    }
+
     pub fn disconnect_on_failure(&self) -> bool {
         match self {
             Sasl::Plain {
@@ -599,4 +710,31 @@ where
     let seconds: u64 = Deserialize::deserialize(deserializer)?;
 
     Ok(Duration::from_secs(seconds))
+}
+
+pub async fn read_from_command(
+    pass_command: &str,
+) -> Result<String, config::Error> {
+    let output = if cfg!(target_os = "windows") {
+        Command::new("cmd")
+            .arg("/C")
+            .arg(pass_command)
+            .output()
+            .await?
+    } else {
+        Command::new("sh")
+            .arg("-c")
+            .arg(pass_command)
+            .output()
+            .await?
+    };
+    if output.status.success() {
+        // we remove trailing whitespace, which might be present from unix pipelines with a
+        // trailing newline
+        Ok(str::from_utf8(&output.stdout)?.trim_end().to_string())
+    } else {
+        Err(config::Error::ExecutePasswordCommand(String::from_utf8(
+            output.stderr,
+        )?))
+    }
 }
