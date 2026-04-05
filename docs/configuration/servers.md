@@ -756,34 +756,30 @@ Enable or disable filehost support for this server.
 enabled = true
 ```
 
-### `send_credentials`
-
-Controls whether or not authentication should be performed with the filehost. For SASL PLAIN, an Authorization header with the `username:password`, and for SASL EXTERNAL, the client certificate.
-
-```toml
-# Type: bool
-# Values: true, false
-# Default: true
-
-[servers.<name>.filehost]
-send_credentials = false
-```
-
-### `override`
+### `override_url`
 
 Override the filehost URL advertised by the server via ISUPPORT. The filehost must be compatible with the `draft/FILEHOST` spec.
-
-#### `url`
-
-The URL used instead of the filehost URL advertised by the server via ISUPPORT.
 
 ```toml
 # Type: string
 # Values: any string
 # Default: not set
 
-[servers.<name>.filehost.override]
-url = "https://example.org/upload"
+[servers.<name>.filehost]
+override_url = "https://example.org/upload"
+```
+
+### `credentials`
+
+Specify what credentials to use for filehost.  By default the SASL credentials used for the server will be used, if they have been specified.  
+
+```toml
+# Type: string or SASL
+# Values: "server", "none", or SASL as described in credentials.plain or credentials.external
+# Default: "server"
+
+[servers.<name>.filehost]
+credentials = "none"
 ```
 
 #### `credentials.plain`
@@ -799,7 +795,7 @@ The account name used for authentication.
 # Values: any string
 # Default: not set
 
-[servers.<name>.filehost.override.credentials.plain]
+[servers.<name>.filehost.credentials.plain]
 username = "username"
 ```
 
@@ -812,7 +808,7 @@ The password associated with the account used for authentication.
 # Values: any string
 # Default: not set
 
-[servers.<name>.filehost.override.credentials.plain]
+[servers.<name>.filehost.credentials.plain]
 password = "password"
 ```
 
@@ -825,7 +821,7 @@ Read `password` from the file at the given path.[^1] [^2]
 # Values: any string
 # Default: not set
 
-[servers.<name>.filehost.override.credentials.plain]
+[servers.<name>.filehost.credentials.plain]
 password_file = ""
 ```
 
@@ -838,7 +834,7 @@ Read `password` from the first line of `password_file` only.
 # Values: true, false
 # Default: true
 
-[servers.<name>.filehost.override.credentials.plain]
+[servers.<name>.filehost.credentials.plain]
 password_file_first_line_only = true
 ```
 
@@ -851,7 +847,7 @@ Executes the command with `sh` (or equivalent) and reads `password` as the outpu
 # Values: any string
 # Default: not set
 
-[servers.<name>.filehost.override.credentials.plain]
+[servers.<name>.filehost.credentials.plain]
 password_command = ""
 ```
 
@@ -868,7 +864,7 @@ The path to PEM encoded X509 user certificate for external auth.[^1] [^2]
 # Values: any string
 # Default: not set
 
-[servers.<name>.filehost.override.credentials.external]
+[servers.<name>.filehost.credentials.external]
 cert = "/path/to/your/certificate.pem"
 ```
 
@@ -881,7 +877,7 @@ The path to PEM encoded PKCS#8 private key for external auth (optional).[^1] [^2
 # Values: any string
 # Default: not set
 
-[servers.<name>.filehost.override.credentials.external]
+[servers.<name>.filehost.credentials.external]
 key = "/path/to/your/private_key.pem"
 ```
 
