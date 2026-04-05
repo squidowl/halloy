@@ -121,6 +121,7 @@ pub struct UnreadIndicator {
     pub highlight_icon: Icon,
     #[serde(deserialize_with = "deserialize_u32_positive_integer")]
     pub highlight_icon_size: u32,
+    pub show_on_open_buffers: bool,
     pub query_as_highlight: bool,
     pub exclude: Option<Inclusivities>,
     pub include: Option<Inclusivities>,
@@ -134,6 +135,7 @@ impl Default for UnreadIndicator {
             icon_size: 6,
             highlight_icon: Icon::CircleEmpty,
             highlight_icon_size: 8,
+            show_on_open_buffers: true,
             query_as_highlight: false,
             exclude: None,
             include: None,

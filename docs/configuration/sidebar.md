@@ -216,6 +216,20 @@ Note: If set larger than the line height of the specified [font](/configuration/
 highlight_icon_size = 8
 ```
 
+### `show_on_open_buffers`
+
+Show unread/highlight indicators on buffers that have an open pane.
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: true
+
+[sidebar.show_on_open_buffers]
+show_on_open_buffers = true
+```
+
+
 ### `query_as_highlight`
 
 Treat unread query (direct message) buffers as highlights for sidebar styling.
