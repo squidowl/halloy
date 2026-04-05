@@ -901,12 +901,18 @@ impl Dashboard {
                                     } else {
                                         (user, None)
                                     };
-                                let chantypes =
-                                    clients.get_chantypes(buffer.server());
-                                let statusmsg =
-                                    clients.get_statusmsg(buffer.server());
-                                let casemapping =
-                                    clients.get_casemapping(buffer.server());
+                                let chantypes = clients
+                                    .get_server_chantypes_or_default(
+                                        buffer.server(),
+                                    );
+                                let statusmsg = clients
+                                    .get_server_statusmsg_or_default(
+                                        buffer.server(),
+                                    );
+                                let casemapping = clients
+                                    .get_server_casemapping_or_default(
+                                        buffer.server(),
+                                    );
                                 let supports_echoes = clients
                                     .get_server_supports_echoes(
                                         buffer.server(),
@@ -2135,12 +2141,18 @@ impl Dashboard {
                         if let Some(nick) = clients.nickname(buffer.server()) {
                             let mut user = nick.to_owned().into();
                             let mut channel_users = None;
-                            let chantypes =
-                                clients.get_chantypes(buffer.server());
-                            let statusmsg =
-                                clients.get_statusmsg(buffer.server());
-                            let casemapping =
-                                clients.get_casemapping(buffer.server());
+                            let chantypes = clients
+                                .get_server_chantypes_or_default(
+                                    buffer.server(),
+                                );
+                            let statusmsg = clients
+                                .get_server_statusmsg_or_default(
+                                    buffer.server(),
+                                );
+                            let casemapping = clients
+                                .get_server_casemapping_or_default(
+                                    buffer.server(),
+                                );
                             let supports_echoes = clients
                                 .get_server_supports_echoes(buffer.server());
 
@@ -2210,12 +2222,18 @@ impl Dashboard {
                         if let Some(nick) = clients.nickname(buffer.server()) {
                             let mut user = nick.to_owned().into();
                             let mut channel_users = None;
-                            let chantypes =
-                                clients.get_chantypes(buffer.server());
-                            let statusmsg =
-                                clients.get_statusmsg(buffer.server());
-                            let casemapping =
-                                clients.get_casemapping(buffer.server());
+                            let chantypes = clients
+                                .get_server_chantypes_or_default(
+                                    buffer.server(),
+                                );
+                            let statusmsg = clients
+                                .get_server_statusmsg_or_default(
+                                    buffer.server(),
+                                );
+                            let casemapping = clients
+                                .get_server_casemapping_or_default(
+                                    buffer.server(),
+                                );
                             let supports_echoes = clients
                                 .get_server_supports_echoes(buffer.server());
 
@@ -2634,7 +2652,8 @@ impl Dashboard {
                 let Some(upload_url) =
                     clients.get_filehost(&server).map(String::from)
                 else {
-                    let casemapping = clients.get_casemapping(&server);
+                    let casemapping =
+                        clients.get_server_casemapping_or_default(&server);
                     let task = self.broadcast(
                         &server,
                         casemapping,
@@ -2710,11 +2729,14 @@ impl Dashboard {
                 url,
             } => {
                 let buf_msg = match &target {
-                    Target::Channel(_) => buffer::Message::Channel(
+                    Some(Target::Channel(_)) => buffer::Message::Channel(
                         buffer::channel::Message::FilehostUrlReady(url),
                     ),
-                    Target::Query(_) => buffer::Message::Query(
+                    Some(Target::Query(_)) => buffer::Message::Query(
                         buffer::query::Message::FilehostUrlReady(url),
+                    ),
+                    None => buffer::Message::Server(
+                        buffer::server::Message::FilehostUrlReady(url),
                     ),
                 };
                 Task::done(Message::Pane(
@@ -2729,7 +2751,8 @@ impl Dashboard {
                 target,
                 error,
             } => {
-                let casemapping = clients.get_casemapping(&server);
+                let casemapping =
+                    clients.get_server_casemapping_or_default(&server);
                 let history_task = self.broadcast(
                     &server,
                     casemapping,
@@ -2741,13 +2764,16 @@ impl Dashboard {
                     },
                 );
                 let decrement_msg = match &target {
-                    Target::Channel(_) => buffer::Message::Channel(
+                    Some(Target::Channel(_)) => buffer::Message::Channel(
                         buffer::channel::Message::FilehostUrlReady(
                             String::new(),
                         ),
                     ),
-                    Target::Query(_) => buffer::Message::Query(
+                    Some(Target::Query(_)) => buffer::Message::Query(
                         buffer::query::Message::FilehostUrlReady(String::new()),
+                    ),
+                    None => buffer::Message::Server(
+                        buffer::server::Message::FilehostUrlReady(String::new()),
                     ),
                 };
                 let decrement_task = Task::done(Message::Pane(

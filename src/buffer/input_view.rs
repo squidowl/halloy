@@ -63,7 +63,7 @@ pub enum Event {
     Reconnect(Server),
     FilehostUpload {
         server: Server,
-        target: Target,
+        target: Option<Target>,
         file_paths: Vec<std::path::PathBuf>,
         abort_registrations: Vec<futures::future::AbortRegistration>,
     },
@@ -759,8 +759,9 @@ impl State {
                                 .any(|channel| target == channel)
                         }),
                         clients.get_server_is_connected(buffer.server()),
-                        &clients.get_isupport(buffer.server()),
-                        clients.get_multiline_limits(buffer.server()).as_ref(),
+                        clients.get_isupport_ref(buffer.server()),
+                        clients.get_capabilities_ref(buffer.server()),
+                        clients.get_features_ref(buffer.server()),
                         clients.get_relay_bytes(buffer.server()),
                         config,
                     );
@@ -861,8 +862,9 @@ impl State {
                             .any(|channel| target == channel)
                     }),
                     clients.get_server_is_connected(buffer.server()),
-                    &clients.get_isupport(buffer.server()),
-                    clients.get_multiline_limits(buffer.server()).as_ref(),
+                    clients.get_isupport_ref(buffer.server()),
+                    clients.get_capabilities_ref(buffer.server()),
+                    clients.get_features_ref(buffer.server()),
                     clients.get_relay_bytes(buffer.server()),
                     config,
                 ) {
@@ -887,7 +889,8 @@ impl State {
                         .line(cursor_position.line)
                         .map(|line| line.text)
                 {
-                    let chantypes = clients.get_chantypes(buffer.server());
+                    let chantypes = clients
+                        .get_server_chantypes_or_default(buffer.server());
                     let actions = entry.complete_input(
                         &line,
                         cursor_position.column,
@@ -988,7 +991,8 @@ impl State {
                         .line(cursor_position.line)
                         .map(|line| line.text)
                 {
-                    let chantypes = clients.get_chantypes(buffer.server());
+                    let chantypes = clients
+                        .get_server_chantypes_or_default(buffer.server());
                     let actions = entry.complete_input(
                         &line,
                         cursor_position.column,
@@ -1012,7 +1016,8 @@ impl State {
                     self.input_content.cursor().position.column;
 
                 if let Some(entry) = self.completion.select_at(index, config) {
-                    let chantypes = clients.get_chantypes(buffer.server());
+                    let chantypes = clients
+                        .get_server_chantypes_or_default(buffer.server());
                     let actions = entry.complete_input(
                         input.as_str(),
                         cursor_position,
@@ -1122,9 +1127,9 @@ impl State {
                 config,
             ),
             Message::Paste => {
-                let has_filehost = buffer.target().is_some()
-                    && clients.get_filehost(buffer.server()).is_some()
-                    && config.filehost.paste();
+                let has_filehost =
+                    clients.get_filehost(buffer.server()).is_some()
+                        && config.filehost.paste();
 
                 let task = Task::perform(
                     async move { has_filehost.then(try_clipboard_upload).flatten() },
@@ -1208,17 +1213,16 @@ impl State {
 
                 self.upload_abort_handles.extend(handles);
 
-                let event =
-                    buffer.target().map(|target| Event::FilehostUpload {
-                        server: buffer.server().clone(),
-                        target,
-                        file_paths,
-                        abort_registrations: registrations,
-                    });
+                let event = Event::FilehostUpload {
+                    server: buffer.server().clone(),
+                    target: buffer.target(),
+                    file_paths,
+                    abort_registrations: registrations,
+                };
                 let anim = was_idle
                     .then(Self::schedule_anim_tick)
                     .unwrap_or_else(Task::none);
-                (anim, event)
+                (anim, Some(event))
             }
             Message::FilesSelected(_) => (Task::none(), None),
             Message::UploadAnimTick => {
@@ -1412,14 +1416,10 @@ impl State {
                                 FilterChain::borrow(history.get_filters());
                             let is_connected = clients
                                 .get_server_is_connected(buffer.server());
-                            let supports_detach = clients
-                                .get_server_supports_detach(buffer.server());
                             let isupport =
-                                clients.get_isupport(buffer.server());
-                            let has_filehost = buffer.target().is_some()
-                                && clients
-                                    .get_filehost(buffer.server())
-                                    .is_some();
+                                clients.get_isupport_ref(buffer.server());
+                            let features =
+                                clients.get_features_ref(buffer.server());
 
                             self.completion.process(
                                 &line,
@@ -1432,9 +1432,8 @@ impl State {
                                 current_target.as_ref(),
                                 buffer.server(),
                                 is_connected,
-                                supports_detach,
-                                &isupport,
-                                has_filehost,
+                                isupport,
+                                features,
                                 config,
                             );
 
@@ -1494,9 +1493,10 @@ impl State {
                 .any(|channel| target == channel)
         });
         let is_connected = clients.get_server_is_connected(buffer.server());
-        let isupport = clients.get_isupport(buffer.server());
+        let isupport = clients.get_isupport_ref(buffer.server());
+        let capabilities = clients.get_capabilities_ref(buffer.server());
+        let features = clients.get_features_ref(buffer.server());
         let relay_bytes = clients.get_relay_bytes(buffer.server());
-        let multiline_limits = clients.get_multiline_limits(buffer.server());
 
         if self.input_content.text().is_empty() {
             self.parsed = Vec::new();
@@ -1507,7 +1507,9 @@ impl State {
 
         self.parsed = input_lines(&text)
             .scan(None, |open_code_fence: &mut Option<CodeFence>, line| {
-                let line = if line.is_empty() && multiline_limits.is_none() {
+                let line = if line.is_empty()
+                    && !capabilities.contains_multiline_limits()
+                {
                     // Send a space to emulate an empty line
                     Cow::Owned(String::from(' '))
                 } else {
@@ -1522,8 +1524,9 @@ impl State {
                     nickname,
                     in_channel,
                     is_connected,
-                    &isupport,
-                    multiline_limits.as_ref(),
+                    isupport,
+                    capabilities,
+                    features,
                     relay_bytes,
                     config,
                 );
@@ -1585,7 +1588,8 @@ impl State {
             clients.get_multiline_limits(buffer.server())
             && let Some(target) = buffer.target().as_ref()
         {
-            let casemapping = clients.get_casemapping(buffer.server());
+            let casemapping =
+                clients.get_server_casemapping_or_default(buffer.server());
 
             let mut multiline_byte_count = 0;
             let mut multiline_line_count = 0;
@@ -1713,9 +1717,12 @@ impl State {
             // If the server supports echoes, then send MARKREAD on echo only
             // (not when recording the input)
             if config.buffer.mark_as_read.on_message_sent && !supports_echoes {
-                let chantypes = clients.get_chantypes(buffer.server());
-                let statusmsg = clients.get_statusmsg(buffer.server());
-                let casemapping = clients.get_casemapping(buffer.server());
+                let chantypes =
+                    clients.get_server_chantypes_or_default(buffer.server());
+                let statusmsg =
+                    clients.get_server_statusmsg_or_default(buffer.server());
+                let casemapping =
+                    clients.get_server_casemapping_or_default(buffer.server());
 
                 if let Some(input) = inputs.first()
                     && let Some(targets) =
@@ -1739,9 +1746,12 @@ impl State {
             let mut user = nick.to_owned().into();
             let mut channel_users = None;
 
-            let chantypes = clients.get_chantypes(buffer.server());
-            let statusmsg = clients.get_statusmsg(buffer.server());
-            let casemapping = clients.get_casemapping(buffer.server());
+            let chantypes =
+                clients.get_server_chantypes_or_default(buffer.server());
+            let statusmsg =
+                clients.get_server_statusmsg_or_default(buffer.server());
+            let casemapping =
+                clients.get_server_casemapping_or_default(buffer.server());
             let supports_echoes =
                 clients.get_server_supports_echoes(buffer.server());
 
@@ -1976,10 +1986,12 @@ impl State {
                             },
                         );
 
-                        let chantypes = clients.get_chantypes(buffer.server());
-                        let statusmsg = clients.get_statusmsg(buffer.server());
-                        let casemapping =
-                            clients.get_casemapping(buffer.server());
+                        let chantypes = clients
+                            .get_server_chantypes_or_default(buffer.server());
+                        let statusmsg = clients
+                            .get_server_statusmsg_or_default(buffer.server());
+                        let casemapping = clients
+                            .get_server_casemapping_or_default(buffer.server());
 
                         let target = Target::parse(
                             target_channel.as_str(),
@@ -2069,15 +2081,13 @@ impl State {
                         let anim = was_idle
                             .then(Self::schedule_anim_tick)
                             .unwrap_or_else(Task::none);
-                        let event = buffer.target().map(|target| {
-                            Event::FilehostUpload {
-                                server: buffer.server().clone(),
-                                target,
-                                file_paths: vec![file_path],
-                                abort_registrations: vec![registration],
-                            }
-                        });
-                        return (anim, event);
+                        let event = Event::FilehostUpload {
+                            server: buffer.server().clone(),
+                            target: buffer.target(),
+                            file_paths: vec![file_path],
+                            abort_registrations: vec![registration],
+                        };
+                        return (anim, Some(event));
                     }
                     command::Internal::Exec(command) => {
                         if !config.buffer.commands.exec.enabled {
@@ -2125,9 +2135,12 @@ impl State {
             // If the server supports echoes, then send MARKREAD on echo only
             // (not when recording the input)
             if config.buffer.mark_as_read.on_message_sent && !supports_echoes {
-                let chantypes = clients.get_chantypes(buffer.server());
-                let statusmsg = clients.get_statusmsg(buffer.server());
-                let casemapping = clients.get_casemapping(buffer.server());
+                let chantypes =
+                    clients.get_server_chantypes_or_default(buffer.server());
+                let statusmsg =
+                    clients.get_server_statusmsg_or_default(buffer.server());
+                let casemapping =
+                    clients.get_server_casemapping_or_default(buffer.server());
 
                 if let Some(targets) =
                     input.targets(chantypes, statusmsg, casemapping)
@@ -2150,9 +2163,12 @@ impl State {
             let mut user = nick.to_owned().into();
             let mut channel_users = None;
 
-            let chantypes = clients.get_chantypes(buffer.server());
-            let statusmsg = clients.get_statusmsg(buffer.server());
-            let casemapping = clients.get_casemapping(buffer.server());
+            let chantypes =
+                clients.get_server_chantypes_or_default(buffer.server());
+            let statusmsg =
+                clients.get_server_statusmsg_or_default(buffer.server());
+            let casemapping =
+                clients.get_server_casemapping_or_default(buffer.server());
             let supports_echoes =
                 clients.get_server_supports_echoes(buffer.server());
 
@@ -2199,9 +2215,12 @@ impl State {
             input.command()
             && let Some(buffer_action) = config.actions.buffer.join_channel
         {
-            let chantypes = clients.get_chantypes(buffer.server());
-            let statusmsg = clients.get_statusmsg(buffer.server());
-            let casemapping = clients.get_casemapping(buffer.server());
+            let chantypes =
+                clients.get_server_chantypes_or_default(buffer.server());
+            let statusmsg =
+                clients.get_server_statusmsg_or_default(buffer.server());
+            let casemapping =
+                clients.get_server_casemapping_or_default(buffer.server());
 
             targets
                 .split(',')
@@ -2251,11 +2270,8 @@ impl State {
             let last_seen = history.get_last_seen(buffer);
             let filters = FilterChain::borrow(history.get_filters());
             let is_connected = clients.get_server_is_connected(buffer.server());
-            let supports_detach =
-                clients.get_server_supports_detach(buffer.server());
-            let isupport = clients.get_isupport(buffer.server());
-            let has_filehost = buffer.target().is_some()
-                && clients.get_filehost(buffer.server()).is_some();
+            let isupport = clients.get_isupport_ref(buffer.server());
+            let features = clients.get_features_ref(buffer.server());
 
             self.completion.process(
                 &line,
@@ -2268,9 +2284,8 @@ impl State {
                 current_target.as_ref(),
                 buffer.server(),
                 is_connected,
-                supports_detach,
-                &isupport,
-                has_filehost,
+                isupport,
+                features,
                 config,
             );
 
@@ -2538,7 +2553,8 @@ impl State {
         clients: &client::Map,
     ) -> bool {
         let cursor_position = self.input_content.cursor().position;
-        let casemapping = clients.get_casemapping(buffer.server());
+        let casemapping =
+            clients.get_server_casemapping_or_default(buffer.server());
 
         self.parsed
             .get(cursor_position.line)
@@ -2565,17 +2581,22 @@ fn show_while_typing(error: &input::Error) -> bool {
             | command::Error::InvalidChathistoryMessageReference
             | command::Error::InvalidChathistoryTimestamp
             | command::Error::ChathistoryLimitTooLarge { .. }
-            | command::Error::ExecDisabled,
+            | command::Error::ExecDisabled
+            | command::Error::CommandNotAvailable { .. }
+            | command::Error::CommandNotEnabled { .. },
         ) => true,
         input::Error::Command(command::Error::IncorrectArgCount {
             actual,
             max,
             ..
         }) => actual > max,
+        input::Error::Command(command::Error::InvalidSubcommand {
+            is_partial_valid,
+            ..
+        }) => !is_partial_valid,
         input::Error::Command(
             command::Error::MissingSlash
             | command::Error::MissingCommand
-            | command::Error::InvalidChathistorySubcommand
             | command::Error::NoModeString
             | command::Error::Connected
             | command::Error::Disconnected

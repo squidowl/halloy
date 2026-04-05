@@ -63,7 +63,7 @@ pub enum Event {
     },
     FilehostUpload {
         server: data::server::Server,
-        target: Target,
+        target: Option<Target>,
         file_paths: Vec<std::path::PathBuf>,
         abort_registrations: Vec<futures::future::AbortRegistration>,
     },
@@ -77,9 +77,9 @@ pub fn view<'a>(
     theme: &'a Theme,
     is_focused: bool,
 ) -> Element<'a, Message> {
-    let chantypes = clients.get_chantypes(&state.server);
-    let prefix = clients.get_prefix(&state.server);
-    let casemapping = clients.get_casemapping(&state.server);
+    let chantypes = clients.get_server_chantypes_or_default(&state.server);
+    let prefix = clients.get_server_prefix_or_default(&state.server);
+    let casemapping = clients.get_server_casemapping_or_default(&state.server);
     let our_nick: Option<data::user::NickRef<'_>> =
         clients.nickname(&state.server);
     let our_user = our_nick.map(|our_nick| User::from(Nick::from(our_nick)));
@@ -283,6 +283,8 @@ pub fn view<'a>(
         data::config::buffer::text_input::Visibility::Always => true,
     };
 
+    let filehost_url = clients.get_filehost(&state.server);
+
     let text_input = show_text_input.then(|| {
         column![
             space::vertical().height(4),
@@ -292,7 +294,7 @@ pub fn view<'a>(
                 &state.server,
                 config,
                 theme,
-                None,
+                filehost_url,
             )
             .map(Message::InputView)
         ]
@@ -318,14 +320,19 @@ pub struct Server {
 impl Server {
     pub fn new(
         server: data::server::Server,
+        history: &history::Manager,
         pane_size: Size,
         config: &Config,
     ) -> Self {
+        let buffer = buffer::Upstream::Server(server.clone());
+
         Self {
-            buffer: buffer::Upstream::Server(server.clone()),
+            input_view: input_view::State::new(Some(
+                history.input(&buffer).draft,
+            )),
+            buffer,
             server,
             scroll_view: scroll_view::State::new(pane_size, config),
-            input_view: input_view::State::new(None),
         }
     }
 

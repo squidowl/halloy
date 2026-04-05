@@ -9,7 +9,9 @@ use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
 use crate::buffer::{self, Upstream};
+use crate::capabilities::{Capabilities, Capability};
 use crate::config::buffer::text_input::AutoFormat;
+use crate::features::Features;
 use crate::isupport::{self, find_target_limit};
 use crate::message::{self, formatting};
 use crate::user::{ChannelUsers, NickRef};
@@ -81,6 +83,8 @@ pub enum Irc {
     Unknown(String, Vec<String>),
     Ctcp(ctcp::Command, String, Option<String>),
     Chathistory(String, Vec<String>),
+    Monitor(String, Option<String>),
+    Invite(String, String),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
@@ -225,6 +229,8 @@ pub enum Kind {
     SetName,
     Ctcp,
     Chathistory,
+    Monitor,
+    Invite,
     Hop,
     Notice,
     Delay,
@@ -236,6 +242,7 @@ pub enum Kind {
     Connect,
     Reconnect,
     Upload,
+    MassMessage,
     Exec,
     Raw,
 }
@@ -270,6 +277,8 @@ impl FromStr for Kind {
             "raw" => Ok(Kind::Raw),
             "ctcp" => Ok(Kind::Ctcp),
             "chathistory" => Ok(Kind::Chathistory),
+            "monitor" => Ok(Kind::Monitor),
+            "invite" => Ok(Kind::Invite),
             "hop" | "rejoin" => Ok(Kind::Hop),
             "delay" => Ok(Kind::Delay),
             "clear" => Ok(Kind::Clear),
@@ -280,6 +289,7 @@ impl FromStr for Kind {
             "connect" => Ok(Kind::Connect),
             "reconnect" => Ok(Kind::Reconnect),
             "upload" => Ok(Kind::Upload),
+            "massmessage" | "mm" => Ok(Kind::MassMessage),
             "exec" => Ok(Kind::Exec),
             _ => Err(()),
         }
@@ -293,6 +303,8 @@ pub fn parse(
     auto_format: AutoFormat,
     is_connected: bool,
     isupport: &HashMap<isupport::Kind, isupport::Parameter>,
+    capabilities: &Capabilities,
+    features: &Features,
     config: &Config,
 ) -> Result<Command, Error> {
     let parsed = parse_input(s)?;
@@ -313,6 +325,8 @@ pub fn parse(
         auto_format,
         is_connected,
         isupport,
+        capabilities,
+        features,
         config,
     )
 }
@@ -345,6 +359,8 @@ fn parse_command(
     auto_format: AutoFormat,
     is_connected: bool,
     isupport: &HashMap<isupport::Kind, isupport::Parameter>,
+    capabilities: &Capabilities,
+    features: &Features,
     config: &Config,
 ) -> Result<Command, Error> {
     let unknown = || {
@@ -826,26 +842,29 @@ fn parse_command(
                             (None, mode_string, mode_arguments)
                         };
 
-                    let target = target.unwrap_or(
-                        buffer
+                    let Some(target) = target
+                        .or(buffer
                             .and_then(Upstream::target)
-                            .map(|buffer_target| buffer_target.to_string())
-                            .unwrap_or(
-                                our_nickname
-                                    .ok_or(Error::IncorrectArgCount {
-                                        min: 1,
-                                        max: 2,
-                                        actual: 0,
-                                    })?
-                                    .to_string(),
-                            ),
-                    );
+                            .map(|buffer_target| buffer_target.to_string()))
+                        .or(our_nickname
+                            .map(|our_nickname| our_nickname.to_string()))
+                    else {
+                        return Err(Error::IncorrectArgCount {
+                            min: 1,
+                            max: 2,
+                            actual: 0,
+                        });
+                    };
 
                     let mode_limit =
                         isupport::get_mode_limit_or_default(isupport);
 
                     if let Some(mode_string) = mode_string {
-                        if mode_string == "+" || mode_string == "-" {
+                        if mode_string == "+"
+                            || mode_string == "-"
+                            || (mode_string == "="
+                                && features.list_mode_with_equal)
+                        {
                             Err(Error::NoModeString)
                         } else {
                             let mode_string_regex = if proto::is_channel(
@@ -877,6 +896,26 @@ fn parse_command(
                                 } else {
                                     channel_modes_regex += r"+";
                                 }
+
+                                if features.list_mode_with_equal
+                                    && let Some(chanmode) = chanmodes
+                                        .iter()
+                                        .find(|chanmode| chanmode.kind == 'A')
+                                {
+                                    channel_modes_regex += r"|=[";
+                                    channel_modes_regex +=
+                                        chanmode.modes.as_ref();
+                                    channel_modes_regex += r"]";
+                                    if let Some(mode_limit) = mode_limit {
+                                        channel_modes_regex += r"{1,";
+                                        channel_modes_regex +=
+                                            &format!("{mode_limit}");
+                                        channel_modes_regex += r"}";
+                                    } else {
+                                        channel_modes_regex += r"+";
+                                    }
+                                }
+
                                 channel_modes_regex += r")+$";
 
                                 Regex::new(&channel_modes_regex).unwrap_or(
@@ -953,23 +992,32 @@ fn parse_command(
 
                 Ok(Command::Irc(Irc::Away(comment)))
             }),
-            Kind::SetName => validated::<1, 0, true>(args, |[realname], _| {
+            Kind::SetName => {
                 if let Some(isupport::Parameter::NAMELEN(max_len)) =
                     isupport.get(&isupport::Kind::NAMELEN)
                 {
-                    let max_len = *max_len as usize;
+                    validated::<1, 0, true>(args, |[realname], _| {
+                        let max_len = *max_len as usize;
 
-                    if realname.len() > max_len {
-                        return Err(Error::ArgTooLong {
-                            name: "realname",
-                            len: realname.len(),
-                            max_len,
-                        });
-                    }
+                        if realname.len() > max_len {
+                            return Err(Error::ArgTooLong {
+                                name: "realname",
+                                len: realname.len(),
+                                max_len,
+                            });
+                        }
+
+                        Ok(Command::Irc(Irc::SetName(realname)))
+                    })
+                } else {
+                    Err(Error::CommandNotAvailable {
+                        command: "setname",
+                        context: buffer.map_or(String::new(), |buffer| {
+                            format!(" on {}", buffer.server())
+                        }),
+                    })
                 }
-
-                Ok(Command::Irc(Irc::SetName(realname)))
-            }),
+            }
             Kind::Notice | Kind::FormatNotice | Kind::PlainNotice => {
                 validated::<1, 1, true>(args, |[targets], [msg]| {
                     let target_limit = find_target_limit(isupport, "NOTICE")
@@ -1070,6 +1118,21 @@ fn parse_command(
                     Ok(unknown())
                 }
             }
+            Kind::MassMessage => {
+                if features.mass_message {
+                    Ok(Command::Irc(Irc::Notice(
+                        "$$*".to_string(),
+                        raw.to_string(),
+                    )))
+                } else {
+                    Err(Error::CommandNotAvailable {
+                        command: "massmessage",
+                        context: buffer.map_or(String::new(), |buffer| {
+                            format!(" on {}", buffer.server())
+                        }),
+                    })
+                }
+            }
             Kind::Ctcp => {
                 validated::<1, 2, true>(
                     args.clone(),
@@ -1115,6 +1178,15 @@ fn parse_command(
                 )
             }
             Kind::Chathistory => {
+                if !capabilities.acknowledged(Capability::Chathistory) {
+                    return Err(Error::CommandNotAvailable {
+                        command: "chathistory",
+                        context: buffer.map_or(String::new(), |buffer| {
+                            format!(" on {}", buffer.server())
+                        }),
+                    });
+                }
+
                 validated::<1, 4, false>(args, |[subcommand], params| {
                     let maximum_limit = if let Some(
                         isupport::Parameter::CHATHISTORY(maximum_limit),
@@ -1358,7 +1430,109 @@ fn parse_command(
                                 })
                             }
                         }
-                        _ => Err(Error::InvalidChathistorySubcommand),
+                        _ => Err(Error::InvalidSubcommand {
+                            command: "chathistory",
+                            is_partial_valid: [
+                                "BEFORE", "AFTER", "AROUND", "LATEST",
+                                "BETWEEN", "TARGETS",
+                            ]
+                            .iter()
+                            .any(|valid_subcommand| {
+                                valid_subcommand.starts_with(&subcommand)
+                            }),
+                        }),
+                    }
+                })
+            }
+            Kind::Monitor => {
+                if let Some(isupport::Parameter::MONITOR(target_limit)) =
+                    isupport.get(&isupport::Kind::MONITOR)
+                {
+                    validated::<1, 1, false>(args, |[subcommand], [targets]| {
+                        let target_limit = target_limit
+                            .map(|target_limit| target_limit as usize);
+
+                        let subcommand = subcommand.to_uppercase();
+
+                        match subcommand.as_str() {
+                            "+" | "-" => {
+                                if let Some(targets) = targets {
+                                    if let Some(target_limit) = target_limit {
+                                        let targets = targets
+                                            .split(',')
+                                            .collect::<Vec<_>>();
+
+                                        if targets.len() > target_limit {
+                                            return Err(
+                                                Error::TooManyTargets {
+                                                    name: "targets",
+                                                    number: targets.len(),
+                                                    max_number: target_limit,
+                                                },
+                                            );
+                                        }
+                                    }
+
+                                    Ok(Command::Irc(Irc::Monitor(
+                                        subcommand,
+                                        Some(targets),
+                                    )))
+                                } else {
+                                    Err(Error::IncorrectArgCount {
+                                        min: 2,
+                                        max: 2,
+                                        actual: 1,
+                                    })
+                                }
+                            }
+                            "C" | "L" | "S" => {
+                                if targets.is_none() {
+                                    Ok(Command::Irc(Irc::Monitor(
+                                        subcommand, None,
+                                    )))
+                                } else {
+                                    Err(Error::IncorrectArgCount {
+                                        min: 1,
+                                        max: 1,
+                                        actual: 2,
+                                    })
+                                }
+                            }
+                            _ => Err(Error::InvalidSubcommand {
+                                command: "monitor",
+                                is_partial_valid: false,
+                            }),
+                        }
+                    })
+                } else {
+                    Err(Error::CommandNotAvailable {
+                        command: "monitor",
+                        context: buffer.map_or(String::new(), |buffer| {
+                            format!(" on {}", buffer.server())
+                        }),
+                    })
+                }
+            }
+            Kind::Invite => {
+                validated::<1, 1, true>(args, |[nickname], [channel]| {
+                    if let Some(channel) = channel {
+                        Ok(Command::Irc(Irc::Invite(nickname, channel)))
+                    } else if let Some(channel) = buffer
+                        .and_then(Upstream::target)
+                        .and_then(Target::to_channel)
+                    {
+                        Ok(Command::Irc(Irc::Invite(
+                            nickname,
+                            channel.to_string(),
+                        )))
+                    } else {
+                        // If not in a channel then a channel argument is
+                        // required
+                        Err(Error::IncorrectArgCount {
+                            min: 2,
+                            max: 2,
+                            actual: 0,
+                        })
                     }
                 })
             }
@@ -1377,6 +1551,15 @@ fn parse_command(
                 Ok(Command::Internal(Internal::SysInfo))
             }),
             Kind::Detach => {
+                if !features.detach {
+                    return Err(Error::CommandNotAvailable {
+                        command: "detach",
+                        context: buffer.map_or(String::new(), |buffer| {
+                            format!(" on {}", buffer.server())
+                        }),
+                    });
+                }
+
                 validated::<0, 1, false>(args, |_, [target_list]| {
                     let channels = if let Some(target_list) = target_list {
                         let casemapping =
@@ -1512,9 +1695,24 @@ fn parse_command(
             Kind::Reconnect => validated::<0, 0, false>(args, |_, _| {
                 Ok(Command::Internal(Internal::Reconnect))
             }),
-            Kind::Upload => validated::<1, 0, true>(args, |[path], _| {
-                Ok(Command::Internal(Internal::Upload(path)))
-            }),
+            Kind::Upload => {
+                if isupport.contains_key(&isupport::Kind::FILEHOST) {
+                    if config.filehost.enabled {
+                        validated::<1, 0, true>(args, |[path], _| {
+                            Ok(Command::Internal(Internal::Upload(path)))
+                        })
+                    } else {
+                        Err(Error::CommandNotEnabled { command: "upload" })
+                    }
+                } else {
+                    Err(Error::CommandNotAvailable {
+                        command: "upload",
+                        context: buffer.map_or(String::new(), |buffer| {
+                            format!(" on {}", buffer.server())
+                        }),
+                    })
+                }
+            }
             Kind::Exec => {
                 let command = raw.trim();
 
@@ -1723,6 +1921,12 @@ impl TryFrom<Irc> for proto::Command {
             Irc::List(channels, elistcond) => {
                 proto::Command::LIST(channels, elistcond)
             }
+            Irc::Monitor(subcommand, targets) => {
+                proto::Command::MONITOR(subcommand, targets)
+            }
+            Irc::Invite(nickname, channel) => {
+                proto::Command::INVITE(nickname, channel)
+            }
         })
     }
 }
@@ -1797,8 +2001,11 @@ pub enum Error {
     Connected,
     #[error("not in channel")]
     NotInChannel,
-    #[error("invalid chathistory subcommand")]
-    InvalidChathistorySubcommand,
+    #[error("invalid {command} subcommand")]
+    InvalidSubcommand {
+        command: &'static str,
+        is_partial_valid: bool,
+    },
     #[error("invalid timestamp or message id")]
     InvalidChathistoryMessageReference,
     #[error("invalid timestamp")]
@@ -1807,6 +2014,13 @@ pub enum Error {
     ChathistoryLimitTooLarge { maximum_limit: u16 },
     #[error("exec is not enabled by the user")]
     ExecDisabled,
+    #[error("/{command} is not available{context}")]
+    CommandNotAvailable {
+        command: &'static str,
+        context: String,
+    },
+    #[error("/{command} is not enabled in configuration")]
+    CommandNotEnabled { command: &'static str },
 }
 
 fn fmt_incorrect_arg_count(min: usize, max: usize, actual: usize) -> String {
@@ -1847,10 +2061,73 @@ fn fmt_channel_name_requirements(chantypes: &[char]) -> String {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
-
-    use super::{AutoFormat, Command, Error, Internal, parse};
+    use super::{AutoFormat, Command, Error, Internal, isupport, parse};
     use crate::Config;
+    use crate::capabilities::Capabilities;
+    use crate::features::Features;
+
+    #[test]
+    fn validate_mode_string() {
+        use std::borrow::Cow;
+        use std::collections::HashMap;
+
+        let mut isupport: HashMap<isupport::Kind, isupport::Parameter> =
+            HashMap::new();
+
+        isupport.insert(
+            isupport::Kind::CHANMODES,
+            isupport::Parameter::CHANMODES(
+                [
+                    isupport::ModeKind {
+                        kind: 'A',
+                        modes: Cow::Borrowed("eIbq"),
+                    },
+                    isupport::ModeKind {
+                        kind: 'B',
+                        modes: Cow::Borrowed("k"),
+                    },
+                    isupport::ModeKind {
+                        kind: 'C',
+                        modes: Cow::Borrowed("flj"),
+                    },
+                    isupport::ModeKind {
+                        kind: 'D',
+                        modes: Cow::Borrowed("CFLMPQRSTcgimnprstuz"),
+                    },
+                ]
+                .to_vec(),
+            ),
+        );
+
+        let tests = [
+            ("/mode dan +i", Features::default()),
+            ("/mode #foobar +mb *@127.0.0.1", Features::default()),
+            (
+                "/mode #channel =b",
+                Features {
+                    list_mode_with_equal: true,
+                    ..Features::default()
+                },
+            ),
+        ];
+
+        for (test, features) in tests {
+            assert!(
+                parse(
+                    test,
+                    None,
+                    None,
+                    AutoFormat::default(),
+                    true,
+                    &isupport,
+                    &Capabilities::default(),
+                    &features,
+                    &Config::default(),
+                )
+                .is_ok()
+            );
+        }
+    }
 
     #[test]
     fn parse_exec_preserves_raw_command() {
@@ -1863,7 +2140,9 @@ mod tests {
             None,
             AutoFormat::default(),
             true,
-            &HashMap::new(),
+            &isupport::DEFAULT,
+            &Capabilities::default(),
+            &Features::default(),
             &config,
         )
         .unwrap();
@@ -1886,7 +2165,9 @@ mod tests {
             None,
             AutoFormat::default(),
             true,
-            &HashMap::new(),
+            &isupport::DEFAULT,
+            &Capabilities::default(),
+            &Features::default(),
             &config,
         )
         .unwrap_err();
@@ -1912,7 +2193,9 @@ mod tests {
             None,
             AutoFormat::default(),
             true,
-            &HashMap::new(),
+            &isupport::DEFAULT,
+            &Capabilities::default(),
+            &Features::default(),
             &config,
         )
         .unwrap_err();

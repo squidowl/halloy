@@ -2267,6 +2267,20 @@ fn target(
                 }),
             }
         }
+        Command::INVITE(_, channel) => {
+            let channel = target::Channel::parse(
+                &channel,
+                chantypes,
+                statusmsg,
+                casemapping,
+            )
+            .ok()?;
+
+            Some(Target::Channel {
+                channel,
+                source: Source::Server(None),
+            })
+        }
         // Server
         Command::PASS(_)
         | Command::NICK(_)
@@ -2277,7 +2291,6 @@ fn target(
         | Command::SQUIT(_, _)
         | Command::NAMES(_)
         | Command::LIST(_, _)
-        | Command::INVITE(_, _)
         | Command::MOTD(_)
         | Command::LUSERS
         | Command::VERSION(_)
@@ -2441,30 +2454,30 @@ fn content<'a>(
             })
         }
         Command::KICK(channel, victim, reason) => {
-            let raw_victim_user =
-                User::from(Nick::from_str(victim.as_str(), casemapping));
-            let victim = target::Channel::parse(
-                victim,
-                chantypes,
-                statusmsg,
-                casemapping,
-            )
-            .ok()
-            .and_then(|channel| resolve_attributes(&raw_victim_user, &channel))
-            .unwrap_or(raw_victim_user);
-
-            let ourself = victim.nickname() == *our_nick;
-
-            let raw_user = message.user(casemapping)?;
-            let user = target::Channel::parse(
+            let channel = target::Channel::parse(
                 channel,
                 chantypes,
                 statusmsg,
                 casemapping,
             )
-            .ok()
-            .and_then(|channel| resolve_attributes(&raw_user, &channel))
-            .unwrap_or(raw_user);
+            .ok();
+
+            let raw_victim_user =
+                User::from(Nick::from_str(victim.as_str(), casemapping));
+            let victim = channel
+                .as_ref()
+                .and_then(|channel| {
+                    resolve_attributes(&raw_victim_user, channel)
+                })
+                .unwrap_or(raw_victim_user);
+
+            let ourself = victim.nickname() == *our_nick;
+
+            let raw_user = message.user(casemapping)?;
+            let user = channel
+                .as_ref()
+                .and_then(|channel| resolve_attributes(&raw_user, channel))
+                .unwrap_or(raw_user);
 
             Some((
                 kick_text(user, victim, ourself, reason, None, casemapping),
@@ -2945,6 +2958,55 @@ fn content<'a>(
                 None,
             ))
         }
+        Command::INVITE(user, channel) => {
+            let channel = target::Channel::parse(
+                channel,
+                chantypes,
+                statusmsg,
+                casemapping,
+            )
+            .ok();
+
+            let raw_inviter = message.user(casemapping)?;
+            let inviter = channel
+                .as_ref()
+                .and_then(|channel| resolve_attributes(&raw_inviter, channel))
+                .unwrap_or(raw_inviter);
+            let ourself = inviter.nickname() == *our_nick;
+
+            let invitee =
+                User::from(Nick::from_str(user.as_str(), casemapping));
+
+            Some((
+                invite_text(inviter, ourself, invitee, channel, casemapping),
+                None,
+            ))
+        }
+        Command::Numeric(RPL_INVITING, params) => {
+            let channel = target::Channel::parse(
+                params.get(2)?,
+                chantypes,
+                statusmsg,
+                casemapping,
+            )
+            .ok();
+
+            let raw_inviter =
+                User::from(Nick::from_str(params.first()?, casemapping));
+            let inviter = channel
+                .as_ref()
+                .and_then(|channel| resolve_attributes(&raw_inviter, channel))
+                .unwrap_or(raw_inviter);
+            let ourself = inviter.nickname() == *our_nick;
+
+            let invitee =
+                User::from(Nick::from_str(params.get(1)?, casemapping));
+
+            Some((
+                invite_text(inviter, ourself, invitee, channel, casemapping),
+                None,
+            ))
+        }
         Command::Numeric(RPL_WELCOME, params) => Some((
             parse_fragments_with_user(
                 params
@@ -3080,6 +3142,28 @@ pub fn action_text_with_highlights(
         our_nick,
         highlights,
         server,
+        casemapping,
+    )
+}
+
+fn invite_text(
+    inviter: User,
+    ourself: bool,
+    invitee: User,
+    channel: Option<target::Channel>,
+    casemapping: isupport::CaseMap,
+) -> Content {
+    let inviter_text = if ourself { "you" } else { inviter.as_str() };
+    parse_fragments_with_users(
+        if let Some(channel) = channel {
+            format!(
+                "{} has been invited to {channel} by {inviter_text}",
+                invitee.nickname(),
+            )
+        } else {
+            format!("{} has been invited by {inviter_text}", invitee.nickname(),)
+        },
+        Some(&[inviter, invitee].into_iter().collect()),
         casemapping,
     )
 }
