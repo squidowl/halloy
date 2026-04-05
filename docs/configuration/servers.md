@@ -607,9 +607,6 @@ Disconnect from the server if SASL authentication fails. This is useful on serve
 disconnect_on_failure = false
 ```
 
-[^1]: Windows path strings should usually be specified as literal strings (e.g. `'C:\Users\Default\'`), otherwise directory separators will need to be escaped (e.g. `"C:\\Users\\Default\\"`).
-[^2]: Relative paths are prefixed with the config directory (i.e. if you have your config.toml in `/home/me/.config/halloy/config.toml`, path `.passwd/libera` will be converted to `/home/me/.config/halloy/.passwd/libera`).
-
 ## `sasl.plain`
 
 Plain SASL auth using a username and password
@@ -692,9 +689,6 @@ Disconnect from the server if SASL authentication fails. This is useful on serve
 disconnect_on_failure = false
 ```
 
-[^1]: Windows path strings should usually be specified as literal strings (e.g. `'C:\Users\Default\'`), otherwise directory separators will need to be escaped (e.g. `"C:\\Users\\Default\\"`).
-[^2]: Relative paths are prefixed with the config directory (i.e. if you have your config.toml in `/home/me/.config/halloy/config.toml`, path `.passwd/libera` will be converted to `/home/me/.config/halloy/.passwd/libera`).
-
 ## `confirm_message_delivery`
 
 Whether and where to confirm delivery of sent messages, if the server supports [`echo-message`](https://ircv3.net/specs/extensions/echo-message)
@@ -775,17 +769,120 @@ Controls whether or not authentication should be performed with the filehost. Fo
 send_credentials = false
 ```
 
-### `override_url`
+### `override`
 
 Override the filehost URL advertised by the server via ISUPPORT. The filehost must be compatible with the `draft/FILEHOST` spec.
+
+#### `url`
+
+The URL used instead of the filehost URL advertised by the server via ISUPPORT.
 
 ```toml
 # Type: string
 # Values: any string
 # Default: not set
 
-[servers.<name>.filehost]
-override_url = "https://example.org/upload"
+[servers.<name>.filehost.override]
+url = "https://example.org/upload"
+```
+
+#### `credentials.plain`
+
+Plain SASL auth using a username and password, to be used for filehost instead of server authentication.
+
+##### `username`
+
+The account name used for authentication.
+
+```toml
+# Type: string
+# Values: any string
+# Default: not set
+
+[servers.<name>.filehost.override.credentials.plain]
+username = "username"
+```
+
+##### `password`
+
+The password associated with the account used for authentication.
+
+```toml
+# Type: string
+# Values: any string
+# Default: not set
+
+[servers.<name>.filehost.override.credentials.plain]
+password = "password"
+```
+
+##### `password_file`
+
+Read `password` from the file at the given path.[^1] [^2]
+
+```toml
+# Type: string
+# Values: any string
+# Default: not set
+
+[servers.<name>.filehost.override.credentials.plain]
+password_file = ""
+```
+
+##### `password_file_first_line_only`
+
+Read `password` from the first line of `password_file` only.
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: true
+
+[servers.<name>.filehost.override.credentials.plain]
+password_file_first_line_only = true
+```
+
+##### `password_command`
+
+Executes the command with `sh` (or equivalent) and reads `password` as the output.
+
+```toml
+# Type: string
+# Values: any string
+# Default: not set
+
+[servers.<name>.filehost.override.credentials.plain]
+password_command = ""
+```
+
+#### `credentials.external`
+
+External SASL auth uses a PEM encoded X509 certificate, to be used for filehost instead of server authentication. [Reference](https://libera.chat/guides/certfp).
+
+##### `cert`
+
+The path to PEM encoded X509 user certificate for external auth.[^1] [^2]
+
+```toml
+# Type: string
+# Values: any string
+# Default: not set
+
+[servers.<name>.filehost.override.credentials.external]
+cert = "/path/to/your/certificate.pem"
+```
+
+##### `key`
+
+The path to PEM encoded PKCS#8 private key for external auth (optional).[^1] [^2]
+
+```toml
+# Type: string
+# Values: any string
+# Default: not set
+
+[servers.<name>.filehost.override.credentials.external]
+key = "/path/to/your/private_key.pem"
 ```
 
 ### `typing`
@@ -817,3 +914,6 @@ Control whether Halloy shows typing status from other users on the server.
 [servers.<name>.typing]
 show = true
 ```
+
+[^1]: Windows path strings should usually be specified as literal strings (e.g. `'C:\Users\Default\'`), otherwise directory separators will need to be escaped (e.g. `"C:\\Users\\Default\\"`).
+[^2]: Relative paths are prefixed with the config directory (i.e. if you have your config.toml in `/home/me/.config/halloy/config.toml`, path `.passwd/libera` will be converted to `/home/me/.config/halloy/.passwd/libera`).

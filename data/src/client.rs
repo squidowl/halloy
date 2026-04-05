@@ -4450,58 +4450,61 @@ impl Map {
     pub fn get_filehost<'a>(&'a self, server: &Server) -> Option<&'a str> {
         let client = self.client(server)?;
 
-        if server.is_bouncer_network() {
-            match &client.config.filehost {
-                Some(f) if !f.enabled => return None,
-                Some(f) if f.override_url.is_some() => {
-                    return f.override_url.as_deref();
-                }
-                _ => {
-                    return server
-                        .parent()
-                        .as_ref()
-                        .and_then(|p| self.get_filehost(p));
-                }
-            }
+        if !client.config.filehost.enabled {
+            return None;
         }
 
-        let isupport_url = isupport::get_filehost(&client.isupport);
-        match &client.config.filehost {
-            None => isupport_url,
-            Some(f) if !f.enabled => None,
-            Some(f) => f.override_url.as_deref().or(isupport_url),
-        }
+        client
+            .config
+            .filehost
+            .override_filehost
+            .as_ref()
+            .map(|override_filehost| override_filehost.url.as_str())
+            .or(if server.is_bouncer_network() {
+                server.parent().as_ref().and_then(|p| self.get_filehost(p))
+            } else {
+                isupport::get_filehost(&client.isupport)
+            })
     }
 
     pub fn get_filehost_auth(
         &self,
         server: &Server,
     ) -> Option<fileupload::Auth> {
-        if server.is_bouncer_network() {
-            let client = self.client(server)?;
-            let has_override = client
-                .config
-                .filehost
-                .as_ref()
-                .filter(|f| f.enabled)
-                .and_then(|f| f.override_url.as_ref())
-                .is_some();
+        let client = self.client(server)?;
 
-            if !has_override {
-                return server
-                    .parent()
-                    .as_ref()
-                    .and_then(|p| self.get_filehost_auth(p));
-            }
+        if !client.config.filehost.send_credentials
+            || !client.config.filehost.enabled
+        {
+            return None;
         }
 
-        let client = self.client(server)?;
-        let default_filehost = config::server::Filehost::default();
-        let filehost =
-            client.config.filehost.as_ref().unwrap_or(&default_filehost);
+        if let Some(credentials) =
+            client.config.filehost.override_filehost.as_ref().and_then(
+                |override_filehost| override_filehost.credentials.as_ref(),
+            )
+        {
+            return match credentials {
+                config::server::Sasl::Plain {
+                    username, password, ..
+                } => Some(fileupload::Auth::Basic {
+                    username: username.clone(),
+                    password: password.clone()?,
+                }),
+                config::server::Sasl::External { cert, key, .. } => {
+                    Some(fileupload::Auth::External {
+                        cert: cert.clone(),
+                        key: key.clone(),
+                    })
+                }
+            };
+        }
 
-        if !filehost.send_credentials {
-            return None;
+        if server.is_bouncer_network() {
+            return server
+                .parent()
+                .as_ref()
+                .and_then(|parent| self.get_filehost_auth(parent));
         }
 
         match client.config.sasl.as_ref()? {
