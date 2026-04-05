@@ -14,6 +14,7 @@ Added:
 - `buffer.typing.style` setting with `padded` and `popped` modes for typing indicators
 - Files can be uploaded to server using `soju.im/FILEHOST` and `draft/FILEHOST`
 - Record Ergo/Solanum mass-messages to the server buffer
+- Setting to control whether unread indicators are shown on open buffers (`sidebar.unread_indicator.show_on_open_buffers`)
 
 Changed:
 

@@ -412,7 +412,20 @@ impl History {
                     max_triggers_highlight.is_some()
                 }
             }
-            History::Full { .. } => false,
+            History::Full {
+                messages,
+                read_marker,
+                ..
+            } => {
+                let latest = metadata::latest_triggers_highlight(messages);
+
+                if let Some(read_marker) = read_marker {
+                    latest
+                        .is_some_and(|latest| read_marker.date_time() < latest)
+                } else {
+                    latest.is_some()
+                }
+            }
         }
     }
 

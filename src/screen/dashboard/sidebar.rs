@@ -477,22 +477,20 @@ impl Sidebar {
 
                 let button =
                     |buffer: buffer::Upstream,
+                     kind: history::Kind,
                      connected: bool,
                      server_has_unread: bool,
-                     supports_detach: bool,
-                     has_unread: bool,
-                     has_highlight: bool| {
+                     supports_detach: bool| {
                         upstream_buffer_button(
                             config,
                             panes,
                             focus,
                             buffer,
+                            kind,
                             connected,
                             server_has_unread,
                             supports_detach,
                             casemapping,
-                            has_unread,
-                            has_highlight,
                             history,
                             width,
                             theme,
@@ -507,30 +505,20 @@ impl Sidebar {
                             // Disconnected server.
                             buffers.push(button(
                                 buffer::Upstream::Server(server.clone()),
+                                history::Kind::Server(server.clone()),
                                 false,
                                 history.server_has_unread(server.clone()),
                                 clients.get_server_supports_detach(server),
-                                history.has_unread(&history::Kind::Server(
-                                    server.clone(),
-                                )),
-                                history.has_highlight(&history::Kind::Server(
-                                    server.clone(),
-                                )),
                             ));
                         }
                         data::client::State::Ready(connection) => {
                             // Connected server.
                             buffers.push(button(
                                 buffer::Upstream::Server(server.clone()),
+                                history::Kind::Server(server.clone()),
                                 true,
                                 history.server_has_unread(server.clone()),
                                 clients.get_server_supports_detach(server),
-                                history.has_unread(&history::Kind::Server(
-                                    server.clone(),
-                                )),
-                                history.has_highlight(&history::Kind::Server(
-                                    server.clone(),
-                                )),
                             ));
 
                             // Channels from the connected server.
@@ -540,21 +528,13 @@ impl Sidebar {
                                         server.clone(),
                                         channel.clone(),
                                     ),
+                                    history::Kind::Channel(
+                                        server.clone(),
+                                        channel.clone(),
+                                    ),
                                     true,
                                     history.server_has_unread(server.clone()),
                                     clients.get_server_supports_detach(server),
-                                    history.has_unread(
-                                        &history::Kind::Channel(
-                                            server.clone(),
-                                            channel.clone(),
-                                        ),
-                                    ),
-                                    history.has_highlight(
-                                        &history::Kind::Channel(
-                                            server.clone(),
-                                            channel.clone(),
-                                        ),
-                                    ),
                                 ));
                             }
 
@@ -570,19 +550,13 @@ impl Sidebar {
                                         server.clone(),
                                         query.clone(),
                                     ),
+                                    history::Kind::Query(
+                                        server.clone(),
+                                        query.clone(),
+                                    ),
                                     true,
                                     history.server_has_unread(server.clone()),
                                     clients.get_server_supports_detach(server),
-                                    history.has_unread(&history::Kind::Query(
-                                        server.clone(),
-                                        query.clone(),
-                                    )),
-                                    history.has_highlight(
-                                        &history::Kind::Query(
-                                            server.clone(),
-                                            query.clone(),
-                                        ),
-                                    ),
                                 ));
                             }
 
@@ -827,12 +801,11 @@ fn upstream_buffer_button<'a>(
     panes: &'a Panes,
     focus: Focus,
     buffer: buffer::Upstream,
+    kind: history::Kind,
     connected: bool,
     server_has_unread: bool,
     supports_detach: bool,
     casemapping: isupport::CaseMap,
-    has_unread: bool,
-    has_highlight: bool,
     history: &'a history::Manager,
     width: Length,
     theme: &'a Theme,
@@ -840,6 +813,23 @@ fn upstream_buffer_button<'a>(
     let open = panes.iter().find_map(|(window_id, pane, state)| {
         (state.buffer.upstream() == Some(&buffer)).then_some((window_id, pane))
     });
+
+    let has_unread = if config.sidebar.unread_indicator.show_on_open_buffers
+        || open.is_none()
+    {
+        history.has_unread(&kind)
+    } else {
+        false
+    };
+
+    let has_highlight = if config.sidebar.unread_indicator.show_on_open_buffers
+        || open.is_none()
+    {
+        history.has_highlight(&kind)
+    } else {
+        false
+    };
+
     let is_focused = panes.iter().find_map(|(window_id, pane, state)| {
         (Focus {
             window: window_id,
