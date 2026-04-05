@@ -33,6 +33,10 @@ soju supports filehost via its own `soju.im/FILEHOST` token. Configure filehost 
 
 soju will advertise the configured URL to clients via `soju.im/FILEHOST`. For networks provided by bouncer, Halloy will use the bouncer's filehost.
 
+### ircv3-filehost-server
+
+[ircv3-filehost-server](https://codeberg.org/whitequark/ircv3-filehost-server) can be used to complement an IRCd/bouncer, providing filehost functionality that the IRCd/bouncer can then advertise to clients.
+
 ### convoyeur
 
 [convoyeur](https://codeberg.org/classabbyamp/convoyeur) can act as a proxy to external file upload services. 
