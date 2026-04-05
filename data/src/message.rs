@@ -85,7 +85,7 @@ static URL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
 });
 
 static CHANNEL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-    RegexBuilder::new(r#"(?i)(?<!\w)(#[^ ,\x07]+)(?!\w)"#)
+    RegexBuilder::new(r#"(?i)(?<!\w)(#[^ ,:;"\x07]+)(?!\w)"#)
         .build()
         .unwrap()
 });
@@ -3287,6 +3287,15 @@ pub mod tests {
     #[test]
     fn fragments_parsing() {
         let tests = [
+            (
+                r##"#channel: "#foo""##,
+                vec![
+                    Fragment::Channel("#channel".into()),
+                    Fragment::Text(": \"".into()),
+                    Fragment::Channel("#foo".into()),
+                    Fragment::Text("\"".into()),
+                ],
+            ),
             (
                 "Checkout https://foo.bar/asdf?1=2 now!",
                 vec![
