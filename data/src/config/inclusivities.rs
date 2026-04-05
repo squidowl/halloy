@@ -7,6 +7,28 @@ use crate::server::Server;
 use crate::target::{Channel, Query, Target, TargetRef};
 use crate::user::NickRef;
 
+pub fn is_server_included(
+    include: Option<&Inclusivities>,
+    exclude: Option<&Inclusivities>,
+    server: &Server,
+) -> bool {
+    let is_inclusive =
+        |inclusivities: Option<&Inclusivities>, server: &Server| -> bool {
+            inclusivities.is_some_and(|inclusivities| {
+                inclusivities.is_server_inclusive(server)
+                    || inclusivities
+                        .criteria
+                        .iter()
+                        .any(|criterion| criterion.is_server_inclusive(server))
+            })
+        };
+
+    let is_included = is_inclusive(include, server);
+    let is_excluded = is_inclusive(exclude, server);
+
+    is_included || !is_excluded
+}
+
 // Skips inclusivity checks without a source, as those are expected to be
 // performed elsewhere
 pub fn is_source_included(
@@ -552,6 +574,15 @@ impl Criterion {
                     == casemapping.normalize(user_criterion).as_str()
             })
         }) && self.channels.is_none()
+            && self.server.as_ref().is_none_or(|server_criterion| {
+                match_server(server, server_criterion)
+            })
+            && self.server_message.is_none()
+    }
+
+    pub fn is_server_inclusive(&self, server: &Server) -> bool {
+        self.users.is_none()
+            && self.channels.is_none()
             && self.server.as_ref().is_none_or(|server_criterion| {
                 match_server(server, server_criterion)
             })

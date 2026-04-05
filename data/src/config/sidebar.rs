@@ -3,10 +3,13 @@ use serde_untagged::UntaggedEnumVisitor;
 
 use crate::config::Scrollbar;
 use crate::config::buffer::ChannelNameCasing;
-use crate::config::inclusivities::{Inclusivities, is_target_channel_included};
+use crate::config::inclusivities::{
+    Inclusivities, is_server_included, is_target_included,
+};
+use crate::isupport;
 use crate::serde::deserialize_u32_positive_integer;
 use crate::server::Server;
-use crate::{isupport, target};
+use crate::target::Target;
 
 #[derive(Debug, Clone, Default, Deserialize)]
 #[serde(default)]
@@ -154,18 +157,26 @@ impl UnreadIndicator {
 
     pub fn should_indicate_unread(
         &self,
-        channel: &target::Channel,
+        target: Option<&Target>,
         server: &Server,
         casemapping: isupport::CaseMap,
     ) -> bool {
-        is_target_channel_included(
-            self.include.as_ref(),
-            self.exclude.as_ref(),
-            None,
-            channel,
-            server,
-            casemapping,
-        )
+        if let Some(target) = target {
+            is_target_included(
+                self.include.as_ref(),
+                self.exclude.as_ref(),
+                None,
+                target,
+                server,
+                casemapping,
+            )
+        } else {
+            is_server_included(
+                self.include.as_ref(),
+                self.exclude.as_ref(),
+                server,
+            )
+        }
     }
 }
 
