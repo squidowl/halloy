@@ -832,13 +832,12 @@ fn upstream_buffer_button<'a>(
         .then_some((window_id, pane))
     });
 
-    let should_indicate_unread = buffer.channel().is_none_or(|channel| {
+    let should_indicate_unread =
         config.sidebar.unread_indicator.should_indicate_unread(
-            channel,
+            buffer.target().as_ref(),
             buffer.server(),
             casemapping,
-        )
-    });
+        );
     let is_unread_query =
         matches!(buffer, buffer::Upstream::Query(_, _)) && has_unread;
     let has_highlight = has_highlight

@@ -251,7 +251,7 @@ conditions. You can also exclude all conditions by setting to `"all"` or `"*"`.
 
 ```toml
 # Type: inclusion/exclusion conditions
-# Values: channel & server inclusion/exclusion conditions
+# Values: channel, user, & server inclusion/exclusion conditions
 # Default: not set
 
 [sidebar.unread_indicator]
@@ -267,7 +267,7 @@ setting.
 
 ```toml
 # Type: inclusion/exclusion conditions
-# Values: channel & server inclusion/exclusion conditions
+# Values: channel, user, & server inclusion/exclusion conditions
 # Default: not set
 
 [sidebar.unread_indicator]

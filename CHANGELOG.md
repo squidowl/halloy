@@ -17,6 +17,7 @@ Added:
 - Setting to control whether unread indicators are shown on open buffers (`sidebar.unread_indicator.show_on_open_buffers`)
 - Ability to add optional arguments in custom aliases (`/msg ChanServ op $channel $1?-`)
 - `/invite` command tooltip and validation provided, and display of `INVITE`-related messages improved
+- Unread indicators for queries can be hidden via `sidebar.unread_indicator.exclude`
 
 Changed:
 
@@ -46,7 +47,7 @@ Thanks:
 
 - Contributions: @furudean, @omentic, @KaiKorla, @achille
 - Bug reports: sebbu, @whitequark, @SnoopJ, esden, @miyukoc, @ld-cd, @achille, @classabbyamp, vignoux, @esden, @ncfavier
-- Feature requests: @omentic, @classabbyamp
+- Feature requests: @omentic, @classabbyamp, @ncfavier
 
 # 2026.5 (2026-03-21)
 
