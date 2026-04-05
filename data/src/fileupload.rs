@@ -93,12 +93,15 @@ pub async fn upload(
 
     log::debug!("uploading {file_name} to {base}");
 
+    let escaped_file_name =
+        file_name.replace("\\", "\\\\").replace("\"", "\\\"");
+
     let mut req = upload_client
         .post(base.clone())
         .header(header::CONTENT_TYPE, content_type)
         .header(
             header::CONTENT_DISPOSITION,
-            format!("attachment; filename=\"{file_name}\""),
+            format!("attachment; filename=\"{escaped_file_name}\""),
         )
         .header(header::CONTENT_LENGTH, file_size)
         .body(body);
