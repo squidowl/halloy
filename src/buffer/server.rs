@@ -320,14 +320,19 @@ pub struct Server {
 impl Server {
     pub fn new(
         server: data::server::Server,
+        history: &history::Manager,
         pane_size: Size,
         config: &Config,
     ) -> Self {
+        let buffer = buffer::Upstream::Server(server.clone());
+
         Self {
-            buffer: buffer::Upstream::Server(server.clone()),
+            input_view: input_view::State::new(Some(
+                history.input(&buffer).draft,
+            )),
+            buffer,
             server,
             scroll_view: scroll_view::State::new(pane_size, config),
-            input_view: input_view::State::new(None),
         }
     }
 
