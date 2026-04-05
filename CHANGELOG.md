@@ -13,9 +13,10 @@ Added:
 - Right-click context menu on messages now includes "Copy message" to copy the message text to the clipboard
 - `buffer.typing.style` setting with `padded` and `popped` modes for typing indicators
 - Files can be uploaded to server using `soju.im/FILEHOST` and `draft/FILEHOST`
-- Record Ergo/Solanum mass-messages to the server buffer
+- Record Ergo/Solanum mass-messages to the server buffer (and provide a `/massmessage` command for sending them)
 - Setting to control whether unread indicators are shown on open buffers (`sidebar.unread_indicator.show_on_open_buffers`)
 - Ability to add optional arguments in custom aliases (`/msg ChanServ op $channel $1?-`)
+- `/invite` command tooltip and validation provided, and display of `INVITE`-related messages improved
 
 Changed:
 
@@ -23,6 +24,7 @@ Changed:
 - Moved nicklist nickname settings from `buffer.channel.nicklist` to `buffer.nickname` (`away` and `color`)
 - Default typing style (`buffer.typing.style`) is now `popped` (from `padded`)
 - Colons, semicolons and double quotes are no longer considered part of channel names
+- Tooltips will be shown for all commands, with an error tooltip shown if the server does not support the command
 
 Fixed:
 
@@ -43,7 +45,7 @@ Removed:
 Thanks:
 
 - Contributions: @furudean, @omentic, @KaiKorla, @achille
-- Bug reports: sebbu, @whitequark, @SnoopJ, esden, @miyukoc, @ld-cd, @achille, @classabbyamp, vignoux, @esden
+- Bug reports: sebbu, @whitequark, @SnoopJ, esden, @miyukoc, @ld-cd, @achille, @classabbyamp, vignoux, @esden, @ncfavier
 - Feature requests: @omentic, @classabbyamp
 
 # 2026.5 (2026-03-21)
