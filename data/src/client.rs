@@ -21,6 +21,7 @@ use crate::capabilities::{
     Capabilities, Capability, MultilineBatchKind, MultilineLimits,
     multiline_concat_lines, multiline_encoded,
 };
+use crate::config::server::FilehostCredentials;
 use crate::environment::{SOURCE_WEBSITE, VERSION};
 use crate::history::ReadMarker;
 use crate::isupport::{
@@ -4454,17 +4455,13 @@ impl Map {
             return None;
         }
 
-        client
-            .config
-            .filehost
-            .override_filehost
-            .as_ref()
-            .map(|override_filehost| override_filehost.url.as_str())
-            .or(if server.is_bouncer_network() {
+        client.config.filehost.override_url.as_deref().or(
+            if server.is_bouncer_network() {
                 server.parent().as_ref().and_then(|p| self.get_filehost(p))
             } else {
                 isupport::get_filehost(&client.isupport)
-            })
+            },
+        )
     }
 
     pub fn get_filehost_auth(
@@ -4473,28 +4470,26 @@ impl Map {
     ) -> Option<fileupload::Auth> {
         let client = self.client(server)?;
 
-        if !client.config.filehost.send_credentials
-            || !client.config.filehost.enabled
-        {
+        if !client.config.filehost.enabled {
             return None;
         }
 
-        if let Some(credentials) =
-            client.config.filehost.override_filehost.as_ref().and_then(
-                |override_filehost| override_filehost.credentials.as_ref(),
-            )
-        {
-            return fileupload::Auth::try_from(credentials).ok();
-        }
+        match &client.config.filehost.credentials {
+            FilehostCredentials::Server => {
+                if server.is_bouncer_network() {
+                    return server
+                        .parent()
+                        .as_ref()
+                        .and_then(|parent| self.get_filehost_auth(parent));
+                }
 
-        if server.is_bouncer_network() {
-            return server
-                .parent()
-                .as_ref()
-                .and_then(|parent| self.get_filehost_auth(parent));
+                fileupload::Auth::try_from(client.config.sasl.as_ref()?).ok()
+            }
+            FilehostCredentials::Sasl(credentials) => {
+                fileupload::Auth::try_from(credentials).ok()
+            }
+            FilehostCredentials::None => None,
         }
-
-        fileupload::Auth::try_from(client.config.sasl.as_ref()?).ok()
     }
 
     pub fn get_use_tls(&self, server: &Server) -> bool {
