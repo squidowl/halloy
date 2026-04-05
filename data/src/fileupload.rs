@@ -7,6 +7,8 @@ use tokio::io::AsyncReadExt as _;
 use tokio_util::io::ReaderStream;
 use url::Url;
 
+use crate::config::server::Sasl;
+
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("unsupported or invalid URI: {0}")]
@@ -27,6 +29,33 @@ pub enum Error {
 pub enum Auth {
     Basic { username: String, password: String },
     External { cert: PathBuf, key: Option<PathBuf> },
+}
+
+impl TryFrom<&Sasl> for Auth {
+    type Error = &'static str;
+
+    fn try_from(sasl: &Sasl) -> Result<Self, Self::Error> {
+        Ok(match sasl {
+            Sasl::Plain {
+                username, password, ..
+            } => {
+                let Some(password) = password else {
+                    return Err(
+                        "SASL PLAIN must have password specified to be used for filehost authentication",
+                    );
+                };
+
+                Self::Basic {
+                    username: username.clone(),
+                    password: password.clone(),
+                }
+            }
+            Sasl::External { cert, key, .. } => Self::External {
+                cert: cert.clone(),
+                key: key.clone(),
+            },
+        })
+    }
 }
 
 /// Upload the file at `path` to `upload_url`.
