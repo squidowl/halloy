@@ -4484,20 +4484,7 @@ impl Map {
                 |override_filehost| override_filehost.credentials.as_ref(),
             )
         {
-            return match credentials {
-                config::server::Sasl::Plain {
-                    username, password, ..
-                } => Some(fileupload::Auth::Basic {
-                    username: username.clone(),
-                    password: password.clone()?,
-                }),
-                config::server::Sasl::External { cert, key, .. } => {
-                    Some(fileupload::Auth::External {
-                        cert: cert.clone(),
-                        key: key.clone(),
-                    })
-                }
-            };
+            return fileupload::Auth::try_from(credentials).ok();
         }
 
         if server.is_bouncer_network() {
@@ -4507,20 +4494,7 @@ impl Map {
                 .and_then(|parent| self.get_filehost_auth(parent));
         }
 
-        match client.config.sasl.as_ref()? {
-            config::server::Sasl::Plain {
-                username, password, ..
-            } => Some(fileupload::Auth::Basic {
-                username: username.clone(),
-                password: password.clone()?,
-            }),
-            config::server::Sasl::External { cert, key, .. } => {
-                Some(fileupload::Auth::External {
-                    cert: cert.clone(),
-                    key: key.clone(),
-                })
-            }
-        }
+        fileupload::Auth::try_from(client.config.sasl.as_ref()?).ok()
     }
 
     pub fn get_use_tls(&self, server: &Server) -> bool {
