@@ -293,6 +293,9 @@ also be included in the argument; for example, `/topic our new topic`
 for the alias defined as `topic = "/topic #halloy $1-"` will expand to
 `/topic #halloy our new topic`.
 
+Optional arguments is also possible by using a `?`, eg: `$1?`. Note that
+you can't have required arguments after optional arguments.
+
 You can also use context-aware placeholders:
 
 - `$nick` inserts your current nickname.

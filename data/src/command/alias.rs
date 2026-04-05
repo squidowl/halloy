@@ -87,26 +87,53 @@ pub(super) fn expand(
 }
 
 pub fn required_args(alias: &str) -> usize {
-    let mut min_args = 0;
+    positional_arg_optionality(alias)
+        .iter()
+        .rposition(|optional| !optional)
+        .map_or(0, |index| index + 1)
+}
+
+pub fn has_trailing_optional_args(alias: &str) -> bool {
+    positional_arg_optionality(alias)
+        .into_iter()
+        .skip_while(|optional| !optional)
+        .all(|optional| optional)
+}
+
+pub fn placeholder_args(alias: &str) -> Vec<(String, bool)> {
+    positional_arg_optionality(alias)
+        .into_iter()
+        .enumerate()
+        .map(|(index, optional)| (format!("${}", index + 1), optional))
+        .collect()
+}
+
+fn positional_arg_optionality(alias: &str) -> Vec<bool> {
+    let mut optionality = Vec::new();
     let mut rest = alias;
 
     while let Some(index) = rest.find('$') {
         rest = &rest[index + 1..];
 
         if let Some(placeholder) = parse_placeholder(rest) {
-            if let Placeholder::Argument { index, .. } = placeholder {
-                min_args = min_args.max(index + 1);
+            if let Placeholder::Argument {
+                index,
+                optional: is_optional,
+                ..
+            } = placeholder
+            {
+                if optionality.len() <= index {
+                    optionality.resize(index + 1, false);
+                }
+
+                optionality[index] |= is_optional;
             }
 
             rest = &rest[placeholder.consumed_len()..];
         }
     }
 
-    min_args
-}
-
-pub fn placeholder_args(min_args: usize) -> Vec<String> {
-    (1..=min_args).map(|index| format!("${index}")).collect()
+    optionality
 }
 
 fn expand_alias(alias: &str, raw_args: &str, context: &Context<'_>) -> String {
@@ -148,14 +175,22 @@ fn substitute_args(
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum Placeholder {
-    Argument { index: usize, take_rest: bool },
+    Argument {
+        index: usize,
+        optional: bool,
+        take_rest: bool,
+    },
     Variable(Variable),
 }
 
 impl Placeholder {
     fn consumed_len(&self) -> usize {
         match self {
-            Self::Argument { take_rest, .. } => 1 + usize::from(*take_rest),
+            Self::Argument {
+                optional,
+                take_rest,
+                ..
+            } => 1 + usize::from(*optional) + usize::from(*take_rest),
             Self::Variable(variable) => variable.as_str().len(),
         }
     }
@@ -183,10 +218,13 @@ fn parse_placeholder(input: &str) -> Option<Placeholder> {
 
     if (b'1'..=b'9').contains(&digit) {
         let arg_index = (digit - b'1') as usize;
-        let take_rest = input.as_bytes().get(1) == Some(&b'-');
+        let optional = input.as_bytes().get(1) == Some(&b'?');
+        let take_rest =
+            input.as_bytes().get(1 + usize::from(optional)) == Some(&b'-');
 
         return Some(Placeholder::Argument {
             index: arg_index,
+            optional,
             take_rest,
         });
     }
@@ -207,7 +245,9 @@ fn push_placeholder(
     placeholder: &Placeholder,
 ) {
     match placeholder {
-        Placeholder::Argument { index, take_rest } => {
+        Placeholder::Argument {
+            index, take_rest, ..
+        } => {
             if *take_rest {
                 if let Some(args) = args.get(*index..) {
                     expanded.push_str(&args.join(" "));
@@ -261,6 +301,16 @@ mod tests {
     }
 
     #[test]
+    fn required_args_optional_placeholder() {
+        assert_eq!(required_args("/msg ChanServ op $channel $1?-"), 0);
+    }
+
+    #[test]
+    fn trailing_optional_args_rejects_required_after_optional() {
+        assert!(!has_trailing_optional_args("/mode $1 $2? $3"));
+    }
+
+    #[test]
     fn required_args_ignores_invalid_placeholders() {
         // $0 and $a are not valid
         assert_eq!(required_args("$0 $a $$ text"), 0);
@@ -280,13 +330,8 @@ mod tests {
     // --- placeholder_args ---
 
     #[test]
-    fn placeholder_args_generates_names() {
-        assert_eq!(placeholder_args(3), vec!["$1", "$2", "$3"]);
-    }
-
-    #[test]
     fn placeholder_args_zero() {
-        assert!(placeholder_args(0).is_empty());
+        assert!(placeholder_args("/list").is_empty());
     }
 
     // --- parse_placeholder ---
@@ -297,6 +342,7 @@ mod tests {
             parse_placeholder("1"),
             Some(Placeholder::Argument {
                 index: 0,
+                optional: false,
                 take_rest: false,
             })
         );
@@ -304,6 +350,7 @@ mod tests {
             parse_placeholder("9"),
             Some(Placeholder::Argument {
                 index: 8,
+                optional: false,
                 take_rest: false,
             })
         );
@@ -315,6 +362,7 @@ mod tests {
             parse_placeholder("1-"),
             Some(Placeholder::Argument {
                 index: 0,
+                optional: false,
                 take_rest: true,
             })
         );
@@ -322,6 +370,27 @@ mod tests {
             parse_placeholder("3-rest"),
             Some(Placeholder::Argument {
                 index: 2,
+                optional: false,
+                take_rest: true,
+            })
+        );
+    }
+
+    #[test]
+    fn parse_placeholder_optional() {
+        assert_eq!(
+            parse_placeholder("1?"),
+            Some(Placeholder::Argument {
+                index: 0,
+                optional: true,
+                take_rest: false,
+            })
+        );
+        assert_eq!(
+            parse_placeholder("3?-rest"),
+            Some(Placeholder::Argument {
+                index: 2,
+                optional: true,
                 take_rest: true,
             })
         );
