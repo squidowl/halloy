@@ -10,7 +10,7 @@ Uploads can be triggered by:
 - The [`/upload`](/commands#types) command
 
 ::: info
-Filehost requires your server to advertise support for it according to the spec. Alternatively, [`filehost.override_url`](/configuration/servers#override_url) can be set to override with any filehost.
+Filehost requires your server to advertise support for it according to the spec. Alternatively, [`filehost.override.url`](/configuration/servers#url) can be set to override with any filehost.
 :::
 
 ## Server support
@@ -39,7 +39,7 @@ soju will advertise the configured URL to clients via `soju.im/FILEHOST`. For ne
 
 ### Others
 
-If your server does not allow advertising a filehost token, or you do not control the IRC server, you can configure a URL manually via [`filehost.override_url`](/configuration/servers#override_url).
+If your server does not allow advertising a filehost token, or you do not control the IRC server, you can configure a URL manually via [`filehost.override.url`](/configuration/servers#url).
 
 ## Authentication
 
@@ -67,7 +67,7 @@ send_credentials = false
 
 - Drag and drop is not supported on Wayland.
 - Drag and drop only works in the active buffer.
-- When connecting through soju, downstream server filehosts are not passed through to child networks. Soju does not support forwarding `FILEHOST` ISUPPORT tokens from downstream servers (see [soju#374](https://codeberg.org/emersion/soju/issues/374)). You can set [`filehost.override_url`](/configuration/servers#override_url) to work around this.
+- When connecting through soju, downstream server filehosts are not passed through to child networks. Soju does not support forwarding `FILEHOST` ISUPPORT tokens from downstream servers (see [soju#374](https://codeberg.org/emersion/soju/issues/374)). You can set [`filehost.override.url`](/configuration/servers#url) to work around this.
 
 ## Configuration reference
 

@@ -23,6 +23,7 @@ pub enum Error {
     ClientCert(String),
 }
 
+#[derive(Debug)]
 pub enum Auth {
     Basic { username: String, password: String },
     External { cert: PathBuf, key: Option<PathBuf> },
