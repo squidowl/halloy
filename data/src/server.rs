@@ -10,7 +10,7 @@ use tokio::fs;
 
 use crate::bouncer::BouncerNetwork;
 use crate::config::buffer::typing::Typing;
-use crate::config::server::{FilehostCredentials, read_from_command};
+use crate::config::server::{filehost, read_from_command};
 use crate::config::sidebar::{OrderBy, OrderChannelsBy};
 use crate::config::{self, Error, sidebar};
 
@@ -220,7 +220,7 @@ impl ConfigMap {
                 sasl.check_permissions(&server);
                 sasl.set_password().await?;
             }
-            if let FilehostCredentials::Sasl(credentials) =
+            if let filehost::Credentials::Sasl(credentials) =
                 &mut config.filehost.credentials
             {
                 credentials.check_permissions(&server);

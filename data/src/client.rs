@@ -21,7 +21,7 @@ use crate::capabilities::{
     Capabilities, Capability, MultilineBatchKind, MultilineLimits,
     multiline_concat_lines, multiline_encoded,
 };
-use crate::config::server::FilehostCredentials;
+use crate::config::server::filehost;
 use crate::environment::{SOURCE_WEBSITE, VERSION};
 use crate::history::ReadMarker;
 use crate::isupport::{
@@ -4475,7 +4475,7 @@ impl Map {
         }
 
         match &client.config.filehost.credentials {
-            FilehostCredentials::Server => {
+            filehost::Credentials::Server => {
                 if server.is_bouncer_network() {
                     return server
                         .parent()
@@ -4485,10 +4485,10 @@ impl Map {
 
                 fileupload::Auth::try_from(client.config.sasl.as_ref()?).ok()
             }
-            FilehostCredentials::Sasl(credentials) => {
+            filehost::Credentials::Sasl(credentials) => {
                 fileupload::Auth::try_from(credentials).ok()
             }
-            FilehostCredentials::None => None,
+            filehost::Credentials::None => None,
         }
     }
 

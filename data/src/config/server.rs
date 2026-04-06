@@ -8,6 +8,7 @@ use serde::{Deserialize, Deserializer};
 use tokio::fs;
 use tokio::process::Command;
 
+use self::filehost::Filehost;
 use crate::config::inclusivities::{
     Inclusivities, is_target_channel_included, is_target_query_included,
 };
@@ -17,6 +18,8 @@ use crate::serde::{
     deserialize_path_buf_with_path_transformations_maybe,
 };
 use crate::{config, isupport, target};
+
+pub mod filehost;
 
 const DEFAULT_PORT: u16 = 6667;
 const DEFAULT_TLS_PORT: u16 = 6697;
@@ -236,60 +239,6 @@ impl Default for Server {
             autoconnect: true,
             typing: OptionalTyping::default(),
             filehost: Filehost::default(),
-        }
-    }
-}
-
-#[derive(PartialEq, Eq, Debug, Clone, Deserialize)]
-#[serde(default)]
-pub struct Filehost {
-    /// Whether to use the server's filehost. Defaults to `true`.
-    pub enabled: bool,
-    /// Override the filehost URL advertised by the server via ISUPPORT
-    pub override_url: Option<String>,
-    pub credentials: FilehostCredentials,
-}
-
-impl Default for Filehost {
-    fn default() -> Self {
-        Self {
-            enabled: true,
-            override_url: None,
-            credentials: FilehostCredentials::default(),
-        }
-    }
-}
-
-#[derive(PartialEq, Eq, Debug, Default, Clone)]
-pub enum FilehostCredentials {
-    #[default]
-    Server,
-    Sasl(Sasl),
-    None,
-}
-
-impl<'de> Deserialize<'de> for FilehostCredentials {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        #[derive(Debug, Clone, Deserialize)]
-        #[serde(untagged)]
-        pub enum Data {
-            String(String),
-            Sasl(Sasl),
-        }
-
-        match Data::deserialize(deserializer)? {
-            Data::String(string) => match string.as_str() {
-                "server" => Ok(FilehostCredentials::Server),
-                "none" => Ok(FilehostCredentials::None),
-                _ => Err(serde::de::Error::invalid_value(
-                    serde::de::Unexpected::Str(&string),
-                    &"valid non-SASL values are \"server\" and \"none\"",
-                )),
-            },
-            Data::Sasl(sasl) => Ok(FilehostCredentials::Sasl(sasl)),
         }
     }
 }
