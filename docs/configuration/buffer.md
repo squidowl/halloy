@@ -924,6 +924,7 @@ enabled = false
 | `change_topic`        | Message is sent when a channel topic is changed                                                                                |
 | `join`                | Message is sent when a user joins a channel                                                                                    |
 | `kick`                | Message is sent when a user is kicked from a channel                                                                           |
+| `invite`              | Message is sent when a user is invited to a channel                                                                            |
 | `monitored_offline`   | Message is sent when a monitored user goes offline                                                                             |
 | `monitored_online`    | Message is sent when a monitored user goes online                                                                              |
 | `part`                | Message is sent when a user leaves a channel                                                                                   |
@@ -997,7 +998,7 @@ include = { channels = ["#halloy"] }
 
 ### `dimmed`
 
-Dim condensed server message.  Either automatically, based on text/background colors (by setting to `true`), or specify a dimming value in the range `0.0` (transparent) to `1.0` (no dimming).
+Dim server message.  Either automatically, based on text/background colors (by setting to `true`), or specify a dimming value in the range `0.0` (transparent) to `1.0` (no dimming).
 
 ```toml
 # Type: bool or float
@@ -1007,6 +1008,24 @@ Dim condensed server message.  Either automatically, based on text/background co
 [buffer.server_messages.<server_message>]
 dimmed = true
 ```
+
+::: info
+The default server message type (`buffer.server_messages.default`) splits this setting into two categories.  Passive server messages and action server messages, which are designated as follows:
+
+| **Categories**         | Passive                      | Actions               |
+| ---------------------- | ---------------------------- | --------------------- |
+| **Setting**            | `passive_dimmed` or `dimmed` | `actions_dimmed`      |
+| **Default**            | `true`                       | `false`               |
+| **Event Types**        | `away`                       | `change_topic`        |
+|                        | `change_host`                | `invite`              |
+|                        | `change_mode`                | `kick`                |
+|                        | `change_nick`                | `monitored_offline`   |
+|                        | `join`                       | `monitored_online`    |
+|                        | `part`                       | `standard_reply_fail` |
+|                        | `quit`                       | `standard_reply_note` |
+|                        | `topic`                      | `standard_reply_warn` |
+|                        |                              | `wallops`             |
+:::
 
 ### `username_format`
 

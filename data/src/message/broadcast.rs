@@ -234,23 +234,6 @@ pub fn nickname(
     expand(channels, queries, false, cause, content, sent_time)
 }
 
-pub fn invite(
-    inviter: Nick,
-    channel: target::Channel,
-    channels: impl IntoIterator<Item = target::Channel>,
-    casemapping: isupport::CaseMap,
-    sent_time: DateTime<Utc>,
-) -> Vec<Message> {
-    let inviter = User::from(inviter);
-    let content = parse_fragments_with_user(
-        format!("{} invited you to join {channel}", inviter.nickname()),
-        &inviter,
-        casemapping,
-    );
-
-    expand(channels, [], false, Cause::Server(None), content, sent_time)
-}
-
 pub fn change_host(
     channels: impl IntoIterator<Item = target::Channel>,
     queries: impl IntoIterator<Item = target::Query>,
@@ -342,12 +325,6 @@ pub enum Broadcast {
         old_nick: Nick,
         new_nick: Nick,
         ourself: bool,
-        user_channels: Vec<target::Channel>,
-        casemapping: isupport::CaseMap,
-    },
-    Invite {
-        inviter: Nick,
-        channel: target::Channel,
         user_channels: Vec<target::Channel>,
         casemapping: isupport::CaseMap,
     },
@@ -445,12 +422,6 @@ pub fn into_messages(
                 )
             }
         }
-        Broadcast::Invite {
-            inviter,
-            channel,
-            user_channels,
-            casemapping,
-        } => invite(inviter, channel, user_channels, casemapping, sent_time),
         Broadcast::ChangeHost {
             old_user,
             new_username,

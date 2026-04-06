@@ -1102,7 +1102,8 @@ fn has_matching_content(
                 | message::source::server::Kind::StandardReply(_)
                 | message::source::server::Kind::WAllOps
                 | message::source::server::Kind::Kick
-                | message::source::server::Kind::Away => (),
+                | message::source::server::Kind::Away
+                | message::source::server::Kind::Invite => (),
             }
         }
 

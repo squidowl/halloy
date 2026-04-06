@@ -83,6 +83,7 @@ backlog_rule = "<color string>"
 # change_mode = <text style>
 # change_nick = <text style>
 # change_topic = <text style>
+# invite = <text style>
 # join = <text style>
 # kick = <text style>
 # part = <text style>

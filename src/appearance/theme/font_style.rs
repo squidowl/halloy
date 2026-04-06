@@ -59,6 +59,7 @@ pub fn server(
             Kind::Kick => styles.kick.font_style,
             Kind::ChangeTopic => styles.change_topic.font_style,
             Kind::Away => styles.away.font_style,
+            Kind::Invite => styles.invite.font_style,
         })
         .or(styles.default.font_style)
 }

@@ -872,6 +872,8 @@ pub enum ServerMessages {
     #[strum(serialize = "wallops")]
     WAllOps,
     Kick,
+    Away,
+    Invite,
 }
 
 impl ServerMessages {
@@ -898,6 +900,8 @@ impl ServerMessages {
             }
             ServerMessages::WAllOps => styles.wallops.color,
             ServerMessages::Kick => styles.kick.color,
+            ServerMessages::Away => styles.away.color,
+            ServerMessages::Invite => styles.invite.color,
             ServerMessages::Default => Some(styles.default.color),
         }
     }
@@ -929,6 +933,8 @@ impl ServerMessages {
             }
             ServerMessages::WAllOps => styles.wallops.font_style,
             ServerMessages::Kick => styles.kick.font_style,
+            ServerMessages::Away => styles.away.font_style,
+            ServerMessages::Invite => styles.invite.font_style,
             ServerMessages::Default => styles.default.font_style,
         }
     }
@@ -999,6 +1005,14 @@ impl ServerMessages {
             ServerMessages::Kick => {
                 styles.kick.color = color;
                 styles.kick.font_style = font_style;
+            }
+            ServerMessages::Away => {
+                styles.away.color = color;
+                styles.away.font_style = font_style;
+            }
+            ServerMessages::Invite => {
+                styles.invite.color = color;
+                styles.invite.font_style = font_style;
             }
             ServerMessages::Default => {
                 if let Some(color) = color {

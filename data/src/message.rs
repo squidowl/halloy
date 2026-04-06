@@ -257,16 +257,7 @@ impl Message {
             && match self.target.source() {
                 Source::User(_) => true,
                 Source::Action(_) => true,
-                Source::Server(Some(server)) => {
-                    matches!(
-                        server.kind(),
-                        Kind::MonitoredOnline
-                            | Kind::MonitoredOffline
-                            | Kind::StandardReply(_)
-                            | Kind::WAllOps
-                            | Kind::Kick
-                    )
-                }
+                Source::Server(Some(server)) => server.kind().is_action(),
                 Source::Internal(source::Internal::Logs(level)) => {
                     match level {
                         Level::Warn | Level::Error => true,
@@ -2267,7 +2258,22 @@ fn target(
                 }),
             }
         }
-        Command::INVITE(_, channel) => {
+        Command::INVITE(invitee, channel) => {
+            let invitee = User::from(Nick::from_string(invitee, casemapping));
+
+            if invitee.nickname() == *our_nick {
+                if let Some(user) = user {
+                    return Some(Target::Query {
+                        query: target::Query::from(user),
+                        source: Source::Server(None),
+                    });
+                } else {
+                    return Some(Target::Server {
+                        source: Source::Server(None),
+                    });
+                }
+            }
+
             let channel = target::Channel::parse(
                 &channel,
                 chantypes,
@@ -2965,20 +2971,16 @@ fn content<'a>(
                 statusmsg,
                 casemapping,
             )
-            .ok();
+            .ok()?;
 
             let raw_inviter = message.user(casemapping)?;
-            let inviter = channel
-                .as_ref()
-                .and_then(|channel| resolve_attributes(&raw_inviter, channel))
+            let inviter = resolve_attributes(&raw_inviter, &channel)
                 .unwrap_or(raw_inviter);
-            let ourself = inviter.nickname() == *our_nick;
-
             let invitee =
                 User::from(Nick::from_str(user.as_str(), casemapping));
 
             Some((
-                invite_text(inviter, ourself, invitee, channel, casemapping),
+                invite_text(inviter, invitee, our_nick, channel, casemapping),
                 None,
             ))
         }
@@ -2989,21 +2991,18 @@ fn content<'a>(
                 statusmsg,
                 casemapping,
             )
-            .ok();
+            .ok()?;
 
             let raw_inviter =
                 User::from(Nick::from_str(params.first()?, casemapping));
-            let inviter = channel
-                .as_ref()
-                .and_then(|channel| resolve_attributes(&raw_inviter, channel))
+            let inviter = resolve_attributes(&raw_inviter, &channel)
                 .unwrap_or(raw_inviter);
-            let ourself = inviter.nickname() == *our_nick;
 
             let invitee =
                 User::from(Nick::from_str(params.get(1)?, casemapping));
 
             Some((
-                invite_text(inviter, ourself, invitee, channel, casemapping),
+                invite_text(inviter, invitee, our_nick, channel, casemapping),
                 None,
             ))
         }
@@ -3148,20 +3147,22 @@ pub fn action_text_with_highlights(
 
 fn invite_text(
     inviter: User,
-    ourself: bool,
     invitee: User,
-    channel: Option<target::Channel>,
+    our_nick: &Nick,
+    channel: target::Channel,
     casemapping: isupport::CaseMap,
 ) -> Content {
-    let inviter_text = if ourself { "you" } else { inviter.as_str() };
     parse_fragments_with_users(
-        if let Some(channel) = channel {
-            format!(
-                "{} has been invited to {channel} by {inviter_text}",
-                invitee.nickname(),
-            )
+        if invitee.nickname() == *our_nick {
+            format!("{} has invited you to {channel}", inviter.as_str())
+        } else if inviter.nickname() == *our_nick {
+            format!("you have invited {} to {channel}", invitee.as_str())
         } else {
-            format!("{} has been invited by {inviter_text}", invitee.nickname(),)
+            format!(
+                "{} has been invited to {channel} by {}",
+                invitee.as_str(),
+                inviter.as_str(),
+            )
         },
         Some(&[inviter, invitee].into_iter().collect()),
         casemapping,
@@ -3911,19 +3912,6 @@ pub mod tests {
                     isupport::get_casemapping_or_default(&isupport),
                 ),
                 ourself: true,
-                user_channels: user_channels.clone(),
-                casemapping: isupport::get_casemapping_or_default(&isupport),
-            },
-            Broadcast::Invite {
-                inviter: Nick::from_str(
-                    "`whammer`",
-                    isupport::get_casemapping_or_default(&isupport),
-                ),
-                channel: target::Channel::from_str(
-                    "#40k",
-                    isupport::get_chantypes_or_default(&isupport),
-                    isupport::get_casemapping_or_default(&isupport),
-                ),
                 user_channels: user_channels.clone(),
                 casemapping: isupport::get_casemapping_or_default(&isupport),
             },
