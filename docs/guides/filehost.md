@@ -43,7 +43,7 @@ If your server does not allow advertising a filehost token, or you do not contro
 
 ## Authentication
 
-[`filehost.send_credentials`](/configuration/servers#send_credentials) controls whether Halloy sends credentials with upload requests. It defaults to `true`.
+[`filehost.credentials`](/configuration/servers#credentials) controls whether and what Halloy sends credentials with upload requests. It defaults to `"server"`, which sends the SASL credentials used to connect to the server (if they have been specified).
 
 - **SASL PLAIN** — sends an `Authorization` header with server `username:password`
 - **SASL EXTERNAL** — presents the client certificate
@@ -60,7 +60,7 @@ password = "hunter2"
 
 # alternatively, disable sending credentials when uploading
 [servers.<name>.filehost]
-send_credentials = false
+credentials = "none"
 ```
 
 ## Limitations
