@@ -83,12 +83,6 @@ pub enum Broadcast {
         channels: Vec<target::Channel>,
         sent_time: DateTime<Utc>,
     },
-    Invite {
-        inviter: User,
-        channel: target::Channel,
-        user_channels: Vec<target::Channel>,
-        sent_time: DateTime<Utc>,
-    },
     ChangeHost {
         old_user: User,
         new_username: String,
@@ -1517,31 +1511,31 @@ impl Client {
                     }
                 }
             }
-            Command::INVITE(user, channel) => {
-                let user = User::from(Nick::from_str(
-                    user.as_str(),
-                    self.casemapping(),
-                ));
-                let channel = context!(target::Channel::parse(
-                    channel,
-                    self.chantypes(),
-                    self.statusmsg(),
-                    self.casemapping(),
-                ));
+            Command::INVITE(invitee, _) => {
                 let inviter = ok!(message.user(self.casemapping()));
-                let user_channels = self.user_channels(user.nickname());
 
-                if user.nickname() == self.nickname() {
-                    return Ok(vec![Event::Broadcast(Broadcast::Invite {
-                        inviter,
-                        channel,
-                        user_channels,
-                        sent_time: message.server_time_or_now(),
-                    })]);
-                } else if inviter.nickname() == self.nickname() {
+                if inviter.nickname() == self.nickname() {
                     // Ignore since we should receive a RPL_INVITING for
                     // invites sent by the user
                     return Ok(vec![]);
+                }
+
+                let invitee = Nick::from_str(invitee, self.casemapping());
+
+                let event =
+                    Event::Single(message.clone(), self.nickname().to_owned());
+
+                if invitee.as_nickref() == self.nickname() {
+                    return Ok(vec![
+                        event,
+                        Event::DirectMessage(
+                            message,
+                            self.nickname().to_owned(),
+                            inviter,
+                        ),
+                    ]);
+                } else {
+                    return Ok(vec![event]);
                 }
             }
             Command::NICK(nick) => {

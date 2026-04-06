@@ -2055,26 +2055,6 @@ fn handle_broadcast(
                 },
             )
         }
-        data::client::Broadcast::Invite {
-            inviter,
-            channel,
-            user_channels,
-            sent_time,
-        } => {
-            let inviter = inviter.nickname().to_owned();
-            dashboard.broadcast(
-                server,
-                casemapping,
-                config,
-                sent_time,
-                Broadcast::Invite {
-                    inviter,
-                    channel,
-                    user_channels,
-                    casemapping,
-                },
-            )
-        }
         data::client::Broadcast::ChangeHost {
             old_user,
             new_username,

@@ -231,6 +231,7 @@ pub struct ServerMessages {
     pub wallops: OptionalTextStyle,
     pub kick: OptionalTextStyle,
     pub away: OptionalTextStyle,
+    pub invite: OptionalTextStyle,
     pub default: TextStyle,
 }
 
