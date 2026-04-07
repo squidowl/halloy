@@ -887,10 +887,12 @@ fn upstream_buffer_button<'a>(
     {
         let icon_widget: Element<'a, Message> =
             if let Some(server_icon) = server_icons.get(server) {
-                image(server_icon.handle.clone())
-                    .width(*size)
-                    .height(*size)
-                    .into()
+                image(iced::widget::image::Handle::from_path(
+                    server_icon.path.clone(),
+                ))
+                .width(*size)
+                .height(*size)
+                .into()
             } else {
                 if server.is_bouncer_network() {
                     icon::link()

@@ -1,15 +1,21 @@
 use std::collections::HashMap;
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use iced::Task;
+use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
+use tokio::fs;
 use url::Url;
 
 use crate::Server;
 
-#[derive(Debug, Clone)]
+mod cache;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Icon {
     pub url: Url,
-    pub handle: iced::widget::image::Handle,
+    pub path: PathBuf,
 }
 
 #[derive(Debug)]
@@ -110,6 +116,34 @@ async fn load(
     url: Url,
     http_client: Arc<reqwest::Client>,
 ) -> Result<Icon, String> {
+    let result =
+        if let Some(state) = cache::load(&url, http_client.clone()).await {
+            match state {
+                cache::State::Ok(icon) => Ok(icon),
+                cache::State::Error => Err("cached failed".to_string()),
+            }
+        } else {
+            match fetch(url.clone(), http_client).await {
+                Ok(icon) => {
+                    cache::save(&url, cache::State::Ok(icon.clone())).await;
+
+                    Ok(icon)
+                }
+                Err(error) => {
+                    cache::save(&url, cache::State::Error).await;
+
+                    Err(error)
+                }
+            }
+        };
+
+    result
+}
+
+async fn fetch(
+    url: Url,
+    http_client: Arc<reqwest::Client>,
+) -> Result<Icon, String> {
     let response = http_client
         .get(url.clone())
         .send()
@@ -128,11 +162,31 @@ async fn load(
         .await
         .map_err(|error| format!("failed to read response body: {error}"))?;
 
-    image::guess_format(&bytes)
+    let format = image::guess_format(&bytes)
         .map_err(|error| format!("unsupported image format: {error}"))?;
+
+    let mut hasher = Sha256::default();
+    hasher.update(bytes.as_ref());
+
+    let digest = hex::encode(hasher.finalize());
+    let image_path = cache::image_path(&format, &digest);
+
+    if !image_path.exists() {
+        if let Some(parent) = image_path.parent().filter(|p| !p.exists()) {
+            let _ = fs::create_dir_all(parent).await;
+        }
+
+        fs::write(&image_path, bytes.as_ref())
+            .await
+            .map_err(|error| {
+                format!("failed to write icon cache file: {error}")
+            })?;
+
+        cache::maybe_trim_icon_cache(bytes.len() as u64, image_path.clone());
+    }
 
     Ok(Icon {
         url,
-        handle: iced::widget::image::Handle::from_bytes(bytes.to_vec()),
+        path: image_path,
     })
 }
