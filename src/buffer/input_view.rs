@@ -1725,7 +1725,7 @@ impl State {
                         clients.send_markread(
                             buffer.server(),
                             target,
-                            ReadMarker::from_date_time(sent_time),
+                            ReadMarker::from(sent_time),
                             TokenPriority::High,
                         );
                     }
@@ -2136,7 +2136,7 @@ impl State {
                         clients.send_markread(
                             buffer.server(),
                             target,
-                            ReadMarker::from_date_time(sent_time),
+                            ReadMarker::from(sent_time),
                             TokenPriority::High,
                         );
                     }

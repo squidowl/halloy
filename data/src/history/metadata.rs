@@ -33,11 +33,19 @@ pub struct Metadata {
 )]
 pub struct ReadMarker(DateTime<Utc>);
 
-impl ReadMarker {
-    pub fn from_date_time(date_time: DateTime<Utc>) -> Self {
-        ReadMarker(date_time)
+impl From<DateTime<Utc>> for ReadMarker {
+    fn from(date_time: DateTime<Utc>) -> Self {
+        Self(date_time)
     }
+}
 
+impl From<&Message> for ReadMarker {
+    fn from(message: &Message) -> Self {
+        Self::from(message.server_time)
+    }
+}
+
+impl ReadMarker {
     pub fn latest(messages: &[Message]) -> Option<Self> {
         messages
             .iter()

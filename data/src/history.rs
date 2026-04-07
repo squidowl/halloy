@@ -737,10 +737,7 @@ impl History {
                 max_triggers_unread,
                 read_marker,
                 ..
-            } => (
-                read_marker,
-                max_triggers_unread.map(ReadMarker::from_date_time),
-            ),
+            } => (read_marker, max_triggers_unread.map(ReadMarker::from)),
             History::Full {
                 messages,
                 read_marker,
@@ -1053,7 +1050,7 @@ pub fn insert_message(
                 message::Direction::Received
             ) && message.is_echo
             {
-                Some(ReadMarker::from_date_time(message.server_time))
+                Some(ReadMarker::from(&message))
             } else {
                 None
             };
