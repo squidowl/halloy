@@ -24,7 +24,7 @@ pub use self::alias::Alias;
 #[derive(Debug, Clone)]
 pub enum Command {
     Internal(Internal),
-    Irc(Irc),
+    Irc(Irc, Option<Warning>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -367,10 +367,13 @@ fn parse_command(
     config: &Config,
 ) -> Result<Command, Error> {
     let unknown = || {
-        Command::Irc(Irc::Unknown(
-            cmd.to_string(),
-            args.iter().map(ToString::to_string).collect(),
-        ))
+        Command::Irc(
+            Irc::Unknown(
+                cmd.to_string(),
+                args.iter().map(ToString::to_string).collect(),
+            ),
+            None,
+        )
     };
 
     match cmd.parse::<Kind>() {
@@ -487,11 +490,11 @@ fn parse_command(
                         }
                     }
 
-                    Ok(Command::Irc(Irc::Join(chanlist, chankeys)))
+                    Ok(Command::Irc(Irc::Join(chanlist, chankeys), None))
                 })
             }
             Kind::Motd => validated::<0, 1, false>(args, |_, [target]| {
-                Ok(Command::Irc(Irc::Motd(target)))
+                Ok(Command::Irc(Irc::Motd(target), None))
             }),
             Kind::Nick => validated::<1, 0, false>(args, |[nick], _| {
                 if let Some(isupport::Parameter::NICKLEN(max_len)) =
@@ -508,12 +511,15 @@ fn parse_command(
                     }
                 }
 
-                Ok(Command::Irc(Irc::Nick(nick)))
+                Ok(Command::Irc(Irc::Nick(nick), None))
             }),
             Kind::Quit => validated::<0, 1, true>(args, |_, [comment]| {
-                Ok(Command::Irc(Irc::Quit(comment.or_else(|| {
-                    config.buffer.commands.quit.default_reason.clone()
-                }))))
+                Ok(Command::Irc(
+                    Irc::Quit(comment.or_else(|| {
+                        config.buffer.commands.quit.default_reason.clone()
+                    })),
+                    None,
+                ))
             }),
             Kind::Msg | Kind::FormatMsg | Kind::PlainMsg => {
                 validated::<1, 1, true>(args, |[targets], [msg]| {
@@ -547,7 +553,7 @@ fn parse_command(
                             },
                         };
 
-                        Ok(Command::Irc(Irc::Msg(targets, msg)))
+                        Ok(Command::Irc(Irc::Msg(targets, msg), None))
                     } else {
                         let casemapping =
                             isupport::get_casemapping_or_default(isupport);
@@ -583,7 +589,10 @@ fn parse_command(
                             AutoFormat::All => formatting::encode(&text, false),
                         };
 
-                        Ok(Command::Irc(Irc::Me(target.to_string(), text)))
+                        Ok(Command::Irc(
+                            Irc::Me(target.to_string(), text),
+                            None,
+                        ))
                     })
                 } else {
                     Ok(unknown())
@@ -614,7 +623,7 @@ fn parse_command(
                         }
                     }
 
-                    Ok(Command::Irc(Irc::Whois(server, nickname)))
+                    Ok(Command::Irc(Irc::Whois(server, nickname), None))
                 })
             }
             Kind::Part => {
@@ -737,7 +746,7 @@ fn parse_command(
                         }
                     }
 
-                    Ok(Command::Irc(Irc::Topic(channel, topic)))
+                    Ok(Command::Irc(Irc::Topic(channel, topic), None))
                 })
             }
             Kind::Kick => {
@@ -813,7 +822,10 @@ fn parse_command(
                             }
                         }
 
-                        Ok(Command::Irc(Irc::Kick(channel, users, comment)))
+                        Ok(Command::Irc(
+                            Irc::Kick(channel, users, comment),
+                            None,
+                        ))
                     },
                 )
             }
@@ -859,121 +871,56 @@ fn parse_command(
                         });
                     };
 
-                    let mode_limit =
-                        isupport::get_mode_limit_or_default(isupport);
-
                     if let Some(mode_string) = mode_string {
-                        if mode_string == "+"
-                            || mode_string == "-"
-                            || (mode_string == "="
-                                && features.list_mode_with_equal)
-                        {
-                            Err(Error::NoModeString)
-                        } else {
-                            let mode_string_regex = if proto::is_channel(
-                                &target,
-                                isupport::get_chantypes_or_default(isupport),
-                            ) {
-                                let chanmodes =
-                                    isupport::get_chanmodes_or_default(
-                                        isupport,
-                                    );
-                                let prefix =
-                                    isupport::get_prefix_or_default(isupport);
+                        let mode_arguments =
+                            mode_arguments.map(|mode_arguments| {
+                                mode_arguments
+                                    .split_ascii_whitespace()
+                                    .map(String::from)
+                                    .collect()
+                            });
 
-                                let mut channel_modes_regex =
-                                    String::from(r"^((\+|\-)[");
-                                for chanmode in chanmodes {
-                                    channel_modes_regex +=
-                                        chanmode.modes.as_ref();
-                                }
-                                for prefix_map in prefix {
-                                    channel_modes_regex.push(prefix_map.mode);
-                                }
-                                channel_modes_regex += r"]";
-                                if let Some(mode_limit) = mode_limit {
-                                    channel_modes_regex += r"{1,";
-                                    channel_modes_regex +=
-                                        &format!("{mode_limit}");
-                                    channel_modes_regex += r"}";
-                                } else {
-                                    channel_modes_regex += r"+";
-                                }
-
-                                if features.list_mode_with_equal
-                                    && let Some(chanmode) = chanmodes
-                                        .iter()
-                                        .find(|chanmode| chanmode.kind == 'A')
-                                {
-                                    channel_modes_regex += r"|=[";
-                                    channel_modes_regex +=
-                                        chanmode.modes.as_ref();
-                                    channel_modes_regex += r"]";
-                                    if let Some(mode_limit) = mode_limit {
-                                        channel_modes_regex += r"{1,";
-                                        channel_modes_regex +=
-                                            &format!("{mode_limit}");
-                                        channel_modes_regex += r"}";
-                                    } else {
-                                        channel_modes_regex += r"+";
-                                    }
-                                }
-
-                                channel_modes_regex += r")+$";
-
-                                Regex::new(&channel_modes_regex).unwrap_or(
-                                    Regex::new(r"^((\+|\-)[A-Za-z]+)+$")
-                                        .unwrap(),
+                        if !validated_mode_string(
+                            &target,
+                            &mode_string,
+                            isupport,
+                            features.list_mode_with_equal,
+                        )? {
+                            if features.list_mode_with_equal
+                                || !validated_mode_string(
+                                    &target,
+                                    &mode_string,
+                                    isupport,
+                                    true,
                                 )
-                            } else {
-                                // User modes from RPL_MYINFO is unreliable,
-                                // so use the most permissive regex instead of
-                                // crafting a regex for the server
-
-                                let mut user_modes_regex =
-                                    String::from(r"^((\+|\-)[A-Za-z]");
-                                if let Some(mode_limit) = mode_limit {
-                                    user_modes_regex += r"{1,";
-                                    user_modes_regex +=
-                                        &format!("{mode_limit}");
-                                    user_modes_regex += r"}";
-                                } else {
-                                    user_modes_regex += r"+";
-                                }
-                                user_modes_regex += r")+$";
-                                Regex::new(&user_modes_regex).unwrap_or(
-                                    Regex::new(r"^((\+|\-)[A-Za-z]+)+$")
-                                        .unwrap(),
-                                )
-                            };
-
-                            if !mode_string_regex
-                                .is_match(&mode_string)
                                 .unwrap_or_default()
                             {
                                 Err(Error::InvalidModeString)
                             } else {
-                                let mode_arguments =
-                                    mode_arguments.map(|mode_arguments| {
-                                        mode_arguments
-                                            .split_ascii_whitespace()
-                                            .map(String::from)
-                                            .collect()
-                                    });
-
-                                Ok(Command::Irc(Irc::Mode(
+                                Ok(Command::Irc(
+                                    Irc::Mode(
+                                        target.to_string(),
+                                        Some(mode_string.to_string()),
+                                        mode_arguments,
+                                    ),
+                                    Some(Warning::CannotValidateModeString),
+                                ))
+                            }
+                        } else {
+                            Ok(Command::Irc(
+                                Irc::Mode(
                                     target.to_string(),
                                     Some(mode_string.to_string()),
                                     mode_arguments,
-                                )))
-                            }
+                                ),
+                                None,
+                            ))
                         }
                     } else {
-                        Ok(Command::Irc(Irc::Mode(
-                            target.to_string(),
+                        Ok(Command::Irc(
+                            Irc::Mode(target.to_string(), None, None),
                             None,
-                            None,
-                        )))
+                        ))
                     }
                 },
             ),
@@ -993,34 +940,35 @@ fn parse_command(
                     }
                 }
 
-                Ok(Command::Irc(Irc::Away(comment)))
+                Ok(Command::Irc(Irc::Away(comment), None))
             }),
-            Kind::SetName => {
+            Kind::SetName => validated::<1, 0, true>(args, |[realname], _| {
                 if let Some(isupport::Parameter::NAMELEN(max_len)) =
                     isupport.get(&isupport::Kind::NAMELEN)
                 {
-                    validated::<1, 0, true>(args, |[realname], _| {
-                        let max_len = *max_len as usize;
+                    let max_len = *max_len as usize;
 
-                        if realname.len() > max_len {
-                            return Err(Error::ArgTooLong {
-                                name: "realname",
-                                len: realname.len(),
-                                max_len,
-                            });
-                        }
+                    if realname.len() > max_len {
+                        return Err(Error::ArgTooLong {
+                            name: "realname",
+                            len: realname.len(),
+                            max_len,
+                        });
+                    }
 
-                        Ok(Command::Irc(Irc::SetName(realname)))
-                    })
+                    Ok(Command::Irc(Irc::SetName(realname), None))
                 } else {
-                    Err(Error::CommandNotAvailable {
-                        command: "setname",
-                        context: buffer.map_or(String::new(), |buffer| {
-                            format!(" on {}", buffer.server())
+                    Ok(Command::Irc(
+                        Irc::SetName(realname),
+                        Some(Warning::CannotConfirmAvailability {
+                            command: "setname",
+                            context: buffer.map_or(String::new(), |buffer| {
+                                format!(" on {}", buffer.server())
+                            }),
                         }),
-                    })
+                    ))
                 }
-            }
+            }),
             Kind::Notice | Kind::FormatNotice | Kind::PlainNotice => {
                 validated::<1, 1, true>(args, |[targets], [msg]| {
                     let target_limit = find_target_limit(isupport, "NOTICE")
@@ -1055,7 +1003,7 @@ fn parse_command(
                             },
                         };
 
-                        Ok(Command::Irc(Irc::Notice(targets, msg)))
+                        Ok(Command::Irc(Irc::Notice(targets, msg), None))
                     } else {
                         let casemapping =
                             isupport::get_casemapping_or_default(isupport);
@@ -1080,53 +1028,59 @@ fn parse_command(
                     }
                 })
             }
-            Kind::Raw => Ok(Command::Irc(Irc::Raw(raw.to_string()))),
+            Kind::Raw => Ok(Command::Irc(Irc::Raw(raw.to_string()), None)),
             Kind::Format => {
                 if let Some(target) = buffer.and_then(Upstream::target) {
-                    Ok(Command::Irc(Irc::Msg(
-                        target.to_string(),
-                        formatting::encode(raw, false),
-                    )))
+                    Ok(Command::Irc(
+                        Irc::Msg(
+                            target.to_string(),
+                            formatting::encode(raw, false),
+                        ),
+                        None,
+                    ))
                 } else {
                     Ok(unknown())
                 }
             }
             Kind::FormatMe => {
                 if let Some(target) = buffer.and_then(Upstream::target) {
-                    Ok(Command::Irc(Irc::Me(
-                        target.to_string(),
-                        formatting::encode(raw, false),
-                    )))
+                    Ok(Command::Irc(
+                        Irc::Me(
+                            target.to_string(),
+                            formatting::encode(raw, false),
+                        ),
+                        None,
+                    ))
                 } else {
                     Ok(unknown())
                 }
             }
             Kind::Plain => {
                 if let Some(target) = buffer.and_then(Upstream::target) {
-                    Ok(Command::Irc(Irc::Msg(
-                        target.to_string(),
-                        raw.to_string(),
-                    )))
+                    Ok(Command::Irc(
+                        Irc::Msg(target.to_string(), raw.to_string()),
+                        None,
+                    ))
                 } else {
                     Ok(unknown())
                 }
             }
             Kind::PlainMe => {
                 if let Some(target) = buffer.and_then(Upstream::target) {
-                    Ok(Command::Irc(Irc::Me(
-                        target.to_string(),
-                        raw.to_string(),
-                    )))
+                    Ok(Command::Irc(
+                        Irc::Me(target.to_string(), raw.to_string()),
+                        None,
+                    ))
                 } else {
                     Ok(unknown())
                 }
             }
             Kind::MassMessage => {
                 if features.mass_message {
-                    Ok(Command::Irc(Irc::Notice(
-                        "$$*".to_string(),
-                        raw.to_string(),
-                    )))
+                    Ok(Command::Irc(
+                        Irc::Notice("$$*".to_string(), raw.to_string()),
+                        None,
+                    ))
                 } else {
                     Err(Error::CommandNotAvailable {
                         command: "massmessage",
@@ -1172,11 +1126,14 @@ fn parse_command(
                             (target, command, params)
                         };
 
-                        Ok(Command::Irc(Irc::Ctcp(
-                            ctcp::Command::from(command.as_str()),
-                            target,
-                            params,
-                        )))
+                        Ok(Command::Irc(
+                            Irc::Ctcp(
+                                ctcp::Command::from(command.as_str()),
+                                target,
+                                params,
+                            ),
+                            None,
+                        ))
                     },
                 )
             }
@@ -1237,14 +1194,17 @@ fn parse_command(
                                     return Err(Error::NotPositiveInteger);
                                 }
 
-                                Ok(Command::Irc(Irc::Chathistory(
-                                    subcommand,
-                                    vec![
-                                        target,
-                                        message_reference.to_string(),
-                                        limit,
-                                    ],
-                                )))
+                                Ok(Command::Irc(
+                                    Irc::Chathistory(
+                                        subcommand,
+                                        vec![
+                                            target,
+                                            message_reference.to_string(),
+                                            limit,
+                                        ],
+                                    ),
+                                    None,
+                                ))
                             } else {
                                 Err(Error::IncorrectArgCount {
                                     min: 4,
@@ -1289,14 +1249,17 @@ fn parse_command(
                                     return Err(Error::NotPositiveInteger);
                                 }
 
-                                Ok(Command::Irc(Irc::Chathistory(
-                                    subcommand,
-                                    vec![
-                                        target,
-                                        message_reference.to_string(),
-                                        limit,
-                                    ],
-                                )))
+                                Ok(Command::Irc(
+                                    Irc::Chathistory(
+                                        subcommand,
+                                        vec![
+                                            target,
+                                            message_reference.to_string(),
+                                            limit,
+                                        ],
+                                    ),
+                                    None,
+                                ))
                             } else {
                                 Err(Error::IncorrectArgCount {
                                     min: 4,
@@ -1350,15 +1313,19 @@ fn parse_command(
                                     return Err(Error::NotPositiveInteger);
                                 }
 
-                                Ok(Command::Irc(Irc::Chathistory(
-                                    subcommand,
-                                    vec![
-                                        target,
-                                        first_message_reference.to_string(),
-                                        second_message_reference.to_string(),
-                                        limit,
-                                    ],
-                                )))
+                                Ok(Command::Irc(
+                                    Irc::Chathistory(
+                                        subcommand,
+                                        vec![
+                                            target,
+                                            first_message_reference.to_string(),
+                                            second_message_reference
+                                                .to_string(),
+                                            limit,
+                                        ],
+                                    ),
+                                    None,
+                                ))
                             } else {
                                 Err(Error::IncorrectArgCount {
                                     min: 5,
@@ -1414,14 +1381,17 @@ fn parse_command(
                                     return Err(Error::NotPositiveInteger);
                                 }
 
-                                Ok(Command::Irc(Irc::Chathistory(
-                                    subcommand,
-                                    vec![
-                                        first_timestamp.to_string(),
-                                        second_timestamp.to_string(),
-                                        limit,
-                                    ],
-                                )))
+                                Ok(Command::Irc(
+                                    Irc::Chathistory(
+                                        subcommand,
+                                        vec![
+                                            first_timestamp.to_string(),
+                                            second_timestamp.to_string(),
+                                            limit,
+                                        ],
+                                    ),
+                                    None,
+                                ))
                             } else {
                                 Err(Error::IncorrectArgCount {
                                     min: 4,
@@ -1476,10 +1446,10 @@ fn parse_command(
                                         }
                                     }
 
-                                    Ok(Command::Irc(Irc::Monitor(
-                                        subcommand,
-                                        Some(targets),
-                                    )))
+                                    Ok(Command::Irc(
+                                        Irc::Monitor(subcommand, Some(targets)),
+                                        None,
+                                    ))
                                 } else {
                                     Err(Error::IncorrectArgCount {
                                         min: 2,
@@ -1490,9 +1460,10 @@ fn parse_command(
                             }
                             "C" | "L" | "S" => {
                                 if targets.is_none() {
-                                    Ok(Command::Irc(Irc::Monitor(
-                                        subcommand, None,
-                                    )))
+                                    Ok(Command::Irc(
+                                        Irc::Monitor(subcommand, None),
+                                        None,
+                                    ))
                                 } else {
                                     Err(Error::IncorrectArgCount {
                                         min: 1,
@@ -1519,15 +1490,15 @@ fn parse_command(
             Kind::Invite => {
                 validated::<1, 1, true>(args, |[nickname], [channel]| {
                     if let Some(channel) = channel {
-                        Ok(Command::Irc(Irc::Invite(nickname, channel)))
+                        Ok(Command::Irc(Irc::Invite(nickname, channel), None))
                     } else if let Some(channel) = buffer
                         .and_then(Upstream::target)
                         .and_then(Target::to_channel)
                     {
-                        Ok(Command::Irc(Irc::Invite(
-                            nickname,
-                            channel.to_string(),
-                        )))
+                        Ok(Command::Irc(
+                            Irc::Invite(nickname, channel.to_string()),
+                            None,
+                        ))
                     } else {
                         // If not in a channel then a channel argument is
                         // required
@@ -1636,10 +1607,13 @@ fn parse_command(
                             isupport::get_chantypes_or_default(isupport);
 
                         if proto::is_channel(&channel, chantypes) {
-                            Ok(Command::Irc(Irc::Topic(
-                                channel.to_string(),
-                                Some(String::new()),
-                            )))
+                            Ok(Command::Irc(
+                                Irc::Topic(
+                                    channel.to_string(),
+                                    Some(String::new()),
+                                ),
+                                None,
+                            ))
                         } else {
                             Err(Error::InvalidChannelName {
                                 requirements: fmt_channel_name_requirements(
@@ -1651,10 +1625,13 @@ fn parse_command(
                         .and_then(Upstream::target)
                         .and_then(Target::to_channel)
                     {
-                        Ok(Command::Irc(Irc::Topic(
-                            channel.to_string(),
-                            Some(String::new()),
-                        )))
+                        Ok(Command::Irc(
+                            Irc::Topic(
+                                channel.to_string(),
+                                Some(String::new()),
+                            ),
+                            None,
+                        ))
                     } else {
                         // If not in a channel then a channel argument is
                         // required
@@ -1880,6 +1857,84 @@ fn validated_message_reference(
         .then_some(isupport::MessageReference::None)
 }
 
+fn validated_mode_string(
+    target: &str,
+    mode_string: &str,
+    isupport: &HashMap<isupport::Kind, isupport::Parameter>,
+    list_mode_with_equal: bool,
+) -> Result<bool, Error> {
+    if mode_string == "+"
+        || mode_string == "-"
+        || (mode_string == "=" && list_mode_with_equal)
+    {
+        return Err(Error::NoModeString);
+    }
+
+    let mode_limit = isupport::get_mode_limit_or_default(isupport);
+
+    let mode_string_regex = if proto::is_channel(
+        target,
+        isupport::get_chantypes_or_default(isupport),
+    ) {
+        let chanmodes = isupport::get_chanmodes_or_default(isupport);
+        let prefix = isupport::get_prefix_or_default(isupport);
+
+        let mut channel_modes_regex = String::from(r"^((\+|\-)[");
+        for chanmode in chanmodes {
+            channel_modes_regex += chanmode.modes.as_ref();
+        }
+        for prefix_map in prefix {
+            channel_modes_regex.push(prefix_map.mode);
+        }
+        channel_modes_regex += r"]";
+        if let Some(mode_limit) = mode_limit {
+            channel_modes_regex += r"{1,";
+            channel_modes_regex += &format!("{mode_limit}");
+            channel_modes_regex += r"}";
+        } else {
+            channel_modes_regex += r"+";
+        }
+
+        if list_mode_with_equal
+            && let Some(chanmode) =
+                chanmodes.iter().find(|chanmode| chanmode.kind == 'A')
+        {
+            channel_modes_regex += r"|=[";
+            channel_modes_regex += chanmode.modes.as_ref();
+            channel_modes_regex += r"]";
+            if let Some(mode_limit) = mode_limit {
+                channel_modes_regex += r"{1,";
+                channel_modes_regex += &format!("{mode_limit}");
+                channel_modes_regex += r"}";
+            } else {
+                channel_modes_regex += r"+";
+            }
+        }
+
+        channel_modes_regex += r")+$";
+
+        Regex::new(&channel_modes_regex)
+            .unwrap_or(Regex::new(r"^((\+|\-)[A-Za-z]+)+$").unwrap())
+    } else {
+        // User modes from RPL_MYINFO is unreliable, so use the most permissive
+        // regex instead of crafting a regex for the server
+
+        let mut user_modes_regex = String::from(r"^((\+|\-)[A-Za-z]");
+        if let Some(mode_limit) = mode_limit {
+            user_modes_regex += r"{1,";
+            user_modes_regex += &format!("{mode_limit}");
+            user_modes_regex += r"}";
+        } else {
+            user_modes_regex += r"+";
+        }
+        user_modes_regex += r")+$";
+        Regex::new(&user_modes_regex)
+            .unwrap_or(Regex::new(r"^((\+|\-)[A-Za-z]+)+$").unwrap())
+    };
+
+    Ok(mode_string_regex.is_match(mode_string).unwrap_or_default())
+}
+
 impl TryFrom<Irc> for proto::Command {
     type Error = ();
 
@@ -2024,6 +2079,17 @@ pub enum Error {
     },
     #[error("/{command} is not enabled in configuration")]
     CommandNotEnabled { command: &'static str },
+}
+
+#[derive(Debug, Clone, PartialEq, thiserror::Error)]
+pub enum Warning {
+    #[error("cannot validate modestring")]
+    CannotValidateModeString,
+    #[error("cannot confirm availability of /{command}{context}")]
+    CannotConfirmAvailability {
+        command: &'static str,
+        context: String,
+    },
 }
 
 fn fmt_incorrect_arg_count(min: usize, max: usize, actual: usize) -> String {
