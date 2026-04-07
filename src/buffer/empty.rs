@@ -13,8 +13,8 @@ pub fn view<'a, Message: 'a>(
         ' '
     } else {
         match config.sidebar.position {
-            data::config::sidebar::Position::Left => '⟵',
-            data::config::sidebar::Position::Right => '⟶',
+            data::config::sidebar::Position::Left => '←',
+            data::config::sidebar::Position::Right => '→',
             data::config::sidebar::Position::Top => '↑',
             data::config::sidebar::Position::Bottom => '↓',
         }

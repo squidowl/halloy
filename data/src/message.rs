@@ -2414,7 +2414,7 @@ fn content<'a>(
             Some((
                 parse_fragments_with_user(
                     format!(
-                        "⟵ {} has left the channel{text}",
+                        "← {} has left the channel{text}",
                         user.formatted(
                             config
                                 .buffer
@@ -2444,7 +2444,7 @@ fn content<'a>(
                 (
                     parse_fragments_with_user(
                         format!(
-                            "⟶ {} has joined the channel",
+                            "→ {} has joined the channel",
                             user.formatted(
                                 config
                                     .buffer
@@ -2603,9 +2603,9 @@ fn content<'a>(
                 let arrow = if target.as_normalized_str()
                     == our_nick.as_normalized_str()
                 {
-                    "⟵"
+                    "←"
                 } else {
-                    "⟶"
+                    "→"
                 };
 
                 let command = query.command.as_ref();
@@ -3199,7 +3199,7 @@ fn kick_text(
                 kicker.nickname()
             )
         } else {
-            format!("⟵ {target} been kicked by {}{reason}", kicker.nickname())
+            format!("← {target} been kicked by {}{reason}", kicker.nickname())
         },
         Some(&[kicker, victim].into_iter().collect()),
         casemapping,

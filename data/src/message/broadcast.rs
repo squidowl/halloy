@@ -173,7 +173,7 @@ pub fn quit(
 
     let content = parse_fragments_with_user(
         format!(
-            "⟵ {} has quit{comment}",
+            "← {} has quit{comment}",
             user.formatted(
                 config
                     .buffer
