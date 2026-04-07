@@ -305,6 +305,7 @@ pub fn parse(
     isupport: &HashMap<isupport::Kind, isupport::Parameter>,
     capabilities: &Capabilities,
     features: &Features,
+    filehost_url: Option<&str>,
     config: &Config,
 ) -> Result<Command, Error> {
     let parsed = parse_input(s)?;
@@ -327,6 +328,7 @@ pub fn parse(
         isupport,
         capabilities,
         features,
+        filehost_url,
         config,
     )
 }
@@ -361,6 +363,7 @@ fn parse_command(
     isupport: &HashMap<isupport::Kind, isupport::Parameter>,
     capabilities: &Capabilities,
     features: &Features,
+    filehost_url: Option<&str>,
     config: &Config,
 ) -> Result<Command, Error> {
     let unknown = || {
@@ -1696,7 +1699,7 @@ fn parse_command(
                 Ok(Command::Internal(Internal::Reconnect))
             }),
             Kind::Upload => {
-                if isupport.contains_key(&isupport::Kind::FILEHOST) {
+                if filehost_url.is_some() {
                     if config.filehost.enabled {
                         validated::<1, 0, true>(args, |[path], _| {
                             Ok(Command::Internal(Internal::Upload(path)))
@@ -2122,6 +2125,7 @@ mod tests {
                     &isupport,
                     &Capabilities::default(),
                     &features,
+                    None,
                     &Config::default(),
                 )
                 .is_ok()
@@ -2143,6 +2147,7 @@ mod tests {
             &isupport::DEFAULT,
             &Capabilities::default(),
             &Features::default(),
+            None,
             &config,
         )
         .unwrap();
@@ -2168,6 +2173,7 @@ mod tests {
             &isupport::DEFAULT,
             &Capabilities::default(),
             &Features::default(),
+            None,
             &config,
         )
         .unwrap_err();
@@ -2196,6 +2202,7 @@ mod tests {
             &isupport::DEFAULT,
             &Capabilities::default(),
             &Features::default(),
+            None,
             &config,
         )
         .unwrap_err();

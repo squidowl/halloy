@@ -32,6 +32,7 @@ pub fn parse(
     isupport: &HashMap<isupport::Kind, isupport::Parameter>,
     capabilities: &Capabilities,
     features: &Features,
+    filehost_url: Option<&str>,
     relay_bytes: usize,
     config: &Config,
 ) -> Result<Parsed, Error> {
@@ -76,6 +77,7 @@ pub fn parse(
             isupport,
             capabilities,
             features,
+            filehost_url,
             config,
         ) {
             Ok(Command::Internal(command)) => {
@@ -640,6 +642,7 @@ mod test {
                 isupport,
                 &capabilities,
                 features,
+                None,
                 128,
                 &config,
             );
