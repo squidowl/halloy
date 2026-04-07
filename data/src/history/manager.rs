@@ -323,7 +323,7 @@ impl Manager {
         {
             self.update_display_read_marker(
                 kind,
-                history::ReadMarker::from_date_time(message.server_time),
+                history::ReadMarker::from(&message),
             );
         }
 
@@ -1574,7 +1574,7 @@ impl Data {
 
         let kind = kind.into();
 
-        match self.map.entry(kind.clone()) {
+        match self.map.entry(kind) {
             hash_map::Entry::Occupied(mut entry) => {
                 entry.get_mut().update_display_read_marker(read_marker);
             }
