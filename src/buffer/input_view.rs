@@ -131,6 +131,12 @@ impl Actions {
     }
 }
 
+#[derive(Debug, Clone)]
+enum Notice {
+    Error(String),
+    Warning(String),
+}
+
 fn emacs_key_binding(
     key_press: text_editor::KeyPress,
 ) -> Option<text_editor::Binding<Message>> {
@@ -320,8 +326,11 @@ pub fn view<'a>(
     theme: &'a Theme,
     filehost_url: Option<&'a str>,
 ) -> Element<'a, Message> {
-    let style = if state.error.is_some() {
-        theme::text_editor::error
+    let style = if let Some(notice) = &state.notice {
+        match notice {
+            Notice::Warning(_) => theme::text_editor::warning,
+            Notice::Error(_) => theme::text_editor::error,
+        }
     } else {
         theme::text_editor::primary
     };
@@ -668,9 +677,9 @@ pub fn view<'a>(
             Message::SelectCompletion,
         ),
         state
-            .error
-            .as_deref()
-            .map(|error_str| error(error_str, theme)),
+            .notice
+            .as_ref()
+            .map(|notice| notice_view(notice, theme)),
     ]
     .padding([0, 8])
     .spacing(4);
@@ -678,15 +687,18 @@ pub fn view<'a>(
     anchored_overlay(content, overlay, anchored_overlay::Anchor::AboveTop, 4.0)
 }
 
-fn error<'a, 'b, Message: 'a>(
-    error: &'b str,
+fn notice_view<'a, 'b, Message: 'a>(
+    notice: &'a Notice,
     theme: &'a Theme,
 ) -> Element<'a, Message> {
-    container(
-        text(error.to_string())
+    container(match notice {
+        Notice::Warning(notice_string) => text(notice_string)
+            .style(theme::text::warning)
+            .font_maybe(theme::font_style::warning(theme).map(font::get)),
+        Notice::Error(notice_string) => text(notice_string)
             .style(theme::text::error)
             .font_maybe(theme::font_style::error(theme).map(font::get)),
-    )
+    })
     .padding(8)
     .style(theme::container::tooltip)
     .into()
@@ -697,7 +709,7 @@ pub struct State {
     input_id: widget::Id,
     input_content: text_editor::Content,
     parsed: Vec<Result<input::Parsed, input::Error>>,
-    error: Option<String>,
+    notice: Option<Notice>,
     completion: Completion,
     selected_history: Option<usize>,
     last_typing_at: Option<Instant>,
@@ -722,7 +734,7 @@ impl State {
                 text_editor::Content::with_text,
             ),
             parsed: Vec::new(),
-            error: None,
+            notice: None,
             completion: Completion::default(),
             selected_history: None,
             last_typing_at: None,
@@ -771,9 +783,9 @@ impl State {
                         Ok(input::Parsed::Internal(
                             command::Internal::Exec(_),
                         )) => {
-                            self.error = Some(String::from(
+                            self.notice = Some(Notice::Error(String::from(
                                 "exec output cannot invoke /exec",
-                            ));
+                            )));
 
                             (Task::none(), None)
                         }
@@ -781,13 +793,14 @@ impl State {
                             parsed, &buffer, clients, history, config,
                         ),
                         Err(error) => {
-                            self.error = Some(error.to_string());
+                            self.notice =
+                                Some(Notice::Error(error.to_string()));
                             (Task::none(), None)
                         }
                     }
                 }
                 Err(error) => {
-                    self.error = Some(error);
+                    self.notice = Some(Notice::Error(error));
                     (Task::none(), None)
                 }
             },
@@ -880,8 +893,8 @@ impl State {
             Message::Send => {
                 let cursor_position = self.input_content.cursor().position;
 
-                // Reset error
-                self.error = None;
+                // Reset notice
+                self.notice = None;
                 // Reset selected history
                 self.selected_history = None;
 
@@ -913,7 +926,7 @@ impl State {
                     if let Some(Err(error)) =
                         self.parsed.get(cursor_position.line)
                     {
-                        self.error = Some(error.to_string());
+                        self.notice = Some(Notice::Error(error.to_string()));
 
                         return (Task::none(), None);
                     } else if let Some((position, line, error)) =
@@ -952,11 +965,11 @@ impl State {
                                 Cow::Owned(line_snippet)
                             };
 
-                        self.error = Some(format!(
+                        self.notice = Some(Notice::Error(format!(
                             "error on line {}: {line_snippet}\
                            \n{error}",
                             position + 1
-                        ));
+                        )));
 
                         return (Task::none(), None);
                     }
@@ -1004,7 +1017,7 @@ impl State {
 
                     let result =
                         self.on_completion(buffer, history, actions, true);
-                    self.process_completion_and_error(
+                    self.process_completion_and_notice(
                         buffer, clients, history, config,
                     );
                     result
@@ -1029,7 +1042,7 @@ impl State {
 
                     let result =
                         self.on_completion(buffer, history, actions, true);
-                    self.process_completion_and_error(
+                    self.process_completion_and_notice(
                         buffer, clients, history, config,
                     );
                     result
@@ -1401,7 +1414,7 @@ impl State {
                         let cursor_position =
                             self.input_content.cursor().position;
 
-                        self.error = None;
+                        self.notice = None;
                         self.selected_history = None;
 
                         if let Some(line) = self
@@ -1443,12 +1456,7 @@ impl State {
                                 .completion
                                 .complete_emoji(&line, cursor_position.column);
 
-                            if let Some(Err(error)) =
-                                self.parsed.get(cursor_position.line)
-                                && show_while_typing(error)
-                            {
-                                self.error = Some(error.to_string());
-                            }
+                            self.set_notice(cursor_position.line);
 
                             if let Some(actions) = actions {
                                 for action in actions.into_iter() {
@@ -1468,7 +1476,7 @@ impl State {
                     }
                     text_editor::Action::Move(_)
                     | text_editor::Action::Click(_) => {
-                        self.process_completion_and_error(
+                        self.process_completion_and_notice(
                             buffer, clients, history, config,
                         );
 
@@ -2073,8 +2081,9 @@ impl State {
                     command::Internal::Upload(path) => {
                         let file_path = std::path::PathBuf::from(&path);
                         if !file_path.exists() {
-                            self.error =
-                                Some(format!("file not found: {path}"));
+                            self.notice = Some(Notice::Error(format!(
+                                "file not found: {path}"
+                            )));
                             return (Task::none(), None);
                         }
                         let (handle, registration) =
@@ -2095,8 +2104,13 @@ impl State {
                     }
                     command::Internal::Exec(command) => {
                         if !config.buffer.commands.exec.enabled {
-                            self.error = Some(String::from(
-                                "exec is not enabled by the user",
+                            self.notice = Some(Notice::Error(
+                                input::Error::Command(
+                                    command::Error::CommandNotEnabled {
+                                        command: "exec",
+                                    },
+                                )
+                                .to_string(),
                             ));
 
                             return (Task::none(), None);
@@ -2253,7 +2267,7 @@ impl State {
         )
     }
 
-    fn process_completion_and_error(
+    fn process_completion_and_notice(
         &mut self,
         buffer: &buffer::Upstream,
         clients: &mut client::Map,
@@ -2293,14 +2307,10 @@ impl State {
                 config,
             );
 
-            // Reset error state
-            self.error = None;
+            // Reset notice state
+            self.notice = None;
 
-            if let Some(Err(error)) = self.parsed.get(cursor_position.line)
-                && show_while_typing(error)
-            {
-                self.error = Some(error.to_string());
-            }
+            self.set_notice(cursor_position.line);
         }
     }
 
@@ -2351,7 +2361,7 @@ impl State {
         self.parse_lines_and_maybe_send_typing_status(buffer, clients, config);
 
         // Cursor movement above does not always trigger an Action::Move
-        self.process_completion_and_error(buffer, clients, history, config);
+        self.process_completion_and_notice(buffer, clients, history, config);
 
         (Task::none(), None)
     }
@@ -2369,7 +2379,7 @@ impl State {
     }
 
     pub fn reset(&mut self) {
-        self.error = None;
+        self.notice = None;
         self.completion = Completion::default();
         self.selected_history = None;
     }
@@ -2565,6 +2575,22 @@ impl State {
             .and_then(|parsed| parsed.as_ref().ok())
             .and_then(|parsed| parsed.multiline_batch_kind(casemapping))
             .is_some_and(|kind| kind == MultilineBatchKind::PRIVMSG)
+    }
+
+    fn set_notice(&mut self, line: usize) {
+        match self.parsed.get(line) {
+            Some(Err(error)) => {
+                if show_while_typing(error) {
+                    self.notice = Some(Notice::Error(error.to_string()));
+                }
+            }
+            Some(Ok(parsed)) => {
+                if let Some(warning) = parsed.warning() {
+                    self.notice = Some(Notice::Warning(warning.to_string()));
+                }
+            }
+            None => (),
+        }
     }
 }
 

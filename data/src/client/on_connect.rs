@@ -74,7 +74,7 @@ pub fn on_connect(
 
                 async move {
                     match command {
-                        Command::Irc(command) => {
+                        Command::Irc(command, _) => {
                             if let Ok(message) =
                                 message::Encoded::try_from(command)
                                 && let Err(e) =

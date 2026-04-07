@@ -101,7 +101,9 @@ pub fn parse(
             // Auto-formatting for commands is done in command parsing, so that
             // plain/format commands can be parsed directly as their
             // corresponding IRC command.
-            Ok(Command::Irc(command)) => Content::Command(command),
+            Ok(Command::Irc(command, warning)) => {
+                Content::Command(command, warning)
+            }
             Err(command::Error::MissingSlash) => {
                 let text = match auto_format {
                     AutoFormat::Disabled => input.to_string(),
@@ -134,12 +136,12 @@ pub fn parse(
     {
         let message_bytes = match &content {
             Content::Text(_)
-            | Content::Command(command::Irc::Msg(_, _))
-            | Content::Command(command::Irc::Me(_, _))
-            | Content::Command(command::Irc::Notice(_, _)) => {
+            | Content::Command(command::Irc::Msg(_, _), _)
+            | Content::Command(command::Irc::Me(_, _), _)
+            | Content::Command(command::Irc::Notice(_, _), _) => {
                 message_bytes + relay_bytes
             }
-            Content::Command(_) => message_bytes,
+            Content::Command(_, _) => message_bytes,
         };
 
         if message_bytes > format::BYTE_LIMIT {
@@ -190,7 +192,7 @@ impl Parsed {
                 Content::Text(text) => {
                     Some((text.as_str(), MultilineBatchKind::PRIVMSG))
                 }
-                Content::Command(command) => match command {
+                Content::Command(command, _) => match command {
                     command::Irc::Msg(command_target, text) => {
                         input.buffer.target().and_then(|buffer_target| {
                             (buffer_target.as_normalized_str()
@@ -219,6 +221,13 @@ impl Parsed {
             Parsed::CodeFence(_) => Some(("", MultilineBatchKind::PRIVMSG)),
         }
     }
+
+    pub fn warning(&self) -> Option<&command::Warning> {
+        match &self {
+            Self::Input(input) => input.warning(),
+            Self::Internal(_) | Self::CodeFence(_) => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -234,14 +243,21 @@ impl Input {
     ) -> Self {
         Self {
             buffer,
-            content: Content::Command(command),
+            content: Content::Command(command, None),
         }
     }
 
     pub fn command(&self) -> Option<&command::Irc> {
         match &self.content {
             Content::Text(_) => None,
-            Content::Command(command) => Some(command),
+            Content::Command(command, _) => Some(command),
+        }
+    }
+
+    pub fn warning(&self) -> Option<&command::Warning> {
+        match &self.content {
+            Content::Text(_) => None,
+            Content::Command(_, warning) => warning.as_ref(),
         }
     }
 
@@ -306,7 +322,7 @@ impl Input {
 #[derive(Debug, Clone, PartialEq)]
 enum Content {
     Text(String),
-    Command(command::Irc),
+    Command(command::Irc, Option<command::Warning>),
 }
 
 impl Content {
@@ -316,7 +332,7 @@ impl Content {
                 let target = buffer.target()?;
                 Some(command::Irc::Msg(target.to_string(), text.clone()))
             }
-            Self::Command(command) => Some(command.clone()),
+            Self::Command(command, _) => Some(command.clone()),
         }
     }
 
@@ -621,12 +637,15 @@ mod test {
                 ),
                 Ok(Parsed::Input(Input {
                     buffer: buffer.clone(),
-                    content: Content::Command(command::Irc::Me(
-                        String::from("##chat"),
-                        String::from(
-                            "thinks in \u{1d}italics\u{1d} and \u{2}bold\u{2}",
+                    content: Content::Command(
+                        command::Irc::Me(
+                            String::from("##chat"),
+                            String::from(
+                                "thinks in \u{1d}italics\u{1d} and \u{2}bold\u{2}",
+                            ),
                         ),
-                    )),
+                        None,
+                    ),
                 })),
             ),
         ];

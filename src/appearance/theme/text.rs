@@ -44,6 +44,17 @@ pub fn error(theme: &Theme) -> Style {
     }
 }
 
+pub fn warning(theme: &Theme) -> Style {
+    Style {
+        color: theme
+            .styles()
+            .text
+            .warning
+            .color
+            .or(Some(theme.styles().text.error.color)),
+    }
+}
+
 pub fn success(theme: &Theme) -> Style {
     Style {
         color: Some(theme.styles().text.success.color),
