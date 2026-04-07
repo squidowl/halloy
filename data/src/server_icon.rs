@@ -106,32 +106,39 @@ impl Manager {
     }
 }
 
+fn canonical_icon_url(url: &Url) -> Url {
+    let mut canonical = url.clone();
+    canonical.set_fragment(None);
+    canonical
+}
+
 async fn load(
     url: Url,
     http_client: Arc<reqwest::Client>,
 ) -> Result<Icon, String> {
-    let result =
-        if let Some(state) = cache::load(&url, http_client.clone()).await {
-            match state {
-                cache::State::Ok(icon) => Ok(icon),
-                cache::State::Error => Err("cached failed".to_string()),
+    let cache_key_url = canonical_icon_url(&url);
+
+    if let Some(state) = cache::load(&cache_key_url, http_client.clone()).await
+    {
+        match state {
+            cache::State::Ok(icon) => Ok(icon),
+            cache::State::Error => Err("cached failed".to_string()),
+        }
+    } else {
+        match fetch(url.clone(), http_client).await {
+            Ok(icon) => {
+                cache::save(&cache_key_url, cache::State::Ok(icon.clone()))
+                    .await;
+
+                Ok(icon)
             }
-        } else {
-            match fetch(url.clone(), http_client).await {
-                Ok(icon) => {
-                    cache::save(&url, cache::State::Ok(icon.clone())).await;
+            Err(error) => {
+                cache::save(&cache_key_url, cache::State::Error).await;
 
-                    Ok(icon)
-                }
-                Err(error) => {
-                    cache::save(&url, cache::State::Error).await;
-
-                    Err(error)
-                }
+                Err(error)
             }
-        };
-
-    result
+        }
+    }
 }
 
 async fn fetch(
