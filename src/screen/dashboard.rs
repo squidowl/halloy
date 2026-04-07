@@ -3254,32 +3254,26 @@ impl Dashboard {
         }
     }
 
-    pub fn mark_as_read_if_focused_and_at_bottom(
-        &mut self,
+    pub fn is_focused_and_at_bottom(
+        &self,
         kind: &history::Kind,
-        clients: &mut client::Map,
-        focused_window: Option<window::Id>,
-    ) {
-        let should_mark =
-            self.get_focused().is_some_and(|(window, _, pane)| {
-                let is_focused_window = focused_window == Some(window);
-                let is_at_bottom =
-                    pane.buffer.is_scrolled_to_bottom() == Some(true);
-                let focused_kind =
-                    pane.buffer.data().and_then(history::Kind::from_buffer);
+        kind_window: Option<window::Id>,
+    ) -> bool {
+        self.get_focused()
+            .is_some_and(|(focused_window, _, focused_pane)| {
+                let is_focused_window = kind_window == Some(focused_window);
+
+                let focused_kind = focused_pane
+                    .buffer
+                    .data()
+                    .and_then(history::Kind::from_buffer);
                 let is_same_buffer = focused_kind.as_ref() == Some(kind);
 
-                is_focused_window && is_at_bottom && is_same_buffer
-            });
+                let is_at_bottom =
+                    focused_pane.buffer.is_scrolled_to_bottom() == Some(true);
 
-        if should_mark {
-            mark_as_read(
-                kind.clone(),
-                &mut self.history,
-                clients,
-                TokenPriority::User,
-            );
-        }
+                is_focused_window && is_same_buffer && is_at_bottom
+            })
     }
 
     pub fn block_and_record_message(
@@ -3442,6 +3436,22 @@ impl Dashboard {
         } else {
             Task::none()
         }
+    }
+
+    pub fn update_display_read_marker(
+        &mut self,
+        kind: impl Into<history::Kind> + 'static,
+        read_marker: ReadMarker,
+    ) {
+        self.history.update_display_read_marker(kind, read_marker);
+    }
+
+    pub fn mark_as_read(
+        &mut self,
+        kind: history::Kind,
+        clients: &mut client::Map,
+    ) {
+        mark_as_read(kind, &mut self.history, clients, TokenPriority::High);
     }
 
     pub fn load_metadata(
