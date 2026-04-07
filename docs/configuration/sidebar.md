@@ -225,8 +225,8 @@ Show unread/highlight indicators on buffers that have an open pane.
 # Values: true, false
 # Default: true
 
-[sidebar.show_on_open_buffers]
-show_on_open_buffers = true
+[sidebar.unread_indicator]
+show_on_open_buffers = false
 ```
 
 
