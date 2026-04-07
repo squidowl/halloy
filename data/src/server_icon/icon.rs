@@ -6,6 +6,8 @@ use url::Url;
 
 use super::cache;
 
+pub type Error = image::ImageError;
+
 /// SHA256 digest of image
 #[derive(Debug, Clone, Serialize, Deserialize, AsRef)]
 pub struct Digest(String);
