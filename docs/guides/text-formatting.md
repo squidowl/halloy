@@ -16,15 +16,17 @@ Below is a table with the supported text attributes.
 | Code                  | `` `code` ``            | `$mcode$m`                |
 | Spoiler               | `\|\|spoiler\|\|`       | -                         |
 
+Markdown formatting characters can be escaped with `\`, but backslashes alone do not need escaping.
+
 Example
 
 ```json
-/format __this is bold__ $iand this is italic$i
+/format __this is bold__ $iand this is italic$i and \*this is escaped\*
 ```
 
 Will render the following:
 
-> **this is bold** _and this is italic_
+> **this is bold** _and this is italic_ and \*this is escaped\*
 
 ## Color
 

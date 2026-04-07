@@ -23,6 +23,7 @@ Changed:
 - Moved nicklist nickname settings from `buffer.channel.nicklist` to `buffer.nickname` (`away` and `color`)
 - Default typing style (`buffer.typing.style`) is now `popped` (from `padded`)
 - Colons, semicolons and double quotes are no longer considered part of channel names
+- Backslash escapes are now only interpreted when escaping markdown formatting characters
 
 Fixed:
 
@@ -42,7 +43,7 @@ Removed:
 
 Thanks:
 
-- Contributions: @furudean, @omentic, @KaiKorla, @achille
+- Contributions: @furudean, @omentic, @KaiKorla, @achille, @classabbyamp
 - Bug reports: sebbu, @whitequark, @SnoopJ, esden, @miyukoc, @ld-cd, @achille, @classabbyamp, vignoux, @esden
 - Feature requests: @omentic, @classabbyamp
 
