@@ -1,22 +1,16 @@
 use std::collections::HashMap;
-use std::path::PathBuf;
 use std::sync::Arc;
 
 use iced::Task;
-use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use tokio::fs;
 use url::Url;
 
+use self::icon::Icon;
 use crate::Server;
 
 mod cache;
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Icon {
-    pub url: Url,
-    pub path: PathBuf,
-}
+mod icon;
 
 #[derive(Debug)]
 pub enum Message {
@@ -165,11 +159,15 @@ async fn fetch(
     let format = image::guess_format(&bytes)
         .map_err(|error| format!("unsupported image format: {error}"))?;
 
+    if format != image::ImageFormat::Ico {
+        return Err(format!("unsupported image format: {format:?}"));
+    }
+
     let mut hasher = Sha256::default();
     hasher.update(bytes.as_ref());
 
-    let digest = hex::encode(hasher.finalize());
-    let image_path = cache::image_path(&format, &digest);
+    let digest = icon::Digest::new(hasher.finalize().as_ref());
+    let image_path = cache::image_path(&digest);
 
     if !image_path.exists() {
         if let Some(parent) = image_path.parent().filter(|p| !p.exists()) {
@@ -185,8 +183,5 @@ async fn fetch(
         cache::maybe_trim_icon_cache(bytes.len() as u64, image_path.clone());
     }
 
-    Ok(Icon {
-        url,
-        path: image_path,
-    })
+    Ok(Icon::new(url, digest))
 }

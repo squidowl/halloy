@@ -9,8 +9,9 @@ use tokio::fs;
 use url::Url;
 use walkdir::WalkDir;
 
-use super::Icon;
+use super::icon::Icon;
 use crate::environment;
+use crate::server_icon::icon;
 
 const ICON_CACHE_TRIMMED_FRACTION_NUMERATOR: u64 = 3;
 const ICON_CACHE_TRIMMED_FRACTION_DENOMINATOR: u64 = 4;
@@ -65,14 +66,18 @@ pub async fn save(url: &Url, state: State) {
     let _ = fs::write(path, &bytes).await;
 }
 
-pub(super) fn image_path(format: &image::ImageFormat, digest: &str) -> PathBuf {
+pub(super) fn image_path(digest: &icon::Digest) -> PathBuf {
     environment::cache_dir()
         .join("server_icons")
         .join("images")
-        .join(&digest[..2])
-        .join(&digest[2..4])
-        .join(&digest[4..6])
-        .join(format!("{digest}.{}", format.extensions_str()[0]))
+        .join(&digest.as_ref()[..2])
+        .join(&digest.as_ref()[2..4])
+        .join(&digest.as_ref()[4..6])
+        .join(format!(
+            "{}.{}",
+            digest.as_ref(),
+            image::ImageFormat::Ico.extensions_str()[0]
+        ))
 }
 
 pub(super) fn maybe_trim_icon_cache(image_size: u64, protected_path: PathBuf) {
