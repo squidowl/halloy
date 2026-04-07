@@ -31,6 +31,7 @@ pub enum Kind {
     ELIST,
     FILEHOST,
     HOSTLEN,
+    ICON,
     KEYLEN,
     KICKLEN,
     KNOCK,
@@ -321,6 +322,9 @@ impl FromStr for Operation {
                         "FNC" => Ok(Operation::Add(Parameter::FNC)),
                         "HOSTLEN" => Ok(Operation::Add(Parameter::HOSTLEN(
                             parse_required_positive_integer(value)?,
+                        ))),
+                        "draft/ICON" => Ok(Operation::Add(Parameter::ICON(
+                            value.to_owned(),
                         ))),
                         "INVEX" => Ok(Operation::Add(Parameter::INVEX(
                             parse_required_letter(
@@ -640,6 +644,7 @@ impl Operation {
                 "ELIST" => Some(Kind::ELIST),
                 "soju.im/FILEHOST" => Some(Kind::FILEHOST),
                 "HOSTLEN" => Some(Kind::HOSTLEN),
+                "draft/ICON" => Some(Kind::ICON),
                 "KEYLEN" => Some(Kind::KEYLEN),
                 "KICKLEN" => Some(Kind::KICKLEN),
                 "KNOCK" => Some(Kind::KNOCK),
@@ -701,6 +706,7 @@ pub enum Parameter {
     FNC,
     FILEHOST(String),
     HOSTLEN(u16),
+    ICON(String),
     INVEX(char),
     KEYLEN(u16),
     KICKLEN(u16),
@@ -755,6 +761,7 @@ impl Parameter {
             Parameter::ELIST(_) => Some(Kind::ELIST),
             Parameter::FILEHOST(_) => Some(Kind::FILEHOST),
             Parameter::HOSTLEN(_) => Some(Kind::HOSTLEN),
+            Parameter::ICON(_) => Some(Kind::ICON),
             Parameter::KEYLEN(_) => Some(Kind::KEYLEN),
             Parameter::KICKLEN(_) => Some(Kind::KICKLEN),
             Parameter::KNOCK => Some(Kind::KNOCK),
@@ -1343,6 +1350,14 @@ pub fn get_statusmsg_or_default(
 
 pub fn get_filehost(isupport: &HashMap<Kind, Parameter>) -> Option<&str> {
     if let Some(Parameter::FILEHOST(url)) = isupport.get(&Kind::FILEHOST) {
+        Some(url.as_str())
+    } else {
+        None
+    }
+}
+
+pub fn get_icon_url(isupport: &HashMap<Kind, Parameter>) -> Option<&str> {
+    if let Some(Parameter::ICON(url)) = isupport.get(&Kind::ICON) {
         Some(url.as_str())
     } else {
         None

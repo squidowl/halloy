@@ -3,11 +3,14 @@ use std::time::Duration;
 
 use data::config::{self, Config, sidebar};
 use data::dashboard::{BufferAction, BufferFocusedAction};
-use data::{Version, buffer, file_transfer, history, isupport, server, target};
+use data::{
+    Version, buffer, file_transfer, history, isupport, server, server_icon,
+    target,
+};
 use iced::widget::text::Shaping;
 use iced::widget::{
-    Column, Row, Scrollable, Space, button, column, container, pane_grid, row,
-    rule, scrollable, space, stack,
+    Column, Row, Scrollable, Space, button, column, container, image,
+    pane_grid, row, rule, scrollable, space, stack,
 };
 use iced::{Alignment, Length, Padding, Task, mouse, padding};
 use tokio::time;
@@ -444,6 +447,7 @@ impl Sidebar {
         history: &'a history::Manager,
         panes: &'a Panes,
         focus: Focus,
+        server_icons: &'a server_icon::Manager,
         config: &'a Config,
         file_transfers: &'a file_transfer::Manager,
         version: &'a Version,
@@ -486,6 +490,7 @@ impl Sidebar {
                         config,
                         panes,
                         focus,
+                        server_icons,
                         buffer,
                         kind,
                         connected,
@@ -793,6 +798,7 @@ fn upstream_buffer_button<'a>(
     config: &'a Config,
     panes: &'a Panes,
     focus: Focus,
+    server_icons: &'a server_icon::Manager,
     buffer: buffer::Upstream,
     kind: history::Kind,
     connected: bool,
@@ -879,26 +885,34 @@ fn upstream_buffer_button<'a>(
         data::config::sidebar::ServerIcon::Size(size),
     ) = (&buffer, &config.sidebar.server_icon)
     {
-        Some((
-            if server.is_bouncer_network() {
-                icon::link()
+        let icon_widget: Element<'a, Message> =
+            if let Some(server_icon) = server_icons.get(server) {
+                image(server_icon.handle.clone())
+                    .width(*size)
+                    .height(*size)
+                    .into()
             } else {
-                icon::connected()
-            }
-            .style(if connected {
-                if has_highlight {
-                    theme::text::highlight_indicator
-                } else if has_unread {
-                    theme::text::unread_indicator
+                if server.is_bouncer_network() {
+                    icon::link()
                 } else {
-                    theme::text::primary
+                    icon::connected()
                 }
-            } else {
-                theme::text::error
-            })
-            .size(*size),
-            *size,
-        ))
+                .style(if connected {
+                    if has_highlight {
+                        theme::text::highlight_indicator
+                    } else if has_unread {
+                        theme::text::unread_indicator
+                    } else {
+                        theme::text::primary
+                    }
+                } else {
+                    theme::text::error
+                })
+                .size(*size)
+                .into()
+            };
+
+        Some((icon_widget, *size))
     }
     // fall through to unread/highlight icons for all buffers (including server)
     else if show_highlight_icon
@@ -908,7 +922,8 @@ fn upstream_buffer_button<'a>(
         Some((
             highlight_icon
                 .style(theme::text::highlight_indicator)
-                .size(config.sidebar.unread_indicator.highlight_icon_size),
+                .size(config.sidebar.unread_indicator.highlight_icon_size)
+                .into(),
             config.sidebar.unread_indicator.highlight_icon_size,
         ))
     } else if show_unread_icon
@@ -918,7 +933,8 @@ fn upstream_buffer_button<'a>(
         Some((
             unread_icon
                 .style(theme::text::unread_indicator)
-                .size(config.sidebar.unread_indicator.icon_size),
+                .size(config.sidebar.unread_indicator.icon_size)
+                .into(),
             config.sidebar.unread_indicator.icon_size,
         ))
     } else {

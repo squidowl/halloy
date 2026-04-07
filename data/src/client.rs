@@ -4778,6 +4778,16 @@ impl Map {
         )
     }
 
+    pub fn get_icon_url<'a>(&'a self, server: &Server) -> Option<&'a str> {
+        let client = self.client(server)?;
+
+        if server.is_bouncer_network() {
+            server.parent().as_ref().and_then(|p| self.get_icon_url(p))
+        } else {
+            isupport::get_icon_url(&client.isupport)
+        }
+    }
+
     pub fn get_filehost_auth(
         &self,
         server: &Server,
