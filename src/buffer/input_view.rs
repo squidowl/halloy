@@ -2626,6 +2626,7 @@ fn show_while_typing(error: &input::Error) -> bool {
         }) => !is_partial_valid,
         input::Error::Command(
             command::Error::MissingSlash
+            | command::Error::HasDoubleSlash
             | command::Error::MissingCommand
             | command::Error::NoModeString
             | command::Error::Connected
