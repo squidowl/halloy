@@ -1053,9 +1053,12 @@ impl Halloy {
                                 &mut self.screen
                             {
                                 dashboard.filehost.file_being_hovered = false;
-                                return dashboard
-                                    .handle_file_drop(path.clone())
-                                    .map(Message::Dashboard);
+
+                                if self.config.filehost.file_drop() {
+                                    return dashboard
+                                        .handle_file_drop(path.clone())
+                                        .map(Message::Dashboard);
+                                }
                             }
                         }
                     }
