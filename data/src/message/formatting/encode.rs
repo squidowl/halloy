@@ -4,7 +4,7 @@ use std::fmt::Write;
 
 use nom::branch::alt;
 use nom::bytes::complete::tag;
-use nom::character::complete::{anychar, char, satisfy};
+use nom::character::complete::{anychar, char, one_of, satisfy};
 use nom::combinator::{
     cond, cut, eof, flat_map, map, map_opt, not, opt, peek, recognize, value,
     verify,
@@ -57,7 +57,7 @@ fn escaped<'a>(
     markdown_only: bool,
 ) -> impl Parser<&'a str, Output = char, Error = nom::error::Error<&'a str>> {
     alt((
-        value('\\', tag("\\\\")),
+        value('\\', terminated(tag("\\"), not(one_of("*_`|")))),
         value('*', tag("\\*")),
         value('_', tag("\\_")),
         value('`', tag("\\`")),
@@ -538,8 +538,26 @@ mod test {
                 String::from("\u{11}__length_hint__\u{11}"),
             ),
             (
-                ("These are escaped: \\\\, \\*, \\_, \\`, \\|", false),
-                String::from("These are escaped: \\, *, _, `, |"),
+                ("These are escaped: \\*, \\_, \\`, \\|", false),
+                String::from("These are escaped: *, _, `, |"),
+            ),
+            (
+                (
+                    r"test escaping with *zero* \*one\* \\*two\\* \\\*three\\\* \\\\*four\\\\* backslashes",
+                    false,
+                ),
+                String::from(
+                    "test escaping with \u{1d}zero\u{1d} *one* \\*two\\* \\\\*three\\\\* \\\\\\*four\\\\\\* backslashes",
+                ),
+            ),
+            (
+                (
+                    r"nicknames like \, \\, \\\ and \\\\ contain backslashes",
+                    false,
+                ),
+                String::from(
+                    r"nicknames like \, \\, \\\ and \\\\ contain backslashes",
+                ),
             ),
             (
                 (
