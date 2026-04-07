@@ -2943,6 +2943,7 @@ impl Client {
                             &self.isupport,
                             &self.capabilities,
                             &self.features,
+                            self.filehost(),
                             config,
                         ))))
                         .collect::<Vec<_>>();
@@ -3979,6 +3980,18 @@ impl Client {
 
     pub fn statusmsg(&self) -> &[char] {
         isupport::get_statusmsg_or_default(&self.isupport)
+    }
+
+    pub fn filehost(&self) -> Option<&str> {
+        if !self.config.filehost.enabled {
+            return None;
+        }
+
+        self.config
+            .filehost
+            .override_url
+            .as_deref()
+            .or(isupport::get_filehost(&self.isupport))
     }
 
     pub fn safelist(&self) -> bool {

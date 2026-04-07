@@ -44,6 +44,7 @@ pub fn on_connect(
     isupport: &HashMap<isupport::Kind, isupport::Parameter>,
     capabilities: &Capabilities,
     features: &Features,
+    filehost_url: Option<&str>,
     config: &config::Config,
 ) -> Stream {
     let commands = server_config
@@ -59,6 +60,7 @@ pub fn on_connect(
                 isupport,
                 capabilities,
                 features,
+                filehost_url,
                 config,
             )
             .ok()

@@ -762,6 +762,7 @@ impl State {
                         clients.get_isupport_ref(buffer.server()),
                         clients.get_capabilities_ref(buffer.server()),
                         clients.get_features_ref(buffer.server()),
+                        clients.get_filehost(buffer.server()),
                         clients.get_relay_bytes(buffer.server()),
                         config,
                     );
@@ -865,6 +866,7 @@ impl State {
                     clients.get_isupport_ref(buffer.server()),
                     clients.get_capabilities_ref(buffer.server()),
                     clients.get_features_ref(buffer.server()),
+                    clients.get_filehost(buffer.server()),
                     clients.get_relay_bytes(buffer.server()),
                     config,
                 ) {
@@ -1496,6 +1498,7 @@ impl State {
         let isupport = clients.get_isupport_ref(buffer.server());
         let capabilities = clients.get_capabilities_ref(buffer.server());
         let features = clients.get_features_ref(buffer.server());
+        let filehost = clients.get_filehost(buffer.server());
         let relay_bytes = clients.get_relay_bytes(buffer.server());
 
         if self.input_content.text().is_empty() {
@@ -1527,6 +1530,7 @@ impl State {
                     isupport,
                     capabilities,
                     features,
+                    filehost,
                     relay_bytes,
                     config,
                 );
