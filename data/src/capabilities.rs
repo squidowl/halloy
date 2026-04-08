@@ -1,11 +1,15 @@
 use std::collections::HashSet;
 use std::str::FromStr;
 use std::string::ToString;
+use std::sync::LazyLock;
 
 use irc::proto::{self, Tags, command, format};
 
 use crate::message::formatting::{Modifier, update_formatting_with_modifier};
 use crate::{Target, User, config, message};
+
+pub static DEFAULT: LazyLock<Capabilities> =
+    LazyLock::new(Capabilities::default);
 
 // This is not an exhaustive list of IRCv3 capabilities, just the ones that
 // Halloy will request when available.  When adding new IRCv3 capabilities to
@@ -396,5 +400,9 @@ impl Capabilities {
         } else {
             None
         }
+    }
+
+    pub fn contains_multiline_limits(&self) -> bool {
+        self.multiline_limits().is_some()
     }
 }

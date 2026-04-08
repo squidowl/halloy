@@ -2,6 +2,7 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::fmt;
 use std::str::FromStr;
+use std::sync::LazyLock;
 
 use chrono::format::SecondsFormat;
 use chrono::{DateTime, Utc};
@@ -986,6 +987,9 @@ pub struct PrefixMap {
     pub mode: char,
 }
 
+pub static DEFAULT: LazyLock<HashMap<Kind, Parameter>> =
+    LazyLock::new(HashMap::new);
+
 const DEFAULT_BAN_EXCEPTION_CHANNEL_LETTER: char = 'e';
 
 const DEFAULT_CALLER_ID_LETTER: char = 'g';
@@ -1039,6 +1043,9 @@ pub const DEFAULT_PREFIX: &[PrefixMap] = &[
         mode: 'v',
     },
 ];
+
+pub const DEFAULT_STATUSMSG: &[char] =
+    proto::DEFAULT_CHANNEL_MEMBERSHIP_PREFIXES;
 
 const FUZZ_SECONDS: chrono::Duration = chrono::Duration::seconds(5);
 
@@ -1311,15 +1318,18 @@ pub fn get_prefix_or_default(
 pub fn get_statusmsg_or_default(
     isupport: &HashMap<Kind, Parameter>,
 ) -> &[char] {
-    isupport.get(&Kind::STATUSMSG).map_or(&[], |statusmsg| {
-        if let Parameter::STATUSMSG(prefixes) = statusmsg {
-            prefixes.as_ref()
-        } else {
-            log::debug!("Corruption in isupport table.");
+    isupport
+        .get(&Kind::STATUSMSG)
+        .and_then(|statusmsg| {
+            if let Parameter::STATUSMSG(prefixes) = statusmsg {
+                Some(prefixes.as_ref())
+            } else {
+                log::debug!("Corruption in isupport table.");
 
-            &[]
-        }
-    })
+                None
+            }
+        })
+        .unwrap_or(proto::DEFAULT_CHANNEL_MEMBERSHIP_PREFIXES)
 }
 
 pub fn get_filehost(isupport: &HashMap<Kind, Parameter>) -> Option<&str> {

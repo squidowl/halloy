@@ -35,6 +35,7 @@ pub mod ctcp;
 pub mod dashboard;
 pub mod dcc;
 pub mod environment;
+pub mod features;
 pub mod file_transfer;
 pub mod fileupload;
 pub mod history;

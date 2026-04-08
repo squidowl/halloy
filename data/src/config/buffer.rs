@@ -358,6 +358,7 @@ pub struct ServerMessages {
     pub kick: ServerMessage,
     pub change_topic: ServerMessage,
     pub away: ServerMessage,
+    pub invite: ServerMessage,
     pub default: ServerMessageDefault,
 }
 
@@ -386,6 +387,7 @@ impl ServerMessages {
             source::server::Kind::Kick => &self.kick,
             source::server::Kind::ChangeTopic => &self.change_topic,
             source::server::Kind::Away => &self.away,
+            source::server::Kind::Invite => &self.invite,
         }
     }
 
@@ -393,8 +395,13 @@ impl ServerMessages {
         &self,
         kind: Option<source::server::Kind>,
     ) -> Option<&Dimmed> {
-        kind.and_then(|kind| self.get(kind).dimmed.as_ref())
-            .or(self.default.dimmed.as_ref())
+        kind.and_then(|kind| self.get(kind).dimmed.as_ref()).or(
+            if kind.is_none_or(|kind| kind.is_action()) {
+                self.default.actions_dimmed.as_ref()
+            } else {
+                self.default.passive_dimmed.as_ref()
+            },
+        )
     }
 
     pub fn enabled(&self, kind: Option<source::server::Kind>) -> bool {
@@ -525,7 +532,8 @@ impl Condensation {
             | source::server::Kind::StandardReply(_)
             | source::server::Kind::WAllOps
             | source::server::Kind::ChangeTopic
-            | source::server::Kind::Away => false,
+            | source::server::Kind::Away
+            | source::server::Kind::Invite => false,
         }
     }
 
@@ -585,8 +593,10 @@ pub struct ServerMessageDefault {
     pub username_format: UsernameFormat,
     pub exclude: Option<Inclusivities>,
     pub include: Option<Inclusivities>,
+    #[serde(alias = "dimmed", deserialize_with = "deserialize_dimmed_maybe")]
+    pub passive_dimmed: Option<Dimmed>,
     #[serde(deserialize_with = "deserialize_dimmed_maybe")]
-    pub dimmed: Option<Dimmed>,
+    pub actions_dimmed: Option<Dimmed>,
 }
 
 impl Default for ServerMessageDefault {
@@ -597,7 +607,8 @@ impl Default for ServerMessageDefault {
             username_format: UsernameFormat::default(),
             exclude: None,
             include: None,
-            dimmed: Some(Dimmed::default()),
+            passive_dimmed: Some(Dimmed::default()),
+            actions_dimmed: None,
         }
     }
 }

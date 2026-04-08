@@ -47,7 +47,7 @@ pub enum Event {
     },
     FilehostUpload {
         server: Server,
-        target: Target,
+        target: Option<Target>,
         file_paths: Vec<std::path::PathBuf>,
         abort_registrations: Vec<futures::future::AbortRegistration>,
     },
@@ -65,9 +65,9 @@ pub fn view<'a>(
     let server = &state.server;
     let connected = matches!(clients.status(server), client::Status::Connected);
     let can_send_reactions = clients.get_server_can_send_reactions(server);
-    let chantypes = clients.get_chantypes(server);
-    let casemapping = clients.get_casemapping(server);
-    let prefix = clients.get_prefix(server);
+    let chantypes = clients.get_server_chantypes_or_default(server);
+    let casemapping = clients.get_server_casemapping_or_default(server);
+    let prefix = clients.get_server_prefix_or_default(server);
     let query = &state.target;
     let confirm_message_delivery = clients.get_server_supports_echoes(server)
         && config.servers.get(server).is_some_and(|server_config| {
@@ -418,7 +418,7 @@ impl Query {
     ) -> Option<String> {
         let server = &self.server;
         let query = &self.target;
-        let casemapping = clients.get_casemapping(server);
+        let casemapping = clients.get_server_casemapping_or_default(server);
 
         typing::typing_text(
             clients.get_server_show_typing(server),

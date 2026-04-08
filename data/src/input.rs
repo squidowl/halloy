@@ -8,15 +8,15 @@ use nom::combinator::{cut, map, rest, verify};
 use nom::multi::{many_m_n, many0_count, many1_count};
 use nom::{Finish, IResult, Parser};
 
-use crate::buffer::{self};
-use crate::capabilities::{MultilineBatchKind, MultilineLimits};
+use crate::capabilities::{Capabilities, MultilineBatchKind};
 use crate::config::buffer::text_input::AutoFormat;
+use crate::features::Features;
 use crate::message::formatting;
 use crate::target::Target;
 use crate::user::{ChannelUsers, NickRef};
 use crate::{
-    Command, Config, Message, Server, User, command, environment, isupport,
-    message,
+    Command, Config, Message, Server, User, buffer, command, environment,
+    isupport, message,
 };
 
 const INPUT_HISTORY_LENGTH: usize = 100;
@@ -30,7 +30,9 @@ pub fn parse(
     in_channel: Option<bool>,
     is_connected: bool,
     isupport: &HashMap<isupport::Kind, isupport::Parameter>,
-    multiline_limits: Option<&MultilineLimits>,
+    capabilities: &Capabilities,
+    features: &Features,
+    filehost_url: Option<&str>,
     relay_bytes: usize,
     config: &Config,
 ) -> Result<Parsed, Error> {
@@ -73,6 +75,9 @@ pub fn parse(
             auto_format,
             is_connected,
             isupport,
+            capabilities,
+            features,
+            filehost_url,
             config,
         ) {
             Ok(Command::Internal(command)) => {
@@ -96,7 +101,9 @@ pub fn parse(
             // Auto-formatting for commands is done in command parsing, so that
             // plain/format commands can be parsed directly as their
             // corresponding IRC command.
-            Ok(Command::Irc(command)) => Content::Command(command),
+            Ok(Command::Irc(command, warning)) => {
+                Content::Command(command, warning)
+            }
             Err(command::Error::MissingSlash) => {
                 let text = match auto_format {
                     AutoFormat::Disabled => input.to_string(),
@@ -112,7 +119,7 @@ pub fn parse(
 
     let parsed = Parsed::Input(Input { buffer, content });
 
-    if let Some(multiline_limits) = multiline_limits
+    if let Some(multiline_limits) = capabilities.multiline_limits()
         && let Some((text, _)) = parsed
             .multiline_content(isupport::get_casemapping_or_default(isupport))
     {
@@ -129,12 +136,12 @@ pub fn parse(
     {
         let message_bytes = match &content {
             Content::Text(_)
-            | Content::Command(command::Irc::Msg(_, _))
-            | Content::Command(command::Irc::Me(_, _))
-            | Content::Command(command::Irc::Notice(_, _)) => {
+            | Content::Command(command::Irc::Msg(_, _), _)
+            | Content::Command(command::Irc::Me(_, _), _)
+            | Content::Command(command::Irc::Notice(_, _), _) => {
                 message_bytes + relay_bytes
             }
-            Content::Command(_) => message_bytes,
+            Content::Command(_, _) => message_bytes,
         };
 
         if message_bytes > format::BYTE_LIMIT {
@@ -185,7 +192,7 @@ impl Parsed {
                 Content::Text(text) => {
                     Some((text.as_str(), MultilineBatchKind::PRIVMSG))
                 }
-                Content::Command(command) => match command {
+                Content::Command(command, _) => match command {
                     command::Irc::Msg(command_target, text) => {
                         input.buffer.target().and_then(|buffer_target| {
                             (buffer_target.as_normalized_str()
@@ -214,6 +221,13 @@ impl Parsed {
             Parsed::CodeFence(_) => Some(("", MultilineBatchKind::PRIVMSG)),
         }
     }
+
+    pub fn warning(&self) -> Option<&command::Warning> {
+        match &self {
+            Self::Input(input) => input.warning(),
+            Self::Internal(_) | Self::CodeFence(_) => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -229,14 +243,21 @@ impl Input {
     ) -> Self {
         Self {
             buffer,
-            content: Content::Command(command),
+            content: Content::Command(command, None),
         }
     }
 
     pub fn command(&self) -> Option<&command::Irc> {
         match &self.content {
             Content::Text(_) => None,
-            Content::Command(command) => Some(command),
+            Content::Command(command, _) => Some(command),
+        }
+    }
+
+    pub fn warning(&self) -> Option<&command::Warning> {
+        match &self.content {
+            Content::Text(_) => None,
+            Content::Command(_, warning) => warning.as_ref(),
         }
     }
 
@@ -301,7 +322,7 @@ impl Input {
 #[derive(Debug, Clone, PartialEq)]
 enum Content {
     Text(String),
-    Command(command::Irc),
+    Command(command::Irc, Option<command::Warning>),
 }
 
 impl Content {
@@ -311,7 +332,7 @@ impl Content {
                 let target = buffer.target()?;
                 Some(command::Irc::Msg(target.to_string(), text.clone()))
             }
-            Self::Command(command) => Some(command.clone()),
+            Self::Command(command, _) => Some(command.clone()),
         }
     }
 
@@ -473,25 +494,26 @@ pub enum Error {
 
 #[cfg(test)]
 mod test {
-    use std::collections::HashMap;
-
-    use crate::capabilities::MultilineLimits;
+    use crate::capabilities::Capabilities;
     use crate::config::buffer::text_input::AutoFormat;
     use crate::input::{CodeFence, Content, Input, Parsed, parse};
     use crate::user::Nick;
-    use crate::{Config, Server, buffer, command, isupport, target};
+    use crate::{Config, Server, buffer, command, features, isupport, target};
 
     #[test]
     fn parsing() {
         let config = Config::default();
-        let isupport = HashMap::<isupport::Kind, isupport::Parameter>::new();
-        let multiline_limits = MultilineLimits {
-            max_bytes: 4096,
-            max_lines: Some(24),
-        };
+        let isupport = &isupport::DEFAULT;
+        let mut capabilities = Capabilities::default();
+        capabilities.acknowledge(
+            [String::from("draft/multiline=max-bytes=4096,max-lines=24")]
+                .into_iter(),
+        );
+        let features = &features::DEFAULT;
+
         let nick = Nick::from_str(
             "tester",
-            isupport::get_casemapping_or_default(&isupport),
+            isupport::get_casemapping_or_default(isupport),
         );
         let buffer = buffer::Upstream::Channel(
             Server {
@@ -500,8 +522,8 @@ mod test {
             },
             target::Channel::from_str(
                 "##chat",
-                isupport::get_chantypes_or_default(&isupport),
-                isupport::get_casemapping_or_default(&isupport),
+                isupport::get_chantypes_or_default(isupport),
+                isupport::get_casemapping_or_default(isupport),
             ),
         );
         let tests = [
@@ -615,12 +637,15 @@ mod test {
                 ),
                 Ok(Parsed::Input(Input {
                     buffer: buffer.clone(),
-                    content: Content::Command(command::Irc::Me(
-                        String::from("##chat"),
-                        String::from(
-                            "thinks in \u{1d}italics\u{1d} and \u{2}bold\u{2}",
+                    content: Content::Command(
+                        command::Irc::Me(
+                            String::from("##chat"),
+                            String::from(
+                                "thinks in \u{1d}italics\u{1d} and \u{2}bold\u{2}",
+                            ),
                         ),
-                    )),
+                        None,
+                    ),
                 })),
             ),
         ];
@@ -633,8 +658,10 @@ mod test {
                 Some(nick.as_nickref()),
                 Some(true),
                 true,
-                &isupport,
-                Some(&multiline_limits),
+                isupport,
+                &capabilities,
+                features,
+                None,
                 128,
                 &config,
             );
