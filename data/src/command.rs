@@ -309,6 +309,14 @@ pub fn parse(
     config: &Config,
 ) -> Result<Command, Error> {
     let parsed = parse_input(s)?;
+
+    let (command, _, _) = &parsed;
+    if command.starts_with("/")
+        && buffer.and_then(buffer::Upstream::target).is_some()
+    {
+        return Err(Error::HasDoubleSlash);
+    }
+
     let alias_context = alias::Context::new(buffer, our_nickname);
     let expanded = alias::expand(parsed.0, parsed.2, &alias_context, config)?;
 
@@ -2029,6 +2037,8 @@ pub enum Error {
     },
     #[error("missing slash")]
     MissingSlash,
+    #[error("has double-slash")]
+    HasDoubleSlash,
     #[error("missing command")]
     MissingCommand,
     #[error("no modes in modestring")]
