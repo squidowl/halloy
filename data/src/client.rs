@@ -35,8 +35,8 @@ use crate::time::Posix;
 use crate::user::{ChannelUsers, Nick, NickRef};
 use crate::{
     Server, User, buffer, channel_discovery, compression, config, ctcp, dcc,
-    environment, file_transfer, fileupload, history, isupport, message, mode,
-    server,
+    environment, file_transfer, fileupload, history, isupport, message,
+    metadata, mode, server,
 };
 
 pub mod on_connect;
@@ -214,6 +214,7 @@ pub struct Client {
     mode_requests: Vec<ModeRequest>,
     channel_discovery_manager: channel_discovery::Manager,
     http_client: Option<Arc<reqwest::Client>>, // Only Some if config.proxy.is_some()
+    registry: metadata::ServerRegistry,
 }
 
 impl fmt::Debug for Client {
@@ -282,6 +283,7 @@ impl Client {
             http_client: http_client.map(Arc::new),
             config,
             channel_discovery_manager: channel_discovery::Manager::new(),
+            registry: metadata::ServerRegistry::new(),
         }
     }
 
@@ -1161,8 +1163,7 @@ impl Client {
                     (None, None) | (None, Some(_)) => return Ok(vec![]),
                 };
 
-                self.capabilities
-                    .extend_list(caps.split(' ').map(String::from));
+                self.capabilities.extend_list(caps.split(' '));
 
                 // Finished
                 if asterisk.is_none() {
@@ -1227,8 +1228,7 @@ impl Client {
             Command::CAP(_, sub, a, b) if sub == "NEW" => {
                 let caps = ok!(b.as_ref().or(a.as_ref()));
 
-                self.capabilities
-                    .extend_list(caps.split(' ').map(String::from));
+                self.capabilities.extend_list(caps.split(' '));
 
                 let requested =
                     self.capabilities.create_requested(&self.config);
@@ -2986,6 +2986,31 @@ impl Client {
                         .try_send(command!("BOUNCER", "LISTNETWORKS"))?;
                 }
 
+                // request metadata
+                if self.capabilities.acknowledged(Capability::Metadata) {
+                    let mut requested = config
+                        .metadata
+                        .preferred_key_strs()
+                        .map(ToString::to_string)
+                        .collect::<Vec<String>>();
+
+                    if let Some(limits) = self.capabilities.metadata_limits() {
+                        requested.truncate(limits.max_subs);
+                    }
+
+                    log::debug!(
+                        "[{}] Requesting subs: {requested:?}",
+                        self.server
+                    );
+
+                    if !requested.is_empty() {
+                        let mut args = vec!["*".to_string(), "SUB".to_string()];
+                        args.extend(requested);
+
+                        self.handle.try_send(command("METADATA", args))?;
+                    }
+                }
+
                 let channels = self
                     .config
                     .channels
@@ -3084,6 +3109,24 @@ impl Client {
                     self.features.enable_supported(server_version);
 
                     return Ok(vec![]);
+                }
+            }
+            Command::METADATA(target, args) => {
+                if let [key, _visibility, value] = &args[..] {
+                    log::debug!(
+                        "[{}] Received metadata [{target}]: {key}={value}",
+                        self.server
+                    );
+                    self.registry.insert(
+                        Target::parse(
+                            target,
+                            self.chantypes(),
+                            self.statusmsg(),
+                            self.casemapping(),
+                        ),
+                        key.clone(),
+                        value.clone(),
+                    );
                 }
             }
             _ => {}
@@ -5003,6 +5046,16 @@ impl Map {
             }
         }
         Ok(())
+    }
+
+    pub fn get_registry(&self, server: &Server) -> &dyn metadata::Registry {
+        self.0
+            .get(server)
+            .and_then::<&dyn metadata::Registry, _>(|state| match state {
+                State::Disconnected => None,
+                State::Ready(client) => Some(&client.registry),
+            })
+            .unwrap_or(metadata::EMPTY)
     }
 }
 

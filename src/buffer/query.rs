@@ -87,19 +87,20 @@ pub fn view<'a>(
     let chathistory_state =
         clients.get_chathistory_state(server, &query.to_target());
 
-    let previews = Some(Previews::new(
+    let previews = Previews::new(
         previews,
         query.as_target_ref(),
         server,
         &config.preview,
         casemapping,
-    ));
+    );
 
     let message_formatter = ChannelQueryLayout {
         config,
         chantypes,
         casemapping,
         prefix,
+        registry: clients.get_registry(server),
         confirm_message_delivery,
         can_send_reactions,
         can_redact,
@@ -116,7 +117,7 @@ pub fn view<'a>(
             &state.scroll_view,
             scroll_view::Kind::Query(server, query),
             history,
-            previews,
+            Some(previews),
             Option::<fn(&Preview, &message::Source) -> bool>::None,
             chathistory_state,
             typing::reserved_bottom_padding(
@@ -127,6 +128,7 @@ pub fn view<'a>(
             config,
             theme,
             message_formatter,
+            clients.get_registry(server),
         )
         .map(Message::ScrollView),
     )
