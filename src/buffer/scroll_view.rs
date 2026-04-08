@@ -14,7 +14,7 @@ use data::rate_limit::TokenPriority;
 use data::reaction::Reaction;
 use data::server::Server;
 use data::target::{self, Target};
-use data::{Config, Preview, client, history, reaction};
+use data::{Config, Preview, client, history, metadata, reaction};
 use iced::widget::{
     self, Scrollable, button, center, column, container, image, mouse_area,
     right, row, rule, scrollable, space, stack, text,
@@ -27,6 +27,7 @@ use tokio::time;
 use self::correct_viewport::correct_viewport;
 use self::keyed::keyed;
 use super::context_menu;
+use super::message_view::formatted_buffer_nickname;
 use crate::widget::{
     Element, notify_visibility, on_resize, selectable_text, tooltip,
 };
@@ -136,6 +137,7 @@ pub trait LayoutMessage<'a> {
         max_prefix_width: Option<f32>,
         hide_timestamp: bool,
         hide_nickname: bool,
+        registry: &'a dyn metadata::Registry,
     ) -> Option<Element<'a, Message>>;
 }
 
@@ -156,6 +158,7 @@ where
         max_prefix_width: Option<f32>,
         hide_timestamp: bool,
         hide_nickname: bool,
+        _registry: &dyn metadata::Registry,
     ) -> Option<Element<'a, Message>> {
         self(
             message,
@@ -259,6 +262,7 @@ pub fn view<'a>(
     config: &'a Config,
     theme: &'a Theme,
     formatter: impl LayoutMessage<'a> + 'a,
+    registry: &'a dyn metadata::Registry,
 ) -> Element<'a, Message> {
     let divider_font_size =
         config.font.size.map_or(theme::TEXT_SIZE, f32::from) - 1.0;
@@ -268,8 +272,6 @@ pub fn view<'a>(
         has_more_newer_messages,
         old_messages,
         new_messages,
-        max_nick_chars,
-        max_bot_nick_chars,
         max_prefix_chars,
         range_end_timestamp_chars,
         cleared,
@@ -319,26 +321,39 @@ pub fn view<'a>(
         .map_or_else(Utc::now, |message| message.server_time);
     let status = state.status;
 
-    let right_aligned_width = max_nick_chars.map(|max_nick_chars| {
-        let max_nick_width = if let Some(max_bot_nick_chars) =
-            max_bot_nick_chars
-        {
-            if config.buffer.nickname.show_bot_icon {
-                // reserve space for any eventual bot icon
-                font::width_from_chars(max_nick_chars, &config.font).max(
-                    font::width_from_chars(max_bot_nick_chars, &config.font)
-                        + theme::ICON_SIZE
-                        + theme::ICON_SPACE,
-                )
-            } else {
-                font::width_from_chars(
-                    max_nick_chars.max(max_bot_nick_chars),
-                    &config.font,
-                )
-            }
-        } else {
-            font::width_from_chars(max_nick_chars, &config.font)
-        } + 1.0;
+    let max_nick_width =
+        config.buffer.nickname.alignment.is_right().then(|| {
+            old_messages
+                .iter()
+                .chain(&new_messages)
+                .filter_map(|message| match message.target.source() {
+                    message::Source::User(user) => {
+                        let text_width = font::width_from_chars(
+                            formatted_buffer_nickname(user, config, registry)
+                                .chars()
+                                .count(),
+                            &config.font,
+                        );
+
+                        Some(
+                            if user.is_bot()
+                                && config.buffer.nickname.show_bot_icon
+                            {
+                                text_width
+                                    + theme::ICON_SIZE
+                                    + theme::ICON_SPACE
+                            } else {
+                                text_width
+                            },
+                        )
+                    }
+                    _ => None,
+                })
+                .fold(0.0, f32::max)
+                + 1.0
+        });
+
+    let right_aligned_width = max_nick_width.map(|max_nick_width| {
         let message_marker_width =
             font::width_of_message_marker(&config.font) + 1.0;
         let mut range_end_timestamp_width = range_end_timestamp_chars.map_or(
@@ -426,6 +441,7 @@ pub fn view<'a>(
                             max_prefix_width,
                             hide_timestamp,
                             hide_nickname,
+                            registry,
                         )
                         .map(|element| (message, element)),
                 )
@@ -490,6 +506,7 @@ pub fn view<'a>(
                                         max_prefix_width,
                                         is_hovered,
                                         config,
+                                        registry,
                                         theme,
                                     ));
                                 }
@@ -1843,6 +1860,7 @@ fn preview_row<'a>(
     max_prefix_width: Option<f32>,
     is_hovered: bool,
     config: &'a Config,
+    registry: &'a dyn metadata::Registry,
     theme: &'a Theme,
 ) -> Element<'a, Message> {
     let content = match preview {
@@ -2009,25 +2027,11 @@ fn preview_row<'a>(
                 },
             );
 
-            let with_access_levels = config.buffer.nickname.show_access_levels;
-            let show_bot_icon = config.buffer.nickname.show_bot_icon;
-            let truncate = config.buffer.nickname.truncate;
-            let truncation_character = config.display.truncation_character;
-
             let nick =
                 if let message::Source::User(user) = message.target.source() {
                     let mut nick = selectable_text(
                         " ".repeat(
-                            config
-                                .buffer
-                                .nickname
-                                .brackets
-                                .format(user.display(
-                                    with_access_levels,
-                                    show_bot_icon,
-                                    truncate,
-                                    truncation_character,
-                                ))
+                            formatted_buffer_nickname(user, config, registry)
                                 .chars()
                                 .count(),
                         ),

@@ -46,6 +46,7 @@ pub fn context_menu<'a, T, Message, Theme, Renderer>(
         base: base.into(),
         entries,
         entry: Box::new(entry),
+        on_open: None,
         activation_button: match activation_button {
             MouseButton::Left => iced::mouse::Button::Left,
             MouseButton::Right => iced::mouse::Button::Right,
@@ -61,6 +62,7 @@ pub struct ContextMenu<'a, T, Message, Theme, Renderer> {
     base: Element<'a, Message, Theme, Renderer>,
     entries: Vec<T>,
     entry: Box<dyn Fn(T, Length) -> Element<'a, Message, Theme, Renderer> + 'a>,
+    on_open: Option<Box<dyn Fn() -> Message + 'a>>,
     activation_button: iced::mouse::Button,
     anchor: Anchor,
     toggle_behavior: ToggleBehavior,
@@ -120,6 +122,11 @@ impl<'a, T, Message, Theme, Renderer>
         interaction: Option<mouse::Interaction>,
     ) -> Self {
         self.mouse_interaction_on_hover = interaction;
+        self
+    }
+
+    pub fn on_open(mut self, message: impl Fn() -> Message + 'a) -> Self {
+        self.on_open = Some(Box::new(message));
         self
     }
 }
@@ -326,6 +333,13 @@ where
                     != matches!(prev_status, Status::Open { .. })
                 {
                     shell.request_redraw();
+                }
+
+                if matches!(prev_status, Status::Closed)
+                    && matches!(next_status, Status::Open { .. })
+                    && let Some(message) = self.on_open.as_ref().map(|f| f())
+                {
+                    shell.publish(message);
                 }
 
                 if is_activation_mouse_event {

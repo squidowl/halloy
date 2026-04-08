@@ -45,6 +45,7 @@ pub mod isupport;
 pub mod known_filehosts;
 pub mod log;
 pub mod message;
+pub mod metadata;
 pub mod mode;
 pub mod notification;
 pub mod pane;

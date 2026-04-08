@@ -1469,71 +1469,6 @@ impl Data {
             .collect::<Vec<_>>();
 
         let total = processed.len();
-        let with_access_levels = config.buffer.nickname.show_access_levels;
-        let truncate = config.buffer.nickname.truncate;
-
-        let max_nick_chars =
-            config.buffer.nickname.alignment.is_right().then(|| {
-                processed
-                    .iter()
-                    .filter_map(|message| {
-                        if let message::Source::User(user) =
-                            message.target.source()
-                            && !user.is_bot()
-                        {
-                            Some(
-                                config
-                                    .buffer
-                                    .nickname
-                                    .brackets
-                                    .format(user.display(
-                                        with_access_levels,
-                                        config.buffer.nickname.show_bot_icon,
-                                        truncate,
-                                        config.display.truncation_character,
-                                    ))
-                                    .chars()
-                                    .count(),
-                            )
-                        } else {
-                            None
-                        }
-                    })
-                    .max()
-                    .unwrap_or_default()
-            });
-
-        let max_bot_nick_chars =
-            config.buffer.nickname.alignment.is_right().then(|| {
-                processed
-                    .iter()
-                    .filter_map(|message| {
-                        if let message::Source::User(user) =
-                            message.target.source()
-                            && user.is_bot()
-                        {
-                            Some(
-                                config
-                                    .buffer
-                                    .nickname
-                                    .brackets
-                                    .format(user.display(
-                                        with_access_levels,
-                                        config.buffer.nickname.show_bot_icon,
-                                        truncate,
-                                        config.display.truncation_character,
-                                    ))
-                                    .chars()
-                                    .count(),
-                            )
-                        } else {
-                            None
-                        }
-                    })
-                    .max()
-                    .unwrap_or_default()
-            });
-
         let max_prefix_chars =
             config.buffer.nickname.alignment.is_right().then(|| {
                 if matches!(kind, history::Kind::Channel(..)) {
@@ -1628,8 +1563,6 @@ impl Data {
             has_more_newer_messages,
             old_messages: old.to_vec(),
             new_messages: new.to_vec(),
-            max_nick_chars,
-            max_bot_nick_chars,
             max_prefix_chars,
             range_end_timestamp_chars,
             cleared: *cleared,

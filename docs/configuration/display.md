@@ -60,3 +60,28 @@ will be displayed as `https://ja.wikipedia.org/wiki/重音テト`.
 [display]
 decode_urls = false
 ```
+
+## `nickname`
+
+Metadata to include when rendering user nicknames in message buffers.
+
+```toml
+# Type: array of strings
+# Values: "display-name", "pronouns"
+# Default: ["display-name"]
+
+[display]
+nickname = ["display-name"]
+```
+
+Examples:
+
+```toml
+[display]
+nickname = ["display-name", "pronouns"]
+```
+
+This renders as:
+- `["display-name"]` -> `Casper (casperstorm)` when display name (`Casper`) is set, otherwise `casperstorm`
+- `["pronouns"]` -> `casperstorm (he/him)` when pronouns are set, otherwise `storm`
+- `["display-name", "pronouns"]` -> `Casper (casperstorm, he/him)`, omitting missing metadata

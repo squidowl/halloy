@@ -242,6 +242,22 @@ impl User {
         .0
     }
 
+    pub fn display_truncated(
+        &self,
+        with_access_levels: AccessLevelFormat,
+        show_bot_icon: bool,
+        truncate: Option<u16>,
+        truncation_character: char,
+    ) -> bool {
+        self.display_with_truncated(
+            with_access_levels,
+            show_bot_icon,
+            truncate,
+            truncation_character,
+        )
+        .1
+    }
+
     pub fn display_with_truncated(
         &self,
         with_access_levels: AccessLevelFormat,

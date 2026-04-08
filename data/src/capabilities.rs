@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::str::FromStr;
 use std::string::ToString;
 use std::sync::LazyLock;
@@ -34,6 +34,7 @@ pub enum Capability {
     MessageRedaction,
     Multiline,
     MultiPrefix,
+    Metadata,
     ReadMarker,
     Sasl,
     ServerTime,
@@ -62,6 +63,7 @@ impl FromStr for Capability {
             "message-tags" => Ok(Self::MessageTags),
             "draft/message-redaction" => Ok(Self::MessageRedaction),
             "multi-prefix" => Ok(Self::MultiPrefix),
+            "draft/metadata-2" => Ok(Self::Metadata),
             "server-time" => Ok(Self::ServerTime),
             "setname" => Ok(Self::Setname),
             "soju.im/bouncer-networks" => Ok(Self::BouncerNetworks),
@@ -76,6 +78,69 @@ impl FromStr for Capability {
 pub struct MultilineLimits {
     pub max_bytes: usize,
     pub max_lines: Option<usize>,
+}
+
+#[derive(Debug, Clone, thiserror::Error)]
+pub enum CapParseError {
+    #[error(transparent)]
+    ParseInt(#[from] std::num::ParseIntError),
+    #[error("Missing key `{0}` in dictionary: {1}")]
+    MissingKey(String, String),
+}
+
+impl FromStr for MultilineLimits {
+    type Err = CapParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let dictionary = s
+            .split(',')
+            .flat_map(|s| s.split_once('='))
+            .collect::<HashMap<_, _>>();
+
+        Ok(MultilineLimits {
+            max_bytes: dictionary
+                .get("max-bytes")
+                .ok_or_else(|| {
+                    CapParseError::MissingKey(
+                        "max-bytes".to_owned(),
+                        s.to_owned(),
+                    )
+                })?
+                .parse::<usize>()?,
+            max_lines: dictionary
+                .get("max-lines")
+                .map(|s| s.parse::<usize>())
+                .transpose()?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct MetadataLimits {
+    pub max_subs: usize,
+}
+
+impl FromStr for MetadataLimits {
+    type Err = CapParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let dictionary = s
+            .split(',')
+            .flat_map(|s| s.split_once('='))
+            .collect::<HashMap<_, _>>();
+
+        Ok(MetadataLimits {
+            max_subs: dictionary
+                .get("max-subs")
+                .ok_or_else(|| {
+                    CapParseError::MissingKey(
+                        "max-subs".to_owned(),
+                        s.to_owned(),
+                    )
+                })?
+                .parse::<usize>()?,
+        })
+    }
 }
 
 impl MultilineLimits {
@@ -200,10 +265,9 @@ pub enum MultilineBatchKind {
 
 #[derive(Debug, Default)]
 pub struct Capabilities {
-    listed: HashSet<String>,
-    pending: HashSet<String>,
+    listed: HashMap<String, String>,
+    pending: HashMap<String, String>,
     acknowledged: HashSet<Capability>,
-    multiline: Option<MultilineLimits>,
 }
 
 impl Capabilities {
@@ -225,69 +289,69 @@ impl Capabilities {
     ) -> Vec<&'static str> {
         let mut requested = vec![];
 
-        if self.pending.contains("invite-notify")
+        if self.pending.contains_key("invite-notify")
             && !self.acknowledged(Capability::InviteNotify)
         {
             requested.push("invite-notify");
         }
 
-        if self.pending.contains("userhost-in-names")
+        if self.pending.contains_key("userhost-in-names")
             && !self.acknowledged(Capability::UserhostInNames)
         {
             requested.push("userhost-in-names");
         }
 
-        if self.pending.contains("away-notify")
+        if self.pending.contains_key("away-notify")
             && !self.acknowledged(Capability::AwayNotify)
         {
             requested.push("away-notify");
         }
 
-        if self.pending.contains("message-tags")
+        if self.pending.contains_key("message-tags")
             && !self.acknowledged(Capability::MessageTags)
         {
             requested.push("message-tags");
         }
 
-        if self.pending.contains("draft/message-redaction")
+        if self.pending.contains_key("draft/message-redaction")
             && !self.acknowledged(Capability::MessageRedaction)
         {
             requested.push("draft/message-redaction");
         }
 
-        if self.pending.contains("server-time")
+        if self.pending.contains_key("server-time")
             && !self.acknowledged(Capability::ServerTime)
         {
             requested.push("server-time");
         }
 
-        if self.pending.contains("chghost")
+        if self.pending.contains_key("chghost")
             && !self.acknowledged(Capability::Chghost)
         {
             requested.push("chghost");
         }
 
-        if self.pending.contains("extended-monitor")
+        if self.pending.contains_key("extended-monitor")
             && !self.acknowledged(Capability::ExtendedMonitor)
         {
             requested.push("extended-monitor");
         }
 
-        if self.pending.contains("account-notify")
+        if self.pending.contains_key("account-notify")
             || self.acknowledged(Capability::AccountNotify)
         {
             if !self.acknowledged(Capability::AccountNotify) {
                 requested.push("account-notify");
             }
 
-            if self.pending.contains("extended-join")
+            if self.pending.contains_key("extended-join")
                 && !self.acknowledged(Capability::ExtendedJoin)
             {
                 requested.push("extended-join");
             }
         }
 
-        if self.pending.contains("batch")
+        if self.pending.contains_key("batch")
             || self.acknowledged(Capability::Batch)
         {
             if !self.acknowledged(Capability::Batch) {
@@ -295,7 +359,7 @@ impl Capabilities {
             }
 
             // We require batch for chathistory support
-            if (self.pending.contains("draft/chathistory")
+            if (self.pending.contains_key("draft/chathistory")
                 && config.chathistory)
                 || self.acknowledged(Capability::Chathistory)
             {
@@ -303,7 +367,7 @@ impl Capabilities {
                     requested.push("draft/chathistory");
                 }
 
-                if self.pending.contains("draft/event-playback")
+                if self.pending.contains_key("draft/event-playback")
                     && !self.acknowledged(Capability::EventPlayback)
                 {
                     requested.push("draft/event-playback");
@@ -311,77 +375,63 @@ impl Capabilities {
             }
         }
 
-        if self.pending.contains("labeled-response")
+        if self.pending.contains_key("labeled-response")
             && !self.acknowledged(Capability::LabeledResponse)
         {
             requested.push("labeled-response");
         }
 
-        if self.pending.contains("echo-message")
+        if self.pending.contains_key("echo-message")
             && !self.acknowledged(Capability::EchoMessage)
         {
             requested.push("echo-message");
         }
 
-        if self.pending.contains("multi-prefix")
+        if self.pending.contains_key("multi-prefix")
             && !self.acknowledged(Capability::MultiPrefix)
         {
             requested.push("multi-prefix");
         }
 
-        if self.pending.contains("draft/read-marker")
+        if self.pending.contains_key("draft/read-marker")
             && !self.acknowledged(Capability::ReadMarker)
         {
             requested.push("draft/read-marker");
         }
 
-        if self.pending.contains("setname")
+        if self.pending.contains_key("setname")
             && !self.acknowledged(Capability::Setname)
         {
             requested.push("setname");
         }
 
-        if self.pending.contains("soju.im/bouncer-networks")
+        if self.pending.contains_key("soju.im/bouncer-networks")
             && !self.acknowledged(Capability::BouncerNetworks)
         {
             requested.push("soju.im/bouncer-networks");
         }
 
-        if self.pending.iter().any(|cap| cap.starts_with("sasl"))
+        if self.pending.iter().any(|(cap, _)| cap.starts_with("sasl"))
             && !self.acknowledged(Capability::Sasl)
         {
             requested.push("sasl");
         }
 
-        if let Some(multiline) = self
-            .pending
-            .iter()
-            .find_map(|cap| cap.strip_prefix("draft/multiline="))
+        if let Some(multiline) = self.pending.get("draft/multiline")
+            && !self.acknowledged(Capability::Multiline)
+            && MultilineLimits::from_str(multiline).is_ok()
         {
-            let dictionary = multiline.split(',').collect::<Vec<_>>();
-
-            if let Some(max_bytes) = dictionary.iter().find_map(|key_value| {
-                key_value
-                    .strip_prefix("max-bytes=")
-                    .and_then(|value| value.parse::<usize>().ok())
-            }) {
-                self.multiline = Some(MultilineLimits {
-                    max_bytes,
-                    max_lines: dictionary.iter().find_map(|key_value| {
-                        key_value
-                            .strip_prefix("max-lines=")
-                            .and_then(|value| value.parse::<usize>().ok())
-                    }),
-                });
-
-                if !self.acknowledged(Capability::Multiline) {
-                    requested.push("draft/multiline");
-                }
-            }
+            requested.push("draft/multiline");
         }
 
-        for cap in self.pending.drain() {
-            self.listed.insert(cap);
+        if self.pending.contains_key("draft/metadata-2")
+            && !self.acknowledged(Capability::Metadata)
+        {
+            requested.push("draft/metadata-2");
+        }
+
+        for (cap, val) in self.pending.drain() {
+            self.listed.insert(cap, val);
         }
 
         requested
@@ -397,18 +447,32 @@ impl Capabilities {
         }
     }
 
-    pub fn extend_list(&mut self, caps: impl Iterator<Item = String>) {
+    pub fn extend_list<'a>(&mut self, caps: impl Iterator<Item = &'a str>) {
         for cap in caps {
-            self.pending.insert(cap);
+            if let Some((left, right)) = cap.split_once('=') {
+                self.pending.insert(left.to_string(), right.to_string());
+            } else {
+                self.pending.insert(cap.to_string(), String::new());
+            }
         }
     }
 
     pub fn multiline_limits(&self) -> Option<MultilineLimits> {
-        if self.acknowledged(Capability::Multiline) {
-            self.multiline
-        } else {
-            None
-        }
+        self.acknowledged(Capability::Multiline)
+            .then(|| {
+                MultilineLimits::from_str(self.listed.get("draft/multiline")?)
+                    .ok()
+            })
+            .flatten()
+    }
+
+    pub fn metadata_limits(&self) -> Option<MetadataLimits> {
+        self.acknowledged(Capability::Metadata)
+            .then(|| {
+                MetadataLimits::from_str(self.listed.get("draft/metadata-2")?)
+                    .ok()
+            })
+            .flatten()
     }
 
     pub fn contains_multiline_limits(&self) -> bool {

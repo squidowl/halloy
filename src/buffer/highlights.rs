@@ -4,11 +4,12 @@ use chrono::{DateTime, Utc};
 use data::config::buffer::nickname::ShownStatus;
 use data::dashboard::BufferAction;
 use data::target::{self, Target};
-use data::{Config, Preview, Server, history, message};
+use data::{Config, Preview, Server, history, message, metadata, preview};
 use iced::widget::{container, row, span};
 use iced::{Color, Length, Size, Task};
 
 use super::context_menu::{self, Context};
+use super::message_view::formatted_buffer_nickname;
 use super::scroll_view;
 use crate::widget::{
     Element, message_content, selectable_rich_text, selectable_text, tooltip,
@@ -36,6 +37,7 @@ pub fn view<'a>(
     state: &'a Highlights,
     clients: &'a data::client::Map,
     history: &'a history::Manager,
+    previews: &'a preview::Collection,
     config: &'a Config,
     theme: &'a Theme,
 ) -> Element<'a, Message> {
@@ -98,13 +100,6 @@ pub fn view<'a>(
                         ])
                         .on_link(scroll_view::Message::Link);
 
-                    let with_access_levels =
-                        config.buffer.nickname.show_access_levels;
-                    let show_bot_icon = config.buffer.nickname.show_bot_icon;
-                    let truncate = config.buffer.nickname.truncate;
-                    let truncation_character =
-                        config.display.truncation_character;
-
                     let current_user =
                         users.and_then(|users| users.resolve(user));
                     let is_user_offline =
@@ -113,16 +108,18 @@ pub fn view<'a>(
                             ShownStatus::Historical => false,
                         };
 
-                    let (user_display, show_nickname_tooltip) = user
-                        .display_with_truncated(
-                            with_access_levels,
-                            show_bot_icon,
-                            truncate,
-                            truncation_character,
-                        );
+                    let show_nickname_tooltip = user.display_truncated(
+                        config.buffer.nickname.show_access_levels,
+                        config.buffer.nickname.show_bot_icon,
+                        config.buffer.nickname.truncate,
+                        config.display.truncation_character,
+                    );
 
-                    let nick_text =
-                        config.buffer.nickname.brackets.format(user_display);
+                    let nick_text = formatted_buffer_nickname(
+                        user,
+                        config,
+                        clients.get_registry(server),
+                    );
 
                     let text = selectable_text(nick_text)
                         .font_maybe(
@@ -155,6 +152,8 @@ pub fn view<'a>(
                             server,
                             prefix,
                             Some(channel),
+                            clients.get_registry(server),
+                            previews,
                             user,
                             current_user,
                             None,
@@ -186,6 +185,11 @@ pub fn view<'a>(
                                     current_user,
                                     None,
                                     config.file_transfer.enabled,
+                                    context_menu::has_user_metadata(
+                                        user,
+                                        clients.get_registry(server),
+                                        config,
+                                    ),
                                 )
                             }
                             message::Link::Url(_) => {
@@ -201,6 +205,12 @@ pub fn view<'a>(
                                     server,
                                     prefix,
                                     channel: Some(channel),
+                                    registry: clients.get_registry(server),
+                                    avatar: context_menu::user_avatar(
+                                        user,
+                                        clients.get_registry(server),
+                                        previews,
+                                    ),
                                     user,
                                     current_user,
                                 })
@@ -293,6 +303,7 @@ pub fn view<'a>(
                 }
                 _ => None,
             },
+            metadata::EMPTY,
         )
         .map(Message::ScrollView),
     )

@@ -4,11 +4,12 @@ use chrono::{DateTime, Utc};
 use data::dashboard::BufferAction;
 use data::target::Target;
 use data::user::Nick;
-use data::{Config, Preview, User, buffer, history, message};
+use data::{Config, Preview, User, buffer, history, message, preview};
 use iced::advanced::text;
 use iced::widget::{Space, column, container, row, space};
 use iced::{Color, Length, Size, Task, padding};
 
+use super::message_view::formatted_buffer_nickname;
 use super::{context_menu, input_view, scroll_view};
 use crate::widget::{Element, message_content, selectable_text, tooltip};
 use crate::window::Window;
@@ -74,6 +75,7 @@ pub fn view<'a>(
     state: &'a Server,
     clients: &'a data::client::Map,
     history: &'a history::Manager,
+    previews: &'a preview::Collection,
     config: &'a Config,
     theme: &'a Theme,
     is_focused: bool,
@@ -84,6 +86,7 @@ pub fn view<'a>(
     let our_nick: Option<data::user::NickRef<'_>> =
         clients.nickname(&state.server);
     let our_user = our_nick.map(|our_nick| User::from(Nick::from(our_nick)));
+    let registry = clients.get_registry(&state.server);
 
     let messages = container(
         scroll_view::view(
@@ -185,13 +188,12 @@ pub fn view<'a>(
                         let with_access_levels =
                             config.buffer.nickname.show_access_levels;
 
-                        let (user_display, show_nickname_tooltip) = user
-                            .display_with_truncated(
-                                with_access_levels,
-                                config.buffer.nickname.show_bot_icon,
-                                truncate,
-                                config.display.truncation_character,
-                            );
+                        let show_nickname_tooltip = user.display_truncated(
+                            with_access_levels,
+                            config.buffer.nickname.show_bot_icon,
+                            truncate,
+                            config.display.truncation_character,
+                        );
 
                         let nick: Element<_> = if hide_nickname {
                             let width = match config.buffer.nickname.alignment {
@@ -203,22 +205,19 @@ pub fn view<'a>(
                             };
                             Space::new().width(width).into()
                         } else {
-                            let mut nick_text = selectable_text(
-                                config
-                                    .buffer
-                                    .nickname
-                                    .brackets
-                                    .format(user_display),
-                            )
-                            .style(move |_| {
-                                theme::selectable_text::nickname(
-                                    theme, config, user, false,
-                                )
-                            })
-                            .font_maybe(
-                                theme::font_style::nickname(theme, false)
-                                    .map(font::get),
-                            );
+                            let mut nick_text =
+                                selectable_text(formatted_buffer_nickname(
+                                    user, config, registry,
+                                ))
+                                .style(move |_| {
+                                    theme::selectable_text::nickname(
+                                        theme, config, user, false,
+                                    )
+                                })
+                                .font_maybe(
+                                    theme::font_style::nickname(theme, false)
+                                        .map(font::get),
+                                );
 
                             if let Some(width) = right_aligned_width {
                                 nick_text = nick_text
@@ -232,6 +231,8 @@ pub fn view<'a>(
                                     &state.server,
                                     prefix,
                                     None,
+                                    registry,
+                                    previews,
                                     user,
                                     None,
                                     None,
@@ -285,6 +286,7 @@ pub fn view<'a>(
                     _ => None,
                 }
             },
+            clients.get_registry(&state.server),
         )
         .map(Message::ScrollView),
     )
