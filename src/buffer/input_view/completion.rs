@@ -21,6 +21,7 @@ use iced::widget::text::Shaping;
 use iced::widget::{button, column, container, row, text_editor, tooltip};
 use irc::proto;
 use itertools::{Either, Itertools};
+use unicode_segmentation::UnicodeSegmentation;
 
 use crate::theme::{self, Theme};
 use crate::widget::{Element, double_pass, text};
@@ -3374,7 +3375,8 @@ fn replace_word_with_text(
         {
             actions.extend(iter::repeat_n(
                 text_editor::Action::Select(text_editor::Motion::Left),
-                last_word_position + last_word.len(),
+                last_word_position
+                    + UnicodeSegmentation::graphemes(last_word, true).count(),
             ));
         }
 
@@ -3396,27 +3398,52 @@ fn replace_word_with_text(
                 };
 
             if word_bounds.contains(&cursor_position) {
-                if (cursor_position - word_bounds.start())
-                    <= (word_bounds.end() - cursor_position)
-                {
+                let mut byte_position = *word_bounds.start();
+                let graphemes_to_the_left =
+                    UnicodeSegmentation::graphemes(word, true)
+                        .take_while(|grapheme| {
+                            if byte_position < cursor_position {
+                                byte_position += grapheme.len();
+                                true
+                            } else {
+                                false
+                            }
+                        })
+                        .count();
+
+                let mut byte_position = *word_bounds.end();
+                let graphemes_to_the_right =
+                    UnicodeSegmentation::graphemes(word, true)
+                        .rev()
+                        .take_while(|grapheme| {
+                            if byte_position > cursor_position {
+                                byte_position -= grapheme.len();
+                                true
+                            } else {
+                                false
+                            }
+                        })
+                        .count();
+
+                if graphemes_to_the_left <= graphemes_to_the_right {
                     actions.extend(iter::repeat_n(
                         text_editor::Action::Move(text_editor::Motion::Left),
-                        cursor_position - word_bounds.start(),
+                        graphemes_to_the_left,
                     ));
 
                     actions.extend(iter::repeat_n(
                         text_editor::Action::Select(text_editor::Motion::Right),
-                        word_bounds.end() - word_bounds.start(),
+                        UnicodeSegmentation::graphemes(word, true).count(),
                     ));
                 } else {
                     actions.extend(iter::repeat_n(
                         text_editor::Action::Move(text_editor::Motion::Right),
-                        word_bounds.end() - cursor_position,
+                        graphemes_to_the_right,
                     ));
 
                     actions.extend(iter::repeat_n(
                         text_editor::Action::Select(text_editor::Motion::Left),
-                        word_bounds.end() - word_bounds.start(),
+                        UnicodeSegmentation::graphemes(word, true).count(),
                     ));
                 }
 
