@@ -63,7 +63,7 @@ pub enum Event {
     Reconnect(Server),
     FilehostUpload {
         server: Server,
-        target: Target,
+        target: Option<Target>,
         file_paths: Vec<std::path::PathBuf>,
         abort_registrations: Vec<futures::future::AbortRegistration>,
     },
@@ -129,6 +129,12 @@ impl Actions {
             Self::SelectAll,
         ]
     }
+}
+
+#[derive(Debug, Clone)]
+enum Notice {
+    Error(String),
+    Warning(String),
 }
 
 fn emacs_key_binding(
@@ -320,8 +326,11 @@ pub fn view<'a>(
     theme: &'a Theme,
     filehost_url: Option<&'a str>,
 ) -> Element<'a, Message> {
-    let style = if state.error.is_some() {
-        theme::text_editor::error
+    let style = if let Some(notice) = &state.notice {
+        match notice {
+            Notice::Warning(_) => theme::text_editor::warning,
+            Notice::Error(_) => theme::text_editor::error,
+        }
     } else {
         theme::text_editor::primary
     };
@@ -668,9 +677,9 @@ pub fn view<'a>(
             Message::SelectCompletion,
         ),
         state
-            .error
-            .as_deref()
-            .map(|error_str| error(error_str, theme)),
+            .notice
+            .as_ref()
+            .map(|notice| notice_view(notice, theme)),
     ]
     .padding([0, 8])
     .spacing(4);
@@ -678,15 +687,18 @@ pub fn view<'a>(
     anchored_overlay(content, overlay, anchored_overlay::Anchor::AboveTop, 4.0)
 }
 
-fn error<'a, 'b, Message: 'a>(
-    error: &'b str,
+fn notice_view<'a, 'b, Message: 'a>(
+    notice: &'a Notice,
     theme: &'a Theme,
 ) -> Element<'a, Message> {
-    container(
-        text(error.to_string())
+    container(match notice {
+        Notice::Warning(notice_string) => text(notice_string)
+            .style(theme::text::warning)
+            .font_maybe(theme::font_style::warning(theme).map(font::get)),
+        Notice::Error(notice_string) => text(notice_string)
             .style(theme::text::error)
             .font_maybe(theme::font_style::error(theme).map(font::get)),
-    )
+    })
     .padding(8)
     .style(theme::container::tooltip)
     .into()
@@ -697,7 +709,7 @@ pub struct State {
     input_id: widget::Id,
     input_content: text_editor::Content,
     parsed: Vec<Result<input::Parsed, input::Error>>,
-    error: Option<String>,
+    notice: Option<Notice>,
     completion: Completion,
     selected_history: Option<usize>,
     last_typing_at: Option<Instant>,
@@ -722,7 +734,7 @@ impl State {
                 text_editor::Content::with_text,
             ),
             parsed: Vec::new(),
-            error: None,
+            notice: None,
             completion: Completion::default(),
             selected_history: None,
             last_typing_at: None,
@@ -759,8 +771,10 @@ impl State {
                                 .any(|channel| target == channel)
                         }),
                         clients.get_server_is_connected(buffer.server()),
-                        &clients.get_isupport(buffer.server()),
-                        clients.get_multiline_limits(buffer.server()).as_ref(),
+                        clients.get_isupport_ref(buffer.server()),
+                        clients.get_capabilities_ref(buffer.server()),
+                        clients.get_features_ref(buffer.server()),
+                        clients.get_filehost(buffer.server()),
                         clients.get_relay_bytes(buffer.server()),
                         config,
                     );
@@ -769,9 +783,9 @@ impl State {
                         Ok(input::Parsed::Internal(
                             command::Internal::Exec(_),
                         )) => {
-                            self.error = Some(String::from(
+                            self.notice = Some(Notice::Error(String::from(
                                 "exec output cannot invoke /exec",
-                            ));
+                            )));
 
                             (Task::none(), None)
                         }
@@ -779,13 +793,14 @@ impl State {
                             parsed, &buffer, clients, history, config,
                         ),
                         Err(error) => {
-                            self.error = Some(error.to_string());
+                            self.notice =
+                                Some(Notice::Error(error.to_string()));
                             (Task::none(), None)
                         }
                     }
                 }
                 Err(error) => {
-                    self.error = Some(error);
+                    self.notice = Some(Notice::Error(error));
                     (Task::none(), None)
                 }
             },
@@ -861,8 +876,10 @@ impl State {
                             .any(|channel| target == channel)
                     }),
                     clients.get_server_is_connected(buffer.server()),
-                    &clients.get_isupport(buffer.server()),
-                    clients.get_multiline_limits(buffer.server()).as_ref(),
+                    clients.get_isupport_ref(buffer.server()),
+                    clients.get_capabilities_ref(buffer.server()),
+                    clients.get_features_ref(buffer.server()),
+                    clients.get_filehost(buffer.server()),
                     clients.get_relay_bytes(buffer.server()),
                     config,
                 ) {
@@ -876,8 +893,8 @@ impl State {
             Message::Send => {
                 let cursor_position = self.input_content.cursor().position;
 
-                // Reset error
-                self.error = None;
+                // Reset notice
+                self.notice = None;
                 // Reset selected history
                 self.selected_history = None;
 
@@ -887,7 +904,8 @@ impl State {
                         .line(cursor_position.line)
                         .map(|line| line.text)
                 {
-                    let chantypes = clients.get_chantypes(buffer.server());
+                    let chantypes = clients
+                        .get_server_chantypes_or_default(buffer.server());
                     let actions = entry.complete_input(
                         &line,
                         cursor_position.column,
@@ -908,7 +926,7 @@ impl State {
                     if let Some(Err(error)) =
                         self.parsed.get(cursor_position.line)
                     {
-                        self.error = Some(error.to_string());
+                        self.notice = Some(Notice::Error(error.to_string()));
 
                         return (Task::none(), None);
                     } else if let Some((position, line, error)) =
@@ -947,11 +965,11 @@ impl State {
                                 Cow::Owned(line_snippet)
                             };
 
-                        self.error = Some(format!(
+                        self.notice = Some(Notice::Error(format!(
                             "error on line {}: {line_snippet}\
                            \n{error}",
                             position + 1
-                        ));
+                        )));
 
                         return (Task::none(), None);
                     }
@@ -988,7 +1006,8 @@ impl State {
                         .line(cursor_position.line)
                         .map(|line| line.text)
                 {
-                    let chantypes = clients.get_chantypes(buffer.server());
+                    let chantypes = clients
+                        .get_server_chantypes_or_default(buffer.server());
                     let actions = entry.complete_input(
                         &line,
                         cursor_position.column,
@@ -998,7 +1017,7 @@ impl State {
 
                     let result =
                         self.on_completion(buffer, history, actions, true);
-                    self.process_completion_and_error(
+                    self.process_completion_and_notice(
                         buffer, clients, history, config,
                     );
                     result
@@ -1012,7 +1031,8 @@ impl State {
                     self.input_content.cursor().position.column;
 
                 if let Some(entry) = self.completion.select_at(index, config) {
-                    let chantypes = clients.get_chantypes(buffer.server());
+                    let chantypes = clients
+                        .get_server_chantypes_or_default(buffer.server());
                     let actions = entry.complete_input(
                         input.as_str(),
                         cursor_position,
@@ -1022,7 +1042,7 @@ impl State {
 
                     let result =
                         self.on_completion(buffer, history, actions, true);
-                    self.process_completion_and_error(
+                    self.process_completion_and_notice(
                         buffer, clients, history, config,
                     );
                     result
@@ -1122,9 +1142,9 @@ impl State {
                 config,
             ),
             Message::Paste => {
-                let has_filehost = buffer.target().is_some()
-                    && clients.get_filehost(buffer.server()).is_some()
-                    && config.filehost.paste();
+                let has_filehost =
+                    clients.get_filehost(buffer.server()).is_some()
+                        && config.filehost.paste();
 
                 let task = Task::perform(
                     async move { has_filehost.then(try_clipboard_upload).flatten() },
@@ -1208,17 +1228,16 @@ impl State {
 
                 self.upload_abort_handles.extend(handles);
 
-                let event =
-                    buffer.target().map(|target| Event::FilehostUpload {
-                        server: buffer.server().clone(),
-                        target,
-                        file_paths,
-                        abort_registrations: registrations,
-                    });
+                let event = Event::FilehostUpload {
+                    server: buffer.server().clone(),
+                    target: buffer.target(),
+                    file_paths,
+                    abort_registrations: registrations,
+                };
                 let anim = was_idle
                     .then(Self::schedule_anim_tick)
                     .unwrap_or_else(Task::none);
-                (anim, event)
+                (anim, Some(event))
             }
             Message::FilesSelected(_) => (Task::none(), None),
             Message::UploadAnimTick => {
@@ -1395,7 +1414,7 @@ impl State {
                         let cursor_position =
                             self.input_content.cursor().position;
 
-                        self.error = None;
+                        self.notice = None;
                         self.selected_history = None;
 
                         if let Some(line) = self
@@ -1412,14 +1431,10 @@ impl State {
                                 FilterChain::borrow(history.get_filters());
                             let is_connected = clients
                                 .get_server_is_connected(buffer.server());
-                            let supports_detach = clients
-                                .get_server_supports_detach(buffer.server());
                             let isupport =
-                                clients.get_isupport(buffer.server());
-                            let has_filehost = buffer.target().is_some()
-                                && clients
-                                    .get_filehost(buffer.server())
-                                    .is_some();
+                                clients.get_isupport_ref(buffer.server());
+                            let features =
+                                clients.get_features_ref(buffer.server());
 
                             self.completion.process(
                                 &line,
@@ -1432,9 +1447,8 @@ impl State {
                                 current_target.as_ref(),
                                 buffer.server(),
                                 is_connected,
-                                supports_detach,
-                                &isupport,
-                                has_filehost,
+                                isupport,
+                                features,
                                 config,
                             );
 
@@ -1442,12 +1456,7 @@ impl State {
                                 .completion
                                 .complete_emoji(&line, cursor_position.column);
 
-                            if let Some(Err(error)) =
-                                self.parsed.get(cursor_position.line)
-                                && show_while_typing(error)
-                            {
-                                self.error = Some(error.to_string());
-                            }
+                            self.set_notice(cursor_position.line);
 
                             if let Some(actions) = actions {
                                 for action in actions.into_iter() {
@@ -1467,7 +1476,7 @@ impl State {
                     }
                     text_editor::Action::Move(_)
                     | text_editor::Action::Click(_) => {
-                        self.process_completion_and_error(
+                        self.process_completion_and_notice(
                             buffer, clients, history, config,
                         );
 
@@ -1494,9 +1503,11 @@ impl State {
                 .any(|channel| target == channel)
         });
         let is_connected = clients.get_server_is_connected(buffer.server());
-        let isupport = clients.get_isupport(buffer.server());
+        let isupport = clients.get_isupport_ref(buffer.server());
+        let capabilities = clients.get_capabilities_ref(buffer.server());
+        let features = clients.get_features_ref(buffer.server());
+        let filehost = clients.get_filehost(buffer.server());
         let relay_bytes = clients.get_relay_bytes(buffer.server());
-        let multiline_limits = clients.get_multiline_limits(buffer.server());
 
         if self.input_content.text().is_empty() {
             self.parsed = Vec::new();
@@ -1507,7 +1518,9 @@ impl State {
 
         self.parsed = input_lines(&text)
             .scan(None, |open_code_fence: &mut Option<CodeFence>, line| {
-                let line = if line.is_empty() && multiline_limits.is_none() {
+                let line = if line.is_empty()
+                    && !capabilities.contains_multiline_limits()
+                {
                     // Send a space to emulate an empty line
                     Cow::Owned(String::from(' '))
                 } else {
@@ -1522,8 +1535,10 @@ impl State {
                     nickname,
                     in_channel,
                     is_connected,
-                    &isupport,
-                    multiline_limits.as_ref(),
+                    isupport,
+                    capabilities,
+                    features,
+                    filehost,
                     relay_bytes,
                     config,
                 );
@@ -1585,7 +1600,8 @@ impl State {
             clients.get_multiline_limits(buffer.server())
             && let Some(target) = buffer.target().as_ref()
         {
-            let casemapping = clients.get_casemapping(buffer.server());
+            let casemapping =
+                clients.get_server_casemapping_or_default(buffer.server());
 
             let mut multiline_byte_count = 0;
             let mut multiline_line_count = 0;
@@ -1713,9 +1729,12 @@ impl State {
             // If the server supports echoes, then send MARKREAD on echo only
             // (not when recording the input)
             if config.buffer.mark_as_read.on_message_sent && !supports_echoes {
-                let chantypes = clients.get_chantypes(buffer.server());
-                let statusmsg = clients.get_statusmsg(buffer.server());
-                let casemapping = clients.get_casemapping(buffer.server());
+                let chantypes =
+                    clients.get_server_chantypes_or_default(buffer.server());
+                let statusmsg =
+                    clients.get_server_statusmsg_or_default(buffer.server());
+                let casemapping =
+                    clients.get_server_casemapping_or_default(buffer.server());
 
                 if let Some(input) = inputs.first()
                     && let Some(targets) =
@@ -1739,9 +1758,12 @@ impl State {
             let mut user = nick.to_owned().into();
             let mut channel_users = None;
 
-            let chantypes = clients.get_chantypes(buffer.server());
-            let statusmsg = clients.get_statusmsg(buffer.server());
-            let casemapping = clients.get_casemapping(buffer.server());
+            let chantypes =
+                clients.get_server_chantypes_or_default(buffer.server());
+            let statusmsg =
+                clients.get_server_statusmsg_or_default(buffer.server());
+            let casemapping =
+                clients.get_server_casemapping_or_default(buffer.server());
             let supports_echoes =
                 clients.get_server_supports_echoes(buffer.server());
 
@@ -1976,10 +1998,12 @@ impl State {
                             },
                         );
 
-                        let chantypes = clients.get_chantypes(buffer.server());
-                        let statusmsg = clients.get_statusmsg(buffer.server());
-                        let casemapping =
-                            clients.get_casemapping(buffer.server());
+                        let chantypes = clients
+                            .get_server_chantypes_or_default(buffer.server());
+                        let statusmsg = clients
+                            .get_server_statusmsg_or_default(buffer.server());
+                        let casemapping = clients
+                            .get_server_casemapping_or_default(buffer.server());
 
                         let target = Target::parse(
                             target_channel.as_str(),
@@ -2057,8 +2081,9 @@ impl State {
                     command::Internal::Upload(path) => {
                         let file_path = std::path::PathBuf::from(&path);
                         if !file_path.exists() {
-                            self.error =
-                                Some(format!("file not found: {path}"));
+                            self.notice = Some(Notice::Error(format!(
+                                "file not found: {path}"
+                            )));
                             return (Task::none(), None);
                         }
                         let (handle, registration) =
@@ -2069,20 +2094,23 @@ impl State {
                         let anim = was_idle
                             .then(Self::schedule_anim_tick)
                             .unwrap_or_else(Task::none);
-                        let event = buffer.target().map(|target| {
-                            Event::FilehostUpload {
-                                server: buffer.server().clone(),
-                                target,
-                                file_paths: vec![file_path],
-                                abort_registrations: vec![registration],
-                            }
-                        });
-                        return (anim, event);
+                        let event = Event::FilehostUpload {
+                            server: buffer.server().clone(),
+                            target: buffer.target(),
+                            file_paths: vec![file_path],
+                            abort_registrations: vec![registration],
+                        };
+                        return (anim, Some(event));
                     }
                     command::Internal::Exec(command) => {
                         if !config.buffer.commands.exec.enabled {
-                            self.error = Some(String::from(
-                                "exec is not enabled by the user",
+                            self.notice = Some(Notice::Error(
+                                input::Error::Command(
+                                    command::Error::CommandNotEnabled {
+                                        command: "exec",
+                                    },
+                                )
+                                .to_string(),
                             ));
 
                             return (Task::none(), None);
@@ -2125,9 +2153,12 @@ impl State {
             // If the server supports echoes, then send MARKREAD on echo only
             // (not when recording the input)
             if config.buffer.mark_as_read.on_message_sent && !supports_echoes {
-                let chantypes = clients.get_chantypes(buffer.server());
-                let statusmsg = clients.get_statusmsg(buffer.server());
-                let casemapping = clients.get_casemapping(buffer.server());
+                let chantypes =
+                    clients.get_server_chantypes_or_default(buffer.server());
+                let statusmsg =
+                    clients.get_server_statusmsg_or_default(buffer.server());
+                let casemapping =
+                    clients.get_server_casemapping_or_default(buffer.server());
 
                 if let Some(targets) =
                     input.targets(chantypes, statusmsg, casemapping)
@@ -2150,9 +2181,12 @@ impl State {
             let mut user = nick.to_owned().into();
             let mut channel_users = None;
 
-            let chantypes = clients.get_chantypes(buffer.server());
-            let statusmsg = clients.get_statusmsg(buffer.server());
-            let casemapping = clients.get_casemapping(buffer.server());
+            let chantypes =
+                clients.get_server_chantypes_or_default(buffer.server());
+            let statusmsg =
+                clients.get_server_statusmsg_or_default(buffer.server());
+            let casemapping =
+                clients.get_server_casemapping_or_default(buffer.server());
             let supports_echoes =
                 clients.get_server_supports_echoes(buffer.server());
 
@@ -2199,9 +2233,12 @@ impl State {
             input.command()
             && let Some(buffer_action) = config.actions.buffer.join_channel
         {
-            let chantypes = clients.get_chantypes(buffer.server());
-            let statusmsg = clients.get_statusmsg(buffer.server());
-            let casemapping = clients.get_casemapping(buffer.server());
+            let chantypes =
+                clients.get_server_chantypes_or_default(buffer.server());
+            let statusmsg =
+                clients.get_server_statusmsg_or_default(buffer.server());
+            let casemapping =
+                clients.get_server_casemapping_or_default(buffer.server());
 
             targets
                 .split(',')
@@ -2230,7 +2267,7 @@ impl State {
         )
     }
 
-    fn process_completion_and_error(
+    fn process_completion_and_notice(
         &mut self,
         buffer: &buffer::Upstream,
         clients: &mut client::Map,
@@ -2251,11 +2288,8 @@ impl State {
             let last_seen = history.get_last_seen(buffer);
             let filters = FilterChain::borrow(history.get_filters());
             let is_connected = clients.get_server_is_connected(buffer.server());
-            let supports_detach =
-                clients.get_server_supports_detach(buffer.server());
-            let isupport = clients.get_isupport(buffer.server());
-            let has_filehost = buffer.target().is_some()
-                && clients.get_filehost(buffer.server()).is_some();
+            let isupport = clients.get_isupport_ref(buffer.server());
+            let features = clients.get_features_ref(buffer.server());
 
             self.completion.process(
                 &line,
@@ -2268,20 +2302,15 @@ impl State {
                 current_target.as_ref(),
                 buffer.server(),
                 is_connected,
-                supports_detach,
-                &isupport,
-                has_filehost,
+                isupport,
+                features,
                 config,
             );
 
-            // Reset error state
-            self.error = None;
+            // Reset notice state
+            self.notice = None;
 
-            if let Some(Err(error)) = self.parsed.get(cursor_position.line)
-                && show_while_typing(error)
-            {
-                self.error = Some(error.to_string());
-            }
+            self.set_notice(cursor_position.line);
         }
     }
 
@@ -2332,7 +2361,7 @@ impl State {
         self.parse_lines_and_maybe_send_typing_status(buffer, clients, config);
 
         // Cursor movement above does not always trigger an Action::Move
-        self.process_completion_and_error(buffer, clients, history, config);
+        self.process_completion_and_notice(buffer, clients, history, config);
 
         (Task::none(), None)
     }
@@ -2350,7 +2379,7 @@ impl State {
     }
 
     pub fn reset(&mut self) {
-        self.error = None;
+        self.notice = None;
         self.completion = Completion::default();
         self.selected_history = None;
     }
@@ -2538,13 +2567,30 @@ impl State {
         clients: &client::Map,
     ) -> bool {
         let cursor_position = self.input_content.cursor().position;
-        let casemapping = clients.get_casemapping(buffer.server());
+        let casemapping =
+            clients.get_server_casemapping_or_default(buffer.server());
 
         self.parsed
             .get(cursor_position.line)
             .and_then(|parsed| parsed.as_ref().ok())
             .and_then(|parsed| parsed.multiline_batch_kind(casemapping))
             .is_some_and(|kind| kind == MultilineBatchKind::PRIVMSG)
+    }
+
+    fn set_notice(&mut self, line: usize) {
+        match self.parsed.get(line) {
+            Some(Err(error)) => {
+                if show_while_typing(error) {
+                    self.notice = Some(Notice::Error(error.to_string()));
+                }
+            }
+            Some(Ok(parsed)) => {
+                if let Some(warning) = parsed.warning() {
+                    self.notice = Some(Notice::Warning(warning.to_string()));
+                }
+            }
+            None => (),
+        }
     }
 }
 
@@ -2565,17 +2611,22 @@ fn show_while_typing(error: &input::Error) -> bool {
             | command::Error::InvalidChathistoryMessageReference
             | command::Error::InvalidChathistoryTimestamp
             | command::Error::ChathistoryLimitTooLarge { .. }
-            | command::Error::ExecDisabled,
+            | command::Error::ExecDisabled
+            | command::Error::CommandNotAvailable { .. }
+            | command::Error::CommandNotEnabled { .. },
         ) => true,
         input::Error::Command(command::Error::IncorrectArgCount {
             actual,
             max,
             ..
         }) => actual > max,
+        input::Error::Command(command::Error::InvalidSubcommand {
+            is_partial_valid,
+            ..
+        }) => !is_partial_valid,
         input::Error::Command(
             command::Error::MissingSlash
             | command::Error::MissingCommand
-            | command::Error::InvalidChathistorySubcommand
             | command::Error::NoModeString
             | command::Error::Connected
             | command::Error::Disconnected

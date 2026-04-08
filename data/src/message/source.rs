@@ -114,6 +114,29 @@ pub mod server {
         Kick,
         ChangeTopic,
         Away,
+        Invite,
+    }
+
+    impl Kind {
+        pub fn is_action(&self) -> bool {
+            match self {
+                Kind::Join
+                | Kind::Part
+                | Kind::Quit
+                | Kind::ReplyTopic
+                | Kind::ChangeHost
+                | Kind::ChangeMode
+                | Kind::ChangeNick
+                | Kind::Away => false,
+                Kind::MonitoredOnline
+                | Kind::MonitoredOffline
+                | Kind::StandardReply(_)
+                | Kind::WAllOps
+                | Kind::Kick
+                | Kind::ChangeTopic
+                | Kind::Invite => true,
+            }
+        }
     }
 
     #[derive(

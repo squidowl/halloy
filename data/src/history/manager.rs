@@ -578,12 +578,12 @@ impl Manager {
         self.data.map.keys().cloned().collect()
     }
 
-    pub fn server_has_unread(&self, server: Server) -> bool {
+    pub fn server_has_unread(&self, server: &Server) -> bool {
         self.data
             .map
             .iter()
             .filter_map(|(kind, history)| {
-                if kind.server().is_some_and(|s| *s == server) {
+                if kind.server().is_some_and(|s| *s == *server) {
                     Some(history)
                 } else {
                     None
@@ -952,8 +952,8 @@ impl Manager {
                             None
                         };
 
-                        let casemapping =
-                            clients.get_casemapping_or_default(server);
+                        let casemapping = clients
+                            .get_maybe_server_casemapping_or_default(server);
 
                         // Check if target is included/excluded.
                         let target_ref = match &message.target {

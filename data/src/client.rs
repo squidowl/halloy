@@ -18,11 +18,12 @@ use tokio::fs;
 pub use self::on_connect::on_connect;
 use crate::bouncer::{self, BouncerNetwork};
 use crate::capabilities::{
-    Capabilities, Capability, MultilineBatchKind, MultilineLimits,
+    self, Capabilities, Capability, MultilineBatchKind, MultilineLimits,
     multiline_concat_lines, multiline_encoded,
 };
 use crate::config::server::filehost;
 use crate::environment::{SOURCE_WEBSITE, VERSION};
+use crate::features::{self, Features, VersionRequest};
 use crate::history::ReadMarker;
 use crate::isupport::{
     ChatHistoryState, ChatHistorySubcommand, MessageReference, WhoToken,
@@ -80,12 +81,6 @@ pub enum Broadcast {
         new_nick: Nick,
         ourself: bool,
         channels: Vec<target::Channel>,
-        sent_time: DateTime<Utc>,
-    },
-    Invite {
-        inviter: User,
-        channel: target::Channel,
-        user_channels: Vec<target::Channel>,
         sent_time: DateTime<Utc>,
     },
     ChangeHost {
@@ -164,7 +159,7 @@ pub struct Client {
     logged_in: bool,
     registration_step: RegistrationStep,
     capabilities: Capabilities,
-    supports_detach: bool,
+    features: Features,
     sasl_succeeded: bool,
     chathistory_requests: HashMap<Target, ChatHistoryRequest>,
     chathistory_exhausted: HashMap<Target, bool>,
@@ -225,7 +220,7 @@ impl Client {
             logged_in: false,
             registration_step: RegistrationStep::Start,
             capabilities: Capabilities::default(),
-            supports_detach: false,
+            features: Features::default(),
             sasl_succeeded: false,
             chathistory_requests: HashMap::new(),
             chathistory_exhausted: HashMap::new(),
@@ -449,14 +444,17 @@ impl Client {
         if let MODE(target, _, _) = command {
             !self.is_channel(target)
         } else {
-            matches!(command, WHO(..) | WHOIS(..) | WHOWAS(..))
+            matches!(command, WHO(..) | WHOIS(..) | WHOWAS(..) | INVITE(..))
         }
     }
 
-    fn stop_reroute(&self, command: &Command) -> bool {
+    fn stop_reroute(&self, message: &message::Encoded) -> bool {
         use command::Numeric::*;
 
-        match &command {
+        match &message.command {
+            Command::INVITE(..) => message
+                .user(self.casemapping())
+                .is_some_and(|user| user.nickname() == self.nickname()),
             Command::Numeric(RPL_ENDOFWHO, args) => {
                 let mask = args.get(1).cloned().unwrap_or_default();
 
@@ -492,7 +490,7 @@ impl Client {
                 }
             }
             _ => matches!(
-                command,
+                &message.command,
                 Command::Numeric(
                     RPL_ENDOFWHOIS
                         | RPL_ENDOFWHOWAS
@@ -503,7 +501,12 @@ impl Client {
                         | ERR_NEEDMOREPARAMS
                         | ERR_USERSDONTMATCH
                         | RPL_UMODEIS
-                        | ERR_UMODEUNKNOWNFLAG,
+                        | ERR_UMODEUNKNOWNFLAG
+                        | RPL_INVITING
+                        | ERR_NOSUCHCHANNEL
+                        | ERR_NOTONCHANNEL
+                        | ERR_CHANOPRIVSNEEDED
+                        | ERR_USERONCHANNEL,
                     _
                 )
             ),
@@ -733,7 +736,7 @@ impl Client {
     ) -> Result<Vec<Event>> {
         log::trace!("[{}] Message received => {:?}", self.server, *message);
 
-        let stop_reroute = self.stop_reroute(&message.command);
+        let stop_reroute = self.stop_reroute(&message);
 
         let events = self.handle(message, None, config)?;
 
@@ -1038,7 +1041,7 @@ impl Client {
             _ if is_reaction(&message) => {
                 return Ok(vec![Event::Reaction(message)]);
             }
-            // Reroute whois, whowas, and user mode responses
+            // Reroute whois, whowas, mode, and invite responses
             Command::Numeric(
                 RPL_WHOISCERTFP | RPL_WHOISREGNICK | RPL_WHOISUSER
                 | RPL_WHOISSERVER | RPL_WHOISOPERATOR | RPL_WHOISIDLE
@@ -1048,7 +1051,8 @@ impl Client {
                 | RPL_ENDOFWHOWAS | RPL_UMODEIS | ERR_NOSUCHNICK
                 | ERR_NOSUCHSERVER | ERR_NONICKNAMEGIVEN | ERR_WASNOSUCHNICK
                 | ERR_NEEDMOREPARAMS | ERR_USERSDONTMATCH
-                | ERR_UMODEUNKNOWNFLAG,
+                | ERR_UMODEUNKNOWNFLAG | RPL_INVITING | ERR_NOSUCHCHANNEL
+                | ERR_NOTONCHANNEL | ERR_CHANOPRIVSNEEDED | ERR_USERONCHANNEL,
                 _,
             ) if self.reroute_responses_to.is_some() => {
                 if let Some(source) = self
@@ -1507,26 +1511,32 @@ impl Client {
                     }
                 }
             }
-            Command::INVITE(user, channel) => {
-                let user = User::from(Nick::from_str(
-                    user.as_str(),
-                    self.casemapping(),
-                ));
-                let channel = context!(target::Channel::parse(
-                    channel,
-                    self.chantypes(),
-                    self.statusmsg(),
-                    self.casemapping(),
-                ));
+            Command::INVITE(invitee, _) => {
                 let inviter = ok!(message.user(self.casemapping()));
-                let user_channels = self.user_channels(user.nickname());
 
-                return Ok(vec![Event::Broadcast(Broadcast::Invite {
-                    inviter,
-                    channel,
-                    user_channels,
-                    sent_time: message.server_time_or_now(),
-                })]);
+                if inviter.nickname() == self.nickname() {
+                    // Ignore since we should receive a RPL_INVITING for
+                    // invites sent by the user
+                    return Ok(vec![]);
+                }
+
+                let invitee = Nick::from_str(invitee, self.casemapping());
+
+                let event =
+                    Event::Single(message.clone(), self.nickname().to_owned());
+
+                if invitee.as_nickref() == self.nickname() {
+                    return Ok(vec![
+                        event,
+                        Event::DirectMessage(
+                            message,
+                            self.nickname().to_owned(),
+                            inviter,
+                        ),
+                    ]);
+                } else {
+                    return Ok(vec![event]);
+                }
             }
             Command::NICK(nick) => {
                 let old_user = ok!(message.user(self.casemapping()));
@@ -1595,9 +1605,7 @@ impl Client {
             Command::Numeric(RPL_MYINFO, args) => {
                 let server_version = ok!(args.get(2));
 
-                if server_version == "soju" {
-                    self.supports_detach = true;
-                }
+                self.features.enable_supported(server_version);
             }
             // QUIT
             Command::QUIT(comment) => {
@@ -2933,11 +2941,39 @@ impl Client {
                             self.config.clone(),
                             self.nickname(),
                             &self.isupport,
+                            &self.capabilities,
+                            &self.features,
+                            self.filehost(),
                             config,
                         ))))
                         .collect::<Vec<_>>();
 
+                    if matches!(
+                        self.features.version_request,
+                        VersionRequest::Need(true)
+                    ) {
+                        self.features.version_request = VersionRequest::Sent;
+
+                        self.send(
+                            None,
+                            command!("VERSION").into(),
+                            TokenPriority::Low,
+                        );
+                    }
+
                     return Ok(events);
+                }
+            }
+            Command::Numeric(RPL_VERSION, args) => {
+                if matches!(self.features.version_request, VersionRequest::Sent)
+                {
+                    self.features.version_request = VersionRequest::Need(false);
+
+                    let server_version = ok!(args.get(1));
+
+                    self.features.enable_supported(server_version);
+
+                    return Ok(vec![]);
                 }
             }
             _ => {}
@@ -3946,6 +3982,18 @@ impl Client {
         isupport::get_statusmsg_or_default(&self.isupport)
     }
 
+    pub fn filehost(&self) -> Option<&str> {
+        if !self.config.filehost.enabled {
+            return None;
+        }
+
+        self.config
+            .filehost
+            .override_url
+            .as_deref()
+            .or(isupport::get_filehost(&self.isupport))
+    }
+
     pub fn safelist(&self) -> bool {
         self.isupport.contains_key(&isupport::Kind::SAFELIST)
     }
@@ -4439,13 +4487,17 @@ impl Map {
             .and_then(|client| client.resolve_query(query))
     }
 
-    pub fn get_isupport(
+    pub fn get_isupport_ref(
         &self,
         server: &Server,
-    ) -> HashMap<isupport::Kind, isupport::Parameter> {
+    ) -> &HashMap<isupport::Kind, isupport::Parameter> {
         self.client(server)
-            .map(|client| client.isupport.clone())
-            .unwrap_or_default()
+            .map_or(&isupport::DEFAULT, |client| &client.isupport)
+    }
+
+    pub fn get_capabilities_ref(&self, server: &Server) -> &Capabilities {
+        self.client(server)
+            .map_or(&capabilities::DEFAULT, |client| &client.capabilities)
     }
 
     pub fn get_filehost<'a>(&'a self, server: &Server) -> Option<&'a str> {
@@ -4496,13 +4548,19 @@ impl Map {
         self.client(server).is_none_or(|c| c.config.use_tls)
     }
 
-    pub fn get_casemapping(&self, server: &Server) -> isupport::CaseMap {
+    pub fn get_features_ref(&self, server: &Server) -> &Features {
         self.client(server)
-            .map(Client::casemapping)
-            .unwrap_or_default()
+            .map_or(&features::DEFAULT, |client| &client.features)
     }
 
-    pub fn get_casemapping_or_default(
+    pub fn get_server_casemapping_or_default(
+        &self,
+        server: &Server,
+    ) -> isupport::CaseMap {
+        self.get_maybe_server_casemapping_or_default(Some(server))
+    }
+
+    pub fn get_maybe_server_casemapping_or_default(
         &self,
         server: Option<&Server>,
     ) -> isupport::CaseMap {
@@ -4511,7 +4569,7 @@ impl Map {
             .unwrap_or_default()
     }
 
-    pub fn get_chanmodes<'a>(
+    pub fn get_server_chanmodes_or_default<'a>(
         &'a self,
         server: &Server,
     ) -> &'a [isupport::ModeKind] {
@@ -4520,32 +4578,43 @@ impl Map {
             .unwrap_or_default()
     }
 
-    pub fn get_chantypes<'a>(&'a self, server: &Server) -> &'a [char] {
-        self.client(server)
-            .map(Client::chantypes)
-            .unwrap_or_default()
+    pub fn get_server_chantypes_or_default<'a>(
+        &'a self,
+        server: &Server,
+    ) -> &'a [char] {
+        self.get_maybe_server_chantypes_or_default(Some(server))
     }
 
-    pub fn get_chantypes_or_default<'a>(
+    pub fn get_maybe_server_chantypes_or_default<'a>(
         &'a self,
         server: Option<&Server>,
     ) -> &'a [char] {
         server
             .and_then(|server| self.client(server).map(Client::chantypes))
-            .unwrap_or_default()
+            .unwrap_or(isupport::DEFAULT_CHANTYPES)
     }
 
-    pub fn get_prefix<'a>(
+    pub fn get_server_prefix_or_default<'a>(
         &'a self,
         server: &Server,
     ) -> &'a [isupport::PrefixMap] {
         self.client(server).map(Client::prefix).unwrap_or_default()
     }
 
-    pub fn get_statusmsg<'a>(&'a self, server: &Server) -> &'a [char] {
-        self.client(server)
-            .map(Client::statusmsg)
-            .unwrap_or_default()
+    pub fn get_server_statusmsg_or_default<'a>(
+        &'a self,
+        server: &Server,
+    ) -> &'a [char] {
+        self.get_maybe_server_statusmsg_or_default(Some(server))
+    }
+
+    pub fn get_maybe_server_statusmsg_or_default<'a>(
+        &'a self,
+        server: Option<&Server>,
+    ) -> &'a [char] {
+        server
+            .and_then(|server| self.client(server).map(Client::statusmsg))
+            .unwrap_or(isupport::DEFAULT_STATUSMSG)
     }
 
     // The default value is chosen to be a reasonable, conservative
@@ -4716,7 +4785,7 @@ impl Map {
 
     pub fn get_server_supports_detach(&self, server: &Server) -> bool {
         self.client(server)
-            .is_some_and(|client| client.supports_detach)
+            .is_some_and(|client| client.features.detach)
     }
 
     pub fn get_server_supports_list(&self, server: &Server) -> bool {

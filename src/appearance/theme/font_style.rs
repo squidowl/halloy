@@ -51,7 +51,7 @@ pub fn server(
             Kind::StandardReply(StandardReply::Warn) => styles
                 .standard_reply_warn
                 .font_style
-                .or(theme.styles().text.error.font_style),
+                .or(theme.styles().text.warning.font_style),
             Kind::StandardReply(StandardReply::Note) => {
                 styles.standard_reply_note.font_style
             }
@@ -59,6 +59,7 @@ pub fn server(
             Kind::Kick => styles.kick.font_style,
             Kind::ChangeTopic => styles.change_topic.font_style,
             Kind::Away => styles.away.font_style,
+            Kind::Invite => styles.invite.font_style,
         })
         .or(styles.default.font_style)
 }
@@ -75,6 +76,10 @@ pub fn status(
 
 pub fn error(theme: &Theme) -> Option<FontStyle> {
     theme.styles().text.error.font_style
+}
+
+pub fn warning(theme: &Theme) -> Option<FontStyle> {
+    theme.styles().text.warning.font_style
 }
 
 pub fn success(theme: &Theme) -> Option<FontStyle> {

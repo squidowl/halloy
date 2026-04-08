@@ -63,3 +63,24 @@ pub fn error(theme: &Theme, status: Status) -> Style {
         Status::Disabled => primary,
     }
 }
+
+pub fn warning(theme: &Theme, status: Status) -> Style {
+    let primary = primary(theme, status);
+
+    match status {
+        Status::Active | Status::Hovered | Status::Focused { .. } => Style {
+            border: Border {
+                radius: 4.0.into(),
+                width: 1.0,
+                color: theme
+                    .styles()
+                    .text
+                    .warning
+                    .color
+                    .unwrap_or(theme.styles().text.error.color),
+            },
+            ..primary
+        },
+        Status::Disabled => primary,
+    }
+}

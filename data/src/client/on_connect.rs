@@ -7,6 +7,8 @@ use futures::stream::{self, BoxStream};
 use futures::{SinkExt, StreamExt};
 use tokio::time;
 
+use crate::capabilities::Capabilities;
+use crate::features::Features;
 use crate::user::NickRef;
 use crate::{Command, Target, command, config, isupport, message, server};
 
@@ -40,6 +42,9 @@ pub fn on_connect(
     server_config: Arc<config::Server>,
     our_nickname: NickRef,
     isupport: &HashMap<isupport::Kind, isupport::Parameter>,
+    capabilities: &Capabilities,
+    features: &Features,
+    filehost_url: Option<&str>,
     config: &config::Config,
 ) -> Stream {
     let commands = server_config
@@ -53,6 +58,9 @@ pub fn on_connect(
                 config.buffer.text_input.auto_format,
                 true,
                 isupport,
+                capabilities,
+                features,
+                filehost_url,
                 config,
             )
             .ok()
@@ -66,7 +74,7 @@ pub fn on_connect(
 
                 async move {
                     match command {
-                        Command::Irc(command) => {
+                        Command::Irc(command, _) => {
                             if let Ok(message) =
                                 message::Encoded::try_from(command)
                                 && let Err(e) =
