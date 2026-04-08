@@ -15,6 +15,7 @@ pub enum Message {
         window: window::Id,
         pane_id: pane_grid::Pane,
         target: Option<Target>,
+        id: u32,
         url: String,
     },
     UploadFailed {
@@ -22,6 +23,7 @@ pub enum Message {
         pane_id: pane_grid::Pane,
         server: data::Server,
         target: Option<Target>,
+        id: u32,
         error: String,
     },
     KnownSaved(Result<(), data::known_filehosts::Error>),
@@ -35,6 +37,7 @@ pub struct PendingUpload {
     pub upload_url: String,
     pub has_credentials: bool,
     pub file_paths: Vec<PathBuf>,
+    pub upload_ids: Vec<u32>,
     pub abort_registrations: Vec<futures::future::AbortRegistration>,
 }
 
@@ -183,6 +186,7 @@ impl Manager {
                         window: p.window,
                         pane_id: p.pane_id,
                         target: p.target.clone(),
+                        id: 0,
                         url: String::new(),
                     })
                 })
@@ -208,13 +212,15 @@ fn start_tasks(
         upload_url,
         has_credentials: _,
         file_paths,
+        upload_ids,
         abort_registrations,
     } = pending;
 
     let tasks: Vec<_> = file_paths
         .into_iter()
+        .zip(upload_ids)
         .zip(abort_registrations)
-        .map(|(file_path, registration)| {
+        .map(|((file_path, id), registration)| {
             let upload_url = upload_url.clone();
             let auth = clients.get_filehost_auth(&server);
             let http_client = http_client.clone();
@@ -239,6 +245,7 @@ fn start_tasks(
                         window,
                         pane_id,
                         target,
+                        id,
                         url,
                     },
                     Ok(Err(e)) => {
@@ -248,6 +255,7 @@ fn start_tasks(
                             pane_id,
                             server,
                             target,
+                            id,
                             error: e.to_string(),
                         }
                     }
@@ -255,6 +263,7 @@ fn start_tasks(
                         window,
                         pane_id,
                         target,
+                        id,
                         url: String::new(),
                     },
                 },

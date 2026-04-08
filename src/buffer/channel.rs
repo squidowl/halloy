@@ -26,7 +26,7 @@ pub enum Message {
     InputView(input_view::Message),
     ContextMenu(context_menu::Message),
     Topic(topic::Message),
-    FilehostUrlReady(String),
+    FilehostUploadDone { id: u32, url: Option<String> },
     FilesDropped(Vec<std::path::PathBuf>),
 }
 
@@ -54,6 +54,7 @@ pub enum Event {
         server: Server,
         target: Option<Target>,
         file_paths: Vec<std::path::PathBuf>,
+        upload_ids: Vec<u32>,
         abort_registrations: Vec<futures::future::AbortRegistration>,
     },
 }
@@ -390,6 +391,7 @@ impl Channel {
                         server,
                         target,
                         file_paths,
+                        upload_ids,
                         abort_registrations,
                     }) => (
                         command,
@@ -397,6 +399,7 @@ impl Channel {
                             server,
                             target,
                             file_paths,
+                            upload_ids,
                             abort_registrations,
                         }),
                     ),
@@ -407,9 +410,9 @@ impl Channel {
                 Task::none(),
                 Some(Event::ContextMenu(context_menu::update(message))),
             ),
-            Message::FilehostUrlReady(url) => {
+            Message::FilehostUploadDone { id, url } => {
                 let (task, _) = self.input_view.update(
-                    input_view::Message::FilehostUrlReady(url),
+                    input_view::Message::FilehostUploadDone { id, url },
                     &self.buffer,
                     clients,
                     history,
@@ -434,11 +437,13 @@ impl Channel {
                             server,
                             target,
                             file_paths,
+                            upload_ids,
                             abort_registrations,
                         } => Some(Event::FilehostUpload {
                             server,
                             target,
                             file_paths,
+                            upload_ids,
                             abort_registrations,
                         }),
                         _ => None,

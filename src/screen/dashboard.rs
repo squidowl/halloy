@@ -2547,6 +2547,7 @@ impl Dashboard {
                 server,
                 target,
                 file_paths,
+                upload_ids,
                 abort_registrations,
             } => {
                 let Some(upload_url) =
@@ -2579,6 +2580,7 @@ impl Dashboard {
                     target,
                     upload_url,
                     file_paths,
+                    upload_ids,
                     abort_registrations,
                 };
 
@@ -2625,17 +2627,27 @@ impl Dashboard {
                 window,
                 pane_id,
                 target,
+                id,
                 url,
             } => {
                 let buf_msg = match &target {
                     Some(Target::Channel(_)) => buffer::Message::Channel(
-                        buffer::channel::Message::FilehostUrlReady(url),
+                        buffer::channel::Message::FilehostUploadDone {
+                            id,
+                            url: Some(url),
+                        },
                     ),
                     Some(Target::Query(_)) => buffer::Message::Query(
-                        buffer::query::Message::FilehostUrlReady(url),
+                        buffer::query::Message::FilehostUploadDone {
+                            id,
+                            url: Some(url),
+                        },
                     ),
                     None => buffer::Message::Server(
-                        buffer::server::Message::FilehostUrlReady(url),
+                        buffer::server::Message::FilehostUploadDone {
+                            id,
+                            url: Some(url),
+                        },
                     ),
                 };
                 Task::done(Message::Pane(
@@ -2648,6 +2660,7 @@ impl Dashboard {
                 pane_id,
                 server,
                 target,
+                id,
                 error,
             } => {
                 let casemapping =
@@ -2664,15 +2677,22 @@ impl Dashboard {
                 );
                 let decrement_msg = match &target {
                     Some(Target::Channel(_)) => buffer::Message::Channel(
-                        buffer::channel::Message::FilehostUrlReady(
-                            String::new(),
-                        ),
+                        buffer::channel::Message::FilehostUploadDone {
+                            id,
+                            url: None,
+                        },
                     ),
                     Some(Target::Query(_)) => buffer::Message::Query(
-                        buffer::query::Message::FilehostUrlReady(String::new()),
+                        buffer::query::Message::FilehostUploadDone {
+                            id,
+                            url: None,
+                        },
                     ),
                     None => buffer::Message::Server(
-                        buffer::server::Message::FilehostUrlReady(String::new()),
+                        buffer::server::Message::FilehostUploadDone {
+                            id,
+                            url: None,
+                        },
                     ),
                 };
                 let decrement_task = Task::done(Message::Pane(

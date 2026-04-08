@@ -65,6 +65,7 @@ pub enum Event {
         server: Server,
         target: Option<Target>,
         file_paths: Vec<std::path::PathBuf>,
+        upload_ids: Vec<u32>,
         abort_registrations: Vec<futures::future::AbortRegistration>,
     },
 }
@@ -104,7 +105,10 @@ pub enum Message {
     Cut,
     UploadFile,
     FilesSelected(Vec<std::path::PathBuf>),
-    FilehostUrlReady(String),
+    FilehostUploadDone {
+        id: u32,
+        url: Option<String>,
+    },
     UploadAnimTick,
     CancelUploads,
     SpinnerHovered(bool),
@@ -723,6 +727,7 @@ pub struct State {
     selected_history: Option<usize>,
     last_typing_at: Option<Instant>,
     uploading: usize,
+    next_upload_id: u32,
     upload_anim: f32,
     spinner_hovered: bool,
     upload_abort_handles: Vec<futures::future::AbortHandle>,
@@ -748,6 +753,7 @@ impl State {
             selected_history: None,
             last_typing_at: None,
             uploading: 0,
+            next_upload_id: 0,
             upload_anim: 0.0,
             spinner_hovered: false,
             upload_abort_handles: Vec::new(),
@@ -1230,6 +1236,20 @@ impl State {
                 let was_idle = self.uploading == 0;
                 self.uploading += file_paths.len();
 
+                let upload_ids: Vec<u32> = file_paths
+                    .iter()
+                    .map(|_| {
+                        self.next_upload_id += 1;
+                        self.next_upload_id
+                    })
+                    .collect();
+
+                if buffer.target().is_some() {
+                    for &id in &upload_ids {
+                        self.insert_upload_ghost(id);
+                    }
+                }
+
                 let (handles, registrations): (Vec<_>, Vec<_>) = file_paths
                     .iter()
                     .map(|_| futures::future::AbortHandle::new_pair())
@@ -1241,6 +1261,7 @@ impl State {
                     server: buffer.server().clone(),
                     target: buffer.target(),
                     file_paths,
+                    upload_ids,
                     abort_registrations: registrations,
                 };
                 let anim = was_idle
@@ -1263,6 +1284,7 @@ impl State {
                     handle.abort();
                 }
                 self.uploading = 0;
+                self.next_upload_id = 0;
                 self.spinner_hovered = false;
                 (Task::none(), None)
             }
@@ -1270,33 +1292,101 @@ impl State {
                 self.spinner_hovered = hovered;
                 (Task::none(), None)
             }
-            Message::FilehostUrlReady(url)
-                if !url.is_empty() && self.uploading > 0 =>
-            {
+            Message::FilehostUploadDone { id, url } => {
                 self.uploading = self.uploading.saturating_sub(1);
-                // Append the URL to the end of whatever the user has typed.
-                self.input_content.perform(text_editor::Action::Move(
-                    text_editor::Motion::DocumentEnd,
-                ));
-                // Add a space separator if the buffer already has content.
-                if !self.input_content.text().trim_end().is_empty() {
-                    self.input_content.perform(text_editor::Action::Edit(
-                        text_editor::Edit::Insert(' '),
-                    ));
+                // ids are sequential per upload batch — resetting when idle
+                if self.uploading == 0 {
+                    self.next_upload_id = 0;
                 }
-                self.input_content.perform(text_editor::Action::Edit(
-                    text_editor::Edit::Paste(std::sync::Arc::new(url)),
-                ));
-                history.record_draft(RawInput {
-                    buffer: buffer.clone(),
-                    text: self.input_content.text(),
-                });
+
+                let ghost = upload_ghost(id);
+                let content = self.input_content.text();
+
+                match url {
+                    Some(url) => {
+                        if content.contains(&ghost) {
+                            let ghost_char_pos = content
+                                [..content.find(&ghost).unwrap()]
+                                .chars()
+                                .count();
+                            let replaced = content.replacen(&ghost, &url, 1);
+                            let delta = url.chars().count() as i64
+                                - ghost.chars().count() as i64;
+                            let cursor = adjust_cursor(
+                                &self.input_content,
+                                &replaced,
+                                ghost_char_pos,
+                                ghost.chars().count(),
+                                delta,
+                            );
+                            self.input_content =
+                                text_editor::Content::with_text(&replaced);
+                            self.input_content.move_to(cursor);
+                        } else {
+                            // the user edited the ghost away while uploading — append it rather than losing it
+                            self.input_content.perform(
+                                text_editor::Action::Move(
+                                    text_editor::Motion::DocumentEnd,
+                                ),
+                            );
+                            if !self.input_content.text().trim_end().is_empty()
+                            {
+                                self.input_content.perform(
+                                    text_editor::Action::Edit(
+                                        text_editor::Edit::Insert(' '),
+                                    ),
+                                );
+                            }
+                            self.input_content.perform(
+                                text_editor::Action::Edit(
+                                    text_editor::Edit::Paste(
+                                        std::sync::Arc::new(url),
+                                    ),
+                                ),
+                            );
+                        }
+
+                        history.record_draft(RawInput {
+                            buffer: buffer.clone(),
+                            text: self.input_content.text(),
+                        });
+                    }
+                    None => {
+                        // upload failed or cancelled
+
+                        // the ghost may have inserted surrounding spaces; try widest match
+                        // first so we don't leave a stray space behind.
+                        let search = [
+                            format!(" {ghost} "),
+                            format!(" {ghost}"),
+                            format!("{ghost} "),
+                            ghost.clone(),
+                        ]
+                        .into_iter()
+                        .find(|s| content.contains(s.as_str()));
+
+                        if let Some(search) = search {
+                            let ghost_char_pos = content
+                                [..content.find(&search).unwrap()]
+                                .chars()
+                                .count();
+                            let replaced = content.replacen(&search, "", 1);
+                            let delta = -(search.chars().count() as i64);
+                            let cursor = adjust_cursor(
+                                &self.input_content,
+                                &replaced,
+                                ghost_char_pos,
+                                search.chars().count(),
+                                delta,
+                            );
+                            self.input_content =
+                                text_editor::Content::with_text(&replaced);
+                            self.input_content.move_to(cursor);
+                        }
+                    }
+                }
+
                 (Task::none(), None)
-            }
-            Message::FilehostUrlReady(_) => {
-                // Failed or cancelled — decrement only if not already zeroed.
-                self.uploading = self.uploading.saturating_sub(1);
-                (self.focus(), None)
             }
             Message::DeleteWordBackward(save_to_clipboard) => {
                 self.input_content.perform(text_editor::Action::Select(
@@ -1570,6 +1660,52 @@ impl State {
                 Some(parsed)
             })
             .collect();
+    }
+
+    fn insert_upload_ghost(&mut self, id: u32) {
+        let ghost = upload_ghost(id);
+        let content = self.input_content.text();
+        let cursor_char = line_col_to_char(
+            &self.input_content,
+            self.input_content.cursor().position.line,
+            self.input_content.cursor().position.column,
+        );
+
+        // if the ghost would be inserted directly adjacent to a word,
+        // pad it with a space so it doesn't run into surrounding text.
+        let prefix = if cursor_char > 0 {
+            let ch = content.chars().nth(cursor_char - 1);
+            if ch.is_some_and(|c| !c.is_whitespace()) {
+                " "
+            } else {
+                ""
+            }
+        } else {
+            ""
+        };
+
+        let suffix = if let Some(ch) = content.chars().nth(cursor_char) {
+            if !ch.is_whitespace() { " " } else { "" }
+        } else {
+            ""
+        };
+
+        let insert = format!("{prefix}{ghost}{suffix}");
+
+        self.input_content.perform(text_editor::Action::Edit(
+            text_editor::Edit::Paste(std::sync::Arc::new(insert)),
+        ));
+
+        // place the cursor at the end of the ghost so that adjust_char_pos
+        // considers it "inside" the ghost when the upload finishes,
+        // which ensures the cursor follows the replacement correctly.
+        self.input_content.move_to(text_editor::Cursor {
+            position: char_to_line_col(
+                &self.input_content.text(),
+                cursor_char + prefix.chars().count() + ghost.chars().count(),
+            ),
+            selection: None,
+        });
     }
 
     fn schedule_anim_tick() -> Task<Message> {
@@ -2116,6 +2252,11 @@ impl State {
                         self.upload_abort_handles.push(handle);
                         let was_idle = self.uploading == 0;
                         self.uploading += 1;
+                        self.next_upload_id += 1;
+                        let id = self.next_upload_id;
+                        if buffer.target().is_some() {
+                            self.insert_upload_ghost(id);
+                        }
                         let anim = was_idle
                             .then(Self::schedule_anim_tick)
                             .unwrap_or_else(Task::none);
@@ -2123,6 +2264,7 @@ impl State {
                             server: buffer.server().clone(),
                             target: buffer.target(),
                             file_paths: vec![file_path],
+                            upload_ids: vec![id],
                             abort_registrations: vec![registration],
                         };
                         return (anim, Some(event));
@@ -2715,4 +2857,187 @@ fn macos_clipboard_file() -> Option<std::path::PathBuf> {
 
     let path = std::path::PathBuf::from(path_str);
     path.is_file().then_some(path)
+}
+
+fn upload_ghost(id: u32) -> String {
+    if id <= 1 {
+        String::from("(Uploading...)")
+    } else {
+        format!("(Uploading...{id})")
+    }
+}
+
+/// Converts a `(line, col)` position to a flat char offset.
+///
+/// `text_editor::Content` uses 2D positions, but offset arithmetic requires a
+/// flat char index.
+fn line_col_to_char(
+    content: &text_editor::Content,
+    line: usize,
+    col: usize,
+) -> usize {
+    let mut chars = 0;
+    for i in 0..line {
+        chars += content.line(i).map_or(0, |l| l.text.chars().count()) + 1;
+    }
+    chars += col;
+    chars
+}
+
+/// Converts a flat char offset back to a `(line, col)` position.
+///
+/// Inverse of [`line_col_to_char`]. Used after offset arithmetic to produce a
+/// position suitable for `move_to`.
+fn char_to_line_col(text: &str, char_pos: usize) -> text_editor::Position {
+    let mut remaining = char_pos;
+    for (i, line) in text.lines().enumerate() {
+        let line_char_count = line.chars().count();
+        if remaining <= line_char_count {
+            return text_editor::Position {
+                line: i,
+                column: remaining,
+            };
+        }
+        remaining -= line_char_count + 1;
+    }
+    let last_line = text.lines().count().saturating_sub(1);
+    let last_col = text.lines().last().map_or(0, |l| l.chars().count());
+    text_editor::Position {
+        line: last_line,
+        column: last_col,
+    }
+}
+
+/// Adjusts a flat char offset around a text replacement.
+///
+/// `replace_start..replace_start+replace_len` is the replaced region; `delta`
+/// is the signed change in length. Offsets before the region are unchanged,
+/// offsets inside it clamp to the end of the replacement, and offsets after it
+/// are shifted by `delta`.
+fn adjust_char_pos(
+    char_pos: usize,
+    replace_start: usize,
+    replace_len: usize,
+    delta: i64,
+) -> usize {
+    if char_pos > replace_start + replace_len {
+        // cursor was after the replaced region — shift it by how much the content changed
+        (char_pos as i64 + delta).max(0) as usize
+    } else if char_pos >= replace_start {
+        // cursor was inside the replaced region — land at the end of whatever replaced it.
+        ((replace_start + replace_len) as i64 + delta).max(0) as usize
+    } else {
+        char_pos
+    }
+}
+
+/// Adjusts the cursor (position and selection) of `content` for a text replacement.
+///
+/// `replaced` is the new text after replacement; `replace_start`, `replace_len`,
+/// and `delta` describe the replaced region, as in [`adjust_char_pos`].
+fn adjust_cursor(
+    content: &text_editor::Content,
+    replaced: &str,
+    replace_start: usize,
+    replace_len: usize,
+    delta: i64,
+) -> text_editor::Cursor {
+    let cursor = content.cursor();
+    text_editor::Cursor {
+        position: char_to_line_col(
+            replaced,
+            adjust_char_pos(
+                line_col_to_char(
+                    content,
+                    cursor.position.line,
+                    cursor.position.column,
+                ),
+                replace_start,
+                replace_len,
+                delta,
+            ),
+        ),
+        selection: cursor.selection.map(|sel| {
+            char_to_line_col(
+                replaced,
+                adjust_char_pos(
+                    line_col_to_char(content, sel.line, sel.column),
+                    replace_start,
+                    replace_len,
+                    delta,
+                ),
+            )
+        }),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn char_to_line_col_single_line() {
+        let pos = char_to_line_col("hello", 3);
+        assert_eq!(pos.line, 0);
+        assert_eq!(pos.column, 3);
+    }
+
+    #[test]
+    fn char_to_line_col_second_line() {
+        let pos = char_to_line_col("hello\nworld", 7);
+        assert_eq!(pos.line, 1);
+        assert_eq!(pos.column, 1);
+    }
+
+    #[test]
+    fn char_to_line_col_start_of_second_line() {
+        let pos = char_to_line_col("hello\nworld", 6);
+        assert_eq!(pos.line, 1);
+        assert_eq!(pos.column, 0);
+    }
+
+    #[test]
+    fn char_to_line_col_past_end_clamps() {
+        let pos = char_to_line_col("hello", 100);
+        assert_eq!(pos.line, 0);
+        assert_eq!(pos.column, 5);
+    }
+
+    #[test]
+    fn char_to_line_col_empty_string() {
+        let pos = char_to_line_col("", 0);
+        assert_eq!(pos.line, 0);
+        assert_eq!(pos.column, 0);
+    }
+
+    #[test]
+    fn adjust_char_pos_before_region_unchanged() {
+        // cursor at 2, region at 5..8 — unaffected
+        assert_eq!(adjust_char_pos(2, 5, 3, -3), 2);
+    }
+
+    #[test]
+    fn adjust_char_pos_after_region_shifts() {
+        // cursor at 10, region at 5..8, replaced with 1 char (delta -2)
+        assert_eq!(adjust_char_pos(10, 5, 3, -2), 8);
+    }
+
+    #[test]
+    fn adjust_char_pos_inside_region_clamps_to_end_of_replacement() {
+        // cursor at 6, region at 5..8, replaced with 1 char (delta -2)
+        // end of replacement = 5 + 3 - 2 = 6
+        assert_eq!(adjust_char_pos(6, 5, 3, -2), 6);
+    }
+
+    #[test]
+    fn adjust_char_pos_at_region_start_treated_as_inside() {
+        // cursor exactly at replace_start is inside
+        assert_eq!(adjust_char_pos(5, 5, 3, -2), 6);
+    }
+
+    #[test]
+    fn adjust_char_pos_positive_delta() {
+        // region at 5..8 replaced with 6 chars (delta +3), cursor at 10
+        assert_eq!(adjust_char_pos(10, 5, 3, 3), 13);
+    }
 }
