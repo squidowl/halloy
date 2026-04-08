@@ -227,7 +227,7 @@ mod tests {
     fn test_accented_latin() {
         let cd = content_disposition("café.txt");
         assert!(cd.contains("filename=\"cafe.txt\""));
-        assert!(cd.contains("filename*=UTF-8''caf%C3%A9%2Etxt"));
+        assert!(cd.contains("filename*=UTF-8''caf%C3%A9%2Etxt")); // spellchecker:disable-line
     }
 
     #[test]
