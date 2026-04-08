@@ -160,15 +160,11 @@ async fn fetch(
 
     let format = image::guess_format(&bytes).map_err(LoadError::ParseImage)?;
 
-    if format != image::ImageFormat::Ico {
-        return Err(LoadError::NotIco);
-    }
-
     let mut hasher = Sha256::default();
     hasher.update(bytes.as_ref());
 
     let digest = icon::Digest::new(hasher.finalize().as_ref());
-    let image_path = cache::image_path(&digest);
+    let image_path = cache::image_path(&format, &digest);
 
     if !image_path.exists() {
         if let Some(parent) = image_path.parent().filter(|p| !p.exists()) {
@@ -180,7 +176,7 @@ async fn fetch(
         cache::maybe_trim_icon_cache(bytes.len() as u64, image_path.clone());
     }
 
-    Ok(Icon::new(url, digest))
+    Ok(Icon::new(format, url, digest))
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -189,8 +185,6 @@ pub enum LoadError {
     CachedFailed,
     #[error("empty body")]
     EmptyBody,
-    #[error("not an ICO image")]
-    NotIco,
     #[error("failed to parse image: {0}")]
     ParseImage(#[from] icon::Error),
     #[error("request failed: {0}")]

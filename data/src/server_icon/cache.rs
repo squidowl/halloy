@@ -66,7 +66,10 @@ pub async fn save(url: &Url, state: State) {
     let _ = fs::write(path, &bytes).await;
 }
 
-pub(super) fn image_path(digest: &icon::Digest) -> PathBuf {
+pub(super) fn image_path(
+    format: &image::ImageFormat,
+    digest: &icon::Digest,
+) -> PathBuf {
     environment::cache_dir()
         .join("server_icons")
         .join("images")
@@ -76,7 +79,7 @@ pub(super) fn image_path(digest: &icon::Digest) -> PathBuf {
         .join(format!(
             "{}.{}",
             digest.as_ref(),
-            image::ImageFormat::Ico.extensions_str()[0]
+            format.extensions_str()[0]
         ))
 }
 
