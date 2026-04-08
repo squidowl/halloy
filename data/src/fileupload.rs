@@ -2,6 +2,8 @@ use std::io::Cursor;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+use any_ascii::any_ascii;
+use percent_encoding::{NON_ALPHANUMERIC, utf8_percent_encode};
 use reqwest::{Client, header};
 use tokio::io::AsyncReadExt as _;
 use tokio_util::io::ReaderStream;
@@ -123,16 +125,10 @@ pub async fn upload(
 
     log::debug!("uploading {file_name} to {base}");
 
-    let escaped_file_name =
-        file_name.replace("\\", "\\\\").replace("\"", "\\\"");
-
     let mut req = upload_client
         .post(base.clone())
         .header(header::CONTENT_TYPE, content_type)
-        .header(
-            header::CONTENT_DISPOSITION,
-            format!("attachment; filename=\"{escaped_file_name}\""),
-        )
+        .header(header::CONTENT_DISPOSITION, content_disposition(&file_name))
         .header(header::CONTENT_LENGTH, file_size)
         .body(body);
 
@@ -161,6 +157,22 @@ pub async fn upload(
     log::info!("file uploaded successfully: {file_url}");
 
     Ok(file_url.to_string())
+}
+
+fn content_disposition(file_name: &str) -> String {
+    let ascii: String = any_ascii(file_name)
+        .chars()
+        .map(|c| match c {
+            '"' | '\\' | '/' => '_',
+            c if c.is_ascii_control() => '_',
+            c => c,
+        })
+        .collect();
+
+    // rfc 5987 percent-encoded utf-8
+    let encoded = utf8_percent_encode(file_name, NON_ALPHANUMERIC).to_string();
+
+    format!("attachment; filename=\"{ascii}\"; filename*=UTF-8''{encoded}")
 }
 
 /// HTTP client that presents a TLS client certificate for SASL EXTERNAL
