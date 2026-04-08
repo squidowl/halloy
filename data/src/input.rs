@@ -113,6 +113,19 @@ pub fn parse(
 
                 Content::Text(text)
             }
+            Err(command::Error::HasDoubleSlash) => {
+                let text = input
+                    .strip_prefix('/')
+                    .map_or(input.to_string(), ToString::to_string);
+
+                let text = match auto_format {
+                    AutoFormat::Disabled => text,
+                    AutoFormat::Markdown => formatting::encode(&text, true),
+                    AutoFormat::All => formatting::encode(&text, false),
+                };
+
+                Content::Text(text)
+            }
             Err(error) => return Err(Error::Command(error)),
         }
     };
