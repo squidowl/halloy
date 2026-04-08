@@ -211,3 +211,58 @@ fn infer_mime_type(path: &Path, bytes: &[u8]) -> &'static str {
     infer::get(bytes)
         .map_or("application/octet-stream", |kind| kind.mime_type())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_ascii_passthrough() {
+        let cd = content_disposition("hello.txt");
+        assert!(cd.contains("filename=\"hello.txt\""));
+        assert!(cd.contains("filename*=UTF-8''hello%2Etxt"));
+    }
+
+    #[test]
+    fn test_accented_latin() {
+        let cd = content_disposition("café.txt");
+        assert!(cd.contains("filename=\"cafe.txt\""));
+        assert!(cd.contains("filename*=UTF-8''caf%C3%A9%2Etxt"));
+    }
+
+    #[test]
+    fn test_cjk() {
+        let cd = content_disposition("中文.txt");
+        // any_ascii transliterates, not underscores
+        assert!(cd.contains("filename=\"ZhongWen.txt\""));
+        assert!(cd.contains("filename*=UTF-8''%E4%B8%AD%E6%96%87%2Etxt"));
+    }
+
+    #[test]
+    fn test_quote_substitution() {
+        let cd = content_disposition("say \"hello\".txt");
+        assert!(cd.contains("filename=\"say _hello_.txt\""));
+        // verify the raw quote never appears inside the filename= value
+        let filename_part = cd.split("filename=\"").nth(1).unwrap();
+        let inside_quotes = filename_part.split('"').next().unwrap();
+        assert!(!inside_quotes.contains('"'));
+    }
+
+    #[test]
+    fn test_backslash_substitution() {
+        let cd = content_disposition("path\\file.txt");
+        assert!(cd.contains("filename=\"path_file.txt\""));
+    }
+
+    #[test]
+    fn test_forward_slash_substitution() {
+        let cd = content_disposition("path/file.txt");
+        assert!(cd.contains("filename=\"path_file.txt\""));
+    }
+
+    #[test]
+    fn test_control_chars() {
+        let cd = content_disposition("bad\x01name.txt");
+        assert!(cd.contains("filename=\"bad_name.txt\""));
+    }
+}
