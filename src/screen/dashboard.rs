@@ -1720,7 +1720,7 @@ impl Dashboard {
                     .unwrap_or_else(|| Arc::new(reqwest::Client::new()));
                 let task = self
                     .filehost
-                    .proceed(clients, http_client)
+                    .proceed(clients, http_client, &config.proxy)
                     .map(Message::Filehost);
                 return (task, None);
             }
@@ -2668,8 +2668,12 @@ impl Dashboard {
                     abort_registrations,
                 };
 
-                let (task, event) =
-                    self.filehost.upload(pending, clients, http_client);
+                let (task, event) = self.filehost.upload(
+                    pending,
+                    clients,
+                    http_client,
+                    &config.proxy,
+                );
 
                 let task = task.map(Message::Filehost);
 
@@ -4424,7 +4428,7 @@ impl Dashboard {
                     && config.servers.get(&server).is_some_and(
                         |server_config| server_config.proxy.is_some(),
                     ) {
-                    clients.get_server_preview_proxy_client(&server)
+                    clients.get_server_http_client(&server)
                 } else {
                     self.preview_client.clone()
                 };
@@ -4814,13 +4818,7 @@ fn cycle_previous_unread_buffer(
 }
 
 fn preview_client_from_config(config: &Config) -> Option<reqwest::Client> {
-    let preview_client = if let Some(proxy) = config.proxy.as_ref() {
-        config::proxy::build_client(proxy)
-    } else {
-        reqwest::Client::builder()
-            .build()
-            .map_err(config::proxy::BuildError::Reqwest)
-    };
+    let preview_client = config::proxy::build_client(&config.proxy, None);
 
     match preview_client {
         Ok(preview_client) => Some(preview_client),

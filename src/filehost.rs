@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use data::config::{Proxy, proxy};
 use data::target::Target;
 use data::{client, fileupload};
 use iced::Task;
@@ -68,6 +69,7 @@ impl Manager {
         pending: PendingUpload,
         clients: &client::Map,
         http_client: Arc<reqwest::Client>,
+        proxy: &Option<Proxy>,
     ) -> (Task<Message>, Option<Event>) {
         let upload_url = pending.upload_url.clone();
         let has_credentials = pending.has_credentials;
@@ -76,7 +78,7 @@ impl Manager {
         if self.known.contains(&upload_url) {
             let irc_uses_tls = clients.get_use_tls(&pending.server);
             (
-                start_tasks(pending, clients, irc_uses_tls, http_client),
+                start_tasks(pending, clients, irc_uses_tls, http_client, proxy),
                 None,
             )
         } else {
@@ -97,6 +99,7 @@ impl Manager {
         &mut self,
         clients: &client::Map,
         http_client: Arc<reqwest::Client>,
+        proxy_config: &Option<proxy::Proxy>,
     ) -> Task<Message> {
         let pending = std::mem::take(&mut self.pending);
         if pending.is_empty() {
@@ -108,7 +111,13 @@ impl Manager {
             .map(|p| {
                 self.known.insert(p.upload_url.clone());
                 let irc_uses_tls = clients.get_use_tls(&p.server);
-                start_tasks(p, clients, irc_uses_tls, http_client.clone())
+                start_tasks(
+                    p,
+                    clients,
+                    irc_uses_tls,
+                    http_client.clone(),
+                    &proxy_config.clone(),
+                )
             })
             .collect();
 
@@ -151,6 +160,7 @@ fn start_tasks(
     clients: &client::Map,
     irc_uses_tls: bool,
     http_client: Arc<reqwest::Client>,
+    proxy_config: &Option<proxy::Proxy>,
 ) -> Task<Message> {
     let PendingUpload {
         window,
@@ -172,6 +182,7 @@ fn start_tasks(
             let http_client = http_client.clone();
             let server = server.clone();
             let target = target.clone();
+            let proxy_config = proxy_config.clone();
 
             Task::perform(
                 async move {
@@ -181,6 +192,7 @@ fn start_tasks(
                         auth,
                         irc_uses_tls,
                         http_client,
+                        &proxy_config,
                     );
                     futures::future::Abortable::new(fut, registration).await
                 },
