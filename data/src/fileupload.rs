@@ -170,9 +170,9 @@ fn content_disposition(file_name: &str) -> String {
         .collect();
 
     // rfc 5987 percent-encoded utf-8
-    let encoded = utf8_percent_encode(file_name, NON_ALPHANUMERIC).to_string();
+    let utf_8 = utf8_percent_encode(file_name, NON_ALPHANUMERIC).to_string();
 
-    format!("attachment; filename=\"{ascii}\"; filename*=UTF-8''{encoded}")
+    format!("attachment; filename=\"{ascii}\"; filename*=UTF-8''{utf_8}")
 }
 
 /// HTTP client that presents a TLS client certificate for SASL EXTERNAL
