@@ -2,6 +2,8 @@ use std::io::Cursor;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+use any_ascii::any_ascii;
+use percent_encoding::{NON_ALPHANUMERIC, utf8_percent_encode};
 use reqwest::{Client, header};
 use tokio::io::AsyncReadExt as _;
 use tokio_util::io::ReaderStream;
@@ -123,16 +125,10 @@ pub async fn upload(
 
     log::debug!("uploading {file_name} to {base}");
 
-    let escaped_file_name =
-        file_name.replace("\\", "\\\\").replace("\"", "\\\"");
-
     let mut req = upload_client
         .post(base.clone())
         .header(header::CONTENT_TYPE, content_type)
-        .header(
-            header::CONTENT_DISPOSITION,
-            format!("attachment; filename=\"{escaped_file_name}\""),
-        )
+        .header(header::CONTENT_DISPOSITION, content_disposition(&file_name))
         .header(header::CONTENT_LENGTH, file_size)
         .body(body);
 
@@ -161,6 +157,22 @@ pub async fn upload(
     log::info!("file uploaded successfully: {file_url}");
 
     Ok(file_url.to_string())
+}
+
+fn content_disposition(file_name: &str) -> String {
+    let ascii: String = any_ascii(file_name)
+        .chars()
+        .map(|c| match c {
+            '"' | '\\' | '/' => '_',
+            c if c.is_ascii_control() => '_',
+            c => c,
+        })
+        .collect();
+
+    // rfc 8187 percent-encoded utf-8
+    let utf_8 = utf8_percent_encode(file_name, NON_ALPHANUMERIC).to_string();
+
+    format!("inline; filename=\"{ascii}\"; filename*=UTF-8''{utf_8}")
 }
 
 /// HTTP client that presents a TLS client certificate for SASL EXTERNAL
@@ -198,4 +210,59 @@ fn infer_mime_type(path: &Path, bytes: &[u8]) -> &'static str {
     }
     infer::get(bytes)
         .map_or("application/octet-stream", |kind| kind.mime_type())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_ascii_passthrough() {
+        let cd = content_disposition("hello.txt");
+        assert!(cd.contains("filename=\"hello.txt\""));
+        assert!(cd.contains("filename*=UTF-8''hello%2Etxt"));
+    }
+
+    #[test]
+    fn test_accented_latin() {
+        let cd = content_disposition("café.txt");
+        assert!(cd.contains("filename=\"cafe.txt\""));
+        assert!(cd.contains("filename*=UTF-8''caf%C3%A9%2Etxt")); // spellchecker:disable-line
+    }
+
+    #[test]
+    fn test_cjk() {
+        let cd = content_disposition("中文.txt");
+        // any_ascii transliterates, not underscores
+        assert!(cd.contains("filename=\"ZhongWen.txt\""));
+        assert!(cd.contains("filename*=UTF-8''%E4%B8%AD%E6%96%87%2Etxt"));
+    }
+
+    #[test]
+    fn test_quote_substitution() {
+        let cd = content_disposition("say \"hello\".txt");
+        assert!(cd.contains("filename=\"say _hello_.txt\""));
+        // verify the raw quote never appears inside the filename= value
+        let filename_part = cd.split("filename=\"").nth(1).unwrap();
+        let inside_quotes = filename_part.split('"').next().unwrap();
+        assert!(!inside_quotes.contains('"'));
+    }
+
+    #[test]
+    fn test_backslash_substitution() {
+        let cd = content_disposition("path\\file.txt");
+        assert!(cd.contains("filename=\"path_file.txt\""));
+    }
+
+    #[test]
+    fn test_forward_slash_substitution() {
+        let cd = content_disposition("path/file.txt");
+        assert!(cd.contains("filename=\"path_file.txt\""));
+    }
+
+    #[test]
+    fn test_control_chars() {
+        let cd = content_disposition("bad\x01name.txt");
+        assert!(cd.contains("filename=\"bad_name.txt\""));
+    }
 }
