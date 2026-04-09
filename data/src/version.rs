@@ -42,7 +42,7 @@ pub async fn latest_remote_version(
         tag_name: String,
     }
 
-    let client = config::proxy::build_client(&proxy, None).ok()?;
+    let client = config::proxy::build_client(proxy.as_ref(), None).ok()?;
 
     let response = client
         .get(LATEST_REMOTE_RELEASE_URL)

@@ -68,7 +68,7 @@ impl fmt::Display for Proxy {
 }
 
 pub fn build_client(
-    proxy: &Option<Proxy>,
+    proxy: Option<&Proxy>,
     identity: Option<reqwest::Identity>,
 ) -> Result<reqwest::Client, BuildError> {
     let mut builder = match proxy {

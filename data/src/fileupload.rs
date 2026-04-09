@@ -71,7 +71,7 @@ pub async fn upload(
     auth: Option<Auth>,
     irc_uses_tls: bool,
     client: Arc<Client>,
-    proxy_config: &Option<proxy::Proxy>,
+    proxy_config: Option<&proxy::Proxy>,
 ) -> Result<String, Error> {
     let base =
         Url::parse(upload_url).map_err(|e| Error::InvalidUri(e.to_string()))?;
@@ -126,7 +126,7 @@ pub async fn upload(
         }
         None => (None, None),
     };
-    let upload_client = external_client.as_ref().map_or(&*client, |c| c);
+    let upload_client = external_client.as_ref().unwrap_or(&client);
 
     log::debug!("uploading {file_name} to {base}");
 
@@ -174,7 +174,7 @@ pub async fn upload(
 async fn sasl_external_client(
     cert: &Path,
     key: Option<&Path>,
-    proxy_config: &Option<proxy::Proxy>,
+    proxy_config: Option<&proxy::Proxy>,
 ) -> Result<reqwest::Client, Error> {
     let cert_bytes = tokio::fs::read(cert).await?;
     let pem = if let Some(key_path) = key {
