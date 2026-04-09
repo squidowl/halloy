@@ -35,6 +35,7 @@ use data::history::reroute::RerouteRules;
 use data::message::{self, Broadcast};
 use data::reaction::Reaction;
 use data::target::{self, Target};
+use data::user::Nick;
 use data::version::Version;
 use data::{
     Notification, Server, Url, User, client, environment, history, server,
@@ -1746,20 +1747,17 @@ fn handle_client_events(
                 controllers.disconnect(server, error);
             }
             Event::Reaction(encoded, our_nick) => {
-                if let Some(reaction) = Reaction::received(
+                handle_reaction(
+                    server,
                     encoded,
                     our_nick,
-                    clients.get_server_chantypes_or_default(server),
-                    clients.get_server_statusmsg_or_default(server),
-                    clients.get_server_casemapping_or_default(server),
-                    config.buffer.channel.message.max_reaction_chars,
-                ) {
-                    reactions.push(
-                        dashboard
-                            .record_reaction(server, reaction)
-                            .map(Message::Dashboard),
-                    );
-                }
+                    dashboard,
+                    config,
+                    clients,
+                    &mut reactions,
+                    notifications,
+                    main_window,
+                );
             }
         }
     }
@@ -2202,6 +2200,101 @@ fn handle_broadcast(
     };
 
     commands.push(task.map(Message::Dashboard));
+}
+
+fn handle_reaction(
+    server: &Server,
+    encoded: message::Encoded,
+    our_nick: Nick,
+    dashboard: &mut screen::Dashboard,
+    config: &Config,
+    clients: &data::client::Map,
+    reactions: &mut Vec<Task<Message>>,
+    notifications: &mut Notifications,
+    main_window: &Window,
+) {
+    let casemapping = clients.get_server_casemapping_or_default(server);
+    let chantypes = clients.get_server_chantypes_or_default(server);
+    let statusmsg = clients.get_server_statusmsg_or_default(server);
+
+    // Going to assume that there'll be something in `encoded` that gives
+    // us access to the original message directly. using user() as placeholder
+    let is_react_to_own_message =
+        if let Some(message_sender) = &encoded.user(casemapping.to_owned()) {
+            message_sender.nickname() != our_nick // just setting to true for now
+        } else {
+            false
+        };
+
+    if let Some(reaction) = Reaction::received(
+        encoded,
+        our_nick,
+        chantypes,
+        statusmsg,
+        casemapping,
+        config.buffer.channel.message.max_reaction_chars,
+    ) {
+        reactions.push(
+            dashboard
+                .record_reaction(server, reaction.clone())
+                .map(Message::Dashboard),
+        );
+
+        let sender = User::from(reaction.inner.sender.clone());
+        let channel = reaction.target.as_channel();
+        let query = match channel {
+            None => target::Query::parse(
+                sender.nickname().as_str(),
+                chantypes,
+                statusmsg,
+                casemapping,
+            )
+            .ok(),
+            Some(_) => None,
+        };
+
+        let kind = match channel {
+            Some(channel) => Some(history::Kind::Channel(
+                server.to_owned(),
+                channel.to_owned(),
+            )),
+            None => query
+                .to_owned()
+                .map(|query| history::Kind::Query(server.to_owned(), query)),
+        };
+        let message_window =
+            kind.and_then(|kind| dashboard.find_window_with_history(&kind));
+
+        let blocked = match (channel, query) {
+            (Some(channel), None) => FilterChain::borrow(
+                dashboard.get_filters(),
+            )
+            .filter_user(&sender, Some(channel), server),
+            (None, Some(query)) => FilterChain::borrow(dashboard.get_filters())
+                .filter_query(&query, server),
+            _ => false,
+        };
+
+        if !blocked
+            && !reaction.inner.unreact
+            && is_react_to_own_message
+            && (message_window.is_none() || !main_window.focused)
+        {
+            let request_attention = notifications.notify(
+                &config.notifications,
+                &Notification::Reaction {
+                    casemapping,
+                    reaction,
+                },
+                server,
+                message_window.unwrap_or(main_window.id),
+            );
+
+            if let Some(request_attention) = request_attention {
+                reactions.push(request_attention);
+            }
+        }
+    }
 }
 
 fn handle_direct_message(

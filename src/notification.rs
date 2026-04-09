@@ -24,6 +24,7 @@ enum NotificationDelayKey {
     MonitoredOnline,
     MonitoredOffline,
     Channel(Box<str>),
+    Reaction,
 }
 
 impl From<&Notification> for NotificationDelayKey {
@@ -58,6 +59,7 @@ impl From<&Notification> for NotificationDelayKey {
                     channel.as_normalized_str().into(),
                 )
             }
+            Notification::Reaction { .. } => NotificationDelayKey::Reaction,
         }
     }
 }
@@ -336,6 +338,60 @@ impl Notifications {
 
                         notification_config.request_attention
                     }
+                } else {
+                    false
+                }
+            }
+            Notification::Reaction {
+                casemapping,
+                reaction,
+            } => {
+                let channel_option = reaction.target.clone().to_channel();
+                let channel = channel_option.as_ref();
+                if config.reaction.should_notify(
+                    &User::from(reaction.inner.sender.clone()),
+                    channel,
+                    server,
+                    *casemapping,
+                ) {
+                    let react_sent_in = match channel {
+                        Some(channel) => channel.as_normalized_str(),
+                        _ => "a direct message",
+                    };
+
+                    let (title, subtitle, body): (
+                        String,
+                        Option<String>,
+                        String,
+                    ) = if config.reaction.show_content {
+                        (
+                            reaction.inner.sender.to_string(),
+                            None,
+                            format!(
+                                "Reacted {} to your message in {react_sent_in}",
+                                reaction.inner.text
+                            ),
+                        )
+                    } else {
+                        (
+                            reaction.inner.sender.to_string(),
+                            None,
+                            format!(
+                                "Reacted to your message in {react_sent_in}",
+                            ),
+                        )
+                    };
+
+                    self.execute(
+                        &config.reaction,
+                        notification,
+                        title.as_str(),
+                        subtitle.as_deref(),
+                        body.as_str(),
+                        None,
+                    );
+
+                    config.reaction.request_attention
                 } else {
                     false
                 }

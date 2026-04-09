@@ -69,6 +69,7 @@ pub struct Notifications {
     pub monitored_offline: Notification,
     #[serde(rename = "channel")]
     pub channels: HashMap<String, Notification>,
+    pub reaction: Notification,
 }
 
 impl Notifications {
@@ -123,6 +124,9 @@ impl Notifications {
             }
         }
         for sound_name in highlight_matches_sounds {
+            load_and_insert(sound_name);
+        }
+        if let Some(sound_name) = self.reaction.sound.as_deref() {
             load_and_insert(sound_name);
         }
 
