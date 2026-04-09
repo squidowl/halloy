@@ -100,7 +100,9 @@ impl Completion {
             self.emojis.process(shortcode, config);
 
             self.words = Words::default();
-        } else if input.starts_with("/upload") {
+        } else if let Commands::Selected { command, .. } = &self.commands
+            && command.title() == "UPLOAD"
+        {
             self.paths.process(input);
 
             self.words = Words::default();
@@ -3243,7 +3245,7 @@ impl Paths {
     fn process(&mut self, input: &str) {
         use std::path::Path;
 
-        let Some(path) = input.strip_prefix("/upload ") else {
+        let Some((_, path)) = input.split_once(' ') else {
             *self = Self::default();
             return;
         };
