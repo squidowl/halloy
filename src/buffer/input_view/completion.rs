@@ -21,6 +21,7 @@ use iced::widget::text::Shaping;
 use iced::widget::{button, column, container, row, text_editor, tooltip};
 use irc::proto;
 use itertools::{Either, Itertools};
+use unicode_segmentation::UnicodeSegmentation;
 
 use crate::theme::{self, Theme};
 use crate::widget::{Element, double_pass, text};
@@ -33,8 +34,9 @@ const MAX_SHOWN_PATH_ENTRIES: usize = 8;
 #[derive(Debug, Clone, Default)]
 pub struct Completion {
     commands: Commands,
-    text: Text,
+    words: Words,
     emojis: Emojis,
+    paths: Paths,
 }
 
 impl Completion {
@@ -77,8 +79,9 @@ impl Completion {
 
             // Disallow other completions when selecting a command
             if matches!(self.commands, Commands::Selecting { .. }) {
-                self.text = Text::default();
+                self.words = Words::default();
                 self.emojis = Emojis::default();
+                self.paths = Paths::default();
 
                 return;
             }
@@ -96,13 +99,20 @@ impl Completion {
         {
             self.emojis.process(shortcode, config);
 
-            self.text = Text::default();
+            self.words = Words::default();
+        } else if let Commands::Selected { command, .. } = &self.commands
+            && command.title() == "UPLOAD"
+        {
+            self.paths.process(input);
+
+            self.words = Words::default();
+            self.emojis = Emojis::default();
         } else {
             let casemapping = isupport::get_casemapping_or_default(isupport);
 
             let chantypes = isupport::get_chantypes_or_default(isupport);
 
-            self.text.process(
+            self.words.process(
                 input,
                 cursor_position,
                 casemapping,
@@ -116,6 +126,7 @@ impl Completion {
                 config,
             );
 
+            self.paths = Paths::default();
             self.emojis = Emojis::default();
         }
     }
@@ -132,15 +143,11 @@ impl Completion {
         index: usize,
         config: &Config,
     ) -> Option<Entry> {
-        let is_path = self.text.is_path;
         self.commands
             .select_at(index)
             .map(Entry::Command)
             .or(self.emojis.select_at(index, config).map(Entry::Emoji))
-            .or(self.text.path_select_at(index).map(|next| Entry::Text {
-                next,
-                append_suffix: !is_path,
-            }))
+            .or(self.paths.select_at(index).map(Entry::Path))
     }
 
     pub fn complete_emoji(
@@ -164,22 +171,25 @@ impl Completion {
             return None;
         }
 
-        let is_path = self.text.is_path;
-        self.text.tab(reverse).map_or(
+        if let Some(path) = self.paths.tab(reverse).map(Entry::Path) {
+            return Some(path);
+        }
+
+        self.words.tab(reverse).map_or(
             {
-                if self.text.filtered.is_empty() {
+                if self.words.filtered.is_empty() {
                     None
                 } else {
-                    Some(Entry::Text {
-                        next: self.text.prompt.clone(),
+                    Some(Entry::Word {
+                        next: self.words.prompt.clone(),
                         append_suffix: false,
                     })
                 }
             },
             |next| {
-                Some(Entry::Text {
+                Some(Entry::Word {
                     next,
-                    append_suffix: !is_path,
+                    append_suffix: true,
                 })
             },
         )
@@ -214,7 +224,7 @@ impl Completion {
             self.commands
                 .view(input, server, config, theme, on_select_command);
         let emojis_view = self.emojis.view(config, on_select_command);
-        let paths_view = self.text.path_view(on_select_command);
+        let paths_view = self.paths.view(on_select_command);
 
         if command_view.is_some()
             || emojis_view.is_some()
@@ -248,7 +258,8 @@ impl Completion {
 #[derive(Debug, Clone)]
 pub enum Entry {
     Command(Command),
-    Text { next: String, append_suffix: bool },
+    Word { next: String, append_suffix: bool },
+    Path(String),
     Emoji(String),
 }
 
@@ -267,7 +278,7 @@ impl Entry {
                 &format!("/{}", command.title().to_lowercase()),
                 None,
             ),
-            Entry::Text {
+            Entry::Word {
                 next,
                 append_suffix,
             } => {
@@ -296,6 +307,14 @@ impl Entry {
             }
             Entry::Emoji(emoji) => {
                 replace_word_with_text(input, cursor_position, emoji, None)
+            }
+            Entry::Path(path) => {
+                vec![
+                    text_editor::Action::SelectAll,
+                    text_editor::Action::Edit(text_editor::Edit::Paste(
+                        std::sync::Arc::new(format!("/upload {path}")),
+                    )),
+                ]
             }
         }
     }
@@ -1366,7 +1385,7 @@ fn connected_command_list<'a>(
             title: "UPLOAD".into(),
             args: vec![Argument {
                 text: "file".into(),
-                kind: ArgumentKind::Optional { skipped: false },
+                kind: ArgumentKind::Required,
                 tooltip: Some("Path to a file".to_string()),
             }],
             subcommands: None,
@@ -1826,14 +1845,13 @@ impl fmt::Display for Argument {
 }
 
 #[derive(Debug, Clone, Default)]
-struct Text {
+struct Words {
     prompt: String,
     filtered: Vec<String>,
     selected: Option<usize>,
-    is_path: bool,
 }
 
-impl Text {
+impl Words {
     fn process<'a>(
         &mut self,
         input: &str,
@@ -1848,14 +1866,6 @@ impl Text {
         chantypes: &[char],
         config: &Config,
     ) {
-        if input
-            .get(..8)
-            .is_some_and(|s| s.eq_ignore_ascii_case("/upload "))
-        {
-            self.process_paths(input);
-            return;
-        }
-
         if !self.process_channels(
             input,
             cursor_position,
@@ -1878,70 +1888,6 @@ impl Text {
         }
     }
 
-    fn process_paths(&mut self, input: &str) {
-        use std::path::Path;
-
-        let Some((_, path)) = input.split_once(' ') else {
-            *self = Self::default();
-            return;
-        };
-
-        // Expand leading ~ to user's home directory
-        let expanded = if let Some(rest) =
-            path.strip_prefix("~/").or((path == "~").then_some(""))
-        {
-            dirs_next::home_dir().map_or_else(
-                || path.to_string(),
-                |h| format!("{}/{rest}", h.to_string_lossy()),
-            )
-        } else {
-            path.to_string()
-        };
-
-        // Split into the directory prefix and the filename prefix being type
-        let (dir_prefix, file_prefix) =
-            expanded.rfind('/').map_or(("", expanded.as_str()), |pos| {
-                (&expanded[..=pos], &expanded[pos + 1..])
-            });
-
-        let dir = if dir_prefix.is_empty() {
-            Path::new(".")
-        } else {
-            Path::new(dir_prefix)
-        };
-
-        let Ok(read_dir) = std::fs::read_dir(dir) else {
-            *self = Self::default();
-            return;
-        };
-
-        // Only show hidden entries on leading dot
-        let show_hidden = file_prefix.starts_with('.');
-
-        self.is_path = true;
-        self.selected = None;
-        self.prompt = path.to_string();
-        self.filtered = read_dir
-            .filter_map(std::result::Result::ok)
-            .filter(|e| {
-                e.file_name().to_str().is_some_and(|name| {
-                    name.starts_with(file_prefix)
-                        && (show_hidden || !name.starts_with('.'))
-                })
-            })
-            .map(|e| {
-                let name = e.file_name().to_string_lossy().into_owned();
-                let trailing = if e.file_type().is_ok_and(|t| t.is_dir()) {
-                    "/"
-                } else {
-                    ""
-                };
-                format!("{dir_prefix}{name}{trailing}")
-            })
-            .sorted()
-            .collect();
-    }
-
     fn process_users(
         &mut self,
         input: &str,
@@ -1954,8 +1900,6 @@ impl Text {
         last_seen: &HashMap<Nick, DateTime<Utc>>,
         config: &Config,
     ) {
-        self.is_path = false;
-
         let autocomplete = &config.buffer.text_input.autocomplete;
 
         let Some(word) = get_word(input, cursor_position) else {
@@ -2017,8 +1961,6 @@ impl Text {
         chantypes: &[char],
         config: &Config,
     ) -> bool {
-        self.is_path = false;
-
         let autocomplete = &config.buffer.text_input.autocomplete;
 
         if let Some(input_channel) = get_word(input, cursor_position)
@@ -2097,61 +2039,6 @@ impl Text {
         } else {
             None
         }
-    }
-
-    fn path_select_at(&mut self, index: usize) -> Option<String> {
-        let item = self.filtered.get(index).cloned()?;
-        self.selected = Some(index);
-        Some(item)
-    }
-
-    fn path_view<'a, Message: Clone + 'a>(
-        &'a self,
-        on_select: impl Fn(usize) -> Message + Copy + 'a,
-    ) -> Option<Element<'a, Message>> {
-        if !self.is_path || self.filtered.is_empty() {
-            return None;
-        }
-
-        let skip = {
-            let index = self.selected.unwrap_or(0);
-            let to = index.max(MAX_SHOWN_PATH_ENTRIES - 1);
-            to.saturating_sub(MAX_SHOWN_PATH_ENTRIES - 1)
-        };
-
-        let entries: Vec<_> = self
-            .filtered
-            .iter()
-            .enumerate()
-            .skip(skip)
-            .take(MAX_SHOWN_PATH_ENTRIES)
-            .collect();
-
-        let content = |width| {
-            column(entries.iter().map(|(index, path)| {
-                let selected = Some(*index) == self.selected;
-                Element::from(
-                    button(text(path.as_str()))
-                        .width(width)
-                        .padding(6)
-                        .style(move |theme, status| {
-                            theme::button::picker(theme, status, selected)
-                        })
-                        .on_press(on_select(*index)),
-                )
-            }))
-        };
-
-        Some(
-            container(double_pass(
-                content(Length::Shrink),
-                content(Length::Fill),
-            ))
-            .padding(4)
-            .style(theme::container::tooltip)
-            .width(Length::Shrink)
-            .into(),
-        )
     }
 }
 
@@ -3344,6 +3231,192 @@ impl Emojis {
     }
 }
 
+#[derive(Debug, Clone, Default)]
+enum Paths {
+    #[default]
+    Idle,
+    Selecting {
+        filtered: Vec<String>,
+        highlighted: Option<usize>,
+    },
+}
+
+impl Paths {
+    fn process(&mut self, input: &str) {
+        use std::path::Path;
+
+        let Some((_, path)) = input.split_once(' ') else {
+            *self = Self::default();
+            return;
+        };
+
+        // Expand leading ~ to user's home directory
+        let expanded = if let Some(rest) =
+            path.strip_prefix("~/").or((path == "~").then_some(""))
+        {
+            dirs_next::home_dir().map_or_else(
+                || path.to_string(),
+                |h| format!("{}/{rest}", h.to_string_lossy()),
+            )
+        } else {
+            path.to_string()
+        };
+
+        // Split into the directory prefix and the filename prefix being type
+        let (dir_prefix, file_prefix) =
+            expanded.rfind('/').map_or(("", expanded.as_str()), |pos| {
+                (&expanded[..=pos], &expanded[pos + 1..])
+            });
+
+        let dir = if dir_prefix.is_empty() {
+            Path::new(".")
+        } else {
+            Path::new(dir_prefix)
+        };
+
+        let Ok(read_dir) = std::fs::read_dir(dir) else {
+            *self = Self::default();
+            return;
+        };
+
+        // Only show hidden entries on leading dot
+        let show_hidden = file_prefix.starts_with('.');
+
+        *self = Self::Selecting {
+            filtered: read_dir
+                .filter_map(std::result::Result::ok)
+                .filter(|e| {
+                    e.file_name().to_str().is_some_and(|name| {
+                        name.starts_with(file_prefix)
+                            && (show_hidden || !name.starts_with('.'))
+                    })
+                })
+                .map(|e| {
+                    let name = e.file_name().to_string_lossy().into_owned();
+                    let trailing = if e.file_type().is_ok_and(|t| t.is_dir()) {
+                        "/"
+                    } else {
+                        ""
+                    };
+                    format!("{dir_prefix}{name}{trailing}")
+                })
+                .sorted()
+                .collect(),
+            highlighted: None,
+        };
+    }
+
+    fn tab(&mut self, reverse: bool) -> Option<String> {
+        match self {
+            Self::Idle => None,
+            Self::Selecting {
+                filtered,
+                highlighted,
+                ..
+            } => {
+                if !filtered.is_empty() {
+                    if let Some(index) = highlighted {
+                        if reverse {
+                            if *index > 0 {
+                                *index -= 1;
+                            } else {
+                                *highlighted = None;
+                            }
+                        } else if *index < filtered.len() - 1 {
+                            *index += 1;
+                        } else {
+                            *highlighted = None;
+                        }
+                    } else {
+                        *highlighted =
+                            Some(if reverse { filtered.len() - 1 } else { 0 });
+                    }
+                }
+
+                if let Some(index) = *highlighted {
+                    filtered.get(index).cloned()
+                } else {
+                    None
+                }
+            }
+        }
+    }
+
+    fn select_at(&mut self, index: usize) -> Option<String> {
+        match self {
+            Self::Idle => None,
+            Self::Selecting {
+                filtered,
+                highlighted,
+                ..
+            } => {
+                let item = filtered.get(index).cloned()?;
+
+                *highlighted = Some(index);
+
+                Some(item)
+            }
+        }
+    }
+
+    fn view<'a, Message: Clone + 'a>(
+        &'a self,
+        on_select: impl Fn(usize) -> Message + Copy + 'a,
+    ) -> Option<Element<'a, Message>> {
+        match self {
+            Self::Idle => None,
+            Self::Selecting {
+                filtered,
+                highlighted,
+                ..
+            } => {
+                let skip = {
+                    let index = highlighted.unwrap_or(0);
+                    let to = index.max(MAX_SHOWN_PATH_ENTRIES - 1);
+                    to.saturating_sub(MAX_SHOWN_PATH_ENTRIES - 1)
+                };
+
+                let entries: Vec<_> = filtered
+                    .iter()
+                    .enumerate()
+                    .skip(skip)
+                    .take(MAX_SHOWN_PATH_ENTRIES)
+                    .collect();
+
+                let content = |width| {
+                    column(entries.iter().map(|(index, path)| {
+                        let highlighted = Some(*index) == *highlighted;
+                        Element::from(
+                            button(text(path.as_str()))
+                                .width(width)
+                                .padding(6)
+                                .style(move |theme, status| {
+                                    theme::button::picker(
+                                        theme,
+                                        status,
+                                        highlighted,
+                                    )
+                                })
+                                .on_press(on_select(*index)),
+                        )
+                    }))
+                };
+
+                Some(
+                    container(double_pass(
+                        content(Length::Shrink),
+                        content(Length::Fill),
+                    ))
+                    .padding(4)
+                    .style(theme::container::tooltip)
+                    .width(Length::Shrink)
+                    .into(),
+                )
+            }
+        }
+    }
+}
+
 fn pick_emoji(shortcode: &str, skin_tone: SkinTone) -> Option<&'static str> {
     emojis::get_by_shortcode(shortcode).map(|emoji| {
         if let Some(emoji_with_skin_tone) =
@@ -3374,7 +3447,8 @@ fn replace_word_with_text(
         {
             actions.extend(iter::repeat_n(
                 text_editor::Action::Select(text_editor::Motion::Left),
-                last_word_position + last_word.len(),
+                last_word_position
+                    + UnicodeSegmentation::graphemes(last_word, true).count(),
             ));
         }
 
@@ -3396,27 +3470,52 @@ fn replace_word_with_text(
                 };
 
             if word_bounds.contains(&cursor_position) {
-                if (cursor_position - word_bounds.start())
-                    <= (word_bounds.end() - cursor_position)
-                {
+                let mut byte_position = *word_bounds.start();
+                let graphemes_to_the_left =
+                    UnicodeSegmentation::graphemes(word, true)
+                        .take_while(|grapheme| {
+                            if byte_position < cursor_position {
+                                byte_position += grapheme.len();
+                                true
+                            } else {
+                                false
+                            }
+                        })
+                        .count();
+
+                let mut byte_position = *word_bounds.end();
+                let graphemes_to_the_right =
+                    UnicodeSegmentation::graphemes(word, true)
+                        .rev()
+                        .take_while(|grapheme| {
+                            if byte_position > cursor_position {
+                                byte_position -= grapheme.len();
+                                true
+                            } else {
+                                false
+                            }
+                        })
+                        .count();
+
+                if graphemes_to_the_left <= graphemes_to_the_right {
                     actions.extend(iter::repeat_n(
                         text_editor::Action::Move(text_editor::Motion::Left),
-                        cursor_position - word_bounds.start(),
+                        graphemes_to_the_left,
                     ));
 
                     actions.extend(iter::repeat_n(
                         text_editor::Action::Select(text_editor::Motion::Right),
-                        word_bounds.end() - word_bounds.start(),
+                        UnicodeSegmentation::graphemes(word, true).count(),
                     ));
                 } else {
                     actions.extend(iter::repeat_n(
                         text_editor::Action::Move(text_editor::Motion::Right),
-                        word_bounds.end() - cursor_position,
+                        graphemes_to_the_right,
                     ));
 
                     actions.extend(iter::repeat_n(
                         text_editor::Action::Select(text_editor::Motion::Left),
-                        word_bounds.end() - word_bounds.start(),
+                        UnicodeSegmentation::graphemes(word, true).count(),
                     ));
                 }
 
