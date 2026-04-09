@@ -173,7 +173,8 @@ pub fn quit(
 
     let content = parse_fragments_with_user(
         format!(
-            "← {} has quit{comment}",
+            "{} {} has quit{comment}",
+            config.display.direction_arrows.left,
             user.formatted(
                 config
                     .buffer
@@ -283,6 +284,7 @@ pub fn kick(
     victim: User,
     reason: Option<String>,
     channel: target::Channel,
+    config: &Config,
     casemapping: isupport::CaseMap,
     sent_time: DateTime<Utc>,
 ) -> Vec<Message> {
@@ -298,6 +300,7 @@ pub fn kick(
         true, // Broadcast of KICK is always ourself
         &reason,
         Some(channel),
+        &config.display.direction_arrows,
         casemapping,
     );
 
@@ -473,6 +476,7 @@ pub fn into_messages(
             victim,
             reason,
             channel,
+            config,
             casemapping,
             sent_time,
         ),

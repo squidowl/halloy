@@ -17,6 +17,7 @@ pub use self::actions::Actions;
 pub use self::buffer::Buffer;
 pub use self::context_menu::ContextMenu;
 pub use self::ctcp::Ctcp;
+pub use self::display::Display;
 pub use self::file_transfer::FileTransfer;
 pub use self::filehost::Filehost;
 pub use self::highlights::Highlights;
@@ -43,6 +44,7 @@ pub mod actions;
 pub mod buffer;
 pub mod context_menu;
 pub mod ctcp;
+pub mod display;
 pub mod file_transfer;
 pub mod filehost;
 pub mod highlights;
@@ -82,6 +84,7 @@ pub struct Config {
     pub highlights: Highlights,
     pub actions: Actions,
     pub ctcp: Ctcp,
+    pub display: Display,
     pub logs: Logs,
     pub platform_specific: PlatformSpecific,
     pub check_for_update_on_launch: bool,
@@ -109,6 +112,7 @@ impl Default for Config {
             highlights: Highlights::default(),
             actions: Actions::default(),
             ctcp: Ctcp::default(),
+            display: Display::default(),
             logs: Logs::default(),
             platform_specific: PlatformSpecific::default(),
             check_for_update_on_launch: true,
@@ -369,6 +373,7 @@ impl Config {
             pub highlights: Highlights,
             pub actions: Actions,
             pub ctcp: Ctcp,
+            pub display: Display,
             pub logs: Logs,
             pub platform_specific: PlatformSpecific,
             pub check_for_update_on_launch: bool,
@@ -396,6 +401,7 @@ impl Config {
                     highlights: Highlights::default(),
                     actions: Actions::default(),
                     ctcp: Ctcp::default(),
+                    display: Display::default(),
                     logs: Logs::default(),
                     platform_specific: PlatformSpecific::default(),
                     check_for_update_on_launch: true,
@@ -434,6 +440,7 @@ impl Config {
             highlights,
             actions,
             ctcp,
+            display,
             logs,
             platform_specific,
             check_for_update_on_launch,
@@ -473,6 +480,7 @@ impl Config {
             highlights,
             actions,
             ctcp,
+            display,
             logs,
             platform_specific,
             check_for_update_on_launch,

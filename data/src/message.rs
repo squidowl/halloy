@@ -2414,7 +2414,8 @@ fn content<'a>(
             Some((
                 parse_fragments_with_user(
                     format!(
-                        "← {} has left the channel{text}",
+                        "{} {} has left the channel{text}",
+                        config.display.direction_arrows.left,
                         user.formatted(
                             config
                                 .buffer
@@ -2444,7 +2445,8 @@ fn content<'a>(
                 (
                     parse_fragments_with_user(
                         format!(
-                            "→ {} has joined the channel",
+                            "{} {} has joined the channel",
+                            config.display.direction_arrows.right,
                             user.formatted(
                                 config
                                     .buffer
@@ -2486,7 +2488,15 @@ fn content<'a>(
                 .unwrap_or(raw_user);
 
             Some((
-                kick_text(user, victim, ourself, reason, None, casemapping),
+                kick_text(
+                    user,
+                    victim,
+                    ourself,
+                    reason,
+                    None,
+                    &config.display.direction_arrows,
+                    casemapping,
+                ),
                 None,
             ))
         }
@@ -3175,6 +3185,7 @@ fn kick_text(
     ourself: bool,
     reason: &Option<String>,
     channel: Option<target::Channel>,
+    direction_arrows: &crate::config::display::DirectionArrows,
     casemapping: isupport::CaseMap,
 ) -> Content {
     let target = if ourself {
@@ -3199,7 +3210,11 @@ fn kick_text(
                 kicker.nickname()
             )
         } else {
-            format!("← {target} been kicked by {}{reason}", kicker.nickname())
+            format!(
+                "{} {target} been kicked by {}{reason}",
+                direction_arrows.left,
+                kicker.nickname()
+            )
         },
         Some(&[kicker, victim].into_iter().collect()),
         casemapping,
