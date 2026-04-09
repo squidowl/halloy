@@ -62,7 +62,7 @@ pub struct Dashboard {
     theme_editor: Option<ThemeEditor>,
     notifications: notification::Notifications,
     previews: preview::Collection,
-    preview_client: Option<Arc<reqwest::Client>>,
+    http_client: Option<Arc<reqwest::Client>>,
     buffer_settings: dashboard::BufferSettings,
     pub filehost: filehost::Manager,
 }
@@ -143,7 +143,7 @@ impl Dashboard {
             theme_editor: None,
             notifications: notification::Notifications::new(config),
             previews: preview::Collection::default(),
-            preview_client: preview_client_from_config(config).map(Arc::new),
+            http_client: http_client_from_config(config).map(Arc::new),
             buffer_settings: dashboard::BufferSettings::default(),
             filehost: filehost::Manager::new(),
         };
@@ -219,7 +219,7 @@ impl Dashboard {
         config: &Config,
     ) -> Task<Message> {
         Task::batch(
-            self.visible_urls_with_preview_clients(clients, config)
+            self.visible_urls_with_preview_clients(clients)
                 .into_iter()
                 .map(|(url, client)| {
                     Task::perform(
@@ -1714,13 +1714,9 @@ impl Dashboard {
                 );
             }
             Message::ProceedWithFilehostUpload => {
-                let http_client = self
-                    .preview_client
-                    .clone()
-                    .unwrap_or_else(|| Arc::new(reqwest::Client::new()));
                 let task = self
                     .filehost
-                    .proceed(clients, http_client, &config.proxy)
+                    .proceed(clients, self.http_client.clone(), &config.proxy)
                     .map(Message::Filehost);
                 return (task, None);
             }
@@ -2488,8 +2484,7 @@ impl Dashboard {
                 }
             }
             buffer::Event::PreviewChanged => {
-                let visible =
-                    self.visible_urls_with_preview_clients(clients, config);
+                let visible = self.visible_urls_with_preview_clients(clients);
                 let tracking =
                     self.previews.keys().cloned().collect::<HashSet<_>>();
                 let missing = visible
@@ -2650,11 +2645,6 @@ impl Dashboard {
                     return (task, None);
                 };
 
-                let http_client = self
-                    .preview_client
-                    .clone()
-                    .unwrap_or_else(|| Arc::new(reqwest::Client::new()));
-
                 let pending = filehost::PendingUpload {
                     window,
                     pane_id: id,
@@ -2671,7 +2661,7 @@ impl Dashboard {
                 let (task, event) = self.filehost.upload(
                     pending,
                     clients,
-                    http_client,
+                    self.http_client.clone(),
                     &config.proxy,
                 );
 
@@ -4132,7 +4122,7 @@ impl Dashboard {
             theme_editor: None,
             notifications: notification::Notifications::new(config),
             previews: preview::Collection::default(),
-            preview_client: preview_client_from_config(config).map(Arc::new),
+            http_client: http_client_from_config(config).map(Arc::new),
             buffer_settings: data.buffer_settings.clone(),
             filehost: filehost::Manager::new(),
         };
@@ -4420,28 +4410,25 @@ impl Dashboard {
     fn visible_urls_with_preview_clients(
         &self,
         clients: &client::Map,
-        config: &Config,
     ) -> HashMap<url::Url, Arc<reqwest::Client>> {
-        let pane_map =
-            |pane: &Pane| -> Vec<(url::Url, Arc<reqwest::Client>)> {
-                let preview_client = if let Some(server) = pane.buffer.server()
-                    && config.servers.get(&server).is_some_and(
-                        |server_config| server_config.proxy.is_some(),
-                    ) {
-                    clients.get_server_http_client(&server)
-                } else {
-                    self.preview_client.clone()
-                };
-
-                if let Some(preview_client) = preview_client {
-                    pane.visible_urls()
-                        .into_iter()
-                        .map(move |url| (url.clone(), preview_client.clone()))
-                        .collect()
-                } else {
-                    vec![]
-                }
+        let pane_map = |pane: &Pane| -> Vec<(url::Url, Arc<reqwest::Client>)> {
+            let preview_client = if let Some(server) = pane.buffer.server()
+                && clients.get_server_proxy_config(&server).is_some()
+            {
+                clients.get_server_http_client(&server)
+            } else {
+                self.http_client.clone()
             };
+
+            if let Some(preview_client) = preview_client {
+                pane.visible_urls()
+                    .into_iter()
+                    .map(move |url| (url.clone(), preview_client.clone()))
+                    .collect()
+            } else {
+                vec![]
+            }
+        };
 
         self.panes
             .main
@@ -4817,13 +4804,15 @@ fn cycle_previous_unread_buffer(
         .cloned()
 }
 
-fn preview_client_from_config(config: &Config) -> Option<reqwest::Client> {
-    let preview_client = config::proxy::build_client(&config.proxy, None);
+fn http_client_from_config(config: &Config) -> Option<reqwest::Client> {
+    let http_client = config::proxy::build_client(config.proxy.as_ref(), None);
 
-    match preview_client {
-        Ok(preview_client) => Some(preview_client),
+    match http_client {
+        Ok(http_client) => Some(http_client),
         Err(error) => {
-            log::warn!("Preview fetching disabled by default: {error}");
+            log::warn!(
+                "Unable to build HTTP client, preview fetching and file upload disabled by default: {error}"
+            );
 
             None
         }
