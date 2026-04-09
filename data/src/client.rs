@@ -173,7 +173,7 @@ pub struct Client {
     anti_flood: Option<TokenBucket<message::Encoded>>,
     mode_requests: Vec<ModeRequest>,
     channel_discovery_manager: channel_discovery::Manager,
-    preview_proxy_client: Option<Arc<reqwest::Client>>,
+    http_client: Option<Arc<reqwest::Client>>, // Only Some if config.proxy.is_some()
 }
 
 impl fmt::Debug for Client {
@@ -188,18 +188,18 @@ impl Client {
         config: Arc<config::Server>,
         sender: mpsc::Sender<proto::Message>,
     ) -> Self {
-        let preview_proxy_client = if let Some(proxy) = config.proxy.as_ref() {
-            match config::proxy::build_client(proxy) {
-                Ok(preview_proxy_client) => Some(preview_proxy_client),
+        // If config.proxy.is_none() then the default HTTP client will be used,
+        // in that case http_client can be None
+        let http_client = config.proxy.as_ref().and_then(|proxy| {
+            match config::proxy::build_client(Some(proxy), None) {
+                Ok(http_client) => Some(http_client),
                 Err(error) => {
-                    log::warn!("[{server}] Preview fetching disabled: {error}");
+                    log::warn!("[{server}] Unable to build HTTP client, preview fetching and file upload disabled: {error}");
 
                     None
                 }
             }
-        } else {
-            None
-        };
+        });
 
         Self {
             server,
@@ -239,7 +239,7 @@ impl Client {
             resolved_netid: None,
             anti_flood: Some(TokenBucket::new(config.anti_flood, 10)),
             mode_requests: Vec::new(),
-            preview_proxy_client: preview_proxy_client.map(Arc::new),
+            http_client: http_client.map(Arc::new),
             config,
             channel_discovery_manager: channel_discovery::Manager::new(),
         }
@@ -4799,12 +4799,21 @@ impl Map {
         self.client(server).is_some()
     }
 
-    pub fn get_server_preview_proxy_client(
+    pub fn get_server_http_client(
         &self,
         server: &Server,
     ) -> Option<Arc<reqwest::Client>> {
         self.client(server)
-            .and_then(|client| client.preview_proxy_client.clone())
+            .and_then(|client| client.http_client.clone())
+    }
+
+    pub fn get_server_proxy_config(
+        &self,
+        server: &Server,
+    ) -> Option<&config::Proxy> {
+        self.client(server)
+            .as_ref()
+            .and_then(|client| client.config.proxy.as_ref())
     }
 
     pub fn get_seed(&self, kind: &history::Kind) -> Option<history::Seed> {

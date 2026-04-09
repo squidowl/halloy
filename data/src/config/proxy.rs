@@ -67,14 +67,18 @@ impl fmt::Display for Proxy {
     }
 }
 
-pub fn build_client(config: &Proxy) -> Result<reqwest::Client, BuildError> {
-    match config {
-        Proxy::Http {
+pub fn build_client(
+    proxy: Option<&Proxy>,
+    identity: Option<reqwest::Identity>,
+) -> Result<reqwest::Client, BuildError> {
+    let mut builder = match proxy {
+        None => reqwest::Client::builder(),
+        Some(Proxy::Http {
             host,
             port,
             username,
             password,
-        } => {
+        }) => {
             let mut proxy =
                 reqwest::Proxy::all(format!("http://{host}:{port}"))?;
 
@@ -84,14 +88,14 @@ pub fn build_client(config: &Proxy) -> Result<reqwest::Client, BuildError> {
                 proxy = proxy.basic_auth(username, password);
             }
 
-            Ok(reqwest::Client::builder().proxy(proxy).build()?)
+            reqwest::Client::builder().proxy(proxy)
         }
-        Proxy::Socks5 {
+        Some(Proxy::Socks5 {
             host,
             port,
             username,
             password,
-        } => {
+        }) => {
             let mut proxy =
                 reqwest::Proxy::all(format!("socks5://{host}:{port}"))?;
 
@@ -101,11 +105,17 @@ pub fn build_client(config: &Proxy) -> Result<reqwest::Client, BuildError> {
                 proxy = proxy.basic_auth(username, password);
             }
 
-            Ok(reqwest::Client::builder().proxy(proxy).build()?)
+            reqwest::Client::builder().proxy(proxy)
         }
         #[cfg(feature = "tor")]
-        Proxy::Tor => Err(BuildError::Tor),
+        Some(Proxy::Tor) => Err(BuildError::Tor),
+    };
+
+    if let Some(identity) = identity {
+        builder = builder.identity(identity);
     }
+
+    Ok(builder.build()?)
 }
 
 #[derive(Debug, thiserror::Error)]

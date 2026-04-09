@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use data::config::{Proxy, proxy};
 use data::target::Target;
 use data::{client, fileupload};
 use iced::Task;
@@ -67,7 +68,8 @@ impl Manager {
         &mut self,
         pending: PendingUpload,
         clients: &client::Map,
-        http_client: Arc<reqwest::Client>,
+        default_http_client: Option<Arc<reqwest::Client>>,
+        default_proxy_config: &Option<Proxy>,
     ) -> (Task<Message>, Option<Event>) {
         let upload_url = pending.upload_url.clone();
         let has_credentials = pending.has_credentials;
@@ -75,8 +77,34 @@ impl Manager {
 
         if self.known.contains(&upload_url) {
             let irc_uses_tls = clients.get_use_tls(&pending.server);
+            let (http_client, proxy_config) = if let Some(proxy_config) =
+                clients.get_server_proxy_config(&pending.server)
+            {
+                (
+                    clients.get_server_http_client(&pending.server),
+                    Some(proxy_config),
+                )
+            } else {
+                (default_http_client, default_proxy_config.as_ref())
+            };
+
+            let Some(http_client) = http_client else {
+                // Detailed HTTP client build error should already be in the logs
+                log::warn!(
+                    "[{}] File upload disabled: Unable to build HTTP client",
+                    pending.server
+                );
+                return (Task::none(), None);
+            };
+
             (
-                start_tasks(pending, clients, irc_uses_tls, http_client),
+                start_tasks(
+                    pending,
+                    clients,
+                    irc_uses_tls,
+                    http_client,
+                    proxy_config,
+                ),
                 None,
             )
         } else {
@@ -96,7 +124,8 @@ impl Manager {
     pub fn proceed(
         &mut self,
         clients: &client::Map,
-        http_client: Arc<reqwest::Client>,
+        default_http_client: Option<Arc<reqwest::Client>>,
+        default_proxy_config: &Option<proxy::Proxy>,
     ) -> Task<Message> {
         let pending = std::mem::take(&mut self.pending);
         if pending.is_empty() {
@@ -107,8 +136,26 @@ impl Manager {
             .into_iter()
             .map(|p| {
                 self.known.insert(p.upload_url.clone());
+
                 let irc_uses_tls = clients.get_use_tls(&p.server);
-                start_tasks(p, clients, irc_uses_tls, http_client.clone())
+                let (http_client, proxy_config) = if let Some(proxy_config) =
+                    clients.get_server_proxy_config(&p.server)
+                {
+                    (
+                        clients.get_server_http_client(&p.server),
+                        Some(proxy_config),
+                    )
+                } else {
+                    (default_http_client.clone(), default_proxy_config.as_ref())
+                };
+
+                let Some(http_client) = http_client else {
+                    // Detailed HTTP client build error should already be in the logs
+                    log::warn!("[{}] File upload disabled: Unable to build HTTP client", p.server);
+                    return Task::none();
+                };
+
+                start_tasks(p, clients, irc_uses_tls, http_client, proxy_config)
             })
             .collect();
 
@@ -151,6 +198,7 @@ fn start_tasks(
     clients: &client::Map,
     irc_uses_tls: bool,
     http_client: Arc<reqwest::Client>,
+    proxy_config: Option<&proxy::Proxy>,
 ) -> Task<Message> {
     let PendingUpload {
         window,
@@ -172,6 +220,7 @@ fn start_tasks(
             let http_client = http_client.clone();
             let server = server.clone();
             let target = target.clone();
+            let proxy_config = proxy_config.cloned();
 
             Task::perform(
                 async move {
@@ -181,6 +230,7 @@ fn start_tasks(
                         auth,
                         irc_uses_tls,
                         http_client,
+                        proxy_config.as_ref(),
                     );
                     futures::future::Abortable::new(fut, registration).await
                 },
