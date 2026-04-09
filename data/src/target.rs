@@ -205,6 +205,30 @@ impl fmt::Display for Target {
     }
 }
 
+impl From<User> for Target {
+    fn from(user: User) -> Self {
+        Target::Query(Query::from(user))
+    }
+}
+
+impl From<&User> for Target {
+    fn from(user: &User) -> Self {
+        Target::Query(Query::from(user))
+    }
+}
+
+impl From<Nick> for Target {
+    fn from(nick: Nick) -> Self {
+        Target::Query(Query::from(nick))
+    }
+}
+
+impl From<NickRef<'_>> for Target {
+    fn from(nickref: NickRef) -> Self {
+        Target::Query(Query::from(nickref))
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct ChannelData {
     prefixes: Vec<char>,
