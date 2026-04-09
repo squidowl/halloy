@@ -1681,9 +1681,10 @@ fn handle_client_events(
 
                 controllers.disconnect(server, error);
             }
-            Event::Reaction(encoded) => {
+            Event::Reaction(encoded, our_nick) => {
                 if let Some(reaction) = Reaction::received(
                     encoded,
+                    our_nick,
                     clients.get_server_chantypes_or_default(server),
                     clients.get_server_statusmsg_or_default(server),
                     clients.get_server_casemapping_or_default(server),
@@ -2119,18 +2120,9 @@ fn handle_direct_message(
         return;
     };
 
-    let chantypes = clients.get_server_chantypes_or_default(server);
-    let statusmsg = clients.get_server_statusmsg_or_default(server);
     let casemapping = clients.get_server_casemapping_or_default(server);
 
-    let Ok(query) = target::Query::parse(
-        user.nickname().as_str(),
-        chantypes,
-        statusmsg,
-        casemapping,
-    ) else {
-        return;
-    };
+    let query = target::Query::from(&user);
 
     let blocked = FilterChain::borrow(dashboard.get_filters())
         .filter_query(&query, server);
