@@ -170,6 +170,14 @@ impl Completion {
             .or_else(|| self.words.tab(reverse))
     }
 
+    pub fn tab_candidate_count(&self) -> Option<usize> {
+        self.commands
+            .tab_candidate_count()
+            .or_else(|| self.emojis.tab_candidate_count())
+            .or_else(|| self.paths.tab_candidate_count())
+            .or_else(|| self.words.tab_candidate_count())
+    }
+
     pub fn arrow(&mut self, arrow: Arrow) -> bool {
         let reverse = match arrow {
             Arrow::Up => true,
@@ -633,6 +641,13 @@ impl Commands {
             true
         } else {
             false
+        }
+    }
+
+    fn tab_candidate_count(&self) -> Option<usize> {
+        match self {
+            Self::Selecting { filtered, .. } => Some(filtered.len()),
+            _ => None,
         }
     }
 
@@ -2039,6 +2054,10 @@ impl Words {
                 }
             })
     }
+
+    fn tab_candidate_count(&self) -> Option<usize> {
+        Some(self.filtered.len())
+    }
 }
 
 fn away_command(max_len: Option<u16>) -> Command {
@@ -3175,6 +3194,13 @@ impl Emojis {
         }
     }
 
+    fn tab_candidate_count(&self) -> Option<usize> {
+        match self {
+            Self::Selecting { filtered, .. } => Some(filtered.len()),
+            _ => None,
+        }
+    }
+
     fn view<'a, Message: Clone + 'a>(
         &self,
         config: &Config,
@@ -3353,6 +3379,13 @@ impl Paths {
                     .and_then(|index| filtered.get(index).cloned())
                     .map(Entry::Path)
             }
+        }
+    }
+
+    fn tab_candidate_count(&self) -> Option<usize> {
+        match self {
+            Self::Selecting { filtered, .. } => Some(filtered.len()),
+            _ => None,
         }
     }
 
