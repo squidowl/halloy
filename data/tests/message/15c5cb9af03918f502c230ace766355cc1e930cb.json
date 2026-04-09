@@ -176,7 +176,7 @@
     "content": {
       "Fragments": [
         {
-          "Text": "⟶ "
+          "Text": "→ "
         },
         {
           "User": [
@@ -190,7 +190,7 @@
       ]
     },
     "id": null,
-    "text": "⟶ WiZ has joined the channel",
+    "text": "→ WiZ has joined the channel",
     "hidden_urls": [],
     "is_echo": false
   },
@@ -216,7 +216,7 @@
     "content": {
       "Fragments": [
         {
-          "Text": "⟵ "
+          "Text": "← "
         },
         {
           "User": [
@@ -230,7 +230,7 @@
       ]
     },
     "id": null,
-    "text": "⟵ `whammer` (warhammer@40k) has left the channel",
+    "text": "← `whammer` (warhammer@40k) has left the channel",
     "hidden_urls": [],
     "is_echo": false
   },
@@ -757,7 +757,7 @@
     "content": {
       "Fragments": [
         {
-          "Text": "⟵ "
+          "Text": "← "
         },
         {
           "User": [
@@ -771,7 +771,7 @@
       ]
     },
     "id": null,
-    "text": "⟵ nieve (snow@yeti) has quit (see you later our_nick)",
+    "text": "← nieve (snow@yeti) has quit (see you later our_nick)",
     "hidden_urls": [],
     "is_echo": false
   },
@@ -797,7 +797,7 @@
     "content": {
       "Fragments": [
         {
-          "Text": "⟵ "
+          "Text": "← "
         },
         {
           "User": [
@@ -811,7 +811,7 @@
       ]
     },
     "id": null,
-    "text": "⟵ nieve (snow@yeti) has quit (see you later our_nick)",
+    "text": "← nieve (snow@yeti) has quit (see you later our_nick)",
     "hidden_urls": [],
     "is_echo": false
   },

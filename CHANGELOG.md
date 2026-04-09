@@ -17,6 +17,7 @@ Added:
 - Setting to control whether unread indicators are shown on open buffers (`sidebar.unread_indicator.show_on_open_buffers`)
 - Ability to add optional arguments in custom aliases (`/msg ChanServ op $channel $1?-`)
 - `/invite` command tooltip and validation provided, and display of `INVITE`-related messages improved
+- Ability to customize the arrows used for directional messages such as join, part, quit, kick, and CTCP messages.
 
 Changed:
 
