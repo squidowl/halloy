@@ -162,37 +162,12 @@ impl Completion {
         }
     }
 
-    pub fn tab(&mut self, reverse: bool) -> Option<Entry> {
-        if self.commands.tab(reverse) {
-            return None;
-        }
-
-        if self.emojis.tab(reverse) {
-            return None;
-        }
-
-        if let Some(path) = self.paths.tab(reverse).map(Entry::Path) {
-            return Some(path);
-        }
-
-        self.words.tab(reverse).map_or(
-            {
-                if self.words.filtered.is_empty() {
-                    None
-                } else {
-                    Some(Entry::Word {
-                        next: self.words.prompt.clone(),
-                        append_suffix: false,
-                    })
-                }
-            },
-            |next| {
-                Some(Entry::Word {
-                    next,
-                    append_suffix: true,
-                })
-            },
-        )
+    pub fn tab(&mut self, reverse: bool, config: &Config) -> Option<Entry> {
+        self.commands
+            .tab(reverse)
+            .or_else(|| self.emojis.tab(reverse, config))
+            .or_else(|| self.paths.tab(reverse))
+            .or_else(|| self.words.tab(reverse))
     }
 
     pub fn arrow(&mut self, arrow: Arrow) -> bool {
@@ -201,11 +176,11 @@ impl Completion {
             Arrow::Down => false,
         };
 
-        if self.commands.tab(reverse) {
+        if self.commands.cycle(reverse) {
             return true;
         }
 
-        if self.emojis.tab(reverse) {
+        if self.emojis.cycle(reverse) {
             return true;
         }
 
@@ -435,7 +410,7 @@ impl Commands {
                     ));
 
                     *self = Self::Selecting {
-                        highlighted: Some(0),
+                        highlighted: None,
                         filtered,
                     };
                 }
@@ -606,12 +581,8 @@ impl Commands {
     }
 
     fn select(&mut self) -> Option<Command> {
-        let index = if let Self::Selecting {
-            highlighted: Some(index),
-            ..
-        } = self
-        {
-            *index
+        let index = if let Self::Selecting { highlighted, .. } = self {
+            highlighted.unwrap_or(0)
         } else {
             return None;
         };
@@ -635,7 +606,23 @@ impl Commands {
         None
     }
 
-    fn tab(&mut self, reverse: bool) -> bool {
+    fn tab(&mut self, reverse: bool) -> Option<Entry> {
+        if let Self::Selecting {
+            highlighted,
+            filtered,
+        } = self
+        {
+            selecting_tab(highlighted, filtered, reverse);
+
+            highlighted
+                .and_then(|index| filtered.get(index).map(|(_, c)| c.clone()))
+                .map(Entry::Command)
+        } else {
+            None
+        }
+    }
+
+    fn cycle(&mut self, reverse: bool) -> bool {
         if let Self::Selecting {
             highlighted,
             filtered,
@@ -2014,7 +2001,7 @@ impl Words {
         }
     }
 
-    fn tab(&mut self, reverse: bool) -> Option<String> {
+    fn tab(&mut self, reverse: bool) -> Option<Entry> {
         if !self.filtered.is_empty() {
             if let Some(index) = &mut self.selected {
                 if reverse {
@@ -2034,11 +2021,23 @@ impl Words {
             }
         }
 
-        if let Some(index) = self.selected {
-            self.filtered.get(index).cloned()
-        } else {
-            None
-        }
+        self.selected
+            .and_then(|index| {
+                self.filtered.get(index).cloned().map(|next| Entry::Word {
+                    next,
+                    append_suffix: true,
+                })
+            })
+            .or_else(|| {
+                if self.filtered.is_empty() {
+                    None
+                } else {
+                    Some(Entry::Word {
+                        next: self.prompt.clone(),
+                        append_suffix: false,
+                    })
+                }
+            })
     }
 }
 
@@ -3113,18 +3112,14 @@ impl Emojis {
             .to_lowercase();
 
         *self = Emojis::Selecting {
-            highlighted: Some(0),
+            highlighted: None,
             filtered: emoji::matching_shortcodes(&input_shortcode),
         };
     }
 
     fn select(&mut self, config: &Config) -> Option<String> {
-        let index = if let Self::Selecting {
-            highlighted: Some(index),
-            ..
-        } = self
-        {
-            *index
+        let index = if let Self::Selecting { highlighted, .. } = self {
+            highlighted.unwrap_or(0)
         } else {
             return None;
         };
@@ -3145,7 +3140,28 @@ impl Emojis {
         None
     }
 
-    fn tab(&mut self, reverse: bool) -> bool {
+    fn tab(&mut self, reverse: bool, config: &Config) -> Option<Entry> {
+        if let Self::Selecting {
+            highlighted,
+            filtered,
+        } = self
+        {
+            selecting_tab(highlighted, filtered, reverse);
+
+            highlighted.and_then(|index| {
+                filtered
+                    .get(index)
+                    .and_then(|shortcode| {
+                        pick_emoji(shortcode, config.buffer.emojis.skin_tone)
+                    })
+                    .map(|emoji| Entry::Emoji(emoji.to_string()))
+            })
+        } else {
+            None
+        }
+    }
+
+    fn cycle(&mut self, reverse: bool) -> bool {
         if let Self::Selecting {
             highlighted,
             filtered,
@@ -3306,7 +3322,7 @@ impl Paths {
         };
     }
 
-    fn tab(&mut self, reverse: bool) -> Option<String> {
+    fn tab(&mut self, reverse: bool) -> Option<Entry> {
         match self {
             Self::Idle => None,
             Self::Selecting {
@@ -3333,11 +3349,9 @@ impl Paths {
                     }
                 }
 
-                if let Some(index) = *highlighted {
-                    filtered.get(index).cloned()
-                } else {
-                    None
-                }
+                highlighted
+                    .and_then(|index| filtered.get(index).cloned())
+                    .map(Entry::Path)
             }
         }
     }
