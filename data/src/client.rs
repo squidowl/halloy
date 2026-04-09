@@ -117,7 +117,7 @@ pub enum Message {
 pub enum Event {
     Single(message::Encoded, Nick),
     PrivOrNotice(message::Encoded, Nick, bool),
-    Reaction(message::Encoded),
+    Reaction(message::Encoded, Nick),
     WithTarget(message::Encoded, Nick, message::Target),
     Broadcast(Broadcast),
     FileTransferRequest(file_transfer::ReceiveRequest),
@@ -1039,7 +1039,10 @@ impl Client {
                 }
             }
             _ if is_reaction(&message) => {
-                return Ok(vec![Event::Reaction(message)]);
+                return Ok(vec![Event::Reaction(
+                    message,
+                    self.nickname().to_owned(),
+                )]);
             }
             // Reroute whois, whowas, mode, and invite responses
             Command::Numeric(
@@ -2998,7 +3001,7 @@ impl Client {
         } else {
             match &message.command {
                 _ if is_reaction(&message) => {
-                    vec![Event::Reaction(message)]
+                    vec![Event::Reaction(message, self.nickname().to_owned())]
                 }
                 Command::NICK(_) => batch_target
                     .as_channel()
@@ -4148,7 +4151,7 @@ fn continue_chathistory_between(
             | Event::PrivOrNotice(message, _, _)
             | Event::WithTarget(message, _, _)
             | Event::DirectMessage(message, _, _)
-            | Event::Reaction(message) => match end_message_reference {
+            | Event::Reaction(message, _) => match end_message_reference {
                 MessageReference::MessageId(_) => {
                     message.message_id().map(MessageReference::MessageId)
                 }
@@ -4197,7 +4200,7 @@ fn continue_chathistory_targets(
             | Event::PrivOrNotice(_, _, _)
             | Event::WithTarget(_, _, _)
             | Event::DirectMessage(_, _, _)
-            | Event::Reaction(_)
+            | Event::Reaction(_, _)
             | Event::Broadcast(_)
             | Event::FileTransferRequest(_)
             | Event::UpdateReadMarker(_, _)

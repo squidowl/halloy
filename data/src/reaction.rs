@@ -26,6 +26,7 @@ pub struct Context {
 impl Reaction {
     pub fn received(
         message: Encoded,
+        our_nick: Nick,
         chantypes: &[char],
         statusmsg: &[char],
         casemapping: isupport::CaseMap,
@@ -57,6 +58,13 @@ impl Reaction {
             return None;
         };
 
+        let target =
+            if casemapping.normalize(&target) == our_nick.as_normalized_str() {
+                Target::from(&user)
+            } else {
+                Target::parse(&target, chantypes, statusmsg, casemapping)
+            };
+
         Some(Context {
             inner: Reaction {
                 sender: Nick::from(user),
@@ -64,7 +72,7 @@ impl Reaction {
                 unreact,
             },
             in_reply_to,
-            target: Target::parse(&target, chantypes, statusmsg, casemapping),
+            target,
             server_time,
         })
     }
