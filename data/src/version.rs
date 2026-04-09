@@ -42,19 +42,11 @@ pub async fn latest_remote_version(
         tag_name: String,
     }
 
-    let client = if let Some(proxy) = proxy {
-        // If the proxy fails to build it should be logged when the
-        // preview client is created, we can handle it silently here.
-        config::proxy::build_client(&proxy).ok()?
-    } else {
-        reqwest::Client::builder()
-            .user_agent("halloy")
-            .build()
-            .ok()?
-    };
+    let client = config::proxy::build_client(proxy.as_ref(), None).ok()?;
 
     let response = client
         .get(LATEST_REMOTE_RELEASE_URL)
+        .header(reqwest::header::USER_AGENT, "halloy")
         .header(reqwest::header::ACCEPT, "application/vnd.github.v3+json")
         .send()
         .await

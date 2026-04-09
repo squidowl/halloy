@@ -10,6 +10,7 @@ use tokio_util::io::ReaderStream;
 use url::Url;
 
 use crate::config::server::Sasl;
+use crate::config::{self, proxy};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -25,6 +26,8 @@ pub enum Error {
     NoLocation,
     #[error("client certificate error: {0}")]
     ClientCert(String),
+    #[error("client build error: {0}")]
+    ClientBuildError(#[from] proxy::BuildError),
 }
 
 #[derive(Debug)]
@@ -70,6 +73,7 @@ pub async fn upload(
     auth: Option<Auth>,
     irc_uses_tls: bool,
     client: Arc<Client>,
+    proxy_config: Option<&proxy::Proxy>,
 ) -> Result<String, Error> {
     let base =
         Url::parse(upload_url).map_err(|e| Error::InvalidUri(e.to_string()))?;
@@ -113,7 +117,10 @@ pub async fn upload(
 
     let (external_client, auth_header) = match &auth {
         Some(Auth::External { cert, key }) => (
-            Some(sasl_external_client(cert, key.as_deref()).await?),
+            Some(
+                sasl_external_client(cert, key.as_deref(), proxy_config)
+                    .await?,
+            ),
             None,
         ),
         Some(Auth::Basic { username, password }) => {
@@ -121,7 +128,7 @@ pub async fn upload(
         }
         None => (None, None),
     };
-    let upload_client = external_client.as_ref().map_or(&*client, |c| c);
+    let upload_client = external_client.as_ref().unwrap_or(&client);
 
     log::debug!("uploading {file_name} to {base}");
 
@@ -179,6 +186,7 @@ fn content_disposition(file_name: &str) -> String {
 async fn sasl_external_client(
     cert: &Path,
     key: Option<&Path>,
+    proxy_config: Option<&proxy::Proxy>,
 ) -> Result<reqwest::Client, Error> {
     let cert_bytes = tokio::fs::read(cert).await?;
     let pem = if let Some(key_path) = key {
@@ -190,10 +198,9 @@ async fn sasl_external_client(
 
     let identity = reqwest::tls::Identity::from_pem(&pem)
         .map_err(|e: reqwest::Error| Error::ClientCert(e.to_string()))?;
-    reqwest::Client::builder()
-        .identity(identity)
-        .build()
-        .map_err(Error::Http)
+
+    config::proxy::build_client(proxy_config, Some(identity))
+        .map_err(Error::ClientBuildError)
 }
 
 fn basic_auth_header(username: &str, password: &str) -> String {
