@@ -71,6 +71,13 @@ static URL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
         r#"*\("#,
         URL_PATH_NO_CLOSE_PAREN,
         r#"*\)"#,
+        r#"(?:"#,
+        URL_PATH,
+        r#"*"#,
+        URL_PATH_EXC_PUNC,
+        r#"|"#,
+        URL_PATH_EXC_PUNC,
+        r#"?)?"#,
         r#"|"#,
         URL_PATH,
         r#"*"#,
@@ -3588,6 +3595,44 @@ pub mod tests {
         assert_eq!(
             canonical.as_str(),
             "https://en.wiktionary.org/wiki/%E7%99%BE%E8%81%9E%E3%81%AF%E4%B8%80%E8%A6%8B%E3%81%AB%E5%A6%82%E3%81%8B%E3%81%9A"
+        );
+    }
+
+    #[test]
+    fn fragment_url_preserves_percent_encoded_segments_after_parentheses() {
+        let Content::Fragments(fragments) = parse_fragments(
+            "https://billwurtz.com/(What)%20Love%20Is.mp3".to_string(),
+        ) else {
+            panic!("expected fragments");
+        };
+
+        let [Fragment::Url(canonical, raw)] = fragments.as_slice() else {
+            panic!("expected single Url fragment");
+        };
+
+        assert_eq!(raw, "https://billwurtz.com/(What)%20Love%20Is.mp3");
+        assert_eq!(
+            canonical.as_str(),
+            "https://billwurtz.com/(What)%20Love%20Is.mp3"
+        );
+    }
+
+    #[test]
+    fn fragment_url_with_extra_closing_paren_in_path() {
+        let Content::Fragments(fragments) = parse_fragments(
+            "https://billwurtz.com/(What)%20Lov)e%20Is.mp3".to_string(),
+        ) else {
+            panic!("expected fragments");
+        };
+
+        let [Fragment::Url(canonical, raw)] = fragments.as_slice() else {
+            panic!("expected single Url fragment, got {fragments:?}");
+        };
+
+        assert_eq!(raw, "https://billwurtz.com/(What)%20Lov)e%20Is.mp3");
+        assert_eq!(
+            canonical.as_str(),
+            "https://billwurtz.com/(What)%20Lov)e%20Is.mp3"
         );
     }
 
