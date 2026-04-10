@@ -2188,18 +2188,21 @@ impl Dashboard {
                                 supports_echoes,
                             ) {
                                 for message in messages {
-                                    if let Some(task) =
+                                    let history_tasks =
                                         self.history.record_message(
                                             input.server(),
                                             message,
                                             &config.buffer,
-                                        )
-                                    {
-                                        tasks.push(Task::perform(
-                                            task,
-                                            Message::History,
-                                        ));
-                                    }
+                                        );
+
+                                    tasks.extend(
+                                        history_tasks.into_iter().map(|task| {
+                                            Task::perform(
+                                                task,
+                                                Message::History,
+                                            )
+                                        }),
+                                    );
                                 }
                             }
                         }
@@ -2269,18 +2272,21 @@ impl Dashboard {
                                 supports_echoes,
                             ) {
                                 for message in messages {
-                                    if let Some(task) =
+                                    let history_tasks =
                                         self.history.record_message(
                                             input.server(),
                                             message,
                                             &config.buffer,
-                                        )
-                                    {
-                                        tasks.push(Task::perform(
-                                            task,
-                                            Message::History,
-                                        ));
-                                    }
+                                        );
+
+                                    tasks.extend(
+                                        history_tasks.into_iter().map(|task| {
+                                            Task::perform(
+                                                task,
+                                                Message::History,
+                                            )
+                                        }),
+                                    );
                                 }
                             }
                         }
@@ -3264,13 +3270,13 @@ impl Dashboard {
         message: data::Message,
         buffer_config: &config::Buffer,
     ) -> Task<Message> {
-        if let Some(task) =
-            self.history.record_message(server, message, buffer_config)
-        {
-            Task::perform(task, Message::History)
-        } else {
-            Task::none()
-        }
+        let tasks = self.history.record_message(server, message, buffer_config);
+
+        Task::batch(
+            tasks
+                .into_iter()
+                .map(|task| Task::perform(task, Message::History)),
+        )
     }
 
     pub fn record_reaction(
@@ -3314,16 +3320,18 @@ impl Dashboard {
         message: data::Message,
         buffer_config: &config::Buffer,
     ) -> Task<Message> {
-        if let Some(task) = self.history.block_and_record_message(
+        let tasks = self.history.block_and_record_message(
             server,
             casemapping,
             message,
             buffer_config,
-        ) {
-            Task::perform(task, Message::History)
-        } else {
-            Task::none()
-        }
+        );
+
+        Task::batch(
+            tasks
+                .into_iter()
+                .map(|task| Task::perform(task, Message::History)),
+        )
     }
 
     pub fn record_log(&mut self, record: data::log::Record) -> Task<Message> {

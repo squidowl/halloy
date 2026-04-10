@@ -115,10 +115,6 @@ pub fn reroute_private_target(
     }
 }
 
-pub fn is_rerouted_private_message(message: &Message) -> bool {
-    message.rerouted_from.is_some()
-}
-
 #[derive(Debug, Clone)]
 pub struct Encoded(pub(crate) proto::Message);
 
@@ -330,7 +326,6 @@ impl Message {
         if matches!(self.direction, Direction::Sent)
             || self.is_echo
             || matches!(self.target.source(), Source::Internal(_))
-            || is_rerouted_private_message(self)
         {
             return false;
         } else if let Source::Server(Some(source)) = self.target.source()
@@ -346,6 +341,10 @@ impl Message {
         }
 
         true
+    }
+
+    pub fn is_rerouted(&self) -> bool {
+        self.rerouted_from.is_some()
     }
 
     pub fn can_condense(

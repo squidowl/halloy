@@ -74,16 +74,34 @@ impl Kind {
     }
 
     pub fn from_server_message(
-        server: Server,
+        server: &Server,
         message: &Message,
     ) -> Option<Self> {
-        match &message.target {
-            message::Target::Server { .. } => Some(Self::Server(server)),
+        Self::from_server_message_target(server, &message.target)
+    }
+
+    pub fn from_server_message_rerouted_from(
+        server: &Server,
+        message: &Message,
+    ) -> Option<Self> {
+        message.rerouted_from.as_ref().and_then(|rerouted_from| {
+            Self::from_server_message_target(server, rerouted_from)
+        })
+    }
+
+    fn from_server_message_target(
+        server: &Server,
+        target: &message::Target,
+    ) -> Option<Self> {
+        match target {
+            message::Target::Server { .. } => {
+                Some(Self::Server(server.clone()))
+            }
             message::Target::Channel { channel, .. } => {
-                Some(Self::Channel(server, channel.clone()))
+                Some(Self::Channel(server.clone(), channel.clone()))
             }
             message::Target::Query { query, .. } => {
-                Some(Self::Query(server, query.clone()))
+                Some(Self::Query(server.clone(), query.clone()))
             }
             message::Target::Logs { .. } => None,
             message::Target::Highlights { .. } => None,
@@ -216,9 +234,16 @@ pub async fn overwrite(
     kind: &Kind,
     messages: &[Message],
     read_marker: Option<ReadMarker>,
+    chathistory_references: Option<MessageReferences>,
 ) -> Result<(), Error> {
     if messages.is_empty() {
-        return metadata::save(kind, messages, read_marker).await;
+        return metadata::save(
+            kind,
+            messages,
+            read_marker,
+            chathistory_references,
+        )
+        .await;
     }
 
     let latest = &messages[messages.len().saturating_sub(MAX_MESSAGES)..];
@@ -228,7 +253,7 @@ pub async fn overwrite(
 
     fs::write(path, &compressed).await?;
 
-    metadata::save(kind, latest, read_marker).await?;
+    metadata::save(kind, latest, read_marker, chathistory_references).await?;
 
     Ok(())
 }
@@ -238,6 +263,7 @@ pub async fn append(
     seed: Option<Seed>,
     mut messages: Vec<Message>,
     read_marker: Option<ReadMarker>,
+    chathistory_references: Option<MessageReferences>,
     pending_reactions: HashMap<message::Id, reaction::Pending>,
 ) -> Result<(), Error> {
     let loaded = load(kind.clone(), seed).await?;
@@ -255,7 +281,7 @@ pub async fn append(
         insert_message(&mut all_messages, message);
     });
 
-    overwrite(kind, &all_messages, read_marker).await
+    overwrite(kind, &all_messages, read_marker, chathistory_references).await
 }
 
 pub async fn delete(kind: &Kind) -> Result<(), Error> {
@@ -322,6 +348,7 @@ pub enum History {
         last_updated_at: Option<Instant>,
         read_marker: Option<ReadMarker>,
         display_read_marker: Option<ReadMarker>,
+        chathistory_references: Option<MessageReferences>,
         last_seen: HashMap<Nick, DateTime<Utc>>,
         cleared: bool,
     },
@@ -597,6 +624,7 @@ impl History {
                 messages,
                 last_updated_at,
                 read_marker,
+                chathistory_references,
                 pending_reactions,
                 ..
             } => {
@@ -609,6 +637,7 @@ impl History {
                     let kind = kind.clone();
                     let messages = std::mem::take(messages);
                     let read_marker = *read_marker;
+                    let chathistory_references = chathistory_references.clone();
                     let pending_reactions = std::mem::take(pending_reactions);
 
                     *last_updated_at = None;
@@ -620,6 +649,7 @@ impl History {
                                 seed,
                                 messages,
                                 read_marker,
+                                chathistory_references,
                                 pending_reactions,
                             )
                             .await
@@ -635,6 +665,7 @@ impl History {
                 messages,
                 last_updated_at,
                 read_marker,
+                chathistory_references,
                 ..
             } => {
                 if let Some(last_received) = *last_updated_at
@@ -646,6 +677,7 @@ impl History {
                 {
                     let kind = kind.clone();
                     let read_marker = *read_marker;
+                    let chathistory_references = chathistory_references.clone();
                     *last_updated_at = None;
 
                     if messages.len() > MAX_MESSAGES {
@@ -658,7 +690,13 @@ impl History {
 
                     return Some(
                         async move {
-                            overwrite(&kind, &messages, read_marker).await
+                            overwrite(
+                                &kind,
+                                &messages,
+                                read_marker,
+                                chathistory_references,
+                            )
+                            .await
                         }
                         .boxed(),
                     );
@@ -678,6 +716,7 @@ impl History {
                 kind,
                 messages,
                 read_marker,
+                chathistory_references,
                 last_seen,
                 ..
             } => {
@@ -689,7 +728,8 @@ impl History {
                 let max_triggers_highlight =
                     metadata::latest_triggers_highlight(messages);
                 let chathistory_references =
-                    metadata::latest_can_reference(messages);
+                    metadata::latest_can_reference(messages)
+                        .max(chathistory_references.clone());
 
                 let full_history = std::mem::replace(
                     self,
@@ -700,7 +740,7 @@ impl History {
                         read_marker,
                         max_triggers_unread,
                         max_triggers_highlight,
-                        chathistory_references,
+                        chathistory_references: chathistory_references.clone(),
                         last_seen,
                         pending_reactions: HashMap::new(),
                     },
@@ -711,9 +751,15 @@ impl History {
                     | History::Full { kind, messages, .. } => (kind, messages),
                 };
 
-                Some(
-                    async move { overwrite(&kind, &messages, read_marker).await },
-                )
+                Some(async move {
+                    overwrite(
+                        &kind,
+                        &messages,
+                        read_marker,
+                        chathistory_references,
+                    )
+                    .await
+                })
             }
         }
     }
@@ -724,18 +770,30 @@ impl History {
                 kind,
                 messages,
                 read_marker,
+                chathistory_references,
                 pending_reactions,
                 ..
             } => {
-                append(&kind, seed, messages, read_marker, pending_reactions)
-                    .await
+                append(
+                    &kind,
+                    seed,
+                    messages,
+                    read_marker,
+                    chathistory_references,
+                    pending_reactions,
+                )
+                .await
             }
             History::Full {
                 kind,
                 messages,
                 read_marker,
+                chathistory_references,
                 ..
-            } => overwrite(&kind, &messages, read_marker).await,
+            } => {
+                overwrite(&kind, &messages, read_marker, chathistory_references)
+                    .await
+            }
         }
     }
 
@@ -783,7 +841,9 @@ impl History {
         match self {
             History::Partial { messages, .. }
             | History::Full { messages, .. } => {
-                messages.iter().find(|message| message.can_reference())
+                messages.iter().find(|message| {
+                    message.can_reference() && !message.is_rerouted()
+                })
             }
         }
     }
@@ -792,36 +852,64 @@ impl History {
         &self,
         server_time: DateTime<Utc>,
     ) -> Option<MessageReferences> {
-        match self {
+        let (messages, chathistory_references) = match self {
             History::Partial {
                 messages,
                 chathistory_references,
                 ..
-            } => messages
-                .iter()
-                .rev()
-                .find(|message| {
-                    message.can_reference() && message.server_time < server_time
-                })
-                .map_or(
-                    if chathistory_references.as_ref().is_some_and(
-                        |chathistory_references| {
-                            chathistory_references.timestamp < server_time
-                        },
-                    ) {
-                        chathistory_references.clone()
-                    } else {
-                        None
+            } => (messages, chathistory_references),
+            History::Full {
+                messages,
+                chathistory_references,
+                ..
+            } => (messages, chathistory_references),
+        };
+
+        messages
+            .iter()
+            .rev()
+            .find(|message| {
+                message.can_reference()
+                    && !message.is_rerouted()
+                    && message.server_time < server_time
+            })
+            .map(Message::references)
+            .max(
+                if chathistory_references.as_ref().is_some_and(
+                    |chathistory_references| {
+                        chathistory_references.timestamp < server_time
                     },
-                    |message| Some(message.references()),
-                ),
-            History::Full { messages, .. } => messages
-                .iter()
-                .rev()
-                .find(|message| {
-                    message.can_reference() && message.server_time < server_time
-                })
-                .map(Message::references),
+                ) {
+                    chathistory_references.clone()
+                } else {
+                    None
+                },
+            )
+    }
+
+    pub fn update_chathistory_references(
+        &mut self,
+        chathistory_references: MessageReferences,
+    ) {
+        let (stored, last_updated_at) = match self {
+            History::Partial {
+                chathistory_references: stored_chathistory_references,
+                last_updated_at,
+                ..
+            } => (stored_chathistory_references, last_updated_at),
+            History::Full {
+                chathistory_references: stored_chathistory_references,
+                last_updated_at,
+                ..
+            } => (stored_chathistory_references, last_updated_at),
+        };
+
+        if stored
+            .as_ref()
+            .is_none_or(|stored| chathistory_references > *stored)
+        {
+            *stored = Some(chathistory_references);
+            *last_updated_at = Some(Instant::now());
         }
     }
 
