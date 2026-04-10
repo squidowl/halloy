@@ -1329,6 +1329,7 @@ impl State {
                                     text_editor::Motion::DocumentEnd,
                                 ),
                             );
+                            // insert a space if there is none immediately before the URL
                             if !self.input_content.text().trim_end().is_empty()
                             {
                                 self.input_content.perform(
