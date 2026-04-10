@@ -3618,6 +3618,25 @@ pub mod tests {
     }
 
     #[test]
+    fn fragment_url_with_extra_closing_paren_in_path() {
+        let Content::Fragments(fragments) = parse_fragments(
+            "https://billwurtz.com/(What)%20Lov)e%20Is.mp3".to_string(),
+        ) else {
+            panic!("expected fragments");
+        };
+
+        let [Fragment::Url(canonical, raw)] = fragments.as_slice() else {
+            panic!("expected single Url fragment, got {fragments:?}");
+        };
+
+        assert_eq!(raw, "https://billwurtz.com/(What)%20Lov)e%20Is.mp3");
+        assert_eq!(
+            canonical.as_str(),
+            "https://billwurtz.com/(What)%20Lov)e%20Is.mp3"
+        );
+    }
+
+    #[test]
     fn fragments_with_users_parsing() {
         let casemapping = isupport::CaseMap::default();
         let tests = [(
