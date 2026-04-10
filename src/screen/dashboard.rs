@@ -20,9 +20,9 @@ use data::message::{self, Broadcast};
 use data::rate_limit::TokenPriority;
 use data::target::{self, Target};
 use data::{
-    Config, Notification, Server, User, Version, client, command, config,
-    environment, file_transfer, history, preview, reaction, redaction, server,
-    stream,
+    Config, Notification, Server, User, Version, cache, client, command,
+    config, environment, file_transfer, history, preview, reaction, redaction,
+    server, stream,
 };
 use iced::widget::pane_grid::{self, PaneGrid};
 use iced::widget::{Space, center, column, container, row, stack, text};
@@ -67,6 +67,7 @@ pub struct Dashboard {
     theme_editor: Option<ThemeEditor>,
     notifications: notification::Notifications,
     previews: preview::Collection,
+    previews_cache: Arc<cache::FileCache>,
     typing_animation: Option<buffer::typing::Animation>,
     http_client: Option<Arc<reqwest::Client>>,
     buffer_settings: dashboard::BufferSettings,
@@ -150,6 +151,7 @@ impl Dashboard {
             theme_editor: None,
             notifications: notification::Notifications::new(config),
             previews: preview::Collection::default(),
+            previews_cache: Arc::new(preview_cache(&config.preview)),
             typing_animation: None,
             http_client: http_client_from_config(config).map(Arc::new),
             buffer_settings: dashboard::BufferSettings::default(),
@@ -245,6 +247,7 @@ impl Dashboard {
                             url.clone(),
                             client.clone(),
                             config.preview.clone(),
+                            self.previews_cache.clone(),
                         ),
                         move |result| {
                             Message::LoadPreview((url.clone(), result))
@@ -2505,6 +2508,7 @@ impl Dashboard {
                                     url.clone(),
                                     preview_client.clone(),
                                     config.preview.clone(),
+                                    self.previews_cache.clone(),
                                 ),
                                 move |result| {
                                     Message::LoadPreview((url.clone(), result))
@@ -4178,6 +4182,7 @@ impl Dashboard {
             theme_editor: None,
             notifications: notification::Notifications::new(config),
             previews: preview::Collection::default(),
+            previews_cache: Arc::new(preview_cache(&config.preview)),
             typing_animation: None,
             http_client: http_client_from_config(config).map(Arc::new),
             buffer_settings: data.buffer_settings.clone(),
@@ -4901,4 +4906,17 @@ fn http_client_from_config(config: &Config) -> Option<reqwest::Client> {
             None
         }
     }
+}
+
+fn preview_cache(config: &config::Preview) -> cache::FileCache {
+    let root = environment::cache_dir().join("previews");
+
+    cache::FileCache::new(
+        root.clone(),
+        cache::TrimConfig::new(
+            cache::blob_dir_from_root(&root),
+            config.request.image_cache.max_size_bytes(),
+            config.request.image_cache.trim_interval,
+        ),
+    )
 }
