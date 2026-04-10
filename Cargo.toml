@@ -90,6 +90,7 @@ irc = { version = "0.1.0", path = "irc" }
 
 signal-hook = "0.3.18"
 notify-rust = "4.11"
+ksni = "0.3.4"
 fern = "0.7.1"
 unicode-segmentation = "1.6"
 open = "5.0.1"
