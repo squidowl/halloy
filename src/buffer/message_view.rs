@@ -375,8 +375,7 @@ impl<'a> ChannelQueryLayout<'a> {
             .into_iter()
             .flatten()
             .find(|current_user| *current_user == user);
-        let rerouted_private =
-            data::message::is_rerouted_private_message(message);
+        let rerouted_private = message.is_rerouted();
         let is_user_offline = if rerouted_private {
             false
         } else {

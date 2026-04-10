@@ -109,7 +109,7 @@ pub fn latest_can_reference(messages: &[Message]) -> Option<MessageReferences> {
     messages
         .iter()
         .rev()
-        .find(|message| message.can_reference())
+        .find(|message| message.can_reference() && !message.is_rerouted())
         .map(Message::references)
 }
 
@@ -127,12 +127,14 @@ pub async fn save(
     kind: &Kind,
     messages: &[Message],
     read_marker: Option<ReadMarker>,
+    chathistory_references: Option<MessageReferences>,
 ) -> Result<(), Error> {
     let bytes = serde_json::to_vec(&Metadata {
         read_marker,
         last_triggers_unread: latest_triggers_unread(messages),
         last_triggers_highlight: latest_triggers_highlight(messages),
-        chathistory_references: latest_can_reference(messages),
+        chathistory_references: latest_can_reference(messages)
+            .max(chathistory_references),
     })?;
 
     let path = path(kind).await?;
@@ -142,7 +144,35 @@ pub async fn save(
     Ok(())
 }
 
-pub async fn update(
+pub async fn update_chathistory_references(
+    kind: &Kind,
+    chathistory_references: &MessageReferences,
+) -> Result<(), Error> {
+    let metadata = load(kind.clone()).await?;
+
+    if metadata.chathistory_references.is_some_and(
+        |metadata_chathistory_references| {
+            metadata_chathistory_references >= *chathistory_references
+        },
+    ) {
+        return Ok(());
+    }
+
+    let bytes = serde_json::to_vec(&Metadata {
+        read_marker: metadata.read_marker,
+        last_triggers_unread: metadata.last_triggers_unread,
+        last_triggers_highlight: metadata.last_triggers_highlight,
+        chathistory_references: Some(chathistory_references.clone()),
+    })?;
+
+    let path = path(kind).await?;
+
+    fs::write(path, &bytes).await?;
+
+    Ok(())
+}
+
+pub async fn update_read_marker(
     kind: &Kind,
     read_marker: &ReadMarker,
 ) -> Result<(), Error> {

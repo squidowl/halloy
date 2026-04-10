@@ -10,7 +10,7 @@ use tokio::time::Instant;
 
 use super::filter::{Filter, FilterChain};
 use super::reroute::RerouteRules;
-use crate::history::{self, History, MessageReferences, ReadMarker};
+use crate::history::{self, History, MessageReferences, ReadMarker, metadata};
 use crate::message::broadcast::{self, Broadcast};
 use crate::message::{self, Limit};
 use crate::reaction::{self, Reaction};
@@ -43,6 +43,11 @@ impl Resource {
 pub enum Message {
     LoadFull(history::Kind, Result<history::Loaded, history::Error>),
     UpdatePartial(history::Kind, Result<history::Metadata, history::Error>),
+    UpdateChatHistoryReferences(
+        history::Kind,
+        MessageReferences,
+        Result<(), history::Error>,
+    ),
     UpdateReadMarker(
         history::Kind,
         history::ReadMarker,
@@ -178,6 +183,24 @@ impl Manager {
             }
             Message::UpdatePartial(kind, Err(error)) => {
                 log::warn!("failed to load metadata for {kind}: {error}");
+            }
+            Message::UpdateChatHistoryReferences(
+                kind,
+                chathistory_references,
+                Ok(()),
+            ) => {
+                log::debug!(
+                    "updated chathistory references for {kind} to {chathistory_references:?}"
+                );
+            }
+            Message::UpdateChatHistoryReferences(
+                kind,
+                chathistory_references,
+                Err(error),
+            ) => {
+                log::warn!(
+                    "failed to update chathistory references for {kind} to {chathistory_references:?}: {error}"
+                );
             }
             Message::UpdateReadMarker(kind, read_marker, Ok(())) => {
                 log::debug!("updated read marker for {kind} to {read_marker}");
@@ -329,7 +352,7 @@ impl Manager {
 
         if config.buffer.mark_as_read.on_message_sent
             && let Some(kind) =
-                history::Kind::from_server_message(server.clone(), &message)
+                history::Kind::from_server_message(server, &message)
         {
             self.update_display_read_marker(
                 kind,
@@ -337,15 +360,12 @@ impl Manager {
             );
         }
 
-        tasks.extend(
-            self.block_and_record_message(
-                server,
-                casemapping,
-                message,
-                &config.buffer,
-            )
-            .map(futures::FutureExt::boxed),
-        );
+        tasks.extend(self.block_and_record_message(
+            server,
+            casemapping,
+            message,
+            &config.buffer,
+        ));
 
         tasks
     }
@@ -371,27 +391,44 @@ impl Manager {
         server: &Server,
         message: crate::Message,
         buffer_config: &config::Buffer,
-    ) -> Option<impl Future<Output = Message> + use<>> {
-        history::Kind::from_server_message(server.clone(), &message).and_then(
-            |kind| {
-                let condensers = (message
-                    .can_condense(&buffer_config.server_messages.condense)
-                    && !message.blocked)
-                    .then_some((kind.clone(), message.clone()));
-
-                let future = self.data.add_message(kind, message);
-
-                if let Some((kind, message)) = condensers {
-                    self.condense_message(
-                        message,
-                        &kind,
-                        &buffer_config.server_messages.condense,
-                    );
+    ) -> Vec<BoxFuture<'static, Message>> {
+        history::Kind::from_server_message_rerouted_from(server, &message)
+            .and_then(|kind| {
+                if message.can_reference() {
+                    self.data
+                        .update_chathistory_references(
+                            kind,
+                            message.references(),
+                        )
+                        .map(futures::FutureExt::boxed)
+                } else {
+                    None
                 }
+            })
+            .into_iter()
+            .chain(
+                history::Kind::from_server_message(server, &message).and_then(
+                    |kind| {
+                        let condensers = (message.can_condense(
+                            &buffer_config.server_messages.condense,
+                        ) && !message.blocked)
+                            .then_some((kind.clone(), message.clone()));
 
-                future
-            },
-        )
+                        let future = self.data.add_message(kind, message);
+
+                        if let Some((kind, message)) = condensers {
+                            self.condense_message(
+                                message,
+                                &kind,
+                                &buffer_config.server_messages.condense,
+                            );
+                        }
+
+                        future.map(futures::FutureExt::boxed)
+                    },
+                ),
+            )
+            .collect()
     }
 
     pub fn record_reaction(
@@ -415,9 +452,8 @@ impl Manager {
         casemapping: isupport::CaseMap,
         mut message: crate::Message,
         buffer_config: &config::Buffer,
-    ) -> Option<impl Future<Output = Message> + use<>> {
-        if let Some(kind) =
-            history::Kind::from_server_message(server.clone(), &message)
+    ) -> Vec<BoxFuture<'static, Message>> {
+        if let Some(kind) = history::Kind::from_server_message(server, &message)
         {
             self.block_message(
                 &mut message,
@@ -479,6 +515,15 @@ impl Manager {
     ) {
         self.data
             .contract_condensed_message(kind, server_time, hash, config);
+    }
+
+    pub fn update_chathistory_references<T: Into<history::Kind>>(
+        &mut self,
+        kind: T,
+        chathistory_references: MessageReferences,
+    ) -> Option<impl Future<Output = Message> + use<T>> {
+        self.data
+            .update_chathistory_references(kind, chathistory_references)
     }
 
     pub fn update_read_marker<T: Into<history::Kind>>(
@@ -663,7 +708,7 @@ impl Manager {
 
         messages
             .into_iter()
-            .filter_map(|message| {
+            .flat_map(|message| {
                 self.block_and_record_message(
                     server,
                     casemapping,
@@ -1193,12 +1238,18 @@ impl Data {
                     messages: new_messages,
                     last_updated_at,
                     read_marker: partial_read_marker,
+                    chathistory_references: partial_chathistory_references,
                     last_seen,
                     pending_reactions,
                     ..
                 } => {
                     let read_marker =
                         (*partial_read_marker).max(metadata.read_marker);
+
+                    let chathistory_references = partial_chathistory_references
+                        .clone()
+                        .max(metadata.chathistory_references)
+                        .max(metadata::latest_can_reference(&messages));
 
                     let last_updated_at = *last_updated_at;
 
@@ -1226,11 +1277,16 @@ impl Data {
                         last_updated_at,
                         read_marker,
                         display_read_marker: read_marker,
+                        chathistory_references,
                         last_seen,
                         cleared: false,
                     });
                 }
                 _ => {
+                    let chathistory_references = metadata
+                        .chathistory_references
+                        .max(metadata::latest_can_reference(&messages));
+
                     let last_seen = history::get_last_seen(&messages);
 
                     entry.insert(History::Full {
@@ -1239,12 +1295,17 @@ impl Data {
                         last_updated_at: None,
                         read_marker: metadata.read_marker,
                         display_read_marker: metadata.read_marker,
+                        chathistory_references,
                         last_seen,
                         cleared: false,
                     });
                 }
             },
             hash_map::Entry::Vacant(entry) => {
+                let chathistory_references = metadata
+                    .chathistory_references
+                    .max(metadata::latest_can_reference(&messages));
+
                 let last_seen = history::get_last_seen(&messages);
 
                 entry.insert(History::Full {
@@ -1253,6 +1314,7 @@ impl Data {
                     last_updated_at: None,
                     read_marker: metadata.read_marker,
                     display_read_marker: metadata.read_marker,
+                    chathistory_references,
                     last_seen,
                     cleared: false,
                 });
@@ -1551,6 +1613,43 @@ impl Data {
         }
     }
 
+    fn update_chathistory_references<T: Into<history::Kind>>(
+        &mut self,
+        kind: T,
+        chathistory_references: MessageReferences,
+    ) -> Option<impl Future<Output = Message> + use<T>> {
+        use std::collections::hash_map;
+
+        let kind = kind.into();
+
+        match self.map.entry(kind.clone()) {
+            hash_map::Entry::Occupied(mut entry) => {
+                entry
+                    .get_mut()
+                    .update_chathistory_references(chathistory_references);
+
+                None
+            }
+            hash_map::Entry::Vacant(_) => Some(
+                async move {
+                    let updated =
+                        history::metadata::update_chathistory_references(
+                            &kind,
+                            &chathistory_references,
+                        )
+                        .await;
+
+                    Message::UpdateChatHistoryReferences(
+                        kind,
+                        chathistory_references,
+                        updated,
+                    )
+                }
+                .boxed(),
+            ),
+        }
+    }
+
     fn update_read_marker<T: Into<history::Kind>>(
         &mut self,
         kind: T,
@@ -1568,8 +1667,11 @@ impl Data {
             }
             hash_map::Entry::Vacant(_) => Some(
                 async move {
-                    let updated =
-                        history::metadata::update(&kind, &read_marker).await;
+                    let updated = history::metadata::update_read_marker(
+                        &kind,
+                        &read_marker,
+                    )
+                    .await;
 
                     Message::UpdateReadMarker(kind, read_marker, updated)
                 }

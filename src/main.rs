@@ -1853,7 +1853,7 @@ fn handle_priv_or_notice(
     };
 
     let casemapping = clients.get_server_casemapping_or_default(server);
-    let kind = history::Kind::from_server_message(server.clone(), &msg);
+    let kind = history::Kind::from_server_message(server, &msg);
 
     if let Some(kind) = &kind {
         dashboard.block_message(

@@ -242,8 +242,7 @@ pub fn view<'a>(
                             )
                         };
 
-                        let rerouted_private =
-                            data::message::is_rerouted_private_message(message);
+                        let rerouted_private = message.is_rerouted();
 
                         let content = message_content(
                             &message.content,
