@@ -6,7 +6,7 @@ use std::sync::{Arc, LazyLock};
 
 use chrono::{DateTime, Local, Utc};
 use const_format::concatcp;
-use fancy_regex::{Regex, RegexBuilder};
+use fancy_regex::{Match, Regex, RegexBuilder};
 use indexmap::IndexMap;
 use irc::proto;
 use irc::proto::Command;
@@ -34,68 +34,25 @@ use crate::{Config, User, command, ctcp, isupport, message, target};
 // References:
 // - https://datatracker.ietf.org/doc/html/rfc1738#section-5
 // - https://www.ietf.org/rfc/rfc2396.txt
-
-const URL_PATH_UNRESERVED_NO_CLOSE_PAREN: &str =
-    r#"\p{Letter}\p{Number}\-_.!~*'("#;
-
-const URL_PATH_UNRESERVED: &str =
-    concatcp!(URL_PATH_UNRESERVED_NO_CLOSE_PAREN, r#")"#);
+const URL_PATH_UNRESERVED: &str = r#"\p{Letter}\p{Number}\-_.!~*'()"#;
 
 const URL_PATH_RESERVED: &str = r#";?:@&=+$,"#;
-
-const URL_PATH: &str =
-    concatcp!(r#"["#, URL_PATH_UNRESERVED, URL_PATH_RESERVED, r#"%\/#]"#);
-
-const URL_PATH_NO_CLOSE_PAREN: &str = concatcp!(
-    r#"["#,
-    URL_PATH_UNRESERVED_NO_CLOSE_PAREN,
-    URL_PATH_RESERVED,
-    r#"%\/#]"#
-);
-
-const URL_PATH_UNRESERVED_EXC_PUNC: &str = r#"\p{Letter}\p{Number}\-_~*'("#;
-
-const URL_PATH_RESERVED_EXC_PUNC: &str = r#"@&=+$"#;
-
-const URL_PATH_EXC_PUNC: &str = concatcp!(
-    r#"["#,
-    URL_PATH_UNRESERVED_EXC_PUNC,
-    URL_PATH_RESERVED_EXC_PUNC,
-    r#"%\/#]"#
-);
 
 static URL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
     RegexBuilder::new(concatcp!(
         r#"(?i)(((https?|ircs?):\/\/|www\.)[\p{Letter}\p{Number}\-@:%._+~#=]{1,256}\.[\p{Letter}\p{Number}]{1,63}\b"#,
         r#"(?:"#,
-        URL_PATH,
-        r#"*\("#,
-        URL_PATH_NO_CLOSE_PAREN,
-        r#"*\)"#,
-        r#"(?:"#,
-        URL_PATH,
-        r#"*"#,
-        URL_PATH_EXC_PUNC,
-        r#"|"#,
-        URL_PATH_EXC_PUNC,
-        r#"?)?"#,
-        r#"|"#,
-        URL_PATH,
-        r#"*"#,
-        URL_PATH_EXC_PUNC,
-        r#"|"#,
-        URL_PATH_EXC_PUNC,
-        r#"?)|halloy:\/\/[^ ]*)"#
+        r#"["#, URL_PATH_UNRESERVED, URL_PATH_RESERVED, r#"%\/#]"#,
+        r#"*)|halloy:\/\/[^ ]*)"#
     ))
     .delegate_size_limit(15728640) // 1.5x default size_limit
     .build()
     .unwrap()
 });
 
+// Restrict characters per spec: https://modern.ircdocs.horse/#channels
 static CHANNEL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-    RegexBuilder::new(r#"(?i)(?<!\w)(#[^ ,:;"\x07]+)(?!\w)"#)
-        .build()
-        .unwrap()
+    RegexBuilder::new(r#"(?i)#([^ ,\x07]+)"#).build().unwrap()
 });
 
 static USER_REGEX: LazyLock<Regex> = LazyLock::new(|| {
@@ -103,6 +60,21 @@ static USER_REGEX: LazyLock<Regex> = LazyLock::new(|| {
         .build()
         .unwrap()
 });
+
+// used for matching punctuation that are commonly used at the end of a word
+static EXCLUDED_TRAILING_CHARS_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+    RegexBuilder::new(r#"(?i)([\.,:;?!]*)$"#).build().unwrap()
+});
+
+// matching delimiters, used to match and strip trailing chars if no matching delimiter
+const PAIRED_DELIMITERS: [(char, char); 3] =
+    [('(', ')'), ('{', '}'), ('[', ']')];
+
+const SYMMETRIC_DELIMITERS: [char; 2] = ['"', '\''];
+
+// used for matching delimiter chars at the end of a word
+static EXCLUDED_TRAILING_DELIMITER_CHARS_REGEX: LazyLock<Regex> =
+    LazyLock::new(|| RegexBuilder::new(r#"(?i)(["')\]}]*)$"#).build().unwrap());
 
 pub(crate) mod broadcast;
 pub mod formatting;
@@ -1943,17 +1915,37 @@ fn parse_regex_fragments<'a>(
     let mut i = 0;
     let mut fragments = Vec::with_capacity(1);
 
-    for (re_match, fragment) in regex.find_iter(&text).filter_map(|result| {
-        result.ok().and_then(|re_match| {
-            (f)(re_match.as_str()).map(|fragment| (re_match, fragment))
-        })
-    }) {
-        if i < re_match.start() {
-            fragments
-                .push(Fragment::Text(text[i..re_match.start()].to_string()));
+    for re_match in regex.find_iter(&text).filter_map(Result::ok) {
+        let (matching, trailing_punctuation) =
+            filter_trailing_punctuation(re_match, &text);
+        let (matching, trailing_delimiter) = filter_trailing_delimiter(
+            matching,
+            re_match.start(),
+            re_match.end(),
+            &text,
+        );
+        if let Some(fragment) = (f)(matching) {
+            if i < re_match.start() {
+                fragments.push(Fragment::Text(
+                    text[i..re_match.start()].to_string(),
+                ));
+            }
+
+            fragments.push(fragment);
+
+            if trailing_delimiter.is_some() || trailing_punctuation.is_some() {
+                let mut trailing = String::new();
+                if let Some(delimiter) = trailing_delimiter {
+                    trailing.push_str(delimiter);
+                }
+                if let Some(punctuation) = trailing_punctuation {
+                    trailing.push_str(punctuation);
+                }
+                fragments.push(Fragment::Text(trailing));
+            }
+
+            i = re_match.end();
         }
-        i = re_match.end();
-        fragments.push(fragment);
     }
 
     if i == 0 {
@@ -1963,6 +1955,87 @@ fn parse_regex_fragments<'a>(
     }
 
     fragments
+}
+
+fn filter_trailing_punctuation<'a>(
+    re_match: Match<'a>,
+    text: &str,
+) -> (&'a str, Option<&'a str>) {
+    let matching = re_match.as_str();
+    let (matching, trailing) = if let Some(Ok(trailing)) =
+        EXCLUDED_TRAILING_CHARS_REGEX.find_iter(matching).next()
+    {
+        let trimmed_end = trailing.start();
+        let is_end_of_text = re_match.end() >= text.len()
+            || text[re_match.end()..].starts_with(|c: char| c.is_whitespace());
+
+        if trimmed_end > 0 && trimmed_end < matching.len() && is_end_of_text {
+            (&matching[..trimmed_end], Some(&matching[trimmed_end..]))
+        } else {
+            (matching, None)
+        }
+    } else {
+        (matching, None)
+    };
+
+    (matching, trailing)
+}
+
+fn filter_trailing_delimiter<'a>(
+    matching: &'a str,
+    start: usize,
+    end: usize,
+    text: &str,
+) -> (&'a str, Option<&'a str>) {
+    let Some(Ok(trailing)) = EXCLUDED_TRAILING_DELIMITER_CHARS_REGEX
+        .find_iter(matching)
+        .next()
+    else {
+        return (matching, None);
+    };
+
+    let preceding_match = &text[..start];
+
+    let mut trim_at = None;
+    for (i, ch) in trailing.as_str().char_indices() {
+        let preceding_trail = &matching[..trailing.start() + i];
+
+        let filter = if SYMMETRIC_DELIMITERS.contains(&ch) {
+            let unmatched_before_match =
+                preceding_match.matches(ch).count() % 2 == 1;
+            let unmatched_before_trail =
+                preceding_trail.matches(ch).count() % 2 == 0;
+            unmatched_before_match && unmatched_before_trail
+        } else if let Some((open, _)) =
+            PAIRED_DELIMITERS.iter().find(|(_, close)| *close == ch)
+        {
+            let orphaned_before_match = preceding_match.matches(*open).count()
+                > preceding_match.matches(ch).count();
+            let orphaned_in_match = preceding_trail.matches(*open).count()
+                <= preceding_trail.matches(ch).count();
+            orphaned_before_match && orphaned_in_match
+        } else {
+            continue;
+        };
+
+        if filter {
+            trim_at = Some(trailing.start() + i);
+            break;
+        }
+    }
+
+    if let Some(trimmed_end) = trim_at {
+        let is_end_of_text = end >= text.len()
+            || text[end..].starts_with(|c: char| c.is_whitespace());
+
+        if trimmed_end > 0 && trimmed_end < matching.len() && is_end_of_text {
+            (&matching[..trimmed_end], Some(&matching[trimmed_end..]))
+        } else {
+            (matching, None)
+        }
+    } else {
+        (matching, None)
+    }
 }
 
 #[derive(Debug, Clone, Eq, Serialize, Deserialize)]
@@ -3664,9 +3737,59 @@ pub mod tests {
                 r##"#channel: "#foo""##,
                 vec![
                     Fragment::Channel("#channel".into()),
-                    Fragment::Text(": \"".into()),
+                    Fragment::Text(":".into()),
+                    Fragment::Text(" \"".into()),
                     Fragment::Channel("#foo".into()),
                     Fragment::Text("\"".into()),
+                ],
+            ),
+            (
+                "Test channels #test.123.,! and another #channel? and #testing!!",
+                vec![
+                    Fragment::Text("Test channels ".into()),
+                    Fragment::Channel("#test.123.".into()),
+                    Fragment::Text(",! and another ".into()),
+                    Fragment::Channel("#channel".into()),
+                    Fragment::Text("?".into()),
+                    Fragment::Text(" and ".into()),
+                    Fragment::Channel("#testing".into()),
+                    Fragment::Text("!!".into()),
+                ],
+            ),
+            (
+                "Testing delimiters in channel name (#[channel] here).",
+                vec![
+                    Fragment::Text("Testing delimiters in channel name (".into()),
+                    Fragment::Channel("#[channel]".into()),
+                    Fragment::Text(" here).".into()),
+                ],
+            ),
+            (
+                "Testing delimiters \"quoting a #channel\" here.",
+                vec![
+                    Fragment::Text("Testing delimiters \"quoting a ".into()),
+                    Fragment::Channel("#channel".into()),
+                    Fragment::Text("\"".into()),
+                    Fragment::Text(" here.".into()),
+                ],
+            ),
+            (
+                "Testing delimiters (this is a #channel) here.",
+                vec![
+                    Fragment::Text("Testing delimiters (this is a ".into()),
+                    Fragment::Channel("#channel".into()),
+                    Fragment::Text(")".into()),
+                    Fragment::Text(" here.".into()),
+                ],
+            ),
+            (
+                "(#channel1 and #channel2).",
+                vec![
+                    Fragment::Text("(".into()),
+                    Fragment::Channel("#channel1".into()),
+                    Fragment::Text(" and ".into()),
+                    Fragment::Channel("#channel2".into()),
+                    Fragment::Text(").".into()),
                 ],
             ),
             (
@@ -3767,6 +3890,30 @@ pub mod tests {
                     Fragment::Url("https://www.example.com/another_test_(example)".parse().unwrap(), "https://www.example.com/another_test_(example)".to_string()),
                     Fragment::Text(")".into()),
                 ]
+            ),
+            (
+                "{test: https://halloy.chat/configuration/context-menu}",
+                vec![
+                    Fragment::Text("{test: ".into()),
+                    Fragment::Url("https://halloy.chat/configuration/context-menu".parse().unwrap(), "https://halloy.chat/configuration/context-menu".to_string()),
+                    Fragment::Text("}".into()),
+                ],
+            ),
+            (
+                "[another test!!!: https://themes.halloy.chat]",
+                vec![
+                    Fragment::Text("[another test!!!: ".into()),
+                    Fragment::Url("https://themes.halloy.chat".parse().unwrap(), "https://themes.halloy.chat".to_string()),
+                    Fragment::Text("]".into()),
+                ],
+            ),
+            (
+                r#""Check https://flathub.org/en/apps/org.squidowl.halloy""#,
+                vec![
+                    Fragment::Text(r#""Check "#.into()),
+                    Fragment::Url("https://flathub.org/en/apps/org.squidowl.halloy".parse().unwrap(), "https://flathub.org/en/apps/org.squidowl.halloy".to_string()),
+                    Fragment::Text(r#"""#.into()),
+                ],
             ),
             (
                 "\u{f}\u{3}03VLC\u{f} \u{3}05master\u{f} \u{3}06somenick\u{f} \u{3}14http://some.website.com/\u{f} * describe commit * \u{3}14https://code.videolan.org/videolan/vlc/\u{f}",
