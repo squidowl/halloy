@@ -1780,20 +1780,25 @@ impl State {
 
             let mut history_tasks = vec![];
 
-            if let Some(message) = inputs
+            let messages = inputs
                 .into_iter()
                 .filter_map(|input| {
                     input.messages(
                         user.clone(),
                         channel_users,
+                        buffer.server(),
                         chantypes,
                         statusmsg,
                         casemapping,
                         supports_echoes,
+                        history.get_reroute_rules(),
                     )
                 })
                 .flatten()
-                .reduce(|mut batch_message, message| {
+                .collect::<Vec<_>>();
+
+            if let Some(message) =
+                messages.into_iter().reduce(|mut batch_message, message| {
                     match (&mut batch_message.content, message.content) {
                         (
                             message::Content::Plain(batch_text),
@@ -2206,10 +2211,12 @@ impl State {
             if let Some(messages) = input.messages(
                 user,
                 channel_users,
+                buffer.server(),
                 chantypes,
                 statusmsg,
                 casemapping,
                 supports_echoes,
+                history.get_reroute_rules(),
             ) {
                 for message in messages {
                     history_tasks.extend(
