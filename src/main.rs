@@ -30,6 +30,7 @@ use std::{env, mem};
 use appearance::{Theme, theme};
 use data::config::{self, Config};
 use data::history::filter::FilterChain;
+use data::history::reroute::RerouteRules;
 use data::message::{self, Broadcast};
 use data::reaction::Reaction;
 use data::target::{self, Target};
@@ -220,6 +221,8 @@ impl Halloy {
                 servers.set_order(config.sidebar.order_by);
                 let (mut screen, command) = load_dashboard(&config);
                 screen.init_filters(&servers, &data::client::Map::default());
+                screen
+                    .set_reroute_rules(&servers, &data::client::Map::default());
                 (
                     Screen::Dashboard(screen),
                     servers,
@@ -1394,6 +1397,8 @@ impl Halloy {
                 }
 
                 if let Screen::Dashboard(dashboard) = &mut self.screen {
+                    dashboard.set_reroute_rules(&self.servers, &self.clients);
+
                     dashboard.update_filters(
                         &self.servers,
                         &self.clients,
@@ -1669,6 +1674,8 @@ fn handle_client_events(
             Event::BouncerNetwork(server, server_config) => {
                 servers.insert(server, server_config.into());
 
+                dashboard.set_reroute_rules(servers, clients);
+
                 dashboard.update_filters(servers, clients, &config.buffer);
             }
             Event::AddToSidebar(query) => {
@@ -1709,11 +1716,13 @@ fn create_message(
     our_nick: data::user::Nick,
     config: &Config,
     clients: &data::client::Map,
+    reroute_rules: &RerouteRules,
 ) -> Option<data::Message> {
     data::Message::received(
         encoded,
         our_nick,
         config,
+        reroute_rules,
         |user, channel| {
             clients
                 .resolve_user_attributes(server, channel, user)
@@ -1734,11 +1743,13 @@ fn create_message_with_highlight(
     our_nick: data::user::Nick,
     config: &Config,
     clients: &data::client::Map,
+    reroute_rules: &RerouteRules,
 ) -> Option<(data::Message, Option<message::Highlight>)> {
     data::Message::received_with_highlight(
         encoded,
         our_nick,
         config,
+        reroute_rules,
         |user, channel| {
             clients
                 .resolve_user_attributes(server, channel, user)
@@ -1762,9 +1773,14 @@ fn handle_single_event(
     clients: &data::client::Map,
     config: &Config,
 ) {
-    let Some(message) =
-        create_message(server, encoded, our_nick, config, clients)
-    else {
+    let Some(message) = create_message(
+        server,
+        encoded,
+        our_nick,
+        config,
+        clients,
+        dashboard.get_reroute_rules(),
+    ) else {
         return;
     };
 
@@ -1790,9 +1806,14 @@ fn handle_with_target_event(
     clients: &data::client::Map,
     config: &Config,
 ) {
-    let Some(message) =
-        create_message(server, encoded, our_nick, config, clients)
-    else {
+    let Some(message) = create_message(
+        server,
+        encoded,
+        our_nick,
+        config,
+        clients,
+        dashboard.get_reroute_rules(),
+    ) else {
         return;
     };
 
@@ -1821,13 +1842,18 @@ fn handle_priv_or_notice(
     main_window: &Window,
 ) {
     let Some((mut msg, highlight)) = create_message_with_highlight(
-        server, encoded, our_nick, config, clients,
+        server,
+        encoded,
+        our_nick,
+        config,
+        clients,
+        dashboard.get_reroute_rules(),
     ) else {
         return;
     };
 
     let casemapping = clients.get_server_casemapping_or_default(server);
-    let kind = history::Kind::from_server_message(server.clone(), &msg);
+    let kind = history::Kind::from_server_message(server, &msg);
 
     if let Some(kind) = &kind {
         dashboard.block_message(
@@ -2115,10 +2141,24 @@ fn handle_direct_message(
     notifications: &mut Notifications,
     main_window: &Window,
 ) {
-    let Some(msg) = create_message(server, encoded, our_nick, config, clients)
-    else {
+    if user.nickname() == our_nick.as_nickref() {
+        return;
+    }
+
+    let Some(msg) = create_message(
+        server,
+        encoded,
+        our_nick,
+        config,
+        clients,
+        dashboard.get_reroute_rules(),
+    ) else {
         return;
     };
+
+    if msg.is_rerouted() {
+        return;
+    }
 
     let casemapping = clients.get_server_casemapping_or_default(server);
 
@@ -2160,18 +2200,39 @@ fn handle_isupport_param(
     }
 
     match param {
-        data::isupport::Parameter::CASEMAPPING(_)
+        data::isupport::Parameter::STATUSMSG(_)
+        | data::isupport::Parameter::CASEMAPPING(_)
         | data::isupport::Parameter::CHANTYPES(_) => {
+            let statusmsg = clients.get_server_statusmsg_or_default(server);
             let chantypes = clients.get_server_chantypes_or_default(server);
             let casemapping = clients.get_server_casemapping_or_default(server);
 
-            FilterChain::sync_isupport(
-                dashboard.get_filters(),
-                server,
-                chantypes,
-                casemapping,
-            );
-            dashboard.reprocess_history(clients, &config.buffer);
+            if let Some(server_config) = config.servers.get(server) {
+                let reroute_rules = dashboard.get_reroute_rules_mut();
+
+                reroute_rules.sync_isupport(
+                    server,
+                    server_config,
+                    chantypes,
+                    statusmsg,
+                    casemapping,
+                );
+            }
+
+            if matches!(
+                param,
+                data::isupport::Parameter::CASEMAPPING(_)
+                    | data::isupport::Parameter::CHANTYPES(_)
+            ) {
+                FilterChain::sync_isupport(
+                    dashboard.get_filters(),
+                    server,
+                    chantypes,
+                    casemapping,
+                );
+
+                dashboard.reprocess_history(clients, &config.buffer);
+            }
         }
         data::isupport::Parameter::SAFELIST => {
             dashboard.update_channel_discoveries(clients, server);

@@ -242,6 +242,8 @@ pub fn view<'a>(
                             )
                         };
 
+                        let rerouted_private = message.is_rerouted();
+
                         let content = message_content(
                             &message.content,
                             &state.server,
@@ -250,7 +252,13 @@ pub fn view<'a>(
                             theme,
                             scroll_view::Message::Link,
                             None,
-                            theme::selectable_text::default,
+                            move |theme| {
+                                if rerouted_private {
+                                    theme::selectable_text::tertiary(theme)
+                                } else {
+                                    theme::selectable_text::default(theme)
+                                }
+                            },
                             theme::font_style::primary,
                             Option::<fn(Color) -> Color>::None,
                             config,

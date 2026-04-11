@@ -43,6 +43,7 @@ fn expand(
             expanded: false,
             command: None,
             reactions: vec![],
+            rerouted_from: None,
         }
     };
 

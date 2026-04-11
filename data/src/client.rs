@@ -1471,6 +1471,7 @@ impl Client {
                         }
                     }
 
+                    let user_query = target::Query::from(&user);
                     let direct_message = self
                         .message_query_target(&message.command)
                         .as_ref()
@@ -1484,11 +1485,11 @@ impl Client {
                     {
                         self.clear_channel_typing(&channel, user.nickname());
                     } else if direct_message {
-                        self.clear_query_typing(&target::Query::from(&user));
+                        self.clear_query_typing(&user_query);
                     }
 
                     if direct_message {
-                        self.record_query(&target::Query::from(&user));
+                        self.record_query(&user_query);
                     }
 
                     let event = Event::PrivOrNotice(
