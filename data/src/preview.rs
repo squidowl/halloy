@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 use std::io;
-use std::path::Path;
 use std::sync::{Arc, LazyLock, OnceLock};
 use std::time::Duration;
 
@@ -19,7 +18,7 @@ use url::Url;
 
 pub use self::card::Card;
 pub use self::image::Image;
-use crate::cache::{self, CacheState, CachedAsset, FileCache};
+use crate::cache::{self, Asset, CacheState, CachedAsset, FileCache};
 use crate::message::Source;
 use crate::server::Server;
 use crate::target::{self, TargetRef};
@@ -125,10 +124,12 @@ impl Preview {
 }
 
 impl CachedAsset for Preview {
-    fn paths(&self) -> Vec<&Path> {
+    fn assets(&self) -> Vec<Asset<'_>> {
         match self {
-            Preview::Card(c) => vec![c.image.path.as_path()],
-            Preview::Image(i) => vec![i.path.as_path()],
+            Preview::Card(c) => {
+                vec![Asset(c.image.path.as_path(), &c.image.digest)]
+            }
+            Preview::Image(i) => vec![Asset(i.path.as_path(), &i.digest)],
         }
     }
 }
@@ -321,7 +322,7 @@ async fn fetch(
                     written += chunk.len();
                 }
 
-                let digest = cache::Digest::new(&hasher.finalize());
+                let digest = cache::HexDigest::new(&hasher.finalize());
                 let image_path =
                     cache.blob_path(&digest, format.extensions_str()[0]);
 

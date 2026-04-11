@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-use crate::cache::Digest;
+use crate::cache::HexDigest;
 
 pub type Format = image::ImageFormat;
 pub type Error = image::ImageError;
@@ -13,7 +13,7 @@ pub struct Image {
     #[serde(with = "serde_format")]
     pub format: Format,
     pub url: Url,
-    pub digest: Digest,
+    pub digest: HexDigest,
     pub path: PathBuf,
 }
 
@@ -21,7 +21,7 @@ impl Image {
     pub fn new(
         format: Format,
         url: Url,
-        digest: Digest,
+        digest: HexDigest,
         path: PathBuf,
     ) -> Self {
         Self {

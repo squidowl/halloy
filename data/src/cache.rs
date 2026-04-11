@@ -5,23 +5,29 @@ use std::path::{Path, PathBuf};
 use chrono::Utc;
 use derive_more::AsRef;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use sha2::{Digest, Sha256};
 use tokio::fs;
+use tokio_stream::StreamExt;
+use tokio_util::io::ReaderStream;
 use url::Url;
 
 pub use trim::TrimConfig;
 
 /// SHA256 digest of cache content.
 #[derive(Debug, Clone, Serialize, Deserialize, AsRef)]
-pub struct Digest(String);
+pub struct HexDigest(String);
 
-impl Digest {
+impl HexDigest {
     pub fn new(data: &[u8]) -> Self {
         Self(hex::encode(data))
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct Asset<'a>(pub &'a Path, pub &'a HexDigest);
+
 pub trait CachedAsset {
-    fn paths(&self) -> Vec<&Path>;
+    fn assets(&self) -> Vec<Asset<'_>>;
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -51,9 +57,9 @@ impl FileCache {
         let state: CacheState<T> = serde_json::from_slice(&bytes).ok()?;
 
         if let CacheState::Ok(ref asset) = state {
-            let any_missing = asset.paths().iter().any(|p| !p.exists());
-            if any_missing {
-                // If any of the asset's files are missing, treat the cache as invalid.
+            let assets = asset.assets();
+            if verify_assets(&assets).await.is_none() {
+                remove_assets(&assets).await;
                 return None;
             }
         }
@@ -90,7 +96,7 @@ impl FileCache {
             .join(format!("{hash}.json"))
     }
 
-    pub fn blob_path(&self, digest: &Digest, ext: &str) -> PathBuf {
+    pub fn blob_path(&self, digest: &HexDigest, ext: &str) -> PathBuf {
         let hash = digest.as_ref();
 
         blob_dir_from_root(&self.root)
@@ -112,4 +118,37 @@ impl FileCache {
 
 pub fn blob_dir_from_root(root: &Path) -> PathBuf {
     root.join("blobs")
+}
+
+async fn hash_file(file: fs::File) -> Option<HexDigest> {
+    let mut stream = ReaderStream::new(file);
+    let mut hasher = Sha256::new();
+
+    while let Some(item) = stream.next().await {
+        let chunk = item.ok()?;
+        hasher.update(&chunk);
+    }
+
+    Some(HexDigest::new(&hasher.finalize()))
+}
+
+async fn verify_assets(assets: &[Asset<'_>]) -> Option<()> {
+    for Asset(path, digest) in assets {
+        // Check if the file actually exists
+        let file = fs::File::open(path).await.ok()?;
+
+        // Check if the file content matches the expected digest
+        let actual_digest = hash_file(file).await?;
+        if actual_digest.as_ref() != digest.as_ref() {
+            return None;
+        }
+    }
+
+    Some(())
+}
+
+async fn remove_assets(assets: &[Asset<'_>]) {
+    for Asset(path, _) in assets {
+        let _ = fs::remove_file(path).await;
+    }
 }
