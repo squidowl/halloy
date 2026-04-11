@@ -16,6 +16,7 @@ mod open_url;
 mod platform_specific;
 mod screen;
 mod stream;
+mod tray;
 mod unix_signal;
 mod url;
 mod widget;
@@ -24,7 +25,6 @@ mod window;
 use std::collections::HashSet;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
-use ksni::{self, TrayMethods};
 use std::time::{Duration, Instant};
 use std::{env, mem};
 
@@ -42,7 +42,6 @@ use data::{
 };
 use iced::widget::{column, container};
 use iced::{Length, Subscription, Task, padding};
-use futures::SinkExt;
 use screen::{dashboard, help, welcome};
 use tokio::runtime;
 use tokio_stream::wrappers::ReceiverStream;
@@ -187,7 +186,7 @@ struct Halloy {
     focused_window: Option<window::Id>,
     pending_logs: Vec<data::log::Record>,
     notifications: Notifications,
-    tray_icon: Option<ksni::Handle<HalloyTrayIcon>>,
+    tray_active: bool,
     window_open: bool,
 }
 
@@ -266,7 +265,7 @@ impl Halloy {
          focused_window: None,
          pending_logs: vec![],
          notifications,
-         tray_icon: None,
+         tray_active: false,
          window_open: true,
             },
          command,
@@ -274,69 +273,6 @@ impl Halloy {
     }
 }
 
-use std::sync::OnceLock;
-static TRAY_SENDER: OnceLock<tokio::sync::broadcast::Sender<TrayEvent>> = OnceLock::new();
-
-#[derive(Debug, Clone)]
-enum TrayEvent {
-    Clicked,
-    Quit,
-}
-
-struct HalloyTrayIcon {}
-
-impl ksni::Tray for HalloyTrayIcon {
-    fn id(&self) -> String {
-        "halloy".to_string()
-    }
-    fn icon_pixmap(&self) -> Vec<ksni::Icon> {
-        let icon_bytes = include_bytes!("../assets/linux/icons/hicolor/32x32/apps/org.squidowl.halloy.png");
-        if let Ok(img) = image::load_from_memory(icon_bytes) {
-            let rgba = img.to_rgba8();
-            let (w, h) = rgba.dimensions();
-            // SNI expects ARGB format
-            let argb: Vec<u8> = rgba.chunks(4).flat_map(|px| [px[3], px[0], px[1], px[2]]).collect();
-            vec![ksni::Icon {
-                width: w as i32,
-                height: h as i32,
-                data: argb,
-            }]
-        } else {
-            vec![]
-        }
-    }
-    fn title(&self) -> String {
-        "Halloy IRC".to_string()
-    }
-    fn activate(&mut self, _x: i32, _y: i32) {
-        if let Some(tx) = TRAY_SENDER.get() {
-            let _ = tx.send(TrayEvent::Clicked);
-        }
-    }
-    fn menu(&self) -> Vec<ksni::MenuItem<Self>> {
-        vec![
-            ksni::MenuItem::Standard(ksni::menu::StandardItem {
-                label: "Show".into(),
-                                     activate: Box::new(|_| {
-                                         if let Some(tx) = TRAY_SENDER.get() {
-                                             let _ = tx.send(TrayEvent::Clicked);
-                                         }
-                                     }),
-                                     ..Default::default()
-            }),
-            ksni::MenuItem::Separator,
-            ksni::MenuItem::Standard(ksni::menu::StandardItem {
-                label: "Quit".into(),
-                                     activate: Box::new(|_| {
-                                         if let Some(tx) = TRAY_SENDER.get() {
-                                             let _ = tx.send(TrayEvent::Quit);
-                                         }
-                                     }),
-                                     ..Default::default()
-            }),
-        ]
-    }
-}
 pub enum Screen {
     Dashboard(screen::Dashboard),
     Help(screen::Help),
@@ -367,6 +303,7 @@ pub enum Message {
     UnixSignal(i32),
     ConfigReloaded(Result<Config, config::Error>),
     TrayIconClicked,
+    TrayMenuShow,
     TrayMenuQuit,
 }
 
@@ -425,21 +362,7 @@ impl Halloy {
             open_main_window.then(|_| Task::none())
         };
 
-        let tray = {
-            let (tray_tx, _) = tokio::sync::broadcast::channel(16);
-            let _ = TRAY_SENDER.set(tray_tx);
-            let (tx, rx) = std::sync::mpsc::channel();
-            std::thread::spawn(move || {
-                let rt = tokio::runtime::Builder::new_current_thread()
-                .enable_all()
-                .build()
-                .unwrap();
-                let handle = rt.block_on(HalloyTrayIcon {}.spawn());
-                let _ = tx.send(handle.ok());
-                rt.block_on(futures::future::pending::<()>());
-            });
-            rx.recv().unwrap_or(None)
-        };
+        halloy.tray_active = tray::init();
 
         let mut commands = vec![
             open_task,
@@ -456,8 +379,6 @@ impl Halloy {
         if let Some(url) = url_received {
             commands.push(halloy.handle_url(url));
         }
-
-        halloy.tray_icon = tray;
 
         (halloy, Task::batch(commands))
     }
@@ -1116,7 +1037,7 @@ impl Halloy {
                                                      Message::WindowSettingsSaved,
                             );
 
-                            if self.tray_icon.is_some() {
+                            if self.tray_active {
                                 self.window_open = false;
                                 return save.chain(
                                     window::close(self.main_window.id)
@@ -1319,6 +1240,19 @@ impl Halloy {
                     save.chain(window::close(self.main_window.id))
                 }
             }
+            Message::TrayMenuShow => {
+                if !self.window_open {
+                    self.window_open = true;
+                    let (id, task) = window::open(window::Settings {
+                        exit_on_close_request: false,
+                        ..window::settings(&self.config)
+                    });
+                    self.main_window = Window::new(id);
+                    task.then(|_| Task::none())
+                } else {
+                    Task::none()
+                }
+            }
             Message::TrayMenuQuit => {
                 if let Screen::Dashboard(dashboard) = &mut self.screen {
                     dashboard.exit(&mut self.clients, &self.config)
@@ -1449,24 +1383,8 @@ impl Halloy {
             );
         }
 
-        if self.tray_icon.is_some() {
-            subscriptions.push(Subscription::run(|| {
-                iced::stream::channel(16, |mut output: iced::futures::channel::mpsc::Sender<Message>| async move {
-                    let mut rx = TRAY_SENDER
-                    .get()
-                    .expect("tray sender set")
-                    .subscribe();
-                    loop {
-                        if let Ok(event) = rx.recv().await {
-                            let msg = match event {
-                                TrayEvent::Clicked => Message::TrayIconClicked,
-                                TrayEvent::Quit => Message::TrayMenuQuit,
-                            };
-                            let _ = output.send(msg).await;
-                        }
-                    }
-                })
-            }));
+        if self.tray_active {
+            subscriptions.push(tray::subscription());
         }
 
         Subscription::batch(subscriptions)

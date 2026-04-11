@@ -90,7 +90,7 @@ irc = { version = "0.1.0", path = "irc" }
 
 signal-hook = "0.3.18"
 notify-rust = "4.11"
-ksni = "0.3.4"
+tray-icon = "0.22"
 fern = "0.7.1"
 unicode-segmentation = "1.6"
 open = "5.0.1"
@@ -108,7 +108,6 @@ mundy = { version = "0.1.9", default-features = false, features = [
     "tokio",
     "log",
 ] }
-
 [dev-dependencies]
 iced = { workspace = true, features = [
     "wgpu",
@@ -125,6 +124,9 @@ iced = { workspace = true, features = [
     "web-colors",
     "debug",
 ] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+ksni = "0.3.4"
 
 [target.'cfg(windows)'.dependencies]
 iced = { workspace = true, features = [
