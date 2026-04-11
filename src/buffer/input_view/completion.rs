@@ -258,7 +258,7 @@ impl Entry {
             Entry::Command(command) => replace_word_with_text(
                 input,
                 cursor_position,
-                &format!("/{}", command.title().to_lowercase()),
+                &format!("/{} ", command.title().to_lowercase()),
                 None,
             ),
             Entry::Word {
