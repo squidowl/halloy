@@ -151,6 +151,26 @@ impl Encoded {
     pub fn server_time_or_now(&self) -> DateTime<Utc> {
         self.server_time().unwrap_or_else(Utc::now)
     }
+
+    pub fn channel_context(
+        &self,
+        chantypes: &[char],
+        statusmsg: &[char],
+        casemapping: isupport::CaseMap,
+    ) -> Option<target::Channel> {
+        self.tags
+            .get("channel-context")
+            .or(self.tags.get("draft/channel-context"))
+            .and_then(|channel| {
+                target::Channel::parse(
+                    channel,
+                    chantypes,
+                    statusmsg,
+                    casemapping,
+                )
+                .ok()
+            })
+    }
 }
 
 fn received_command(encoded: &Encoded) -> Option<command::Irc> {
@@ -2212,8 +2232,10 @@ fn target(
                 None,
             ))
         }
-        Command::PRIVMSG(target, text) | Command::NOTICE(target, text) => {
-            let is_action = is_action(&text);
+        Command::PRIVMSG(ref target, ref text)
+        | Command::NOTICE(ref target, ref text) => {
+            let is_action = is_action(text);
+
             let source = |user| {
                 if is_action {
                     Source::Action(Some(user))
@@ -2229,9 +2251,10 @@ fn target(
             }
 
             // CTCP Handling.
-            if ctcp::is_query(&text) && !is_action {
+            let (target, rerouted_from) = if ctcp::is_query(text) && !is_action
+            {
                 let user = user?;
-                let target = User::from(Nick::from_string(target, casemapping));
+                let target = User::from(Nick::from_str(target, casemapping));
 
                 // We want to show both requests, and responses in query with the client.
                 let user = if user.nickname() == *our_nick {
@@ -2240,17 +2263,17 @@ fn target(
                     user
                 };
 
-                Some((
+                (
                     Target::Query {
                         query: target::Query::from(user),
                         source: Source::Server(None),
                     },
                     None,
-                ))
+                )
             } else {
                 match (
                     target::Target::parse(
-                        &target,
+                        target,
                         chantypes,
                         statusmsg,
                         casemapping,
@@ -2261,15 +2284,15 @@ fn target(
                         let source = source(
                             resolve_attributes(&user, &channel).unwrap_or(user),
                         );
-                        Some((Target::Channel { channel, source }, None))
+                        (Target::Channel { channel, source }, None)
                     }
-                    (target::Target::Channel(channel), None) => Some((
+                    (target::Target::Channel(channel), None) => (
                         Target::Channel {
                             channel,
                             source: Source::Server(None),
                         },
                         None,
-                    )),
+                    ),
                     (target::Target::Query(query), Some(user)) => {
                         let query = if user.nickname() == *our_nick {
                             if query.as_normalized_str()
@@ -2307,19 +2330,37 @@ fn target(
                             reroute_rules,
                             server,
                         ) {
-                            Some((rerouted_target, Some(target)))
+                            (rerouted_target, Some(target))
                         } else {
-                            Some((target, None))
+                            (target, None)
                         }
                     }
-                    (target::Target::Query(_), None) => Some((
+                    (target::Target::Query(_), None) => (
                         Target::Server {
                             source: Source::Server(None),
                         },
                         None,
-                    )),
+                    ),
                 }
-            }
+            };
+
+            let channel_context =
+                message.channel_context(chantypes, statusmsg, casemapping);
+
+            Some(if let Some(channel_context) = channel_context {
+                let channel_context = Target::Channel {
+                    channel: channel_context,
+                    source: target.source().clone(),
+                };
+
+                if rerouted_from.is_some() {
+                    (channel_context, rerouted_from)
+                } else {
+                    (channel_context, Some(target))
+                }
+            } else {
+                (target, rerouted_from)
+            })
         }
         Command::Numeric(RPL_MONONLINE, _) => Some((
             Target::Server {
