@@ -41,6 +41,7 @@ Fixed:
 - `typing` settings for buffers could get in a stuck state without any way to control them
 - +typing=done should not be sent when the message is sent
 - `/MOTD` will not trigger end-of-registration actions
+- Repeat lines in some MOTDs would be deduplicated
 - Received reactions in queries
 
 Removed:
