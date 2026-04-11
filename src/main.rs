@@ -76,13 +76,13 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     // config loading tasks to completion we don't want to wrap our whole
     // program with a runtime since iced starts its own.
     let rt = runtime::Builder::new_current_thread()
-    .enable_all()
-    .build()?;
+        .enable_all()
+        .build()?;
 
     let _ = rt.block_on(async {
         tokio::join!(
             history::delete(&history::Kind::Logs),
-                     history::metadata::delete(&history::Kind::Logs)
+            history::metadata::delete(&history::Kind::Logs)
         )
     });
 
@@ -111,30 +111,30 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let destination = data::Url::find_in(std::env::args());
     if let Some(loc) = &destination
         && ipc::connect_and_send(loc.to_string())
-        {
-            return Ok(());
-        }
+    {
+        return Ok(());
+    }
 
-        let settings = settings(&config_load);
+    let settings = settings(&config_load);
     let log_stream = Mutex::new(Some(log_stream));
 
     //tarkah: guess we need to move some stuff into the Halloy::new now.
     iced::daemon(
         move || {
             let log_stream = log_stream
-            .lock()
-            .unwrap()
-            .take()
-            .expect("will only panic if using iced_devtools");
+                .lock()
+                .unwrap()
+                .take()
+                .expect("will only panic if using iced_devtools");
 
             Halloy::new(
                 config_load.clone(),
-                        window_load.clone(),
-                        destination.clone(),
-                        log_stream,
-                        // we start with an unspecified mode because we are guaranteed to
-                        // receive a message from mundy containing the correct mode on startup.
-                        appearance::Mode::Unspecified,
+                window_load.clone(),
+                destination.clone(),
+                log_stream,
+                // we start with an unspecified mode because we are guaranteed to
+                // receive a message from mundy containing the correct mode on startup.
+                appearance::Mode::Unspecified,
             )
         },
         Halloy::update,
@@ -153,18 +153,18 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 fn settings(config_load: &Result<Config, config::Error>) -> iced::Settings {
     let default_text_size = config_load
-    .as_ref()
-    .ok()
-    .and_then(|config| config.font.size)
-    .map_or(theme::TEXT_SIZE, f32::from);
+        .as_ref()
+        .ok()
+        .and_then(|config| config.font.size)
+        .map_or(theme::TEXT_SIZE, f32::from);
 
     iced::Settings {
         default_font: font::MONO.clone().into(),
-            default_text_size: default_text_size.into(),
-                id: None,
-                antialiasing: false,
-                fonts: font::load(),
-                vsync: true,
+        default_text_size: default_text_size.into(),
+        id: None,
+        antialiasing: false,
+        fonts: font::load(),
+        vsync: true,
     }
 }
 
@@ -228,23 +228,23 @@ impl Halloy {
                     .set_reroute_rules(&servers, &data::client::Map::default());
                 (
                     Screen::Dashboard(screen),
-                 servers,
-                 config,
-                 command.map(Message::Dashboard),
+                    servers,
+                    config,
+                    command.map(Message::Dashboard),
                 )
             }
             // Show regular welcome screen for new users.
             Err(config::Error::ConfigMissing) => (
                 Screen::Welcome(screen::Welcome::default()),
-                                                  server::Map::default(),
-                                                  Config::default(),
-                                                  Task::none(),
+                server::Map::default(),
+                Config::default(),
+                Task::none(),
             ),
             Err(error) => (
                 Screen::Help(screen::Help::new(error)),
-                           server::Map::default(),
-                           Config::default(),
-                           Task::none(),
+                server::Map::default(),
+                Config::default(),
+                Task::none(),
             ),
         };
 
@@ -253,22 +253,22 @@ impl Halloy {
         (
             Halloy {
                 version: Version::new(),
-         screen,
-         current_mode,
-         theme: current_mode.theme(&config.appearance.selected).into(),
-         clients: data::client::Map::default(),
-         servers,
-         controllers: stream::Map::default(),
-         config,
-         modal: None,
-         main_window,
-         focused_window: None,
-         pending_logs: vec![],
-         notifications,
-         tray_active: false,
-         window_open: true,
+                screen,
+                current_mode,
+                theme: current_mode.theme(&config.appearance.selected).into(),
+                clients: data::client::Map::default(),
+                servers,
+                controllers: stream::Map::default(),
+                config,
+                modal: None,
+                main_window,
+                focused_window: None,
+                pending_logs: vec![],
+                notifications,
+                tray_active: false,
+                window_open: true,
             },
-         command,
+            command,
         )
     }
 }
@@ -328,28 +328,28 @@ impl Halloy {
         let check_for_update_on_launch = config.check_for_update_on_launch;
         let window_size = iced::Size::new(
             config
-            .window
-            .initial_width
-            .map_or(size.width, |width| width as f32),
-                                          config
-                                          .window
-                                          .initial_height
-                                          .map_or(size.height, |height| height as f32),
+                .window
+                .initial_width
+                .map_or(size.width, |width| width as f32),
+            config
+                .window
+                .initial_height
+                .map_or(size.height, |height| height as f32),
         );
 
         let (main_window, open_main_window) = window::open(window::Settings {
             size: fullscreen.unwrap_or(window_size),
-                                                           position: position
-                                                           .map(window::Position::Specific)
-                                                           .unwrap_or_default(),
-                                                           min_size: Some(window::MIN_SIZE),
-                                                           exit_on_close_request: false,
-                                                           fullscreen: fullscreen.is_some(),
-                                                           ..window::settings(config)
+            position: position
+                .map(window::Position::Specific)
+                .unwrap_or_default(),
+            min_size: Some(window::MIN_SIZE),
+            exit_on_close_request: false,
+            fullscreen: fullscreen.is_some(),
+            ..window::settings(config)
         });
 
         let (mut halloy, command) =
-        Halloy::load_from_state(main_window, config_load, current_mode);
+            Halloy::load_from_state(main_window, config_load, current_mode);
 
         halloy.main_window.fullscreen = fullscreen;
         halloy.main_window.maximized = maximized;
@@ -372,7 +372,7 @@ impl Halloy {
         if check_for_update_on_launch {
             commands.push(Task::perform(
                 version::latest_remote_version(proxy_config),
-                                        Message::Version,
+                Message::Version,
             ));
         }
 
@@ -393,19 +393,19 @@ impl Halloy {
                 self.modal = Some(Modal::ServerConnect {
                     url,
                     server: server.into(),
-                                  config,
+                    config,
                 });
             }
             data::Url::Theme { styles, .. } => {
                 if let Screen::Dashboard(dashboard) = &mut self.screen {
                     return dashboard
-                    .preview_theme_in_editor(
-                        styles,
-                        &self.main_window,
-                        &mut self.theme,
-                        &self.config,
-                    )
-                    .map(Message::Dashboard);
+                        .preview_theme_in_editor(
+                            styles,
+                            &self.main_window,
+                            &mut self.theme,
+                            &self.config,
+                        )
+                        .map(Message::Dashboard);
                 }
             }
             data::Url::Unknown(url) => {
@@ -476,7 +476,7 @@ impl Halloy {
                         self.main_window.toggle_fullscreen();
                         Task::perform(
                             data::Window::from(self.main_window).save(),
-                                      Message::WindowSettingsSaved,
+                            Message::WindowSettingsSaved,
                         )
                     }
                     Some(dashboard::Event::ConfigReloaded(config)) => {
@@ -494,11 +494,11 @@ impl Halloy {
                     Some(dashboard::Event::QuitServer(server, reason)) => {
                         for bouncer_network in
                             self.servers.get_bouncer_networks(&server)
-                            {
-                                self.clients.quit(bouncer_network, reason.clone());
-                            }
+                        {
+                            self.clients.quit(bouncer_network, reason.clone());
+                        }
 
-                            self.clients.quit(&server, reason);
+                        self.clients.quit(&server, reason);
 
                         Task::none()
                     }
@@ -533,7 +533,7 @@ impl Halloy {
                             });
                         } else {
                             let canonical = ::url::Url::parse(&raw_url)
-                            .map_or(raw_url, |u| u.to_string());
+                                .map_or(raw_url, |u| u.to_string());
                             let _ = open_url::open(canonical);
                         }
 
@@ -545,22 +545,22 @@ impl Halloy {
                         system_information,
                     }) => {
                         self.modal =
-                        Some(Modal::About(modal::about::About::new(
-                            version,
-                            commit,
-                            system_information,
-                        )));
+                            Some(Modal::About(modal::about::About::new(
+                                version,
+                                commit,
+                                system_information,
+                            )));
 
                         Task::none()
                     }
                     Some(dashboard::Event::OpenServer(server)) => {
                         if let Ok(url) = Url::from_str(&server)
                             && matches!(url, Url::ServerConnect { .. })
-                            {
-                                self.handle_url(url)
-                            } else {
-                                Task::none()
-                            }
+                        {
+                            self.handle_url(url)
+                        } else {
+                            Task::none()
+                        }
                     }
                     Some(dashboard::Event::ImagePreview(path, url)) => {
                         let Some((id, _, _)) = dashboard.get_focused() else {
@@ -596,7 +596,7 @@ impl Halloy {
                 Task::batch(vec![
                     event_task,
                     command.map(Message::Dashboard),
-                            track.map(Message::Dashboard),
+                    track.map(Message::Dashboard),
                 ])
             }
             Message::Version(remote) => {
@@ -613,7 +613,7 @@ impl Halloy {
                 match help.update(message) {
                     Some(help::Event::RefreshConfiguration) => Task::perform(
                         Config::load(),
-                                                                             Message::ScreenConfigReloaded,
+                        Message::ScreenConfigReloaded,
                     ),
                     None => Task::none(),
                 }
@@ -627,7 +627,7 @@ impl Halloy {
                     Some(welcome::Event::RefreshConfiguration) => {
                         Task::perform(
                             Config::load(),
-                                      Message::ScreenConfigReloaded,
+                            Message::ScreenConfigReloaded,
                         )
                     }
                     None => Task::none(),
@@ -655,8 +655,8 @@ impl Halloy {
                                 &Notification::Disconnected,
                                 &server,
                                 dashboard
-                                .find_window_with_server(&server)
-                                .unwrap_or(self.main_window.id),
+                                    .find_window_with_server(&server)
+                                    .unwrap_or(self.main_window.id),
                             )
                         } else {
                             None
@@ -664,17 +664,17 @@ impl Halloy {
 
                         let mut tasks = vec![
                             dashboard
-                            .broadcast(
-                                &server,
-                                self.clients
-                                .get_server_casemapping_or_default(
+                                .broadcast(
                                     &server,
-                                ),
-                                &self.config,
-                                sent_time,
-                                Broadcast::Disconnected { error },
-                            )
-                            .map(Message::Dashboard),
+                                    self.clients
+                                        .get_server_casemapping_or_default(
+                                            &server,
+                                        ),
+                                    &self.config,
+                                    sent_time,
+                                    Broadcast::Disconnected { error },
+                                )
+                                .map(Message::Dashboard),
                         ];
 
                         if let Some(request_attention) = request_attention {
@@ -691,15 +691,15 @@ impl Halloy {
 
                     // Initial is sent when first trying to connect
                     dashboard
-                    .broadcast(
-                        &server,
-                        self.clients
-                        .get_server_casemapping_or_default(&server),
-                               &self.config,
-                               sent_time,
-                               Broadcast::Connecting,
-                    )
-                    .map(Message::Dashboard)
+                        .broadcast(
+                            &server,
+                            self.clients
+                                .get_server_casemapping_or_default(&server),
+                            &self.config,
+                            sent_time,
+                            Broadcast::Connecting,
+                        )
+                        .map(Message::Dashboard)
                 }
                 stream::Update::Connected {
                     server,
@@ -725,26 +725,26 @@ impl Halloy {
                             &notification,
                             &server,
                             dashboard
-                            .find_window_with_server(&server)
-                            .unwrap_or(self.main_window.id),
+                                .find_window_with_server(&server)
+                                .unwrap_or(self.main_window.id),
                         )
                     } else {
                         None
                     };
 
                     let broadcast = dashboard
-                    .broadcast(
-                        &server,
-                        self.clients
-                        .get_server_casemapping_or_default(&server),
-                               &self.config,
-                               sent_time,
-                               broadcast_kind,
-                    )
-                    .map(Message::Dashboard);
+                        .broadcast(
+                            &server,
+                            self.clients
+                                .get_server_casemapping_or_default(&server),
+                            &self.config,
+                            sent_time,
+                            broadcast_kind,
+                        )
+                        .map(Message::Dashboard);
 
                     let refocus_pane =
-                    dashboard.refocus_pane().map(Message::Dashboard);
+                        dashboard.refocus_pane().map(Message::Dashboard);
 
                     let mut tasks = vec![broadcast, refocus_pane];
 
@@ -764,15 +764,15 @@ impl Halloy {
                     };
 
                     dashboard
-                    .broadcast(
-                        &server,
-                        self.clients
-                        .get_server_casemapping_or_default(&server),
-                               &self.config,
-                               sent_time,
-                               Broadcast::ConnectionFailed { error },
-                    )
-                    .map(Message::Dashboard)
+                        .broadcast(
+                            &server,
+                            self.clients
+                                .get_server_casemapping_or_default(&server),
+                            &self.config,
+                            sent_time,
+                            Broadcast::ConnectionFailed { error },
+                        )
+                        .map(Message::Dashboard)
                 }
                 stream::Update::MessagesReceived(server, messages) => {
                     self.handle_messages_received(server, messages)
@@ -790,79 +790,79 @@ impl Halloy {
                     let events = self.clients.update_config(
                         &server,
                         updated_config.clone(),
-                                                            false,
+                        false,
                     );
 
                     let mut bouncer_network_events = vec![];
 
                     for bouncer_network in
                         self.servers.get_bouncer_networks(&server)
+                    {
+                        bouncer_network_events.push((
+                            bouncer_network.clone(),
+                            self.clients.update_config(
+                                bouncer_network,
+                                updated_config.bouncer_config().into(),
+                                false,
+                            ),
+                        ));
+                    }
+
+                    if let Screen::Dashboard(dashboard) = &mut self.screen {
+                        let commands = handle_client_events(
+                            &server,
+                            events,
+                            dashboard,
+                            &mut self.clients,
+                            &self.config,
+                            &mut self.notifications,
+                            &mut self.servers,
+                            &mut self.controllers,
+                            &self.main_window,
+                        );
+
+                        if bouncer_network_events.is_empty() {
+                            return commands;
+                        }
+
+                        let mut bouncer_network_commands = vec![];
+
+                        for (bouncer_network, events) in bouncer_network_events
                         {
-                            bouncer_network_events.push((
-                                bouncer_network.clone(),
-                                                         self.clients.update_config(
-                                                             bouncer_network,
-                                                             updated_config.bouncer_config().into(),
-                                                                                    false,
-                                                         ),
-                            ));
-                        }
-
-                        if let Screen::Dashboard(dashboard) = &mut self.screen {
-                            let commands = handle_client_events(
-                                &server,
-                                events,
-                                dashboard,
-                                &mut self.clients,
-                                &self.config,
-                                &mut self.notifications,
-                                &mut self.servers,
-                                &mut self.controllers,
-                                &self.main_window,
+                            bouncer_network_commands.push(
+                                handle_client_events(
+                                    &bouncer_network,
+                                    events,
+                                    dashboard,
+                                    &mut self.clients,
+                                    &self.config,
+                                    &mut self.notifications,
+                                    &mut self.servers,
+                                    &mut self.controllers,
+                                    &self.main_window,
+                                ),
                             );
-
-                            if bouncer_network_events.is_empty() {
-                                return commands;
-                            }
-
-                            let mut bouncer_network_commands = vec![];
-
-                            for (bouncer_network, events) in bouncer_network_events
-                            {
-                                bouncer_network_commands.push(
-                                    handle_client_events(
-                                        &bouncer_network,
-                                        events,
-                                        dashboard,
-                                        &mut self.clients,
-                                        &self.config,
-                                        &mut self.notifications,
-                                        &mut self.servers,
-                                        &mut self.controllers,
-                                        &self.main_window,
-                                    ),
-                                );
-                            }
-
-                            return commands
-                            .chain(Task::batch(bouncer_network_commands));
                         }
 
-                        Task::none()
+                        return commands
+                            .chain(Task::batch(bouncer_network_commands));
+                    }
+
+                    Task::none()
                 }
             },
             Message::Event(window, event) => {
                 if let Screen::Dashboard(dashboard) = &mut self.screen {
                     return dashboard
-                    .handle_event(
-                        window,
-                        event,
-                        &mut self.clients,
-                        &self.version,
-                        &self.config,
-                        &mut self.theme,
-                    )
-                    .map(Message::Dashboard);
+                        .handle_event(
+                            window,
+                            event,
+                            &mut self.clients,
+                            &self.version,
+                            &self.config,
+                            &mut self.theme,
+                        )
+                        .map(Message::Dashboard);
                 }
 
                 Task::none()
@@ -874,8 +874,8 @@ impl Halloy {
 
                 if let Screen::Dashboard(dashboard) = &mut self.screen {
                     dashboard
-                    .tick(now, &self.clients, &self.config)
-                    .map(Message::Dashboard)
+                        .tick(now, &self.clients, &self.config)
+                        .map(Message::Dashboard)
                 } else {
                     Task::none()
                 }
@@ -883,8 +883,8 @@ impl Halloy {
             Message::AnimationTick(now) => {
                 if let Screen::Dashboard(dashboard) = &mut self.screen {
                     dashboard
-                    .animation_tick(now, &self.clients)
-                    .map(Message::Dashboard)
+                        .animation_tick(now, &self.clients)
+                        .map(Message::Dashboard)
                 } else {
                     Task::none()
                 }
@@ -906,14 +906,14 @@ impl Halloy {
                             self.modal = None;
                             if cancel_upload
                                 && let Screen::Dashboard(_) = &self.screen
-                                {
-                                    return Task::batch(vec![
+                            {
+                                return Task::batch(vec![
                                         command.map(Message::Modal),
                                                        Task::done(Message::Dashboard(
                                                            dashboard::Message::CancelFilehostUpload,
                                                        )),
                                     ]);
-                                }
+                            }
                         }
                         modal::Event::ConfirmFileUpload => {
                             self.modal = None;
@@ -934,42 +934,42 @@ impl Halloy {
                             }) = self.modal.take()
                             {
                                 let existing_entry =
-                                self.servers.entries().find(|entry| {
-                                    entry.server == server
-                                    || entry.config.server
-                                    == config.server
-                                });
+                                    self.servers.entries().find(|entry| {
+                                        entry.server == server
+                                            || entry.config.server
+                                                == config.server
+                                    });
 
                                 // If server already exists, we only want to join the new channels
                                 if let Some(entry) = existing_entry {
                                     let events = self.clients.update_config(
                                         &entry.server,
                                         Arc::new(config),
-                                                                            true,
+                                        true,
                                     );
 
                                     if let Screen::Dashboard(dashboard) =
                                         &mut self.screen
-                                        {
-                                            let commands = handle_client_events(
-                                                &server,
-                                                events,
-                                                dashboard,
-                                                &mut self.clients,
-                                                &self.config,
-                                                &mut self.notifications,
-                                                &mut self.servers,
-                                                &mut self.controllers,
-                                                &self.main_window,
-                                            );
+                                    {
+                                        let commands = handle_client_events(
+                                            &server,
+                                            events,
+                                            dashboard,
+                                            &mut self.clients,
+                                            &self.config,
+                                            &mut self.notifications,
+                                            &mut self.servers,
+                                            &mut self.controllers,
+                                            &self.main_window,
+                                        );
 
-                                            return command
+                                        return command
                                             .map(Message::Modal)
                                             .chain(commands);
-                                        }
+                                    }
                                 } else {
                                     self.servers
-                                    .insert(server, Arc::new(config));
+                                        .insert(server, Arc::new(config));
                                 }
                             }
                         }
@@ -1034,81 +1034,81 @@ impl Halloy {
                         window::Event::CloseRequested => {
                             let save = Task::perform(
                                 data::Window::from(self.main_window).save(),
-                                                     Message::WindowSettingsSaved,
+                                Message::WindowSettingsSaved,
                             );
 
                             if self.tray_active {
                                 self.window_open = false;
-                                return save.chain(
-                                    window::close(self.main_window.id)
-                                );
+                                return save
+                                    .chain(window::close(self.main_window.id));
                             }
 
                             if let Screen::Dashboard(dashboard) =
                                 &mut self.screen
-                                {
-                                    return save.chain(
-                                        dashboard
+                            {
+                                return save.chain(
+                                    dashboard
                                         .exit(&mut self.clients, &self.config)
                                         .map(Message::Dashboard),
-                                    );
-                                } else {
-                                    return save.chain(iced::exit());
-                                }
-                        }                        window::Event::FileHovered => {
+                                );
+                            } else {
+                                return save.chain(iced::exit());
+                            }
+                        }
+                        window::Event::FileHovered => {
                             if let Screen::Dashboard(dashboard) =
                                 &mut self.screen
-                                {
-                                    dashboard.filehost.file_being_hovered = true;
-                                }
+                            {
+                                dashboard.filehost.file_being_hovered = true;
+                            }
                         }
                         window::Event::FilesHoveredLeft => {
                             if let Screen::Dashboard(dashboard) =
                                 &mut self.screen
-                                {
-                                    dashboard.filehost.file_being_hovered = false;
-                                }
+                            {
+                                dashboard.filehost.file_being_hovered = false;
+                            }
                         }
                         window::Event::FileDropped(ref path) => {
                             if let Screen::Dashboard(dashboard) =
                                 &mut self.screen
-                                {
-                                    dashboard.filehost.file_being_hovered = false;
+                            {
+                                dashboard.filehost.file_being_hovered = false;
 
-                                    if self.config.filehost.file_drop() {
-                                        return dashboard
+                                if self.config.filehost.file_drop() {
+                                    return dashboard
                                         .handle_file_drop(path.clone())
                                         .map(Message::Dashboard);
-                                    }
                                 }
+                            }
                         }
                     }
 
                     tasks.push(
                         iced::window::is_maximized(self.main_window.id)
-                        .map(Message::WindowMaximizeChecked),
+                            .map(Message::WindowMaximizeChecked),
                     );
 
                     if let Some(Screen::Dashboard(dashboard)) =
                         matches!(event, window::Event::Focused)
-                        .then_some(&mut self.screen)
-                        {
-                            tasks.push(
-                                dashboard
+                            .then_some(&mut self.screen)
+                    {
+                        tasks.push(
+                            dashboard
                                 .focus_window_pane(self.main_window.id)
                                 .map(Message::Dashboard),
-                            );
-                        }
+                        );
+                    }
                 } else if let Screen::Dashboard(dashboard) = &mut self.screen {
                     tasks.push(
                         dashboard
-                        .handle_window_event(
-                            id,
-                            event,
-                            &mut self.theme,
-                            &self.config,
-                        )
-                        .map(Message::Dashboard),
+                            .handle_window_event(
+                                id,
+                                event,
+                                &mut self.theme,
+                                &self.config,
+                            )
+                            .map(Message::Dashboard),
                     );
                 }
 
@@ -1118,7 +1118,7 @@ impl Halloy {
                 self.main_window.update_maximize(is_maximized);
                 Task::perform(
                     data::Window::from(self.main_window).save(),
-                              Message::WindowSettingsSaved,
+                    Message::WindowSettingsSaved,
                 )
             }
             Message::WindowSettingsSaved(result) => {
@@ -1131,15 +1131,15 @@ impl Halloy {
             Message::AppearanceChange(mode) => {
                 if let data::appearance::Selected::Dynamic { .. } =
                     &self.config.appearance.selected
-                    {
-                        self.current_mode = mode;
-                        self.theme = self
+                {
+                    self.current_mode = mode;
+                    self.theme = self
                         .current_mode
                         .theme(&self.config.appearance.selected)
                         .into();
-                    }
+                }
 
-                    Task::none()
+                Task::none()
             }
             Message::Logging(mut records) => {
                 let Screen::Dashboard(dashboard) = &mut self.screen else {
@@ -1151,18 +1151,18 @@ impl Halloy {
                 // We've moved from non-dashboard screen to dashboard, prepend records
                 if !self.pending_logs.is_empty() {
                     records = mem::take(&mut self.pending_logs)
-                    .into_iter()
-                    .chain(records)
-                    .collect();
+                        .into_iter()
+                        .chain(records)
+                        .collect();
                 }
 
                 Task::batch(
                     records
-                    .into_iter()
-                    .filter(|record| {
-                        record.level <= self.config.logs.pane_level
-                    })
-                    .map(|record| dashboard.record_log(record)),
+                        .into_iter()
+                        .filter(|record| {
+                            record.level <= self.config.logs.pane_level
+                        })
+                        .map(|record| dashboard.record_log(record)),
                 )
                 .map(Message::Dashboard)
             }
@@ -1186,10 +1186,10 @@ impl Halloy {
 
                         commands.push(dashboard.open_target(
                             server.clone(),
-                                                            target,
-                                                            &mut self.clients,
-                                                            buffer_action,
-                                                            &self.config,
+                            target,
+                            &mut self.clients,
+                            buffer_action,
+                            &self.config,
                         ));
                     }
 
@@ -1207,8 +1207,8 @@ impl Halloy {
                             &mut self.clients,
                             &self.config,
                             server.clone(),
-                                                                    target,
-                                                                    reason.clone(),
+                            target,
+                            reason.clone(),
                         ));
                     }
 
@@ -1234,7 +1234,7 @@ impl Halloy {
                 } else {
                     let save = Task::perform(
                         data::Window::from(self.main_window).save(),
-                                             Message::WindowSettingsSaved,
+                        Message::WindowSettingsSaved,
                     );
                     self.window_open = false;
                     save.chain(window::close(self.main_window.id))
@@ -1255,8 +1255,9 @@ impl Halloy {
             }
             Message::TrayMenuQuit => {
                 if let Screen::Dashboard(dashboard) = &mut self.screen {
-                    dashboard.exit(&mut self.clients, &self.config)
-                    .map(Message::Dashboard)
+                    dashboard
+                        .exit(&mut self.clients, &self.config)
+                        .map(Message::Dashboard)
                 } else {
                     iced::exit()
                 }
@@ -1265,20 +1266,20 @@ impl Halloy {
     }
     fn view(&self, id: window::Id) -> Element<'_, Message> {
         let platform_specific_padding =
-        platform_specific::content_padding(&self.config);
+            platform_specific::content_padding(&self.config);
 
         // Main window.
         if id == self.main_window.id {
             let screen = match &self.screen {
                 Screen::Dashboard(dashboard) => dashboard
-                .view(
-                    &self.servers,
-                    &self.clients,
-                    &self.version,
-                    &self.config,
-                    &self.theme,
-                )
-                .map(Message::Dashboard),
+                    .view(
+                        &self.servers,
+                        &self.clients,
+                        &self.version,
+                        &self.config,
+                        &self.theme,
+                    )
+                    .map(Message::Dashboard),
                 Screen::Help(help) => help.view(&self.theme).map(Message::Help),
                 Screen::Welcome(welcome) => {
                     welcome.view(&self.theme).map(Message::Welcome)
@@ -1288,9 +1289,9 @@ impl Halloy {
 
             let content = container(
                 container(screen)
-                .width(Length::Fill)
-                .height(Length::Fill)
-                .style(theme::container::root),
+                    .width(Length::Fill)
+                    .height(Length::Fill)
+                    .style(theme::container::root),
             )
             .padding(padding::top(platform_specific_padding));
 
@@ -1298,30 +1299,30 @@ impl Halloy {
             // If modal has no id, we show them on main_window.
             match (&self.modal, &self.screen) {
                 (Some(modal), Screen::Dashboard(_))
-                if modal.window_id() == Some(self.main_window.id)
-                    || modal.window_id().is_none() =>
-                    {
-                        widget::modal(
-                            content,
-                            modal.view(&self.theme).map(Message::Modal),
-                                      || Message::Modal(modal::Message::Cancel),
-                                      0.8,
-                        )
-                    }
-                    _ => column![content].into(),
+                    if modal.window_id() == Some(self.main_window.id)
+                        || modal.window_id().is_none() =>
+                {
+                    widget::modal(
+                        content,
+                        modal.view(&self.theme).map(Message::Modal),
+                        || Message::Modal(modal::Message::Cancel),
+                        0.8,
+                    )
+                }
+                _ => column![content].into(),
             }
             // Popped out window.
         } else if let Screen::Dashboard(dashboard) = &self.screen {
             let content = container(
                 dashboard
-                .view_window(
-                    id,
-                    &self.clients,
-                    &self.version,
-                    &self.config,
-                    &self.theme,
-                )
-                .map(Message::Dashboard),
+                    .view_window(
+                        id,
+                        &self.clients,
+                        &self.version,
+                        &self.config,
+                        &self.theme,
+                    )
+                    .map(Message::Dashboard),
             )
             .padding(padding::top(platform_specific_padding));
 
@@ -1331,8 +1332,8 @@ impl Halloy {
                 Some(modal) if modal.window_id() == Some(id) => widget::modal(
                     content,
                     modal.view(&self.theme).map(Message::Modal),
-                                                                              || Message::Modal(modal::Message::Cancel),
-                                                                              0.8,
+                    || Message::Modal(modal::Message::Cancel),
+                    0.8,
                 ),
                 _ => column![content].into(),
             }
@@ -1352,12 +1353,12 @@ impl Halloy {
     fn subscription(&self) -> Subscription<Message> {
         let tick = iced::time::every(Duration::from_secs(1)).map(Message::Tick);
         let animation_tick = iced::time::every(Duration::from_millis(50))
-        .map(Message::AnimationTick);
+            .map(Message::AnimationTick);
 
         let streams = Subscription::batch(
             self.servers
-            .entries()
-            .map(|entry| stream::run(entry, self.config.proxy.clone())),
+                .entries()
+                .map(|entry| stream::run(entry, self.config.proxy.clone())),
         )
         .map(Message::Stream);
 
@@ -1365,7 +1366,7 @@ impl Halloy {
             url::listen().map(Message::RouteReceived),
             events().map(|(window, event)| Message::Event(window, event)),
             window::events()
-            .map(|(window, event)| Message::Window(window, event)),
+                .map(|(window, event)| Message::Window(window, event)),
             tick,
             animation_tick,
             streams,
@@ -1373,7 +1374,7 @@ impl Halloy {
 
         if cfg!(target_family = "unix") {
             subscriptions
-            .push(unix_signal::subscription().map(Message::UnixSignal));
+                .push(unix_signal::subscription().map(Message::UnixSignal));
         }
 
         // We only want to listen for appearance changes if user has dynamic themes.
@@ -1397,11 +1398,11 @@ impl Halloy {
         match config {
             Ok(updated) => {
                 let removed_servers = self
-                .servers
-                .extract_if(|server, _| {
-                    !updated.servers.contains(&server.name)
-                })
-                .collect::<Vec<_>>();
+                    .servers
+                    .extract_if(|server, _| {
+                        !updated.servers.contains(&server.name)
+                    })
+                    .collect::<Vec<_>>();
 
                 for (server, config) in updated.servers.iter() {
                     let server = server.clone().into();
@@ -1410,24 +1411,24 @@ impl Halloy {
                         *existing = config.clone();
 
                         let bouncer_networks = self
-                        .servers
-                        .get_bouncer_networks(&server)
-                        .cloned()
-                        .collect::<Vec<_>>();
+                            .servers
+                            .get_bouncer_networks(&server)
+                            .cloned()
+                            .collect::<Vec<_>>();
 
                         for bouncer_network in bouncer_networks {
                             if let Some(bouncer_network) =
                                 self.servers.get_mut(&bouncer_network)
-                                {
-                                    *bouncer_network =
+                            {
+                                *bouncer_network =
                                     config.bouncer_config().into();
-                                }
+                            }
                         }
 
                         self.controllers.update_config(
                             &server,
                             config.clone(),
-                                                       updated.proxy.clone(),
+                            updated.proxy.clone(),
                         );
                     } else {
                         self.servers.insert(server, config.clone());
@@ -1437,9 +1438,9 @@ impl Halloy {
                 self.servers.set_order(updated.sidebar.order_by);
 
                 self.theme = self
-                .current_mode
-                .theme(&updated.appearance.selected)
-                .into();
+                    .current_mode
+                    .theme(&updated.appearance.selected)
+                    .into();
 
                 // Load new notification sounds.
                 self.notifications = Notifications::new(&updated);
@@ -1463,8 +1464,8 @@ impl Halloy {
                     );
 
                     return dashboard
-                    .reload_visible_previews(&self.clients, &self.config)
-                    .map(Message::Dashboard);
+                        .reload_visible_previews(&self.clients, &self.config)
+                        .map(Message::Dashboard);
                 }
             }
             Err(error) => {
@@ -1613,48 +1614,48 @@ fn handle_client_events(
             Event::UpdateReadMarker(target, read_marker) => {
                 commands.push(
                     dashboard
-                    .update_read_marker(
-                        history::Kind::from_target(server.clone(), target),
-                                        read_marker,
-                    )
-                    .map(Message::Dashboard),
+                        .update_read_marker(
+                            history::Kind::from_target(server.clone(), target),
+                            read_marker,
+                        )
+                        .map(Message::Dashboard),
                 );
             }
             Event::JoinedChannel(channel, server_time) => {
                 commands.push(
                     dashboard
-                    .load_metadata(
-                        clients,
-                        server.clone(),
-                                   Target::Channel(channel),
-                                   server_time,
-                    )
-                    .map(Message::Dashboard),
+                        .load_metadata(
+                            clients,
+                            server.clone(),
+                            Target::Channel(channel),
+                            server_time,
+                        )
+                        .map(Message::Dashboard),
                 );
             }
             Event::LoggedIn(server_time) => {
                 if clients.get_server_supports_chathistory(server)
                     && let Some(command) = dashboard
-                    .load_chathistory_targets_timestamp(
-                        clients,
-                        server,
-                        server_time,
-                    )
-                    .map(|cmd| cmd.map(Message::Dashboard))
-                    {
-                        commands.push(command);
-                    }
+                        .load_chathistory_targets_timestamp(
+                            clients,
+                            server,
+                            server_time,
+                        )
+                        .map(|cmd| cmd.map(Message::Dashboard))
+                {
+                    commands.push(command);
+                }
             }
             Event::ChatHistoryTargetReceived(target, server_time) => {
                 commands.push(
                     dashboard
-                    .load_metadata(
-                        clients,
-                        server.clone(),
-                                   target,
-                                   server_time,
-                    )
-                    .map(Message::Dashboard),
+                        .load_metadata(
+                            clients,
+                            server.clone(),
+                            target,
+                            server_time,
+                        )
+                        .map(Message::Dashboard),
                 );
             }
             Event::ChatHistoryTargetsReceived(server_time) => {
@@ -1665,9 +1666,9 @@ fn handle_client_events(
                         server_time,
                     )
                     .map(|cmd| cmd.map(Message::Dashboard))
-                    {
-                        commands.push(command);
-                    }
+                {
+                    commands.push(command);
+                }
             }
             Event::DirectMessage(encoded, our_nick, user) => {
                 handle_direct_message(
@@ -1691,8 +1692,8 @@ fn handle_client_events(
                     let request_attention = notifications.notify(
                         &config.notifications,
                         &Notification::MonitoredOnline(users),
-                                                                 server,
-                                                                 message_window.unwrap_or(main_window.id),
+                        server,
+                        message_window.unwrap_or(main_window.id),
                     );
 
                     if let Some(request_attention) = request_attention {
@@ -1708,8 +1709,8 @@ fn handle_client_events(
                     let request_attention = notifications.notify(
                         &config.notifications,
                         &Notification::MonitoredOffline(users),
-                                                                 server,
-                                                                 message_window.unwrap_or(main_window.id),
+                        server,
+                        message_window.unwrap_or(main_window.id),
                     );
 
                     if let Some(request_attention) = request_attention {
@@ -1750,14 +1751,14 @@ fn handle_client_events(
                     encoded,
                     our_nick,
                     clients.get_server_chantypes_or_default(server),
-                                                           clients.get_server_statusmsg_or_default(server),
-                                                           clients.get_server_casemapping_or_default(server),
-                                                           config.buffer.channel.message.max_reaction_chars,
+                    clients.get_server_statusmsg_or_default(server),
+                    clients.get_server_casemapping_or_default(server),
+                    config.buffer.channel.message.max_reaction_chars,
                 ) {
                     reactions.push(
                         dashboard
-                        .record_reaction(server, reaction)
-                        .map(Message::Dashboard),
+                            .record_reaction(server, reaction)
+                            .map(Message::Dashboard),
                     );
                 }
             }
@@ -1782,15 +1783,15 @@ fn create_message(
         reroute_rules,
         |user, channel| {
             clients
-            .resolve_user_attributes(server, channel, user)
-            .cloned()
+                .resolve_user_attributes(server, channel, user)
+                .cloned()
         },
         |channel| clients.get_channel_users(server, channel),
-                            server,
-                            clients.get_server_chantypes_or_default(server),
-                            clients.get_server_statusmsg_or_default(server),
-                            clients.get_server_casemapping_or_default(server),
-                            clients.get_server_prefix_or_default(server),
+        server,
+        clients.get_server_chantypes_or_default(server),
+        clients.get_server_statusmsg_or_default(server),
+        clients.get_server_casemapping_or_default(server),
+        clients.get_server_prefix_or_default(server),
     )
 }
 
@@ -1809,15 +1810,15 @@ fn create_message_with_highlight(
         reroute_rules,
         |user, channel| {
             clients
-            .resolve_user_attributes(server, channel, user)
-            .cloned()
+                .resolve_user_attributes(server, channel, user)
+                .cloned()
         },
         |channel| clients.get_channel_users(server, channel),
-                                           server,
-                                           clients.get_server_chantypes_or_default(server),
-                                           clients.get_server_statusmsg_or_default(server),
-                                           clients.get_server_casemapping_or_default(server),
-                                           clients.get_server_prefix_or_default(server),
+        server,
+        clients.get_server_chantypes_or_default(server),
+        clients.get_server_statusmsg_or_default(server),
+        clients.get_server_casemapping_or_default(server),
+        clients.get_server_prefix_or_default(server),
     )
 }
 
@@ -1843,13 +1844,13 @@ fn handle_single_event(
 
     commands.push(
         dashboard
-        .block_and_record_message(
-            server,
-            clients.get_server_casemapping_or_default(server),
-                                  message,
-                                  &config.buffer,
-        )
-        .map(Message::Dashboard),
+            .block_and_record_message(
+                server,
+                clients.get_server_casemapping_or_default(server),
+                message,
+                &config.buffer,
+            )
+            .map(Message::Dashboard),
     );
 }
 
@@ -1876,13 +1877,13 @@ fn handle_with_target_event(
 
     commands.push(
         dashboard
-        .block_and_record_message(
-            server,
-            clients.get_server_casemapping_or_default(server),
-                                  message.with_target(target),
-                                  &config.buffer,
-        )
-        .map(Message::Dashboard),
+            .block_and_record_message(
+                server,
+                clients.get_server_casemapping_or_default(server),
+                message.with_target(target),
+                &config.buffer,
+            )
+            .map(Message::Dashboard),
     );
 }
 
@@ -1923,15 +1924,15 @@ fn handle_priv_or_notice(
     }
 
     let window = kind
-    .as_ref()
-    .and_then(|kind| dashboard.find_window_with_history(kind));
+        .as_ref()
+        .and_then(|kind| dashboard.find_window_with_history(kind));
 
     let should_mark_as_read = config.buffer.mark_as_read.on_message
-    && !msg.blocked
-    && msg.triggers_unread()
-    && kind.as_ref().is_some_and(|kind| {
-        dashboard.is_focused_and_at_bottom(kind, window)
-    });
+        && !msg.blocked
+        && msg.triggers_unread()
+        && kind.as_ref().is_some_and(|kind| {
+            dashboard.is_focused_and_at_bottom(kind, window)
+        });
 
     if let Some(highlight) = highlight {
         handle_highlight(
@@ -1964,14 +1965,14 @@ fn handle_priv_or_notice(
     if should_mark_as_read && let Some(kind) = kind.as_ref() {
         dashboard.update_display_read_marker(
             kind.clone(),
-                                             history::ReadMarker::from(&msg),
+            history::ReadMarker::from(&msg),
         );
     }
 
     commands.push(
         dashboard
-        .record_message(server, msg, &config.buffer)
-        .map(Message::Dashboard),
+            .record_message(server, msg, &config.buffer)
+            .map(Message::Dashboard),
     );
 
     if should_mark_as_read && let Some(kind) = kind {
@@ -1986,11 +1987,11 @@ fn handle_highlight(
     notification_enabled: bool,
     message_window: Option<window::Id>,
     casemapping: data::isupport::CaseMap,
-        dashboard: &mut screen::Dashboard,
-        commands: &mut Vec<Task<Message>>,
-        config: &Config,
-        notifications: &mut Notifications,
-        main_window: &Window,
+    dashboard: &mut screen::Dashboard,
+    commands: &mut Vec<Task<Message>>,
+    config: &Config,
+    notifications: &mut Notifications,
+    main_window: &Window,
 ) {
     let message::Highlight {
         kind: highlight_kind,
@@ -2004,81 +2005,25 @@ fn handle_highlight(
     if !highlight_message.blocked
         && notification_enabled
         && (message_window.is_none() || !main_window.focused)
-        {
-            let (description, sound) = match highlight_kind {
-                message::highlight::Kind::Nick => {
-                    ("highlighted you".to_string(), None)
-                }
-                message::highlight::Kind::Match { matching, sound } => {
-                    (format!("matched highlight {matching}"), sound)
-                }
-            };
-
-            let request_attention = notifications.notify(
-                &config.notifications,
-                &Notification::Highlight {
-                    user: highlight_user,
-                    channel: highlight_channel,
-                    casemapping,
-                    message: highlight_message.text(),
-                                                         description,
-                                                         sound,
-                },
-                server,
-                message_window.unwrap_or(main_window.id),
-            );
-
-            if let Some(request_attention) = request_attention {
-                commands.push(request_attention);
+    {
+        let (description, sound) = match highlight_kind {
+            message::highlight::Kind::Nick => {
+                ("highlighted you".to_string(), None)
             }
-        }
-
-        commands.push(
-            dashboard
-            .record_highlight(highlight_message)
-            .map(Message::Dashboard),
-        );
-}
-
-fn maybe_notify_channel_message(
-    server: &Server,
-    msg: &data::Message,
-    notification_enabled: bool,
-    message_window: Option<window::Id>,
-    casemapping: data::isupport::CaseMap,
-        commands: &mut Vec<Task<Message>>,
-        config: &Config,
-        notifications: &mut Notifications,
-        main_window: &Window,
-) {
-    if msg.blocked
-        || !notification_enabled
-        || (message_window.is_some() && main_window.focused)
-        {
-            return;
-        }
-
-        let (channel, user) = match &msg.target {
-            message::Target::Channel {
-                channel,
-                source: message::Source::User(user),
-                ..
-            } => (channel.clone(), user.clone()),
-            message::Target::Channel {
-                channel,
-                source: message::Source::Action(Some(user)),
-                ..
-            } => (channel.clone(), user.clone()),
-            _ => return,
+            message::highlight::Kind::Match { matching, sound } => {
+                (format!("matched highlight {matching}"), sound)
+            }
         };
 
         let request_attention = notifications.notify(
             &config.notifications,
-            &Notification::Channel {
-                user,
-                channel,
+            &Notification::Highlight {
+                user: highlight_user,
+                channel: highlight_channel,
                 casemapping,
-                message: msg.text(),
+                message: highlight_message.text(),
+                description,
+                sound,
             },
             server,
             message_window.unwrap_or(main_window.id),
@@ -2087,6 +2032,62 @@ fn maybe_notify_channel_message(
         if let Some(request_attention) = request_attention {
             commands.push(request_attention);
         }
+    }
+
+    commands.push(
+        dashboard
+            .record_highlight(highlight_message)
+            .map(Message::Dashboard),
+    );
+}
+
+fn maybe_notify_channel_message(
+    server: &Server,
+    msg: &data::Message,
+    notification_enabled: bool,
+    message_window: Option<window::Id>,
+    casemapping: data::isupport::CaseMap,
+    commands: &mut Vec<Task<Message>>,
+    config: &Config,
+    notifications: &mut Notifications,
+    main_window: &Window,
+) {
+    if msg.blocked
+        || !notification_enabled
+        || (message_window.is_some() && main_window.focused)
+    {
+        return;
+    }
+
+    let (channel, user) = match &msg.target {
+        message::Target::Channel {
+            channel,
+            source: message::Source::User(user),
+            ..
+        } => (channel.clone(), user.clone()),
+        message::Target::Channel {
+            channel,
+            source: message::Source::Action(Some(user)),
+            ..
+        } => (channel.clone(), user.clone()),
+        _ => return,
+    };
+
+    let request_attention = notifications.notify(
+        &config.notifications,
+        &Notification::Channel {
+            user,
+            channel,
+            casemapping,
+            message: msg.text(),
+        },
+        server,
+        message_window.unwrap_or(main_window.id),
+    );
+
+    if let Some(request_attention) = request_attention {
+        commands.push(request_attention);
+    }
 }
 
 fn handle_broadcast(
@@ -2222,7 +2223,7 @@ fn handle_direct_message(
     let query = target::Query::from(&user);
 
     let blocked = FilterChain::borrow(dashboard.get_filters())
-    .filter_query(&query, server);
+        .filter_query(&query, server);
     let kind = history::Kind::Query(server.clone(), query);
 
     let message_window = dashboard.find_window_with_history(&kind);

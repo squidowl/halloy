@@ -37,9 +37,11 @@ mod linux {
         Quit,
     }
 
-    static TRAY_TX: OnceLock<tokio::sync::mpsc::Sender<TrayEvent>> = OnceLock::new();
-    static TRAY_RX: OnceLock<Mutex<Option<tokio::sync::mpsc::Receiver<TrayEvent>>>> =
+    static TRAY_TX: OnceLock<tokio::sync::mpsc::Sender<TrayEvent>> =
         OnceLock::new();
+    static TRAY_RX: OnceLock<
+        Mutex<Option<tokio::sync::mpsc::Receiver<TrayEvent>>>,
+    > = OnceLock::new();
 
     struct HalloyTray;
 
@@ -210,14 +212,17 @@ mod desktop {
                 |mut output: iced::futures::channel::mpsc::Sender<Message>| async move {
                     use futures::SinkExt as _;
                     loop {
-                        while let Ok(event) = TrayIconEvent::receiver().try_recv() {
+                        while let Ok(event) =
+                            TrayIconEvent::receiver().try_recv()
+                        {
                             if let TrayIconEvent::Click {
                                 button: tray_icon::MouseButton::Left,
                                 button_state: tray_icon::MouseButtonState::Up,
                                 ..
                             } = event
                             {
-                                let _ = output.send(Message::TrayIconClicked).await;
+                                let _ =
+                                    output.send(Message::TrayIconClicked).await;
                             }
                         }
                         while let Ok(event) = MenuEvent::receiver().try_recv() {
