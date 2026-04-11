@@ -4,6 +4,7 @@ use serde::Deserialize;
 #[serde(default)]
 pub struct Display {
     pub direction_arrows: DirectionArrows,
+    pub decode_urls: bool,
 }
 
 #[derive(Debug, Clone, Deserialize)]

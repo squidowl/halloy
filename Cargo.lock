@@ -2935,6 +2935,7 @@ dependencies = [
  "objc2-foundation 0.3.2",
  "open",
  "palette",
+ "percent-encoding",
  "rand 0.10.0",
  "rand_chacha 0.10.0",
  "reqwest",

@@ -45,6 +45,7 @@ tokio-util = { version = "0.7", features = ["io"] }
 const_format = "0.2.32"
 iced = { version = "0.15.0-dev", default-features = false }
 nom = "8.0"
+percent-encoding = "2.3.2"
 
 [dependencies]
 tokio = { workspace = true, features = ["rt", "fs", "process"] }
@@ -83,6 +84,7 @@ iced = { workspace = true, features = [
     "crisp",
     "web-colors",
 ] }
+percent-encoding = { workspace = true }
 
 data = { version = "0.1.0", path = "data" }
 ipc = { version = "0.1.0", path = "ipc" }

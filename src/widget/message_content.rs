@@ -3,6 +3,7 @@ use data::{Config, Server, isupport, message, target};
 use iced::widget::span;
 use iced::widget::text::Span;
 use iced::{Color, Length, border};
+use percent_encoding::percent_decode_str;
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::{Element, Renderer, selectable_rich_text, selectable_text};
@@ -212,23 +213,29 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a>(
                                     ))
                                     .background(theme.styles().buffer.highlight)
                             }
-                            data::message::Fragment::Url(_, s) => {
+                            data::message::Fragment::Url(_, s) => if config
+                                .display
+                                .decode_urls
+                            {
+                                span(
+                                    percent_decode_str(s.as_str())
+                                        .decode_utf8_lossy(),
+                                )
+                            } else {
                                 span(s.as_str())
-                                    .font_maybe(
-                                        theme
-                                            .styles()
-                                            .buffer
-                                            .url
-                                            .font_style
-                                            .map(font::get),
-                                    )
-                                    .color(transform_color(
-                                        theme.styles().buffer.url.color,
-                                    ))
-                                    .link(message::Link::Url(
-                                        s.as_str().to_string(),
-                                    ))
                             }
+                            .font_maybe(
+                                theme
+                                    .styles()
+                                    .buffer
+                                    .url
+                                    .font_style
+                                    .map(font::get),
+                            )
+                            .color(transform_color(
+                                theme.styles().buffer.url.color,
+                            ))
+                            .link(message::Link::Url(s.as_str().to_string())),
                             data::message::Fragment::Formatted {
                                 text,
                                 formatting,
