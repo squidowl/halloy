@@ -3589,23 +3589,37 @@ pub mod tests {
         let statusmsg = isupport::get_statusmsg_or_default(&isupport);
         let casemapping = isupport::get_casemapping_or_default(&isupport);
 
-        let our_nick = Nick::from_str(
-            "our_nick",
-            isupport::get_casemapping_or_default(&isupport),
-        );
+        let our_nick = Nick::from_str("dan", casemapping);
 
-        let tests = [(
-            ":dan!d@localhost PRIVMSG $$* :Mass message! \r\n",
-            Some((
-                Target::Server {
-                    source: Source::User(User::from(Nick::from_str(
-                        "dan",
-                        casemapping,
-                    ))),
-                },
-                None,
-            )),
-        )];
+        let our_user = User::from(our_nick.clone());
+
+        let tests = [
+            (
+                ":dan!d@localhost NOTICE * :Server notice! \r\n",
+                Some((
+                    Target::Server {
+                        source: Source::User(User::from(Nick::from_str(
+                            "dan",
+                            casemapping,
+                        ))),
+                    },
+                    None,
+                )),
+            ),
+            (
+                ":dan!d@localhost PRIVMSG $$* :Mass message! \r\n",
+                Some((
+                    Target::Query {
+                        query: target::Query::from(our_user),
+                        source: Source::User(User::from(Nick::from_str(
+                            "dan",
+                            casemapping,
+                        ))),
+                    },
+                    None,
+                )),
+            ),
+        ];
 
         for (irc_message, expected) in tests {
             let encoded = proto::parse::message(irc_message).unwrap();
