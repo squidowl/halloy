@@ -11,6 +11,7 @@ use data::dashboard::{self, BufferAction};
 use data::environment::{RELEASE_WEBSITE, WIKI_WEBSITE};
 use data::history::ReadMarker;
 use data::history::filter::Filter;
+use data::history::reroute::RerouteRules;
 use data::isupport::{self, ChatHistorySubcommand, MessageReference};
 use data::message::{self, Broadcast};
 use data::rate_limit::TokenPriority;
@@ -211,6 +212,16 @@ impl Dashboard {
         self.init_filters(servers, clients);
 
         self.reprocess_history(clients, buffer_config);
+    }
+
+    pub fn set_reroute_rules(
+        &mut self,
+        servers: &server::Map,
+        clients: &client::Map,
+    ) {
+        let reroute_rules = self.get_reroute_rules_mut();
+
+        *reroute_rules = RerouteRules::from_server_map(servers, clients);
     }
 
     pub fn reload_visible_previews(
@@ -921,10 +932,12 @@ impl Dashboard {
                                 if let Some(messages) = command.messages(
                                     user,
                                     channel_users,
+                                    buffer.server(),
                                     chantypes,
                                     statusmsg,
                                     casemapping,
                                     supports_echoes,
+                                    self.history.get_reroute_rules(),
                                 ) && let Some(encoded) =
                                     proto::Command::try_from(command)
                                         .ok()
@@ -2134,65 +2147,6 @@ impl Dashboard {
                             );
                         }
 
-                        if let Some(nick) = clients.nickname(buffer.server()) {
-                            let mut user = nick.to_owned().into();
-                            let mut channel_users = None;
-                            let chantypes = clients
-                                .get_server_chantypes_or_default(
-                                    buffer.server(),
-                                );
-                            let statusmsg = clients
-                                .get_server_statusmsg_or_default(
-                                    buffer.server(),
-                                );
-                            let casemapping = clients
-                                .get_server_casemapping_or_default(
-                                    buffer.server(),
-                                );
-                            let supports_echoes = clients
-                                .get_server_supports_echoes(buffer.server());
-
-                            // Resolve our attributes if sending this message in a channel
-                            if let buffer::Upstream::Channel(server, channel) =
-                                &buffer
-                            {
-                                channel_users =
-                                    clients.get_channel_users(server, channel);
-
-                                if let Some(user_with_attributes) = clients
-                                    .resolve_user_attributes(
-                                        server, channel, &user,
-                                    )
-                                {
-                                    user = user_with_attributes.clone();
-                                }
-                            }
-
-                            if let Some(messages) = input.messages(
-                                user,
-                                channel_users,
-                                chantypes,
-                                statusmsg,
-                                casemapping,
-                                supports_echoes,
-                            ) {
-                                for message in messages {
-                                    if let Some(task) =
-                                        self.history.record_message(
-                                            input.server(),
-                                            message,
-                                            &config.buffer,
-                                        )
-                                    {
-                                        tasks.push(Task::perform(
-                                            task,
-                                            Message::History,
-                                        ));
-                                    }
-                                }
-                            }
-                        }
-
                         None
                     }
                     buffer::context_menu::Event::SendWhowas(server, nick) => {
@@ -2213,65 +2167,6 @@ impl Dashboard {
                                 encoded,
                                 TokenPriority::User,
                             );
-                        }
-
-                        if let Some(nick) = clients.nickname(buffer.server()) {
-                            let mut user = nick.to_owned().into();
-                            let mut channel_users = None;
-                            let chantypes = clients
-                                .get_server_chantypes_or_default(
-                                    buffer.server(),
-                                );
-                            let statusmsg = clients
-                                .get_server_statusmsg_or_default(
-                                    buffer.server(),
-                                );
-                            let casemapping = clients
-                                .get_server_casemapping_or_default(
-                                    buffer.server(),
-                                );
-                            let supports_echoes = clients
-                                .get_server_supports_echoes(buffer.server());
-
-                            // Resolve our attributes if sending this message in a channel
-                            if let buffer::Upstream::Channel(server, channel) =
-                                &buffer
-                            {
-                                channel_users =
-                                    clients.get_channel_users(server, channel);
-
-                                if let Some(user_with_attributes) = clients
-                                    .resolve_user_attributes(
-                                        server, channel, &user,
-                                    )
-                                {
-                                    user = user_with_attributes.clone();
-                                }
-                            }
-
-                            if let Some(messages) = input.messages(
-                                user,
-                                channel_users,
-                                chantypes,
-                                statusmsg,
-                                casemapping,
-                                supports_echoes,
-                            ) {
-                                for message in messages {
-                                    if let Some(task) =
-                                        self.history.record_message(
-                                            input.server(),
-                                            message,
-                                            &config.buffer,
-                                        )
-                                    {
-                                        tasks.push(Task::perform(
-                                            task,
-                                            Message::History,
-                                        ));
-                                    }
-                                }
-                            }
                         }
 
                         None
@@ -3253,13 +3148,13 @@ impl Dashboard {
         message: data::Message,
         buffer_config: &config::Buffer,
     ) -> Task<Message> {
-        if let Some(task) =
-            self.history.record_message(server, message, buffer_config)
-        {
-            Task::perform(task, Message::History)
-        } else {
-            Task::none()
-        }
+        let tasks = self.history.record_message(server, message, buffer_config);
+
+        Task::batch(
+            tasks
+                .into_iter()
+                .map(|task| Task::perform(task, Message::History)),
+        )
     }
 
     pub fn record_reaction(
@@ -3303,16 +3198,18 @@ impl Dashboard {
         message: data::Message,
         buffer_config: &config::Buffer,
     ) -> Task<Message> {
-        if let Some(task) = self.history.block_and_record_message(
+        let tasks = self.history.block_and_record_message(
             server,
             casemapping,
             message,
             buffer_config,
-        ) {
-            Task::perform(task, Message::History)
-        } else {
-            Task::none()
-        }
+        );
+
+        Task::batch(
+            tasks
+                .into_iter()
+                .map(|task| Task::perform(task, Message::History)),
+        )
     }
 
     pub fn record_log(&mut self, record: data::log::Record) -> Task<Message> {
@@ -4222,6 +4119,14 @@ impl Dashboard {
         } else {
             Task::none()
         }
+    }
+
+    pub fn get_reroute_rules(&self) -> &RerouteRules {
+        self.history.get_reroute_rules()
+    }
+
+    pub fn get_reroute_rules_mut(&mut self) -> &mut RerouteRules {
+        self.history.get_reroute_rules_mut()
     }
 
     pub fn handle_window_event(

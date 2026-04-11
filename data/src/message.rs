@@ -21,6 +21,7 @@ pub use self::source::Source;
 pub use self::source::server::{Change, Kind, StandardReply};
 use crate::config::buffer::{CondensationFormat, UsernameFormat};
 use crate::config::{self, Highlights};
+use crate::history::reroute::RerouteRules;
 use crate::log::Level;
 use crate::reaction::Reaction;
 use crate::serde::fail_as_none;
@@ -71,6 +72,13 @@ static URL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
         r#"*\("#,
         URL_PATH_NO_CLOSE_PAREN,
         r#"*\)"#,
+        r#"(?:"#,
+        URL_PATH,
+        r#"*"#,
+        URL_PATH_EXC_PUNC,
+        r#"|"#,
+        URL_PATH_EXC_PUNC,
+        r#"?)?"#,
         r#"|"#,
         URL_PATH,
         r#"*"#,
@@ -100,6 +108,32 @@ pub(crate) mod broadcast;
 pub mod formatting;
 pub mod highlight;
 pub mod source;
+
+pub fn reroute_private_message_target(
+    target: &Target,
+    reroute_rules: &RerouteRules,
+    server: &Server,
+) -> Option<Target> {
+    match target {
+        Target::Query { query, source } => {
+            reroute_rules.target_for_direct_message(query, server, source)
+        }
+        _ => None,
+    }
+}
+
+pub fn reroute_private_notice_target(
+    target: &Target,
+    reroute_rules: &RerouteRules,
+    server: &Server,
+) -> Option<Target> {
+    match target {
+        Target::Query { query, source } => {
+            reroute_rules.target_for_direct_notice(query, server, source)
+        }
+        _ => None,
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct Encoded(pub(crate) proto::Message);
@@ -136,6 +170,38 @@ impl Encoded {
 
     pub fn server_time_or_now(&self) -> DateTime<Utc> {
         self.server_time().unwrap_or_else(Utc::now)
+    }
+
+    pub fn channel_context(
+        &self,
+        chantypes: &[char],
+        statusmsg: &[char],
+        casemapping: isupport::CaseMap,
+    ) -> Option<target::Channel> {
+        self.tags
+            .get("channel-context")
+            .or(self.tags.get("draft/channel-context"))
+            .and_then(|channel| {
+                target::Channel::parse(
+                    channel,
+                    chantypes,
+                    statusmsg,
+                    casemapping,
+                )
+                .ok()
+            })
+    }
+}
+
+fn received_command(encoded: &Encoded) -> Option<command::Irc> {
+    match &encoded.command {
+        Command::PRIVMSG(target, text) => {
+            Some(command::Irc::Msg(target.clone(), text.clone()))
+        }
+        Command::NOTICE(target, text) => {
+            Some(command::Irc::Notice(target.clone(), text.clone()))
+        }
+        _ => None,
     }
 }
 
@@ -224,6 +290,16 @@ impl Target {
             Target::Highlights { source, .. } => source,
         }
     }
+
+    pub fn raw(&self) -> Option<&str> {
+        match self {
+            Target::Channel { channel, .. } => Some(channel.as_str()),
+            Target::Query { query, .. } => Some(query.as_str()),
+            Target::Server { .. }
+            | Target::Logs { .. }
+            | Target::Highlights { .. } => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
@@ -248,6 +324,7 @@ pub struct Message {
     pub expanded: bool, // Only relevant if can_condense
     pub command: Option<command::Irc>, // Only relevant if direction == Direction::Sent
     pub reactions: Vec<Reaction>,
+    pub rerouted_from: Option<Target>,
 }
 
 impl Message {
@@ -306,6 +383,10 @@ impl Message {
         true
     }
 
+    pub fn is_rerouted(&self) -> bool {
+        self.rerouted_from.is_some()
+    }
+
     pub fn can_condense(
         &self,
         condense: &config::buffer::Condensation,
@@ -328,6 +409,7 @@ impl Message {
         encoded: Encoded,
         our_nick: Nick,
         config: &'a Config,
+        reroute_rules: &RerouteRules,
         resolve_attributes: impl Fn(&User, &target::Channel) -> Option<User>,
         channel_users: impl Fn(&target::Channel) -> Option<&'a ChannelUsers>,
         server: &Server,
@@ -338,6 +420,7 @@ impl Message {
     ) -> Option<Message> {
         let server_time = encoded.server_time_or_now();
         let id = encoded.message_id();
+        let command = received_command(&encoded);
         let is_echo = encoded
             .user(casemapping)
             .is_some_and(|user| user.nickname() == our_nick);
@@ -353,10 +436,12 @@ impl Message {
             casemapping,
             prefix,
         )?;
-        let target = target(
+        let (target, rerouted_from) = target(
             encoded,
             &our_nick,
+            reroute_rules,
             &resolve_attributes,
+            server,
             chantypes,
             statusmsg,
             casemapping,
@@ -377,8 +462,9 @@ impl Message {
             blocked: false,
             condensed: None,
             expanded: false,
-            command: None,
+            command,
             reactions: vec![],
+            rerouted_from,
         })
     }
 
@@ -386,6 +472,7 @@ impl Message {
         encoded: Encoded,
         our_nick: Nick,
         config: &'a Config,
+        reroute_rules: &RerouteRules,
         resolve_attributes: impl Fn(&User, &target::Channel) -> Option<User>,
         channel_users: impl Fn(&target::Channel) -> Option<&'a ChannelUsers>,
         server: &Server,
@@ -396,6 +483,7 @@ impl Message {
     ) -> Option<(Message, Option<Highlight>)> {
         let server_time = encoded.server_time_or_now();
         let id = encoded.message_id();
+        let command = received_command(&encoded);
         let is_echo = encoded
             .user(casemapping)
             .is_some_and(|user| user.nickname() == our_nick);
@@ -411,10 +499,12 @@ impl Message {
             casemapping,
             prefix,
         )?;
-        let target = target(
+        let (target, rerouted_from) = target(
             encoded,
             &our_nick,
+            reroute_rules,
             &resolve_attributes,
+            server,
             chantypes,
             statusmsg,
             casemapping,
@@ -435,8 +525,9 @@ impl Message {
             blocked: false,
             condensed: None,
             expanded: false,
-            command: None,
+            command,
             reactions: vec![],
+            rerouted_from,
         };
 
         let highlight = highlight.and_then(|kind| {
@@ -504,6 +595,7 @@ impl Message {
             expanded: false,
             command,
             reactions: vec![],
+            rerouted_from: None,
         }
     }
 
@@ -538,6 +630,7 @@ impl Message {
             expanded: false,
             command: None,
             reactions: vec![],
+            rerouted_from: None,
         }
     }
 
@@ -570,11 +663,20 @@ impl Message {
             expanded: false,
             command: None,
             reactions: vec![],
+            rerouted_from: None,
         }
     }
 
     pub fn with_target(self, target: Target) -> Self {
         Self { target, ..self }
+    }
+
+    pub fn reroute_with_target(self, target: Target) -> Self {
+        Self {
+            rerouted_from: Some(self.target),
+            target,
+            ..self
+        }
     }
 
     pub fn plain(&self) -> Option<&str> {
@@ -613,6 +715,7 @@ impl Message {
             expanded: false,
             command: None,
             reactions: vec![],
+            rerouted_from: None,
         }
     }
 
@@ -660,6 +763,7 @@ impl Serialize for Message {
             command: &'a Option<command::Irc>,
             #[serde(skip_serializing_if = "<[_]>::is_empty")]
             reactions: &'a [Reaction],
+            rerouted_from: &'a Option<Target>,
         }
 
         Data {
@@ -674,6 +778,7 @@ impl Serialize for Message {
             is_echo: &self.is_echo,
             command: &self.command,
             reactions: &self.reactions,
+            rerouted_from: &self.rerouted_from,
         }
         .serialize(serializer)
     }
@@ -705,6 +810,8 @@ impl<'de> Deserialize<'de> for Message {
             command: Option<command::Irc>,
             #[serde(default)]
             reactions: Vec<Reaction>,
+            #[serde(default, deserialize_with = "fail_as_none")]
+            rerouted_from: Option<Target>,
         }
 
         let Data {
@@ -719,6 +826,7 @@ impl<'de> Deserialize<'de> for Message {
             is_echo,
             command,
             reactions,
+            rerouted_from,
         } = Data::deserialize(deserializer)?;
 
         let content = if let Some(content) = content {
@@ -750,6 +858,7 @@ impl<'de> Deserialize<'de> for Message {
             expanded: false,
             command,
             reactions,
+            rerouted_from,
         })
     }
 }
@@ -941,6 +1050,7 @@ pub fn condense(
             expanded: false,
             command: None,
             reactions: vec![],
+            rerouted_from: None,
         }))
     } else {
         None
@@ -1934,11 +2044,13 @@ impl From<formatting::Fragment> for Fragment {
 fn target(
     message: Encoded,
     our_nick: &Nick,
+    reroute_rules: &RerouteRules,
     resolve_attributes: &dyn Fn(&User, &target::Channel) -> Option<User>,
+    server: &Server,
     chantypes: &[char],
     statusmsg: &[char],
     casemapping: isupport::CaseMap,
-) -> Option<Target> {
+) -> Option<(Target, Option<Target>)> {
     use proto::command::Numeric::*;
 
     let user = message.user(casemapping);
@@ -1952,18 +2064,24 @@ fn target(
                 statusmsg,
                 casemapping,
             ) {
-                Some(Target::Channel {
-                    channel,
-                    source: Source::Server(Some(source::Server::new(
-                        Kind::ChangeMode,
-                        Some(user?.nickname().to_owned()),
-                        None,
-                    ))),
-                })
+                Some((
+                    Target::Channel {
+                        channel,
+                        source: Source::Server(Some(source::Server::new(
+                            Kind::ChangeMode,
+                            Some(user?.nickname().to_owned()),
+                            None,
+                        ))),
+                    },
+                    None,
+                ))
             } else {
-                Some(Target::Server {
-                    source: Source::Server(None),
-                })
+                Some((
+                    Target::Server {
+                        source: Source::Server(None),
+                    },
+                    None,
+                ))
             }
         }
         Command::TOPIC(channel, _) => {
@@ -1975,14 +2093,17 @@ fn target(
             )
             .ok()?;
 
-            Some(Target::Channel {
-                channel,
-                source: Source::Server(Some(source::Server::new(
-                    Kind::ChangeTopic,
-                    Some(user?.nickname().to_owned()),
-                    None,
-                ))),
-            })
+            Some((
+                Target::Channel {
+                    channel,
+                    source: Source::Server(Some(source::Server::new(
+                        Kind::ChangeTopic,
+                        Some(user?.nickname().to_owned()),
+                        None,
+                    ))),
+                },
+                None,
+            ))
         }
         Command::KICK(channel, victim, _) => {
             let channel = target::Channel::parse(
@@ -1993,17 +2114,20 @@ fn target(
             )
             .ok()?;
 
-            Some(Target::Channel {
-                channel,
-                source: Source::Server(Some(source::Server::new(
-                    Kind::Kick,
-                    Some(user?.nickname().to_owned()),
-                    Some(Change::Nick(Nick::from_str(
-                        victim.as_str(),
-                        casemapping,
+            Some((
+                Target::Channel {
+                    channel,
+                    source: Source::Server(Some(source::Server::new(
+                        Kind::Kick,
+                        Some(user?.nickname().to_owned()),
+                        Some(Change::Nick(Nick::from_str(
+                            victim.as_str(),
+                            casemapping,
+                        ))),
                     ))),
-                ))),
-            })
+                },
+                None,
+            ))
         }
         Command::PART(channel, _) => {
             let channel = target::Channel::parse(
@@ -2014,14 +2138,17 @@ fn target(
             )
             .ok()?;
 
-            Some(Target::Channel {
-                channel,
-                source: Source::Server(Some(source::Server::new(
-                    Kind::Part,
-                    Some(user?.nickname().to_owned()),
-                    None,
-                ))),
-            })
+            Some((
+                Target::Channel {
+                    channel,
+                    source: Source::Server(Some(source::Server::new(
+                        Kind::Part,
+                        Some(user?.nickname().to_owned()),
+                        None,
+                    ))),
+                },
+                None,
+            ))
         }
         Command::JOIN(channel, _) => {
             let channel = target::Channel::parse(
@@ -2032,14 +2159,17 @@ fn target(
             )
             .ok()?;
 
-            Some(Target::Channel {
-                channel,
-                source: Source::Server(Some(source::Server::new(
-                    Kind::Join,
-                    Some(user?.nickname().to_owned()),
-                    None,
-                ))),
-            })
+            Some((
+                Target::Channel {
+                    channel,
+                    source: Source::Server(Some(source::Server::new(
+                        Kind::Join,
+                        Some(user?.nickname().to_owned()),
+                        None,
+                    ))),
+                },
+                None,
+            ))
         }
         Command::Numeric(RPL_TOPIC | RPL_TOPICWHOTIME, params) => {
             let channel = target::Channel::parse(
@@ -2049,14 +2179,17 @@ fn target(
                 casemapping,
             )
             .ok()?;
-            Some(Target::Channel {
-                channel,
-                source: Source::Server(Some(source::Server::new(
-                    Kind::ReplyTopic,
-                    None,
-                    None,
-                ))),
-            })
+            Some((
+                Target::Channel {
+                    channel,
+                    source: Source::Server(Some(source::Server::new(
+                        Kind::ReplyTopic,
+                        None,
+                        None,
+                    ))),
+                },
+                None,
+            ))
         }
         Command::Numeric(RPL_CHANNELMODEIS, params) => {
             let channel = target::Channel::parse(
@@ -2066,10 +2199,13 @@ fn target(
                 casemapping,
             )
             .ok()?;
-            Some(Target::Channel {
-                channel,
-                source: Source::Server(None),
-            })
+            Some((
+                Target::Channel {
+                    channel,
+                    source: Source::Server(None),
+                },
+                None,
+            ))
         }
         Command::Numeric(RPL_AWAY, params) => {
             let user = params.get(1)?;
@@ -2078,14 +2214,17 @@ fn target(
                 target::Query::parse(user, chantypes, statusmsg, casemapping)
                     .ok()?;
 
-            Some(Target::Query {
-                query,
-                source: Source::Server(Some(source::Server::new(
-                    Kind::Away,
-                    Some(Nick::from_string(user.clone(), casemapping)),
-                    None,
-                ))),
-            })
+            Some((
+                Target::Query {
+                    query,
+                    source: Source::Server(Some(source::Server::new(
+                        Kind::Away,
+                        Some(Nick::from_string(user.clone(), casemapping)),
+                        None,
+                    ))),
+                },
+                None,
+            ))
         }
         Command::Numeric(
             ERR_NOSUCHCHANNEL | ERR_TOOMANYCHANNELS | ERR_CHANNELISFULL
@@ -2101,17 +2240,26 @@ fn target(
             )
             .ok()?;
 
-            Some(Target::Channel {
-                channel,
-                source: Source::Server(Some(source::Server::new(
-                    Kind::StandardReply(StandardReply::Fail),
-                    None,
-                    None,
-                ))),
-            })
+            Some((
+                Target::Channel {
+                    channel,
+                    source: Source::Server(Some(source::Server::new(
+                        Kind::StandardReply(StandardReply::Fail),
+                        None,
+                        None,
+                    ))),
+                },
+                None,
+            ))
         }
-        Command::PRIVMSG(target, text) | Command::NOTICE(target, text) => {
-            let is_action = is_action(&text);
+        Command::PRIVMSG(ref target, ref text)
+        | Command::NOTICE(ref target, ref text) => {
+            let is_notice = matches!(message.0.command, Command::NOTICE(_, _));
+            let is_privmsg =
+                matches!(message.0.command, Command::PRIVMSG(_, _));
+
+            let is_action = is_action(text);
+
             let source = |user| {
                 if is_action {
                     Source::Action(Some(user))
@@ -2120,16 +2268,37 @@ fn target(
                 }
             };
 
-            if target == "*" || target.starts_with('$') {
+            if target == "*" {
                 let source = user.map_or(Source::Server(None), source);
 
-                return Some(Target::Server { source });
+                return Some((Target::Server { source }, None));
+            }
+
+            // Mass message
+            if target.starts_with('$') {
+                if let Some(user) = user {
+                    return Some((
+                        Target::Query {
+                            query: target::Query::from(user.clone()),
+                            source: source(user),
+                        },
+                        None,
+                    ));
+                } else {
+                    return Some((
+                        Target::Server {
+                            source: Source::Server(None),
+                        },
+                        None,
+                    ));
+                }
             }
 
             // CTCP Handling.
-            if ctcp::is_query(&text) && !is_action {
+            let (target, rerouted_from) = if ctcp::is_query(text) && !is_action
+            {
                 let user = user?;
-                let target = User::from(Nick::from_string(target, casemapping));
+                let target = User::from(Nick::from_str(target, casemapping));
 
                 // We want to show both requests, and responses in query with the client.
                 let user = if user.nickname() == *our_nick {
@@ -2138,14 +2307,17 @@ fn target(
                     user
                 };
 
-                Some(Target::Query {
-                    query: target::Query::from(user),
-                    source: Source::Server(None),
-                })
+                (
+                    Target::Query {
+                        query: target::Query::from(user),
+                        source: Source::Server(None),
+                    },
+                    None,
+                )
             } else {
                 match (
                     target::Target::parse(
-                        &target,
+                        target,
                         chantypes,
                         statusmsg,
                         casemapping,
@@ -2156,91 +2328,138 @@ fn target(
                         let source = source(
                             resolve_attributes(&user, &channel).unwrap_or(user),
                         );
-                        Some(Target::Channel { channel, source })
+                        (Target::Channel { channel, source }, None)
                     }
-                    (target::Target::Channel(channel), None) => {
-                        Some(Target::Channel {
+                    (target::Target::Channel(channel), None) => (
+                        Target::Channel {
                             channel,
                             source: Source::Server(None),
-                        })
-                    }
+                        },
+                        None,
+                    ),
                     (target::Target::Query(query), Some(user)) => {
                         let query = if user.nickname() == *our_nick {
-                            if query.as_normalized_str()
-                                == our_nick.as_normalized_str()
-                            {
-                                // Mass-message echo
-                                return Some(Target::Server {
-                                    source: source(user),
-                                });
-                            }
-
                             // Message from ourself, from another client.
                             query
                         } else {
                             // Message from conversation partner.
-                            target::Query::parse(
-                                user.as_str(),
-                                chantypes,
-                                statusmsg,
-                                casemapping,
-                            )
-                            .ok()?
+                            target::Query::from(user.clone())
                         };
 
-                        Some(Target::Query {
+                        let target = Target::Query {
                             query,
                             source: source(user),
-                        })
+                        };
+
+                        if is_privmsg
+                            && let Some(rerouted_target) =
+                                reroute_private_message_target(
+                                    &target,
+                                    reroute_rules,
+                                    server,
+                                )
+                        {
+                            (rerouted_target, Some(target))
+                        } else if is_notice
+                            && let Some(rerouted_target) =
+                                reroute_private_notice_target(
+                                    &target,
+                                    reroute_rules,
+                                    server,
+                                )
+                        {
+                            (rerouted_target, Some(target))
+                        } else {
+                            (target, None)
+                        }
                     }
-                    (target::Target::Query(_), None) => Some(Target::Server {
-                        source: Source::Server(None),
-                    }),
+                    (target::Target::Query(_), None) => (
+                        Target::Server {
+                            source: Source::Server(None),
+                        },
+                        None,
+                    ),
                 }
-            }
+            };
+
+            let channel_context =
+                message.channel_context(chantypes, statusmsg, casemapping);
+
+            Some(if let Some(channel_context) = channel_context {
+                let channel_context = Target::Channel {
+                    channel: channel_context,
+                    source: target.source().clone(),
+                };
+
+                if rerouted_from.is_some() {
+                    (channel_context, rerouted_from)
+                } else {
+                    (channel_context, Some(target))
+                }
+            } else {
+                (target, rerouted_from)
+            })
         }
-        Command::Numeric(RPL_MONONLINE, _) => Some(Target::Server {
-            source: Source::Server(Some(source::Server::new(
-                Kind::MonitoredOnline,
-                None,
-                None,
-            ))),
-        }),
-        Command::Numeric(RPL_MONOFFLINE, _) => Some(Target::Server {
-            source: Source::Server(Some(source::Server::new(
-                Kind::MonitoredOffline,
-                None,
-                None,
-            ))),
-        }),
-        Command::FAIL(_, _, _, _) => Some(Target::Server {
-            source: Source::Server(Some(source::Server::new(
-                Kind::StandardReply(StandardReply::Fail),
-                None,
-                None,
-            ))),
-        }),
-        Command::WARN(_, _, _, _) => Some(Target::Server {
-            source: Source::Server(Some(source::Server::new(
-                Kind::StandardReply(StandardReply::Warn),
-                None,
-                None,
-            ))),
-        }),
-        Command::NOTE(_, _, _, _) => Some(Target::Server {
-            source: Source::Server(Some(source::Server::new(
-                Kind::StandardReply(StandardReply::Note),
-                None,
-                None,
-            ))),
-        }),
-        Command::WALLOPS(_) => Some(Target::Server {
-            source: Source::Server(Some(source::Server::new(
-                Kind::WAllOps,
-                None,
-                None,
-            ))),
-        }),
+        Command::Numeric(RPL_MONONLINE, _) => Some((
+            Target::Server {
+                source: Source::Server(Some(source::Server::new(
+                    Kind::MonitoredOnline,
+                    None,
+                    None,
+                ))),
+            },
+            None,
+        )),
+        Command::Numeric(RPL_MONOFFLINE, _) => Some((
+            Target::Server {
+                source: Source::Server(Some(source::Server::new(
+                    Kind::MonitoredOffline,
+                    None,
+                    None,
+                ))),
+            },
+            None,
+        )),
+        Command::FAIL(_, _, _, _) => Some((
+            Target::Server {
+                source: Source::Server(Some(source::Server::new(
+                    Kind::StandardReply(StandardReply::Fail),
+                    None,
+                    None,
+                ))),
+            },
+            None,
+        )),
+        Command::WARN(_, _, _, _) => Some((
+            Target::Server {
+                source: Source::Server(Some(source::Server::new(
+                    Kind::StandardReply(StandardReply::Warn),
+                    None,
+                    None,
+                ))),
+            },
+            None,
+        )),
+        Command::NOTE(_, _, _, _) => Some((
+            Target::Server {
+                source: Source::Server(Some(source::Server::new(
+                    Kind::StandardReply(StandardReply::Note),
+                    None,
+                    None,
+                ))),
+            },
+            None,
+        )),
+        Command::WALLOPS(_) => Some((
+            Target::Server {
+                source: Source::Server(Some(source::Server::new(
+                    Kind::WAllOps,
+                    None,
+                    None,
+                ))),
+            },
+            None,
+        )),
         Command::Numeric(ERR_CANNOTSENDTOCHAN, params) => {
             match target::Target::parse(
                 params.get(1)?,
@@ -2248,14 +2467,20 @@ fn target(
                 statusmsg,
                 casemapping,
             ) {
-                target::Target::Channel(channel) => Some(Target::Channel {
-                    channel,
-                    source: Source::Server(None),
-                }),
-                target::Target::Query(query) => Some(Target::Query {
-                    query,
-                    source: Source::Server(None),
-                }),
+                target::Target::Channel(channel) => Some((
+                    Target::Channel {
+                        channel,
+                        source: Source::Server(None),
+                    },
+                    None,
+                )),
+                target::Target::Query(query) => Some((
+                    Target::Query {
+                        query,
+                        source: Source::Server(None),
+                    },
+                    None,
+                )),
             }
         }
         Command::INVITE(invitee, channel) => {
@@ -2263,14 +2488,20 @@ fn target(
 
             if invitee.nickname() == *our_nick {
                 if let Some(user) = user {
-                    return Some(Target::Query {
-                        query: target::Query::from(user),
-                        source: Source::Server(None),
-                    });
+                    return Some((
+                        Target::Query {
+                            query: target::Query::from(user),
+                            source: Source::Server(None),
+                        },
+                        None,
+                    ));
                 } else {
-                    return Some(Target::Server {
-                        source: Source::Server(None),
-                    });
+                    return Some((
+                        Target::Server {
+                            source: Source::Server(None),
+                        },
+                        None,
+                    ));
                 }
             }
 
@@ -2282,10 +2513,13 @@ fn target(
             )
             .ok()?;
 
-            Some(Target::Channel {
-                channel,
-                source: Source::Server(None),
-            })
+            Some((
+                Target::Channel {
+                    channel,
+                    source: Source::Server(None),
+                },
+                None,
+            ))
         }
         // Server
         Command::PASS(_)
@@ -2334,9 +2568,12 @@ fn target(
         | Command::Numeric(_, _)
         | Command::Unknown(_, _)
         | Command::BOUNCER(_, _)
-        | Command::Raw(_) => Some(Target::Server {
-            source: Source::Server(None),
-        }),
+        | Command::Raw(_) => Some((
+            Target::Server {
+                source: Source::Server(None),
+            },
+            None,
+        )),
     }
 }
 
@@ -3328,6 +3565,8 @@ pub mod tests {
     #[allow(unused_imports)]
     use crate::config::inclusivities::Inclusivities;
     #[allow(unused_imports)]
+    use crate::history::reroute::RerouteRules;
+    #[allow(unused_imports)]
     use crate::message::formatting::Color;
     #[allow(unused_imports)]
     use crate::message::{
@@ -3335,7 +3574,7 @@ pub mod tests {
         Source, Target, broadcast,
     };
     #[allow(unused_imports)]
-    use crate::server::Server;
+    use crate::server::{Server, ServerName};
     #[allow(unused_imports)]
     use crate::user::{ChannelUsers, Nick, User};
     #[allow(unused_imports)]
@@ -3347,26 +3586,47 @@ pub mod tests {
 
         use irc::proto;
 
+        let reroute_rules = RerouteRules::default();
+
+        let server = Server::from(ServerName::from("test-server"));
+
         let isupport = HashMap::<isupport::Kind, isupport::Parameter>::new();
 
         let chantypes = isupport::get_chantypes_or_default(&isupport);
         let statusmsg = isupport::get_statusmsg_or_default(&isupport);
         let casemapping = isupport::get_casemapping_or_default(&isupport);
 
-        let our_nick = Nick::from_str(
-            "our_nick",
-            isupport::get_casemapping_or_default(&isupport),
-        );
+        let our_nick = Nick::from_str("dan", casemapping);
 
-        let tests = [(
-            ":dan!d@localhost PRIVMSG $$* :Mass message! \r\n",
-            Some(Target::Server {
-                source: Source::User(User::from(Nick::from_str(
-                    "dan",
-                    casemapping,
-                ))),
-            }),
-        )];
+        let our_user = User::from(our_nick.clone());
+
+        let tests = [
+            (
+                ":dan!d@localhost NOTICE * :Server notice! \r\n",
+                Some((
+                    Target::Server {
+                        source: Source::User(User::from(Nick::from_str(
+                            "dan",
+                            casemapping,
+                        ))),
+                    },
+                    None,
+                )),
+            ),
+            (
+                ":dan!d@localhost PRIVMSG $$* :Mass message! \r\n",
+                Some((
+                    Target::Query {
+                        query: target::Query::from(our_user),
+                        source: Source::User(User::from(Nick::from_str(
+                            "dan",
+                            casemapping,
+                        ))),
+                    },
+                    None,
+                )),
+            ),
+        ];
 
         for (irc_message, expected) in tests {
             let encoded = proto::parse::message(irc_message).unwrap();
@@ -3374,7 +3634,9 @@ pub mod tests {
             let actual = message::target(
                 message::Encoded(encoded),
                 &our_nick,
+                &reroute_rules,
                 &|_: &User, _: &target::Channel| None,
+                &server,
                 chantypes,
                 statusmsg,
                 casemapping,
@@ -3592,6 +3854,44 @@ pub mod tests {
     }
 
     #[test]
+    fn fragment_url_preserves_percent_encoded_segments_after_parentheses() {
+        let Content::Fragments(fragments) = parse_fragments(
+            "https://billwurtz.com/(What)%20Love%20Is.mp3".to_string(),
+        ) else {
+            panic!("expected fragments");
+        };
+
+        let [Fragment::Url(canonical, raw)] = fragments.as_slice() else {
+            panic!("expected single Url fragment");
+        };
+
+        assert_eq!(raw, "https://billwurtz.com/(What)%20Love%20Is.mp3");
+        assert_eq!(
+            canonical.as_str(),
+            "https://billwurtz.com/(What)%20Love%20Is.mp3"
+        );
+    }
+
+    #[test]
+    fn fragment_url_with_extra_closing_paren_in_path() {
+        let Content::Fragments(fragments) = parse_fragments(
+            "https://billwurtz.com/(What)%20Lov)e%20Is.mp3".to_string(),
+        ) else {
+            panic!("expected fragments");
+        };
+
+        let [Fragment::Url(canonical, raw)] = fragments.as_slice() else {
+            panic!("expected single Url fragment, got {fragments:?}");
+        };
+
+        assert_eq!(raw, "https://billwurtz.com/(What)%20Lov)e%20Is.mp3");
+        assert_eq!(
+            canonical.as_str(),
+            "https://billwurtz.com/(What)%20Lov)e%20Is.mp3"
+        );
+    }
+
+    #[test]
     fn fragments_with_users_parsing() {
         let casemapping = isupport::CaseMap::default();
         let tests = [(
@@ -3774,6 +4074,7 @@ pub mod tests {
         use irc::proto;
 
         use crate::config::Config;
+        use crate::history::reroute::RerouteRules;
         use crate::message::Encoded;
 
         let isupport = HashMap::<isupport::Kind, isupport::Parameter>::new();
@@ -3803,6 +4104,7 @@ pub mod tests {
             Encoded::from(encoded.clone()),
             our_nick.clone(),
             &Config::default(),
+            &RerouteRules::default(),
             |user: &User, _channel: &target::Channel| {
                 channel_users
                     .iter()
