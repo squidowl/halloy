@@ -3793,6 +3793,12 @@ pub mod tests {
                 ],
             ),
             (
+                "#!/bin/sh",
+                vec![
+                    Fragment::Channel("#!/bin/sh".into()),
+                ],
+            ),
+            (
                 "Checkout https://foo.bar/asdf?1=2 now!",
                 vec![
                     Fragment::Text("Checkout ".into()),
