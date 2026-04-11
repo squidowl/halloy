@@ -12,10 +12,11 @@ use crate::buffer::{self, Upstream};
 use crate::capabilities::{Capabilities, Capability};
 use crate::config::buffer::text_input::AutoFormat;
 use crate::features::Features;
+use crate::history::reroute::RerouteRules;
 use crate::isupport::{self, find_target_limit};
 use crate::message::{self, formatting};
 use crate::user::{ChannelUsers, NickRef};
-use crate::{Config, Message, Target, Url, User, ctcp, target};
+use crate::{Config, Message, Server, Target, Url, User, ctcp, target};
 
 pub mod alias;
 
@@ -107,29 +108,38 @@ impl Irc {
         &self,
         user: User,
         channel_users: Option<&ChannelUsers>,
+        server: &Server,
         chantypes: &[char],
         statusmsg: &[char],
         casemapping: isupport::CaseMap,
         supports_echoes: bool,
+        reroute_rules: &RerouteRules,
     ) -> Option<Vec<Message>> {
         let to_message_target = |target: &str, source| {
-            if target == "*" || target.starts_with('$') {
+            if target == "*" {
                 return message::Target::Server { source };
             }
 
-            let target =
-                Target::parse(target, chantypes, statusmsg, casemapping);
-
-            match &target {
-                Target::Channel(channel) => message::Target::Channel {
-                    channel: channel.clone(),
+            if target.starts_with('$') {
+                message::Target::Query {
+                    query: target::Query::from(user.clone()),
                     source,
-                },
+                }
+            } else {
+                let target =
+                    Target::parse(target, chantypes, statusmsg, casemapping);
 
-                Target::Query(query) => message::Target::Query {
-                    query: query.clone(),
-                    source,
-                },
+                match &target {
+                    Target::Channel(channel) => message::Target::Channel {
+                        channel: channel.clone(),
+                        source,
+                    },
+
+                    Target::Query(query) => message::Target::Query {
+                        query: query.clone(),
+                        source,
+                    },
+                }
             }
         };
 
@@ -142,6 +152,14 @@ impl Irc {
                             target,
                             message::Source::User(user.clone()),
                         );
+
+                        let message_target =
+                            message::reroute_private_message_target(
+                                &message_target,
+                                reroute_rules,
+                                server,
+                            )
+                            .unwrap_or(message_target);
 
                         Message::sent(
                             message_target,
@@ -167,6 +185,14 @@ impl Irc {
                             message::Source::User(user.clone()),
                         );
 
+                        let message_target =
+                            message::reroute_private_notice_target(
+                                &message_target,
+                                reroute_rules,
+                                server,
+                            )
+                            .unwrap_or(message_target);
+
                         Message::sent(
                             message_target,
                             message::parse_fragments_with_users(
@@ -187,6 +213,13 @@ impl Irc {
                     target,
                     message::Source::Action(Some(user.clone())),
                 );
+
+                let message_target = message::reroute_private_message_target(
+                    &message_target,
+                    reroute_rules,
+                    server,
+                )
+                .unwrap_or(message_target);
 
                 Some(vec![Message::sent(
                     message_target,

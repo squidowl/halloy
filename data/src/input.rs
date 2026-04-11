@@ -11,6 +11,7 @@ use nom::{Finish, IResult, Parser};
 use crate::capabilities::{Capabilities, MultilineBatchKind};
 use crate::config::buffer::text_input::AutoFormat;
 use crate::features::Features;
+use crate::history::reroute::RerouteRules;
 use crate::message::formatting;
 use crate::target::Target;
 use crate::user::{ChannelUsers, NickRef};
@@ -282,19 +283,23 @@ impl Input {
         &self,
         user: User,
         channel_users: Option<&ChannelUsers>,
+        server: &Server,
         chantypes: &[char],
         statusmsg: &[char],
         casemapping: isupport::CaseMap,
         supports_echoes: bool,
+        reroute_rules: &RerouteRules,
     ) -> Option<Vec<Message>> {
         self.content.command(&self.buffer).and_then(|command| {
             command.messages(
                 user,
                 channel_users,
+                server,
                 chantypes,
                 statusmsg,
                 casemapping,
                 supports_echoes,
+                reroute_rules,
             )
         })
     }

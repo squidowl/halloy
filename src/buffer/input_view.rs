@@ -8,7 +8,6 @@ use data::capabilities::{MultilineBatchKind, multiline_concat_lines};
 use data::config::buffer::text_input::{AutoFormat, Autocomplete, KeyBindings};
 use data::dashboard::BufferAction;
 use data::history::filter::FilterChain;
-use data::history::reroute::RerouteRules;
 use data::history::{self, ReadMarker};
 use data::input::{self, CodeFence, RawInput};
 use data::rate_limit::TokenPriority;
@@ -703,22 +702,6 @@ fn notice_view<'a, 'b, Message: 'a>(
     .padding(8)
     .style(theme::container::tooltip)
     .into()
-}
-
-fn reroute_input_message(
-    message: data::Message,
-    reroute_rules: &RerouteRules,
-    server: &Server,
-) -> data::Message {
-    if let Some(rerouted_target) = data::message::reroute_private_target(
-        &message.target,
-        reroute_rules,
-        server,
-    ) {
-        message.reroute_with_target(rerouted_target)
-    } else {
-        message
-    }
 }
 
 #[derive(Debug, Clone)]
@@ -1800,27 +1783,16 @@ impl State {
             let messages = inputs
                 .into_iter()
                 .filter_map(|input| {
-                    input
-                        .messages(
-                            user.clone(),
-                            channel_users,
-                            chantypes,
-                            statusmsg,
-                            casemapping,
-                            supports_echoes,
-                        )
-                        .map(|messages| {
-                            messages
-                                .into_iter()
-                                .map(|message| {
-                                    reroute_input_message(
-                                        message,
-                                        history.get_reroute_rules(),
-                                        buffer.server(),
-                                    )
-                                })
-                                .collect::<Vec<_>>()
-                        })
+                    input.messages(
+                        user.clone(),
+                        channel_users,
+                        buffer.server(),
+                        chantypes,
+                        statusmsg,
+                        casemapping,
+                        supports_echoes,
+                        history.get_reroute_rules(),
+                    )
                 })
                 .flatten()
                 .collect::<Vec<_>>();
@@ -2239,18 +2211,14 @@ impl State {
             if let Some(messages) = input.messages(
                 user,
                 channel_users,
+                buffer.server(),
                 chantypes,
                 statusmsg,
                 casemapping,
                 supports_echoes,
+                history.get_reroute_rules(),
             ) {
                 for message in messages {
-                    let message = reroute_input_message(
-                        message,
-                        history.get_reroute_rules(),
-                        buffer.server(),
-                    );
-
                     history_tasks.extend(
                         history
                             .record_input_message(

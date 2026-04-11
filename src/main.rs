@@ -2141,6 +2141,10 @@ fn handle_direct_message(
     notifications: &mut Notifications,
     main_window: &Window,
 ) {
+    if user.nickname() == our_nick.as_nickref() {
+        return;
+    }
+
     let Some(msg) = create_message(
         server,
         encoded,
@@ -2151,6 +2155,10 @@ fn handle_direct_message(
     ) else {
         return;
     };
+
+    if msg.is_rerouted() {
+        return;
+    }
 
     let casemapping = clients.get_server_casemapping_or_default(server);
 
