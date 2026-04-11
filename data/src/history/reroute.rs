@@ -26,7 +26,7 @@ impl RerouteRules {
                     clients.get_server_casemapping_or_default(&entry.server);
 
                 let reroute_rules = parse_reroute_rules(
-                    &entry.config.reroute.private_messages,
+                    &entry.config.reroute.query,
                     chantypes,
                     statusmsg,
                     casemapping,
@@ -48,7 +48,7 @@ impl RerouteRules {
                     clients.get_server_casemapping_or_default(&entry.server);
 
                 let reroute_rules = parse_reroute_rules(
-                    &entry.config.reroute.private_notices,
+                    &entry.config.reroute.notice,
                     chantypes,
                     statusmsg,
                     casemapping,
@@ -74,7 +74,7 @@ impl RerouteRules {
         casemapping: isupport::CaseMap,
     ) {
         let reroute_rules = parse_reroute_rules(
-            &config.reroute.private_messages,
+            &config.reroute.query,
             chantypes,
             statusmsg,
             casemapping,
@@ -87,7 +87,7 @@ impl RerouteRules {
         }
 
         let reroute_rules = parse_reroute_rules(
-            &config.reroute.private_notices,
+            &config.reroute.notice,
             chantypes,
             statusmsg,
             casemapping,
