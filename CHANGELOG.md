@@ -50,8 +50,8 @@ Removed:
 Thanks:
 
 - Contributions: @furudean, @omentic, @KaiKorla, @achille, @classabbyamp, @ncfavier, @englut, @WinnerWind
-- Bug reports: sebbu, @whitequark, @SnoopJ, esden, @miyukoc, @ld-cd, @achille, @classabbyamp, vignoux, @esden, @ncfavier, @englut
-- Feature requests: @omentic, @classabbyamp, @ncfavier
+- Bug reports: sebbu, @whitequark, @SnoopJ, esden, @miyukoc, @ld-cd, @achille, @classabbyamp, vignoux, @esden, @ncfavier, @englut, @cyrneko
+- Feature requests: @omentic, @classabbyamp, @ncfavier, @ineeee
 
 # 2026.5 (2026-03-21)
 
