@@ -102,14 +102,27 @@ pub mod formatting;
 pub mod highlight;
 pub mod source;
 
-pub fn reroute_private_target(
+pub fn reroute_private_message_target(
     target: &Target,
     reroute_rules: &RerouteRules,
     server: &Server,
 ) -> Option<Target> {
     match target {
         Target::Query { query, source } => {
-            reroute_rules.target_for_query(query, server, source)
+            reroute_rules.target_for_direct_message(query, server, source)
+        }
+        _ => None,
+    }
+}
+
+pub fn reroute_private_notice_target(
+    target: &Target,
+    reroute_rules: &RerouteRules,
+    server: &Server,
+) -> Option<Target> {
+    match target {
+        Target::Query { query, source } => {
+            reroute_rules.target_for_direct_notice(query, server, source)
         }
         _ => None,
     }
@@ -2234,6 +2247,10 @@ fn target(
         }
         Command::PRIVMSG(ref target, ref text)
         | Command::NOTICE(ref target, ref text) => {
+            let is_notice = matches!(message.0.command, Command::NOTICE(_, _));
+            let is_privmsg =
+                matches!(message.0.command, Command::PRIVMSG(_, _));
+
             let is_action = is_action(text);
 
             let source = |user| {
@@ -2244,10 +2261,30 @@ fn target(
                 }
             };
 
-            if target == "*" || target.starts_with('$') {
+            if target == "*" {
                 let source = user.map_or(Source::Server(None), source);
 
                 return Some((Target::Server { source }, None));
+            }
+
+            // Mass message
+            if target.starts_with('$') {
+                if let Some(user) = user {
+                    return Some((
+                        Target::Query {
+                            query: target::Query::from(user.clone()),
+                            source: source(user),
+                        },
+                        None,
+                    ));
+                } else {
+                    return Some((
+                        Target::Server {
+                            source: Source::Server(None),
+                        },
+                        None,
+                    ));
+                }
             }
 
             // CTCP Handling.
@@ -2295,29 +2332,11 @@ fn target(
                     ),
                     (target::Target::Query(query), Some(user)) => {
                         let query = if user.nickname() == *our_nick {
-                            if query.as_normalized_str()
-                                == our_nick.as_normalized_str()
-                            {
-                                // Mass-message echo
-                                return Some((
-                                    Target::Server {
-                                        source: source(user),
-                                    },
-                                    None,
-                                ));
-                            }
-
                             // Message from ourself, from another client.
                             query
                         } else {
                             // Message from conversation partner.
-                            target::Query::parse(
-                                user.as_str(),
-                                chantypes,
-                                statusmsg,
-                                casemapping,
-                            )
-                            .ok()?
+                            target::Query::from(user.clone())
                         };
 
                         let target = Target::Query {
@@ -2325,11 +2344,23 @@ fn target(
                             source: source(user),
                         };
 
-                        if let Some(rerouted_target) = reroute_private_target(
-                            &target,
-                            reroute_rules,
-                            server,
-                        ) {
+                        if is_privmsg
+                            && let Some(rerouted_target) =
+                                reroute_private_message_target(
+                                    &target,
+                                    reroute_rules,
+                                    server,
+                                )
+                        {
+                            (rerouted_target, Some(target))
+                        } else if is_notice
+                            && let Some(rerouted_target) =
+                                reroute_private_notice_target(
+                                    &target,
+                                    reroute_rules,
+                                    server,
+                                )
+                        {
                             (rerouted_target, Some(target))
                         } else {
                             (target, None)
