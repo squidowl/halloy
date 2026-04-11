@@ -1111,7 +1111,9 @@ pub fn insert_message(
                     && message.is_echo;
 
             if (message.id.is_some() && stored.id == message.id)
-                || ((stored.server_time == message.server_time || use_echo_cmp)
+                || (((message.deduplicate
+                    && stored.server_time == message.server_time)
+                    || use_echo_cmp)
                     && has_matching_content(stored, &message, use_echo_cmp))
             {
                 replace_at = Some(current_index);

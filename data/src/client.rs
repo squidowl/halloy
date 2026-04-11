@@ -115,10 +115,10 @@ pub enum Message {
 
 #[derive(Debug)]
 pub enum Event {
-    Single(message::Encoded, Nick),
-    PrivOrNotice(message::Encoded, Nick, bool),
+    Single(message::Encoded, Nick, bool),
+    PrivOrNotice(message::Encoded, Nick, bool, bool),
     Reaction(message::Encoded, Nick),
-    WithTarget(message::Encoded, Nick, message::Target),
+    WithTarget(message::Encoded, Nick, message::Target, bool),
     Broadcast(Broadcast),
     FileTransferRequest(file_transfer::ReceiveRequest),
     UpdateReadMarker(Target, ReadMarker),
@@ -1035,6 +1035,7 @@ impl Client {
                         message,
                         self.nickname().to_owned(),
                         source,
+                        false,
                     )]);
                 }
             }
@@ -1067,6 +1068,7 @@ impl Client {
                         message,
                         self.nickname().to_owned(),
                         source,
+                        false,
                     )]);
                 }
             }
@@ -1351,6 +1353,7 @@ impl Client {
                                     message,
                                     self.nickname().to_owned(),
                                     self.notification_blackout.allowed(),
+                                    false,
                                 );
 
                                 return Ok(vec![event]);
@@ -1496,6 +1499,7 @@ impl Client {
                         message.clone(),
                         self.nickname().to_owned(),
                         self.notification_blackout.allowed(),
+                        false,
                     );
 
                     // Event::DirectMessage is currently only used to send a
@@ -1526,8 +1530,11 @@ impl Client {
 
                 let invitee = Nick::from_str(invitee, self.casemapping());
 
-                let event =
-                    Event::Single(message.clone(), self.nickname().to_owned());
+                let event = Event::Single(
+                    message.clone(),
+                    self.nickname().to_owned(),
+                    false,
+                );
 
                 if invitee.as_nickref() == self.nickname() {
                     return Ok(vec![
@@ -1746,7 +1753,11 @@ impl Client {
                                 channel,
                                 sent_time: message.server_time_or_now(),
                             }),
-                            Event::Single(message, self.nickname().to_owned()),
+                            Event::Single(
+                                message,
+                                self.nickname().to_owned(),
+                                false,
+                            ),
                         ]);
                     } else if let Some(channel) = self.chanmap.get_mut(&channel)
                     {
@@ -1808,6 +1819,7 @@ impl Client {
                             message,
                             self.nickname().to_owned(),
                             source,
+                            false,
                         )]);
                     }
                 }
@@ -1919,6 +1931,7 @@ impl Client {
                             message,
                             self.nickname().to_owned(),
                             source,
+                            false,
                         )]);
                     }
                 }
@@ -1994,6 +2007,7 @@ impl Client {
                             message,
                             self.nickname().to_owned(),
                             source,
+                            false,
                         )]);
                     }
                 } else if mask == "*" {
@@ -2638,7 +2652,11 @@ impl Client {
                     .collect::<Vec<_>>();
 
                 return Ok(vec![
-                    Event::Single(message.clone(), self.nickname().to_owned()),
+                    Event::Single(
+                        message.clone(),
+                        self.nickname().to_owned(),
+                        false,
+                    ),
                     Event::MonitoredOnline(targets),
                 ]);
             }
@@ -2649,7 +2667,11 @@ impl Client {
                     .collect::<Vec<_>>();
 
                 return Ok(vec![
-                    Event::Single(message.clone(), self.nickname().to_owned()),
+                    Event::Single(
+                        message.clone(),
+                        self.nickname().to_owned(),
+                        false,
+                    ),
                     Event::MonitoredOffline(targets),
                 ]);
             }
@@ -2700,6 +2722,7 @@ impl Client {
                         events.push(Event::Single(
                             message.clone(),
                             self.nickname().to_owned(),
+                            false,
                         ));
                     }
                 }
@@ -2983,7 +3006,11 @@ impl Client {
             _ => {}
         }
 
-        Ok(vec![Event::Single(message, self.nickname().to_owned())])
+        Ok(vec![Event::Single(
+            message,
+            self.nickname().to_owned(),
+            false,
+        )])
     }
 
     fn handle_chathistory(
@@ -3016,6 +3043,7 @@ impl Client {
                             message,
                             self.nickname().to_owned(),
                             target,
+                            true,
                         )]
                     })
                     .unwrap_or_default(),
@@ -3039,6 +3067,7 @@ impl Client {
                             message,
                             self.nickname().to_owned(),
                             target,
+                            true,
                         )]
                     })
                     .unwrap_or_default(),
@@ -3062,6 +3091,7 @@ impl Client {
                             message,
                             self.nickname().to_owned(),
                             target,
+                            true,
                         )]
                     })
                     .unwrap_or_default(),
@@ -3085,6 +3115,7 @@ impl Client {
                             message,
                             self.nickname().to_owned(),
                             target,
+                            true,
                         )]
                     })
                     .unwrap_or_default(),
@@ -3107,10 +3138,15 @@ impl Client {
                             self.nickname().to_owned(),
                             // Don't allow notifications from history
                             false,
+                            true,
                         )]
                     }
                 }
-                _ => vec![Event::Single(message, self.nickname().to_owned())],
+                _ => vec![Event::Single(
+                    message,
+                    self.nickname().to_owned(),
+                    true,
+                )],
             }
         }
     }
@@ -4148,9 +4184,9 @@ fn continue_chathistory_between(
 ) -> Option<ChatHistorySubcommand> {
     let start_message_reference =
         events.first().and_then(|first_event| match first_event {
-            Event::Single(message, _)
-            | Event::PrivOrNotice(message, _, _)
-            | Event::WithTarget(message, _, _)
+            Event::Single(message, _, _)
+            | Event::PrivOrNotice(message, _, _, _)
+            | Event::WithTarget(message, _, _, _)
             | Event::DirectMessage(message, _, _)
             | Event::Reaction(message, _) => match end_message_reference {
                 MessageReference::MessageId(_) => {
@@ -4197,9 +4233,9 @@ fn continue_chathistory_targets(
             Event::ChatHistoryTargetReceived(_, server_time) => {
                 Some(MessageReference::Timestamp(*server_time))
             }
-            Event::Single(_, _)
-            | Event::PrivOrNotice(_, _, _)
-            | Event::WithTarget(_, _, _)
+            Event::Single(_, _, _)
+            | Event::PrivOrNotice(_, _, _, _)
+            | Event::WithTarget(_, _, _, _)
             | Event::DirectMessage(_, _, _)
             | Event::Reaction(_, _)
             | Event::Broadcast(_)
@@ -5428,7 +5464,7 @@ mod tests {
             priv_events.len()
         );
 
-        if let Event::PrivOrNotice(msg, _, _) = &priv_events[0] {
+        if let Event::PrivOrNotice(msg, _, _, _) = &priv_events[0] {
             match &msg.0.command {
                 Command::PRIVMSG(_, text) => {
                     assert_eq!(

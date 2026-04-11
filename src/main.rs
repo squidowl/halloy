@@ -1496,23 +1496,30 @@ fn handle_client_events(
 
     for event in events {
         match event {
-            Event::Single(encoded, our_nick) => {
+            Event::Single(encoded, our_nick, deduplicate) => {
                 handle_single_event(
                     server,
                     encoded,
                     our_nick,
+                    deduplicate,
                     dashboard,
                     &mut commands,
                     clients,
                     config,
                 );
             }
-            Event::PrivOrNotice(encoded, our_nick, notification_enabled) => {
+            Event::PrivOrNotice(
+                encoded,
+                our_nick,
+                notification_enabled,
+                deduplicate,
+            ) => {
                 handle_priv_or_notice(
                     server,
                     encoded,
                     our_nick,
                     notification_enabled,
+                    deduplicate,
                     dashboard,
                     &mut commands,
                     clients,
@@ -1521,12 +1528,13 @@ fn handle_client_events(
                     main_window,
                 );
             }
-            Event::WithTarget(encoded, our_nick, target) => {
+            Event::WithTarget(encoded, our_nick, target, deduplicate) => {
                 handle_with_target_event(
                     server,
                     encoded,
                     our_nick,
                     target,
+                    deduplicate,
                     dashboard,
                     &mut commands,
                     clients,
@@ -1714,6 +1722,7 @@ fn create_message(
     server: &Server,
     encoded: message::Encoded,
     our_nick: data::user::Nick,
+    deduplicate: bool,
     config: &Config,
     clients: &data::client::Map,
     reroute_rules: &RerouteRules,
@@ -1721,6 +1730,7 @@ fn create_message(
     data::Message::received(
         encoded,
         our_nick,
+        deduplicate,
         config,
         reroute_rules,
         |user, channel| {
@@ -1741,6 +1751,7 @@ fn create_message_with_highlight(
     server: &Server,
     encoded: message::Encoded,
     our_nick: data::user::Nick,
+    deduplicate: bool,
     config: &Config,
     clients: &data::client::Map,
     reroute_rules: &RerouteRules,
@@ -1748,6 +1759,7 @@ fn create_message_with_highlight(
     data::Message::received_with_highlight(
         encoded,
         our_nick,
+        deduplicate,
         config,
         reroute_rules,
         |user, channel| {
@@ -1768,6 +1780,7 @@ fn handle_single_event(
     server: &Server,
     encoded: message::Encoded,
     our_nick: data::user::Nick,
+    deduplicate: bool,
     dashboard: &mut screen::Dashboard,
     commands: &mut Vec<Task<Message>>,
     clients: &data::client::Map,
@@ -1777,6 +1790,7 @@ fn handle_single_event(
         server,
         encoded,
         our_nick,
+        deduplicate,
         config,
         clients,
         dashboard.get_reroute_rules(),
@@ -1801,6 +1815,7 @@ fn handle_with_target_event(
     encoded: message::Encoded,
     our_nick: data::user::Nick,
     target: message::Target,
+    deduplicate: bool,
     dashboard: &mut screen::Dashboard,
     commands: &mut Vec<Task<Message>>,
     clients: &data::client::Map,
@@ -1810,6 +1825,7 @@ fn handle_with_target_event(
         server,
         encoded,
         our_nick,
+        deduplicate,
         config,
         clients,
         dashboard.get_reroute_rules(),
@@ -1833,6 +1849,7 @@ fn handle_priv_or_notice(
     server: &Server,
     encoded: message::Encoded,
     our_nick: data::user::Nick,
+    deduplicate: bool,
     notification_enabled: bool,
     dashboard: &mut screen::Dashboard,
     commands: &mut Vec<Task<Message>>,
@@ -1845,6 +1862,7 @@ fn handle_priv_or_notice(
         server,
         encoded,
         our_nick,
+        deduplicate,
         config,
         clients,
         dashboard.get_reroute_rules(),
@@ -2149,6 +2167,7 @@ fn handle_direct_message(
         server,
         encoded,
         our_nick,
+        false,
         config,
         clients,
         dashboard.get_reroute_rules(),
