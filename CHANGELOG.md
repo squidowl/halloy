@@ -28,6 +28,7 @@ Changed:
 - Colons, semicolons and double quotes are no longer considered part of channel names
 - Backslash escapes are now only interpreted when escaping markdown formatting characters
 - Tooltips will be shown for all commands, with an error tooltip shown if the server does not support the command
+- Parsed URLs will be displayed with IDN encoded domains (to avoid domain spoofing) and percent-decoded path & later components (for legibility) by default (`display.decode_urls`)
 
 Fixed:
 
