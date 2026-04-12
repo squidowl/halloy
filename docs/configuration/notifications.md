@@ -1,4 +1,5 @@
 <!-- markdownlint-disable MD033 -->
+
 # Notifications
 
 Customize and enable notifications.
@@ -16,20 +17,21 @@ exclude = { users = ["NickServ"], channels = ["#halloy"] }
 
 Following notifications are available:
 
-| Name                    | Description                                        | Content                           |
-| ----------------------- | -------------------------------------------------- | --------------------------------- |
-| `channel`               | Triggered when a message is received in a channel  | Message text                      |
-| `connected`             | Triggered when a server is connected               | N/A                               |
-| `direct_message`        | Triggered when a direct message is received        | Message text                      |
-| `disconnected`          | Triggered when a server disconnects                | N/A                               |
-| `file_transfer_request` | Triggered when a file transfer request is received | File name                         |
-| `highlight`             | Triggered when you were highlighted in a buffer    | Message text                      |
-| `monitored_online`      | Triggered when a user you're monitoring is online  | N/A                               |
-| `monitored_offline`     | Triggered when a user you're monitoring is offline | N/A                               |
-| `reconnected`           | Triggered when a server reconnects                 | N/A                               |
+| Name                    | Description                                        | Content      |
+| ----------------------- | -------------------------------------------------- | ------------ |
+| `channel`               | Triggered when a message is received in a channel  | Message text |
+| `connected`             | Triggered when a server is connected               | N/A          |
+| `direct_message`        | Triggered when a direct message is received        | Message text |
+| `disconnected`          | Triggered when a server disconnects                | N/A          |
+| `file_transfer_request` | Triggered when a file transfer request is received | File name    |
+| `highlight`             | Triggered when you were highlighted in a buffer    | Message text |
+| `monitored_online`      | Triggered when a user you're monitoring is online  | N/A          |
+| `monitored_offline`     | Triggered when a user you're monitoring is offline | N/A          |
+| `reconnected`           | Triggered when a server reconnects                 | N/A          |
+| `reaction`              | Triggered when another user reacts to your message | Message text |
 
 `channel` is an array of tables, with each entry a notification for a single
-channel.  For example, the following shows a toast notification for every
+channel. For example, the following shows a toast notification for every
 message in `#halloy`:
 
 ```toml
@@ -41,8 +43,8 @@ show_toast = true
 
 The following table shows all available built-in sounds
 
-| Sound Name | Preview                                                                          |
-| ---------- | -------------------------------------------------------------------------------- |
+| Sound Name | Preview                                                                       |
+| ---------- | ----------------------------------------------------------------------------- |
 | `bloop`    | <audio controls><source src="../sounds/bloop.ogg" type="audio/ogg"></audio>   |
 | `bonk`     | <audio controls><source src="../sounds/bonk.ogg" type="audio/ogg"></audio>    |
 | `dong`     | <audio controls><source src="../sounds/dong.ogg" type="audio/ogg"></audio>    |
@@ -85,12 +87,12 @@ show_toast = true
 
 ## `request_attention`
 
-Notification should request user attention for its window (aka urgency).  Exact
+Notification should request user attention for its window (aka urgency). Exact
 behavior is platform specific:
 
-  - macOS: Bounces the dock icon once.
-  - Windows: Flashes the taskbar button until the application is in focus.
-  - Linux: Depends on the desktop environment.
+- macOS: Bounces the dock icon once.
+- Windows: Flashes the taskbar button until the application is in focus.
+- Linux: Depends on the desktop environment.
 
 ```toml
 # Type: boolean
