@@ -49,7 +49,7 @@ Removed:
 
 Thanks:
 
-- Contributions: @furudean, @omentic, @KaiKorla, @achille, @classabbyamp, @ncfavier, @englut
+- Contributions: @furudean, @omentic, @KaiKorla, @achille, @classabbyamp, @ncfavier, @englut, @WinnerWind
 - Bug reports: sebbu, @whitequark, @SnoopJ, esden, @miyukoc, @ld-cd, @achille, @classabbyamp, vignoux, @esden, @ncfavier, @englut
 - Feature requests: @omentic, @classabbyamp, @ncfavier
 
