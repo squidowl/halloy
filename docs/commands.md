@@ -59,7 +59,7 @@ Aliases are resolved before built-in commands and take precedence when they use 
 | `sysinfo`       |              | Send system information (OS, CPU, memory, GPU, uptime)                                   |
 | `topic`         | `t`          | Retrieve the topic of a channel or set a new topic[^1]                                   |
 | `upload`        |              | Upload a file via `draft/FILEHOST`[^12]                                                  |
-| `whois`         |              | Retrieve information about user(s)                                                       |
+| `whois`         |              | Retrieve information about user(s) from a specific server[^13]                           |
 
 [^1]: The `channel` argument can be skipped when used in a channel buffer to target the channel in the buffer.
 [^2]: The `nick` argument can be skipped when used in a query buffer to target the other user in the buffer.
@@ -73,3 +73,4 @@ Aliases are resolved before built-in commands and take precedence when they use 
 [^10]: If not joined to the channel in the buffer, then the `chanlist` argument can be skipped to target the channel in the buffer.
 [^11]: The command is executed locally with `sh -c` on Unix-like systems and `cmd /C` on Windows. Only the first non-empty line of stdout is used. If that line starts with `/`, it is treated as a command; otherwise it is sent as a normal message. `/exec` is disabled by default and must be explicitly enabled in [`buffer.commands.exec`](configuration/buffer#exec).
 [^12]: Requires the server to advertise `draft/FILEHOST` support, or [`filehost.override`](./configuration/servers#filehost) to be set.
+[^13]: The server variable refers to the server to poll, and can be set to the nickname being queried in order to auto-select the server. Eg. if you are in Libera chat, and you want to run WHOIS on `hunter2`, `/whois hunter2 hunter2` will try `/whois zinc.libera.chat hunter2` 
