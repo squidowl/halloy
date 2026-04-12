@@ -2217,15 +2217,6 @@ fn handle_reaction(
     let chantypes = clients.get_server_chantypes_or_default(server);
     let statusmsg = clients.get_server_statusmsg_or_default(server);
 
-    // Going to assume that there'll be something in `encoded` that gives
-    // us access to the original message directly. using user() as placeholder
-    let is_react_to_own_message =
-        if let Some(message_sender) = &encoded.user(casemapping.to_owned()) {
-            message_sender.nickname() != our_nick // just setting to true for now
-        } else {
-            false
-        };
-
     if let Some(reaction) = Reaction::received(
         encoded,
         our_nick,
@@ -2234,11 +2225,12 @@ fn handle_reaction(
         casemapping,
         config.buffer.channel.message.max_reaction_chars,
     ) {
-        reactions.push(
-            dashboard
-                .record_reaction(server, reaction.clone())
-                .map(Message::Dashboard),
-        );
+        let (reaction_target, task) =
+            dashboard.record_reaction(server, reaction.clone());
+        reactions.push(task.map(Message::Dashboard));
+
+        let is_react_to_own_message =
+            reaction_target.as_ref().is_some_and(|t| t.sent_by_self);
 
         let sender = User::from(reaction.inner.sender.clone());
         let channel = reaction.target.as_channel();
@@ -2285,6 +2277,10 @@ fn handle_reaction(
                 &Notification::Reaction {
                     casemapping,
                     reaction,
+                    message_text: reaction_target
+                        .as_ref()
+                        .map(|t| t.text.clone())
+                        .unwrap_or_default(),
                 },
                 server,
                 message_window.unwrap_or(main_window.id),

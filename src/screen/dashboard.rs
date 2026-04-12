@@ -11,9 +11,9 @@ use data::capabilities::{
 use data::config::buffer::{ScrollPosition, UsernameFormat};
 use data::dashboard::{self, BufferAction};
 use data::environment::{RELEASE_WEBSITE, WIKI_WEBSITE};
-use data::history::ReadMarker;
 use data::history::filter::Filter;
 use data::history::reroute::RerouteRules;
+use data::history::{ReactionTarget, ReadMarker};
 use data::isupport::{self, ChatHistorySubcommand, MessageReference};
 use data::message::{self, Broadcast};
 use data::rate_limit::TokenPriority;
@@ -3195,12 +3195,14 @@ impl Dashboard {
         &mut self,
         server: &Server,
         reaction: reaction::Context,
-    ) -> Task<Message> {
-        if let Some(task) = self.history.record_reaction(server, reaction) {
-            Task::perform(task, Message::History)
+    ) -> (Option<ReactionTarget>, Task<Message>) {
+        let (target, future) = self.history.record_reaction(server, reaction);
+        let task = if let Some(f) = future {
+            Task::perform(f, Message::History)
         } else {
             Task::none()
-        }
+        };
+        (target, task)
     }
 
     pub fn is_focused_and_at_bottom(

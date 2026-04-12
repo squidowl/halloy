@@ -345,6 +345,7 @@ impl Notifications {
             Notification::Reaction {
                 casemapping,
                 reaction,
+                message_text,
             } => {
                 let channel_option = reaction.target.clone().to_channel();
                 let channel = channel_option.as_ref();
@@ -366,11 +367,11 @@ impl Notifications {
                     ) = if config.reaction.show_content {
                         (
                             reaction.inner.sender.to_string(),
-                            None,
-                            format!(
+                            Some(format!(
                                 "Reacted {} to your message in {react_sent_in}",
                                 reaction.inner.text
-                            ),
+                            )),
+                            message_text.to_string(),
                         )
                     } else {
                         (
