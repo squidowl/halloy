@@ -703,6 +703,7 @@ Changed:
 - Unread indicator has changed from a boolean value to a enum. See [configuration](https://halloy.squidowl.org/configuration/sidebar/index.html#unread_indicators).
 - Renamed `sidebar.default_action` to `sidebar.buffer_action`.
 - Auto-completing (with tab) a nickname at the beginning of the input line will append ': ' (colon space). Otherwise, a space is appended to the completion.
+- SIGTERM and SIGINT are now intercepted and trigger the same exit path as a normal window close
 
 Removed:
 

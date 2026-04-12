@@ -18,7 +18,7 @@ use crate::target::{self, Target};
 use crate::user::Nick;
 use crate::{Config, Server, buffer, client, config, input, isupport, server};
 
-const DRAFT_SAVE_AFTER: Duration = Duration::from_secs(3);
+const DRAFT_SAVE_EVERY: Duration = Duration::from_secs(10);
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Resource {
@@ -318,7 +318,7 @@ impl Manager {
     ) -> Option<BoxFuture<'static, Message>> {
         let last_changed = self.last_draft_changed?;
 
-        if now.duration_since(last_changed) < DRAFT_SAVE_AFTER {
+        if now.duration_since(last_changed) < DRAFT_SAVE_EVERY {
             return None;
         }
 
@@ -380,7 +380,10 @@ impl Manager {
 
     pub fn record_draft(&mut self, raw_input: input::RawInput) {
         self.data.input.store_draft(raw_input);
-        self.last_draft_changed = Some(tokio::time::Instant::now());
+        // Only set if None, so drafts save on an interval
+        if self.last_draft_changed.is_none() {
+            self.last_draft_changed = Some(tokio::time::Instant::now());
+        }
     }
 
     // The message's blocked state should be determined prior to using this

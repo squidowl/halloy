@@ -1205,6 +1205,16 @@ impl Halloy {
                 signal_hook::consts::SIGUSR1 => {
                     Task::perform(Config::load(), Message::ConfigReloaded)
                 }
+                #[cfg(target_family = "unix")]
+                signal_hook::consts::SIGTERM | signal_hook::consts::SIGINT => {
+                    if let Screen::Dashboard(dashboard) = &mut self.screen {
+                        dashboard
+                            .exit(&mut self.clients, &self.config)
+                            .map(Message::Dashboard)
+                    } else {
+                        iced::exit()
+                    }
+                }
                 _ => Task::none(),
             },
         }

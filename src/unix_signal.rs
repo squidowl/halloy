@@ -6,7 +6,7 @@ mod unix_signals {
     use iced::Subscription;
     use iced::advanced::graphics::futures::subscription;
     use iced::advanced::subscription::Hasher;
-    use signal_hook::consts::SIGUSR1;
+    use signal_hook::consts::{SIGINT, SIGTERM, SIGUSR1};
     use signal_hook::iterator::Signals;
 
     struct UnixSignal {
@@ -56,7 +56,7 @@ mod unix_signals {
 
     pub fn subscription() -> Subscription<i32> {
         subscription::from_recipe(UnixSignal {
-            signals: vec![SIGUSR1],
+            signals: vec![SIGUSR1, SIGTERM, SIGINT],
         })
     }
 }
