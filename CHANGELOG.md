@@ -43,6 +43,7 @@ Fixed:
 - `/MOTD` will not trigger end-of-registration actions
 - Repeat lines in some MOTDs would be deduplicated
 - Received reactions in queries
+- Filtering for common trailing punctuation and delimiters when linking channel names (and nicks & urls)
 
 Removed:
 
