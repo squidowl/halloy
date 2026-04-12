@@ -341,6 +341,7 @@ pub enum History {
         chathistory_references: Option<MessageReferences>,
         last_seen: HashMap<Nick, DateTime<Utc>>,
         pending_reactions: HashMap<message::Id, reaction::Pending>,
+        show_in_sidebar: bool,
     },
     Full {
         kind: Kind,
@@ -366,6 +367,7 @@ impl History {
             chathistory_references: None,
             last_seen: HashMap::new(),
             pending_reactions: HashMap::new(),
+            show_in_sidebar: false,
         }
     }
 
@@ -461,12 +463,17 @@ impl History {
         if message.triggers_unread()
             && !message.blocked
             && let History::Partial {
+                show_in_sidebar,
                 max_triggers_unread,
                 ..
             } = self
         {
-            *max_triggers_unread =
-                (*max_triggers_unread).max(Some(message.server_time));
+            if Some(message.server_time) > *max_triggers_unread {
+                *max_triggers_unread = Some(message.server_time);
+                *show_in_sidebar = true;
+            } else if !message.deduplicate {
+                *show_in_sidebar = true;
+            }
         }
 
         if message.triggers_highlight()
@@ -743,6 +750,7 @@ impl History {
                         chathistory_references: chathistory_references.clone(),
                         last_seen,
                         pending_reactions: HashMap::new(),
+                        show_in_sidebar: true,
                     },
                 );
 
