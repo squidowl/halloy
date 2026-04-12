@@ -213,14 +213,29 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a>(
                                     ))
                                     .background(theme.styles().buffer.highlight)
                             }
-                            data::message::Fragment::Url(_, s) => if config
+                            data::message::Fragment::Url(u, s) => if config
                                 .display
                                 .decode_urls
                             {
-                                span(
-                                    percent_decode_str(s.as_str())
-                                        .decode_utf8_lossy(),
-                                )
+                                // Preserve IDNA-compliant encoded host returned
+                                // by Url::host_str, but percent-decode the path
+                                // and later components of the URL for
+                                // legibility.  If the process fails for any
+                                // reason, return the IDNA-compliant encoding
+                                // provided by Url::as_str.
+                                u.host_str()
+                                    .and_then(|host_str| {
+                                        u.as_str().split_once(host_str).map(
+                                            |(prefix, suffix)| {
+                                                span(format!(
+                                                    "{prefix}{host_str}{}",
+                                                    percent_decode_str(suffix)
+                                                        .decode_utf8_lossy()
+                                                ))
+                                            },
+                                        )
+                                    })
+                                    .unwrap_or(span(u.as_str()))
                             } else {
                                 span(s.as_str())
                             }
@@ -235,7 +250,8 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a>(
                             .color(transform_color(
                                 theme.styles().buffer.url.color,
                             ))
-                            .link(message::Link::Url(s.as_str().to_string())),
+                            // Copy to clipboard in IDNA-compliant encoding.
+                            .link(message::Link::Url(u.as_str().to_string())),
                             data::message::Fragment::Formatted {
                                 text,
                                 formatting,
