@@ -31,3 +31,19 @@ Arrow shown for right-facing events.
 [display]
 direction_arrows = { right = ">" }
 ```
+
+### `decode_urls`
+
+Whether to automatically decode urls in messages, otherwise the URLs
+will appear exactly as sent.  E.g. when enabled `https://bücher.de` will appear as `https://bücher.de`
+`https://ja.wikipedia.org/wiki/%E9%87%8D%E9%9F%B3%E3%83%86%E3%83%88`
+will be displayed as `https://ja.wikipedia.org/wiki/重音テト`.
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: true
+
+[display]
+decode_urls = false
+```
