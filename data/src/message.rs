@@ -52,7 +52,9 @@ static URL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
 
 // Restrict characters per spec: https://modern.ircdocs.horse/#channels
 static CHANNEL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-    RegexBuilder::new(r#"(?i)(?<!\w)#([^ ,\x07]+)(?!\w)"#).build().unwrap()
+    RegexBuilder::new(r#"(?i)(?<!\w)#([^ ,\x07]+)(?!\w)"#)
+        .build()
+        .unwrap()
 });
 
 static USER_REGEX: LazyLock<Regex> = LazyLock::new(|| {
