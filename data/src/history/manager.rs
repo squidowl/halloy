@@ -601,13 +601,19 @@ impl Manager {
     pub fn get_unique_queries(&self, server: &Server) -> Vec<&target::Query> {
         self.data
             .map
-            .keys()
-            .filter_map(|kind| match kind {
+            .iter()
+            .filter_map(|(kind, history)| match kind {
                 #[allow(clippy::bool_comparison)] // easy to miss exclamation
                 history::Kind::Query(s, query) => (s == server
                     && self.filters.iter().all(|filter| {
                         filter.match_query(query, server) == false
-                    }))
+                    })
+                    && match history {
+                        History::Full { .. } => true,
+                        History::Partial {
+                            show_in_sidebar, ..
+                        } => *show_in_sidebar,
+                    })
                 .then_some(query),
                 _ => None,
             })
