@@ -46,7 +46,7 @@ private and are not visible to other users in the channel.
 
 ```toml
 # Type: array
-# Default: [{ user = "*", target = "server" }]
+# Default: []
 
 [servers.<name>.reroute]
 notice = [
