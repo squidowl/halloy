@@ -13,7 +13,7 @@ use tokio::time::Instant;
 pub use self::manager::{Manager, Resource};
 pub use self::metadata::{Metadata, ReadMarker};
 use crate::capabilities::LabeledResponseContext;
-use crate::message::{self, MessageReferences, Source};
+use crate::message::{self, Direction, MessageReferences, Source};
 use crate::target::{self, Target};
 use crate::user::Nick;
 use crate::{
@@ -1072,7 +1072,8 @@ impl History {
                     })
                 {
                     let target = ReactionTarget {
-                        sent_by_self: message.is_echo,
+                        sent_by_self: message.is_echo
+                            && message.direction == Direction::Received,
                         text: message.text(),
                     };
                     message.reactions.push(reaction.inner);
@@ -1106,7 +1107,8 @@ impl History {
                 *last_updated_at = Some(Instant::now());
 
                 let target = ReactionTarget {
-                    sent_by_self: message.is_echo,
+                    sent_by_self: message.is_echo
+                        && message.direction == Direction::Received,
                     text: message.text(),
                 };
                 return Some(target);

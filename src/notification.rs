@@ -345,7 +345,7 @@ impl Notifications {
             Notification::Reaction {
                 casemapping,
                 reaction,
-                message_text,
+                reaction_target,
             } => {
                 let channel_option = reaction.target.clone().to_channel();
                 let channel = channel_option.as_ref();
@@ -359,6 +359,18 @@ impl Notifications {
                         Some(channel) => channel.as_normalized_str(),
                         _ => "a direct message",
                     };
+                    let message_text = reaction_target
+                        .clone()
+                        .map(|t| t.text)
+                        .unwrap_or_default();
+                    let owner_display_text = if let Some(reaction_target) =
+                        reaction_target
+                        && reaction_target.sent_by_self
+                    {
+                        "your"
+                    } else {
+                        "a"
+                    };
 
                     let (title, subtitle, body): (
                         String,
@@ -368,7 +380,7 @@ impl Notifications {
                         (
                             reaction.inner.sender.to_string(),
                             Some(format!(
-                                "Reacted {} to your message in {react_sent_in}",
+                                "Reacted {} to {owner_display_text} message in {react_sent_in}",
                                 reaction.inner.text
                             )),
                             message_text.to_string(),
@@ -378,7 +390,7 @@ impl Notifications {
                             reaction.inner.sender.to_string(),
                             None,
                             format!(
-                                "Reacted to your message in {react_sent_in}",
+                                "Reacted to {owner_display_text} message in {react_sent_in}",
                             ),
                         )
                     };

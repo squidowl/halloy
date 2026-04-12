@@ -1,3 +1,4 @@
+use crate::history::ReactionTarget;
 use crate::target::Channel;
 use crate::user::Nick;
 use crate::{User, isupport, reaction};
@@ -36,6 +37,6 @@ pub enum Notification {
     Reaction {
         casemapping: isupport::CaseMap,
         reaction: reaction::Context,
-        message_text: String,
+        reaction_target: Option<ReactionTarget>,
     },
 }

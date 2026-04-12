@@ -598,19 +598,24 @@ impl Halloy {
                         let statusmsg = self
                             .clients
                             .get_server_statusmsg_or_default(&server);
-                        if let Some(task) = notify_reaction(
-                            &self.config,
-                            &server,
-                            casemapping,
-                            chantypes,
-                            statusmsg,
-                            dashboard,
-                            &self.main_window,
-                            &reaction,
-                            reaction_target.as_ref(),
-                            &mut self.notifications,
-                        ) {
-                            task
+                        if let Some(our_nick) = self.clients.nickname(&server) {
+                            if let Some(task) = notify_reaction(
+                                &self.config,
+                                &server,
+                                casemapping,
+                                chantypes,
+                                statusmsg,
+                                dashboard,
+                                &self.main_window,
+                                &reaction,
+                                reaction_target.as_ref(),
+                                &mut self.notifications,
+                                our_nick.to_owned(),
+                            ) {
+                                task
+                            } else {
+                                Task::none()
+                            }
                         } else {
                             Task::none()
                         }
@@ -2245,11 +2250,14 @@ fn notify_reaction(
     reaction: &reaction::Context,
     reaction_target: Option<&ReactionTarget>,
     notifications: &mut Notifications,
+    our_nick: Nick,
 ) -> Option<Task<Message>> {
     let is_react_to_own_message =
         reaction_target.is_some_and(|t| t.sent_by_self);
 
-    let sender = User::from(reaction.inner.sender.clone());
+    let sender_nick = reaction.inner.sender.clone();
+    let self_reaction = our_nick == sender_nick;
+    let sender = User::from(sender_nick);
     let channel = reaction.target.as_channel();
     let query = match channel {
         None => target::Query::parse(
@@ -2283,6 +2291,7 @@ fn notify_reaction(
     };
 
     if !blocked
+        && !self_reaction
         && !reaction.inner.unreact
         && is_react_to_own_message
         && (message_window.is_none() || !main_window.focused)
@@ -2292,9 +2301,7 @@ fn notify_reaction(
             &Notification::Reaction {
                 casemapping,
                 reaction: reaction.clone(),
-                message_text: reaction_target
-                    .map(|t| t.text.clone())
-                    .unwrap_or_default(),
+                reaction_target: reaction_target.cloned(),
             },
             server,
             message_window.unwrap_or(main_window.id),
@@ -2323,7 +2330,7 @@ fn handle_reaction(
 
     if let Some(reaction) = Reaction::received(
         encoded,
-        our_nick,
+        our_nick.clone(),
         chantypes,
         statusmsg,
         casemapping,
@@ -2344,6 +2351,7 @@ fn handle_reaction(
             &reaction,
             reaction_target.as_ref(),
             notifications,
+            our_nick,
         ) {
             reactions.push(task);
         }

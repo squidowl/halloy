@@ -15,7 +15,7 @@ use crate::history::{
     self, History, MessageReferences, ReactionTarget, ReadMarker, metadata,
 };
 use crate::message::broadcast::{self, Broadcast};
-use crate::message::{self, Limit};
+use crate::message::{self, Direction, Limit};
 use crate::target::{self, Target};
 use crate::user::Nick;
 use crate::{
@@ -1865,7 +1865,9 @@ impl Data {
                                                 == Some(&*reaction.in_reply_to)
                                         })
                                         .map(|message| ReactionTarget {
-                                            sent_by_self: message.is_echo,
+                                            sent_by_self: message.is_echo
+                                                && message.direction
+                                                    == Direction::Received,
                                             text: message.text(),
                                         })
                                 } else {
