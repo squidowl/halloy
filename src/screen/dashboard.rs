@@ -4912,11 +4912,8 @@ fn preview_cache(config: &config::Preview) -> cache::FileCache {
     let root = environment::cache_dir().join("previews");
 
     cache::FileCache::new(
-        root.clone(),
-        cache::TrimConfig::new(
-            cache::blob_dir_from_root(&root),
-            config.request.image_cache.max_size_bytes(),
-            config.request.image_cache.trim_interval,
-        ),
+        root,
+        config.request.image_cache.max_size_bytes(),
+        config.request.image_cache.trim_interval,
     )
 }

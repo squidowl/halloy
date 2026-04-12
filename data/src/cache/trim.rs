@@ -10,7 +10,7 @@ const TRIM_TARGET_NUMERATOR: u64 = 3;
 const TRIM_TARGET_DENOMINATOR: u64 = 4;
 
 #[derive(Clone)]
-pub struct TrimConfig {
+pub(crate) struct TrimConfig {
     blob_root: PathBuf,
     max_size: Option<u64>,
     interval: u64,
@@ -21,7 +21,7 @@ pub struct TrimConfig {
 }
 
 impl TrimConfig {
-    pub fn new(
+    pub(crate) fn new(
         blob_root: PathBuf,
         max_size: Option<u64>,
         interval: u64,

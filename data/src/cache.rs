@@ -11,7 +11,7 @@ use tokio_stream::StreamExt;
 use tokio_util::io::ReaderStream;
 use url::Url;
 
-pub use trim::TrimConfig;
+pub(crate) use trim::TrimConfig;
 
 /// SHA256 digest of cache content.
 #[derive(Debug, Clone, Serialize, Deserialize, AsRef)]
@@ -43,7 +43,14 @@ pub struct FileCache {
 }
 
 impl FileCache {
-    pub fn new(root: PathBuf, trim: TrimConfig) -> Self {
+    pub fn new(
+        root: PathBuf,
+        max_size: Option<u64>,
+        trim_interval: u64,
+    ) -> Self {
+        let trim =
+            TrimConfig::new(blob_dir_from_root(&root), max_size, trim_interval);
+
         Self { root, trim }
     }
 
