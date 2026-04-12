@@ -460,20 +460,28 @@ impl History {
     }
 
     fn add_message(&mut self, message: Message) -> Option<ReadMarker> {
+        if let History::Partial {
+            show_in_sidebar,
+            max_triggers_unread,
+            ..
+        } = self
+            && (matches!(message.direction, message::Direction::Sent)
+                || (((message.triggers_unread() && !message.blocked)
+                    || message.is_echo)
+                    && Some(message.server_time) > *max_triggers_unread))
+        {
+            *show_in_sidebar = true;
+        }
+
         if message.triggers_unread()
             && !message.blocked
             && let History::Partial {
-                show_in_sidebar,
                 max_triggers_unread,
                 ..
             } = self
         {
-            if Some(message.server_time) > *max_triggers_unread {
-                *max_triggers_unread = Some(message.server_time);
-                *show_in_sidebar = true;
-            } else if !message.deduplicate {
-                *show_in_sidebar = true;
-            }
+            *max_triggers_unread =
+                (*max_triggers_unread).max(Some(message.server_time));
         }
 
         if message.triggers_highlight()
