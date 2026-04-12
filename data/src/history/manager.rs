@@ -235,8 +235,8 @@ impl Manager {
                 return Some(Event::ResendMessage(kind, message));
             }
             Message::DraftsSaved => {}
-            Message::PendingReaction(server, target, context) => {
-                return Some(Event::PendingReaction(server, target, context));
+            Message::PendingReaction(server, target, reaction) => {
+                return Some(Event::PendingReaction(server, target, reaction));
             }
         }
 
@@ -457,9 +457,7 @@ impl Manager {
         Option<ReactionTarget>,
         Option<impl Future<Output = Message> + use<>>,
     ) {
-        let kind =
-            history::Kind::from_target(server.clone(), reaction.target.clone());
-        self.data.add_reaction(kind, server.clone(), reaction)
+        self.data.add_reaction(server.clone(), reaction)
     }
 
     pub fn block_and_record_message(
@@ -1834,13 +1832,14 @@ impl Data {
 
     fn add_reaction(
         &mut self,
-        kind: history::Kind,
         server: Server,
         reaction: reaction::Context,
     ) -> (
         Option<ReactionTarget>,
         Option<impl Future<Output = Message> + use<>>,
     ) {
+        let kind =
+            history::Kind::from_target(server.clone(), reaction.target.clone());
         match self.map.entry(kind.clone()) {
             hash_map::Entry::Occupied(mut entry) => {
                 let target = entry.get_mut().add_reaction(reaction.clone());

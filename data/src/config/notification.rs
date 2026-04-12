@@ -118,15 +118,15 @@ impl Notifications {
         if let Some(sound_name) = self.monitored_offline.sound.as_deref() {
             load_and_insert(sound_name);
         }
+        if let Some(sound_name) = self.reaction.sound.as_deref() {
+            load_and_insert(sound_name);
+        }
         for notification in self.channels.values() {
             if let Some(sound_name) = notification.sound.as_deref() {
                 load_and_insert(sound_name);
             }
         }
         for sound_name in highlight_matches_sounds {
-            load_and_insert(sound_name);
-        }
-        if let Some(sound_name) = self.reaction.sound.as_deref() {
             load_and_insert(sound_name);
         }
 
