@@ -589,15 +589,26 @@ impl Halloy {
                         reaction_target,
                         reaction,
                     )) => {
+                        let casemapping = self
+                            .clients
+                            .get_server_casemapping_or_default(&server);
+                        let chantypes = self
+                            .clients
+                            .get_server_chantypes_or_default(&server);
+                        let statusmsg = self
+                            .clients
+                            .get_server_statusmsg_or_default(&server);
                         if let Some(task) = notify_reaction(
+                            &self.config,
                             &server,
+                            casemapping,
+                            chantypes,
+                            statusmsg,
+                            dashboard,
+                            &self.main_window,
                             &reaction,
                             reaction_target.as_ref(),
-                            dashboard,
-                            &self.config,
-                            &self.clients,
                             &mut self.notifications,
-                            &self.main_window,
                         ) {
                             task
                         } else {
@@ -1769,15 +1780,15 @@ fn handle_client_events(
             }
             Event::Reaction(encoded, our_nick) => {
                 handle_reaction(
+                    config,
                     server,
+                    clients,
+                    dashboard,
+                    main_window,
+                    notifications,
+                    &mut reactions,
                     encoded,
                     our_nick,
-                    dashboard,
-                    config,
-                    clients,
-                    &mut reactions,
-                    notifications,
-                    main_window,
                 );
             }
         }
@@ -2224,21 +2235,19 @@ fn handle_broadcast(
 }
 
 fn notify_reaction(
+    config: &Config,
     server: &Server,
+    casemapping: data::isupport::CaseMap,
+    chantypes: &[char],
+    statusmsg: &[char],
+    dashboard: &mut screen::Dashboard,
+    main_window: &Window,
     reaction: &reaction::Context,
     reaction_target: Option<&ReactionTarget>,
-    dashboard: &mut screen::Dashboard,
-    config: &Config,
-    clients: &data::client::Map,
     notifications: &mut Notifications,
-    main_window: &Window,
 ) -> Option<Task<Message>> {
     let is_react_to_own_message =
         reaction_target.is_some_and(|t| t.sent_by_self);
-
-    let casemapping = clients.get_server_casemapping_or_default(server);
-    let chantypes = clients.get_server_chantypes_or_default(server);
-    let statusmsg = clients.get_server_statusmsg_or_default(server);
 
     let sender = User::from(reaction.inner.sender.clone());
     let channel = reaction.target.as_channel();
@@ -2298,15 +2307,15 @@ fn notify_reaction(
 }
 
 fn handle_reaction(
+    config: &Config,
     server: &Server,
+    clients: &data::client::Map,
+    dashboard: &mut screen::Dashboard,
+    main_window: &Window,
+    notifications: &mut Notifications,
+    reactions: &mut Vec<Task<Message>>,
     encoded: message::Encoded,
     our_nick: Nick,
-    dashboard: &mut screen::Dashboard,
-    config: &Config,
-    clients: &data::client::Map,
-    reactions: &mut Vec<Task<Message>>,
-    notifications: &mut Notifications,
-    main_window: &Window,
 ) {
     let casemapping = clients.get_server_casemapping_or_default(server);
     let chantypes = clients.get_server_chantypes_or_default(server);
@@ -2325,14 +2334,16 @@ fn handle_reaction(
         reactions.push(task.map(Message::Dashboard));
 
         if let Some(task) = notify_reaction(
+            config,
             server,
+            casemapping,
+            chantypes,
+            statusmsg,
+            dashboard,
+            main_window,
             &reaction,
             reaction_target.as_ref(),
-            dashboard,
-            config,
-            clients,
             notifications,
-            main_window,
         ) {
             reactions.push(task);
         }
