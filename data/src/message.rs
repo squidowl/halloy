@@ -325,6 +325,7 @@ pub struct Message {
     pub command: Option<command::Irc>, // Only relevant if direction == Direction::Sent
     pub reactions: Vec<Reaction>,
     pub rerouted_from: Option<Target>,
+    pub deduplicate: bool,
 }
 
 impl Message {
@@ -408,6 +409,7 @@ impl Message {
     pub fn received<'a>(
         encoded: Encoded,
         our_nick: Nick,
+        deduplicate: bool,
         config: &'a Config,
         reroute_rules: &RerouteRules,
         resolve_attributes: impl Fn(&User, &target::Channel) -> Option<User>,
@@ -465,12 +467,14 @@ impl Message {
             command,
             reactions: vec![],
             rerouted_from,
+            deduplicate,
         })
     }
 
     pub fn received_with_highlight<'a>(
         encoded: Encoded,
         our_nick: Nick,
+        deduplicate: bool,
         config: &'a Config,
         reroute_rules: &RerouteRules,
         resolve_attributes: impl Fn(&User, &target::Channel) -> Option<User>,
@@ -528,6 +532,7 @@ impl Message {
             command,
             reactions: vec![],
             rerouted_from,
+            deduplicate,
         };
 
         let highlight = highlight.and_then(|kind| {
@@ -596,6 +601,7 @@ impl Message {
             command,
             reactions: vec![],
             rerouted_from: None,
+            deduplicate: false,
         }
     }
 
@@ -631,6 +637,7 @@ impl Message {
             command: None,
             reactions: vec![],
             rerouted_from: None,
+            deduplicate: false,
         }
     }
 
@@ -664,6 +671,7 @@ impl Message {
             command: None,
             reactions: vec![],
             rerouted_from: None,
+            deduplicate: false,
         }
     }
 
@@ -716,6 +724,7 @@ impl Message {
             command: None,
             reactions: vec![],
             rerouted_from: None,
+            deduplicate: false,
         }
     }
 
@@ -859,6 +868,7 @@ impl<'de> Deserialize<'de> for Message {
             command,
             reactions,
             rerouted_from,
+            deduplicate: false,
         })
     }
 }
@@ -1051,6 +1061,7 @@ pub fn condense(
             command: None,
             reactions: vec![],
             rerouted_from: None,
+            deduplicate: false,
         }))
     } else {
         None
@@ -4103,6 +4114,7 @@ pub mod tests {
         Message::received_with_highlight(
             Encoded::from(encoded.clone()),
             our_nick.clone(),
+            false,
             &Config::default(),
             &RerouteRules::default(),
             |user: &User, _channel: &target::Channel| {
