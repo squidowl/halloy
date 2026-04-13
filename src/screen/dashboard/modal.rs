@@ -3,6 +3,7 @@ pub mod reaction;
 use std::borrow::Cow;
 
 use data::{Config, message};
+use iced::Task;
 
 use crate::widget::Element;
 
@@ -49,6 +50,12 @@ impl Modal {
             Modal::AddReaction(state) => {
                 reaction::view(state, config).map(Message::Reaction)
             }
+        }
+    }
+
+    pub fn focus(&self) -> Task<Message> {
+        match self {
+            Modal::AddReaction(state) => state.focus().map(Message::Reaction),
         }
     }
 }

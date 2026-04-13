@@ -1,7 +1,7 @@
 use data::user::ChannelUsers;
 use data::{Config, file_transfer, history, preview};
-use iced::Size;
 use iced::widget::{button, center, column, container, pane_grid, row, text};
+use iced::{Size, Task};
 
 use super::sidebar;
 use crate::buffer::{self, Buffer};
@@ -176,8 +176,18 @@ impl Pane {
             .title_bar(title_bar.style(theme::container::buffer_title_bar))
     }
 
-    pub fn open_modal(&mut self, modal: super::modal::Modal) {
+    pub fn open_modal(
+        &mut self,
+        id: pane_grid::Pane,
+        modal: super::modal::Modal,
+    ) -> Task<Message> {
+        let focus_task = modal
+            .focus()
+            .map(move |message| Message::Modal(id, message));
+
         self.modal = Some(modal);
+
+        focus_task
     }
 
     pub fn close_buffer_modal(&mut self) {
