@@ -27,6 +27,7 @@ We strive to be a leading irc client with a rich ircv3 feature set. currently su
 - [away-notify](https://ircv3.net/specs/extensions/away-notify)
 - [batch](https://ircv3.net/specs/extensions/batch)
 - [cap-notify](https://ircv3.net/specs/extensions/capability-negotiation.html#cap-notify)
+- [channel-context](https://ircv3.net/specs/client-tags/channel-context)
 - [chathistory](https://ircv3.net/specs/extensions/chathistory)
 - [chghost](https://ircv3.net/specs/extensions/chghost)
 - [echo-message](https://ircv3.net/specs/extensions/echo-message)
