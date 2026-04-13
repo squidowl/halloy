@@ -26,6 +26,7 @@ pub enum Event {
     GoToMessage(Server, target::Channel, message::Hash),
     History(Task<history::manager::Message>),
     OpenUrl(String),
+    MarkAsRead,
     ImagePreview(PathBuf, url::Url),
     ExpandMessage(DateTime<Utc>, message::Hash),
     ContractMessage(DateTime<Utc>, message::Hash),
@@ -352,7 +353,7 @@ impl Highlights {
                     scroll_view::Event::RequestOlderChatHistory => None,
                     scroll_view::Event::PreviewChanged => None,
                     scroll_view::Event::HidePreview(..) => None,
-                    scroll_view::Event::MarkAsRead => None,
+                    scroll_view::Event::MarkAsRead => Some(Event::MarkAsRead),
                     scroll_view::Event::OpenUrl(url) => {
                         Some(Event::OpenUrl(url))
                     }

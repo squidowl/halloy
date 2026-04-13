@@ -906,8 +906,17 @@ impl History {
             History::Full {
                 messages,
                 read_marker,
+                display_read_marker,
                 ..
-            } => (read_marker, ReadMarker::latest(messages)),
+            } => {
+                let latest = ReadMarker::latest(messages);
+
+                if latest > *display_read_marker {
+                    *display_read_marker = latest;
+                }
+
+                (read_marker, latest)
+            }
         };
 
         if latest > *read_marker {

@@ -544,6 +544,9 @@ impl Buffer {
                         message,
                     ) => Event::GoToMessage(server, channel, message),
                     highlights::Event::History(task) => Event::History(task),
+                    highlights::Event::MarkAsRead => {
+                        Event::MarkAsRead(history::Kind::Highlights)
+                    }
                     highlights::Event::OpenUrl(url) => Event::OpenUrl(url),
                     highlights::Event::ImagePreview(path, url) => {
                         Event::ImagePreview(path, url)
