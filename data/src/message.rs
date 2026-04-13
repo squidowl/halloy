@@ -153,8 +153,8 @@ impl Encoded {
         casemapping: isupport::CaseMap,
     ) -> Option<target::Channel> {
         self.tags
-            .get("channel-context")
-            .or(self.tags.get("draft/channel-context"))
+            .get("+channel-context")
+            .or(self.tags.get("+draft/channel-context"))
             .and_then(|channel| {
                 target::Channel::parse(
                     channel,

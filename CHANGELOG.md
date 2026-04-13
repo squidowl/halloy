@@ -13,12 +13,14 @@ Added:
 - Right-click context menu on messages now includes "Copy message" to copy the message text to the clipboard
 - `buffer.typing.style` setting with `padded` and `popped` modes for typing indicators
 - Files can be uploaded to server using `soju.im/FILEHOST` and `draft/FILEHOST`
-- Record Ergo/Solanum mass-messages to the server buffer (and provide a `/massmessage` command for sending them)
+- `/massmessage` command to send Ergo/Solanum mass-messages
 - Setting to control whether unread indicators are shown on open buffers (`sidebar.unread_indicator.show_on_open_buffers`)
 - Ability to add optional arguments in custom aliases (`/msg ChanServ op $channel $1?-`)
 - `/invite` command tooltip and validation provided, and display of `INVITE`-related messages improved
 - Ability to customize the arrows used for directional messages such as join, part, quit, kick, and CTCP messages.
 - Unread indicators for queries can be hidden via `sidebar.unread_indicator.exclude`
+- Settings to reroute direct PRIVMSG and/or NOTICE messages to another buffer (`servers.<name>.reroute.query` and `servers.<name>.reroute.notice`)
+- `channel-context` support
 
 Changed:
 
@@ -53,7 +55,7 @@ Thanks:
 
 - Contributions: @furudean, @omentic, @KaiKorla, @achille, @classabbyamp, @ncfavier, @englut, @WinnerWind
 - Bug reports: sebbu, @whitequark, @SnoopJ, esden, @miyukoc, @ld-cd, @achille, @classabbyamp, vignoux, @esden, @ncfavier, @englut, @cyrneko
-- Feature requests: @omentic, @classabbyamp, @ncfavier, @ineeee
+- Feature requests: @omentic, @classabbyamp, @ncfavier, @ineeee, @4e554c4c
 
 # 2026.5 (2026-03-21)
 
