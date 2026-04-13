@@ -2305,12 +2305,18 @@ impl Dashboard {
                         msgid,
                         selected_reactions,
                     ) => {
-                        pane.open_modal(modal::Modal::AddReaction(
-                            reaction_modal::State::new(
-                                msgid,
-                                selected_reactions,
-                            ),
-                        ));
+                        tasks.push(
+                            pane.open_modal(
+                                id,
+                                modal::Modal::AddReaction(
+                                    reaction_modal::State::new(
+                                        msgid,
+                                        selected_reactions,
+                                    ),
+                                ),
+                            )
+                            .map(move |message| Message::Pane(window, message)),
+                        );
                         None
                     }
                 };

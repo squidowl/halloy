@@ -2,10 +2,10 @@ use std::borrow::Cow;
 use std::collections::HashSet;
 
 use data::{Config, message};
-use iced::Length;
 use iced::widget::{
-    Scrollable, button, column, container, scrollable, text_input,
+    Scrollable, button, column, container, operation, scrollable, text_input,
 };
+use iced::{Length, Task};
 
 use crate::widget::{Element, Row, text};
 use crate::{emoji, theme, widget};
@@ -19,6 +19,7 @@ const EMOJI_BUTTON_HEIGHT: f32 = 32.0;
 pub struct State {
     msgid: message::Id,
     selected_reactions: HashSet<Cow<'static, str>>,
+    search_query_id: iced::widget::Id,
     search_query: String,
 }
 
@@ -45,6 +46,7 @@ impl State {
                 .into_iter()
                 .map(Cow::Owned)
                 .collect(),
+            search_query_id: iced::widget::Id::unique(),
             search_query: String::new(),
         }
     }
@@ -65,6 +67,18 @@ impl State {
                 })
             }
         }
+    }
+
+    pub fn focus(&self) -> Task<Message> {
+        let search_query_id = self.search_query_id.clone();
+
+        operation::is_focused(search_query_id.clone()).then(move |is_focused| {
+            if is_focused {
+                Task::none()
+            } else {
+                operation::focus(search_query_id.clone())
+            }
+        })
     }
 }
 
@@ -95,6 +109,7 @@ pub fn view<'a>(state: &'a State, config: &'a Config) -> Element<'a, Message> {
 
     let content = column![
         text_input("Search..", &state.search_query)
+            .id(state.search_query_id.clone())
             .on_input(Message::SearchChanged)
             .padding(8),
         body
