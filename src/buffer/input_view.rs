@@ -2862,9 +2862,9 @@ fn macos_clipboard_file() -> Option<std::path::PathBuf> {
 
 fn upload_ghost(id: u32) -> String {
     if id <= 1 {
-        String::from("(Uploading...)")
+        String::from("[Uploading...]")
     } else {
-        format!("(Uploading...{id})")
+        format!("[Uploading...{id}]")
     }
 }
 
