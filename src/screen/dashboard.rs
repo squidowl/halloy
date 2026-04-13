@@ -2634,20 +2634,14 @@ impl Dashboard {
                     Some(Target::Channel(_)) => buffer::Message::Channel(
                         buffer::channel::Message::FilehostUploadDone {
                             id,
-                            url: Some(url),
+                            url,
                         },
                     ),
                     Some(Target::Query(_)) => buffer::Message::Query(
-                        buffer::query::Message::FilehostUploadDone {
-                            id,
-                            url: Some(url),
-                        },
+                        buffer::query::Message::FilehostUploadDone { id, url },
                     ),
                     None => buffer::Message::Server(
-                        buffer::server::Message::FilehostUploadDone {
-                            id,
-                            url: Some(url),
-                        },
+                        buffer::server::Message::FilehostUploadDone { id, url },
                     ),
                 };
                 Task::done(Message::Pane(

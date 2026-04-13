@@ -16,7 +16,7 @@ pub enum Message {
         pane_id: pane_grid::Pane,
         target: Option<Target>,
         id: u32,
-        url: String,
+        url: Option<String>,
     },
     UploadFailed {
         window: window::Id,
@@ -187,7 +187,7 @@ impl Manager {
                         pane_id: p.pane_id,
                         target: p.target.clone(),
                         id,
-                        url: String::new(),
+                        url: None,
                     })
                 })
             })
@@ -246,7 +246,7 @@ fn start_tasks(
                         pane_id,
                         target,
                         id,
-                        url,
+                        url: Some(url),
                     },
                     Ok(Err(e)) => {
                         log::warn!("filehost upload failed: {e}");
@@ -264,7 +264,7 @@ fn start_tasks(
                         pane_id,
                         target,
                         id,
-                        url: String::new(),
+                        url: None,
                     },
                 },
             )
