@@ -2623,7 +2623,7 @@ impl Dashboard {
         config: &Config,
     ) -> Task<Message> {
         match msg {
-            filehost::Message::UrlReady {
+            filehost::Message::UploadDone {
                 window,
                 pane_id,
                 target,

@@ -11,7 +11,7 @@ use crate::window;
 
 #[derive(Debug)]
 pub enum Message {
-    UrlReady {
+    UploadDone {
         window: window::Id,
         pane_id: pane_grid::Pane,
         target: Option<Target>,
@@ -181,12 +181,12 @@ impl Manager {
         let tasks: Vec<_> = pending
             .into_iter()
             .flat_map(|p| {
-                (0..p.file_paths.len()).map(move |_| {
-                    Task::done(Message::UrlReady {
+                p.upload_ids.into_iter().map(move |id| {
+                    Task::done(Message::UploadDone {
                         window: p.window,
                         pane_id: p.pane_id,
                         target: p.target.clone(),
-                        id: 0,
+                        id,
                         url: String::new(),
                     })
                 })
@@ -241,7 +241,7 @@ fn start_tasks(
                     futures::future::Abortable::new(fut, registration).await
                 },
                 move |result| match result {
-                    Ok(Ok(url)) => Message::UrlReady {
+                    Ok(Ok(url)) => Message::UploadDone {
                         window,
                         pane_id,
                         target,
@@ -259,7 +259,7 @@ fn start_tasks(
                             error: e.to_string(),
                         }
                     }
-                    Err(_aborted) => Message::UrlReady {
+                    Err(_aborted) => Message::UploadDone {
                         window,
                         pane_id,
                         target,
