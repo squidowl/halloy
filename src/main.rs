@@ -1472,6 +1472,23 @@ impl Halloy {
     fn remove(&mut self, server: Server) -> Task<Message> {
         match &mut self.screen {
             Screen::Dashboard(_) => {
+                let bouncer_networks: Vec<_> = self
+                    .servers
+                    .get_bouncer_networks(&server)
+                    .cloned()
+                    .collect();
+
+                for bouncer_network in bouncer_networks {
+                    self.controllers.end(
+                        &bouncer_network,
+                        &self.config.buffer.commands.quit.default_reason,
+                    );
+
+                    self.servers.remove(&bouncer_network);
+
+                    self.clients.remove(&bouncer_network);
+                }
+
                 self.controllers.end(
                     &server,
                     &self.config.buffer.commands.quit.default_reason,
