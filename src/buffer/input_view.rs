@@ -692,7 +692,7 @@ pub fn view<'a>(
             4.0,
         )
     } else {
-        content.into()
+        column![content].into()
     }
 }
 
