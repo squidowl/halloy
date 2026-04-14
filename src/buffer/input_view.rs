@@ -640,7 +640,7 @@ pub fn view<'a>(
                         theme::button::secondary(theme, status, false)
                     })
                     .on_press(Message::UploadFile),
-                Some("Upload file"),
+                config.tooltips.show_for_buttons().then_some("Upload file"),
                 tooltip::Position::Top,
                 theme,
             )
