@@ -493,7 +493,7 @@ pub fn upload_failed(
     target: Option<target::Target>,
     sent_time: DateTime<Utc>,
 ) -> Vec<Message> {
-    let content = plain(format!("upload failed ({error})"));
+    let content = plain(format!("upload failed: {error}"));
     match target {
         Some(target::Target::Channel(channel)) => expand(
             [channel],
