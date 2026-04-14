@@ -124,7 +124,7 @@ impl Default for Config {
 pub enum Tooltips {
     #[default]
     All,
-    AutocompleteOnly,
+    Autocomplete,
     None,
 }
 
@@ -137,7 +137,7 @@ impl<'de> Deserialize<'de> for Tooltips {
         #[serde(rename_all = "kebab-case")]
         pub enum Data {
             All,
-            AutocompleteOnly,
+            Autocomplete,
             None,
         }
 
@@ -158,7 +158,7 @@ impl<'de> Deserialize<'de> for Tooltips {
             }
             Inner::Enum(data) => match data {
                 Data::All => Ok(Tooltips::All),
-                Data::AutocompleteOnly => Ok(Tooltips::AutocompleteOnly),
+                Data::Autocomplete => Ok(Tooltips::Autocomplete),
                 Data::None => Ok(Tooltips::None),
             },
         }
@@ -169,13 +169,13 @@ impl Tooltips {
     pub fn show_for_buttons(&self) -> bool {
         match self {
             Self::All => true,
-            Self::AutocompleteOnly | Self::None => false,
+            Self::Autocomplete | Self::None => false,
         }
     }
 
     pub fn show_for_autocomplete(&self) -> bool {
         match self {
-            Self::All | Self::AutocompleteOnly => true,
+            Self::All | Self::Autocomplete => true,
             Self::None => false,
         }
     }

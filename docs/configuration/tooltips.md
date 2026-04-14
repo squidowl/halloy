@@ -11,7 +11,7 @@ Control which tooltips are displayed.
 
 ```toml
 # Type: String
-# Values: "all", "autocomplete-only", "none"
+# Values: "all", "autocomplete", "none"
 # Default: "all"
 
 tooltips = "none"
