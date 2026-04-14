@@ -885,11 +885,11 @@ The path to PEM encoded PKCS#8 private key for external auth (optional).[^1] [^2
 key = "/path/to/your/private_key.pem"
 ```
 
-### `typing`
+## `typing`
 
 Typing settings for channel and query buffers on server.
 
-#### `share`
+### `share`
 
 Control whether Halloy shares your typing status with other users on the server.
 
@@ -902,7 +902,7 @@ Control whether Halloy shares your typing status with other users on the server.
 share = false
 ```
 
-#### `show`
+### `show`
 
 Control whether Halloy shows typing status from other users on the server.
 
