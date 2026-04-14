@@ -72,6 +72,8 @@ infer = "0.16"
 sys-locale = "0.3"
 mime_guess = "2.0.5"
 any_ascii = "0.3.3"
+idna = "1.1.0"
+unicode-security = "0.1.2"
 
 [dev-dependencies]
 serde_test = "1.0"
