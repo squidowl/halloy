@@ -1137,8 +1137,8 @@ pub enum WhoXPollParameters {
 impl WhoXPollParameters {
     pub fn fields(&self) -> &'static str {
         match self {
-            WhoXPollParameters::Default => "tcnf",
-            WhoXPollParameters::WithAccountName => "tcnfa",
+            WhoXPollParameters::Default => "tcnfuh",
+            WhoXPollParameters::WithAccountName => "tcnfuha",
         }
     }
 

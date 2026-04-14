@@ -10,6 +10,7 @@ Added:
 - Support for IRCv3 `draft/message-redaction`
 - Setting to close queries when closing query buffer panes (`buffer.close.query`)
 - Support for IRCv3 metadata `display-name`, `avatar`, `pronouns`, `homepage`, `color`, `status` keys
+- IRCv3 `no-implicit-names` support
 
 Fixed:
 
