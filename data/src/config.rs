@@ -78,7 +78,7 @@ pub struct Config {
     pub notifications: Notifications,
     pub file_transfer: FileTransfer,
     pub filehost: Filehost,
-    pub tooltips: bool,
+    pub tooltips: Tooltips,
     pub window: Window,
     pub preview: Preview,
     pub highlights: Highlights,
@@ -106,7 +106,7 @@ impl Default for Config {
             notifications: Notifications::default(),
             file_transfer: FileTransfer::default(),
             filehost: Filehost::default(),
-            tooltips: true,
+            tooltips: Tooltips::default(),
             window: Window::default(),
             preview: Preview::default(),
             highlights: Highlights::default(),
@@ -116,6 +116,67 @@ impl Default for Config {
             logs: Logs::default(),
             platform_specific: PlatformSpecific::default(),
             check_for_update_on_launch: true,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+pub enum Tooltips {
+    #[default]
+    All,
+    AutocompleteOnly,
+    None,
+}
+
+impl<'de> Deserialize<'de> for Tooltips {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(rename_all = "kebab-case")]
+        pub enum Data {
+            All,
+            AutocompleteOnly,
+            None,
+        }
+
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum Inner {
+            Boolean(bool),
+            Enum(Data),
+        }
+
+        match Inner::deserialize(deserializer)? {
+            Inner::Boolean(b) => {
+                if b {
+                    Ok(Tooltips::All)
+                } else {
+                    Ok(Tooltips::None)
+                }
+            }
+            Inner::Enum(data) => match data {
+                Data::All => Ok(Tooltips::All),
+                Data::AutocompleteOnly => Ok(Tooltips::AutocompleteOnly),
+                Data::None => Ok(Tooltips::None),
+            },
+        }
+    }
+}
+
+impl Tooltips {
+    pub fn show_for_buttons(&self) -> bool {
+        match self {
+            Self::All => true,
+            Self::AutocompleteOnly | Self::None => false,
+        }
+    }
+
+    pub fn show_for_autocomplete(&self) -> bool {
+        match self {
+            Self::All | Self::AutocompleteOnly => true,
+            Self::None => false,
         }
     }
 }
@@ -367,7 +428,7 @@ impl Config {
             pub notifications: Notifications,
             pub file_transfer: FileTransfer,
             pub filehost: Filehost,
-            pub tooltips: bool,
+            pub tooltips: Tooltips,
             pub window: Window,
             pub preview: Preview,
             pub highlights: Highlights,
@@ -395,7 +456,7 @@ impl Config {
                     notifications: Notifications::default(),
                     file_transfer: FileTransfer::default(),
                     filehost: Filehost::default(),
-                    tooltips: true,
+                    tooltips: Tooltips::default(),
                     window: Window::default(),
                     preview: Preview::default(),
                     highlights: Highlights::default(),

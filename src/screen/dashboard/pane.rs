@@ -135,7 +135,7 @@ impl Pane {
             clients,
             settings,
             self.modal.is_none(),
-            config.tooltips && self.modal.is_none(),
+            config.tooltips.show_for_buttons() && self.modal.is_none(),
             is_popout,
             config,
             theme,

@@ -2028,7 +2028,7 @@ fn preview_row<'a>(
                 .style(|theme, status| {
                     theme::button::secondary(theme, status, false)
                 }),
-            config.tooltips.then_some("Hide Preview"),
+            config.tooltips.show_for_buttons().then_some("Hide Preview"),
             tooltip::Position::Top,
             theme,
         ))

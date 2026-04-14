@@ -668,23 +668,32 @@ pub fn view<'a>(
     .spacing(4)
     .padding(padding::top(4));
 
-    let overlay = column![
-        state.completion.view(
-            state.input_content.text().as_str(),
-            server,
-            config,
-            theme,
-            Message::SelectCompletion,
-        ),
-        state
-            .notice
-            .as_ref()
-            .map(|notice| notice_view(notice, theme)),
-    ]
-    .padding([0, 8])
-    .spacing(4);
+    if config.tooltips.show_for_autocomplete() {
+        let overlay = column![
+            state.completion.view(
+                state.input_content.text().as_str(),
+                server,
+                config,
+                theme,
+                Message::SelectCompletion,
+            ),
+            state
+                .notice
+                .as_ref()
+                .map(|notice| notice_view(notice, theme)),
+        ]
+        .padding([0, 8])
+        .spacing(4);
 
-    anchored_overlay(content, overlay, anchored_overlay::Anchor::AboveTop, 4.0)
+        anchored_overlay(
+            content,
+            overlay,
+            anchored_overlay::Anchor::AboveTop,
+            4.0,
+        )
+    } else {
+        content.into()
+    }
 }
 
 fn notice_view<'a, 'b, Message: 'a>(
