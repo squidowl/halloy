@@ -3,7 +3,6 @@ use data::{Config, Server, isupport, message, target};
 use iced::widget::span;
 use iced::widget::text::Span;
 use iced::{Color, Length, border};
-use percent_encoding::percent_decode_str;
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::{Element, Renderer, selectable_rich_text, selectable_text};
@@ -217,25 +216,7 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a>(
                                 .display
                                 .decode_urls
                             {
-                                // Preserve IDNA-compliant encoded host returned
-                                // by Url::host_str, but percent-decode the path
-                                // and later components of the URL for
-                                // legibility.  If the process fails for any
-                                // reason, return the IDNA-compliant encoding
-                                // provided by Url::as_str.
-                                u.host_str()
-                                    .and_then(|host_str| {
-                                        u.as_str().split_once(host_str).map(
-                                            |(prefix, suffix)| {
-                                                span(format!(
-                                                    "{prefix}{host_str}{}",
-                                                    percent_decode_str(suffix)
-                                                        .decode_utf8_lossy()
-                                                ))
-                                            },
-                                        )
-                                    })
-                                    .unwrap_or(span(u.as_str()))
+                                span(data::url::display(u))
                             } else {
                                 span(s.as_str())
                             }
