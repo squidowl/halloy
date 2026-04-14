@@ -194,7 +194,7 @@ pub enum Error {
 /// If hosts don't pass a specific validation criteria, they are displayed as punycode.
 /// The path segment of a URL is always `percent-encoding` decoded.
 ///
-/// We apply a best effort to handle international domain names in a way that matches browser 
+/// We apply a best effort to handle international domain names in a way that matches browser
 /// status-quo; The host is rendered according to UTS #46 when it passes UTS #39 "Highly Restrictive"
 /// level, and its skeleton is not pure ASCII (which guards against homograph attacks).
 ///
