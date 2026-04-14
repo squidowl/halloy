@@ -95,6 +95,7 @@ Added:
 - Setting to hide the text of messages that contain only a single URL, when the URL's preview is visible (`preview.hide_url`)
 - Nick and channel completion picker
 - Runtime graphics settings (graphic backend, vsync, and antialiasing)
+- IRCv3 `no-implicit-names` support
 
 Fixed:
 
