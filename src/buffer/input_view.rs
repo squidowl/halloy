@@ -1248,6 +1248,10 @@ impl State {
                     for &id in &upload_ids {
                         self.insert_upload_ghost(id);
                     }
+                    history.record_draft(RawInput {
+                        buffer: buffer.clone(),
+                        text: self.input_content.text(),
+                    });
                 }
 
                 let (handles, registrations): (Vec<_>, Vec<_>) = file_paths
@@ -1346,11 +1350,6 @@ impl State {
                                 ),
                             );
                         }
-
-                        history.record_draft(RawInput {
-                            buffer: buffer.clone(),
-                            text: self.input_content.text(),
-                        });
                     }
                     None => {
                         // upload failed or cancelled
@@ -1386,6 +1385,11 @@ impl State {
                         }
                     }
                 }
+
+                history.record_draft(RawInput {
+                    buffer: buffer.clone(),
+                    text: self.input_content.text(),
+                });
 
                 (Task::none(), None)
             }
@@ -2257,6 +2261,10 @@ impl State {
                         let id = self.next_upload_id;
                         if buffer.target().is_some() {
                             self.insert_upload_ghost(id);
+                            history.record_draft(RawInput {
+                                buffer: buffer.clone(),
+                                text: self.input_content.text(),
+                            });
                         }
                         let anim = was_idle
                             .then(Self::schedule_anim_tick)
