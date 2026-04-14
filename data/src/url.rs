@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::str::FromStr;
 
 use fancy_regex::Regex;
@@ -203,7 +204,7 @@ pub enum Error {
 /// is not a bad read either - though note that IRC clients have very different threat
 /// models than browsers.
 ///
-pub fn display(u: &url::Url) -> String {
+pub fn display(u: &url::Url) -> Cow<'_, str> {
     u.host_str()
         .and_then(|host| {
             let (host_str, _) = Uts46::new().to_user_interface(
@@ -224,10 +225,10 @@ pub fn display(u: &url::Url) -> String {
                 // https://ja.wikipedia.org/wiki/%E9%87%8D%E9%9F%B3%E3%83%86%E3%83%88
                 // -> https://ja.wikipedia.org/wiki/重音テト
                 let path = percent_decode_str(path).decode_utf8_lossy();
-                format!("{scheme}{host_str}{path}")
+                Cow::Owned(format!("{scheme}{host_str}{path}"))
             })
         })
-        .unwrap_or_else(|| u.as_str().to_owned())
+        .unwrap_or(Cow::Borrowed(u.as_str()))
 }
 
 #[cfg(test)]
