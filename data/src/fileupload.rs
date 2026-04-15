@@ -22,6 +22,12 @@ pub enum Error {
     Io(#[from] std::io::Error),
     #[error("HTTP: {0}")]
     Http(#[from] reqwest::Error),
+    #[error("HTTP POST {url} returned {status}: {body}")]
+    HttpStatusError {
+        status: reqwest::StatusCode,
+        url: String,
+        body: String,
+    },
     #[error("server did not return a Location header")]
     NoLocation,
     #[error("client certificate error: {0}")]
@@ -145,9 +151,11 @@ pub async fn upload(
 
     let resp = req.send().await?;
 
-    if resp.status().as_u16() != 201 {
-        resp.error_for_status()?;
-        return Err(Error::NoLocation); // satisfy compiler
+    let status = resp.status();
+    if status.as_u16() != 201 {
+        let url = resp.url().to_string();
+        let body = resp.text().await.unwrap_or_default();
+        return Err(Error::HttpStatusError { status, url, body });
     }
 
     let location = resp
