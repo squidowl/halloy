@@ -21,6 +21,7 @@ Added:
 - Unread indicators for queries can be hidden via `sidebar.unread_indicator.exclude`
 - Settings to reroute direct PRIVMSG and/or NOTICE messages to another buffer (`servers.<name>.reroute.query` and `servers.<name>.reroute.notice`)
 - `channel-context` support
+- Expanded `tooltips` setting to allow hiding auto-complete tooltips
 
 Changed:
 
@@ -54,7 +55,7 @@ Removed:
 Thanks:
 
 - Contributions: @furudean, @omentic, @KaiKorla, @achille, @classabbyamp, @ncfavier, @englut, @WinnerWind
-- Bug reports: sebbu, @whitequark, @SnoopJ, esden, @miyukoc, @ld-cd, @achille, @classabbyamp, vignoux, @esden, @ncfavier, @englut, @cyrneko
+- Bug reports: sebbu, @whitequark, @SnoopJ, esden, @miyukoc, @ld-cd, @achille, @classabbyamp, vignoux, @esden, @ncfavier, @englut, @cyrneko, @jeffharrell1
 - Feature requests: @omentic, @classabbyamp, @ncfavier, @ineeee, @4e554c4c
 
 # 2026.5 (2026-03-21)

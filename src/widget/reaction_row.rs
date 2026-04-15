@@ -8,8 +8,8 @@ use iced::{alignment, padding};
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::{Column, Element, Row};
-use crate::widget::text;
-use crate::{icon, theme};
+use crate::widget::{text, tooltip};
+use crate::{Theme, icon, theme};
 
 const REACTION_TOOLTIP_MAX_NAMES: usize = 10;
 
@@ -25,6 +25,8 @@ pub fn reaction_row<'a, M, F1, F2>(
     on_react: Option<F1>,
     on_unreact: Option<F2>,
     on_open_picker: Option<M>,
+    show_tooltips_for_buttons: bool,
+    theme: &'a Theme,
 ) -> Element<'a, M>
 where
     M: 'a + Clone,
@@ -102,7 +104,7 @@ where
     if !m.is_empty()
         && let Some(on_open_picker) = on_open_picker
     {
-        let open_picker = iced::widget::tooltip(
+        let open_picker = tooltip(
             button(
                 icon::plus()
                     .size(emoji_size + 4.0)
@@ -113,10 +115,9 @@ where
                 theme::button::secondary(theme, status, false)
             })
             .on_press(on_open_picker),
-            container(text("Add reaction").style(theme::text::secondary))
-                .style(theme::container::tooltip)
-                .padding(8),
+            show_tooltips_for_buttons.then_some("Add reaction"),
             Position::Bottom,
+            theme,
         );
 
         row = row.push(open_picker);

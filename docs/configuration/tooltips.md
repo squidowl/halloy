@@ -1,6 +1,6 @@
 # Tooltips
 
-Control if tooltips are displayed or not.
+Control which tooltips are displayed.
 
 ## `tooltips`
 
@@ -8,10 +8,11 @@ Control if tooltips are displayed or not.
 `tooltips` is a root key, so it must be placed before any section.
 :::
 
-```toml
-# Type: boolean
-# Values: true, false
-# Default: true
 
-tooltips = true
+```toml
+# Type: String
+# Values: "all", "autocomplete", "none"
+# Default: "all"
+
+tooltips = "none"
 ```

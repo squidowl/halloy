@@ -347,6 +347,8 @@ impl<'a> ChannelQueryLayout<'a> {
             on_react,
             on_unreact,
             on_open_picker,
+            self.config.tooltips.show_for_buttons(),
+            self.theme,
         ))
     }
 
