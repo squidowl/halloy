@@ -1727,10 +1727,16 @@ impl State {
             .filter_map(data::Input::encoded)
             .collect::<Vec<_>>();
 
-        if let Some(last_encoded) = encoded.last() {
+        let labeled_response_context = if let Some(last_encoded) =
+            encoded.last()
+        {
             let sent_time = last_encoded.server_time_or_now();
 
-            clients.send_multiline_batch(buffer, encoded, TokenPriority::User);
+            let labeled_response_context = clients.send_multiline_batch(
+                buffer,
+                encoded,
+                TokenPriority::User,
+            );
 
             let supports_echoes =
                 clients.get_server_supports_echoes(buffer.server());
@@ -1759,7 +1765,11 @@ impl State {
                     }
                 }
             }
-        }
+
+            labeled_response_context
+        } else {
+            None
+        };
 
         let mut history_task = Task::none();
 
@@ -1870,6 +1880,7 @@ impl State {
             {
                 history_tasks.extend(history.record_input_message(
                     message,
+                    labeled_response_context,
                     buffer.server(),
                     casemapping,
                     config,
@@ -2156,10 +2167,11 @@ impl State {
             }
         };
 
-        if let Some(encoded) = input.encoded() {
+        let labeled_response_context = if let Some(encoded) = input.encoded() {
             let sent_time = encoded.server_time_or_now();
 
-            clients.send(buffer, encoded, TokenPriority::User);
+            let labeled_response_context =
+                clients.send(buffer, encoded, TokenPriority::User);
 
             let supports_echoes =
                 clients.get_server_supports_echoes(buffer.server());
@@ -2187,7 +2199,11 @@ impl State {
                     }
                 }
             }
-        }
+
+            labeled_response_context
+        } else {
+            None
+        };
 
         let mut history_task = Task::none();
 
@@ -2232,6 +2248,7 @@ impl State {
                         history
                             .record_input_message(
                                 message,
+                                labeled_response_context.clone(),
                                 buffer.server(),
                                 casemapping,
                                 config,

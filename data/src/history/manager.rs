@@ -10,6 +10,7 @@ use tokio::time::Instant;
 
 use super::filter::{Filter, FilterChain};
 use super::reroute::RerouteRules;
+use crate::capabilities::LabeledResponseContext;
 use crate::history::{self, History, MessageReferences, ReadMarker, metadata};
 use crate::message::broadcast::{self, Broadcast};
 use crate::message::{self, Limit};
@@ -86,16 +87,12 @@ impl Manager {
         if let Some(history) = self.data.map.get_mut(&kind) {
             let task = history.flush(None, clients.get_seed(&kind));
 
-            match history {
-                History::Full {
-                    messages, cleared, ..
-                } => {
-                    messages.clear();
-                    *cleared = true;
-                }
-                History::Partial { messages, .. } => {
-                    messages.clear();
-                }
+            if let History::Full {
+                messages, cleared, ..
+            } = history
+            {
+                messages.clear();
+                *cleared = true;
             }
 
             log::debug!("cleared messages for {kind}");
@@ -344,11 +341,15 @@ impl Manager {
     pub fn record_input_message(
         &mut self,
         message: message::Message,
+        labeled_response_context: Option<LabeledResponseContext>,
         server: &Server,
         casemapping: isupport::CaseMap,
         config: &Config,
     ) -> Vec<BoxFuture<'static, Message>> {
         let mut tasks = vec![];
+
+        let message =
+            message.with_labeled_response_context(labeled_response_context);
 
         if config.buffer.mark_as_read.on_message_sent
             && let Some(kind) =
@@ -364,6 +365,7 @@ impl Manager {
             server,
             casemapping,
             message,
+            None,
             &config.buffer,
         ));
 
@@ -393,6 +395,7 @@ impl Manager {
         &mut self,
         server: &Server,
         message: crate::Message,
+        labeled_response_context: Option<LabeledResponseContext>,
         buffer_config: &config::Buffer,
     ) -> Vec<BoxFuture<'static, Message>> {
         history::Kind::from_server_message_rerouted_from(server, &message)
@@ -417,7 +420,11 @@ impl Manager {
                         ) && !message.blocked)
                             .then_some((kind.clone(), message.clone()));
 
-                        let future = self.data.add_message(kind, message);
+                        let future = self.data.add_message(
+                            kind,
+                            message,
+                            labeled_response_context,
+                        );
 
                         if let Some((kind, message)) = condensers {
                             self.condense_message(
@@ -454,6 +461,7 @@ impl Manager {
         server: &Server,
         casemapping: isupport::CaseMap,
         mut message: crate::Message,
+        labeled_response_context: Option<LabeledResponseContext>,
         buffer_config: &config::Buffer,
     ) -> Vec<BoxFuture<'static, Message>> {
         if let Some(kind) = history::Kind::from_server_message(server, &message)
@@ -467,15 +475,23 @@ impl Manager {
             );
         }
 
-        self.record_message(server, message, buffer_config)
+        self.record_message(
+            server,
+            message,
+            labeled_response_context,
+            buffer_config,
+        )
     }
 
     pub fn record_log(
         &mut self,
         record: crate::log::Record,
     ) -> Option<impl Future<Output = Message> + use<>> {
-        self.data
-            .add_message(history::Kind::Logs, crate::Message::log(record))
+        self.data.add_message(
+            history::Kind::Logs,
+            crate::Message::log(record),
+            None,
+        )
     }
 
     // Unlike block_and_record_message, the message's blocked status should be
@@ -485,7 +501,8 @@ impl Manager {
         &mut self,
         message: crate::Message,
     ) -> Option<impl Future<Output = Message> + use<>> {
-        self.data.add_message(history::Kind::Highlights, message)
+        self.data
+            .add_message(history::Kind::Highlights, message, None)
     }
 
     pub fn remove_message(
@@ -719,6 +736,7 @@ impl Manager {
                     server,
                     casemapping,
                     message,
+                    None,
                     &config.buffer,
                 )
             })
@@ -798,13 +816,13 @@ impl Manager {
                                 .map(|nick| Nick::from_str(nick, casemapping))
                         }),
                     }
-                && let Some(history) = self.data.map.get(kind)
+                // These blocks are currently only relevant for open panes,
+                // since the associated messages do not trigger UI
+                // (unread/notifications/etc) and will be processed if/when the
+                // pane is opened.
+                && let Some(History::Full { messages, .. }) =
+                    self.data.map.get(kind)
             {
-                let messages = match history {
-                    History::Full { messages, .. } => messages,
-                    History::Partial { messages, .. } => messages,
-                };
-
                 if matches!(source_kind, Some(message::Kind::Away)) {
                     message.blocked = messages
                         .iter()
@@ -990,12 +1008,9 @@ impl Manager {
             Singular,
         }
 
-        if let Some(history) = self.data.map.get_mut(&kind) {
-            let messages = match history {
-                History::Full { messages, .. } => messages,
-                History::Partial { messages, .. } => messages,
-            };
-
+        if let Some(History::Full { messages, .. }) =
+            self.data.map.get_mut(&kind)
+        {
             let mut last_seen = HashMap::<Nick, DateTime<Utc>>::new();
             let mut last_away = HashMap::<Nick, DateTime<Utc>>::new();
 
@@ -1183,12 +1198,7 @@ impl Manager {
         if let Some(history) = self.data.map.get_mut(kind)
             && let Some(seed) = clients.get_seed(kind)
         {
-            let messages = match history {
-                History::Full { messages, .. } => messages,
-                History::Partial { messages, .. } => messages,
-            };
-
-            history::renormalize_messages(messages, seed);
+            history.renormalize_messages(seed);
         }
     }
 }
@@ -1241,7 +1251,7 @@ impl Data {
         match self.map.entry(kind.clone()) {
             hash_map::Entry::Occupied(mut entry) => match entry.get_mut() {
                 History::Partial {
-                    messages: new_messages,
+                    pending_messages,
                     last_updated_at,
                     read_marker: partial_read_marker,
                     chathistory_references: partial_chathistory_references,
@@ -1271,10 +1281,16 @@ impl Data {
                         }
                     }
 
-                    for message in std::mem::take(new_messages) {
+                    for (message, labeled_response_context) in
+                        std::mem::take(pending_messages)
+                    {
                         history::update_last_seen(&mut last_seen, &message);
 
-                        history::insert_message(&mut messages, message);
+                        history::insert_message(
+                            &mut messages,
+                            message,
+                            labeled_response_context,
+                        );
                     }
 
                     entry.insert(History::Full {
@@ -1527,10 +1543,13 @@ impl Data {
         &mut self,
         kind: history::Kind,
         message: crate::Message,
+        labeled_response_context: Option<LabeledResponseContext>,
     ) -> Option<impl Future<Output = Message> + use<>> {
         match self.map.entry(kind.clone()) {
             hash_map::Entry::Occupied(mut entry) => {
-                let read_marker = entry.get_mut().add_message(message);
+                let read_marker = entry
+                    .get_mut()
+                    .add_message(message, labeled_response_context);
 
                 // Update the read marker immediately so the split is correct
                 if let Some(read_marker) = read_marker
@@ -1552,7 +1571,7 @@ impl Data {
             hash_map::Entry::Vacant(entry) => {
                 let _ = entry
                     .insert(History::partial(kind.clone()))
-                    .add_message(message);
+                    .add_message(message, labeled_response_context);
 
                 Some(
                     async move {

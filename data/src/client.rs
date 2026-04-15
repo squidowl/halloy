@@ -18,8 +18,8 @@ use tokio::fs;
 pub use self::on_connect::on_connect;
 use crate::bouncer::{self, BouncerNetwork};
 use crate::capabilities::{
-    self, Capabilities, Capability, MultilineBatchKind, MultilineLimits,
-    multiline_concat_lines, multiline_encoded,
+    self, Capabilities, Capability, LabeledResponseContext, MultilineBatchKind,
+    MultilineLimits, multiline_concat_lines, multiline_encoded,
 };
 use crate::config::server::filehost;
 use crate::environment::{SOURCE_WEBSITE, VERSION};
@@ -115,10 +115,25 @@ pub enum Message {
 
 #[derive(Debug)]
 pub enum Event {
-    Single(message::Encoded, Nick, bool),
-    PrivOrNotice(message::Encoded, Nick, bool, bool),
+    Single {
+        message: message::Encoded,
+        our_nick: Nick,
+        deduplicate: bool,
+    },
+    PrivOrNotice {
+        message: message::Encoded,
+        our_nick: Nick,
+        notification_enabled: bool,
+        deduplicate: bool,
+        labeled_response_context: Option<LabeledResponseContext>,
+    },
     Reaction(message::Encoded, Nick),
-    WithTarget(message::Encoded, Nick, message::Target, bool),
+    WithTarget {
+        message: message::Encoded,
+        our_nick: Nick,
+        target: message::Target,
+        deduplicate: bool,
+    },
     Broadcast(Broadcast),
     FileTransferRequest(file_transfer::ReceiveRequest),
     UpdateReadMarker(Target, ReadMarker),
@@ -513,26 +528,49 @@ impl Client {
         }
     }
 
-    fn send(
+    fn set_labeled_response_context(
         &mut self,
         buffer: Option<&buffer::Upstream>,
-        mut message: message::Encoded,
-        priority: TokenPriority,
-    ) {
-        if let Some(buffer) = buffer {
-            if self.capabilities.acknowledged(Capability::LabeledResponse) {
+        message: &mut message::Encoded,
+    ) -> Option<LabeledResponseContext> {
+        buffer.and_then(|buffer| {
+            let labeled_response_context = if self
+                .capabilities
+                .acknowledged(Capability::LabeledResponse)
+            {
                 let label = generate_label();
-                let context = Context::new(&message, buffer.clone());
+
+                let context =
+                    Context::new(message, buffer.clone(), Some(&label));
+
+                let labeled_response_context =
+                    context.labeled_response_context().cloned();
 
                 self.labels.insert(label.clone(), context);
 
                 // IRC: Encode tags
                 message.tags.insert("label".to_string(), label);
-            }
+
+                labeled_response_context
+            } else {
+                None
+            };
 
             self.reroute_responses_to =
                 self.start_reroute(&message.command).then(|| buffer.clone());
-        }
+
+            labeled_response_context
+        })
+    }
+
+    fn send(
+        &mut self,
+        buffer: Option<&buffer::Upstream>,
+        mut message: message::Encoded,
+        priority: TokenPriority,
+    ) -> Option<LabeledResponseContext> {
+        let labeled_response_context =
+            self.set_labeled_response_context(buffer, &mut message);
 
         if matches!(priority, TokenPriority::User) {
             match &message.command {
@@ -594,6 +632,8 @@ impl Client {
         } else if let Err(e) = self.handle.try_send(message.into()) {
             log::warn!("[{}] Error sending message: {e}", self.server);
         }
+
+        labeled_response_context
     }
 
     fn send_multiline_batch(
@@ -601,7 +641,7 @@ impl Client {
         buffer: &buffer::Upstream,
         mut messages: Vec<message::Encoded>,
         priority: TokenPriority,
-    ) {
+    ) -> Option<LabeledResponseContext> {
         if let Some(multiline_limits) = self.multiline_limits()
             && let Some(batch_kind) =
                 messages.first().and_then(|message| match message.command {
@@ -621,15 +661,8 @@ impl Client {
             )
             .into();
 
-            if self.capabilities.acknowledged(Capability::LabeledResponse) {
-                let label = generate_label();
-                let context = Context::new(&opening_batch, buffer.clone());
-
-                self.labels.insert(label.clone(), context);
-
-                // IRC: Encode tags
-                opening_batch.tags.insert("label".to_string(), label);
-            }
+            let labeled_response_context = self
+                .set_labeled_response_context(Some(buffer), &mut opening_batch);
 
             // Overwrite any existing tags, since messages in the batch can only
             // have draft/multiline-concat and batch tags
@@ -721,11 +754,15 @@ impl Client {
                     }
                 }
             }
+
+            labeled_response_context
         } else {
             log::warn!(
                 "[{}] unable to send messages as IRCv3 draft/multiline batch; capability not supported: {messages:?}",
                 self.server
             );
+
+            None
         }
     }
 
@@ -756,22 +793,19 @@ impl Client {
         use irc::proto::command::Numeric::*;
 
         let label_tag = message.tags.remove("label");
+
         let batch_tag = message.tags.remove("batch");
 
-        let context = parent_context.or_else(|| {
-            label_tag
-                .as_ref()
-                // Remove context associated to label if we get resp for it
-                .and_then(|label| self.labels.remove(label))
-                // Otherwise if we're in a batch, get it's context
-                .or_else(|| {
-                    batch_tag.as_ref().and_then(|batch| {
-                        self.batches
-                            .get(batch)
-                            .and_then(|batch| batch.context.clone())
-                    })
-                })
-        });
+        let context = parent_context.or(label_tag
+            .as_ref()
+            // Remove context associated to label if we get resp for it
+            .and_then(|label| self.labels.remove(label))
+            // Otherwise if we're in a batch, get its context
+            .or(batch_tag.as_ref().and_then(|batch| {
+                self.batches
+                    .get(batch)
+                    .and_then(|batch| batch.context.clone())
+            })));
 
         macro_rules! ok {
             ($option:expr) => {
@@ -1031,12 +1065,12 @@ impl Client {
                     .map(Context::buffer)
                     .map(|buffer| buffer.server_message_target(None))
                 {
-                    return Ok(vec![Event::WithTarget(
+                    return Ok(vec![Event::WithTarget {
                         message,
-                        self.nickname().to_owned(),
-                        source,
-                        false,
-                    )]);
+                        our_nick: self.nickname().to_owned(),
+                        target: source,
+                        deduplicate: false,
+                    }]);
                 }
             }
             _ if is_reaction(&message) => {
@@ -1064,12 +1098,12 @@ impl Client {
                     .clone()
                     .map(|buffer| buffer.server_message_target(None))
                 {
-                    return Ok(vec![Event::WithTarget(
+                    return Ok(vec![Event::WithTarget {
                         message,
-                        self.nickname().to_owned(),
-                        source,
-                        false,
-                    )]);
+                        our_nick: self.nickname().to_owned(),
+                        target: source,
+                        deduplicate: false,
+                    }]);
                 }
             }
             Command::BOUNCER(subcommand, params) if subcommand == "NETWORK" => {
@@ -1349,12 +1383,15 @@ impl Client {
                             // Response to us sending a CTCP request to another client
                             if matches!(&message.command, Command::NOTICE(_, _))
                             {
-                                let event = Event::PrivOrNotice(
+                                let event = Event::PrivOrNotice {
                                     message,
-                                    self.nickname().to_owned(),
-                                    self.notification_blackout.allowed(),
-                                    false,
-                                );
+                                    our_nick: self.nickname().to_owned(),
+                                    notification_enabled: self
+                                        .notification_blackout
+                                        .allowed(),
+                                    deduplicate: false,
+                                    labeled_response_context: None,
+                                };
 
                                 return Ok(vec![event]);
                             }
@@ -1495,12 +1532,15 @@ impl Client {
                         self.record_query(&user_query);
                     }
 
-                    let event = Event::PrivOrNotice(
-                        message.clone(),
-                        self.nickname().to_owned(),
-                        self.notification_blackout.allowed(),
-                        false,
-                    );
+                    let event = Event::PrivOrNotice {
+                        message: message.clone(),
+                        our_nick: self.nickname().to_owned(),
+                        notification_enabled: self
+                            .notification_blackout
+                            .allowed(),
+                        deduplicate: false,
+                        labeled_response_context: context.and_then(Into::into),
+                    };
 
                     // Event::DirectMessage is currently only used to send a
                     // notification, so only return the event it notifications
@@ -1530,11 +1570,11 @@ impl Client {
 
                 let invitee = Nick::from_str(invitee, self.casemapping());
 
-                let event = Event::Single(
-                    message.clone(),
-                    self.nickname().to_owned(),
-                    false,
-                );
+                let event = Event::Single {
+                    message: message.clone(),
+                    our_nick: self.nickname().to_owned(),
+                    deduplicate: false,
+                };
 
                 if invitee.as_nickref() == self.nickname() {
                     return Ok(vec![
@@ -1753,11 +1793,11 @@ impl Client {
                                 channel,
                                 sent_time: message.server_time_or_now(),
                             }),
-                            Event::Single(
+                            Event::Single {
                                 message,
-                                self.nickname().to_owned(),
-                                false,
-                            ),
+                                our_nick: self.nickname().to_owned(),
+                                deduplicate: false,
+                            },
                         ]);
                     } else if let Some(channel) = self.chanmap.get_mut(&channel)
                     {
@@ -1815,12 +1855,12 @@ impl Client {
                         .clone()
                         .map(|buffer| buffer.server_message_target(None))
                     {
-                        return Ok(vec![Event::WithTarget(
+                        return Ok(vec![Event::WithTarget {
                             message,
-                            self.nickname().to_owned(),
-                            source,
-                            false,
-                        )]);
+                            our_nick: self.nickname().to_owned(),
+                            target: source,
+                            deduplicate: false,
+                        }]);
                     }
                 }
             }
@@ -1927,12 +1967,12 @@ impl Client {
                         .clone()
                         .map(|buffer| buffer.server_message_target(None))
                     {
-                        return Ok(vec![Event::WithTarget(
+                        return Ok(vec![Event::WithTarget {
                             message,
-                            self.nickname().to_owned(),
-                            source,
-                            false,
-                        )]);
+                            our_nick: self.nickname().to_owned(),
+                            target: source,
+                            deduplicate: false,
+                        }]);
                     }
                 }
             }
@@ -2003,12 +2043,12 @@ impl Client {
                         .clone()
                         .map(|buffer| buffer.server_message_target(None))
                     {
-                        return Ok(vec![Event::WithTarget(
+                        return Ok(vec![Event::WithTarget {
                             message,
-                            self.nickname().to_owned(),
-                            source,
-                            false,
-                        )]);
+                            our_nick: self.nickname().to_owned(),
+                            target: source,
+                            deduplicate: false,
+                        }]);
                     }
                 } else if mask == "*" {
                     // Some servers respond with the mask * instead of the requested
@@ -2652,11 +2692,11 @@ impl Client {
                     .collect::<Vec<_>>();
 
                 return Ok(vec![
-                    Event::Single(
-                        message.clone(),
-                        self.nickname().to_owned(),
-                        false,
-                    ),
+                    Event::Single {
+                        message: message.clone(),
+                        our_nick: self.nickname().to_owned(),
+                        deduplicate: false,
+                    },
                     Event::MonitoredOnline(targets),
                 ]);
             }
@@ -2667,11 +2707,11 @@ impl Client {
                     .collect::<Vec<_>>();
 
                 return Ok(vec![
-                    Event::Single(
-                        message.clone(),
-                        self.nickname().to_owned(),
-                        false,
-                    ),
+                    Event::Single {
+                        message: message.clone(),
+                        our_nick: self.nickname().to_owned(),
+                        deduplicate: false,
+                    },
                     Event::MonitoredOffline(targets),
                 ]);
             }
@@ -2719,11 +2759,11 @@ impl Client {
 
                     if self.chathistory_targets_request.is_none() {
                         // User requested, save to history
-                        events.push(Event::Single(
-                            message.clone(),
-                            self.nickname().to_owned(),
-                            false,
-                        ));
+                        events.push(Event::Single {
+                            message: message.clone(),
+                            our_nick: self.nickname().to_owned(),
+                            deduplicate: false,
+                        });
                     }
                 }
 
@@ -3006,11 +3046,11 @@ impl Client {
             _ => {}
         }
 
-        Ok(vec![Event::Single(
+        Ok(vec![Event::Single {
             message,
-            self.nickname().to_owned(),
-            false,
-        )])
+            our_nick: self.nickname().to_owned(),
+            deduplicate: false,
+        }])
     }
 
     fn handle_chathistory(
@@ -3039,12 +3079,12 @@ impl Client {
                             source: source::Source::Server(None),
                         };
 
-                        vec![Event::WithTarget(
+                        vec![Event::WithTarget {
                             message,
-                            self.nickname().to_owned(),
+                            our_nick: self.nickname().to_owned(),
                             target,
-                            true,
-                        )]
+                            deduplicate: true,
+                        }]
                     })
                     .unwrap_or_default(),
                 Command::JOIN(_, _) => batch_target
@@ -3063,12 +3103,12 @@ impl Client {
                             )),
                         };
 
-                        vec![Event::WithTarget(
+                        vec![Event::WithTarget {
                             message,
-                            self.nickname().to_owned(),
+                            our_nick: self.nickname().to_owned(),
                             target,
-                            true,
-                        )]
+                            deduplicate: true,
+                        }]
                     })
                     .unwrap_or_default(),
                 Command::PART(_, _) => batch_target
@@ -3087,12 +3127,12 @@ impl Client {
                             )),
                         };
 
-                        vec![Event::WithTarget(
+                        vec![Event::WithTarget {
                             message,
-                            self.nickname().to_owned(),
+                            our_nick: self.nickname().to_owned(),
                             target,
-                            true,
-                        )]
+                            deduplicate: true,
+                        }]
                     })
                     .unwrap_or_default(),
                 Command::QUIT(_) => batch_target
@@ -3111,12 +3151,12 @@ impl Client {
                             )),
                         };
 
-                        vec![Event::WithTarget(
+                        vec![Event::WithTarget {
                             message,
-                            self.nickname().to_owned(),
+                            our_nick: self.nickname().to_owned(),
                             target,
-                            true,
-                        )]
+                            deduplicate: true,
+                        }]
                     })
                     .unwrap_or_default(),
                 Command::PRIVMSG(target, text)
@@ -3133,20 +3173,21 @@ impl Client {
                             }
                         }
 
-                        vec![Event::PrivOrNotice(
+                        vec![Event::PrivOrNotice {
                             message,
-                            self.nickname().to_owned(),
+                            our_nick: self.nickname().to_owned(),
                             // Don't allow notifications from history
-                            false,
-                            true,
-                        )]
+                            notification_enabled: false,
+                            deduplicate: true,
+                            labeled_response_context: None,
+                        }]
                     }
                 }
-                _ => vec![Event::Single(
+                _ => vec![Event::Single {
                     message,
-                    self.nickname().to_owned(),
-                    true,
-                )],
+                    our_nick: self.nickname().to_owned(),
+                    deduplicate: true,
+                }],
             }
         }
     }
@@ -4184,9 +4225,9 @@ fn continue_chathistory_between(
 ) -> Option<ChatHistorySubcommand> {
     let start_message_reference =
         events.first().and_then(|first_event| match first_event {
-            Event::Single(message, _, _)
-            | Event::PrivOrNotice(message, _, _, _)
-            | Event::WithTarget(message, _, _, _)
+            Event::Single { message, .. }
+            | Event::PrivOrNotice { message, .. }
+            | Event::WithTarget { message, .. }
             | Event::DirectMessage(message, _, _)
             | Event::Reaction(message, _) => match end_message_reference {
                 MessageReference::MessageId(_) => {
@@ -4233,9 +4274,9 @@ fn continue_chathistory_targets(
             Event::ChatHistoryTargetReceived(_, server_time) => {
                 Some(MessageReference::Timestamp(*server_time))
             }
-            Event::Single(_, _, _)
-            | Event::PrivOrNotice(_, _, _, _)
-            | Event::WithTarget(_, _, _, _)
+            Event::Single { .. }
+            | Event::PrivOrNotice { .. }
+            | Event::WithTarget { .. }
             | Event::DirectMessage(_, _, _)
             | Event::Reaction(_, _)
             | Event::Broadcast(_)
@@ -4394,10 +4435,9 @@ impl Map {
         buffer: &buffer::Upstream,
         message: message::Encoded,
         priority: TokenPriority,
-    ) {
-        if let Some(client) = self.client_mut(buffer.server()) {
-            client.send(Some(buffer), message, priority);
-        }
+    ) -> Option<LabeledResponseContext> {
+        self.client_mut(buffer.server())
+            .and_then(|client| client.send(Some(buffer), message, priority))
     }
 
     pub fn send_multiline_batch(
@@ -4405,10 +4445,10 @@ impl Map {
         buffer: &buffer::Upstream,
         messages: Vec<message::Encoded>,
         priority: TokenPriority,
-    ) {
-        if let Some(client) = self.client_mut(buffer.server()) {
-            client.send_multiline_batch(buffer, messages, priority);
-        }
+    ) -> Option<LabeledResponseContext> {
+        self.client_mut(buffer.server()).and_then(|client| {
+            client.send_multiline_batch(buffer, messages, priority)
+        })
     }
 
     pub fn send_markread(
@@ -4927,15 +4967,37 @@ impl Map {
 #[derive(Debug, Clone)]
 pub enum Context {
     Buffer(buffer::Upstream),
+    PrivOrNotice(buffer::Upstream, Option<LabeledResponseContext>),
     Whois(buffer::Upstream),
 }
 
 impl Context {
-    fn new(message: &message::Encoded, buffer: buffer::Upstream) -> Self {
-        if let Command::WHOIS(_, _) = message.command {
-            Self::Whois(buffer)
-        } else {
-            Self::Buffer(buffer)
+    fn new(
+        message: &message::Encoded,
+        buffer: buffer::Upstream,
+        label: Option<&str>,
+    ) -> Self {
+        match &message.command {
+            Command::WHOIS(_, _) => Self::Whois(buffer),
+            Command::PRIVMSG(_, _) | Command::NOTICE(_, _) => {
+                Self::PrivOrNotice(
+                    buffer,
+                    label.map(|label| {
+                        LabeledResponseContext::new(message, label)
+                    }),
+                )
+            }
+            Command::BATCH(_, params)
+                if params.iter().any(|param| param == "draft/multiline") =>
+            {
+                Self::PrivOrNotice(
+                    buffer,
+                    label.map(|label| {
+                        LabeledResponseContext::new(message, label)
+                    }),
+                )
+            }
+            _ => Self::Buffer(buffer),
         }
     }
 
@@ -4946,7 +5008,28 @@ impl Context {
     fn buffer(self) -> buffer::Upstream {
         match self {
             Context::Buffer(buffer) => buffer,
+            Context::PrivOrNotice(buffer, _) => buffer,
             Context::Whois(buffer) => buffer,
+        }
+    }
+
+    fn labeled_response_context(&self) -> Option<&LabeledResponseContext> {
+        match self {
+            Context::PrivOrNotice(_, labeled_response_context) => {
+                labeled_response_context.as_ref()
+            }
+            Context::Buffer(_) | Context::Whois(_) => None,
+        }
+    }
+}
+
+impl From<Context> for Option<LabeledResponseContext> {
+    fn from(context: Context) -> Option<LabeledResponseContext> {
+        match context {
+            Context::PrivOrNotice(_, labeled_response_context) => {
+                labeled_response_context
+            }
+            Context::Buffer(_) | Context::Whois(_) => None,
         }
     }
 }
@@ -5454,7 +5537,7 @@ mod tests {
         // with combined text "line one\nline two"
         let priv_events: Vec<_> = events
             .iter()
-            .filter(|e| matches!(e, Event::PrivOrNotice(..)))
+            .filter(|e| matches!(e, Event::PrivOrNotice { .. }))
             .collect();
 
         assert_eq!(
@@ -5464,8 +5547,8 @@ mod tests {
             priv_events.len()
         );
 
-        if let Event::PrivOrNotice(msg, _, _, _) = &priv_events[0] {
-            match &msg.0.command {
+        if let Event::PrivOrNotice { message, .. } = &priv_events[0] {
+            match &message.0.command {
                 Command::PRIVMSG(_, text) => {
                     assert_eq!(
                         text, "line one\nline two",

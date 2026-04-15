@@ -28,6 +28,7 @@ use std::time::{Duration, Instant};
 use std::{env, mem};
 
 use appearance::{Theme, theme};
+use data::capabilities::LabeledResponseContext;
 use data::config::{self, Config};
 use data::history::filter::FilterChain;
 use data::history::reroute::RerouteRules;
@@ -1506,7 +1507,11 @@ fn handle_client_events(
 
     for event in events {
         match event {
-            Event::Single(encoded, our_nick, deduplicate) => {
+            Event::Single {
+                message: encoded,
+                our_nick,
+                deduplicate,
+            } => {
                 handle_single_event(
                     server,
                     encoded,
@@ -1518,17 +1523,19 @@ fn handle_client_events(
                     config,
                 );
             }
-            Event::PrivOrNotice(
-                encoded,
+            Event::PrivOrNotice {
+                message: encoded,
                 our_nick,
                 notification_enabled,
                 deduplicate,
-            ) => {
+                labeled_response_context,
+            } => {
                 handle_priv_or_notice(
                     server,
                     encoded,
                     our_nick,
                     deduplicate,
+                    labeled_response_context,
                     notification_enabled,
                     dashboard,
                     &mut commands,
@@ -1538,7 +1545,12 @@ fn handle_client_events(
                     main_window,
                 );
             }
-            Event::WithTarget(encoded, our_nick, target, deduplicate) => {
+            Event::WithTarget {
+                message: encoded,
+                our_nick,
+                target,
+                deduplicate,
+            } => {
                 handle_with_target_event(
                     server,
                     encoded,
@@ -1814,6 +1826,7 @@ fn handle_single_event(
                 server,
                 clients.get_server_casemapping_or_default(server),
                 message,
+                None,
                 &config.buffer,
             )
             .map(Message::Dashboard),
@@ -1849,6 +1862,7 @@ fn handle_with_target_event(
                 server,
                 clients.get_server_casemapping_or_default(server),
                 message.with_target(target),
+                None,
                 &config.buffer,
             )
             .map(Message::Dashboard),
@@ -1860,6 +1874,7 @@ fn handle_priv_or_notice(
     encoded: message::Encoded,
     our_nick: data::user::Nick,
     deduplicate: bool,
+    labeled_response_context: Option<LabeledResponseContext>,
     notification_enabled: bool,
     dashboard: &mut screen::Dashboard,
     commands: &mut Vec<Task<Message>>,
@@ -1941,7 +1956,12 @@ fn handle_priv_or_notice(
 
     commands.push(
         dashboard
-            .record_message(server, msg, &config.buffer)
+            .record_message(
+                server,
+                msg,
+                labeled_response_context,
+                &config.buffer,
+            )
             .map(Message::Dashboard),
     );
 
