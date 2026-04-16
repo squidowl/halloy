@@ -915,7 +915,7 @@ impl Client {
 
                                 finished.events.extend(self.handle(
                                     encoded,
-                                    context.clone(),
+                                    finished.context.clone(),
                                     config,
                                 )?);
                             }
