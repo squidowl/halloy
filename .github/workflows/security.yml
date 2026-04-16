@@ -27,4 +27,6 @@ jobs:
       - uses: rustsec/audit-check@69366f33c96575abad1ee0dba8212993eecbe998 # v2.0.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          ignore: RUSTSEC-2023-0071 # rsa: Marvin Attack - no fix available, transitive via arti-client (which is unaffected https://gitlab.torproject.org/tpo/core/arti/-/issues/1141)
+          ignore: RUSTSEC-2023-0071,RUSTSEC-2026-0097
+          # RUSTSEC-2023-0071 rsa: Marvin Attack - no fix available, transitive via arti-client (which is unaffected https://gitlab.torproject.org/tpo/core/arti/-/issues/1141)
+          # RUSTSEC-2026-0097 rand: unsound when certain conditions are met - no fix available, transitive via arti-client
