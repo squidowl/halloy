@@ -2399,17 +2399,13 @@ impl State {
                 history.get_reroute_rules(),
             ) {
                 for message in messages {
-                    history_tasks.extend(
-                        history
-                            .record_input_message(
-                                message,
-                                labeled_response_context.clone(),
-                                buffer.server(),
-                                casemapping,
-                                config,
-                            )
-                            .into_iter(),
-                    );
+                    history_tasks.extend(history.record_input_message(
+                        message,
+                        labeled_response_context.clone(),
+                        buffer.server(),
+                        casemapping,
+                        config,
+                    ));
                 }
             }
 
@@ -2767,7 +2763,9 @@ impl State {
 
     fn set_notice(&mut self, line: usize) {
         match self.parsed.get(line) {
-            Some(Err(error)) => {
+            Some(Err(error)) =>
+            {
+                #[allow(clippy::collapsible_match)]
                 if show_while_typing(error) {
                     self.notice = Some(Notice::Error(error.to_string()));
                 }

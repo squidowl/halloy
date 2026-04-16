@@ -422,10 +422,8 @@ fn parse_meta_tag_properties(
 
             match key.as_str() {
                 "property" => property = Some(value),
-                "name" => {
-                    if property.is_none() {
-                        property = Some(value);
-                    }
+                "name" if property.is_none() => {
+                    property = Some(value);
                 }
                 "content" => content = Some(value),
                 _ => {}
@@ -437,25 +435,19 @@ fn parse_meta_tag_properties(
         };
 
         match property.trim().to_ascii_lowercase().as_str() {
-            "og:url" => {
-                if meta.canonical_url.is_none() {
-                    meta.canonical_url = Some(content.parse()?);
-                }
+            "og:url" if meta.canonical_url.is_none() => {
+                meta.canonical_url = Some(content.parse()?);
             }
-            "og:image" | "og:image:url" | "og:image:secure_url" => {
-                if meta.image_url.is_none() {
-                    meta.image_url = Some(content.parse()?);
-                }
+            "og:image" | "og:image:url" | "og:image:secure_url"
+                if meta.image_url.is_none() =>
+            {
+                meta.image_url = Some(content.parse()?);
             }
-            "og:title" => {
-                if meta.title.is_none() {
-                    meta.title = Some(content);
-                }
+            "og:title" if meta.title.is_none() => {
+                meta.title = Some(content);
             }
-            "og:description" => {
-                if meta.description.is_none() {
-                    meta.description = Some(content);
-                }
+            "og:description" if meta.description.is_none() => {
+                meta.description = Some(content);
             }
             _ => {}
         }

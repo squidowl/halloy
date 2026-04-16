@@ -1204,11 +1204,12 @@ pub fn insert_message(
         Err(sorted_insert_index) => sorted_insert_index,
     };
 
-    let mut current_index = start_index;
     let mut insert_at = start_index;
     let mut replace_at = None;
 
-    for stored in &messages[start_index..end_index] {
+    for (current_index, stored) in
+        (start_index..).zip(messages[start_index..end_index].iter())
+    {
         if replace_at.is_none() && labeled_response_context.is_none() {
             let use_echo_cmp =
                 matches!(stored.direction, message::Direction::Sent)
@@ -1231,8 +1232,6 @@ pub fn insert_message(
         if message.server_time >= stored.server_time {
             insert_at = current_index + 1;
         }
-
-        current_index += 1;
     }
 
     if let Some(index) = replace_at {

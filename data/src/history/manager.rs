@@ -644,14 +644,9 @@ impl Manager {
     pub fn server_kinds(&self, server: Server) -> Vec<history::Kind> {
         self.data
             .map
-            .iter()
-            .filter_map(|(kind, _)| {
-                if kind.server().is_some_and(|s| *s == server) {
-                    Some(kind.clone())
-                } else {
-                    None
-                }
-            })
+            .keys()
+            .filter(|kind| kind.server().is_some_and(|s| *s == server))
+            .cloned()
             .collect()
     }
 
