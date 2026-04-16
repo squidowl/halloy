@@ -762,7 +762,7 @@ enabled = true
 
 ### `override_url`
 
-Override the filehost URL advertised by the server via ISUPPORT. The filehost must be compatible with the `draft/FILEHOST` spec.
+Override the filehost URL advertised by the server via ISUPPORT. The filehost must be compatible with the `soju.im/filehost` spec.
 
 ```toml
 # Type: string

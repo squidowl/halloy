@@ -277,11 +277,9 @@ impl FromStr for Operation {
                                 Err("value required")
                             }
                         }
-                        "draft/FILEHOST" | "soju.im/FILEHOST" => {
-                            Ok(Operation::Add(Parameter::FILEHOST(
-                                value.to_owned(),
-                            )))
-                        }
+                        "soju.im/FILEHOST" => Ok(Operation::Add(
+                            Parameter::FILEHOST(value.to_owned()),
+                        )),
                         "ESILENCE" => Ok(Operation::Add(Parameter::ESILENCE(
                             parse_optional_letters(value)?,
                         ))),
@@ -638,7 +636,7 @@ impl Operation {
                 "CNOTICE" => Some(Kind::CNOTICE),
                 "CPRIVMSG" => Some(Kind::CPRIVMSG),
                 "ELIST" => Some(Kind::ELIST),
-                "draft/FILEHOST" | "soju.im/FILEHOST" => Some(Kind::FILEHOST),
+                "soju.im/FILEHOST" => Some(Kind::FILEHOST),
                 "HOSTLEN" => Some(Kind::HOSTLEN),
                 "KEYLEN" => Some(Kind::KEYLEN),
                 "KICKLEN" => Some(Kind::KICKLEN),

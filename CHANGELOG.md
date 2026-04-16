@@ -12,7 +12,7 @@ Added:
 - `buffer.nickname.color` now supports `{ palette = ["#RRGGBB", ...] }` for nickname colors from a fixed set
 - Right-click context menu on messages now includes "Copy message" to copy the message text to the clipboard
 - `buffer.typing.style` setting with `padded` and `popped` modes for typing indicators
-- Files can be uploaded to server using `soju.im/FILEHOST` and `draft/FILEHOST`
+- Files can be uploaded to server using `soju.im/FILEHOST`.
 - `/massmessage` command to send Ergo/Solanum mass-messages
 - Setting to control whether unread indicators are shown on open buffers (`sidebar.unread_indicator.show_on_open_buffers`)
 - Ability to add optional arguments in custom aliases (`/msg ChanServ op $channel $1?-`)

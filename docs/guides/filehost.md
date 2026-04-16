@@ -1,6 +1,6 @@
 # File Uploads
 
-Halloy supports file uploads via the `draft/FILEHOST` and [`soju.im/filehost`](https://soju.im/filehost) IRC extensions. When a file is uploaded, the resulting URL is inserted into the message input.
+Halloy supports file uploads via the [`soju.im/filehost`](https://soju.im/filehost) IRC extension. When a file is uploaded, the resulting URL is inserted into the message input.
 
 Uploads can be triggered by:
 
@@ -24,7 +24,7 @@ Ergo supports filehost natively via `additional-isupport`. Add the following to 
 ```yaml
 server:
   additional-isupport:
-    "draft/FILEHOST": "https://your-filehost-url/upload"
+    "soju.im/filehost": "https://your-filehost-url/upload"
 ```
 
 ### soju
