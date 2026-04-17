@@ -2338,6 +2338,32 @@ impl Dashboard {
                         );
                         None
                     }
+                    buffer::context_menu::Event::RedactMessage(msgid) => {
+                        if let Some(buffer) = pane.buffer.upstream()
+                            && let Some(target) = buffer.target()
+                        {
+                            let command = command::Irc::Redact {
+                                target: target.to_string(),
+                                msgid,
+                                reason: None, // TODO: This should be a modal of sort?
+                            };
+
+                            let input: data::Input = data::Input::from_command(
+                                buffer.clone(),
+                                command,
+                            );
+
+                            if let Some(encoded) = input.encoded() {
+                                clients.send(
+                                    &input.buffer,
+                                    encoded,
+                                    TokenPriority::User,
+                                );
+                            }
+                        }
+
+                        None
+                    }
                 };
 
                 return (Task::batch(tasks), event);

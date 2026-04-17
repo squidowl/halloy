@@ -122,6 +122,8 @@ pub enum Command {
     TAGMSG(String),
     /// <nickname>
     USERIP(String),
+    /// <target> <msgid> [<reason>]
+    REDACT(String, String, Option<String>),
 
     /* Standard Replies */
     /// <command> <code> [<context>] <description>
@@ -237,6 +239,7 @@ impl Command {
             "SETNAME" if len > 0 => SETNAME(req!()),
             "TAGMSG" if len > 0 => TAGMSG(req!()),
             "USERIP" if len > 0 => USERIP(req!()),
+            "REDACT" if len > 1 => REDACT(req!(), req!(), opt!()),
             "FAIL" if len > 2 => {
                 let a = req!();
                 let b = req!();
@@ -342,6 +345,9 @@ impl Command {
             Command::SETNAME(a) => vec![a],
             Command::TAGMSG(a) => vec![a],
             Command::USERIP(a) => vec![a],
+            Command::REDACT(a, b, c) => {
+                std::iter::once(a).chain(Some(b)).chain(c).collect()
+            }
             Command::FAIL(a, b, c, d) => std::iter::once(a)
                 .chain(Some(b))
                 .chain(c.into_iter().flatten())
@@ -422,6 +428,7 @@ impl Command {
             SETNAME(_) => "SETNAME".into(),
             TAGMSG(_) => "TAGMSG".into(),
             USERIP(_) => "USERIP".into(),
+            REDACT(_, _, _) => "REDACT".into(),
             FAIL(_, _, _, _) => "FAIL".into(),
             WARN(_, _, _, _) => "WARN".into(),
             NOTE(_, _, _, _) => "NOTE".into(),

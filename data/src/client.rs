@@ -4105,6 +4105,11 @@ impl Client {
                 || isupport::is_client_tag_allowed(&self.isupport, "reply"))
     }
 
+    fn can_redact(&self) -> bool {
+        self.capabilities.acknowledged(Capability::MessageTags)
+            && self.capabilities.acknowledged(Capability::MessageRedaction)
+    }
+
     pub fn is_channel(&self, target: &str) -> bool {
         proto::is_channel(target, self.chantypes())
     }
@@ -4727,6 +4732,10 @@ impl Map {
 
     pub fn get_server_can_send_reactions(&self, server: &Server) -> bool {
         self.client(server).is_some_and(Client::can_send_reactions)
+    }
+
+    pub fn get_server_can_redact(&self, server: &Server) -> bool {
+        self.client(server).is_some_and(Client::can_redact)
     }
 
     pub fn get_server_can_send_typing(&self, server: &Server) -> bool {

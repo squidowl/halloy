@@ -59,6 +59,7 @@ pub enum Entry {
     // message context
     CopyMessage,
     AddReaction,
+    Redact,
 }
 
 impl Entry {
@@ -74,10 +75,16 @@ impl Entry {
         vec![Entry::Timestamp]
     }
 
-    pub fn message_list(can_send_reactions: bool) -> Vec<Self> {
+    pub fn message_list(
+        can_send_reactions: bool,
+        can_redact: bool,
+    ) -> Vec<Self> {
         let mut entries = vec![Entry::CopyMessage];
         if can_send_reactions {
             entries.push(Entry::AddReaction);
+        }
+        if can_redact {
+            entries.push(Entry::Redact);
         }
         entries
     }
@@ -497,6 +504,18 @@ impl Entry {
                 theme,
                 config,
             ),
+            (
+                Entry::Redact,
+                Context::Message {
+                    msgid: Some(msgid), ..
+                },
+            ) => menu_button(
+                "Redact message".to_string(),
+                Some(Message::Redact(msgid.clone())),
+                length,
+                theme,
+                config,
+            ),
             _ => row![].into(),
         })
     }
@@ -523,6 +542,7 @@ pub enum Message {
     #[allow(clippy::enum_variant_names)]
     ResendMessage(DateTime<Utc>, message::Hash),
     OpenReactionModal(message::Id, Vec<String>),
+    Redact(message::Id),
 }
 
 #[derive(Debug, Clone)]
@@ -544,6 +564,7 @@ pub enum Event {
     DeleteMessage(DateTime<Utc>, message::Hash),
     ResendMessage(DateTime<Utc>, message::Hash),
     OpenReactionModal(message::Id, Vec<String>),
+    RedactMessage(message::Id),
 }
 
 pub fn update(message: Message) -> Event {
@@ -576,6 +597,7 @@ pub fn update(message: Message) -> Event {
         Message::OpenReactionModal(msgid, selected_reactions) => {
             Event::OpenReactionModal(msgid, selected_reactions)
         }
+        Message::Redact(msgid) => Event::RedactMessage(msgid),
     }
 }
 
@@ -585,6 +607,7 @@ pub fn message<'a, M>(
     msgid: Option<&'a message::Id>,
     selected_reactions: Vec<String>,
     can_send_reactions: bool,
+    can_redact: bool,
     message_content: &'a message::Content,
     config: &'a Config,
     theme: &'a Theme,
@@ -596,7 +619,10 @@ where
         return content.into();
     }
 
-    let entries = Entry::message_list(can_send_reactions && msgid.is_some());
+    let entries = Entry::message_list(
+        can_send_reactions && msgid.is_some(),
+        can_redact && msgid.is_some(),
+    );
 
     context_menu(
         context_menu::MouseButton::default(),

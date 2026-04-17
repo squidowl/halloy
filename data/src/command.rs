@@ -86,6 +86,11 @@ pub enum Irc {
     Chathistory(String, Vec<String>),
     Monitor(String, Option<String>),
     Invite(String, String),
+    Redact {
+        target: String,
+        msgid: message::Id,
+        reason: Option<String>,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
@@ -2026,9 +2031,15 @@ impl TryFrom<Irc> for proto::Command {
             Irc::Invite(nickname, channel) => {
                 proto::Command::INVITE(nickname, channel)
             }
+            Irc::Redact {
+                target,
+                msgid,
+                reason,
+            } => proto::Command::REDACT(target, msgid.to_string(), reason),
         })
     }
 }
+
 impl TryFrom<Irc> for proto::Message {
     type Error = ();
 

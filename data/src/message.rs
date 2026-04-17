@@ -2669,6 +2669,46 @@ fn target(
                 None,
             ))
         }
+        Command::REDACT(target, _, _) => {
+            match target::Target::parse(
+                &target,
+                chantypes,
+                statusmsg,
+                casemapping,
+            ) {
+                target::Target::Channel(channel) => {
+                    let source =
+                        user.map_or(Source::Server(None), Source::User);
+
+                    Some((Target::Channel { channel, source }, None))
+                }
+                target::Target::Query(query) => {
+                    if let Some(user) = user {
+                        let query = if user.nickname() == *our_nick {
+                            query
+                        } else {
+                            target::Query::from(user.clone())
+                        };
+
+                        Some((
+                            Target::Query {
+                                query,
+                                source: Source::User(user),
+                            },
+                            None,
+                        ))
+                    } else {
+                        Some((
+                            Target::Query {
+                                query,
+                                source: Source::Server(None),
+                            },
+                            None,
+                        ))
+                    }
+                }
+            }
+        }
         // Server
         Command::PASS(_)
         | Command::CHGHOST(_, _)
@@ -3339,6 +3379,19 @@ fn content<'a>(
                 None
             }
         }
+        Command::REDACT(_, msgid, reason) => {
+            // TODO: Actually redact the message
+            // See https://ircv3.net/specs/extensions/message-redaction#client-implementation-considerations
+
+            // For now just print in the proper channel/query which msg id was redacted.
+
+            let user = message.user(casemapping)?;
+
+            Some((
+                format_redact(user, our_nick, msgid, reason, casemapping),
+                None,
+            ))
+        }
         Command::FAIL(command, _, context, description) => {
             if let Some(context) = context {
                 Some((
@@ -3703,6 +3756,27 @@ pub fn quit_text(
         user,
         casemapping,
     )
+}
+
+fn format_redact(
+    user: User,
+    our_nick: &Nick,
+    msgid: &str,
+    reason: &Option<String>,
+    casemapping: isupport::CaseMap,
+) -> Content {
+    let reason = reason
+        .as_ref()
+        .map(|reason| format!(": {reason}"))
+        .unwrap_or_default();
+
+    let text = if user.nickname() == *our_nick {
+        format!("you deleted message {msgid}{reason}")
+    } else {
+        format!("{} deleted message {msgid}{reason}", user.nickname())
+    };
+
+    parse_fragments_with_user(text, &user, casemapping)
 }
 
 #[derive(Debug, Clone)]

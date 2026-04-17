@@ -31,6 +31,7 @@ pub enum Capability {
     InviteNotify,
     LabeledResponse,
     MessageTags,
+    MessageRedaction,
     Multiline,
     MultiPrefix,
     ReadMarker,
@@ -59,6 +60,7 @@ impl FromStr for Capability {
             "invite-notify" => Ok(Self::InviteNotify),
             "labeled-response" => Ok(Self::LabeledResponse),
             "message-tags" => Ok(Self::MessageTags),
+            "draft/message-redaction" => Ok(Self::MessageRedaction),
             "multi-prefix" => Ok(Self::MultiPrefix),
             "server-time" => Ok(Self::ServerTime),
             "setname" => Ok(Self::Setname),
@@ -245,6 +247,12 @@ impl Capabilities {
             && !self.acknowledged(Capability::MessageTags)
         {
             requested.push("message-tags");
+        }
+
+        if self.pending.contains("draft/message-redaction")
+            && !self.acknowledged(Capability::MessageRedaction)
+        {
+            requested.push("draft/message-redaction");
         }
 
         if self.pending.contains("server-time")
