@@ -41,7 +41,7 @@ jobs:
           sudo apt update
           sudo apt install $(cat .github/linux-deps.txt) git
 
-      - uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+      - uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: |
             ~/.cargo/bin/
@@ -55,7 +55,7 @@ jobs:
 
       - name: Install cargo-edit
         if: matrix.target.target == 'windows'
-        uses: taiki-e/install-action@b8be7f5e140177087325943c4a8e169d01c59b3d # v2
+        uses: taiki-e/install-action@a2352fc6ce487f030a3aa709482d57823eadfb37 # v2
         with:
           tool: cargo-edit
 
@@ -82,7 +82,7 @@ jobs:
         run: ${{ matrix.target.artifact_path }}
 
       - name: Upload artifact
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ${{ matrix.target.target }}
           path: ${{ env.ARTIFACT_PATH }}
@@ -97,7 +97,7 @@ jobs:
     steps:
       - name: Create Release
         id: create-release
-        uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe # v2
+        uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v2
         with:
           tag_name: ${{ github.event.inputs.tag }}
           name: ${{ github.event.inputs.tag }}
