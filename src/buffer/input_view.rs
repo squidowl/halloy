@@ -1309,10 +1309,11 @@ impl State {
                 match url {
                     Some(url) => {
                         if content.contains(&ghost) {
-                            let ghost_char_pos = content
-                                [..content.find(&ghost).unwrap()]
-                                .chars()
-                                .count();
+                            let ghost_char_pos = UnicodeSegmentation::graphemes(
+                                &content[..content.find(&ghost).unwrap()],
+                                true,
+                            )
+                            .count();
                             let replaced = content.replacen(&ghost, &url, 1);
                             let delta = url.chars().count() as i64
                                 - ghost.chars().count() as i64;
@@ -1366,10 +1367,11 @@ impl State {
                         .find(|s| content.contains(s.as_str()));
 
                         if let Some(search) = search {
-                            let ghost_char_pos = content
-                                [..content.find(&search).unwrap()]
-                                .chars()
-                                .count();
+                            let ghost_char_pos = UnicodeSegmentation::graphemes(
+                                &content[..content.find(&search).unwrap()],
+                                true,
+                            )
+                            .count();
                             let replaced = content.replacen(&search, "", 1);
                             let delta = -(search.chars().count() as i64);
                             let cursor = adjust_cursor(
@@ -2885,36 +2887,55 @@ fn line_col_to_char(
     line: usize,
     col: usize,
 ) -> usize {
-    let mut chars = 0;
-    for i in 0..line {
-        chars += content.line(i).map_or(0, |l| l.text.chars().count()) + 1;
+    let text = content.text();
+    let mut pos = 0;
+    for (i, l) in text.lines().enumerate() {
+        if i == line {
+            let mut byte_offset = 0;
+            for grapheme in UnicodeSegmentation::graphemes(l, true) {
+                if byte_offset >= col {
+                    break;
+                }
+                byte_offset += grapheme.len();
+                pos += 1;
+            }
+            return pos;
+        }
+        pos += UnicodeSegmentation::graphemes(l, true).count() + 1;
     }
-    chars += col;
-    chars
+    pos
 }
 
-/// Converts a flat char offset back to a `(line, col)` position.
+/// Converts a flat grapheme-cluster offset back to a `(line, col)` position.
+///
+/// `start_pos` is the number of grapheme clusters from the start of `text`.
+/// The returned `column` is a byte offset within the line, matching how
+/// `text_editor::Position` encodes column.
 ///
 /// Inverse of [`line_col_to_char`]. Used after offset arithmetic to produce a
 /// position suitable for `move_to`.
-fn char_to_line_col(text: &str, char_pos: usize) -> text_editor::Position {
-    let mut remaining = char_pos;
+fn char_to_line_col(text: &str, start_pos: usize) -> text_editor::Position {
+    let mut remaining = start_pos;
+    let mut fallback = text_editor::Position { line: 0, column: 0 };
     for (i, line) in text.lines().enumerate() {
-        let line_char_count = line.chars().count();
-        if remaining <= line_char_count {
-            return text_editor::Position {
-                line: i,
-                column: remaining,
-            };
+        let mut count = 0;
+        let mut byte_col = 0;
+        for grapheme in UnicodeSegmentation::graphemes(line, true) {
+            if count >= remaining {
+                break;
+            }
+            byte_col += grapheme.len();
+            count += 1;
         }
-        remaining -= line_char_count + 1;
+        if count == remaining {
+            return text_editor::Position { line: i, column: byte_col };
+        }
+        remaining -= count + 1;
+        // track the end of the last seen line so that an out-of-bounds
+        // start_pos clamps to the end of the text
+        fallback = text_editor::Position { line: i, column: line.len() };
     }
-    let last_line = text.lines().count().saturating_sub(1);
-    let last_col = text.lines().last().map_or(0, |l| l.chars().count());
-    text_editor::Position {
-        line: last_line,
-        column: last_col,
-    }
+    fallback
 }
 
 /// Adjusts a flat char offset around a text replacement.
