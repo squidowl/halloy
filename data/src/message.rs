@@ -302,6 +302,7 @@ pub struct Message {
     pub reactions: Vec<Reaction>,
     pub rerouted_from: Option<Target>,
     pub deduplicate: bool,
+    pub redacted: bool,
 }
 
 impl Message {
@@ -444,6 +445,7 @@ impl Message {
             reactions: vec![],
             rerouted_from,
             deduplicate,
+            redacted: false,
         })
     }
 
@@ -509,6 +511,7 @@ impl Message {
             reactions: vec![],
             rerouted_from,
             deduplicate,
+            redacted: false,
         };
 
         let highlight = highlight.and_then(|kind| {
@@ -578,6 +581,7 @@ impl Message {
             reactions: vec![],
             rerouted_from: None,
             deduplicate: false,
+            redacted: false,
         }
     }
 
@@ -614,6 +618,7 @@ impl Message {
             reactions: vec![],
             rerouted_from: None,
             deduplicate: false,
+            redacted: false,
         }
     }
 
@@ -648,6 +653,7 @@ impl Message {
             reactions: vec![],
             rerouted_from: None,
             deduplicate: false,
+            redacted: false,
         }
     }
 
@@ -737,6 +743,7 @@ impl Message {
             reactions: vec![],
             rerouted_from: None,
             deduplicate: false,
+            redacted: false,
         }
     }
 
@@ -785,6 +792,7 @@ impl Serialize for Message {
             #[serde(skip_serializing_if = "<[_]>::is_empty")]
             reactions: &'a [Reaction],
             rerouted_from: &'a Option<Target>,
+            redacted: bool,
         }
 
         Data {
@@ -800,6 +808,7 @@ impl Serialize for Message {
             command: &self.command,
             reactions: &self.reactions,
             rerouted_from: &self.rerouted_from,
+            redacted: self.redacted,
         }
         .serialize(serializer)
     }
@@ -833,6 +842,8 @@ impl<'de> Deserialize<'de> for Message {
             reactions: Vec<Reaction>,
             #[serde(default, deserialize_with = "fail_as_none")]
             rerouted_from: Option<Target>,
+            #[serde(default)]
+            redacted: bool,
         }
 
         let Data {
@@ -848,6 +859,7 @@ impl<'de> Deserialize<'de> for Message {
             command,
             reactions,
             rerouted_from,
+            redacted,
         } = Data::deserialize(deserializer)?;
 
         let content = if let Some(content) = content {
@@ -881,6 +893,7 @@ impl<'de> Deserialize<'de> for Message {
             reactions,
             rerouted_from,
             deduplicate: false,
+            redacted,
         })
     }
 }
@@ -1074,6 +1087,7 @@ pub fn condense(
             reactions: vec![],
             rerouted_from: None,
             deduplicate: false,
+            redacted: false,
         }))
     } else {
         None
@@ -2669,46 +2683,6 @@ fn target(
                 None,
             ))
         }
-        Command::REDACT(target, _, _) => {
-            match target::Target::parse(
-                &target,
-                chantypes,
-                statusmsg,
-                casemapping,
-            ) {
-                target::Target::Channel(channel) => {
-                    let source =
-                        user.map_or(Source::Server(None), Source::User);
-
-                    Some((Target::Channel { channel, source }, None))
-                }
-                target::Target::Query(query) => {
-                    if let Some(user) = user {
-                        let query = if user.nickname() == *our_nick {
-                            query
-                        } else {
-                            target::Query::from(user.clone())
-                        };
-
-                        Some((
-                            Target::Query {
-                                query,
-                                source: Source::User(user),
-                            },
-                            None,
-                        ))
-                    } else {
-                        Some((
-                            Target::Query {
-                                query,
-                                source: Source::Server(None),
-                            },
-                            None,
-                        ))
-                    }
-                }
-            }
-        }
         // Server
         Command::PASS(_)
         | Command::CHGHOST(_, _)
@@ -2754,6 +2728,7 @@ fn target(
         | Command::Numeric(_, _)
         | Command::Unknown(_, _)
         | Command::BOUNCER(_, _)
+        | Command::REDACT(_, _, _)
         | Command::Raw(_) => Some((
             Target::Server {
                 source: Source::Server(None),
@@ -3379,19 +3354,6 @@ fn content<'a>(
                 None
             }
         }
-        Command::REDACT(_, msgid, reason) => {
-            // TODO: Actually redact the message
-            // See https://ircv3.net/specs/extensions/message-redaction#client-implementation-considerations
-
-            // For now just print in the proper channel/query which msg id was redacted.
-
-            let user = message.user(casemapping)?;
-
-            Some((
-                format_redact(user, our_nick, msgid, reason, casemapping),
-                None,
-            ))
-        }
         Command::FAIL(command, _, context, description) => {
             if let Some(context) = context {
                 Some((
@@ -3756,27 +3718,6 @@ pub fn quit_text(
         user,
         casemapping,
     )
-}
-
-fn format_redact(
-    user: User,
-    our_nick: &Nick,
-    msgid: &str,
-    reason: &Option<String>,
-    casemapping: isupport::CaseMap,
-) -> Content {
-    let reason = reason
-        .as_ref()
-        .map(|reason| format!(": {reason}"))
-        .unwrap_or_default();
-
-    let text = if user.nickname() == *our_nick {
-        format!("you deleted message {msgid}{reason}")
-    } else {
-        format!("{} deleted message {msgid}{reason}", user.nickname())
-    };
-
-    parse_fragments_with_user(text, &user, casemapping)
 }
 
 #[derive(Debug, Clone)]

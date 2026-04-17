@@ -152,6 +152,7 @@ pub enum Event {
         our_nick: Nick,
         notification_enabled: bool,
     },
+    Redaction(message::Encoded, Nick),
     WithTarget {
         message: message::Encoded,
         our_nick: Nick,
@@ -1085,6 +1086,12 @@ impl Client {
                     our_nick: self.nickname().to_owned(),
                     notification_enabled: true,
                 }]);
+            }
+            _ if matches!(message.command, Command::REDACT(_, _, _)) => {
+                return Ok(vec![Event::Redaction(
+                    message,
+                    self.nickname().to_owned(),
+                )]);
             }
             // Reroute whois, whowas, mode, and invite responses
             Command::Numeric(
@@ -3118,6 +3125,9 @@ impl Client {
                         notification_enabled: false,
                     }]
                 }
+                Command::REDACT(_, _, _) => {
+                    vec![Event::Redaction(message, self.nickname().to_owned())]
+                }
                 Command::NICK(_) => vec![Event::WithTarget {
                     message,
                     our_nick: self.nickname().to_owned(),
@@ -4242,6 +4252,15 @@ fn continue_chathistory_between(
                 ),
                 MessageReference::None => None,
             },
+            Event::Redaction(message, _) => match end_message_reference {
+                MessageReference::MessageId(_) => {
+                    message.message_id().map(MessageReference::MessageId)
+                }
+                MessageReference::Timestamp(_) => Some(
+                    MessageReference::Timestamp(message.server_time_or_now()),
+                ),
+                MessageReference::None => None,
+            },
             Event::Broadcast(_)
             | Event::FileTransferRequest(_)
             | Event::UpdateReadMarker(_, _)
@@ -4283,6 +4302,7 @@ fn continue_chathistory_targets(
             | Event::WithTarget { .. }
             | Event::DirectMessage(_, _, _)
             | Event::Reaction { .. }
+            | Event::Redaction(_, _)
             | Event::Broadcast(_)
             | Event::FileTransferRequest(_)
             | Event::UpdateReadMarker(_, _)

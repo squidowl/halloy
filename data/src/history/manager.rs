@@ -17,7 +17,8 @@ use crate::message::{self, Limit};
 use crate::target::{self, Target};
 use crate::user::Nick;
 use crate::{
-    Config, Server, buffer, client, config, input, isupport, reaction, server,
+    Config, Server, buffer, client, config, input, isupport, reaction,
+    redaction, server,
 };
 
 const DRAFT_SAVE_EVERY: Duration = Duration::from_secs(10);
@@ -471,6 +472,19 @@ impl Manager {
     ) -> Option<impl Future<Output = Message> + use<>> {
         self.data
             .add_reaction(server.clone(), reaction, notification_enabled)
+    }
+
+    pub fn redact_message(
+        &mut self,
+        server: &Server,
+        redaction: redaction::Redaction,
+    ) -> Option<impl Future<Output = Message> + use<>> {
+        let kind = history::Kind::from_target(
+            server.clone(),
+            redaction.target.clone(),
+        );
+        self.data
+            .redact_message(kind, redaction.id, redaction.server_time)
     }
 
     pub fn block_and_record_message(
@@ -1269,6 +1283,7 @@ impl Data {
                     chathistory_references: partial_chathistory_references,
                     last_seen,
                     pending_reactions,
+                    pending_redactions,
                     ..
                 } => {
                     let read_marker =
@@ -1284,7 +1299,7 @@ impl Data {
                     let mut last_seen = last_seen.clone();
 
                     for (id, pending) in pending_reactions.iter_mut() {
-                        if let Some(message) = history::find_reaction_target(
+                        if let Some(message) = history::find_message_target(
                             &mut messages,
                             id,
                             &pending.server_time,
@@ -1296,6 +1311,16 @@ impl Data {
                                     .map(|(reaction, _)| reaction.clone())
                                     .collect(),
                             );
+                        }
+                    }
+
+                    for (id, pending) in pending_redactions.iter_mut() {
+                        if let Some(message) = history::find_message_target(
+                            &mut messages,
+                            id,
+                            &pending.server_time,
+                        ) {
+                            message.redacted = true;
                         }
                     }
 
@@ -1914,6 +1939,35 @@ impl Data {
                 entry
                     .insert(History::partial(kind.clone()))
                     .add_reaction(reaction, notification_enabled);
+
+                Some(
+                    async move {
+                        let loaded =
+                            history::metadata::load(kind.clone()).await;
+                        Message::UpdatePartial(kind, loaded)
+                    }
+                    .boxed(),
+                )
+            }
+        }
+    }
+
+    fn redact_message(
+        &mut self,
+        kind: history::Kind,
+        id: message::Id,
+        server_time: DateTime<Utc>,
+    ) -> Option<impl Future<Output = Message> + use<>> {
+        match self.map.entry(kind.clone()) {
+            hash_map::Entry::Occupied(mut entry) => {
+                entry.get_mut().redact_message(id, server_time);
+
+                None
+            }
+            hash_map::Entry::Vacant(entry) => {
+                entry
+                    .insert(History::partial(kind.clone()))
+                    .redact_message(id, server_time);
 
                 Some(
                     async move {

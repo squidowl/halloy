@@ -45,6 +45,7 @@ fn expand(
             reactions: vec![],
             rerouted_from: None,
             deduplicate: false,
+            redacted: false,
         }
     };
 

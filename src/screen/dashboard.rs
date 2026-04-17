@@ -21,7 +21,8 @@ use data::rate_limit::TokenPriority;
 use data::target::{self, Target};
 use data::{
     Config, Notification, Server, User, Version, client, command, config,
-    environment, file_transfer, history, preview, reaction, server, stream,
+    environment, file_transfer, history, preview, reaction, redaction, server,
+    stream,
 };
 use iced::widget::pane_grid::{self, PaneGrid};
 use iced::widget::{Space, center, column, container, row, stack, text};
@@ -3244,6 +3245,14 @@ impl Dashboard {
         } else {
             Task::none()
         }
+    }
+
+    pub fn redact_message(
+        &mut self,
+        server: &Server,
+        redaction: redaction::Redaction,
+    ) {
+        self.history.redact_message(server, redaction);
     }
 
     pub fn is_focused_and_at_bottom(

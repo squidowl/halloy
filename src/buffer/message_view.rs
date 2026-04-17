@@ -367,7 +367,8 @@ impl<'a> ChannelQueryLayout<'a> {
     ) {
         let not_sent_row = self.not_sent_row(message);
 
-        let dimmed = not_sent_row.is_some().then_some(Dimmed::new(None));
+        let dimmed = (not_sent_row.is_some() || message.redacted)
+            .then_some(Dimmed::new(None));
         let dimmed_background_tuple = dimmed
             .map(|dimmed| (dimmed, self.theme.styles().buffer.background));
 
