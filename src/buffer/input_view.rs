@@ -2986,16 +2986,56 @@ mod tests {
 
     #[test]
     fn char_to_line_col_single_line() {
-        let pos = char_to_line_col("hello", 3);
-        assert_eq!(pos.line, 0);
-        assert_eq!(pos.column, 3);
+        let tests = [("hello", 3), ("안녕하세요", 3), ("👩🏾‍🚒 💬👋🏾🗺️", 3)];
+
+        for (text, chars_to_the_right) in tests {
+            let mut content: text_editor::Content =
+                text_editor::Content::with_text(text);
+
+            for _ in 0..chars_to_the_right {
+                content.perform(text_editor::Action::Move(
+                    text_editor::Motion::Right,
+                ));
+            }
+
+            let content_pos = content.cursor().position;
+
+            let pos = char_to_line_col(text, chars_to_the_right);
+
+            assert_eq!(
+                pos, content_pos,
+                "text: {text:?} chars_to_the_right: {chars_to_the_right}"
+            );
+        }
     }
 
     #[test]
     fn char_to_line_col_second_line() {
-        let pos = char_to_line_col("hello\nworld", 7);
-        assert_eq!(pos.line, 1);
-        assert_eq!(pos.column, 1);
+        let tests = [
+            ("hello\nworld", 7),
+            ("안녕하세요\n여러분", 7),
+            ("👩🏾‍🚒 💬👋🏾\n🗺️", 6),
+        ];
+
+        for (text, chars_to_the_right) in tests {
+            let mut content: text_editor::Content =
+                text_editor::Content::with_text(text);
+
+            for _ in 0..chars_to_the_right {
+                content.perform(text_editor::Action::Move(
+                    text_editor::Motion::Right,
+                ));
+            }
+
+            let content_pos = content.cursor().position;
+
+            let pos = char_to_line_col(text, chars_to_the_right);
+
+            assert_eq!(
+                pos, content_pos,
+                "text: {text:?} chars_to_the_right: {chars_to_the_right}"
+            );
+        }
     }
 
     #[test]
