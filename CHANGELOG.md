@@ -22,6 +22,7 @@ Added:
 - Settings to reroute direct PRIVMSG and/or NOTICE messages to another buffer (`servers.<name>.reroute.query` and `servers.<name>.reroute.notice`)
 - `channel-context` support
 - Expanded `tooltips` setting to allow hiding auto-complete tooltips
+- emacs bindings for <kbd>ctrl</kbd> + <kbd>u</kbd> and <kbd>ctrl</kbd> + <kbd>w</kbd>
 
 Changed:
 
