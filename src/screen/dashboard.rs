@@ -3206,10 +3206,12 @@ impl Dashboard {
 
     pub fn record_reaction(
         &mut self,
+        clients: &client::Map,
         server: &Server,
         reaction: reaction::Context,
     ) -> (Option<ReactionTarget>, Task<Message>) {
-        let (target, future) = self.history.record_reaction(server, reaction);
+        let (target, future) =
+            self.history.record_reaction(clients, server, reaction);
         let task = if let Some(f) = future {
             Task::perform(f, Message::History)
         } else {

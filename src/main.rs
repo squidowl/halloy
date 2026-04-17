@@ -2337,7 +2337,7 @@ fn handle_reaction(
         config.buffer.channel.message.max_reaction_chars,
     ) {
         let (reaction_target, task) =
-            dashboard.record_reaction(server, reaction.clone());
+            dashboard.record_reaction(clients, server, reaction.clone());
         reactions.push(task.map(Message::Dashboard));
 
         if let Some(task) = notify_reaction(

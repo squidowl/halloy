@@ -451,13 +451,14 @@ impl Manager {
 
     pub fn record_reaction(
         &mut self,
+        clients: &client::Map,
         server: &Server,
         reaction: reaction::Context,
     ) -> (
         Option<ReactionTarget>,
         Option<impl Future<Output = Message> + use<>>,
     ) {
-        self.data.add_reaction(server.clone(), reaction)
+        self.data.add_reaction(clients, server.clone(), reaction)
     }
 
     pub fn block_and_record_message(
@@ -1832,6 +1833,7 @@ impl Data {
 
     fn add_reaction(
         &mut self,
+        clients: &client::Map,
         server: Server,
         reaction: reaction::Context,
     ) -> (
@@ -1843,6 +1845,7 @@ impl Data {
         match self.map.entry(kind.clone()) {
             hash_map::Entry::Occupied(mut entry) => {
                 let target = entry.get_mut().add_reaction(reaction.clone());
+                let seed = clients.get_seed(&kind);
 
                 if target.is_some() {
                     (target, None)
@@ -1851,12 +1854,11 @@ impl Data {
                         None,
                         Some(
                             async move {
-                                let path = history::path(&kind).await.ok();
-                                let target = if let Some(path) = path {
-                                    let messages = history::read_all(&path)
-                                        .await
-                                        .unwrap_or_default();
-                                    messages
+                                let loaded =
+                                    history::load(kind.clone(), seed).await;
+                                let target = if let Ok(loaded) = loaded {
+                                    loaded
+                                        .messages
                                         .iter()
                                         .rev()
                                         .find(|message| {
