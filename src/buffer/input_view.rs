@@ -230,6 +230,18 @@ fn emacs_key_binding(
         {
             Some(text_editor::Binding::Custom(Message::DeleteToEnd(true)))
         }
+        iced::keyboard::Key::Character("u")
+            if key_press.modifiers.control() =>
+        {
+            Some(text_editor::Binding::Custom(Message::DeleteToStart(true)))
+        }
+        iced::keyboard::Key::Character("w")
+            if key_press.modifiers.control() =>
+        {
+            Some(text_editor::Binding::Custom(Message::DeleteWordBackward(
+                true,
+            )))
+        }
         _ => None,
     }
 }
