@@ -1184,12 +1184,14 @@ key_bindings = "emacs"
 
 Emacs variant has the following binds:
 
-> `ctrl+a`: Move to the beginning of the line  
-  `ctrl+e`: Move to the end of the line  
-  `ctrl+b`: Move backward one character  
-  `ctrl+f`: Move forward one character  
+> `ctrl+a`: Move the cursor to the beginning of the line  
+  `ctrl+e`: Move the cursor to the end of the line  
+  `ctrl+b`: Move the cursor backward one character  
+  `ctrl+f`: Move the cursor forward one character  
   `ctrl+d`: Delete the character under the cursor  
-  `ctrl+k`: Kill rest of line from cursor  
+  `ctrl+k`: Delete from the cursor to the end of the line  
+  `ctrl+u`: Delete from the cursor to the beginning of the line  
+  `ctrl+w`: Delete to the beginning of the word under the cursor  
   `alt+b`: Move the cursor backward one word  
   `alt+f`: Move the cursor forward one word  
 
