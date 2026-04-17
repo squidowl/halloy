@@ -1199,6 +1199,19 @@ Emacs variant has the following binds:
 Global [keyboard shortcuts](/configuration/keyboard) take precedence. Unset any that collide (e.g., set `command_bar = "unset"`).
 :::
 
+### `kill_to_clipboard`
+
+If enabled, certain key bindings move killed (deleted) text to the clipboard.
+
+```toml
+# Type: boolean
+# Values: true, false
+# Default: true
+
+[buffer.text_input]
+kill_to_clipboard = true
+```
+
 ### `max_lines`
 
 Maximum number of lines in a single input.  If [`multiline`](https://ircv3.net/specs/extensions/multiline) is supported by the server then it will be utilized, otherwise messages will be sent individually with [`send_line_delay`](#send_line_delay) milliseconds between them.
