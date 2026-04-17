@@ -1309,11 +1309,12 @@ impl State {
                 match url {
                     Some(url) => {
                         if let Some(ghost_byte_pos) = content.find(&ghost) {
-                            let ghost_char_pos = UnicodeSegmentation::graphemes(
-                                &content[..ghost_byte_pos],
-                                true,
-                            )
-                            .count();
+                            let ghost_char_pos =
+                                UnicodeSegmentation::graphemes(
+                                    &content[..ghost_byte_pos],
+                                    true,
+                                )
+                                .count();
                             let replaced = content.replacen(&ghost, &url, 1);
                             let delta = url.chars().count() as i64
                                 - ghost.chars().count() as i64;
@@ -1367,11 +1368,12 @@ impl State {
                         .find_map(|s| content.find(&s).map(|pos| (s, pos)));
 
                         if let Some((search, ghost_byte_pos)) = found {
-                            let ghost_char_pos = UnicodeSegmentation::graphemes(
-                                &content[..ghost_byte_pos],
-                                true,
-                            )
-                            .count();
+                            let ghost_char_pos =
+                                UnicodeSegmentation::graphemes(
+                                    &content[..ghost_byte_pos],
+                                    true,
+                                )
+                                .count();
                             let replaced = content.replacen(&search, "", 1);
                             let delta = -(search.chars().count() as i64);
                             let cursor = adjust_cursor(
@@ -2928,12 +2930,18 @@ fn char_to_line_col(text: &str, start_pos: usize) -> text_editor::Position {
             count += 1;
         }
         if count == remaining {
-            return text_editor::Position { line: i, column: byte_col };
+            return text_editor::Position {
+                line: i,
+                column: byte_col,
+            };
         }
         remaining -= count + 1;
         // track the end of the last seen line so that an out-of-bounds
         // start_pos clamps to the end of the text
-        fallback = text_editor::Position { line: i, column: line.len() };
+        fallback = text_editor::Position {
+            line: i,
+            column: line.len(),
+        };
     }
     fallback
 }
