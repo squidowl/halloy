@@ -1308,9 +1308,9 @@ impl State {
 
                 match url {
                     Some(url) => {
-                        if content.contains(&ghost) {
+                        if let Some(ghost_byte_pos) = content.find(&ghost) {
                             let ghost_char_pos = UnicodeSegmentation::graphemes(
-                                &content[..content.find(&ghost).unwrap()],
+                                &content[..ghost_byte_pos],
                                 true,
                             )
                             .count();
@@ -1357,18 +1357,18 @@ impl State {
 
                         // the ghost may have inserted surrounding spaces; try widest match
                         // first so we don't leave a stray space behind.
-                        let search = [
+                        let found = [
                             format!(" {ghost} "),
                             format!(" {ghost}"),
                             format!("{ghost} "),
                             ghost.clone(),
                         ]
                         .into_iter()
-                        .find(|s| content.contains(s.as_str()));
+                        .find_map(|s| content.find(&s).map(|pos| (s, pos)));
 
-                        if let Some(search) = search {
+                        if let Some((search, ghost_byte_pos)) = found {
                             let ghost_char_pos = UnicodeSegmentation::graphemes(
-                                &content[..content.find(&search).unwrap()],
+                                &content[..ghost_byte_pos],
                                 true,
                             )
                             .count();
