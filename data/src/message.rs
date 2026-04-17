@@ -792,6 +792,7 @@ impl Serialize for Message {
             #[serde(skip_serializing_if = "<[_]>::is_empty")]
             reactions: &'a [Reaction],
             rerouted_from: &'a Option<Target>,
+            #[serde(skip_serializing_if = "std::ops::Not::not")]
             redacted: bool,
         }
 
