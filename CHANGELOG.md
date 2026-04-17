@@ -23,6 +23,7 @@ Added:
 - `channel-context` support
 - Expanded `tooltips` setting to allow hiding auto-complete tooltips
 - emacs bindings for <kbd>ctrl</kbd> + <kbd>u</kbd> and <kbd>ctrl</kbd> + <kbd>w</kbd>
+- `buffer.text_input.kill_to_clipboard` to control key bindings moving killed text to clipboard
 
 Changed:
 
