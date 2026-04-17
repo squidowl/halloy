@@ -5,7 +5,9 @@ use std::time::{Duration, Instant};
 use std::{convert, slice};
 
 use chrono::{DateTime, Utc};
-use data::capabilities::{MultilineBatchKind, multiline_concat_lines};
+use data::capabilities::{
+    LabeledResponseContext, MultilineBatchKind, multiline_concat_lines,
+};
 use data::config::buffer::{ScrollPosition, UsernameFormat};
 use data::dashboard::{self, BufferAction};
 use data::environment::{RELEASE_WEBSITE, WIKI_WEBSITE};
@@ -944,19 +946,20 @@ impl Dashboard {
                                         .map(proto::Message::from)
                                         .map(message::Encoded::from)
                                 {
-                                    if multiline {
+                                    let labeled_response_context = if multiline
+                                    {
                                         clients.send_multiline_batch(
                                             buffer,
                                             vec![encoded],
                                             TokenPriority::User,
-                                        );
+                                        )
                                     } else {
                                         clients.send(
                                             buffer,
                                             encoded,
                                             TokenPriority::User,
-                                        );
-                                    }
+                                        )
+                                    };
 
                                     return (
                                         Task::batch(
@@ -966,6 +969,7 @@ impl Dashboard {
                                                     self.history
                                                         .record_input_message(
                                                             message,
+                                                            labeled_response_context.clone(),
                                                             buffer.server(),
                                                             casemapping,
                                                             config,
@@ -3152,9 +3156,15 @@ impl Dashboard {
         &mut self,
         server: &Server,
         message: data::Message,
+        labeled_response_context: Option<LabeledResponseContext>,
         buffer_config: &config::Buffer,
     ) -> Task<Message> {
-        let tasks = self.history.record_message(server, message, buffer_config);
+        let tasks = self.history.record_message(
+            server,
+            message,
+            labeled_response_context,
+            buffer_config,
+        );
 
         Task::batch(
             tasks
@@ -3202,12 +3212,14 @@ impl Dashboard {
         server: &Server,
         casemapping: isupport::CaseMap,
         message: data::Message,
+        labeled_response_context: Option<LabeledResponseContext>,
         buffer_config: &config::Buffer,
     ) -> Task<Message> {
         let tasks = self.history.block_and_record_message(
             server,
             casemapping,
             message,
+            labeled_response_context,
             buffer_config,
         );
 
@@ -3951,6 +3963,7 @@ impl Dashboard {
                                 query,
                                 &transfer.filename,
                             ),
+                            None,
                             buffer_config,
                         ));
                     }
@@ -3962,6 +3975,7 @@ impl Dashboard {
                                 query,
                                 &transfer.filename,
                             ),
+                            None,
                             buffer_config,
                         ));
                     }

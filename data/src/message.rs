@@ -19,6 +19,7 @@ pub use self::formatting::{Color, Formatting};
 pub use self::highlight::Highlight;
 pub use self::source::Source;
 pub use self::source::server::{Change, Kind, StandardReply};
+use crate::capabilities::LabeledResponseContext;
 use crate::config::buffer::{CondensationFormat, UsernameFormat};
 use crate::config::{self, Highlights};
 use crate::history::reroute::RerouteRules;
@@ -651,6 +652,21 @@ impl Message {
 
     pub fn with_target(self, target: Target) -> Self {
         Self { target, ..self }
+    }
+
+    pub fn with_labeled_response_context(
+        self,
+        labeled_response_context: Option<LabeledResponseContext>,
+    ) -> Self {
+        if let Some(labeled_response_context) = labeled_response_context {
+            Self {
+                server_time: labeled_response_context.server_time,
+                id: Some(labeled_response_context.label_as_id),
+                ..self
+            }
+        } else {
+            self
+        }
     }
 
     pub fn reroute_with_target(self, target: Target) -> Self {

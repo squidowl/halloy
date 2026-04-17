@@ -12,6 +12,7 @@ use tokio::time::Instant;
 
 pub use self::manager::{Manager, Resource};
 pub use self::metadata::{Metadata, ReadMarker};
+use crate::capabilities::LabeledResponseContext;
 use crate::message::{self, MessageReferences, Source};
 use crate::reaction::{self, Reaction};
 use crate::target::{self, Target};
@@ -202,7 +203,7 @@ pub async fn load(kind: Kind, seed: Option<Seed>) -> Result<Loaded, Error> {
     if let Some(seed) = seed {
         // TODO: Utilize DeserializeSeed (or equivalent) so proper normalization
         // happens inside read_all, rather than having to renormalize afterward
-        renormalize_messages(&mut messages, seed);
+        renormalize_messages(messages.iter_mut(), seed);
     }
 
     let metadata = metadata::load(kind).await.unwrap_or_default();
@@ -210,10 +211,13 @@ pub async fn load(kind: Kind, seed: Option<Seed>) -> Result<Loaded, Error> {
     Ok(Loaded { messages, metadata })
 }
 
-pub fn renormalize_messages(messages: &mut [Message], seed: Seed) {
+fn renormalize_messages<'a>(
+    messages: impl Iterator<Item = &'a mut Message>,
+    seed: Seed,
+) {
     match seed {
         Seed::Multiple(casemappings) => {
-            messages.iter_mut().for_each(|message| {
+            messages.for_each(|message| {
                 if let message::Target::Highlights { server, .. } =
                     &message.target
                     && let Some(casemapping) = casemappings.get(server)
@@ -223,9 +227,7 @@ pub fn renormalize_messages(messages: &mut [Message], seed: Seed) {
             });
         }
         Seed::Single(casemapping) => {
-            messages
-                .iter_mut()
-                .for_each(|message| message.renormalize(casemapping));
+            messages.for_each(|message| message.renormalize(casemapping));
         }
     }
 }
@@ -261,7 +263,7 @@ pub async fn overwrite(
 pub async fn append(
     kind: &Kind,
     seed: Option<Seed>,
-    mut messages: Vec<Message>,
+    pending_messages: Vec<(Message, Option<LabeledResponseContext>)>,
     read_marker: Option<ReadMarker>,
     chathistory_references: Option<MessageReferences>,
     pending_reactions: HashMap<message::Id, reaction::Pending>,
@@ -272,14 +274,20 @@ pub async fn append(
     // pending reactions should only exist for unloaded history entries
     for (id, mut pending) in pending_reactions.into_iter() {
         if let Some(message) =
-            find_reaction_target(&mut messages, &id, &pending.server_time)
+            find_reaction_target(&mut all_messages, &id, &pending.server_time)
         {
             message.reactions.append(&mut pending.reactions);
         }
     }
-    messages.into_iter().for_each(|message| {
-        insert_message(&mut all_messages, message);
-    });
+    pending_messages.into_iter().for_each(
+        |(message, labeled_response_context)| {
+            insert_message(
+                &mut all_messages,
+                message,
+                labeled_response_context,
+            );
+        },
+    );
 
     overwrite(kind, &all_messages, read_marker, chathistory_references).await
 }
@@ -333,7 +341,7 @@ async fn path(kind: &Kind) -> Result<PathBuf, Error> {
 pub enum History {
     Partial {
         kind: Kind,
-        messages: Vec<Message>,
+        pending_messages: Vec<(Message, Option<LabeledResponseContext>)>, // Unordered
         last_updated_at: Option<Instant>,
         max_triggers_unread: Option<DateTime<Utc>>,
         max_triggers_highlight: Option<DateTime<Utc>>,
@@ -345,7 +353,7 @@ pub enum History {
     },
     Full {
         kind: Kind,
-        messages: Vec<Message>,
+        messages: Vec<Message>, // Sorted by Message.server_time
         last_updated_at: Option<Instant>,
         read_marker: Option<ReadMarker>,
         display_read_marker: Option<ReadMarker>,
@@ -359,7 +367,7 @@ impl History {
     fn partial(kind: Kind) -> Self {
         Self::Partial {
             kind,
-            messages: vec![],
+            pending_messages: vec![],
             last_updated_at: None,
             max_triggers_unread: None,
             max_triggers_highlight: None,
@@ -459,7 +467,11 @@ impl History {
         }
     }
 
-    fn add_message(&mut self, message: Message) -> Option<ReadMarker> {
+    fn add_message(
+        &mut self,
+        message: Message,
+        labeled_response_context: Option<LabeledResponseContext>,
+    ) -> Option<ReadMarker> {
         if let History::Partial {
             show_in_sidebar,
             max_triggers_unread,
@@ -497,13 +509,11 @@ impl History {
 
         match self {
             History::Partial {
-                messages,
                 last_updated_at,
                 last_seen,
                 ..
             }
             | History::Full {
-                messages,
                 last_updated_at,
                 last_seen,
                 ..
@@ -511,8 +521,19 @@ impl History {
                 *last_updated_at = Some(Instant::now());
 
                 update_last_seen(last_seen, &message);
+            }
+        }
 
-                insert_message(messages, message)
+        match self {
+            History::Partial {
+                pending_messages, ..
+            } => {
+                pending_messages.push((message, labeled_response_context));
+
+                None
+            }
+            History::Full { messages, .. } => {
+                insert_message(messages, message, labeled_response_context)
             }
         }
     }
@@ -523,8 +544,16 @@ impl History {
         hash: message::Hash,
     ) -> Option<Message> {
         match self {
-            History::Partial { messages, .. }
-            | History::Full { messages, .. } => {
+            History::Partial {
+                pending_messages, ..
+            } => pending_messages
+                .iter()
+                .position(|(message, _)| message.hash == hash)
+                .map(|index| {
+                    let (message, _) = pending_messages.remove(index);
+                    message
+                }),
+            History::Full { messages, .. } => {
                 if messages.is_empty() {
                     return None;
                 }
@@ -549,12 +578,10 @@ impl History {
 
                 messages[start_index..end_index]
                     .iter()
-                    .enumerate()
-                    .find_map(|(slice_index, message)| {
-                        (message.hash == hash)
-                            .then_some(start_index + slice_index)
+                    .position(|message| message.hash == hash)
+                    .map(|slice_index| {
+                        messages.remove(start_index + slice_index)
                     })
-                    .map(|index| messages.remove(index))
             }
         }
     }
@@ -568,8 +595,8 @@ impl History {
         config: &config::buffer::Condensation,
     ) -> Vec<&mut Message> {
         match self {
-            History::Partial { messages, .. }
-            | History::Full { messages, .. } => {
+            History::Partial { .. } => vec![],
+            History::Full { messages, .. } => {
                 if messages.is_empty() {
                     return vec![];
                 }
@@ -636,7 +663,7 @@ impl History {
         match self {
             History::Partial {
                 kind,
-                messages,
+                pending_messages,
                 last_updated_at,
                 read_marker,
                 chathistory_references,
@@ -650,7 +677,7 @@ impl History {
                     })
                 {
                     let kind = kind.clone();
-                    let messages = std::mem::take(messages);
+                    let pending_messages = std::mem::take(pending_messages);
                     let read_marker = *read_marker;
                     let chathistory_references = chathistory_references.clone();
                     let pending_reactions = std::mem::take(pending_reactions);
@@ -662,7 +689,7 @@ impl History {
                             append(
                                 &kind,
                                 seed,
-                                messages,
+                                pending_messages,
                                 read_marker,
                                 chathistory_references,
                                 pending_reactions,
@@ -750,7 +777,7 @@ impl History {
                     self,
                     Self::Partial {
                         kind,
-                        messages: vec![],
+                        pending_messages: vec![],
                         last_updated_at: None,
                         read_marker,
                         max_triggers_unread,
@@ -762,20 +789,18 @@ impl History {
                     },
                 );
 
-                let (kind, messages) = match full_history {
-                    History::Partial { kind, messages, .. }
-                    | History::Full { kind, messages, .. } => (kind, messages),
-                };
-
-                Some(async move {
-                    overwrite(
-                        &kind,
-                        &messages,
-                        read_marker,
-                        chathistory_references,
-                    )
-                    .await
-                })
+                match full_history {
+                    History::Partial { .. } => None,
+                    History::Full { kind, messages, .. } => Some(async move {
+                        overwrite(
+                            &kind,
+                            &messages,
+                            read_marker,
+                            chathistory_references,
+                        )
+                        .await
+                    }),
+                }
             }
         }
     }
@@ -784,7 +809,7 @@ impl History {
         match self {
             History::Partial {
                 kind,
-                messages,
+                pending_messages,
                 read_marker,
                 chathistory_references,
                 pending_reactions,
@@ -793,7 +818,7 @@ impl History {
                 append(
                     &kind,
                     seed,
-                    messages,
+                    pending_messages,
                     read_marker,
                     chathistory_references,
                     pending_reactions,
@@ -854,12 +879,18 @@ impl History {
     }
 
     pub fn first_can_reference(&self) -> Option<&Message> {
+        let can_reference = |message: &Message| {
+            message.can_reference() && !message.is_rerouted()
+        };
+
         match self {
-            History::Partial { messages, .. }
-            | History::Full { messages, .. } => {
-                messages.iter().find(|message| {
-                    message.can_reference() && !message.is_rerouted()
-                })
+            History::Partial {
+                pending_messages, ..
+            } => pending_messages.iter().find_map(|(message, _)| {
+                can_reference(message).then_some(message)
+            }),
+            History::Full { messages, .. } => {
+                messages.iter().find(|message| can_reference(message))
             }
         }
     }
@@ -868,39 +899,44 @@ impl History {
         &self,
         server_time: DateTime<Utc>,
     ) -> Option<MessageReferences> {
-        let (messages, chathistory_references) = match self {
+        let can_reference = |message: &Message| {
+            message.can_reference()
+                && !message.is_rerouted()
+                && message.server_time < server_time
+        };
+
+        let (message, chathistory_references) = match self {
             History::Partial {
-                messages,
+                pending_messages,
                 chathistory_references,
                 ..
-            } => (messages, chathistory_references),
+            } => (
+                pending_messages.iter().rev().find_map(|(message, _)| {
+                    can_reference(message).then_some(message)
+                }),
+                chathistory_references,
+            ),
             History::Full {
                 messages,
                 chathistory_references,
                 ..
-            } => (messages, chathistory_references),
+            } => (
+                messages.iter().rev().find(|message| can_reference(message)),
+                chathistory_references,
+            ),
         };
 
-        messages
-            .iter()
-            .rev()
-            .find(|message| {
-                message.can_reference()
-                    && !message.is_rerouted()
-                    && message.server_time < server_time
-            })
-            .map(Message::references)
-            .max(
-                if chathistory_references.as_ref().is_some_and(
-                    |chathistory_references| {
-                        chathistory_references.timestamp < server_time
-                    },
-                ) {
-                    chathistory_references.clone()
-                } else {
-                    None
+        message.map(Message::references).max(
+            if chathistory_references.as_ref().is_some_and(
+                |chathistory_references| {
+                    chathistory_references.timestamp < server_time
                 },
-            )
+            ) {
+                chathistory_references.clone()
+            } else {
+                None
+            },
+        )
     }
 
     pub fn update_chathistory_references(
@@ -1020,15 +1056,15 @@ impl History {
     ) {
         match self {
             History::Partial {
-                messages,
+                pending_messages,
                 last_updated_at,
                 pending_reactions,
                 ..
             } => {
-                if let Some(message) = messages
-                    .iter_mut()
-                    .rev()
-                    .find(|m| m.id.as_deref() == Some(&*id))
+                if let Some(message) =
+                    pending_messages.iter_mut().rev().find_map(|(m, _)| {
+                        (m.id.as_deref() == Some(&*id)).then_some(m)
+                    })
                 {
                     message.reactions.push(reaction);
                 } else {
@@ -1040,6 +1076,7 @@ impl History {
                         (pending.server_time).min(server_time);
                     pending.reactions.push(reaction);
                 }
+
                 *last_updated_at = Some(Instant::now());
             }
             History::Full {
@@ -1065,6 +1102,20 @@ impl History {
             | History::Full { last_seen, .. } => last_seen.clone(),
         }
     }
+
+    pub fn renormalize_messages(&mut self, seed: Seed) {
+        match self {
+            History::Full { messages, .. } => {
+                renormalize_messages(messages.iter_mut(), seed);
+            }
+            History::Partial {
+                pending_messages, ..
+            } => renormalize_messages(
+                pending_messages.iter_mut().map(|(message, _)| message),
+                seed,
+            ),
+        }
+    }
 }
 
 /// Insert the incoming message into the provided vector, sorted
@@ -1080,20 +1131,61 @@ impl History {
 pub fn insert_message(
     messages: &mut Vec<Message>,
     message: Message,
+    labeled_response_context: Option<LabeledResponseContext>,
 ) -> Option<ReadMarker> {
-    let fuzz_seconds =
-        if matches!(message.direction, message::Direction::Received)
-            && message.is_echo
-        {
-            chrono::Duration::seconds(300)
-        } else {
-            chrono::Duration::seconds(1)
-        };
-
     if messages.is_empty() {
         messages.push(message);
 
         return None;
+    }
+
+    let message_is_unlabeled_echo =
+        matches!(message.direction, message::Direction::Received)
+            && message.is_echo
+            && labeled_response_context.is_none();
+
+    let fuzz_seconds = if message_is_unlabeled_echo {
+        chrono::Duration::seconds(300)
+    } else {
+        chrono::Duration::seconds(1)
+    };
+
+    let mut read_marker = None;
+
+    if let Some(labeled_response_context) = &labeled_response_context {
+        let start = labeled_response_context.server_time - fuzz_seconds;
+        let end = labeled_response_context.server_time + fuzz_seconds;
+
+        let start_index = match messages
+            .binary_search_by(|stored| stored.server_time.cmp(&start))
+        {
+            Ok(match_index) => match_index,
+            Err(sorted_insert_index) => sorted_insert_index,
+        };
+        let end_index = match messages
+            .binary_search_by(|stored| stored.server_time.cmp(&end))
+        {
+            Ok(match_index) => match_index,
+            Err(sorted_insert_index) => sorted_insert_index,
+        };
+
+        if let Some(index) = messages[start_index..end_index]
+            .iter()
+            .enumerate()
+            .find_map(|(slice_index, message)| {
+                message
+                    .id
+                    .as_ref()
+                    .is_some_and(|id| {
+                        *id == labeled_response_context.label_as_id
+                    })
+                    .then_some(start_index + slice_index)
+            })
+        {
+            messages.remove(index);
+
+            read_marker = Some(ReadMarker::from(&message));
+        }
     }
 
     let start = message.server_time - fuzz_seconds;
@@ -1117,21 +1209,19 @@ pub fn insert_message(
     let mut replace_at = None;
 
     for stored in &messages[start_index..end_index] {
-        if replace_at.is_none() {
+        if replace_at.is_none() && labeled_response_context.is_none() {
             let use_echo_cmp =
                 matches!(stored.direction, message::Direction::Sent)
-                    && matches!(
-                        message.direction,
-                        message::Direction::Received
-                    )
-                    && message.is_echo;
+                    && message_is_unlabeled_echo;
 
-            if (message.id.is_some() && stored.id == message.id)
-                || (((message.id.is_none()
-                    && stored.id.is_none()
+            let check_for_matching_content = stored.id.is_none()
+                && ((message.id.is_none()
                     && message.deduplicate
                     && stored.server_time == message.server_time)
-                    || use_echo_cmp)
+                    || use_echo_cmp);
+
+            if (message.id.is_some() && stored.id == message.id)
+                || (check_for_matching_content
                     && has_matching_content(stored, &message, use_echo_cmp))
             {
                 replace_at = Some(current_index);
@@ -1155,21 +1245,10 @@ pub fn insert_message(
             } else {
                 messages[index] = message;
             }
-
-            None
         } else {
-            let read_marker = if matches!(
-                messages[index].direction,
-                message::Direction::Sent
-            ) && matches!(
-                message.direction,
-                message::Direction::Received
-            ) && message.is_echo
-            {
-                Some(ReadMarker::from(&message))
-            } else {
-                None
-            };
+            if message_is_unlabeled_echo {
+                read_marker = Some(ReadMarker::from(&message));
+            }
 
             match insert_at.cmp(&index) {
                 Ordering::Less => {
@@ -1182,14 +1261,12 @@ pub fn insert_message(
                     messages.remove(index);
                 }
             }
-
-            read_marker
         }
     } else {
         messages.insert(insert_at, message);
-
-        None
     }
+
+    read_marker
 }
 
 /// The content of JOIN, PART, and QUIT messages may be dependent on how

@@ -3,6 +3,7 @@ use std::str::FromStr;
 use std::string::ToString;
 use std::sync::LazyLock;
 
+use chrono::{DateTime, Utc};
 use irc::proto::{self, Tags, command, format};
 
 use crate::message::formatting::{Modifier, update_formatting_with_modifier};
@@ -404,5 +405,21 @@ impl Capabilities {
 
     pub fn contains_multiline_limits(&self) -> bool {
         self.multiline_limits().is_some()
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct LabeledResponseContext {
+    pub label_as_id: message::Id,
+    pub server_time: DateTime<Utc>,
+}
+
+impl LabeledResponseContext {
+    pub fn new(message: &message::Encoded, label: &str) -> Self {
+        Self {
+            // Prefix ':' to ensure it cannot match any valid message id
+            label_as_id: format!(":label={label}").into(),
+            server_time: message.server_time_or_now(),
+        }
     }
 }
