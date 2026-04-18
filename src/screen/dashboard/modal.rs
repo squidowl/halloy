@@ -1,4 +1,5 @@
 pub mod reaction;
+pub mod redaction;
 
 use std::borrow::Cow;
 
@@ -10,11 +11,13 @@ use crate::widget::Element;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Modal {
     AddReaction(reaction::State),
+    RedactReason(redaction::State),
 }
 
 #[derive(Debug, Clone)]
 pub enum Message {
     Reaction(reaction::Message),
+    Redaction(redaction::Message),
 }
 
 #[derive(Debug, Clone)]
@@ -23,6 +26,10 @@ pub enum Event {
         msgid: message::Id,
         text: Cow<'static, str>,
         unreact: bool,
+    },
+    RedactReason {
+        msgid: message::Id,
+        reason: String,
     },
 }
 
@@ -42,6 +49,12 @@ impl Modal {
                     },
                 )
             }
+            (Modal::RedactReason(state), Message::Redaction(reason)) => state
+                .update(reason)
+                .map(|redaction::Event::RedactReason { msgid, reason }| {
+                    Event::RedactReason { msgid, reason }
+                }),
+            _ => None,
         }
     }
 
@@ -50,12 +63,16 @@ impl Modal {
             Modal::AddReaction(state) => {
                 reaction::view(state, config).map(Message::Reaction)
             }
+            Modal::RedactReason(state) => {
+                redaction::view(state, config).map(Message::Redaction)
+            }
         }
     }
 
     pub fn focus(&self) -> Task<Message> {
         match self {
             Modal::AddReaction(state) => state.focus().map(Message::Reaction),
+            Modal::RedactReason(state) => state.focus().map(Message::Redaction),
         }
     }
 }
