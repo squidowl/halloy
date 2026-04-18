@@ -11,6 +11,7 @@ pub struct TextInput {
     pub autocomplete: Autocomplete,
     pub nickname: Nickname,
     pub key_bindings: KeyBindings,
+    pub kill_to_clipboard: bool,
     #[serde(deserialize_with = "deserialize_usize_positive_integer")]
     pub max_lines: usize,
     pub send_line_delay: u64,
@@ -25,6 +26,7 @@ impl Default for TextInput {
             autocomplete: Autocomplete::default(),
             nickname: Nickname::default(),
             key_bindings: KeyBindings::default(),
+            kill_to_clipboard: true,
             max_lines: 5,
             send_line_delay: 100,
             persist: true,

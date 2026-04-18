@@ -1315,7 +1315,9 @@ impl State {
                     text_editor::Motion::WordLeft,
                 ));
 
-                let task = if save_to_clipboard {
+                let task = if save_to_clipboard
+                    && config.buffer.text_input.kill_to_clipboard
+                {
                     self.input_content.selection().map_or_else(
                         Task::none,
                         |selection| {
@@ -1339,7 +1341,9 @@ impl State {
                     text_editor::Motion::WordRight,
                 ));
 
-                let task = if save_to_clipboard {
+                let task = if save_to_clipboard
+                    && config.buffer.text_input.kill_to_clipboard
+                {
                     self.input_content.selection().map_or_else(
                         Task::none,
                         |selection| {
@@ -1363,7 +1367,9 @@ impl State {
                     text_editor::Motion::End,
                 ));
 
-                let task = if save_to_clipboard {
+                let task = if save_to_clipboard
+                    && config.buffer.text_input.kill_to_clipboard
+                {
                     self.input_content.selection().map_or_else(
                         Task::none,
                         |selection| {
@@ -1386,7 +1392,9 @@ impl State {
                     text_editor::Motion::Home,
                 ));
 
-                let task = if save_to_clipboard {
+                let task = if save_to_clipboard
+                    && config.buffer.text_input.kill_to_clipboard
+                {
                     self.input_content.selection().map_or_else(
                         Task::none,
                         |selection| {
