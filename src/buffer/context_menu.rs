@@ -92,6 +92,7 @@ impl Entry {
     pub fn url_list(
         preview_hidden: Option<bool>,
         can_send_reactions: bool,
+        can_redact: bool,
     ) -> Vec<Self> {
         let mut entries = vec![Entry::CopyUrl, Entry::OpenUrl];
 
@@ -104,9 +105,16 @@ impl Entry {
             });
         }
 
-        if can_send_reactions {
+        if can_send_reactions || can_redact {
             entries.push(Entry::HorizontalRule);
+        }
+
+        if can_send_reactions {
             entries.push(Entry::AddReaction);
+        }
+
+        if can_redact {
+            entries.push(Entry::Redact);
         }
 
         entries
@@ -507,6 +515,9 @@ impl Entry {
             (
                 Entry::Redact,
                 Context::Message {
+                    msgid: Some(msgid), ..
+                }
+                | Context::Url {
                     msgid: Some(msgid), ..
                 },
             ) => menu_button(

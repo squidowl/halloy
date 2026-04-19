@@ -109,6 +109,7 @@ impl<'a> ChannelQueryLayout<'a> {
             message::Link::Url(url) => context_menu::Entry::url_list(
                 self.preview_hidden_for_url(message, url),
                 self.can_send_reactions,
+                self.can_redact_message(message),
             ),
             _ => {
                 if self.can_send_reactions {
