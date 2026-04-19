@@ -412,13 +412,23 @@ impl<'a> ChannelQueryLayout<'a> {
         let nick_text =
             self.config.buffer.nickname.brackets.format(user_display);
 
+        let is_bot =
+            user_in_channel.map_or_else(|| user.is_bot(), User::is_bot);
+
         let nick_element: Element<_> = if hide_nickname {
             let width = match self.config.buffer.nickname.alignment {
                 data::buffer::Alignment::Left
-                | data::buffer::Alignment::Top => font::width_from_chars(
-                    nick_text.chars().count(),
-                    &self.config.font,
-                ),
+                | data::buffer::Alignment::Top => {
+                    let base = font::width_from_chars(
+                        nick_text.chars().count(),
+                        &self.config.font,
+                    );
+                    if is_bot && self.config.buffer.nickname.show_bot_icon {
+                        base + theme::ICON_SIZE + 2.0
+                    } else {
+                        base
+                    }
+                }
                 data::buffer::Alignment::Right => {
                     right_aligned_width.unwrap_or_default()
                 }
@@ -432,12 +442,14 @@ impl<'a> ChannelQueryLayout<'a> {
                         .map(font::get),
                 );
 
-            if let Some(width) = right_aligned_width {
+            if let Some(width) = right_aligned_width
+                && !(is_bot && self.config.buffer.nickname.show_bot_icon)
+            {
                 nick_text =
                     nick_text.width(width).align_x(text::Alignment::Right);
             }
 
-            tooltip(
+            let nick_with_ctx = tooltip(
                 if rerouted_private && !is_ourself {
                     context_menu::rerouted_private_user(
                         nick_text,
@@ -467,7 +479,37 @@ impl<'a> ChannelQueryLayout<'a> {
                 show_nickname_tooltip.then_some(user.as_str()),
                 tooltip::Position::Bottom,
                 self.theme,
-            )
+            );
+
+            if is_bot && self.config.buffer.nickname.show_bot_icon {
+                let nick_color = nickname_style.color;
+                let bot_tooltip =
+                    format!("{} has marked itself as a bot", user.nickname());
+                let bot_row = row![
+                    nick_with_ctx,
+                    tooltip(
+                        icon::robot().style(move |_| {
+                            iced::widget::text::Style { color: nick_color }
+                        }),
+                        Some(bot_tooltip),
+                        tooltip::Position::Top,
+                        self.theme,
+                    ),
+                ]
+                .align_y(iced::Alignment::Center)
+                .spacing(2);
+
+                if let Some(width) = right_aligned_width {
+                    container(bot_row)
+                        .width(Length::Fixed(width))
+                        .align_x(alignment::Horizontal::Right)
+                        .into()
+                } else {
+                    bot_row.into()
+                }
+            } else {
+                nick_with_ctx
+            }
         };
 
         let formatter = *self;

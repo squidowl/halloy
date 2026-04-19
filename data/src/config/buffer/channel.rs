@@ -58,6 +58,7 @@ pub struct Nicklist {
     pub width: Option<f32>,
     pub alignment: Alignment,
     pub show_access_levels: AccessLevelFormat,
+    pub show_bot_icon: bool,
     pub click: NicknameClickAction,
 }
 
@@ -69,6 +70,7 @@ impl Default for Nicklist {
             width: None,
             alignment: Alignment::default(),
             show_access_levels: AccessLevelFormat::default(),
+            show_bot_icon: true,
             click: NicknameClickAction::default(),
         }
     }

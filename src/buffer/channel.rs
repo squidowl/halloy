@@ -556,11 +556,11 @@ mod nick_list {
     use data::{Config, Server, User, config, isupport, target};
     use iced::Length;
     use iced::advanced::text;
-    use iced::widget::{Scrollable, column, scrollable};
+    use iced::widget::{Scrollable, column, row, scrollable};
 
     use crate::buffer::context_menu;
-    use crate::widget::{Element, selectable_text};
-    use crate::{Theme, font, theme};
+    use crate::widget::{Element, selectable_text, tooltip};
+    use crate::{Theme, font, icon, theme};
 
     pub fn view<'a>(
         server: &'a Server,
@@ -572,6 +572,7 @@ mod nick_list {
         theme: &'a Theme,
     ) -> Element<'a, Message> {
         let nicklist_config = &config.buffer.channel.nicklist;
+        let truncate = config.buffer.nickname.truncate;
 
         let width = match nicklist_config.width {
             Some(width) => width,
@@ -580,9 +581,12 @@ mod nick_list {
                     .into_iter()
                     .flatten()
                     .map(|user| {
-                        user.display(nicklist_config.show_access_levels, None)
-                            .chars()
-                            .count()
+                        user.display(
+                            nicklist_config.show_access_levels,
+                            truncate,
+                        )
+                        .chars()
+                        .count()
                     })
                     .max()
                     .unwrap_or_default();
@@ -591,10 +595,26 @@ mod nick_list {
             }
         };
 
+        let bot_nick_max_chars = if nicklist_config.show_bot_icon {
+            let char_width = font::width_from_chars(1, &config.font);
+            let available = width - theme::ICON_SIZE - 2.0;
+            let px_max = (available / char_width).floor() as u16;
+            Some(truncate.map_or(px_max, |t| t.min(px_max)))
+        } else {
+            None
+        };
+
         let content = column(users.into_iter().flatten().map(|user| {
-            let content = selectable_text(
-                user.display(nicklist_config.show_access_levels, None),
-            )
+            let show_bot_icon = user.is_bot() && nicklist_config.show_bot_icon;
+
+            let nick = selectable_text(user.display(
+                nicklist_config.show_access_levels,
+                if show_bot_icon {
+                    bot_nick_max_chars
+                } else {
+                    truncate
+                },
+            ))
             .font_maybe(
                 theme::font_style::nickname(theme, false).map(font::get),
             )
@@ -609,7 +629,40 @@ mod nick_list {
                     text::Alignment::Right
                 }
             })
-            .width(Length::Fixed(width));
+            .width(
+                match (show_bot_icon, nicklist_config.alignment) {
+                    (true, config::buffer::channel::Alignment::Left) => {
+                        Length::Shrink
+                    }
+                    (true, config::buffer::channel::Alignment::Right) => {
+                        Length::Fixed(width - theme::ICON_SIZE - 2.0)
+                    }
+                    (false, _) => Length::Fixed(width),
+                },
+            );
+
+            let content: Element<_> = if show_bot_icon {
+                let nick_color = theme::selectable_text::nicklist_nickname(
+                    theme, config, user,
+                )
+                .color;
+                let bot_tooltip =
+                    format!("{} has marked itself as a bot", user.nickname());
+                let bot_icon = tooltip(
+                    icon::robot().style(move |_| iced::widget::text::Style {
+                        color: nick_color,
+                    }),
+                    Some(bot_tooltip),
+                    tooltip::Position::Top,
+                    theme,
+                );
+                row![nick, bot_icon]
+                    .align_y(iced::Alignment::Center)
+                    .spacing(2)
+                    .into()
+            } else {
+                nick.into()
+            };
 
             context_menu::user(
                 content,
