@@ -1,13 +1,21 @@
 use chrono::{DateTime, Utc};
 use irc::proto::Command;
+use serde::{Deserialize, Serialize};
 
 use crate::isupport;
 use crate::message::{Encoded, Id};
 use crate::target::Target;
 use crate::user::Nick;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Redaction {
+    pub from: Nick,
+    pub reason: Option<String>,
+}
+
+#[derive(Debug)]
+pub struct Context {
+    pub inner: Redaction,
     pub target: Target,
     pub id: Id,
     pub server_time: DateTime<Utc>,
@@ -20,11 +28,11 @@ impl Redaction {
         chantypes: &[char],
         statusmsg: &[char],
         casemapping: isupport::CaseMap,
-    ) -> Option<Self> {
+    ) -> Option<Context> {
         let user = message.user(casemapping)?;
         let server_time = message.server_time_or_now();
 
-        let Command::REDACT(target, msgid, _) = message.0.command else {
+        let Command::REDACT(target, msgid, reason) = message.0.command else {
             return None;
         };
 
@@ -37,7 +45,11 @@ impl Redaction {
 
         let id = Id::from(msgid.as_str());
 
-        Some(Self {
+        Some(Context {
+            inner: Redaction {
+                from: Nick::from(user),
+                reason,
+            },
             target,
             id,
             server_time,
@@ -47,11 +59,15 @@ impl Redaction {
 
 #[derive(Debug)]
 pub struct Pending {
+    pub redaction: Redaction,
     pub server_time: DateTime<Utc>,
 }
 
 impl Pending {
-    pub fn new(server_time: DateTime<Utc>) -> Self {
-        Self { server_time }
+    pub fn new(redaction: Redaction, server_time: DateTime<Utc>) -> Self {
+        Self {
+            redaction,
+            server_time,
+        }
     }
 }

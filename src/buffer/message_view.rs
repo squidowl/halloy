@@ -120,6 +120,16 @@ impl<'a> ChannelQueryLayout<'a> {
         }
     }
 
+    fn can_redact_message(&self, message: &data::Message) -> bool {
+        // Gate on message-redaction capability first.
+        if !self.can_redact {
+            return false;
+        }
+
+        // A message can only be redacted once.
+        message.redaction.is_none()
+    }
+
     fn condensation_marker(
         &self,
         expanded: bool,
@@ -367,7 +377,7 @@ impl<'a> ChannelQueryLayout<'a> {
     ) {
         let not_sent_row = self.not_sent_row(message);
 
-        let dimmed = (not_sent_row.is_some() || message.redacted)
+        let dimmed = (not_sent_row.is_some() || message.redaction.is_some())
             .then_some(Dimmed::new(None));
         let dimmed_background_tuple = dimmed
             .map(|dimmed| (dimmed, self.theme.styles().buffer.background));
@@ -1088,7 +1098,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
             message.id.as_ref(),
             selected_reaction_texts,
             self.can_send_reactions,
-            self.can_redact,
+            self.can_redact_message(message),
             &message.content,
             self.config,
             self.theme,

@@ -14,6 +14,7 @@ pub use self::manager::{Manager, ReactionToEcho, Resource};
 pub use self::metadata::{Metadata, ReadMarker};
 use crate::capabilities::LabeledResponseContext;
 use crate::message::{self, Direction, MessageReferences, Source};
+use crate::redaction::Redaction;
 use crate::target::{self, Target};
 use crate::user::Nick;
 use crate::{
@@ -317,7 +318,7 @@ pub async fn append(
         if let Some(message) =
             find_message_target(&mut all_messages, &id, &pending.server_time)
         {
-            message.redacted = true;
+            message.redaction = Some(pending.redaction);
         }
     }
 
@@ -1187,6 +1188,7 @@ impl History {
     pub fn redact_message(
         &mut self,
         id: message::Id,
+        redaction: Redaction,
         server_time: DateTime<Utc>,
     ) {
         match self {
@@ -1201,11 +1203,11 @@ impl History {
                         (m.id.as_deref() == Some(&*id)).then_some(m)
                     })
                 {
-                    message.redacted = true;
+                    message.redaction = Some(redaction);
                 } else {
-                    let pending = pending_redactions
-                        .entry(id)
-                        .or_insert(redaction::Pending::new(server_time));
+                    let pending = pending_redactions.entry(id).or_insert(
+                        redaction::Pending::new(redaction, server_time),
+                    );
 
                     pending.server_time =
                         (pending.server_time).min(server_time);
@@ -1223,7 +1225,7 @@ impl History {
                 else {
                     return;
                 };
-                message.redacted = true;
+                message.redaction = Some(redaction);
 
                 *last_updated_at = Some(Instant::now());
             }

@@ -26,6 +26,7 @@ use crate::config::{self, Highlights};
 use crate::history::reroute::RerouteRules;
 use crate::log::Level;
 use crate::reaction::Reaction;
+use crate::redaction::Redaction;
 use crate::serde::fail_as_none;
 use crate::server::Server;
 use crate::target::join_targets;
@@ -302,7 +303,7 @@ pub struct Message {
     pub reactions: Vec<Reaction>,
     pub rerouted_from: Option<Target>,
     pub deduplicate: bool,
-    pub redacted: bool,
+    pub redaction: Option<Redaction>,
 }
 
 impl Message {
@@ -445,7 +446,7 @@ impl Message {
             reactions: vec![],
             rerouted_from,
             deduplicate,
-            redacted: false,
+            redaction: None,
         })
     }
 
@@ -511,7 +512,7 @@ impl Message {
             reactions: vec![],
             rerouted_from,
             deduplicate,
-            redacted: false,
+            redaction: None,
         };
 
         let highlight = highlight.and_then(|kind| {
@@ -581,7 +582,7 @@ impl Message {
             reactions: vec![],
             rerouted_from: None,
             deduplicate: false,
-            redacted: false,
+            redaction: None,
         }
     }
 
@@ -618,7 +619,7 @@ impl Message {
             reactions: vec![],
             rerouted_from: None,
             deduplicate: false,
-            redacted: false,
+            redaction: None,
         }
     }
 
@@ -653,7 +654,7 @@ impl Message {
             reactions: vec![],
             rerouted_from: None,
             deduplicate: false,
-            redacted: false,
+            redaction: None,
         }
     }
 
@@ -743,7 +744,7 @@ impl Message {
             reactions: vec![],
             rerouted_from: None,
             deduplicate: false,
-            redacted: false,
+            redaction: None,
         }
     }
 
@@ -792,8 +793,7 @@ impl Serialize for Message {
             #[serde(skip_serializing_if = "<[_]>::is_empty")]
             reactions: &'a [Reaction],
             rerouted_from: &'a Option<Target>,
-            #[serde(skip_serializing_if = "std::ops::Not::not")]
-            redacted: bool,
+            redaction: &'a Option<Redaction>,
         }
 
         Data {
@@ -809,7 +809,7 @@ impl Serialize for Message {
             command: &self.command,
             reactions: &self.reactions,
             rerouted_from: &self.rerouted_from,
-            redacted: self.redacted,
+            redaction: &self.redaction,
         }
         .serialize(serializer)
     }
@@ -843,8 +843,8 @@ impl<'de> Deserialize<'de> for Message {
             reactions: Vec<Reaction>,
             #[serde(default, deserialize_with = "fail_as_none")]
             rerouted_from: Option<Target>,
-            #[serde(default)]
-            redacted: bool,
+            #[serde(default, deserialize_with = "fail_as_none")]
+            redaction: Option<Redaction>,
         }
 
         let Data {
@@ -860,7 +860,7 @@ impl<'de> Deserialize<'de> for Message {
             command,
             reactions,
             rerouted_from,
-            redacted,
+            redaction,
         } = Data::deserialize(deserializer)?;
 
         let content = if let Some(content) = content {
@@ -894,7 +894,7 @@ impl<'de> Deserialize<'de> for Message {
             reactions,
             rerouted_from,
             deduplicate: false,
-            redacted,
+            redaction,
         })
     }
 }
@@ -1088,7 +1088,7 @@ pub fn condense(
             reactions: vec![],
             rerouted_from: None,
             deduplicate: false,
-            redacted: false,
+            redaction: None,
         }))
     } else {
         None
