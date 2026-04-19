@@ -584,44 +584,65 @@ impl<'a> ChannelQueryLayout<'a> {
             }
         });
 
-        let message_content = message_content::with_context(
-            &message.content,
-            self.server,
-            self.chantypes,
-            self.casemapping,
-            self.theme,
-            Message::Link,
-            None,
-            message_style,
-            theme::font_style::primary,
-            color_transformation,
-            move |link| match link {
-                message::Link::User(_, _) => {
-                    if rerouted_private && !is_ourself {
-                        vec![context_menu::Entry::Whois]
-                    } else {
-                        context_menu::Entry::user_list(
-                            formatter.target.is_channel(),
-                            user_in_channel,
-                            formatter.target.our_user(),
-                            formatter.config.file_transfer.enabled,
-                        )
+        let redaction_tooltip = if let Some(redaction) =
+            message.redaction.as_ref()
+        {
+            match &redaction.reason {
+                Some(reason) => Some(format!(
+                    "Message redacted by {}: {reason}",
+                    redaction.from
+                )),
+                None => Some(format!("Message redacted by {}", redaction.from)),
+            }
+        } else {
+            None
+        };
+
+        let message_content = tooltip(
+            message_content::with_context(
+                &message.content,
+                self.server,
+                self.chantypes,
+                self.casemapping,
+                self.theme,
+                Message::Link,
+                None,
+                message_style,
+                theme::font_style::primary,
+                color_transformation,
+                move |link| match link {
+                    message::Link::User(_, _) => {
+                        if rerouted_private && !is_ourself {
+                            vec![context_menu::Entry::Whois]
+                        } else {
+                            context_menu::Entry::user_list(
+                                formatter.target.is_channel(),
+                                user_in_channel,
+                                formatter.target.our_user(),
+                                formatter.config.file_transfer.enabled,
+                            )
+                        }
                     }
-                }
-                message::Link::Url(_) => formatter.url_entries(message, link),
-                _ => vec![],
-            },
-            move |link, entry, length| {
-                entry
-                    .view(
-                        formatter.link_context(message, link),
-                        length,
-                        formatter.config,
-                        formatter.theme,
-                    )
-                    .map(Message::ContextMenu)
-            },
-            self.config,
+                    message::Link::Url(_) => {
+                        formatter.url_entries(message, link)
+                    }
+                    _ => vec![],
+                },
+                move |link, entry, length| {
+                    entry
+                        .view(
+                            formatter.link_context(message, link),
+                            length,
+                            formatter.config,
+                            formatter.theme,
+                        )
+                        .map(Message::ContextMenu)
+                },
+                self.config,
+            ),
+            redaction_tooltip,
+            tooltip::Position::Top,
+            self.theme,
         );
 
         let after_content =
