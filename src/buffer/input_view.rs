@@ -2693,19 +2693,15 @@ impl State {
 
     fn set_notice(&mut self, line: usize) {
         match self.parsed.get(line) {
-            Some(Err(error)) =>
-            {
-                #[allow(clippy::collapsible_match)]
-                if show_while_typing(error) {
-                    self.notice = Some(Notice::Error(error.to_string()));
-                }
+            Some(Err(error)) if show_while_typing(error) => {
+                self.notice = Some(Notice::Error(error.to_string()));
             }
             Some(Ok(parsed)) => {
                 if let Some(warning) = parsed.warning() {
                     self.notice = Some(Notice::Warning(warning.to_string()));
                 }
             }
-            None => (),
+            _ => (),
         }
     }
 }
