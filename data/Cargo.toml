@@ -74,6 +74,7 @@ mime_guess = "2.0.5"
 any_ascii = "0.3.3"
 idna = "1.1.0"
 unicode-security = "0.1.2"
+mlua = { version = "0.11.4", features = ["lua54", "vendored", "send"] }
 
 [dev-dependencies]
 serde_test = "1.0"
