@@ -705,15 +705,28 @@ impl Commands {
                     }))
                 };
 
+                let description = highlighted.and_then(|index| {
+                    filtered.get(index).map(|(_, command)| {
+                        command.view(input, None, server, config, theme)
+                    })
+                });
+
                 (!entries.is_empty()).then(|| {
                     let first_pass = content(Length::Shrink);
                     let second_pass = content(Length::Fill);
 
-                    container(double_pass(first_pass, second_pass))
-                        .padding(4)
-                        .style(theme::container::tooltip)
-                        .width(Length::Shrink)
-                        .into()
+                    let picker =
+                        container(double_pass(first_pass, second_pass))
+                            .padding(4)
+                            .style(theme::container::tooltip)
+                            .width(Length::Shrink)
+                            .into();
+
+                    if let Some(description) = description {
+                        column![picker, description].spacing(4).into()
+                    } else {
+                        picker
+                    }
                 })
             }
             Self::Selected {
