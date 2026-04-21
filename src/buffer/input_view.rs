@@ -1599,19 +1599,23 @@ impl State {
 
         // if the ghost would be inserted directly adjacent to a word,
         // pad it with a space so it doesn't run into surrounding text.
-        let prefix = if cursor_char > 0 {
-            let ch = content.chars().nth(cursor_char - 1);
-            if ch.is_some_and(|c| !c.is_whitespace()) {
-                " "
-            } else {
-                ""
-            }
+        let prefix = if self.input_content.cursor().selection.is_none()
+            && cursor_char > 0
+            && content
+                .chars()
+                .nth(cursor_char - 1)
+                .is_some_and(|c| !c.is_whitespace())
+        {
+            " "
         } else {
             ""
         };
 
-        let suffix = if let Some(ch) = content.chars().nth(cursor_char) {
-            if !ch.is_whitespace() { " " } else { "" }
+        let suffix = if self.input_content.cursor().selection.is_none()
+            && let Some(ch) = content.chars().nth(cursor_char)
+            && !ch.is_whitespace()
+        {
+            " "
         } else {
             ""
         };
@@ -1621,17 +1625,6 @@ impl State {
         self.input_content.perform(text_editor::Action::Edit(
             text_editor::Edit::Paste(std::sync::Arc::new(insert)),
         ));
-
-        // place the cursor at the end of the ghost so that adjust_char_pos
-        // considers it "inside" the ghost when the upload finishes,
-        // which ensures the cursor follows the replacement correctly.
-        self.input_content.move_to(text_editor::Cursor {
-            position: char_to_line_col(
-                &self.input_content.text(),
-                cursor_char + prefix.chars().count() + ghost.chars().count(),
-            ),
-            selection: None,
-        });
     }
 
     fn schedule_anim_tick() -> Task<Message> {
