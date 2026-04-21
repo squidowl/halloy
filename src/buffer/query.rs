@@ -1,5 +1,4 @@
 use std::path::PathBuf;
-use std::time::Instant;
 
 use chrono::{DateTime, Utc};
 use data::dashboard::BufferAction;
@@ -56,6 +55,7 @@ pub enum Event {
 
 pub fn view<'a>(
     state: &'a Query,
+    typing_animation: Option<&'a typing::Animation>,
     clients: &'a data::client::Map,
     history: &'a history::Manager,
     previews: &'a preview::Collection,
@@ -130,12 +130,7 @@ pub fn view<'a>(
     )
     .height(Length::Fill);
 
-    let typing = typing::view(
-        typing_text,
-        state.typing_animation.as_ref(),
-        config,
-        theme,
-    );
+    let typing = typing::view(typing_text, typing_animation, config, theme);
 
     let show_text_input = match config.buffer.text_input.visibility {
         data::config::buffer::text_input::Visibility::Focused => is_focused,
@@ -192,7 +187,6 @@ pub struct Query {
     pub target: target::Query,
     pub scroll_view: scroll_view::State,
     pub input_view: input_view::State,
-    typing_animation: Option<typing::Animation>,
 }
 
 impl Query {
@@ -213,7 +207,6 @@ impl Query {
             server,
             target,
             scroll_view: scroll_view::State::new(pane_size, config),
-            typing_animation: None,
         }
     }
 
@@ -406,14 +399,10 @@ impl Query {
         self.input_view.reset();
     }
 
-    pub fn tick(
-        &mut self,
-        now: Instant,
-        clients: &data::client::Map,
-        history: &history::Manager,
-    ) {
-        let is_typing = self.typing_text(clients, history).is_some();
-        typing::update(&mut self.typing_animation, is_typing, now);
+    pub fn has_typing_activity(&self, clients: &data::client::Map) -> bool {
+        clients.get_server_show_typing(&self.server)
+            && clients.get_server_supports_typing(&self.server)
+            && clients.has_query_typing_users(&self.server, &self.target)
     }
 
     fn typing_text(

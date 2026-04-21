@@ -1,5 +1,4 @@
 use std::path::PathBuf;
-use std::time::Instant;
 
 use chrono::{DateTime, Utc};
 use data::dashboard::BufferAction;
@@ -61,6 +60,7 @@ pub enum Event {
 
 pub fn view<'a>(
     state: &'a Channel,
+    typing_animation: Option<&'a typing::Animation>,
     clients: &'a data::client::Map,
     history: &'a history::Manager,
     previews: &'a preview::Collection,
@@ -172,12 +172,7 @@ pub fn view<'a>(
         data::config::buffer::text_input::Visibility::Always => true,
     };
 
-    let typing = typing::view(
-        typing_text,
-        state.typing_animation.as_ref(),
-        config,
-        theme,
-    );
+    let typing = typing::view(typing_text, typing_animation, config, theme);
 
     let filehost_url = clients.get_filehost(server);
 
@@ -243,7 +238,6 @@ pub struct Channel {
     pub target: target::Channel,
     pub scroll_view: scroll_view::State,
     pub input_view: input_view::State,
-    typing_animation: Option<typing::Animation>,
 }
 
 impl Channel {
@@ -264,7 +258,6 @@ impl Channel {
             server,
             target,
             scroll_view: scroll_view::State::new(pane_size, config),
-            typing_animation: None,
         }
     }
 
@@ -479,14 +472,10 @@ impl Channel {
         self.input_view.reset();
     }
 
-    pub fn tick(
-        &mut self,
-        now: Instant,
-        clients: &data::client::Map,
-        history: &history::Manager,
-    ) {
-        let is_typing = self.typing_text(clients, history).is_some();
-        typing::update(&mut self.typing_animation, is_typing, now);
+    pub fn has_typing_activity(&self, clients: &data::client::Map) -> bool {
+        clients.get_server_show_typing(&self.server)
+            && clients.get_server_supports_typing(&self.server)
+            && clients.has_channel_typing_users(&self.server, &self.target)
     }
 
     fn typing_text(

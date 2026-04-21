@@ -65,6 +65,7 @@ pub struct Dashboard {
     theme_editor: Option<ThemeEditor>,
     notifications: notification::Notifications,
     previews: preview::Collection,
+    typing_animation: Option<buffer::typing::Animation>,
     http_client: Option<Arc<reqwest::Client>>,
     buffer_settings: dashboard::BufferSettings,
     pub filehost: filehost::Manager,
@@ -146,6 +147,7 @@ impl Dashboard {
             theme_editor: None,
             notifications: notification::Notifications::new(config),
             previews: preview::Collection::default(),
+            typing_animation: None,
             http_client: http_client_from_config(config).map(Arc::new),
             buffer_settings: dashboard::BufferSettings::default(),
             filehost: filehost::Manager::new(),
@@ -1780,6 +1782,7 @@ impl Dashboard {
                         1,
                         is_focused,
                         false,
+                        self.typing_animation.as_ref(),
                         clients,
                         &self.file_transfers,
                         &self.history,
@@ -1839,6 +1842,7 @@ impl Dashboard {
                     panes,
                     is_focused,
                     maximized,
+                    self.typing_animation.as_ref(),
                     clients,
                     &self.file_transfers,
                     &self.history,
@@ -3783,6 +3787,10 @@ impl Dashboard {
         clients: &data::client::Map,
         config: &Config,
     ) -> Task<Message> {
+        if !self.has_typing_activity(clients) {
+            self.typing_animation = None;
+        }
+
         let history_ticks = Task::batch(
             self.history
                 .tick(now.into(), clients)
@@ -3833,9 +3841,11 @@ impl Dashboard {
         now: Instant,
         clients: &data::client::Map,
     ) -> Task<Message> {
-        self.panes.iter_mut().for_each(|(_, _, pane)| {
-            pane.buffer.tick(now, clients, &self.history);
-        });
+        if self.has_typing_activity(clients) {
+            buffer::typing::advance(&mut self.typing_animation, now);
+        } else {
+            self.typing_animation = None;
+        }
 
         Task::none()
     }
@@ -4089,6 +4099,7 @@ impl Dashboard {
             theme_editor: None,
             notifications: notification::Notifications::new(config),
             previews: preview::Collection::default(),
+            typing_animation: None,
             http_client: http_client_from_config(config).map(Arc::new),
             buffer_settings: data.buffer_settings.clone(),
             filehost: filehost::Manager::new(),
@@ -4349,6 +4360,12 @@ impl Dashboard {
             matches!(state.buffer, Buffer::FileTransfers(_))
                 .then_some(window_id)
         })
+    }
+
+    pub fn has_typing_activity(&self, clients: &client::Map) -> bool {
+        self.panes
+            .iter()
+            .any(|(_, _, pane)| pane.buffer.has_typing_activity(clients))
     }
 
     pub fn find_window_with_history(
