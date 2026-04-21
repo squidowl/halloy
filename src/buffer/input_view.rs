@@ -1304,91 +1304,8 @@ impl State {
                 }
 
                 let ghost = upload_ghost(id);
-                let content = self.input_content.text();
 
-                match url {
-                    Some(url) => {
-                        if let Some(ghost_byte_pos) = content.find(&ghost) {
-                            let ghost_char_pos =
-                                UnicodeSegmentation::graphemes(
-                                    &content[..ghost_byte_pos],
-                                    true,
-                                )
-                                .count();
-                            let replaced = content.replacen(&ghost, &url, 1);
-                            let delta = url.chars().count() as i64
-                                - ghost.chars().count() as i64;
-                            let cursor = adjust_cursor(
-                                &self.input_content,
-                                &replaced,
-                                ghost_char_pos,
-                                ghost.chars().count(),
-                                delta,
-                            );
-                            self.input_content =
-                                text_editor::Content::with_text(&replaced);
-                            self.input_content.move_to(cursor);
-                        } else {
-                            // the user edited the ghost away while uploading — append it rather than losing it
-                            self.input_content.perform(
-                                text_editor::Action::Move(
-                                    text_editor::Motion::DocumentEnd,
-                                ),
-                            );
-                            // insert a space if there is none immediately before the URL
-                            if !self.input_content.text().trim_end().is_empty()
-                            {
-                                self.input_content.perform(
-                                    text_editor::Action::Edit(
-                                        text_editor::Edit::Insert(' '),
-                                    ),
-                                );
-                            }
-                            self.input_content.perform(
-                                text_editor::Action::Edit(
-                                    text_editor::Edit::Paste(
-                                        std::sync::Arc::new(url),
-                                    ),
-                                ),
-                            );
-                        }
-                    }
-                    None => {
-                        // upload failed or cancelled
-
-                        // the ghost may have inserted surrounding spaces; try widest match
-                        // first so we don't leave a stray space behind.
-                        let found = [
-                            format!(" {ghost} "),
-                            format!(" {ghost}"),
-                            format!("{ghost} "),
-                            ghost.clone(),
-                        ]
-                        .into_iter()
-                        .find_map(|s| content.find(&s).map(|pos| (s, pos)));
-
-                        if let Some((search, ghost_byte_pos)) = found {
-                            let ghost_char_pos =
-                                UnicodeSegmentation::graphemes(
-                                    &content[..ghost_byte_pos],
-                                    true,
-                                )
-                                .count();
-                            let replaced = content.replacen(&search, "", 1);
-                            let delta = -(search.chars().count() as i64);
-                            let cursor = adjust_cursor(
-                                &self.input_content,
-                                &replaced,
-                                ghost_char_pos,
-                                search.chars().count(),
-                                delta,
-                            );
-                            self.input_content =
-                                text_editor::Content::with_text(&replaced);
-                            self.input_content.move_to(cursor);
-                        }
-                    }
-                }
+                replace_ghost_with_url(&mut self.input_content, ghost, url);
 
                 history.record_draft(RawInput {
                     buffer: buffer.clone(),
@@ -3007,6 +2924,85 @@ fn adjust_cursor(
     }
 }
 
+fn replace_ghost_with_url(
+    input_content: &mut text_editor::Content,
+    ghost: String,
+    url: Option<String>,
+) {
+    let content = input_content.text();
+
+    match url {
+        Some(url) => {
+            if let Some(ghost_byte_pos) = content.find(&ghost) {
+                let ghost_char_pos = UnicodeSegmentation::graphemes(
+                    &content[..ghost_byte_pos],
+                    true,
+                )
+                .count();
+                let replaced = content.replacen(&ghost, &url, 1);
+                let delta =
+                    url.chars().count() as i64 - ghost.chars().count() as i64;
+                let cursor = adjust_cursor(
+                    input_content,
+                    &replaced,
+                    ghost_char_pos,
+                    ghost.chars().count(),
+                    delta,
+                );
+                *input_content = text_editor::Content::with_text(&replaced);
+                input_content.move_to(cursor);
+            } else {
+                // the user edited the ghost away while uploading — append it rather than losing it
+                input_content.perform(text_editor::Action::Move(
+                    text_editor::Motion::DocumentEnd,
+                ));
+                // insert a space if there is none immediately before the URL
+                if !input_content.text().trim_end().is_empty() {
+                    input_content.perform(text_editor::Action::Edit(
+                        text_editor::Edit::Insert(' '),
+                    ));
+                }
+                input_content.perform(text_editor::Action::Edit(
+                    text_editor::Edit::Paste(std::sync::Arc::new(url)),
+                ));
+            }
+        }
+        None => {
+            // upload failed or cancelled
+
+            // the ghost may have inserted surrounding spaces; try widest match
+            // first so we don't leave a stray space behind.
+            let found = [
+                format!(" {ghost} "),
+                format!(" {ghost}"),
+                format!("{ghost} "),
+                ghost.clone(),
+            ]
+            .into_iter()
+            .find_map(|s| content.find(&s).map(|pos| (s, pos)));
+
+            if let Some((search, ghost_byte_pos)) = found {
+                let ghost_char_pos = UnicodeSegmentation::graphemes(
+                    &content[..ghost_byte_pos],
+                    true,
+                )
+                .count();
+                let replaced = content.replacen(&search, "", 1);
+                let delta = -(search.chars().count() as i64);
+                let cursor = adjust_cursor(
+                    input_content,
+                    &replaced,
+                    ghost_char_pos,
+                    search.chars().count(),
+                    delta,
+                );
+                *input_content = text_editor::Content::with_text(&replaced);
+                input_content.move_to(cursor);
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -3115,5 +3111,123 @@ mod tests {
     fn adjust_char_pos_positive_delta() {
         // region at 5..8 replaced with 6 chars (delta +3), cursor at 10
         assert_eq!(adjust_char_pos(10, 5, 3, 3), 13);
+    }
+
+    fn set_cursor(
+        content: &mut text_editor::Content,
+        motion: i64,
+        select: i64,
+    ) {
+        if motion > 0 {
+            content.perform(text_editor::Action::Move(
+                text_editor::Motion::DocumentStart,
+            ));
+            for _ in 0..motion {
+                content.perform(text_editor::Action::Move(
+                    text_editor::Motion::Right,
+                ));
+            }
+        } else {
+            content.perform(text_editor::Action::Move(
+                text_editor::Motion::DocumentEnd,
+            ));
+            for _ in 0..-motion {
+                content.perform(text_editor::Action::Move(
+                    text_editor::Motion::Left,
+                ));
+            }
+        }
+
+        if select > 0 {
+            for _ in 0..select {
+                content.perform(text_editor::Action::Select(
+                    text_editor::Motion::Right,
+                ));
+            }
+        } else {
+            for _ in 0..-select {
+                content.perform(text_editor::Action::Select(
+                    text_editor::Motion::Left,
+                ));
+            }
+        }
+    }
+
+    #[test]
+    fn cursor_after_ghost_replaced_with_url() {
+        let tests = [
+            (
+                "hello world",
+                2,
+                "\nI will tell you what Royalty is\nit is a continuous cutting motion",
+                "https://example.com/image.jpg",
+                -40,
+                10,
+            ),
+            (
+                "hello world",
+                2,
+                "\nI will tell you what Royalty is\nit is a continuous cutting motion",
+                "https://🗺.example.com/image.jpg",
+                -12,
+                4,
+            ),
+            (
+                "안녕하세요 여러분\n",
+                1,
+                "\n시간이 쏜 살 같다",
+                "https://example.com/image.jpg",
+                -2,
+                -2,
+            ),
+            (
+                "안녕하세요 여러분\n",
+                1,
+                "\n시간이 쏜 살 같다",
+                "https://🗺.example.com/image.jpg",
+                5,
+                -2,
+            ),
+            (
+                "👩🏾‍🚒 (",
+                1,
+                ") 💬👋🏾🗺️",
+                "https://example.com/image.jpg",
+                -2,
+                1,
+            ),
+        ];
+
+        for (ghost_prefix, id, ghost_suffix, url, motion, select) in tests {
+            let ghost = upload_ghost(id);
+
+            let mut content: text_editor::Content =
+                text_editor::Content::with_text(&format!(
+                    "{ghost_prefix}{ghost}{ghost_suffix}"
+                ));
+
+            set_cursor(&mut content, motion, select);
+
+            replace_ghost_with_url(
+                &mut content,
+                ghost.clone(),
+                Some(url.to_string()),
+            );
+
+            let adjusted_cursor = content.cursor();
+
+            content = text_editor::Content::with_text(&format!(
+                "{ghost_prefix}{url}{ghost_suffix}"
+            ));
+
+            set_cursor(&mut content, motion, select);
+
+            let cursor = content.cursor();
+
+            assert_eq!(
+                adjusted_cursor, cursor,
+                "text: {ghost_prefix}{ghost}{ghost_suffix} url: {url} motion: {motion}"
+            );
+        }
     }
 }
