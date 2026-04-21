@@ -170,12 +170,12 @@ impl Completion {
             .or_else(|| self.words.tab(reverse))
     }
 
-    pub fn tab_candidate_count(&self) -> Option<usize> {
+    pub fn tab_candidate_count(&self) -> usize {
         self.commands
             .tab_candidate_count()
             .or_else(|| self.emojis.tab_candidate_count())
             .or_else(|| self.paths.tab_candidate_count())
-            .or_else(|| self.words.tab_candidate_count())
+            .unwrap_or_else(|| self.words.tab_candidate_count())
     }
 
     pub fn arrow(&mut self, arrow: Arrow) -> bool {
@@ -2055,8 +2055,8 @@ impl Words {
             })
     }
 
-    fn tab_candidate_count(&self) -> Option<usize> {
-        Some(self.filtered.len())
+    fn tab_candidate_count(&self) -> usize {
+        self.filtered.len()
     }
 }
 

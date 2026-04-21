@@ -1040,11 +1040,7 @@ impl State {
                         self.on_completion(buffer, history, actions, true);
 
                     // If there is only one tab candidate process the completion immediately.
-                    if self
-                        .completion
-                        .tab_candidate_count()
-                        .is_some_and(|count| count == 1)
-                    {
+                    if self.completion.tab_candidate_count() == 1 {
                         self.process_completion_and_notice(
                             buffer, clients, history, config,
                         );
