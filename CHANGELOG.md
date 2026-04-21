@@ -2,53 +2,63 @@
 
 Added:
 
-- <kbd>ctrl</kbd> + <kbd>,</kbd> now opens the config file (<kbd>⌘</kbd> + <kbd>,</kbd> on macOs)
-- Windows MSI installer does not automatically start Halloy during passive or quiet installations
-- Per-server `typing` settings (`servers.<name>.typing`)
-- `buffer.server_messages.away` setting to control when automated away messages are shown
-- `buffer.server_messages.away` theme setting to control how automated away messages appear
-- Drafts are remembered across Halloy sessions. Can be disabled with `buffer.text_input.persist`
-- Animate typing dots
-- `buffer.nickname.color` now supports `{ palette = ["#RRGGBB", ...] }` for nickname colors from a fixed set
-- Right-click context menu on messages now includes "Copy message" to copy the message text to the clipboard
-- `buffer.typing.style` setting with `padded` and `popped` modes for typing indicators
-- Files can be uploaded to server using `soju.im/FILEHOST`.
-- `/massmessage` command to send Ergo/Solanum mass-messages
-- Setting to control whether unread indicators are shown on open buffers (`sidebar.unread_indicator.show_on_open_buffers`)
-- Ability to add optional arguments in custom aliases (`/msg ChanServ op $channel $1?-`)
-- `/invite` command tooltip and validation provided, and display of `INVITE`-related messages improved
-- Ability to customize the arrows used for directional messages such as join, part, quit, kick, and CTCP messages.
-- Unread indicators for queries can be hidden via `sidebar.unread_indicator.exclude`
+- Files can be uploaded to server using `soju.im/FILEHOST` (see the [file uploads guide](https://halloy.chat/guides/filehost) for details)
+- `typing`
+  - Per-server `typing` settings (`servers.<name>.typing`)
+  - Animate typing dots
+  - `buffer.typing.style` setting with `padded` and `popped` modes for typing indicators
 - Settings to reroute direct PRIVMSG and/or NOTICE messages to another buffer (`servers.<name>.reroute.query` and `servers.<name>.reroute.notice`)
-- `channel-context` support
-- Expanded `tooltips` setting to allow hiding auto-complete tooltips
-- emacs bindings for <kbd>ctrl</kbd> + <kbd>u</kbd> and <kbd>ctrl</kbd> + <kbd>w</kbd>
-- `buffer.text_input.kill_to_clipboard` to control key bindings moving killed text to clipboard
+- `channel-context` support (messages with the tag will be automatically rerouted)
+- Theme & Display
+  - `buffer.nickname.color` now supports `{ palette = ["#RRGGBB", ...] }` for nickname colors from a fixed set
+  - `buffer.server_messages.away` setting to control when automated away messages are shown
+  - `buffer.server_messages.away` theme setting to control how automated away messages appear
+  - Setting to control whether unread indicators are shown on open buffers (`sidebar.unread_indicator.show_on_open_buffers`)
+  - Unread indicators for queries can be hidden via `sidebar.unread_indicator.exclude`
+  - Ability to customize the arrows used for directional messages such as join, part, quit, kick, and CTCP messages.
+  - Expanded `tooltips` setting to allow hiding auto-complete tooltips
+- Commands
+  - Ability to add optional arguments in custom aliases (`/msg ChanServ op $channel $1?-`)
+  - `/massmessage` command to send Ergo/Solanum mass-messages
+  - `/invite` command tooltip and validation provided, and display of `INVITE`-related messages improved
+  - `//` can be used to escape a leading `/`; in other words, `//topic example` will send the message `/topic example` (not execute the `/topic` command)
+- Controls
+  - Right-click context menu on messages now includes "Copy message" to copy the message text to the clipboard
+  - Message drafts are remembered across Halloy sessions (can be disabled with `buffer.text_input.persist`)
+  - <kbd>ctrl</kbd> + <kbd>,</kbd> now opens the config file (<kbd>⌘</kbd> + <kbd>,</kbd> on macOs)
+  - emacs bindings for <kbd>ctrl</kbd> + <kbd>u</kbd> and <kbd>ctrl</kbd> + <kbd>w</kbd>
+  - `buffer.text_input.kill_to_clipboard` to control key bindings moving killed text to clipboard
+- Windows MSI installer does not automatically start Halloy during passive or quiet installations
 
 Changed:
 
+- Default typing style (`buffer.typing.style`) is now `popped` (from `padded`)
 - Moved `typing` settings from `buffer.channel.typing` to `buffer.typing` to clarify that they appliy to queries as well as channels
 - Moved nicklist nickname settings from `buffer.channel.nicklist` to `buffer.nickname` (`away` and `color`)
-- Default typing style (`buffer.typing.style`) is now `popped` (from `padded`)
 - Colons, semicolons and double quotes are no longer considered part of channel names
 - Backslash escapes are now only interpreted when escaping markdown formatting characters
-- Tooltips will be shown for all commands, with an error tooltip shown if the server does not support the command
+- Tooltips will be shown for all commands, even those not available on the server, with an error tooltip shown if the server does not support the command
 - Parsed URLs will be displayed with IDN encoded domains (to avoid domain spoofing) and percent-decoded path & later components (for legibility) by default (`display.decode_urls`)
 
 Fixed:
 
-- `sidebar.order_by` setting works when set to `"config"`
 - Server notices with wildcard targets (for example `NOTICE *`) are shown in the server buffer again
-- Fix URLs with non-ASCII characters getting percent-encoded when rendered in buffers
-- chathistory: support for multiline messages and TARGETS pagination and more conservative treatment of pagination on reconnect
-- Keyboard shortcuts now work in popped out buffer windows, including command bar shortcuts
+- `typing`
+  - Settings for buffers could get in a stuck state without any way to control them (or see that the state is stuck)
+  - +typing=done should not be sent when the message is sent
+- `chathistory`
+  - Support for multiline messages
+  - TARGETS pagination
+  - More conservative treatment of pagination on reconnect
+  - Greatly reduced the scope of deduplication to only messages that can be expected to possibly be duplicates
+- Receive & apply reactions in queries
 - IRC URIs now handle bracketed IPv6 hosts and percent-encoded channel targets correctly
-- `typing` settings for buffers could get in a stuck state without any way to control them
-- +typing=done should not be sent when the message is sent
-- `/MOTD` will not trigger end-of-registration actions
-- Repeat lines in some MOTDs would be deduplicated
-- Received reactions in queries
+- Fix URLs with non-ASCII characters getting percent-encoded when rendered in buffers
 - Filtering for common trailing punctuation and delimiters when linking channel names (and nicks & urls)
+- `/MOTD` command will not trigger end-of-registration actions
+- Repeat lines in some MOTDs would be deduplicated
+- Keyboard shortcuts now work in popped out buffer windows, including command bar shortcuts
+- `sidebar.order_by` setting works when set to `"config"`
 
 Removed:
 
@@ -56,9 +66,9 @@ Removed:
 
 Thanks:
 
-- Contributions: @furudean, @omentic, @KaiKorla, @achille, @classabbyamp, @ncfavier, @englut, @WinnerWind
-- Bug reports: sebbu, @whitequark, @SnoopJ, esden, @miyukoc, @ld-cd, @achille, @classabbyamp, vignoux, @esden, @ncfavier, @englut, @cyrneko, @jeffharrell1
-- Feature requests: @omentic, @classabbyamp, @ncfavier, @ineeee, @4e554c4c
+- Contributions: @furudean, @omentic, @KaiKorla, @achille, @classabbyamp, @ncfavier, @englut, @WinnerWind, @okdana, @luca020400, @mgdudas, @auronandace
+- Bug reports: sebbu, @whitequark, @SnoopJ, @esden, @miyukoc, @ld-cd, @achille, @classabbyamp, vignoux, @ncfavier, @englut, @cyrneko, @jeffharrell1, @RoboDanjal, @internet-catte, @Lualttt, @c727, @cyrneko, @furudean, @lephe
+- Feature requests: @omentic, @classabbyamp, @ncfavier, @ineeee, @4e554c4c, @RoboDanjal
 
 # 2026.5 (2026-03-21)
 
