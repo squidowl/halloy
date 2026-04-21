@@ -1309,8 +1309,6 @@ impl Halloy {
 
     fn subscription(&self) -> Subscription<Message> {
         let tick = iced::time::every(Duration::from_secs(1)).map(Message::Tick);
-        let animation_tick = iced::time::every(Duration::from_millis(50))
-            .map(Message::AnimationTick);
 
         let streams = Subscription::batch(
             self.servers
@@ -1325,9 +1323,21 @@ impl Halloy {
             window::events()
                 .map(|(window, event)| Message::Window(window, event)),
             tick,
-            animation_tick,
             streams,
         ];
+
+        if self.config.buffer.typing.animation.enabled
+            && matches!(
+                &self.screen,
+                Screen::Dashboard(dashboard)
+            if dashboard.has_typing_activity_in_focused_window(&self.clients, self.focused_window)
+            )
+        {
+            subscriptions.push(
+                iced::time::every(Duration::from_millis(50))
+                    .map(Message::AnimationTick),
+            );
+        }
 
         if cfg!(target_family = "unix") {
             subscriptions

@@ -55,6 +55,7 @@ impl Pane {
         panes: usize,
         is_focused: bool,
         maximized: bool,
+        typing_animation: Option<&'a buffer::typing::Animation>,
         clients: &'a data::client::Map,
         file_transfers: &'a file_transfer::Manager,
         history: &'a history::Manager,
@@ -144,6 +145,7 @@ impl Pane {
         let content = self
             .buffer
             .view(
+                typing_animation,
                 clients,
                 file_transfers,
                 history,

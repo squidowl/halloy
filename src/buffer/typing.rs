@@ -206,15 +206,10 @@ pub fn typing_text(
     }
 }
 
-pub fn update(
-    animation: &mut Option<Animation>,
-    is_typing: bool,
-    now: Instant,
-) {
-    match (animation.as_mut(), is_typing) {
-        (Some(animation), true) => animation.update(now),
-        (None, true) => *animation = Some(Animation::new(now)),
-        (_, false) => *animation = None,
+pub fn advance(animation: &mut Option<Animation>, now: Instant) {
+    match animation.as_mut() {
+        Some(animation) => animation.update(now),
+        None => *animation = Some(Animation::new(now)),
     }
 }
 

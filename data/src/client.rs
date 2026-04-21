@@ -3740,6 +3740,15 @@ impl Client {
         users
     }
 
+    pub fn has_channel_typing_users(&self, channel: &target::Channel) -> bool {
+        self.chanmap.get(channel).is_some_and(|channel| {
+            channel
+                .typing
+                .values()
+                .any(|updated_at| !is_typing_expired(*updated_at))
+        })
+    }
+
     pub fn query_typing_users(&self, query: &target::Query) -> Vec<String> {
         self.querymap
             .get(query)
@@ -3747,6 +3756,13 @@ impl Client {
             .filter(|updated_at| !is_typing_expired(*updated_at))
             .map(|_| vec![query.as_str().to_string()])
             .unwrap_or_default()
+    }
+
+    pub fn has_query_typing_users(&self, query: &target::Query) -> bool {
+        self.querymap
+            .get(query)
+            .and_then(|query_state| query_state.typing)
+            .is_some_and(|updated_at| !is_typing_expired(updated_at))
     }
 
     fn user_channels(&self, nick: NickRef) -> Vec<target::Channel> {
@@ -4754,6 +4770,24 @@ impl Map {
         self.client(server)
             .map(|client| client.query_typing_users(query))
             .unwrap_or_default()
+    }
+
+    pub fn has_channel_typing_users(
+        &self,
+        server: &Server,
+        channel: &target::Channel,
+    ) -> bool {
+        self.client(server)
+            .is_some_and(|client| client.has_channel_typing_users(channel))
+    }
+
+    pub fn has_query_typing_users(
+        &self,
+        server: &Server,
+        query: &target::Query,
+    ) -> bool {
+        self.client(server)
+            .is_some_and(|client| client.has_query_typing_users(query))
     }
 
     pub fn get_server_chathistory_message_reference_types(
