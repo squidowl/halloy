@@ -572,7 +572,7 @@ mod nick_list {
         theme: &'a Theme,
     ) -> Element<'a, Message> {
         let nicklist_config = &config.buffer.channel.nicklist;
-        let truncate = config.buffer.nickname.truncate;
+        let truncate = nicklist_config.truncate;
 
         let width = match nicklist_config.width {
             Some(width) => width,
@@ -607,38 +607,48 @@ mod nick_list {
         let content = column(users.into_iter().flatten().map(|user| {
             let show_bot_icon = user.is_bot() && nicklist_config.show_bot_icon;
 
-            let nick = selectable_text(user.display(
-                nicklist_config.show_access_levels,
-                if show_bot_icon {
-                    bot_nick_max_chars
-                } else {
-                    truncate
-                },
-            ))
-            .font_maybe(
-                theme::font_style::nickname(theme, false).map(font::get),
-            )
-            .style(|theme| {
-                theme::selectable_text::nicklist_nickname(theme, config, user)
-            })
-            .align_x(match nicklist_config.alignment {
-                config::buffer::channel::Alignment::Left => {
-                    text::Alignment::Left
-                }
-                config::buffer::channel::Alignment::Right => {
-                    text::Alignment::Right
-                }
-            })
-            .width(
-                match (show_bot_icon, nicklist_config.alignment) {
-                    (true, config::buffer::channel::Alignment::Left) => {
-                        Length::Shrink
+            let (nick_display, show_nick_tooltip) =
+                user.display_with_truncated(
+                    nicklist_config.show_access_levels,
+                    if show_bot_icon {
+                        bot_nick_max_chars
+                    } else {
+                        truncate
+                    },
+                );
+
+            let nick = selectable_text(nick_display)
+                .font_maybe(
+                    theme::font_style::nickname(theme, false).map(font::get),
+                )
+                .style(|theme| {
+                    theme::selectable_text::nicklist_nickname(theme, config, user)
+                })
+                .align_x(match nicklist_config.alignment {
+                    config::buffer::channel::Alignment::Left => {
+                        text::Alignment::Left
                     }
-                    (true, config::buffer::channel::Alignment::Right) => {
-                        Length::Fixed(width - theme::ICON_SIZE - 2.0)
+                    config::buffer::channel::Alignment::Right => {
+                        text::Alignment::Right
                     }
-                    (false, _) => Length::Fixed(width),
-                },
+                })
+                .width(
+                    match (show_bot_icon, nicklist_config.alignment) {
+                        (true, config::buffer::channel::Alignment::Left) => {
+                            Length::Shrink
+                        }
+                        (true, config::buffer::channel::Alignment::Right) => {
+                            Length::Fixed(width - theme::ICON_SIZE - 2.0)
+                        }
+                        (false, _) => Length::Fixed(width),
+                    },
+                );
+
+            let nick: Element<_> = tooltip(
+                nick,
+                show_nick_tooltip.then_some(user.as_str()),
+                tooltip::Position::Top,
+                theme,
             );
 
             let content: Element<_> = if show_bot_icon {
@@ -661,7 +671,7 @@ mod nick_list {
                     .spacing(2)
                     .into()
             } else {
-                nick.into()
+                nick
             };
 
             context_menu::user(

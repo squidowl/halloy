@@ -189,6 +189,19 @@ Show an icon next to nicknames of users identified as bots.
 show_bot_icon = true
 ```
 
+#### `truncate`
+
+Truncate nicknames in nicklist to a maximum length
+
+```toml
+# Type: integer
+# Values: any non-negative integer
+# Default: not set
+
+[buffer.channel.nicklist]
+truncate = 10
+```
+
 #### `width`
 
 Overwrite nicklist width in pixels.
