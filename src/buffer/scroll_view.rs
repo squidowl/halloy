@@ -333,15 +333,9 @@ pub fn view<'a>(
                     + font::width_of_message_marker(&config.font);
         }
 
-        let base = max_nick_width
+        max_nick_width
             .max(range_end_timestamp_width)
-            .max(message_marker_width);
-
-        if config.buffer.nickname.show_bot_icon {
-            base + theme::ICON_SIZE + 2.0
-        } else {
-            base
-        }
+            .max(message_marker_width)
     });
 
     let max_prefix_width = max_prefix_chars

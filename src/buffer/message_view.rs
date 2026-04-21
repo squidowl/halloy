@@ -442,11 +442,15 @@ impl<'a> ChannelQueryLayout<'a> {
                         .map(font::get),
                 );
 
-            if let Some(width) = right_aligned_width
-                && !(is_bot && self.config.buffer.nickname.show_bot_icon)
-            {
+            if let Some(width) = right_aligned_width {
+                let nick_width =
+                    if is_bot && self.config.buffer.nickname.show_bot_icon {
+                        width - theme::ICON_SIZE - 2.0
+                    } else {
+                        width
+                    };
                 nick_text =
-                    nick_text.width(width).align_x(text::Alignment::Right);
+                    nick_text.width(nick_width).align_x(text::Alignment::Right);
             }
 
             let nick_with_ctx = tooltip(
