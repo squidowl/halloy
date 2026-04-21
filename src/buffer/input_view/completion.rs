@@ -162,37 +162,20 @@ impl Completion {
         }
     }
 
-    pub fn tab(&mut self, reverse: bool) -> Option<Entry> {
-        if self.commands.tab(reverse) {
-            return None;
-        }
+    pub fn tab(&mut self, reverse: bool, config: &Config) -> Option<Entry> {
+        self.commands
+            .tab(reverse)
+            .or_else(|| self.emojis.tab(reverse, config))
+            .or_else(|| self.paths.tab(reverse))
+            .or_else(|| self.words.tab(reverse))
+    }
 
-        if self.emojis.tab(reverse) {
-            return None;
-        }
-
-        if let Some(path) = self.paths.tab(reverse).map(Entry::Path) {
-            return Some(path);
-        }
-
-        self.words.tab(reverse).map_or(
-            {
-                if self.words.filtered.is_empty() {
-                    None
-                } else {
-                    Some(Entry::Word {
-                        next: self.words.prompt.clone(),
-                        append_suffix: false,
-                    })
-                }
-            },
-            |next| {
-                Some(Entry::Word {
-                    next,
-                    append_suffix: true,
-                })
-            },
-        )
+    pub fn tab_candidate_count(&self) -> usize {
+        self.commands
+            .tab_candidate_count()
+            .or_else(|| self.emojis.tab_candidate_count())
+            .or_else(|| self.paths.tab_candidate_count())
+            .unwrap_or_else(|| self.words.tab_candidate_count())
     }
 
     pub fn arrow(&mut self, arrow: Arrow) -> bool {
@@ -201,11 +184,11 @@ impl Completion {
             Arrow::Down => false,
         };
 
-        if self.commands.tab(reverse) {
+        if self.commands.cycle(reverse) {
             return true;
         }
 
-        if self.emojis.tab(reverse) {
+        if self.emojis.cycle(reverse) {
             return true;
         }
 
@@ -257,7 +240,7 @@ impl Completion {
 
 #[derive(Debug, Clone)]
 pub enum Entry {
-    Command(Command),
+    Command(String),
     Word { next: String, append_suffix: bool },
     Path(String),
     Emoji(String),
@@ -275,7 +258,7 @@ impl Entry {
             Entry::Command(command) => replace_word_with_text(
                 input,
                 cursor_position,
-                &format!("/{}", command.title().to_lowercase()),
+                &format!("/{command} "),
                 None,
             ),
             Entry::Word {
@@ -435,7 +418,7 @@ impl Commands {
                     ));
 
                     *self = Self::Selecting {
-                        highlighted: Some(0),
+                        highlighted: None,
                         filtered,
                     };
                 }
@@ -605,13 +588,9 @@ impl Commands {
         }
     }
 
-    fn select(&mut self) -> Option<Command> {
-        let index = if let Self::Selecting {
-            highlighted: Some(index),
-            ..
-        } = self
-        {
-            *index
+    fn select(&mut self) -> Option<String> {
+        let index = if let Self::Selecting { highlighted, .. } = self {
+            highlighted.unwrap_or(0)
         } else {
             return None;
         };
@@ -619,23 +598,42 @@ impl Commands {
         self.select_at(index)
     }
 
-    fn select_at(&mut self, index: usize) -> Option<Command> {
+    fn select_at(&mut self, index: usize) -> Option<String> {
         if let Self::Selecting { filtered, .. } = self
-            && let Some(command) =
-                filtered.get(index).map(|(_, command)| command.clone())
+            && let Some((title, command)) = filtered
+                .get(index)
+                .map(|(title, command)| (title.clone(), command.clone()))
         {
             *self = Self::Selected {
                 command: command.clone(),
                 subcommand: None,
             };
 
-            return Some(command);
+            return Some(title);
         }
 
         None
     }
 
-    fn tab(&mut self, reverse: bool) -> bool {
+    fn tab(&mut self, reverse: bool) -> Option<Entry> {
+        if let Self::Selecting {
+            highlighted,
+            filtered,
+        } = self
+        {
+            selecting_tab(highlighted, filtered, reverse);
+
+            highlighted.and_then(|index| {
+                filtered
+                    .get(index)
+                    .map(|(title, _)| Entry::Command(title.clone()))
+            })
+        } else {
+            None
+        }
+    }
+
+    fn cycle(&mut self, reverse: bool) -> bool {
         if let Self::Selecting {
             highlighted,
             filtered,
@@ -646,6 +644,13 @@ impl Commands {
             true
         } else {
             false
+        }
+    }
+
+    fn tab_candidate_count(&self) -> Option<usize> {
+        match self {
+            Self::Selecting { filtered, .. } => Some(filtered.len()),
+            _ => None,
         }
     }
 
@@ -700,15 +705,32 @@ impl Commands {
                     }))
                 };
 
+                let description = if config.buffer.commands.show_description {
+                    highlighted.and_then(|index| {
+                        filtered.get(index).map(|(_, command)| {
+                            command.view(input, None, server, config, theme)
+                        })
+                    })
+                } else {
+                    None
+                };
+
                 (!entries.is_empty()).then(|| {
                     let first_pass = content(Length::Shrink);
                     let second_pass = content(Length::Fill);
 
-                    container(double_pass(first_pass, second_pass))
-                        .padding(4)
-                        .style(theme::container::tooltip)
-                        .width(Length::Shrink)
-                        .into()
+                    let picker =
+                        container(double_pass(first_pass, second_pass))
+                            .padding(4)
+                            .style(theme::container::tooltip)
+                            .width(Length::Shrink)
+                            .into();
+
+                    if let Some(description) = description {
+                        column![picker, description].spacing(4).into()
+                    } else {
+                        picker
+                    }
                 })
             }
             Self::Selected {
@@ -2014,7 +2036,7 @@ impl Words {
         }
     }
 
-    fn tab(&mut self, reverse: bool) -> Option<String> {
+    fn tab(&mut self, reverse: bool) -> Option<Entry> {
         if !self.filtered.is_empty() {
             if let Some(index) = &mut self.selected {
                 if reverse {
@@ -2034,11 +2056,27 @@ impl Words {
             }
         }
 
-        if let Some(index) = self.selected {
-            self.filtered.get(index).cloned()
-        } else {
-            None
-        }
+        self.selected
+            .and_then(|index| {
+                self.filtered.get(index).cloned().map(|next| Entry::Word {
+                    next,
+                    append_suffix: true,
+                })
+            })
+            .or_else(|| {
+                if self.filtered.is_empty() {
+                    None
+                } else {
+                    Some(Entry::Word {
+                        next: self.prompt.clone(),
+                        append_suffix: false,
+                    })
+                }
+            })
+    }
+
+    fn tab_candidate_count(&self) -> usize {
+        self.filtered.len()
     }
 }
 
@@ -3113,18 +3151,14 @@ impl Emojis {
             .to_lowercase();
 
         *self = Emojis::Selecting {
-            highlighted: Some(0),
+            highlighted: None,
             filtered: emoji::matching_shortcodes(&input_shortcode),
         };
     }
 
     fn select(&mut self, config: &Config) -> Option<String> {
-        let index = if let Self::Selecting {
-            highlighted: Some(index),
-            ..
-        } = self
-        {
-            *index
+        let index = if let Self::Selecting { highlighted, .. } = self {
+            highlighted.unwrap_or(0)
         } else {
             return None;
         };
@@ -3145,7 +3179,28 @@ impl Emojis {
         None
     }
 
-    fn tab(&mut self, reverse: bool) -> bool {
+    fn tab(&mut self, reverse: bool, config: &Config) -> Option<Entry> {
+        if let Self::Selecting {
+            highlighted,
+            filtered,
+        } = self
+        {
+            selecting_tab(highlighted, filtered, reverse);
+
+            highlighted.and_then(|index| {
+                filtered
+                    .get(index)
+                    .and_then(|shortcode| {
+                        pick_emoji(shortcode, config.buffer.emojis.skin_tone)
+                    })
+                    .map(|emoji| Entry::Emoji(emoji.to_string()))
+            })
+        } else {
+            None
+        }
+    }
+
+    fn cycle(&mut self, reverse: bool) -> bool {
         if let Self::Selecting {
             highlighted,
             filtered,
@@ -3156,6 +3211,13 @@ impl Emojis {
             true
         } else {
             false
+        }
+    }
+
+    fn tab_candidate_count(&self) -> Option<usize> {
+        match self {
+            Self::Selecting { filtered, .. } => Some(filtered.len()),
+            _ => None,
         }
     }
 
@@ -3306,7 +3368,7 @@ impl Paths {
         };
     }
 
-    fn tab(&mut self, reverse: bool) -> Option<String> {
+    fn tab(&mut self, reverse: bool) -> Option<Entry> {
         match self {
             Self::Idle => None,
             Self::Selecting {
@@ -3333,12 +3395,17 @@ impl Paths {
                     }
                 }
 
-                if let Some(index) = *highlighted {
-                    filtered.get(index).cloned()
-                } else {
-                    None
-                }
+                highlighted
+                    .and_then(|index| filtered.get(index).cloned())
+                    .map(Entry::Path)
             }
+        }
+    }
+
+    fn tab_candidate_count(&self) -> Option<usize> {
+        match self {
+            Self::Selecting { filtered, .. } => Some(filtered.len()),
+            _ => None,
         }
     }
 

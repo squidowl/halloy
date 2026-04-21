@@ -1027,7 +1027,7 @@ impl State {
             Message::Tab(reverse) => {
                 let cursor_position = self.input_content.cursor().position;
 
-                if let Some(entry) = self.completion.tab(reverse)
+                if let Some(entry) = self.completion.tab(reverse, config)
                     && let Some(line) = self
                         .input_content
                         .line(cursor_position.line)
@@ -1044,9 +1044,13 @@ impl State {
 
                     let result =
                         self.on_completion(buffer, history, actions, true);
-                    self.process_completion_and_notice(
-                        buffer, clients, history, config,
-                    );
+
+                    // If there is only one tab candidate process the completion immediately.
+                    if self.completion.tab_candidate_count() == 1 {
+                        self.process_completion_and_notice(
+                            buffer, clients, history, config,
+                        );
+                    }
                     result
                 } else {
                     (Task::none(), None)
