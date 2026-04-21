@@ -1330,7 +1330,7 @@ impl Halloy {
             && matches!(
                 &self.screen,
                 Screen::Dashboard(dashboard)
-                    if dashboard.has_typing_activity(&self.clients)
+            if dashboard.has_typing_activity_in_focused_window(&self.clients, self.focused_window)
             )
         {
             subscriptions.push(

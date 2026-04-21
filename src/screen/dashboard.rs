@@ -4368,6 +4368,19 @@ impl Dashboard {
             .any(|(_, _, pane)| pane.buffer.has_typing_activity(clients))
     }
 
+    pub fn has_typing_activity_in_focused_window(
+        &self,
+        clients: &client::Map,
+        focused_window: Option<window::Id>,
+    ) -> bool {
+        focused_window.is_some_and(|focused_window| {
+            self.panes.iter().any(|(window, _, pane)| {
+                pane.buffer.has_typing_activity(clients)
+                    && focused_window == window
+            })
+        })
+    }
+
     pub fn find_window_with_history(
         &mut self,
         kind: &history::Kind,
