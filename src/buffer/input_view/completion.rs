@@ -240,7 +240,7 @@ impl Completion {
 
 #[derive(Debug, Clone)]
 pub enum Entry {
-    Command(Command),
+    Command(String),
     Word { next: String, append_suffix: bool },
     Path(String),
     Emoji(String),
@@ -258,7 +258,7 @@ impl Entry {
             Entry::Command(command) => replace_word_with_text(
                 input,
                 cursor_position,
-                &format!("/{} ", command.title().to_lowercase()),
+                &format!("/{command} "),
                 None,
             ),
             Entry::Word {
@@ -588,7 +588,7 @@ impl Commands {
         }
     }
 
-    fn select(&mut self) -> Option<Command> {
+    fn select(&mut self) -> Option<String> {
         let index = if let Self::Selecting { highlighted, .. } = self {
             highlighted.unwrap_or(0)
         } else {
@@ -598,17 +598,18 @@ impl Commands {
         self.select_at(index)
     }
 
-    fn select_at(&mut self, index: usize) -> Option<Command> {
+    fn select_at(&mut self, index: usize) -> Option<String> {
         if let Self::Selecting { filtered, .. } = self
-            && let Some(command) =
-                filtered.get(index).map(|(_, command)| command.clone())
+            && let Some((title, command)) = filtered
+                .get(index)
+                .map(|(title, command)| (title.clone(), command.clone()))
         {
             *self = Self::Selected {
                 command: command.clone(),
                 subcommand: None,
             };
 
-            return Some(command);
+            return Some(title);
         }
 
         None
@@ -622,9 +623,11 @@ impl Commands {
         {
             selecting_tab(highlighted, filtered, reverse);
 
-            highlighted
-                .and_then(|index| filtered.get(index).map(|(_, c)| c.clone()))
-                .map(Entry::Command)
+            highlighted.and_then(|index| {
+                filtered
+                    .get(index)
+                    .map(|(title, _)| Entry::Command(title.clone()))
+            })
         } else {
             None
         }
