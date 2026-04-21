@@ -705,11 +705,15 @@ impl Commands {
                     }))
                 };
 
-                let description = highlighted.and_then(|index| {
-                    filtered.get(index).map(|(_, command)| {
-                        command.view(input, None, server, config, theme)
+                let description = if config.buffer.commands.show_description {
+                    highlighted.and_then(|index| {
+                        filtered.get(index).map(|(_, command)| {
+                            command.view(input, None, server, config, theme)
+                        })
                     })
-                });
+                } else {
+                    None
+                };
 
                 (!entries.is_empty()).then(|| {
                     let first_pass = content(Length::Shrink);
