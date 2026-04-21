@@ -250,8 +250,8 @@ mod tests {
         let removed = files_to_remove(&mut files, 10, Path::new("none"));
 
         assert_eq!(removed.len(), 2);
-        assert_eq!(removed[0].path, PathBuf::from("a"));
-        assert_eq!(removed[1].path, PathBuf::from("b"));
+        assert_eq!(removed[0].path, Path::new("a"));
+        assert_eq!(removed[1].path, Path::new("b"));
     }
 
     #[test]
@@ -271,8 +271,8 @@ mod tests {
 
         let removed = files_to_remove(&mut files, 10, Path::new("a"));
 
-        assert!(removed.iter().all(|f| f.path != PathBuf::from("a")));
-        assert!(removed.iter().any(|f| f.path == PathBuf::from("b")));
+        assert!(removed.iter().all(|f| f.path != Path::new("a")));
+        assert!(removed.iter().any(|f| f.path == Path::new("b")));
     }
 
     #[test]
