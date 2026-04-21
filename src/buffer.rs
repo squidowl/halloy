@@ -88,6 +88,7 @@ pub enum Event {
         server: data::Server,
         target: Option<Target>,
         file_paths: Vec<std::path::PathBuf>,
+        upload_ids: Vec<u32>,
         abort_registrations: Vec<futures::future::AbortRegistration>,
     },
 }
@@ -314,11 +315,13 @@ impl Buffer {
                         server,
                         target,
                         file_paths,
+                        upload_ids,
                         abort_registrations,
                     } => Event::FilehostUpload {
                         server,
                         target,
                         file_paths,
+                        upload_ids,
                         abort_registrations,
                     },
                 });
@@ -378,11 +381,13 @@ impl Buffer {
                         server,
                         target,
                         file_paths,
+                        upload_ids,
                         abort_registrations,
                     } => Event::FilehostUpload {
                         server,
                         target,
                         file_paths,
+                        upload_ids,
                         abort_registrations,
                     },
                 });
@@ -446,11 +451,13 @@ impl Buffer {
                         server,
                         target,
                         file_paths,
+                        upload_ids,
                         abort_registrations,
                     } => Event::FilehostUpload {
                         server,
                         target,
                         file_paths,
+                        upload_ids,
                         abort_registrations,
                     },
                 });

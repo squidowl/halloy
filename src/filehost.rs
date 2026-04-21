@@ -11,17 +11,19 @@ use crate::window;
 
 #[derive(Debug)]
 pub enum Message {
-    UrlReady {
+    UploadDone {
         window: window::Id,
         pane_id: pane_grid::Pane,
         target: Option<Target>,
-        url: String,
+        id: u32,
+        url: Option<String>,
     },
     UploadFailed {
         window: window::Id,
         pane_id: pane_grid::Pane,
         server: data::Server,
         target: Option<Target>,
+        id: u32,
         error: String,
     },
     KnownSaved(Result<(), data::known_filehosts::Error>),
@@ -35,6 +37,7 @@ pub struct PendingUpload {
     pub upload_url: String,
     pub has_credentials: bool,
     pub file_paths: Vec<PathBuf>,
+    pub upload_ids: Vec<u32>,
     pub abort_registrations: Vec<futures::future::AbortRegistration>,
 }
 
@@ -178,12 +181,13 @@ impl Manager {
         let tasks: Vec<_> = pending
             .into_iter()
             .flat_map(|p| {
-                (0..p.file_paths.len()).map(move |_| {
-                    Task::done(Message::UrlReady {
+                p.upload_ids.into_iter().map(move |id| {
+                    Task::done(Message::UploadDone {
                         window: p.window,
                         pane_id: p.pane_id,
                         target: p.target.clone(),
-                        url: String::new(),
+                        id,
+                        url: None,
                     })
                 })
             })
@@ -208,13 +212,15 @@ fn start_tasks(
         upload_url,
         has_credentials: _,
         file_paths,
+        upload_ids,
         abort_registrations,
     } = pending;
 
     let tasks: Vec<_> = file_paths
         .into_iter()
+        .zip(upload_ids)
         .zip(abort_registrations)
-        .map(|(file_path, registration)| {
+        .map(|((file_path, id), registration)| {
             let upload_url = upload_url.clone();
             let auth = clients.get_filehost_auth(&server);
             let http_client = http_client.clone();
@@ -235,11 +241,12 @@ fn start_tasks(
                     futures::future::Abortable::new(fut, registration).await
                 },
                 move |result| match result {
-                    Ok(Ok(url)) => Message::UrlReady {
+                    Ok(Ok(url)) => Message::UploadDone {
                         window,
                         pane_id,
                         target,
-                        url,
+                        id,
+                        url: Some(url),
                     },
                     Ok(Err(e)) => {
                         log::warn!("filehost upload failed: {e}");
@@ -248,14 +255,16 @@ fn start_tasks(
                             pane_id,
                             server,
                             target,
+                            id,
                             error: e.to_string(),
                         }
                     }
-                    Err(_aborted) => Message::UrlReady {
+                    Err(_aborted) => Message::UploadDone {
                         window,
                         pane_id,
                         target,
-                        url: String::new(),
+                        id,
+                        url: None,
                     },
                 },
             )
