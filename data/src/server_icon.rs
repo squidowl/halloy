@@ -18,19 +18,13 @@ pub enum Message {
     Loaded(Server, Url, Result<Icon, LoadError>),
 }
 
+#[derive(Default)]
 pub struct Manager {
     icons: HashMap<Server, Icon>,
     pending: HashMap<Server, Url>,
 }
 
 impl Manager {
-    pub fn new() -> Self {
-        Self {
-            icons: HashMap::new(),
-            pending: HashMap::new(),
-        }
-    }
-
     pub fn request(
         &mut self,
         server: Server,
@@ -50,8 +44,7 @@ impl Manager {
 
         let Some(http_client) = http_client else {
             log::warn!(
-                "[{}] File upload disabled: Unable to build HTTP client",
-                server
+                "[{server}] File upload disabled: Unable to build HTTP client"
             );
             self.drop_request(&server);
             return Task::none();
