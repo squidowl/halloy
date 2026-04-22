@@ -191,7 +191,7 @@ show_bot_icon = true
 
 #### `truncate`
 
-Truncate nicknames in nicklist to a maximum length
+Truncate nicknames in nicklist to a maximum length. Has no effect when [`buffer.channel.nicklist.width`](#width) is set. If not set, falls back to [`buffer.nickname.truncate`](#truncate-1).
 
 ```toml
 # Type: integer

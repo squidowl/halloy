@@ -575,7 +575,7 @@ mod nick_list {
         let truncate = if nicklist_config.width.is_some() {
             None
         } else {
-            nicklist_config.truncate
+            nicklist_config.truncate.or(config.buffer.nickname.truncate)
         };
 
         let width = match nicklist_config.width {
