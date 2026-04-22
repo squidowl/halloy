@@ -34,7 +34,7 @@ jobs:
         run: |
           sudo apt update
           sudo apt install $(cat .github/linux-deps.txt) git mold clang
-      - uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+      - uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: |
             ~/.cargo/bin/
@@ -52,7 +52,7 @@ jobs:
       - name: Clippy
         run: cargo clippy --locked --profile ci --workspace --all-targets -- -D warnings
 
-      - uses: taiki-e/install-action@b8be7f5e140177087325943c4a8e169d01c59b3d # v2
+      - uses: taiki-e/install-action@a2352fc6ce487f030a3aa709482d57823eadfb37 # v2
         with:
           tool: cargo-nextest
       - name: Test
