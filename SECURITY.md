@@ -4,10 +4,10 @@
 
 Only the latest released minor version of Halloy is supported.
 
-| Version                                                                                 | Supported          |
-| --------------------------------------------------------------------------------------- | ------------------ |
-| 2026.5 | :white_check_mark: |
-| Previous Versions                                                                       | :x:                |
+| Version           | Supported          |
+| ----------------- | ------------------ |
+| 2026.6            | :white_check_mark: |
+| Previous Versions | :x:                |
 
 ## Reporting a Vulnerability
 

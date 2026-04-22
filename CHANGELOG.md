@@ -1,5 +1,7 @@
 # Unreleased
 
+# 2026.6 (2026-04-21)
+
 Added:
 
 - Files can be uploaded to server using `soju.im/FILEHOST` (see the [file uploads guide](https://halloy.chat/guides/filehost) for details)
