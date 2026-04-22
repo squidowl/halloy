@@ -35,6 +35,7 @@ impl Font {
     fn set(
         &self,
         font: iced::Font,
+        stretch: font::Stretch,
         weight: font::Weight,
         bold_weight: font::Weight,
     ) {
@@ -46,6 +47,7 @@ impl Font {
         };
 
         let _ = self.inner.set(iced::Font {
+            stretch,
             weight,
             style,
             ..font
@@ -81,6 +83,8 @@ pub fn set(config: Option<&Config>) {
         .map_or_else(default_font, |family| {
             iced::Font::with_family(family.as_str())
         });
+    let stretch =
+        config.map_or(font::Stretch::Normal, |config| config.font.stretch);
     let weight =
         config.map_or(font::Weight::Normal, |config| config.font.weight);
     let bold_weight = config
@@ -97,10 +101,10 @@ pub fn set(config: Option<&Config>) {
             | font::Weight::Black => font::Weight::Black,
         });
 
-    MONO.set(font, weight, bold_weight);
-    MONO_BOLD.set(font, weight, bold_weight);
-    MONO_ITALICS.set(font, weight, bold_weight);
-    MONO_BOLD_ITALICS.set(font, weight, bold_weight);
+    MONO.set(font, stretch, weight, bold_weight);
+    MONO_BOLD.set(font, stretch, weight, bold_weight);
+    MONO_ITALICS.set(font, stretch, weight, bold_weight);
+    MONO_BOLD_ITALICS.set(font, stretch, weight, bold_weight);
 
     let lh = config
         .and_then(|c| c.font.line_height)
