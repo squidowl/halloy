@@ -7,7 +7,7 @@ Changes to font settings require an application restart to take effect.
 :::
 
 ::: info
-If Halloy is unable to load the specified font & weight, an fallback font may be used.  If the font looks wrong, double-check the family name and that the font family has the specified weight.
+If Halloy is unable to load the specified font, stretch, & weight, an fallback font may be used.  If the font looks wrong, double-check the family name and that the font family has the specified stretch & weight.
 :::
 
 ## `family`
@@ -27,6 +27,19 @@ Variable-weight fonts are not currently supported.
 
 [font]
 family = "Comic Mono"
+```
+
+## `stretch`
+
+Font stretch.
+
+```toml
+# Type: string
+# Values: "ultra-condensed", "extra-condensed", "condensed", "semi-condensed", "normal", "semi-expanded", "expanded", "extra-expanded", and "ultra-expanded"
+# Default: "normal"
+
+[font]
+stretch = "semi-condensed"
 ```
 
 ## `size`

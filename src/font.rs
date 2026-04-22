@@ -35,6 +35,7 @@ impl Font {
     fn set(
         &self,
         name: String,
+        stretch: font::Stretch,
         weight: font::Weight,
         bold_weight: font::Weight,
     ) {
@@ -46,6 +47,7 @@ impl Font {
         };
 
         let _ = self.inner.set(iced::Font {
+            stretch,
             weight,
             style,
             ..iced::Font::with_family(name.as_str())
@@ -67,6 +69,8 @@ pub fn set(config: Option<&Config>) {
     let family = config
         .and_then(|config| config.font.family.clone())
         .unwrap_or_else(|| String::from("Iosevka Term"));
+    let stretch =
+        config.map_or(font::Stretch::Normal, |config| config.font.stretch);
     let weight =
         config.map_or(font::Weight::Normal, |config| config.font.weight);
     let bold_weight = config
@@ -83,10 +87,10 @@ pub fn set(config: Option<&Config>) {
             | font::Weight::Black => font::Weight::Black,
         });
 
-    MONO.set(family.clone(), weight, bold_weight);
-    MONO_BOLD.set(family.clone(), weight, bold_weight);
-    MONO_ITALICS.set(family.clone(), weight, bold_weight);
-    MONO_BOLD_ITALICS.set(family, weight, bold_weight);
+    MONO.set(family.clone(), stretch, weight, bold_weight);
+    MONO_BOLD.set(family.clone(), stretch, weight, bold_weight);
+    MONO_ITALICS.set(family.clone(), stretch, weight, bold_weight);
+    MONO_BOLD_ITALICS.set(family, stretch, weight, bold_weight);
 
     let lh = config
         .and_then(|c| c.font.line_height)

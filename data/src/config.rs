@@ -224,6 +224,8 @@ impl Default for Scrollbar {
 #[serde(default)]
 pub struct Font {
     pub family: Option<String>,
+    #[serde(deserialize_with = "deserialize_font_stretch_from_string")]
+    pub stretch: font::Stretch,
     #[serde(deserialize_with = "deserialize_u8_positive_integer_maybe")]
     pub size: Option<u8>,
     #[serde(deserialize_with = "deserialize_f32_positive_float_maybe")]
@@ -241,12 +243,47 @@ impl Default for Font {
     fn default() -> Self {
         Self {
             family: None,
+            stretch: font::Stretch::Normal,
             size: None,
             line_height: None,
             weight: font::Weight::Normal,
             bold_weight: None,
             only_emojis_size: None,
         }
+    }
+}
+
+fn deserialize_font_stretch_from_string<'de, D>(
+    deserializer: D,
+) -> Result<font::Stretch, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let string = String::deserialize(deserializer)?;
+
+    match string.as_ref() {
+        "ultra-condensed" => Ok(font::Stretch::UltraCondensed),
+        "extra-condensed" => Ok(font::Stretch::ExtraCondensed),
+        "condensed" => Ok(font::Stretch::Condensed),
+        "semi-condensed" => Ok(font::Stretch::SemiCondensed),
+        "normal" => Ok(font::Stretch::Normal),
+        "semi-expanded" => Ok(font::Stretch::SemiExpanded),
+        "expanded" => Ok(font::Stretch::Expanded),
+        "extra-expanded" => Ok(font::Stretch::ExtraExpanded),
+        "ultra-expanded" => Ok(font::Stretch::UltraExpanded),
+        _ => Err(serde::de::Error::invalid_value(
+            serde::de::Unexpected::Str(&string),
+            &"one of \
+              \"ultra-condensed\", \
+              \"extra-condensed\", \
+              \"condensed\", \
+              \"semi-condensed\", \
+              \"normal\", \
+              \"semi-expanded\", \
+              \"expanded\", \
+              \"extra-expanded\", or \
+              \"ultra-expanded\"",
+        )),
     }
 }
 

@@ -1,5 +1,13 @@
 # Unreleased
 
+Added:
+
+- Configuration options for font stretch (`font.stretch`)
+
+Thanks:
+
+- Contributions: @bb010g
+
 # 2026.6 (2026-04-21)
 
 Added:
