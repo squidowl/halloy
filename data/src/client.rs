@@ -3065,22 +3065,36 @@ impl Client {
                 _ if is_reaction(&message) => {
                     vec![Event::Reaction(message, self.nickname().to_owned())]
                 }
-                Command::NICK(_) => batch_target
-                    .as_channel()
-                    .map(|channel| {
-                        let target = message::Target::Channel {
-                            channel: channel.clone(),
-                            source: source::Source::Server(None),
-                        };
+                Command::NICK(new_nick) => {
+                    let new_nick = Nick::from_str(new_nick, self.casemapping());
 
-                        vec![Event::WithTarget {
-                            message,
-                            our_nick: self.nickname().to_owned(),
-                            target,
-                            deduplicate: true,
-                        }]
-                    })
-                    .unwrap_or_default(),
+                    batch_target
+                        .as_channel()
+                        .map(|channel| {
+                            let target = message::Target::Channel {
+                                channel: channel.clone(),
+                                source: source::Source::Server(Some(
+                                    source::Server::new(
+                                        source::server::Kind::ChangeNick,
+                                        message.user(self.casemapping()).map(
+                                            |user| Nick::from(user.nickname()),
+                                        ),
+                                        Some(source::server::Change::Nick(
+                                            new_nick,
+                                        )),
+                                    ),
+                                )),
+                            };
+
+                            vec![Event::WithTarget {
+                                message,
+                                our_nick: self.nickname().to_owned(),
+                                target,
+                                deduplicate: true,
+                            }]
+                        })
+                        .unwrap_or_default()
+                }
                 Command::JOIN(_, _) => batch_target
                     .as_channel()
                     .map(|channel| {
