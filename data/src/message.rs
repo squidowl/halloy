@@ -2800,6 +2800,27 @@ fn content<'a>(
                 )
             })
         }
+        Command::NICK(new_nick) => {
+            let old_user = message.user(casemapping)?;
+            let ourself = old_user.nickname() == *our_nick;
+
+            let new_nick = Nick::from_str(new_nick.as_str(), casemapping);
+
+            Some((
+                nickname_text(
+                    old_user.nickname(),
+                    new_nick.as_nickref(),
+                    ourself,
+                    casemapping,
+                ),
+                None,
+            ))
+        }
+        Command::QUIT(comment) => {
+            let user = message.user(casemapping)?;
+
+            Some((quit_text(&user, comment, config, casemapping), None))
+        }
         Command::KICK(channel, victim, reason) => {
             let channel = target::Channel::parse(
                 channel,
@@ -3560,6 +3581,30 @@ fn kick_text(
     )
 }
 
+pub fn nickname_text(
+    old_nick: NickRef,
+    new_nick: NickRef,
+    ourself: bool,
+    casemapping: isupport::CaseMap,
+) -> Content {
+    let old_user = User::from(old_nick.to_owned());
+    let new_user = User::from(new_nick.to_owned());
+
+    if ourself {
+        parse_fragments_with_user(
+            format!("You're now known as {new_nick}"),
+            &new_user,
+            casemapping,
+        )
+    } else {
+        parse_fragments_with_users(
+            format!("{old_nick} is now known as {new_nick}"),
+            Some(&[old_user.clone(), new_user].into_iter().collect()),
+            casemapping,
+        )
+    }
+}
+
 fn monitored_targets_text(targets: Vec<String>) -> Option<String> {
     if targets.is_empty() {
         None
@@ -3571,6 +3616,33 @@ fn monitored_targets_text(targets: Vec<String>) -> Option<String> {
             join_targets(targets.iter().map(String::as_ref).collect())
         ))
     }
+}
+
+pub fn quit_text(
+    user: &User,
+    comment: &Option<String>,
+    config: &Config,
+    casemapping: isupport::CaseMap,
+) -> Content {
+    let comment = comment
+        .as_ref()
+        .map(|comment| format!(" ({comment})"))
+        .unwrap_or_default();
+
+    parse_fragments_with_user(
+        format!(
+            "{} {} has quit{comment}",
+            config.display.direction_arrows.left,
+            user.formatted(
+                config
+                    .buffer
+                    .server_messages
+                    .username_format(Some(source::server::Kind::Quit))
+            )
+        ),
+        user,
+        casemapping,
+    )
 }
 
 #[derive(Debug, Clone)]

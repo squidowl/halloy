@@ -4,8 +4,8 @@ use std::collections::HashSet;
 use chrono::{DateTime, Utc};
 
 use super::{
-    Content, Direction, Message, Source, Target, kick_text,
-    parse_fragments_with_user, parse_fragments_with_users, plain, source,
+    Content, Direction, Message, Source, Target, kick_text, nickname_text,
+    parse_fragments_with_user, plain, quit_text, source,
 };
 use crate::config::buffer::UsernameFormat;
 use crate::time::Posix;
@@ -168,25 +168,7 @@ pub fn quit(
     casemapping: isupport::CaseMap,
     sent_time: DateTime<Utc>,
 ) -> Vec<Message> {
-    let comment = comment
-        .as_ref()
-        .map(|comment| format!(" ({comment})"))
-        .unwrap_or_default();
-
-    let content = parse_fragments_with_user(
-        format!(
-            "{} {} has quit{comment}",
-            config.display.direction_arrows.left,
-            user.formatted(
-                config
-                    .buffer
-                    .server_messages
-                    .username_format(Some(source::server::Kind::Quit))
-            )
-        ),
-        user,
-        casemapping,
-    );
+    let content = quit_text(user, comment, config, casemapping);
 
     expand(
         channels,
@@ -211,28 +193,14 @@ pub fn nickname(
     casemapping: isupport::CaseMap,
     sent_time: DateTime<Utc>,
 ) -> Vec<Message> {
-    let old_user = User::from(old_nick.clone());
-    let new_user = User::from(new_nick.clone());
+    let content =
+        nickname_text(old_nick.into(), new_nick.into(), ourself, casemapping);
 
     let cause = Cause::Server(Some(source::Server::new(
         source::server::Kind::ChangeNick,
-        Some(old_user.nickname().to_owned()),
-        Some(source::server::Change::Nick(new_user.nickname().to_owned())),
+        Some(old_nick.clone()),
+        Some(source::server::Change::Nick(new_nick.clone())),
     )));
-
-    let content = if ourself {
-        parse_fragments_with_user(
-            format!("You're now known as {new_nick}"),
-            &new_user,
-            casemapping,
-        )
-    } else {
-        parse_fragments_with_users(
-            format!("{old_nick} is now known as {new_nick}"),
-            Some(&[old_user.clone(), new_user].into_iter().collect()),
-            casemapping,
-        )
-    };
 
     expand(channels, queries, false, cause, content, sent_time)
 }

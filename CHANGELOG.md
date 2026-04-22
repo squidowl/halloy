@@ -1,5 +1,13 @@
 # Unreleased
 
+Fixed:
+
+- `NICK` and `QUIT` messages returned by `draft/event-playback` (`chathistory`)
+
+Thanks:
+
+- Bug reports: @bb010g
+
 # 2026.6 (2026-04-21)
 
 Added:
