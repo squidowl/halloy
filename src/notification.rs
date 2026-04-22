@@ -345,7 +345,7 @@ impl Notifications {
             Notification::Reaction {
                 casemapping,
                 reaction,
-                reaction_target,
+                message_text,
             } => {
                 let channel_option = reaction.target.clone().to_channel();
                 let channel = channel_option.as_ref();
@@ -359,18 +359,8 @@ impl Notifications {
                         Some(channel) => channel.as_normalized_str(),
                         _ => "a direct message",
                     };
-                    let message_text = reaction_target
-                        .clone()
-                        .map(|t| t.text)
-                        .unwrap_or_default();
-                    let owner_display_text = if let Some(reaction_target) =
-                        reaction_target
-                        && reaction_target.sent_by_self
-                    {
-                        "your"
-                    } else {
-                        "a"
-                    };
+                    let owner_display_text =
+                        if message_text.is_some() { "your" } else { "a" };
 
                     let (title, subtitle, body): (
                         String,
@@ -383,7 +373,7 @@ impl Notifications {
                                 "Reacted {} to {owner_display_text} message in {react_sent_in}",
                                 reaction.inner.text
                             )),
-                            message_text.to_string(),
+                            message_text.clone().unwrap_or_default(),
                         )
                     } else {
                         (

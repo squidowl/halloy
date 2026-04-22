@@ -30,7 +30,6 @@ use std::{env, mem};
 use appearance::{Theme, theme};
 use data::capabilities::LabeledResponseContext;
 use data::config::{self, Config};
-use data::history::ReactionTarget;
 use data::history::filter::FilterChain;
 use data::history::reroute::RerouteRules;
 use data::message::{self, Broadcast};
@@ -586,8 +585,8 @@ impl Halloy {
                     }
                     Some(dashboard::Event::PendingReaction(
                         server,
-                        reaction_target,
                         reaction,
+                        message_text,
                     )) => {
                         let casemapping = self
                             .clients
@@ -608,7 +607,7 @@ impl Halloy {
                                 dashboard,
                                 &self.main_window,
                                 &reaction,
-                                reaction_target.as_ref(),
+                                message_text.as_ref(),
                                 &mut self.notifications,
                                 our_nick.to_owned(),
                             ) {
@@ -2248,13 +2247,10 @@ fn notify_reaction(
     dashboard: &mut screen::Dashboard,
     main_window: &Window,
     reaction: &reaction::Context,
-    reaction_target: Option<&ReactionTarget>,
+    message_text: Option<&String>,
     notifications: &mut Notifications,
     our_nick: Nick,
 ) -> Option<Task<Message>> {
-    let is_react_to_own_message =
-        reaction_target.is_some_and(|t| t.sent_by_self);
-
     let sender_nick = reaction.inner.sender.clone();
     let self_reaction = our_nick == sender_nick;
     let sender = User::from(sender_nick);
@@ -2293,7 +2289,7 @@ fn notify_reaction(
     if !blocked
         && !self_reaction
         && !reaction.inner.unreact
-        && is_react_to_own_message
+        && message_text.is_some()
         && (message_window.is_none() || !main_window.focused)
     {
         let request_attention = notifications.notify(
@@ -2301,7 +2297,7 @@ fn notify_reaction(
             &Notification::Reaction {
                 casemapping,
                 reaction: reaction.clone(),
-                reaction_target: reaction_target.cloned(),
+                message_text: message_text.cloned(),
             },
             server,
             message_window.unwrap_or(main_window.id),
@@ -2336,8 +2332,8 @@ fn handle_reaction(
         casemapping,
         config.buffer.channel.message.max_reaction_chars,
     ) {
-        let (reaction_target, task) =
-            dashboard.record_reaction(clients, server, reaction.clone());
+        let (message_text, task) =
+            dashboard.record_reaction(server, reaction.clone());
         reactions.push(task.map(Message::Dashboard));
 
         if let Some(task) = notify_reaction(
@@ -2349,7 +2345,7 @@ fn handle_reaction(
             dashboard,
             main_window,
             &reaction,
-            reaction_target.as_ref(),
+            message_text.as_ref(),
             notifications,
             our_nick,
         ) {

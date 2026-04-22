@@ -11,11 +11,9 @@ use tokio::time::Instant;
 use super::filter::{Filter, FilterChain};
 use super::reroute::RerouteRules;
 use crate::capabilities::LabeledResponseContext;
-use crate::history::{
-    self, History, MessageReferences, ReactionTarget, ReadMarker, metadata,
-};
+use crate::history::{self, History, MessageReferences, ReadMarker, metadata};
 use crate::message::broadcast::{self, Broadcast};
-use crate::message::{self, Direction, Limit};
+use crate::message::{self, Limit};
 use crate::target::{self, Target};
 use crate::user::Nick;
 use crate::{
@@ -63,7 +61,7 @@ pub enum Message {
     SentMessageUpdated(history::Kind, history::ReadMarker),
     ResendMessage(history::Kind, message::Message),
     DraftsSaved,
-    PendingReaction(Server, Option<ReactionTarget>, reaction::Context),
+    PendingReaction(Server, reaction::Context, Option<String>),
 }
 
 pub enum Event {
@@ -71,7 +69,7 @@ pub enum Event {
     Exited,
     SentMessageUpdated(history::Kind, history::ReadMarker),
     ResendMessage(history::Kind, message::Message),
-    PendingReaction(Server, Option<ReactionTarget>, reaction::Context),
+    PendingReaction(Server, reaction::Context, Option<String>),
 }
 
 #[derive(Debug, Default)]
@@ -235,8 +233,12 @@ impl Manager {
                 return Some(Event::ResendMessage(kind, message));
             }
             Message::DraftsSaved => {}
-            Message::PendingReaction(server, target, reaction) => {
-                return Some(Event::PendingReaction(server, target, reaction));
+            Message::PendingReaction(server, reaction, message_text) => {
+                return Some(Event::PendingReaction(
+                    server,
+                    reaction,
+                    message_text,
+                ));
             }
         }
 
@@ -451,14 +453,13 @@ impl Manager {
 
     pub fn record_reaction(
         &mut self,
-        clients: &client::Map,
         server: &Server,
         reaction: reaction::Context,
     ) -> (
-        Option<ReactionTarget>,
+        Option<String>,
         Option<impl Future<Output = Message> + use<>>,
     ) {
-        self.data.add_reaction(clients, server.clone(), reaction)
+        self.data.add_reaction(server.clone(), reaction)
     }
 
     pub fn block_and_record_message(
@@ -1833,63 +1834,27 @@ impl Data {
 
     fn add_reaction(
         &mut self,
-        clients: &client::Map,
         server: Server,
         reaction: reaction::Context,
     ) -> (
-        Option<ReactionTarget>,
+        Option<String>,
         Option<impl Future<Output = Message> + use<>>,
     ) {
         let kind =
             history::Kind::from_target(server.clone(), reaction.target.clone());
         match self.map.entry(kind.clone()) {
             hash_map::Entry::Occupied(mut entry) => {
-                let target = entry.get_mut().add_reaction(reaction.clone());
-                let seed = clients.get_seed(&kind);
-
-                if target.is_some() {
-                    (target, None)
-                } else {
-                    (
-                        None,
-                        Some(
-                            async move {
-                                let loaded =
-                                    history::load(kind.clone(), seed).await;
-                                let target = if let Ok(loaded) = loaded {
-                                    loaded
-                                        .messages
-                                        .iter()
-                                        .rev()
-                                        .find(|message| {
-                                            message.id.as_deref()
-                                                == Some(&*reaction.in_reply_to)
-                                        })
-                                        .map(|message| ReactionTarget {
-                                            sent_by_self: message.is_echo
-                                                && message.direction
-                                                    == Direction::Received,
-                                            text: message.text(),
-                                        })
-                                } else {
-                                    None
-                                };
-                                Message::PendingReaction(
-                                    server, target, reaction,
-                                )
-                            }
-                            .boxed(),
-                        ),
-                    )
-                }
+                let message_text =
+                    entry.get_mut().add_reaction(reaction.clone());
+                (message_text, None)
             }
             hash_map::Entry::Vacant(entry) => {
-                let target = entry
+                let message_text = entry
                     .insert(History::partial(kind.clone()))
                     .add_reaction(reaction);
 
                 (
-                    target,
+                    message_text,
                     Some(
                         async move {
                             let loaded =

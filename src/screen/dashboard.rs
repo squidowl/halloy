@@ -11,9 +11,9 @@ use data::capabilities::{
 use data::config::buffer::{ScrollPosition, UsernameFormat};
 use data::dashboard::{self, BufferAction};
 use data::environment::{RELEASE_WEBSITE, WIKI_WEBSITE};
+use data::history::ReadMarker;
 use data::history::filter::Filter;
 use data::history::reroute::RerouteRules;
-use data::history::{ReactionTarget, ReadMarker};
 use data::isupport::{self, ChatHistorySubcommand, MessageReference};
 use data::message::{self, Broadcast};
 use data::rate_limit::TokenPriority;
@@ -115,7 +115,7 @@ pub enum Event {
         has_credentials: bool,
         window: window::Id,
     },
-    PendingReaction(Server, Option<ReactionTarget>, reaction::Context),
+    PendingReaction(Server, reaction::Context, Option<String>),
 }
 
 impl Dashboard {
@@ -988,13 +988,15 @@ impl Dashboard {
                         }
                         history::manager::Event::PendingReaction(
                             server,
-                            target,
                             context,
+                            message_text,
                         ) => {
                             return (
                                 Task::none(),
                                 Some(Event::PendingReaction(
-                                    server, target, context,
+                                    server,
+                                    context,
+                                    message_text,
                                 )),
                             );
                         }
@@ -3206,18 +3208,17 @@ impl Dashboard {
 
     pub fn record_reaction(
         &mut self,
-        clients: &client::Map,
         server: &Server,
         reaction: reaction::Context,
-    ) -> (Option<ReactionTarget>, Task<Message>) {
-        let (target, future) =
-            self.history.record_reaction(clients, server, reaction);
+    ) -> (Option<String>, Task<Message>) {
+        let (message_text, future) =
+            self.history.record_reaction(server, reaction);
         let task = if let Some(f) = future {
             Task::perform(f, Message::History)
         } else {
             Task::none()
         };
-        (target, task)
+        (message_text, task)
     }
 
     pub fn is_focused_and_at_bottom(

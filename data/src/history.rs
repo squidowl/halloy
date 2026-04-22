@@ -35,12 +35,6 @@ const TRUNC_COUNT: usize = 500;
 const FLUSH_AFTER_LAST_RECEIVED: Duration = Duration::from_secs(5);
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct ReactionTarget {
-    pub sent_by_self: bool,
-    pub text: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Kind {
     Server(Server),
     Channel(Server, target::Channel),
@@ -1057,7 +1051,7 @@ impl History {
     pub fn add_reaction(
         &mut self,
         reaction: reaction::Context,
-    ) -> Option<ReactionTarget> {
+    ) -> Option<String> {
         match self {
             History::Partial {
                 pending_messages,
@@ -1071,13 +1065,15 @@ impl History {
                             .then_some(m)
                     })
                 {
-                    let target = ReactionTarget {
-                        sent_by_self: message.is_echo
-                            && message.direction == Direction::Received,
-                        text: message.text(),
+                    let message_text = if message.is_echo
+                        && message.direction == Direction::Received
+                    {
+                        Some(message.text())
+                    } else {
+                        None
                     };
                     message.reactions.push(reaction.inner);
-                    return Some(target);
+                    return message_text;
                 } else {
                     let pending = pending_reactions
                         .entry(reaction.in_reply_to)
@@ -1106,12 +1102,14 @@ impl History {
 
                 *last_updated_at = Some(Instant::now());
 
-                let target = ReactionTarget {
-                    sent_by_self: message.is_echo
-                        && message.direction == Direction::Received,
-                    text: message.text(),
+                let message_text = if message.is_echo
+                    && message.direction == Direction::Received
+                {
+                    Some(message.text())
+                } else {
+                    None
                 };
-                return Some(target);
+                return message_text;
             }
         }
         None

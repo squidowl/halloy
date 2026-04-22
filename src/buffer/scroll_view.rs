@@ -1406,7 +1406,6 @@ fn send_reaction(
     if !clients.get_server_supports_echoes(server) {
         let nick = clients.nickname(server)?;
         history.record_reaction(
-            clients,
             server,
             reaction::Context {
                 inner: Reaction {
