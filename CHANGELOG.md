@@ -1,5 +1,9 @@
 # Unreleased
 
+Added:
+
+- The default font is not bundled if default feature `iosevka-font` is disabled.
+
 Fixed:
 
 - `NICK` and `QUIT` messages returned by `draft/event-playback` (`chathistory`)

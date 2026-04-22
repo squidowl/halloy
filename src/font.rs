@@ -97,21 +97,27 @@ pub fn set(config: Option<&Config>) {
 
 pub fn load() -> Vec<Cow<'static, [u8]>> {
     vec![
+        #[cfg(feature = "bundled-default-font")]
         include_bytes!("../fonts/iosevka-term-regular.ttf")
             .as_slice()
             .into(),
+        #[cfg(feature = "bundled-default-font")]
         include_bytes!("../fonts/iosevka-term-bold.ttf")
             .as_slice()
             .into(),
+        #[cfg(feature = "bundled-default-font")]
         include_bytes!("../fonts/iosevka-term-italic.ttf")
             .as_slice()
             .into(),
+        #[cfg(feature = "bundled-default-font")]
         include_bytes!("../fonts/iosevka-term-light.ttf")
             .as_slice()
             .into(),
+        #[cfg(feature = "bundled-default-font")]
         include_bytes!("../fonts/iosevka-term-semibold.ttf")
             .as_slice()
             .into(),
+        #[cfg(feature = "bundled-default-font")]
         include_bytes!("../fonts/iosevka-term-lightitalic.ttf")
             .as_slice()
             .into(),

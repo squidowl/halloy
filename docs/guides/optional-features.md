@@ -16,6 +16,11 @@ cargo build --release --features tor
 
 ## Available features
 
+### `bundled-default-font`
+
+Enables bundling the default font, Iosevka Term.
+Enabled by default.
+
 ### `tor`
 
 Enables Tor network support for anonymous IRC connections.
