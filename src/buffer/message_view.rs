@@ -424,7 +424,7 @@ impl<'a> ChannelQueryLayout<'a> {
                         &self.config.font,
                     );
                     if is_bot && self.config.buffer.nickname.show_bot_icon {
-                        base + theme::ICON_SIZE + 2.0
+                        base + theme::ICON_SIZE + theme::ICON_SPACE
                     } else {
                         base
                     }
@@ -445,7 +445,7 @@ impl<'a> ChannelQueryLayout<'a> {
             if let Some(width) = right_aligned_width {
                 let nick_width =
                     if is_bot && self.config.buffer.nickname.show_bot_icon {
-                        width - theme::ICON_SIZE - 2.0
+                        width - theme::ICON_SIZE - theme::ICON_SPACE
                     } else {
                         width
                     };

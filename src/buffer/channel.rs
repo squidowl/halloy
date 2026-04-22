@@ -597,7 +597,7 @@ mod nick_list {
 
         let bot_nick_max_chars = if nicklist_config.show_bot_icon {
             let char_width = font::width_from_chars(1, &config.font);
-            let available = width - theme::ICON_SIZE - 2.0;
+            let available = width - theme::ICON_SIZE - theme::ICON_SPACE;
             let px_max = (available / char_width).floor() as u16;
             Some(truncate.map_or(px_max, |t| t.min(px_max)))
         } else {
@@ -607,8 +607,8 @@ mod nick_list {
         let content = column(users.into_iter().flatten().map(|user| {
             let show_bot_icon = user.is_bot() && nicklist_config.show_bot_icon;
 
-            let (nick_display, show_nick_tooltip) =
-                user.display_with_truncated(
+            let (nick_display, show_nick_tooltip) = user
+                .display_with_truncated(
                     nicklist_config.show_access_levels,
                     if show_bot_icon {
                         bot_nick_max_chars
@@ -622,7 +622,9 @@ mod nick_list {
                     theme::font_style::nickname(theme, false).map(font::get),
                 )
                 .style(|theme| {
-                    theme::selectable_text::nicklist_nickname(theme, config, user)
+                    theme::selectable_text::nicklist_nickname(
+                        theme, config, user,
+                    )
                 })
                 .align_x(match nicklist_config.alignment {
                     config::buffer::channel::Alignment::Left => {
@@ -632,17 +634,17 @@ mod nick_list {
                         text::Alignment::Right
                     }
                 })
-                .width(
-                    match (show_bot_icon, nicklist_config.alignment) {
-                        (true, config::buffer::channel::Alignment::Left) => {
-                            Length::Shrink
-                        }
-                        (true, config::buffer::channel::Alignment::Right) => {
-                            Length::Fixed(width - theme::ICON_SIZE - 2.0)
-                        }
-                        (false, _) => Length::Fixed(width),
-                    },
-                );
+                .width(match (show_bot_icon, nicklist_config.alignment) {
+                    (true, config::buffer::channel::Alignment::Left) => {
+                        Length::Shrink
+                    }
+                    (true, config::buffer::channel::Alignment::Right) => {
+                        Length::Fixed(
+                            width - theme::ICON_SIZE - theme::ICON_SPACE,
+                        )
+                    }
+                    (false, _) => Length::Fixed(width),
+                });
 
             let nick: Element<_> = tooltip(
                 nick,

@@ -27,6 +27,7 @@ pub mod text_input;
 // Config.font.size since it's user configurable
 pub const TEXT_SIZE: f32 = 13.0;
 pub const ICON_SIZE: f32 = 12.0;
+pub const ICON_SPACE: f32 = 2.0;
 
 #[derive(Debug, Clone)]
 pub enum Theme {
