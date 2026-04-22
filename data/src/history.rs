@@ -771,7 +771,6 @@ impl History {
                                 chathistory_references,
                             )
                             .await;
-
                             Ok(vec![])
                         }
                         .boxed(),

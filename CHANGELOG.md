@@ -4,6 +4,7 @@ Added:
 
 - The default font is not bundled if default feature `iosevka-font` is disabled.
 - Configuration options for font stretch (`font.stretch`)
+- Notification for reacts
 
 Fixed:
 
@@ -12,7 +13,7 @@ Fixed:
 
 Thanks:
 
-- Contributions: @bb010g, @furudean
+- Contributions: @bb010g, @furudean, @englut
 - Bug reports: @bb010g
 
 # 2026.6 (2026-04-21)
@@ -46,7 +47,6 @@ Added:
   - emacs bindings for <kbd>ctrl</kbd> + <kbd>u</kbd> and <kbd>ctrl</kbd> + <kbd>w</kbd>
   - `buffer.text_input.kill_to_clipboard` to control key bindings moving killed text to clipboard
 - Windows MSI installer does not automatically start Halloy during passive or quiet installations
-- Notification for reacts
 
 Changed:
 
