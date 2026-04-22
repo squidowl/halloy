@@ -572,7 +572,11 @@ mod nick_list {
         theme: &'a Theme,
     ) -> Element<'a, Message> {
         let nicklist_config = &config.buffer.channel.nicklist;
-        let truncate = nicklist_config.truncate;
+        let truncate = if nicklist_config.width.is_some() {
+            None
+        } else {
+            nicklist_config.truncate
+        };
 
         let width = match nicklist_config.width {
             Some(width) => width,
