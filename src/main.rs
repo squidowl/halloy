@@ -583,10 +583,9 @@ impl Halloy {
                         });
                         Task::none()
                     }
-                    Some(dashboard::Event::PendingReaction(
+                    Some(dashboard::Event::PendingReactions(
                         server,
-                        reaction,
-                        message_text,
+                        pending_reactions,
                     )) => {
                         let casemapping = self
                             .clients
@@ -598,23 +597,28 @@ impl Halloy {
                             .clients
                             .get_server_statusmsg_or_default(&server);
                         if let Some(our_nick) = self.clients.nickname(&server) {
-                            if let Some(task) = notify_reaction(
-                                &self.config,
-                                &server,
-                                casemapping,
-                                chantypes,
-                                statusmsg,
-                                dashboard,
-                                &self.main_window,
-                                &reaction,
-                                message_text.as_ref(),
-                                &mut self.notifications,
-                                our_nick.to_owned(),
-                            ) {
-                                task
-                            } else {
-                                Task::none()
-                            }
+                            Task::batch(
+                                pending_reactions
+                                    .into_iter()
+                                    .filter_map(|pending_reaction| {
+                                        notify_reaction(
+                                            &self.config,
+                                            &server,
+                                            casemapping,
+                                            chantypes,
+                                            statusmsg,
+                                            dashboard,
+                                            &self.main_window,
+                                            &pending_reaction.reaction,
+                                            Some(
+                                                &pending_reaction.message_text,
+                                            ),
+                                            &mut self.notifications,
+                                            our_nick.to_owned(),
+                                        )
+                                    })
+                                    .collect::<Vec<_>>(),
+                            )
                         } else {
                             Task::none()
                         }

@@ -41,6 +41,12 @@ impl Resource {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct PendingReaction {
+    pub reaction: reaction::Context,
+    pub message_text: String,
+}
+
 #[derive(Debug)]
 pub enum Message {
     LoadFull(history::Kind, Result<history::Loaded, history::Error>),
@@ -56,12 +62,12 @@ pub enum Message {
         Result<(), history::Error>,
     ),
     Closed(history::Kind, Result<(), history::Error>),
-    Flushed(history::Kind, Result<(), history::Error>),
+    Flushed(history::Kind, Result<Vec<PendingReaction>, history::Error>),
     Exited(Vec<(history::Kind, Result<(), history::Error>)>),
     SentMessageUpdated(history::Kind, history::ReadMarker),
     ResendMessage(history::Kind, message::Message),
     DraftsSaved,
-    PendingReaction(Server, reaction::Context, Option<String>),
+    PendingReactions(Server, Vec<PendingReaction>),
 }
 
 pub enum Event {
@@ -69,7 +75,7 @@ pub enum Event {
     Exited,
     SentMessageUpdated(history::Kind, history::ReadMarker),
     ResendMessage(history::Kind, message::Message),
-    PendingReaction(Server, reaction::Context, Option<String>),
+    PendingReactions(Server, Vec<PendingReaction>),
 }
 
 #[derive(Debug, Default)]
@@ -101,7 +107,7 @@ impl Manager {
             log::debug!("cleared messages for {kind}");
 
             return task.map(move |task| {
-                task.map(move |result| Message::Flushed(kind, result))
+                task.map(move |_| Message::Flushed(kind, Ok(vec![])))
                     .boxed()
             });
         }
@@ -168,10 +174,18 @@ impl Manager {
             Message::Closed(kind, Err(error)) => {
                 log::warn!("failed to close history for {kind}: {error}");
             }
-            Message::Flushed(kind, Ok(())) => {
+            Message::Flushed(kind, Ok(pending_reactions)) => {
                 // Will cause flush loop if we emit a log every time we flush logs
                 if !matches!(kind, history::Kind::Logs) {
                     log::debug!("flushed history for {kind}",);
+                }
+                if !pending_reactions.is_empty()
+                    && let Some(server) = kind.server()
+                {
+                    return Some(Event::PendingReactions(
+                        server.clone(),
+                        pending_reactions,
+                    ));
                 }
             }
             Message::Flushed(kind, Err(error)) => {
@@ -233,11 +247,10 @@ impl Manager {
                 return Some(Event::ResendMessage(kind, message));
             }
             Message::DraftsSaved => {}
-            Message::PendingReaction(server, reaction, message_text) => {
-                return Some(Event::PendingReaction(
+            Message::PendingReactions(server, pending_reactions) => {
+                return Some(Event::PendingReactions(
                     server,
-                    reaction,
-                    message_text,
+                    pending_reactions,
                 ));
             }
         }

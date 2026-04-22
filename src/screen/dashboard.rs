@@ -13,6 +13,7 @@ use data::dashboard::{self, BufferAction};
 use data::environment::{RELEASE_WEBSITE, WIKI_WEBSITE};
 use data::history::ReadMarker;
 use data::history::filter::Filter;
+use data::history::manager::PendingReaction;
 use data::history::reroute::RerouteRules;
 use data::isupport::{self, ChatHistorySubcommand, MessageReference};
 use data::message::{self, Broadcast};
@@ -115,7 +116,7 @@ pub enum Event {
         has_credentials: bool,
         window: window::Id,
     },
-    PendingReaction(Server, reaction::Context, Option<String>),
+    PendingReactions(Server, Vec<PendingReaction>),
 }
 
 impl Dashboard {
@@ -986,17 +987,15 @@ impl Dashboard {
                                 }
                             }
                         }
-                        history::manager::Event::PendingReaction(
+                        history::manager::Event::PendingReactions(
                             server,
-                            context,
-                            message_text,
+                            pending_reactions,
                         ) => {
                             return (
                                 Task::none(),
-                                Some(Event::PendingReaction(
+                                Some(Event::PendingReactions(
                                     server,
-                                    context,
-                                    message_text,
+                                    pending_reactions,
                                 )),
                             );
                         }

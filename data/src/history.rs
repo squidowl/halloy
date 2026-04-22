@@ -10,7 +10,7 @@ use futures::{Future, FutureExt};
 use tokio::fs;
 use tokio::time::Instant;
 
-pub use self::manager::{Manager, Resource};
+pub use self::manager::{Manager, PendingReaction, Resource};
 pub use self::metadata::{Metadata, ReadMarker};
 use crate::capabilities::LabeledResponseContext;
 use crate::message::{self, Direction, MessageReferences, Source};
@@ -267,8 +267,10 @@ pub async fn append(
     read_marker: Option<ReadMarker>,
     chathistory_references: Option<MessageReferences>,
     pending_reactions: HashMap<message::Id, reaction::Pending>,
-) -> Result<(), Error> {
+) -> Result<Vec<PendingReaction>, Error> {
     let loaded = load(kind.clone(), seed).await?;
+
+    let mut pending_reactions_flushed: Vec<PendingReaction> = vec![];
 
     let mut all_messages = loaded.messages;
     // pending reactions should only exist for unloaded history entries
@@ -276,6 +278,33 @@ pub async fn append(
         if let Some(message) =
             find_reaction_target(&mut all_messages, &id, &pending.server_time)
         {
+            if message.is_echo && message.direction == Direction::Received {
+                let target = match message.target.clone() {
+                    message::Target::Channel { channel, source: _ } => {
+                        Some(target::Target::Channel(channel))
+                    }
+                    message::Target::Query { query, source: _ } => {
+                        Some(target::Target::Query(query))
+                    }
+                    _ => None,
+                };
+                if let Some(target) = target {
+                    let message_text = message.text();
+                    for reaction in pending.clone().reactions.into_iter() {
+                        let pending_reaction = PendingReaction {
+                            reaction: reaction::Context {
+                                inner: reaction,
+                                target: target.clone(),
+                                in_reply_to: id.clone(),
+                                server_time: pending.server_time,
+                            },
+                            message_text: message_text.clone(),
+                        };
+                        pending_reactions_flushed.push(pending_reaction);
+                    }
+                }
+            }
+
             message.reactions.append(&mut pending.reactions);
         }
     }
@@ -289,7 +318,10 @@ pub async fn append(
         },
     );
 
-    overwrite(kind, &all_messages, read_marker, chathistory_references).await
+    let _ = overwrite(kind, &all_messages, read_marker, chathistory_references)
+        .await;
+
+    Ok(pending_reactions_flushed)
 }
 
 pub async fn delete(kind: &Kind) -> Result<(), Error> {
@@ -659,7 +691,7 @@ impl History {
         &mut self,
         now: Option<Instant>,
         seed: Option<Seed>,
-    ) -> Option<BoxFuture<'static, Result<(), Error>>> {
+    ) -> Option<BoxFuture<'static, Result<Vec<PendingReaction>, Error>>> {
         match self {
             History::Partial {
                 kind,
@@ -732,13 +764,15 @@ impl History {
 
                     return Some(
                         async move {
-                            overwrite(
+                            let _ = overwrite(
                                 &kind,
                                 &messages,
                                 read_marker,
                                 chathistory_references,
                             )
-                            .await
+                            .await;
+
+                            Ok(vec![])
                         }
                         .boxed(),
                     );
@@ -815,7 +849,7 @@ impl History {
                 pending_reactions,
                 ..
             } => {
-                append(
+                let _ = append(
                     &kind,
                     seed,
                     pending_messages,
@@ -823,7 +857,8 @@ impl History {
                     chathistory_references,
                     pending_reactions,
                 )
-                .await
+                .await;
+                Ok(())
             }
             History::Full {
                 kind,
