@@ -610,9 +610,7 @@ impl Halloy {
                                             dashboard,
                                             &self.main_window,
                                             &pending_reaction.reaction,
-                                            Some(
-                                                &pending_reaction.message_text,
-                                            ),
+                                            pending_reaction.message_text,
                                             &mut self.notifications,
                                             our_nick.to_owned(),
                                         )
@@ -2251,7 +2249,7 @@ fn notify_reaction(
     dashboard: &mut screen::Dashboard,
     main_window: &Window,
     reaction: &reaction::Context,
-    message_text: Option<&String>,
+    message_text: String,
     notifications: &mut Notifications,
     our_nick: Nick,
 ) -> Option<Task<Message>> {
@@ -2293,7 +2291,6 @@ fn notify_reaction(
     if !blocked
         && !self_reaction
         && !reaction.inner.unreact
-        && message_text.is_some()
         && (message_window.is_none() || !main_window.focused)
     {
         let request_attention = notifications.notify(
@@ -2301,7 +2298,7 @@ fn notify_reaction(
             &Notification::Reaction {
                 casemapping,
                 reaction: reaction.clone(),
-                message_text: message_text.cloned(),
+                message_text,
             },
             server,
             message_window.unwrap_or(main_window.id),
@@ -2340,19 +2337,21 @@ fn handle_reaction(
             dashboard.record_reaction(server, reaction.clone());
         reactions.push(task.map(Message::Dashboard));
 
-        if let Some(task) = notify_reaction(
-            config,
-            server,
-            casemapping,
-            chantypes,
-            statusmsg,
-            dashboard,
-            main_window,
-            &reaction,
-            message_text.as_ref(),
-            notifications,
-            our_nick,
-        ) {
+        if let Some(message_text) = message_text
+            && let Some(task) = notify_reaction(
+                config,
+                server,
+                casemapping,
+                chantypes,
+                statusmsg,
+                dashboard,
+                main_window,
+                &reaction,
+                message_text,
+                notifications,
+                our_nick,
+            )
+        {
             reactions.push(task);
         }
     }

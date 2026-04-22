@@ -357,10 +357,8 @@ impl Notifications {
                 ) {
                     let react_sent_in = match channel {
                         Some(channel) => channel.as_normalized_str(),
-                        _ => "a direct message",
+                        _ => "your direct message",
                     };
-                    let owner_display_text =
-                        if message_text.is_some() { "your" } else { "a" };
 
                     let (title, subtitle, body): (
                         String,
@@ -370,17 +368,17 @@ impl Notifications {
                         (
                             reaction.inner.sender.to_string(),
                             Some(format!(
-                                "Reacted {} to {owner_display_text} message in {react_sent_in}",
+                                "Reacted {} to your message in {react_sent_in}",
                                 reaction.inner.text
                             )),
-                            message_text.clone().unwrap_or_default(),
+                            message_text.to_string(),
                         )
                     } else {
                         (
                             reaction.inner.sender.to_string(),
                             None,
                             format!(
-                                "Reacted to {owner_display_text} message in {react_sent_in}",
+                                "Reacted to your message in {react_sent_in}",
                             ),
                         )
                     };

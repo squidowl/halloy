@@ -36,6 +36,6 @@ pub enum Notification {
     Reaction {
         casemapping: isupport::CaseMap,
         reaction: reaction::Context,
-        message_text: Option<String>,
+        message_text: String,
     },
 }
