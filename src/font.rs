@@ -64,12 +64,12 @@ pub fn line_height() -> LineHeight {
 }
 
 fn default_font() -> iced::Font {
-    #[cfg(feature = "bundled-default-font")]
+    #[cfg(feature = "iosevka-font")]
     {
         iced::Font::with_family("Iosevka Term")
     }
 
-    #[cfg(not(feature = "bundled-default-font"))]
+    #[cfg(not(feature = "iosevka-font"))]
     {
         iced::Font::MONOSPACE
     }
@@ -110,27 +110,27 @@ pub fn set(config: Option<&Config>) {
 
 pub fn load() -> Vec<Cow<'static, [u8]>> {
     vec![
-        #[cfg(feature = "bundled-default-font")]
+        #[cfg(feature = "iosevka-font")]
         include_bytes!("../fonts/iosevka-term-regular.ttf")
             .as_slice()
             .into(),
-        #[cfg(feature = "bundled-default-font")]
+        #[cfg(feature = "iosevka-font")]
         include_bytes!("../fonts/iosevka-term-bold.ttf")
             .as_slice()
             .into(),
-        #[cfg(feature = "bundled-default-font")]
+        #[cfg(feature = "iosevka-font")]
         include_bytes!("../fonts/iosevka-term-italic.ttf")
             .as_slice()
             .into(),
-        #[cfg(feature = "bundled-default-font")]
+        #[cfg(feature = "iosevka-font")]
         include_bytes!("../fonts/iosevka-term-light.ttf")
             .as_slice()
             .into(),
-        #[cfg(feature = "bundled-default-font")]
+        #[cfg(feature = "iosevka-font")]
         include_bytes!("../fonts/iosevka-term-semibold.ttf")
             .as_slice()
             .into(),
-        #[cfg(feature = "bundled-default-font")]
+        #[cfg(feature = "iosevka-font")]
         include_bytes!("../fonts/iosevka-term-lightitalic.ttf")
             .as_slice()
             .into(),

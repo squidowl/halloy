@@ -23,7 +23,9 @@ Variable-weight fonts are not currently supported.
 # Values: any string
 # Default: not set
 #
-# Note: Iosevka Term is provided by the application, and used by default.
+# Note: With the default `iosevka-font` feature enabled, Halloy
+# uses Iosevka Term by default. Without that feature, Halloy falls back
+# to the system monospace font.
 
 [font]
 family = "Comic Mono"
