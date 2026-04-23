@@ -101,6 +101,18 @@ pub fn highlight_indicator(theme: &Theme) -> Style {
     }
 }
 
+pub fn backlog(theme: &Theme) -> Style {
+    Style {
+        color: Some(
+            theme
+                .styles()
+                .buffer
+                .backlog_rule
+                .unwrap_or(theme.styles().general.horizontal_rule),
+        ),
+    }
+}
+
 pub fn url(theme: &Theme) -> Style {
     Style {
         color: Some(theme.styles().buffer.url.color),
