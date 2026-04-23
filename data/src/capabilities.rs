@@ -224,6 +224,7 @@ impl Capabilities {
     pub fn create_requested(
         &mut self,
         config: &config::Server,
+        is_primary: bool,
     ) -> Vec<&'static str> {
         let mut requested = vec![];
 
@@ -337,13 +338,15 @@ impl Capabilities {
             requested.push("setname");
         }
 
-        if self.pending.contains("soju.im/bouncer-networks")
+        if is_primary
+            && self.pending.contains("soju.im/bouncer-networks")
             && !self.acknowledged(Capability::BouncerNetworks)
         {
             requested.push("soju.im/bouncer-networks");
         }
 
-        if self.pending.contains("soju.im/bouncer-networks-notify")
+        if is_primary
+            && self.pending.contains("soju.im/bouncer-networks-notify")
             && !self.acknowledged(Capability::BouncerNetworksNotify)
         {
             requested.push("soju.im/bouncer-networks-notify");

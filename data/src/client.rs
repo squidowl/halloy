@@ -1182,7 +1182,7 @@ impl Client {
                 // Finished
                 if asterisk.is_none() {
                     let requested =
-                        self.capabilities.create_requested(&self.config);
+                        self.capabilities.create_requested(&self.config, self.is_primary());
 
                     if !requested.is_empty() {
                         // Request
@@ -1246,7 +1246,7 @@ impl Client {
                     .extend_list(caps.split(' ').map(String::from));
 
                 let requested =
-                    self.capabilities.create_requested(&self.config);
+                    self.capabilities.create_requested(&self.config, self.is_primary());
 
                 if !requested.is_empty() {
                     for message in group_capability_requests(&requested) {
