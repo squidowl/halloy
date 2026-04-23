@@ -146,7 +146,7 @@ pub enum Event {
     MonitoredOnline(Vec<User>),
     MonitoredOffline(Vec<Nick>),
     OnConnect(on_connect::Stream),
-    BouncerNetwork(Server, config::Server),
+    BouncerNetworkNotification(Server, config::Server),
     BouncerNetworkRemoved(Server),
     AddToSidebar(target::Query),
     Disconnect(Option<String>),
@@ -1160,7 +1160,7 @@ impl Client {
                 }
 
                 let network_config = self.config.bouncer_config();
-                return Ok(vec![Event::BouncerNetwork(
+                return Ok(vec![Event::BouncerNetworkNotification(
                     Server {
                         network: Some(network.into()),
                         ..self.server.clone()
@@ -1181,8 +1181,9 @@ impl Client {
 
                 // Finished
                 if asterisk.is_none() {
-                    let requested =
-                        self.capabilities.create_requested(&self.config, self.is_primary());
+                    let requested = self
+                        .capabilities
+                        .create_requested(&self.config, self.is_primary());
 
                     if !requested.is_empty() {
                         // Request
@@ -1245,8 +1246,9 @@ impl Client {
                 self.capabilities
                     .extend_list(caps.split(' ').map(String::from));
 
-                let requested =
-                    self.capabilities.create_requested(&self.config, self.is_primary());
+                let requested = self
+                    .capabilities
+                    .create_requested(&self.config, self.is_primary());
 
                 if !requested.is_empty() {
                     for message in group_capability_requests(&requested) {
@@ -4302,7 +4304,7 @@ fn continue_chathistory_between(
             | Event::MonitoredOnline(_)
             | Event::MonitoredOffline(_)
             | Event::OnConnect(_)
-            | Event::BouncerNetwork(_, _)
+            | Event::BouncerNetworkNotification(_, _)
             | Event::BouncerNetworkRemoved(_)
             | Event::AddToSidebar(_)
             | Event::Disconnect(_) => None,
@@ -4343,7 +4345,7 @@ fn continue_chathistory_targets(
             | Event::MonitoredOnline(_)
             | Event::MonitoredOffline(_)
             | Event::OnConnect(_)
-            | Event::BouncerNetwork(_, _)
+            | Event::BouncerNetworkNotification(_, _)
             | Event::BouncerNetworkRemoved(_)
             | Event::AddToSidebar(_)
             | Event::Disconnect(_) => None,
@@ -5700,7 +5702,10 @@ mod tests {
             .unwrap();
 
         assert!(
-            matches!(events.as_slice(), [Event::BouncerNetwork(_, _)]),
+            matches!(
+                events.as_slice(),
+                [Event::BouncerNetworkNotification(_, _)]
+            ),
             "expected BouncerNetwork, got {events:?}"
         );
     }
@@ -5730,7 +5735,10 @@ mod tests {
             .unwrap();
 
         assert!(
-            matches!(events.as_slice(), [Event::BouncerNetwork(_, _)]),
+            matches!(
+                events.as_slice(),
+                [Event::BouncerNetworkNotification(_, _)]
+            ),
             "expected BouncerNetwork after partial update, got {events:?}"
         );
     }

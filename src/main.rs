@@ -1728,7 +1728,7 @@ fn handle_client_events(
                     server, param, dashboard, clients, config,
                 );
             }
-            Event::BouncerNetwork(server, server_config) => {
+            Event::BouncerNetworkNotification(server, server_config) => {
                 servers.insert(server, server_config.into());
 
                 dashboard.set_reroute_rules(servers, clients);
