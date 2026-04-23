@@ -186,6 +186,7 @@ pub struct Client {
     who_polls: VecDeque<WhoPoll>,
     who_poll_interval: BackoffInterval,
     resolved_netid: Option<String>,
+    bouncer_networks: HashMap<String, BouncerNetwork>,
     anti_flood: Option<TokenBucket<message::Encoded>>,
     mode_requests: Vec<ModeRequest>,
     channel_discovery_manager: channel_discovery::Manager,
@@ -253,6 +254,7 @@ impl Client {
                     .min(config.anti_flood.saturating_mul(2)),
             ),
             resolved_netid: None,
+            bouncer_networks: HashMap::new(),
             anti_flood: Some(TokenBucket::new(config.anti_flood, 10)),
             mode_requests: Vec::new(),
             http_client: http_client.map(Arc::new),
@@ -1123,20 +1125,28 @@ impl Client {
 
                 // "*" signals network removal as per soju.im/bouncer-networks-notify
                 if network == "*" {
+                    self.bouncer_networks.remove(netid);
                     return Ok(vec![Event::BouncerNetworkRemoved(Server {
                         network: Some(Arc::new(BouncerNetwork {
                             id: netid.clone(),
-                            name: String::new(),
+                            ..Default::default()
                         })),
                         ..self.server.clone()
                     })]);
                 }
 
-                // soju.im/bouncer-networks-notify update messages only carry changed attributes,
-                // so a state-only update has no name and there is nothing for us to update.
-                if !bouncer::has_name(network) {
+                let cached_network = self
+                    .bouncer_networks
+                    .entry(netid.clone())
+                    .or_insert_with(|| BouncerNetwork {
+                        id: netid.clone(),
+                        ..Default::default()
+                    });
+                cached_network.merge(network)?;
+                if cached_network.name.is_empty() {
                     return Ok(vec![]);
                 }
+                let network = cached_network.clone();
 
                 if !self.sasl_succeeded {
                     // our connection isn't currently SASL. We have to assume that SASL won't
@@ -1149,7 +1159,6 @@ impl Client {
                     return Ok(vec![]);
                 }
 
-                let network = BouncerNetwork::parse(netid, network)?;
                 let network_config = self.config.bouncer_config();
                 return Ok(vec![Event::BouncerNetwork(
                     Server {
@@ -5648,5 +5657,81 @@ mod tests {
 
         assert!(client.querymap.contains_key(&query("foobar")));
         assert_eq!(client.resolve_query(&query("foobar")), Some(&canonical));
+    }
+
+    fn bouncer_network_message(netid: &str, attrs: &str) -> message::Encoded {
+        message::Encoded(proto::Message {
+            tags: BTreeMap::default(),
+            source: None,
+            command: Command::BOUNCER(
+                "NETWORK".to_string(),
+                vec![netid.to_string(), attrs.to_string()],
+            ),
+        })
+    }
+
+    #[test]
+    fn bouncer_network_removal_emits_removed_event() {
+        let mut client = test_client("tester");
+        let config = config::Config::default();
+
+        let events = client
+            .handle(bouncer_network_message("42", "*"), None, &config)
+            .unwrap();
+
+        assert!(
+            matches!(events.as_slice(), [Event::BouncerNetworkRemoved(_)]),
+            "expected BouncerNetworkRemoved, got {events:?}"
+        );
+    }
+
+    #[test]
+    fn bouncer_network_full_listing_emits_bouncer_network_event() {
+        let mut client = test_client("tester");
+        client.sasl_succeeded = true;
+        let config = config::Config::default();
+
+        let events = client
+            .handle(
+                bouncer_network_message("42", "name=Freenode;state=connected"),
+                None,
+                &config,
+            )
+            .unwrap();
+
+        assert!(
+            matches!(events.as_slice(), [Event::BouncerNetwork(_, _)]),
+            "expected BouncerNetwork, got {events:?}"
+        );
+    }
+
+    #[test]
+    fn bouncer_network_partial_update_merges_into_cache() {
+        let mut client = test_client("tester");
+        client.sasl_succeeded = true;
+        let config = config::Config::default();
+
+        // Initial full listing populates the cache
+        client
+            .handle(
+                bouncer_network_message("42", "name=Freenode;state=connected"),
+                None,
+                &config,
+            )
+            .unwrap();
+
+        // Partial update — only state changes, name absent
+        let events = client
+            .handle(
+                bouncer_network_message("42", "state=disconnected"),
+                None,
+                &config,
+            )
+            .unwrap();
+
+        assert!(
+            matches!(events.as_slice(), [Event::BouncerNetwork(_, _)]),
+            "expected BouncerNetwork after partial update, got {events:?}"
+        );
     }
 }
