@@ -2826,7 +2826,6 @@ impl Client {
                 // sent on successfully completing the registration process (after
                 // RPL_ISUPPORT message(s) are sent).
                 // https://modern.ircdocs.horse/#connection-registration
-
                 if self.registration_step != RegistrationStep::End {
                     log::warn!(
                         "[{}] Registration completed while in mode: {:?}",
