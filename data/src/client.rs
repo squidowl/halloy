@@ -147,6 +147,7 @@ pub enum Event {
     MonitoredOffline(Vec<Nick>),
     OnConnect(on_connect::Stream),
     BouncerNetwork(Server, config::Server),
+    BouncerNetworkRemoved(Server),
     AddToSidebar(target::Query),
     Disconnect(Option<String>),
 }
@@ -1119,6 +1120,17 @@ impl Client {
                         &message.command,
                     );
                 };
+
+                // "*" signals network removal as per soju.im/bouncer-networks-notify
+                if network == "*" {
+                    return Ok(vec![Event::BouncerNetworkRemoved(Server {
+                        network: Some(Arc::new(BouncerNetwork {
+                            id: netid.clone(),
+                            name: String::new(),
+                        })),
+                        ..self.server.clone()
+                    })]);
+                }
 
                 if !self.sasl_succeeded {
                     // our connection isn't currently SASL. We have to assume that SASL won't
@@ -2925,13 +2937,15 @@ impl Client {
                     ))?;
                 }
 
-                // Request bouncer networks
-                // TODO(pounce) replace this with "bouncer-networks-notify" after the cap handling
-                // is cleaned up.
+                // If soju.im/bouncer-networks-notify is negotiated, the server must send
+                // an initial BOUNCER NETWORK batch. If not, we BOUNCER LISTNETWORKS to get it.
                 if self.is_primary()
                     && self
                         .capabilities
                         .acknowledged(Capability::BouncerNetworks)
+                    && !self
+                        .capabilities
+                        .acknowledged(Capability::BouncerNetworksNotify)
                 {
                     self.handle
                         .try_send(command!("BOUNCER", "LISTNETWORKS"))?;
@@ -4274,6 +4288,7 @@ fn continue_chathistory_between(
             | Event::MonitoredOffline(_)
             | Event::OnConnect(_)
             | Event::BouncerNetwork(_, _)
+            | Event::BouncerNetworkRemoved(_)
             | Event::AddToSidebar(_)
             | Event::Disconnect(_) => None,
         });
@@ -4314,6 +4329,7 @@ fn continue_chathistory_targets(
             | Event::MonitoredOffline(_)
             | Event::OnConnect(_)
             | Event::BouncerNetwork(_, _)
+            | Event::BouncerNetworkRemoved(_)
             | Event::AddToSidebar(_)
             | Event::Disconnect(_) => None,
         });

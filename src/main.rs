@@ -1735,6 +1735,17 @@ fn handle_client_events(
 
                 dashboard.update_filters(servers, clients, &config.buffer);
             }
+            Event::BouncerNetworkRemoved(network_server) => {
+                controllers.end(
+                    &network_server,
+                    &config.buffer.commands.quit.default_reason,
+                );
+                servers.remove(&network_server);
+                clients.remove(&network_server);
+
+                dashboard.set_reroute_rules(servers, clients);
+                dashboard.update_filters(servers, clients, &config.buffer);
+            }
             Event::AddToSidebar(query) => {
                 dashboard.add_to_sidebar(server.clone(), query);
             }
