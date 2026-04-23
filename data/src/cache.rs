@@ -4,14 +4,14 @@ use std::path::{Path, PathBuf};
 
 use chrono::Utc;
 use derive_more::AsRef;
-use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use serde::de::DeserializeOwned;
+use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use tokio::fs;
 use tokio_stream::StreamExt;
 use tokio_util::io::ReaderStream;
-use url::Url;
-
 pub(crate) use trim::TrimConfig;
+use url::Url;
 
 /// SHA256 digest of cache content.
 #[derive(Debug, Clone, Serialize, Deserialize, AsRef)]
