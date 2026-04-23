@@ -655,7 +655,7 @@ pub fn view<'a>(
                     .padding(padding::right(6)),
                 text(separator_text)
                     .size(divider_font_size)
-                    .style(theme::text::secondary)
+                    .style(theme::text::backlog)
                     .font_maybe(
                         theme::font_style::secondary(theme).map(font::get)
                     ),

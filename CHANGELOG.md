@@ -3,9 +3,11 @@
 Fixed:
 
 - `NICK` and `QUIT` messages returned by `draft/event-playback` (`chathistory`)
+- Backlog separator text colour now follows `buffer.backlog_rule`
 
 Thanks:
 
+- Contributions: @furudean
 - Bug reports: @bb010g
 
 # 2026.6 (2026-04-21)
