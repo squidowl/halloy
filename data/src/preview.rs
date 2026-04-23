@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::io;
 use std::sync::{Arc, LazyLock, OnceLock};
@@ -375,7 +376,16 @@ fn exceeds_image_size(
 }
 
 fn decode_html_string(s: &str) -> String {
-    html_escape::decode_html_entities(s).to_string()
+    let mut current = s.to_string();
+
+    for _ in 0..4 {
+        match html_escape::decode_html_entities(&current) {
+            Cow::Borrowed(_) => break,
+            Cow::Owned(next) => current = next,
+        }
+    }
+
+    current
 }
 
 #[derive(Debug, Default)]
