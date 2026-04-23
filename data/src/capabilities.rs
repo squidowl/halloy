@@ -338,8 +338,7 @@ impl Capabilities {
             requested.push("setname");
         }
 
-        if is_primary
-            && self.pending.contains("soju.im/bouncer-networks")
+        if self.pending.contains("soju.im/bouncer-networks")
             && !self.acknowledged(Capability::BouncerNetworks)
         {
             requested.push("soju.im/bouncer-networks");
