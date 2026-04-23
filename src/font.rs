@@ -78,8 +78,9 @@ fn default_font() -> iced::Font {
 pub fn set(config: Option<&Config>) {
     let font = config
         .and_then(|config| config.font.family.clone())
-        .map(|family| iced::Font::with_family(family.as_str()))
-        .unwrap_or_else(default_font);
+        .map_or_else(default_font, |family| {
+            iced::Font::with_family(family.as_str())
+        });
     let weight =
         config.map_or(font::Weight::Normal, |config| config.font.weight);
     let bold_weight = config
