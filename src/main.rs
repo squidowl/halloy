@@ -602,7 +602,7 @@ impl Halloy {
                                 reactions
                                     .into_iter()
                                     .filter_map(|reaction| {
-                                        notify_reaction(
+                                        handle_reaction_to_echo(
                                             &self.config,
                                             &server,
                                             casemapping,
@@ -1785,17 +1785,23 @@ fn handle_client_events(
                 controllers.disconnect(server, error);
             }
             Event::Reaction(encoded, our_nick) => {
-                handle_reaction(
-                    config,
-                    server,
-                    clients,
-                    dashboard,
-                    main_window,
-                    notifications,
-                    &mut reactions,
+                let casemapping =
+                    clients.get_server_casemapping_or_default(server);
+                let chantypes = clients.get_server_chantypes_or_default(server);
+                let statusmsg = clients.get_server_statusmsg_or_default(server);
+
+                if let Some(reaction) = Reaction::received(
                     encoded,
-                    our_nick,
-                );
+                    our_nick.clone(),
+                    chantypes,
+                    statusmsg,
+                    casemapping,
+                    config.buffer.channel.message.max_reaction_chars,
+                ) {
+                    let task =
+                        dashboard.record_reaction(server, reaction.clone());
+                    reactions.push(task.map(Message::Dashboard));
+                }
             }
         }
     }
@@ -2240,7 +2246,7 @@ fn handle_broadcast(
     commands.push(task.map(Message::Dashboard));
 }
 
-fn notify_reaction(
+fn handle_reaction_to_echo(
     config: &Config,
     server: &Server,
     casemapping: data::isupport::CaseMap,
@@ -2307,52 +2313,6 @@ fn notify_reaction(
     }
 
     None
-}
-
-fn handle_reaction(
-    config: &Config,
-    server: &Server,
-    clients: &data::client::Map,
-    dashboard: &mut screen::Dashboard,
-    main_window: &Window,
-    notifications: &mut Notifications,
-    reactions: &mut Vec<Task<Message>>,
-    encoded: message::Encoded,
-    our_nick: Nick,
-) {
-    let casemapping = clients.get_server_casemapping_or_default(server);
-    let chantypes = clients.get_server_chantypes_or_default(server);
-    let statusmsg = clients.get_server_statusmsg_or_default(server);
-
-    if let Some(reaction) = Reaction::received(
-        encoded,
-        our_nick.clone(),
-        chantypes,
-        statusmsg,
-        casemapping,
-        config.buffer.channel.message.max_reaction_chars,
-    ) {
-        let (reaction, task) =
-            dashboard.record_reaction(server, reaction.clone());
-        reactions.push(task.map(Message::Dashboard));
-
-        if let Some(reaction) = reaction
-            && let Some(task) = notify_reaction(
-                config,
-                server,
-                casemapping,
-                chantypes,
-                statusmsg,
-                dashboard,
-                main_window,
-                reaction,
-                notifications,
-                our_nick,
-            )
-        {
-            reactions.push(task);
-        }
-    }
 }
 
 fn handle_direct_message(

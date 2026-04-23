@@ -393,7 +393,7 @@ impl Notifications {
                         (
                             reaction.inner.sender.to_string(),
                             Some(react_sent_in.to_string()),
-                            format!("Reacted to your message",),
+                            "Reacted to your message".to_string(),
                         )
                     };
 

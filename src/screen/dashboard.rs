@@ -3206,15 +3206,13 @@ impl Dashboard {
         &mut self,
         server: &Server,
         reaction: reaction::Context,
-    ) -> (Option<ReactionToEcho>, Task<Message>) {
-        let (reaction_to_echo, future) =
-            self.history.record_reaction(server, reaction);
-        let task = if let Some(f) = future {
+    ) -> Task<Message> {
+        let future = self.history.record_reaction(server, reaction);
+        if let Some(f) = future {
             Task::perform(f, Message::History)
         } else {
             Task::none()
-        };
-        (reaction_to_echo, task)
+        }
     }
 
     pub fn is_focused_and_at_bottom(

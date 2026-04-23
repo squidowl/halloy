@@ -5,9 +5,8 @@ use std::{cmp, fmt};
 use irc::proto;
 use serde::{Deserialize, Serialize};
 
-use crate::isupport;
-use crate::message;
 use crate::user::{Nick, NickRef, User};
+use crate::{isupport, message};
 
 #[derive(Debug, Clone, Copy)]
 pub enum TargetRef<'a> {

@@ -250,10 +250,7 @@ impl Manager {
             }
             Message::DraftsSaved => {}
             Message::ReactionsToEcho(server, reactions) => {
-                return Some(Event::ReactionsToEcho(
-                    server,
-                    reactions,
-                ));
+                return Some(Event::ReactionsToEcho(server, reactions));
             }
         }
 
@@ -470,10 +467,7 @@ impl Manager {
         &mut self,
         server: &Server,
         reaction: reaction::Context,
-    ) -> (
-        Option<ReactionToEcho>,
-        Option<impl Future<Output = Message> + use<>>,
-    ) {
+    ) -> Option<impl Future<Output = Message> + use<>> {
         self.data.add_reaction(server.clone(), reaction)
     }
 
@@ -1851,32 +1845,30 @@ impl Data {
         &mut self,
         server: Server,
         reaction: reaction::Context,
-    ) -> (
-        Option<ReactionToEcho>,
-        Option<impl Future<Output = Message> + use<>>,
-    ) {
+    ) -> Option<impl Future<Output = Message> + use<>> {
         let kind =
             history::Kind::from_target(server.clone(), reaction.target.clone());
         match self.map.entry(kind.clone()) {
             hash_map::Entry::Occupied(mut entry) => {
-                let reaction = entry.get_mut().add_reaction(reaction);
-                (reaction, None)
+                entry.get_mut().add_reaction(reaction).map(|reaction| {
+                    async move {
+                        Message::ReactionsToEcho(server, vec![reaction])
+                    }
+                    .boxed()
+                })
             }
             hash_map::Entry::Vacant(entry) => {
-                let reaction = entry
+                entry
                     .insert(History::partial(kind.clone()))
                     .add_reaction(reaction);
 
-                (
-                    reaction,
-                    Some(
-                        async move {
-                            let loaded =
-                                history::metadata::load(kind.clone()).await;
-                            Message::UpdatePartial(kind, loaded)
-                        }
-                        .boxed(),
-                    ),
+                Some(
+                    async move {
+                        let loaded =
+                            history::metadata::load(kind.clone()).await;
+                        Message::UpdatePartial(kind, loaded)
+                    }
+                    .boxed(),
                 )
             }
         }

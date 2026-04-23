@@ -278,21 +278,22 @@ pub async fn append(
         if let Some(message) =
             find_reaction_target(&mut all_messages, &id, &pending.server_time)
         {
-            if message.is_echo && message.direction == Direction::Received {
-                if let Ok(target) = Target::try_from(message.target.clone()) {
-                    let message_text = message.text();
-                    for reaction in pending.clone().reactions.into_iter() {
-                        let reaction_to_echo = ReactionToEcho {
-                            reaction: reaction::Context {
-                                inner: reaction,
-                                target: target.clone(),
-                                in_reply_to: id.clone(),
-                                server_time: pending.server_time,
-                            },
-                            message_text: message_text.clone(),
-                        };
-                        pending_reactions_flushed.push(reaction_to_echo);
-                    }
+            if message.is_echo
+                && message.direction == Direction::Received
+                && let Ok(target) = Target::try_from(message.target.clone())
+            {
+                let message_text = message.text();
+                for reaction in pending.clone().reactions.into_iter() {
+                    let reaction_to_echo = ReactionToEcho {
+                        reaction: reaction::Context {
+                            inner: reaction,
+                            target: target.clone(),
+                            in_reply_to: id.clone(),
+                            server_time: pending.server_time,
+                        },
+                        message_text: message_text.clone(),
+                    };
+                    pending_reactions_flushed.push(reaction_to_echo);
                 }
             }
 
@@ -309,9 +310,9 @@ pub async fn append(
         },
     );
 
-    let result = overwrite(kind, &all_messages, read_marker, chathistory_references)
-        .await;
-    result.map(|_| pending_reactions_flushed)
+    overwrite(kind, &all_messages, read_marker, chathistory_references)
+        .await
+        .map(|()| pending_reactions_flushed)
 }
 
 pub async fn delete(kind: &Kind) -> Result<(), Error> {
@@ -754,14 +755,14 @@ impl History {
 
                     return Some(
                         async move {
-                            let result = overwrite(
+                            overwrite(
                                 &kind,
                                 &messages,
                                 read_marker,
                                 chathistory_references,
                             )
-                            .await;
-                            result.map(|_| vec![])
+                            .await
+                            .map(|()| vec![])
                         }
                         .boxed(),
                     );
@@ -837,18 +838,16 @@ impl History {
                 chathistory_references,
                 pending_reactions,
                 ..
-            } => {
-                let result = append(
-                    &kind,
-                    seed,
-                    pending_messages,
-                    read_marker,
-                    chathistory_references,
-                    pending_reactions,
-                )
-                .await;
-                result.map(|_| ())
-            }
+            } => append(
+                &kind,
+                seed,
+                pending_messages,
+                read_marker,
+                chathistory_references,
+                pending_reactions,
+            )
+            .await
+            .map(|_| ()),
             History::Full {
                 kind,
                 messages,
