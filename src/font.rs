@@ -34,7 +34,7 @@ impl Font {
 
     fn set(
         &self,
-        name: String,
+        font: iced::Font,
         weight: font::Weight,
         bold_weight: font::Weight,
     ) {
@@ -48,7 +48,7 @@ impl Font {
         let _ = self.inner.set(iced::Font {
             weight,
             style,
-            ..iced::Font::with_family(name.as_str())
+            ..font
         });
     }
 }
@@ -63,10 +63,23 @@ pub fn line_height() -> LineHeight {
     LINE_HEIGHT.get().copied().unwrap_or_default()
 }
 
+fn default_font() -> iced::Font {
+    #[cfg(feature = "bundled-default-font")]
+    {
+        iced::Font::with_family("Iosevka Term")
+    }
+
+    #[cfg(not(feature = "bundled-default-font"))]
+    {
+        iced::Font::MONOSPACE
+    }
+}
+
 pub fn set(config: Option<&Config>) {
-    let family = config
+    let font = config
         .and_then(|config| config.font.family.clone())
-        .unwrap_or_else(|| String::from("Iosevka Term"));
+        .map(|family| iced::Font::with_family(family.as_str()))
+        .unwrap_or_else(default_font);
     let weight =
         config.map_or(font::Weight::Normal, |config| config.font.weight);
     let bold_weight = config
@@ -83,10 +96,10 @@ pub fn set(config: Option<&Config>) {
             | font::Weight::Black => font::Weight::Black,
         });
 
-    MONO.set(family.clone(), weight, bold_weight);
-    MONO_BOLD.set(family.clone(), weight, bold_weight);
-    MONO_ITALICS.set(family.clone(), weight, bold_weight);
-    MONO_BOLD_ITALICS.set(family, weight, bold_weight);
+    MONO.set(font, weight, bold_weight);
+    MONO_BOLD.set(font, weight, bold_weight);
+    MONO_ITALICS.set(font, weight, bold_weight);
+    MONO_BOLD_ITALICS.set(font, weight, bold_weight);
 
     let lh = config
         .and_then(|c| c.font.line_height)
