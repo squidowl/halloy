@@ -1132,6 +1132,12 @@ impl Client {
                     })]);
                 }
 
+                // soju.im/bouncer-networks-notify update messages only carry changed attributes,
+                // so a state-only update has no name and there is nothing for us to update.
+                if !bouncer::has_name(network) {
+                    return Ok(vec![]);
+                }
+
                 if !self.sasl_succeeded {
                     // our connection isn't currently SASL. We have to assume that SASL won't
                     // succeed for any other bouncer networks, which means they won't be able to
