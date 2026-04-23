@@ -8,7 +8,8 @@ license.workspace = true
 edition.workspace = true
 
 [features]
-default = []
+default = ["iosevka-font"]
+iosevka-font = []
 tor = ["data/tor"]
 
 [workspace]
