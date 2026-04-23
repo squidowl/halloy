@@ -30,10 +30,11 @@ use std::{env, mem};
 use appearance::{Theme, theme};
 use data::capabilities::LabeledResponseContext;
 use data::config::{self, Config};
+use data::history::ReactionToEcho;
 use data::history::filter::FilterChain;
 use data::history::reroute::RerouteRules;
 use data::message::{self, Broadcast};
-use data::reaction::{self, Reaction};
+use data::reaction::Reaction;
 use data::target::{self, Target};
 use data::user::Nick;
 use data::version::Version;
@@ -583,9 +584,9 @@ impl Halloy {
                         });
                         Task::none()
                     }
-                    Some(dashboard::Event::PendingReactions(
+                    Some(dashboard::Event::ReactionsToEcho(
                         server,
-                        pending_reactions,
+                        reactions,
                     )) => {
                         let casemapping = self
                             .clients
@@ -598,9 +599,9 @@ impl Halloy {
                             .get_server_statusmsg_or_default(&server);
                         if let Some(our_nick) = self.clients.nickname(&server) {
                             Task::batch(
-                                pending_reactions
+                                reactions
                                     .into_iter()
-                                    .filter_map(|pending_reaction| {
+                                    .filter_map(|reaction| {
                                         notify_reaction(
                                             &self.config,
                                             &server,
@@ -609,8 +610,7 @@ impl Halloy {
                                             statusmsg,
                                             dashboard,
                                             &self.main_window,
-                                            &pending_reaction.reaction,
-                                            pending_reaction.message_text,
+                                            reaction,
                                             &mut self.notifications,
                                             our_nick.to_owned(),
                                         )
@@ -2248,15 +2248,14 @@ fn notify_reaction(
     statusmsg: &[char],
     dashboard: &mut screen::Dashboard,
     main_window: &Window,
-    reaction: &reaction::Context,
-    message_text: String,
+    reaction_to_echo: ReactionToEcho,
     notifications: &mut Notifications,
     our_nick: Nick,
 ) -> Option<Task<Message>> {
-    let sender_nick = reaction.inner.sender.clone();
+    let sender_nick = reaction_to_echo.reaction.inner.sender.clone();
     let self_reaction = our_nick == sender_nick;
     let sender = User::from(sender_nick);
-    let channel = reaction.target.as_channel();
+    let channel = reaction_to_echo.reaction.target.as_channel();
     let query = match channel {
         None => target::Query::parse(
             sender.nickname().as_str(),
@@ -2290,15 +2289,15 @@ fn notify_reaction(
 
     if !blocked
         && !self_reaction
-        && !reaction.inner.unreact
+        && !reaction_to_echo.reaction.inner.unreact
         && (message_window.is_none() || !main_window.focused)
     {
         let request_attention = notifications.notify(
             &config.notifications,
             &Notification::Reaction {
                 casemapping,
-                reaction: reaction.clone(),
-                message_text,
+                reaction: reaction_to_echo.reaction.clone(),
+                message_text: reaction_to_echo.message_text,
             },
             server,
             message_window.unwrap_or(main_window.id),
@@ -2333,11 +2332,11 @@ fn handle_reaction(
         casemapping,
         config.buffer.channel.message.max_reaction_chars,
     ) {
-        let (message_text, task) =
+        let (reaction, task) =
             dashboard.record_reaction(server, reaction.clone());
         reactions.push(task.map(Message::Dashboard));
 
-        if let Some(message_text) = message_text
+        if let Some(reaction) = reaction
             && let Some(task) = notify_reaction(
                 config,
                 server,
@@ -2346,8 +2345,7 @@ fn handle_reaction(
                 statusmsg,
                 dashboard,
                 main_window,
-                &reaction,
-                message_text,
+                reaction,
                 notifications,
                 our_nick,
             )

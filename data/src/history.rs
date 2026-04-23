@@ -10,7 +10,7 @@ use futures::{Future, FutureExt};
 use tokio::fs;
 use tokio::time::Instant;
 
-pub use self::manager::{Manager, PendingReaction, Resource};
+pub use self::manager::{Manager, ReactionToEcho, Resource};
 pub use self::metadata::{Metadata, ReadMarker};
 use crate::capabilities::LabeledResponseContext;
 use crate::message::{self, Direction, MessageReferences, Source};
@@ -267,10 +267,10 @@ pub async fn append(
     read_marker: Option<ReadMarker>,
     chathistory_references: Option<MessageReferences>,
     pending_reactions: HashMap<message::Id, reaction::Pending>,
-) -> Result<Vec<PendingReaction>, Error> {
+) -> Result<Vec<ReactionToEcho>, Error> {
     let loaded = load(kind.clone(), seed).await?;
 
-    let mut pending_reactions_flushed: Vec<PendingReaction> = vec![];
+    let mut pending_reactions_flushed: Vec<ReactionToEcho> = vec![];
 
     let mut all_messages = loaded.messages;
     // pending reactions should only exist for unloaded history entries
@@ -279,19 +279,10 @@ pub async fn append(
             find_reaction_target(&mut all_messages, &id, &pending.server_time)
         {
             if message.is_echo && message.direction == Direction::Received {
-                let target = match message.target.clone() {
-                    message::Target::Channel { channel, source: _ } => {
-                        Some(target::Target::Channel(channel))
-                    }
-                    message::Target::Query { query, source: _ } => {
-                        Some(target::Target::Query(query))
-                    }
-                    _ => None,
-                };
-                if let Some(target) = target {
+                if let Ok(target) = Target::try_from(message.target.clone()) {
                     let message_text = message.text();
                     for reaction in pending.clone().reactions.into_iter() {
-                        let pending_reaction = PendingReaction {
+                        let reaction_to_echo = ReactionToEcho {
                             reaction: reaction::Context {
                                 inner: reaction,
                                 target: target.clone(),
@@ -300,7 +291,7 @@ pub async fn append(
                             },
                             message_text: message_text.clone(),
                         };
-                        pending_reactions_flushed.push(pending_reaction);
+                        pending_reactions_flushed.push(reaction_to_echo);
                     }
                 }
             }
@@ -318,10 +309,9 @@ pub async fn append(
         },
     );
 
-    let _ = overwrite(kind, &all_messages, read_marker, chathistory_references)
+    let result = overwrite(kind, &all_messages, read_marker, chathistory_references)
         .await;
-
-    Ok(pending_reactions_flushed)
+    result.map(|_| pending_reactions_flushed)
 }
 
 pub async fn delete(kind: &Kind) -> Result<(), Error> {
@@ -691,7 +681,7 @@ impl History {
         &mut self,
         now: Option<Instant>,
         seed: Option<Seed>,
-    ) -> Option<BoxFuture<'static, Result<Vec<PendingReaction>, Error>>> {
+    ) -> Option<BoxFuture<'static, Result<Vec<ReactionToEcho>, Error>>> {
         match self {
             History::Partial {
                 kind,
@@ -764,14 +754,14 @@ impl History {
 
                     return Some(
                         async move {
-                            let _ = overwrite(
+                            let result = overwrite(
                                 &kind,
                                 &messages,
                                 read_marker,
                                 chathistory_references,
                             )
                             .await;
-                            Ok(vec![])
+                            result.map(|_| vec![])
                         }
                         .boxed(),
                     );
@@ -848,7 +838,7 @@ impl History {
                 pending_reactions,
                 ..
             } => {
-                let _ = append(
+                let result = append(
                     &kind,
                     seed,
                     pending_messages,
@@ -857,7 +847,7 @@ impl History {
                     pending_reactions,
                 )
                 .await;
-                Ok(())
+                result.map(|_| ())
             }
             History::Full {
                 kind,
@@ -1085,7 +1075,7 @@ impl History {
     pub fn add_reaction(
         &mut self,
         reaction: reaction::Context,
-    ) -> Option<String> {
+    ) -> Option<ReactionToEcho> {
         match self {
             History::Partial {
                 pending_messages,
@@ -1106,8 +1096,16 @@ impl History {
                     } else {
                         None
                     };
-                    message.reactions.push(reaction.inner);
-                    return message_text;
+                    message.reactions.push(reaction.inner.clone());
+
+                    if let Some(message_text) = message_text {
+                        return Some(ReactionToEcho {
+                            reaction,
+                            message_text,
+                        });
+                    } else {
+                        return None;
+                    }
                 } else {
                     let pending = pending_reactions
                         .entry(reaction.in_reply_to)
@@ -1132,18 +1130,18 @@ impl History {
                     &reaction.in_reply_to,
                     &reaction.server_time,
                 )?;
-                message.reactions.push(reaction.inner);
+                message.reactions.push(reaction.inner.clone());
 
                 *last_updated_at = Some(Instant::now());
 
-                let message_text = if message.is_echo
-                    && message.direction == Direction::Received
-                {
-                    Some(message.text())
+                if message.is_echo && message.direction == Direction::Received {
+                    return Some(ReactionToEcho {
+                        reaction,
+                        message_text: message.text(),
+                    });
                 } else {
-                    None
+                    return None;
                 };
-                return message_text;
             }
         }
         None

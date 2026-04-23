@@ -42,7 +42,7 @@ impl Resource {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct PendingReaction {
+pub struct ReactionToEcho {
     pub reaction: reaction::Context,
     pub message_text: String,
 }
@@ -62,12 +62,12 @@ pub enum Message {
         Result<(), history::Error>,
     ),
     Closed(history::Kind, Result<(), history::Error>),
-    Flushed(history::Kind, Result<Vec<PendingReaction>, history::Error>),
+    Flushed(history::Kind, Result<Vec<ReactionToEcho>, history::Error>),
     Exited(Vec<(history::Kind, Result<(), history::Error>)>),
     SentMessageUpdated(history::Kind, history::ReadMarker),
     ResendMessage(history::Kind, message::Message),
     DraftsSaved,
-    PendingReactions(Server, Vec<PendingReaction>),
+    ReactionsToEcho(Server, Vec<ReactionToEcho>),
 }
 
 pub enum Event {
@@ -75,7 +75,7 @@ pub enum Event {
     Exited,
     SentMessageUpdated(history::Kind, history::ReadMarker),
     ResendMessage(history::Kind, message::Message),
-    PendingReactions(Server, Vec<PendingReaction>),
+    ReactionsToEcho(Server, Vec<ReactionToEcho>),
 }
 
 #[derive(Debug, Default)]
@@ -107,8 +107,10 @@ impl Manager {
             log::debug!("cleared messages for {kind}");
 
             return task.map(move |task| {
-                task.map(move |_| Message::Flushed(kind, Ok(vec![])))
-                    .boxed()
+                task.map(move |result| {
+                    Message::Flushed(kind, result.map(|_| vec![]))
+                })
+                .boxed()
             });
         }
 
@@ -174,17 +176,17 @@ impl Manager {
             Message::Closed(kind, Err(error)) => {
                 log::warn!("failed to close history for {kind}: {error}");
             }
-            Message::Flushed(kind, Ok(pending_reactions)) => {
+            Message::Flushed(kind, Ok(reactions)) => {
                 // Will cause flush loop if we emit a log every time we flush logs
                 if !matches!(kind, history::Kind::Logs) {
                     log::debug!("flushed history for {kind}",);
                 }
-                if !pending_reactions.is_empty()
+                if !reactions.is_empty()
                     && let Some(server) = kind.server()
                 {
-                    return Some(Event::PendingReactions(
+                    return Some(Event::ReactionsToEcho(
                         server.clone(),
-                        pending_reactions,
+                        reactions,
                     ));
                 }
             }
@@ -247,10 +249,10 @@ impl Manager {
                 return Some(Event::ResendMessage(kind, message));
             }
             Message::DraftsSaved => {}
-            Message::PendingReactions(server, pending_reactions) => {
-                return Some(Event::PendingReactions(
+            Message::ReactionsToEcho(server, reactions) => {
+                return Some(Event::ReactionsToEcho(
                     server,
-                    pending_reactions,
+                    reactions,
                 ));
             }
         }
@@ -469,7 +471,7 @@ impl Manager {
         server: &Server,
         reaction: reaction::Context,
     ) -> (
-        Option<String>,
+        Option<ReactionToEcho>,
         Option<impl Future<Output = Message> + use<>>,
     ) {
         self.data.add_reaction(server.clone(), reaction)
@@ -1850,24 +1852,23 @@ impl Data {
         server: Server,
         reaction: reaction::Context,
     ) -> (
-        Option<String>,
+        Option<ReactionToEcho>,
         Option<impl Future<Output = Message> + use<>>,
     ) {
         let kind =
             history::Kind::from_target(server.clone(), reaction.target.clone());
         match self.map.entry(kind.clone()) {
             hash_map::Entry::Occupied(mut entry) => {
-                let message_text =
-                    entry.get_mut().add_reaction(reaction.clone());
-                (message_text, None)
+                let reaction = entry.get_mut().add_reaction(reaction);
+                (reaction, None)
             }
             hash_map::Entry::Vacant(entry) => {
-                let message_text = entry
+                let reaction = entry
                     .insert(History::partial(kind.clone()))
                     .add_reaction(reaction);
 
                 (
-                    message_text,
+                    reaction,
                     Some(
                         async move {
                             let loaded =

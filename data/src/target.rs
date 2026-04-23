@@ -6,6 +6,7 @@ use irc::proto;
 use serde::{Deserialize, Serialize};
 
 use crate::isupport;
+use crate::message;
 use crate::user::{Nick, NickRef, User};
 
 #[derive(Debug, Clone, Copy)]
@@ -226,6 +227,20 @@ impl From<Nick> for Target {
 impl From<NickRef<'_>> for Target {
     fn from(nickref: NickRef) -> Self {
         Target::Query(Query::from(nickref))
+    }
+}
+
+impl TryFrom<message::Target> for Target {
+    type Error = ();
+
+    fn try_from(target: message::Target) -> Result<Self, Self::Error> {
+        Ok(match target {
+            message::Target::Channel { channel, source: _ } => {
+                Target::Channel(channel)
+            }
+            message::Target::Query { query, source: _ } => Target::Query(query),
+            _ => return Err(()),
+        })
     }
 }
 

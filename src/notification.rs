@@ -356,8 +356,24 @@ impl Notifications {
                     *casemapping,
                 ) {
                     let react_sent_in = match channel {
-                        Some(channel) => channel.as_normalized_str(),
-                        _ => "your direct message",
+                        Some(channel) => {
+                            if cfg!(target_os = "macos")
+                                || !config.reaction.show_content
+                            {
+                                format!("{channel} ({server})")
+                            } else {
+                                format!("{channel}, {server}")
+                            }
+                        }
+                        None => {
+                            if cfg!(target_os = "macos")
+                                || !config.reaction.show_content
+                            {
+                                format!("query ({server})")
+                            } else {
+                                format!("query, {server}")
+                            }
+                        }
                     };
 
                     let (title, subtitle, body): (
@@ -367,19 +383,17 @@ impl Notifications {
                     ) = if config.reaction.show_content {
                         (
                             reaction.inner.sender.to_string(),
-                            Some(format!(
-                                "Reacted {} to your message in {react_sent_in}",
+                            Some(react_sent_in.to_string()),
+                            format!(
+                                "Reacted {} to your message: {message_text}",
                                 reaction.inner.text
-                            )),
-                            message_text.to_string(),
+                            ),
                         )
                     } else {
                         (
                             reaction.inner.sender.to_string(),
-                            None,
-                            format!(
-                                "Reacted to your message in {react_sent_in}",
-                            ),
+                            Some(react_sent_in.to_string()),
+                            format!("Reacted to your message",),
                         )
                     };
 

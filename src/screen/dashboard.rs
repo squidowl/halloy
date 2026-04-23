@@ -13,7 +13,7 @@ use data::dashboard::{self, BufferAction};
 use data::environment::{RELEASE_WEBSITE, WIKI_WEBSITE};
 use data::history::ReadMarker;
 use data::history::filter::Filter;
-use data::history::manager::PendingReaction;
+use data::history::manager::ReactionToEcho;
 use data::history::reroute::RerouteRules;
 use data::isupport::{self, ChatHistorySubcommand, MessageReference};
 use data::message::{self, Broadcast};
@@ -116,7 +116,7 @@ pub enum Event {
         has_credentials: bool,
         window: window::Id,
     },
-    PendingReactions(Server, Vec<PendingReaction>),
+    ReactionsToEcho(Server, Vec<ReactionToEcho>),
 }
 
 impl Dashboard {
@@ -987,16 +987,13 @@ impl Dashboard {
                                 }
                             }
                         }
-                        history::manager::Event::PendingReactions(
+                        history::manager::Event::ReactionsToEcho(
                             server,
-                            pending_reactions,
+                            reactions,
                         ) => {
                             return (
                                 Task::none(),
-                                Some(Event::PendingReactions(
-                                    server,
-                                    pending_reactions,
-                                )),
+                                Some(Event::ReactionsToEcho(server, reactions)),
                             );
                         }
                     }
@@ -3209,15 +3206,15 @@ impl Dashboard {
         &mut self,
         server: &Server,
         reaction: reaction::Context,
-    ) -> (Option<String>, Task<Message>) {
-        let (message_text, future) =
+    ) -> (Option<ReactionToEcho>, Task<Message>) {
+        let (reaction_to_echo, future) =
             self.history.record_reaction(server, reaction);
         let task = if let Some(f) = future {
             Task::perform(f, Message::History)
         } else {
             Task::none()
         };
-        (message_text, task)
+        (reaction_to_echo, task)
     }
 
     pub fn is_focused_and_at_bottom(
