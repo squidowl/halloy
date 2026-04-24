@@ -49,6 +49,7 @@ pub struct Buffer {
     pub line_spacing: u32,
     pub scroll_position_on_open: ScrollPosition,
     pub typing: Typing,
+    pub redaction: Redaction,
 }
 
 #[derive(Debug, Clone, Deserialize, Default)]
@@ -83,6 +84,12 @@ impl Default for Emojis {
 #[serde(default)]
 pub struct Url {
     pub prompt_before_open: bool,
+}
+
+#[derive(Debug, Clone, Deserialize, Default)]
+#[serde(default)]
+pub struct Redaction {
+    pub enabled: bool,
 }
 
 #[derive(Debug, Default, Clone, Deserialize)]
