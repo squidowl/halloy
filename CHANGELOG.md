@@ -3,6 +3,7 @@
 Added:
 
 - The default font is not bundled if default feature `iosevka-font` is disabled.
+- Configuration options for font stretch (`font.stretch`)
 
 Fixed:
 
