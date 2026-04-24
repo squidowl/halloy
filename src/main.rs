@@ -1785,22 +1785,19 @@ fn handle_client_events(
                 controllers.disconnect(server, error);
             }
             Event::Reaction(encoded, our_nick) => {
-                let casemapping =
-                    clients.get_server_casemapping_or_default(server);
-                let chantypes = clients.get_server_chantypes_or_default(server);
-                let statusmsg = clients.get_server_statusmsg_or_default(server);
-
                 if let Some(reaction) = Reaction::received(
                     encoded,
-                    our_nick.clone(),
-                    chantypes,
-                    statusmsg,
-                    casemapping,
+                    our_nick,
+                    clients.get_server_chantypes_or_default(server),
+                    clients.get_server_statusmsg_or_default(server),
+                    clients.get_server_casemapping_or_default(server),
                     config.buffer.channel.message.max_reaction_chars,
                 ) {
-                    let task =
-                        dashboard.record_reaction(server, reaction.clone());
-                    reactions.push(task.map(Message::Dashboard));
+                    reactions.push(
+                        dashboard
+                            .record_reaction(server, reaction)
+                            .map(Message::Dashboard),
+                    );
                 }
             }
         }
