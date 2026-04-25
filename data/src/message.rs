@@ -650,8 +650,25 @@ impl Message {
         }
     }
 
-    pub fn with_target(self, target: Target) -> Self {
-        Self { target, ..self }
+    pub fn with_target(self, target: Option<target::Target>) -> Self {
+        let source = self.target.source();
+
+        Self {
+            target: match target {
+                None => Target::Server {
+                    source: source.clone(),
+                },
+                Some(target::Target::Channel(channel)) => Target::Channel {
+                    channel,
+                    source: source.clone(),
+                },
+                Some(target::Target::Query(query)) => Target::Query {
+                    query,
+                    source: source.clone(),
+                },
+            },
+            ..self
+        }
     }
 
     pub fn with_labeled_response_context(
@@ -2252,6 +2269,16 @@ fn target(
                 None,
             ))
         }
+        Command::QUIT(_) => Some((
+            Target::Server {
+                source: source::Source::Server(Some(source::Server::new(
+                    source::server::Kind::Quit,
+                    Some(user?.nickname().to_owned()),
+                    None,
+                ))),
+            },
+            None,
+        )),
         Command::JOIN(channel, _) => {
             let channel = target::Channel::parse(
                 &channel,
@@ -2268,6 +2295,20 @@ fn target(
                         Kind::Join,
                         Some(user?.nickname().to_owned()),
                         None,
+                    ))),
+                },
+                None,
+            ))
+        }
+        Command::NICK(new_nick) => {
+            let new_nick = Nick::from_string(new_nick, casemapping);
+
+            Some((
+                Target::Server {
+                    source: source::Source::Server(Some(source::Server::new(
+                        source::server::Kind::ChangeNick,
+                        Some(user?.nickname().to_owned()),
+                        Some(source::server::Change::Nick(new_nick)),
                     ))),
                 },
                 None,
@@ -2625,11 +2666,9 @@ fn target(
         }
         // Server
         Command::PASS(_)
-        | Command::NICK(_)
         | Command::CHGHOST(_, _)
         | Command::USER(_, _)
         | Command::OPER(_, _)
-        | Command::QUIT(_)
         | Command::SQUIT(_, _)
         | Command::NAMES(_)
         | Command::LIST(_, _)

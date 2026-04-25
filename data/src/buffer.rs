@@ -11,7 +11,7 @@ pub use self::timestamp::Timestamp;
 use crate::appearance::theme::hex_to_color;
 use crate::serde::deserialize_strftime_date;
 use crate::target::{self, Target};
-use crate::{Server, channel, config, message};
+use crate::{Server, channel, config};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(untagged)]
@@ -97,25 +97,6 @@ impl Upstream {
             Self::Channel(_, channel) => Some(Target::Channel(channel.clone())),
             Self::Query(_, query) => Some(Target::Query(query.clone())),
             Self::Server(_) => None,
-        }
-    }
-
-    pub fn server_message_target(
-        self,
-        source: Option<message::source::Server>,
-    ) -> message::Target {
-        match self {
-            Self::Server(_) => message::Target::Server {
-                source: message::Source::Server(source),
-            },
-            Self::Channel(_, channel) => message::Target::Channel {
-                channel,
-                source: message::Source::Server(source),
-            },
-            Self::Query(_, query) => message::Target::Query {
-                query,
-                source: message::Source::Server(source),
-            },
         }
     }
 }

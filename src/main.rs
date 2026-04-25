@@ -1903,7 +1903,7 @@ fn handle_with_target_event(
     server: &Server,
     encoded: message::Encoded,
     our_nick: data::user::Nick,
-    target: message::Target,
+    target: Option<Target>,
     deduplicate: bool,
     dashboard: &mut screen::Dashboard,
     commands: &mut Vec<Task<Message>>,
