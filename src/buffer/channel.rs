@@ -551,6 +551,8 @@ fn topic<'a>(
 }
 
 mod nick_list {
+    use std::borrow::Cow;
+
     use context_menu::Message;
     use data::user::ChannelUsers;
     use data::{Config, Server, User, config, isupport, target};
@@ -650,35 +652,39 @@ mod nick_list {
                     (false, _) => Length::Fixed(width),
                 });
 
-            let nick: Element<_> = tooltip(
-                nick,
-                show_nick_tooltip.then_some(user.as_str()),
-                tooltip::Position::Top,
-                theme,
-            );
+            let content_tooltip = if show_bot_icon {
+                Some(Cow::Owned(format!(
+                    "{} has marked itself as a bot",
+                    user.nickname()
+                )))
+            } else if show_nick_tooltip {
+                Some(Cow::Borrowed(user.as_str()))
+            } else {
+                None
+            };
 
             let content: Element<_> = if show_bot_icon {
                 let nick_color = theme::selectable_text::nicklist_nickname(
                     theme, config, user,
                 )
                 .color;
-                let bot_tooltip =
-                    format!("{} has marked itself as a bot", user.nickname());
-                let bot_icon = tooltip(
-                    icon::robot().style(move |_| iced::widget::text::Style {
-                        color: nick_color,
-                    }),
-                    Some(bot_tooltip),
-                    tooltip::Position::Top,
-                    theme,
-                );
+                let bot_icon = icon::robot().style(move |_| {
+                    iced::widget::text::Style { color: nick_color }
+                });
                 row![nick, bot_icon]
                     .align_y(iced::Alignment::Center)
                     .spacing(2)
                     .into()
             } else {
-                nick
+                nick.into()
             };
+
+            let content: Element<_> = tooltip(
+                content,
+                content_tooltip,
+                tooltip::Position::Top,
+                theme,
+            );
 
             context_menu::user(
                 content,
