@@ -1,5 +1,6 @@
 use chrono::{DateTime, Utc};
-use data::{Config, history, message, target};
+use data::message::Source;
+use data::{Config, User, history, message, target};
 use iced::widget::{
     self, button, column, container, operation, row, scrollable, text,
     text_input,
@@ -7,6 +8,7 @@ use iced::widget::{
 use iced::{Length, Size, Task, alignment, padding};
 
 use crate::widget::key_press::{Key, Modifiers, Named};
+use crate::widget::selectable_text;
 use crate::widget::{Element, key_press};
 use crate::{Theme, font, theme};
 
@@ -39,6 +41,7 @@ pub enum Event {
 struct ResultRow {
     hash: message::Hash,
     timestamp: DateTime<Utc>,
+    sender: Option<User>,
     text: String,
 }
 
@@ -144,9 +147,16 @@ impl Search {
             .filter_map(|message| {
                 let text = message.text();
 
+                let sender = match message.target.source() {
+                    Source::User(user) => Some(user.clone()),
+                    Source::Action(Some(user)) => Some(user.clone()),
+                    _ => None,
+                };
+
                 text.to_lowercase().contains(&query).then_some(ResultRow {
                     hash: message.hash,
                     timestamp: message.server_time,
+                    sender,
                     text,
                 })
             })
@@ -232,22 +242,55 @@ pub fn view<'a>(
                         .format_timestamp(&result.timestamp)
                         .unwrap_or_default();
 
+                    let mut row_items: Vec<Element<'_, Message>> =
+                        Vec::with_capacity(3);
+
+                    if !timestamp.is_empty() {
+                        row_items.push(
+                            selectable_text(timestamp)
+                                .style(theme::selectable_text::timestamp)
+                                .font_maybe(
+                                    theme::font_style::timestamp(theme)
+                                        .map(font::get),
+                                )
+                                .into(),
+                        );
+                    }
+
+                    if let Some(user) = result.sender.as_ref() {
+                        let nick_style =
+                            theme::selectable_text::nickname(
+                                theme, config, user, false,
+                            );
+                        let brackets = &config.buffer.nickname.brackets;
+                        let nick_str = brackets.format(user.nickname().as_str());
+                        row_items.push(
+                            selectable_text(nick_str)
+                                .style(move |_| nick_style)
+                                .font_maybe(
+                                    theme::font_style::nickname(
+                                        theme, false,
+                                    )
+                                    .map(font::get),
+                                )
+                                .into(),
+                        );
+                    }
+
+                    row_items.push(
+                        selectable_text(result.text.as_str())
+                            .style(theme::selectable_text::default)
+                            .font_maybe(
+                                theme::font_style::primary(theme)
+                                    .map(font::get),
+                            )
+                            .into(),
+                    );
+
                     button(
-                        row![
-                            text(timestamp)
-                                .style(theme::text::secondary)
-                                .font_maybe(
-                                    theme::font_style::secondary(theme)
-                                        .map(font::get),
-                                ),
-                            text(result.text.as_str())
-                                .font_maybe(
-                                    theme::font_style::primary(theme)
-                                        .map(font::get),
-                                ),
-                        ]
-                        .spacing(8)
-                        .width(Length::Fill),
+                        row(row_items)
+                            .spacing(8)
+                            .width(Length::Fill),
                     )
                     .style(theme::button::bare)
                     .on_press(Message::SelectResult(index))
