@@ -21,6 +21,7 @@ pub struct User {
     accountname: Option<String>,
     access_levels: BTreeSet<AccessLevel>,
     away: bool,
+    bot: bool,
 }
 
 impl PartialEq for User {
@@ -144,6 +145,7 @@ impl<'de> Deserialize<'de> for User {
                 accountname: None,
                 access_levels,
                 away: false,
+                bot: false,
             })
         } else {
             // Older format for user string, with no space; attempt to parse
@@ -169,6 +171,7 @@ impl From<Nick> for User {
             accountname: None,
             access_levels: BTreeSet::default(),
             away: false,
+            bot: false,
         }
     }
 }
@@ -185,6 +188,7 @@ impl User {
             accountname: None,
             access_levels: BTreeSet::default(),
             away: false,
+            bot: false,
         }
     }
 
@@ -338,6 +342,14 @@ impl User {
         self.away = away;
     }
 
+    pub fn is_bot(&self) -> bool {
+        self.bot
+    }
+
+    pub fn update_bot(&mut self, bot: bool) {
+        self.bot = bot;
+    }
+
     pub fn renormalize(&mut self, casemapping: isupport::CaseMap) {
         self.nickname.renormalize(casemapping);
     }
@@ -422,6 +434,7 @@ impl User {
             accountname: None,
             access_levels,
             away: false,
+            bot: false,
         })
     }
 }
@@ -759,6 +772,7 @@ mod tests {
                         AccessLevel::Voice,
                     ]),
                     away: false,
+                    bot: false,
                 },
                 [Token::String("+@ dan")],
             ),
@@ -773,6 +787,7 @@ mod tests {
                     accountname: None,
                     access_levels: BTreeSet::<AccessLevel>::new(),
                     away: false,
+                    bot: false,
                 },
                 [Token::String(" dan!d@localhost")],
             ),
@@ -789,6 +804,7 @@ mod tests {
                         AccessLevel::Oper,
                     ]),
                     away: false,
+                    bot: false,
                 },
                 [Token::String("@ d@n!d@localhost")],
             ),
@@ -803,6 +819,7 @@ mod tests {
                     accountname: None,
                     access_levels: BTreeSet::<AccessLevel>::new(),
                     away: false,
+                    bot: false,
                 },
                 [Token::String(" foobar")],
             ),
@@ -819,6 +836,7 @@ mod tests {
                     accountname: None,
                     access_levels: BTreeSet::<AccessLevel>::new(),
                     away: false,
+                    bot: false,
                 },
                 [Token::String(
                     " foobar!8a027a9a4a@2201:12f1:2:1162:1242:1fg:he11:abde",
@@ -838,6 +856,7 @@ mod tests {
                         AccessLevel::Voice,
                     ]),
                     away: false,
+                    bot: false,
                 },
                 [Token::String("+@ foobar!~foobar@12.521.212.521")],
             ),
@@ -854,6 +873,7 @@ mod tests {
                         AccessLevel::Oper,
                     ]),
                     away: false,
+                    bot: false,
                 },
                 [Token::String("@ H1N5!the.flu@in.you")],
             ),
@@ -868,6 +888,7 @@ mod tests {
                     accountname: None,
                     access_levels: BTreeSet::<AccessLevel>::new(),
                     away: false,
+                    bot: false,
                 },
                 [Token::String(" *status")],
             ),
@@ -884,6 +905,7 @@ mod tests {
                         AccessLevel::Oper,
                     ]),
                     away: false,
+                    bot: false,
                 },
                 [Token::String("@ 714user")],
             ),
@@ -903,6 +925,7 @@ mod tests {
             accountname: None,
             access_levels: BTreeSet::<AccessLevel>::new(),
             away: false,
+            bot: false,
         };
 
         // Test exact match

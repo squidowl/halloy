@@ -3165,6 +3165,22 @@ fn content<'a>(
                 None,
             ))
         }
+        Command::Numeric(RPL_WHOISBOT, params) => {
+            let user: User = User::from(Nick::from_str(
+                params.get(1)?.as_str(),
+                casemapping,
+            ));
+            let status_text = params.get(2)?;
+
+            Some((
+                parse_fragments_with_user(
+                    format!("{} {status_text}", user.nickname()),
+                    &user,
+                    casemapping,
+                ),
+                None,
+            ))
+        }
         Command::Numeric(RPL_TOPICWHOTIME, params) => {
             let user =
                 User::parse(params.get(2)?.as_str(), casemapping, Some(prefix))

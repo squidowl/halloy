@@ -17,6 +17,7 @@ use crate::{Message, message};
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub enum Kind {
     AWAYLEN,
+    BOT,
     BOUNCER_NETID,
     CASEMAPPING,
     CHANLIMIT,
@@ -626,6 +627,7 @@ impl Operation {
             Operation::Add(parameter) => parameter.kind(),
             Operation::Remove(parameter) => match parameter.as_ref() {
                 "AWAYLEN" => Some(Kind::AWAYLEN),
+                "BOT" => Some(Kind::BOT),
                 "CASEMAPPING" => Some(Kind::CASEMAPPING),
                 "CHANLIMIT" => Some(Kind::CHANLIMIT),
                 "CHANMODES" => Some(Kind::CHANMODES),
@@ -740,6 +742,7 @@ impl Parameter {
     pub fn kind(&self) -> Option<Kind> {
         match self {
             Parameter::AWAYLEN(_) => Some(Kind::AWAYLEN),
+            Parameter::BOT(_) => Some(Kind::BOT),
             Parameter::CASEMAPPING(_) => Some(Kind::CASEMAPPING),
             Parameter::CHANLIMIT(_) => Some(Kind::CHANLIMIT),
             Parameter::CHANMODES(_) => Some(Kind::CHANMODES),
@@ -1293,6 +1296,14 @@ pub fn get_mode_limit_or_default(
             }
         })
         .unwrap_or(Some(3))
+}
+
+pub fn get_bot_mode_char(isupport: &HashMap<Kind, Parameter>) -> Option<char> {
+    if let Some(Parameter::BOT(c)) = isupport.get(&Kind::BOT) {
+        Some(*c)
+    } else {
+        None
+    }
 }
 
 pub fn get_prefix(isupport: &HashMap<Kind, Parameter>) -> Option<&[PrefixMap]> {

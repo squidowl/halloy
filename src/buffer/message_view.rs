@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::collections::BTreeMap;
 
 use chrono::{DateTime, TimeDelta, Utc};
@@ -409,33 +410,104 @@ impl<'a> ChannelQueryLayout<'a> {
 
         let (user_display, show_nickname_tooltip) =
             user.display_with_truncated(with_access_levels, truncate);
-        let nick_text =
-            self.config.buffer.nickname.brackets.format(user_display);
+
+        let is_bot =
+            user_in_channel.map_or_else(|| user.is_bot(), User::is_bot);
+        let show_bot_icon = is_bot && self.config.buffer.nickname.show_bot_icon;
+        let brackets = &self.config.buffer.nickname.brackets;
+
+        // nick_open + nick_close = full bracketed nick; bot icon sits inside open-close
+        let nick_open = format!("{}{}", brackets.left, &*user_display);
+        let nick_close = brackets.right.as_str();
+        let nick_full = brackets.format(&*user_display);
 
         let nick_element: Element<_> = if hide_nickname {
             let width = match self.config.buffer.nickname.alignment {
                 data::buffer::Alignment::Left
-                | data::buffer::Alignment::Top => font::width_from_chars(
-                    nick_text.chars().count(),
-                    &self.config.font,
-                ),
+                | data::buffer::Alignment::Top => {
+                    let base = font::width_from_chars(
+                        nick_full.chars().count(),
+                        &self.config.font,
+                    );
+                    if show_bot_icon {
+                        base + theme::ICON_SIZE + theme::ICON_SPACE
+                    } else {
+                        base
+                    }
+                }
                 data::buffer::Alignment::Right => {
                     right_aligned_width.unwrap_or_default()
                 }
             };
             Space::new().width(width).into()
         } else {
-            let mut nick_text = selectable_text(nick_text)
-                .style(move |_| nickname_style)
-                .font_maybe(
-                    theme::font_style::nickname(self.theme, is_user_offline)
-                        .map(font::get),
-                );
+            let mut nick_text = selectable_text(if show_bot_icon {
+                nick_open
+            } else {
+                nick_full
+            })
+            .style(move |_| nickname_style)
+            .font_maybe(
+                theme::font_style::nickname(self.theme, is_user_offline)
+                    .map(font::get),
+            );
 
-            if let Some(width) = right_aligned_width {
-                nick_text =
-                    nick_text.width(width).align_x(text::Alignment::Right);
-            }
+            let nick_text: Element<_> = if show_bot_icon {
+                let nick_color = nickname_style.color;
+                let bot_icon = icon::robot().style(move |_| {
+                    iced::widget::text::Style { color: nick_color }
+                });
+
+                let icon_and_close: Element<_> = if nick_close.is_empty() {
+                    bot_icon.into()
+                } else {
+                    row![
+                        bot_icon,
+                        selectable_text(nick_close)
+                            .style(move |_| nickname_style)
+                            .font_maybe(
+                                theme::font_style::nickname(
+                                    self.theme,
+                                    is_user_offline,
+                                )
+                                .map(font::get),
+                            ),
+                    ]
+                    .align_y(iced::Alignment::Center)
+                    .into()
+                };
+
+                let nick_text = row![nick_text, icon_and_close]
+                    .align_y(iced::Alignment::Center)
+                    .spacing(theme::ICON_SPACE);
+
+                if let Some(w) = right_aligned_width {
+                    container(nick_text)
+                        .width(w)
+                        .align_x(text::Alignment::Right)
+                        .into()
+                } else {
+                    nick_text.into()
+                }
+            } else {
+                if let Some(w) = right_aligned_width {
+                    nick_text =
+                        nick_text.width(w).align_x(text::Alignment::Right);
+                }
+
+                nick_text.into()
+            };
+
+            let nick_tooltip = if show_bot_icon {
+                Some(Cow::Owned(format!(
+                    "{} has marked itself as a bot",
+                    user.nickname()
+                )))
+            } else if show_nickname_tooltip {
+                Some(Cow::Borrowed(user.as_str()))
+            } else {
+                None
+            };
 
             tooltip(
                 if rerouted_private && !is_ourself {
@@ -464,8 +536,8 @@ impl<'a> ChannelQueryLayout<'a> {
                     )
                     .map(Message::ContextMenu)
                 },
-                show_nickname_tooltip.then_some(user.as_str()),
-                tooltip::Position::Bottom,
+                nick_tooltip,
+                tooltip::Position::Top,
                 self.theme,
             )
         };

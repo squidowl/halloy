@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 pub use iced::widget::tooltip::Position;
 use iced::widget::{container, text};
 
@@ -6,7 +8,7 @@ use crate::{Theme, font, theme};
 
 pub fn tooltip<'a, Message: 'a>(
     content: impl Into<Element<'a, Message>>,
-    tooltip: Option<&'a str>,
+    tooltip: Option<impl Into<Cow<'a, str>>>,
     position: Position,
     theme: &'a Theme,
 ) -> Element<'a, Message> {
@@ -14,7 +16,7 @@ pub fn tooltip<'a, Message: 'a>(
         Some(tooltip) => iced::widget::tooltip(
             content,
             container(
-                text(tooltip)
+                text(tooltip.into().into_owned())
                     .style(theme::text::secondary)
                     .line_height(font::line_height())
                     .font_maybe(

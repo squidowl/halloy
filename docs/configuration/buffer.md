@@ -176,6 +176,32 @@ Show access level(s) in front of nicknames (`@`, `+`, `~`, etc.).
 show_access_levels = "all"
 ```
 
+#### `show_bot_icon`
+
+Show an icon next to nicknames of users identified as bots.
+
+```toml
+# Type: bool
+# Values: true, false
+# Default: true
+
+[buffer.channel.nicklist]
+show_bot_icon = true
+```
+
+#### `truncate`
+
+Truncate nicknames in nicklist to a maximum length. Has no effect when [`buffer.channel.nicklist.width`](#width) is set. If not set, falls back to [`buffer.nickname.truncate`](#truncate-1).
+
+```toml
+# Type: integer
+# Values: any non-negative integer
+# Default: not set
+
+[buffer.channel.nicklist]
+truncate = 10
+```
+
 #### `width`
 
 Overwrite nicklist width in pixels.
@@ -813,6 +839,19 @@ Show access level(s) in front of nicknames (`@`, `+`, `~`, etc.).
 
 [buffer.nickname]
 show_access_levels = "none"
+```
+
+### `show_bot_icon`
+
+Show an icon next to nicknames of users identified as bots.
+
+```toml
+# Type: bool
+# Values: true, false
+# Default: true
+
+[buffer.nickname]
+show_bot_icon = true
 ```
 
 ### `shown_status`

@@ -1085,10 +1085,10 @@ impl Client {
                 | RPL_WHOISSERVER | RPL_WHOISOPERATOR | RPL_WHOISIDLE
                 | RPL_WHOISCHANNELS | RPL_WHOISSPECIAL | RPL_WHOISACCOUNT
                 | RPL_WHOISACTUALLY | RPL_WHOISHOST | RPL_WHOISMODES
-                | RPL_WHOISSECURE | RPL_AWAY | RPL_ENDOFWHOIS | RPL_WHOWASUSER
-                | RPL_ENDOFWHOWAS | RPL_UMODEIS | ERR_NOSUCHNICK
-                | ERR_NOSUCHSERVER | ERR_NONICKNAMEGIVEN | ERR_WASNOSUCHNICK
-                | ERR_NEEDMOREPARAMS | ERR_USERSDONTMATCH
+                | RPL_WHOISSECURE | RPL_WHOISBOT | RPL_AWAY | RPL_ENDOFWHOIS
+                | RPL_WHOWASUSER | RPL_ENDOFWHOWAS | RPL_UMODEIS
+                | ERR_NOSUCHNICK | ERR_NOSUCHSERVER | ERR_NONICKNAMEGIVEN
+                | ERR_WASNOSUCHNICK | ERR_NEEDMOREPARAMS | ERR_USERSDONTMATCH
                 | ERR_UMODEUNKNOWNFLAG | RPL_INVITING | ERR_NOSUCHCHANNEL
                 | ERR_NOTONCHANNEL | ERR_CHANOPRIVSNEEDED | ERR_USERONCHANNEL,
                 _,
@@ -1511,6 +1511,16 @@ impl Client {
                         }
                     }
 
+                    if message.tags.contains_key("bot")
+                        && let Some(channel) =
+                            self.message_channel_target(&message.command)
+                        && let Some(ch) = self.chanmap.get_mut(&channel)
+                        && let Some(mut chan_user) = ch.users.take(&user)
+                    {
+                        chan_user.update_bot(true);
+                        ch.users.insert(chan_user);
+                    }
+
                     let user_query = target::Query::from(&user);
                     let direct_message = self
                         .message_query_target(&message.command)
@@ -1828,6 +1838,7 @@ impl Client {
                             ok!(args.get(5)),
                             ok!(args.get(6)),
                             casemapping,
+                            isupport::get_bot_mode_char(&self.isupport),
                         );
 
                         if let Some(who_poll) = self
@@ -1935,6 +1946,9 @@ impl Client {
                                         ok!(args.get(3)),
                                         ok!(args.get(4)),
                                         casemapping,
+                                        isupport::get_bot_mode_char(
+                                            &self.isupport,
+                                        ),
                                     );
                                 } else if token
                                     == WhoXPollParameters::WithAccountName
@@ -1946,6 +1960,9 @@ impl Client {
                                         user,
                                         ok!(args.get(4)),
                                         casemapping,
+                                        isupport::get_bot_mode_char(
+                                            &self.isupport,
+                                        ),
                                     );
 
                                     client_channel.update_user_accountname(
@@ -5168,6 +5185,7 @@ impl Channel {
         user: &str,
         flags: &str,
         casemapping: isupport::CaseMap,
+        bot_mode_char: Option<char>,
     ) {
         let user = User::from(Nick::from_str(user, casemapping));
 
@@ -5181,6 +5199,9 @@ impl Channel {
 
             if let Some(mut user) = self.users.take(&user) {
                 user.update_away(away);
+                if let Some(bot_char) = bot_mode_char {
+                    user.update_bot(flags.contains(bot_char));
+                }
                 self.users.insert(user);
             }
         }

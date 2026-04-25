@@ -551,16 +551,18 @@ fn topic<'a>(
 }
 
 mod nick_list {
+    use std::borrow::Cow;
+
     use context_menu::Message;
     use data::user::ChannelUsers;
     use data::{Config, Server, User, config, isupport, target};
     use iced::Length;
     use iced::advanced::text;
-    use iced::widget::{Scrollable, column, scrollable};
+    use iced::widget::{Scrollable, column, row, scrollable};
 
     use crate::buffer::context_menu;
-    use crate::widget::{Element, selectable_text};
-    use crate::{Theme, font, theme};
+    use crate::widget::{Element, selectable_text, tooltip};
+    use crate::{Theme, font, icon, theme};
 
     pub fn view<'a>(
         server: &'a Server,
@@ -572,6 +574,11 @@ mod nick_list {
         theme: &'a Theme,
     ) -> Element<'a, Message> {
         let nicklist_config = &config.buffer.channel.nicklist;
+        let truncate = if nicklist_config.width.is_some() {
+            None
+        } else {
+            nicklist_config.truncate.or(config.buffer.nickname.truncate)
+        };
 
         let width = match nicklist_config.width {
             Some(width) => width,
@@ -580,9 +587,12 @@ mod nick_list {
                     .into_iter()
                     .flatten()
                     .map(|user| {
-                        user.display(nicklist_config.show_access_levels, None)
-                            .chars()
-                            .count()
+                        user.display(
+                            nicklist_config.show_access_levels,
+                            truncate,
+                        )
+                        .chars()
+                        .count()
                     })
                     .max()
                     .unwrap_or_default();
@@ -591,25 +601,90 @@ mod nick_list {
             }
         };
 
+        let bot_nick_max_chars = if nicklist_config.show_bot_icon {
+            let char_width = font::width_from_chars(1, &config.font);
+            let available = width - theme::ICON_SIZE - theme::ICON_SPACE;
+            let px_max = (available / char_width).floor() as u16;
+            Some(truncate.map_or(px_max, |t| t.min(px_max)))
+        } else {
+            None
+        };
+
         let content = column(users.into_iter().flatten().map(|user| {
-            let content = selectable_text(
-                user.display(nicklist_config.show_access_levels, None),
-            )
-            .font_maybe(
-                theme::font_style::nickname(theme, false).map(font::get),
-            )
-            .style(|theme| {
-                theme::selectable_text::nicklist_nickname(theme, config, user)
-            })
-            .align_x(match nicklist_config.alignment {
-                config::buffer::channel::Alignment::Left => {
-                    text::Alignment::Left
-                }
-                config::buffer::channel::Alignment::Right => {
-                    text::Alignment::Right
-                }
-            })
-            .width(Length::Fixed(width));
+            let show_bot_icon = user.is_bot() && nicklist_config.show_bot_icon;
+
+            let (nick_display, show_nick_tooltip) = user
+                .display_with_truncated(
+                    nicklist_config.show_access_levels,
+                    if show_bot_icon {
+                        bot_nick_max_chars
+                    } else {
+                        truncate
+                    },
+                );
+
+            let nick = selectable_text(nick_display)
+                .font_maybe(
+                    theme::font_style::nickname(theme, false).map(font::get),
+                )
+                .style(|theme| {
+                    theme::selectable_text::nicklist_nickname(
+                        theme, config, user,
+                    )
+                })
+                .align_x(match nicklist_config.alignment {
+                    config::buffer::channel::Alignment::Left => {
+                        text::Alignment::Left
+                    }
+                    config::buffer::channel::Alignment::Right => {
+                        text::Alignment::Right
+                    }
+                })
+                .width(match (show_bot_icon, nicklist_config.alignment) {
+                    (true, config::buffer::channel::Alignment::Left) => {
+                        Length::Shrink
+                    }
+                    (true, config::buffer::channel::Alignment::Right) => {
+                        Length::Fixed(
+                            width - theme::ICON_SIZE - theme::ICON_SPACE,
+                        )
+                    }
+                    (false, _) => Length::Fixed(width),
+                });
+
+            let content_tooltip = if show_bot_icon {
+                Some(Cow::Owned(format!(
+                    "{} has marked itself as a bot",
+                    user.nickname()
+                )))
+            } else if show_nick_tooltip {
+                Some(Cow::Borrowed(user.as_str()))
+            } else {
+                None
+            };
+
+            let content: Element<_> = if show_bot_icon {
+                let nick_color = theme::selectable_text::nicklist_nickname(
+                    theme, config, user,
+                )
+                .color;
+                let bot_icon = icon::robot().style(move |_| {
+                    iced::widget::text::Style { color: nick_color }
+                });
+                row![nick, bot_icon]
+                    .align_y(iced::Alignment::Center)
+                    .spacing(theme::ICON_SPACE)
+                    .into()
+            } else {
+                nick.into()
+            };
+
+            let content: Element<_> = tooltip(
+                content,
+                content_tooltip,
+                tooltip::Position::Top,
+                theme,
+            );
 
             context_menu::user(
                 content,
