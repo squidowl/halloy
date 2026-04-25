@@ -279,7 +279,10 @@ pub fn view<'a>(
 
                     row_items.push(
                         selectable_text(result.text.as_str())
-                            .style(theme::selectable_text::default)
+                            .style(|theme: &Theme| crate::widget::selectable_text::Style {
+                                color: Some(theme.styles().text.primary.color),
+                                selection_color: theme.styles().buffer.selection,
+                            })
                             .font_maybe(
                                 theme::font_style::primary(theme)
                                     .map(font::get),
