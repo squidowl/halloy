@@ -29,6 +29,7 @@ use std::{env, mem};
 
 use appearance::{Theme, theme};
 use data::capabilities::LabeledResponseContext;
+use data::client::{self, Destination};
 use data::config::{self, Config};
 use data::history::ReactionToEcho;
 use data::history::filter::FilterChain;
@@ -39,8 +40,7 @@ use data::target::{self, Target};
 use data::user::Nick;
 use data::version::Version;
 use data::{
-    Notification, Server, Url, User, client, environment, history, server,
-    version,
+    Notification, Server, Url, User, environment, history, server, version,
 };
 use iced::widget::{column, container};
 use iced::{Length, Subscription, Task, padding};
@@ -1903,7 +1903,7 @@ fn handle_with_target_event(
     server: &Server,
     encoded: message::Encoded,
     our_nick: data::user::Nick,
-    target: Option<Target>,
+    target: Destination,
     deduplicate: bool,
     dashboard: &mut screen::Dashboard,
     commands: &mut Vec<Task<Message>>,

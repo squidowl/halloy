@@ -101,6 +101,27 @@ pub enum Broadcast {
 }
 
 #[derive(Debug)]
+pub enum Destination {
+    Server,
+    Target(Target),
+}
+
+impl From<&buffer::Upstream> for Destination {
+    fn from(buffer: &buffer::Upstream) -> Self {
+        match buffer.target() {
+            Some(target) => Self::Target(target),
+            None => Self::Server,
+        }
+    }
+}
+
+impl From<Target> for Destination {
+    fn from(target: Target) -> Self {
+        Self::Target(target)
+    }
+}
+
+#[derive(Debug)]
 pub enum Message {
     ChatHistoryRequest(Server, ChatHistorySubcommand),
     ChatHistoryTargetsTimestampUpdated(
@@ -130,7 +151,7 @@ pub enum Event {
     WithTarget {
         message: message::Encoded,
         our_nick: Nick,
-        target: Option<Target>, // None → Server
+        target: Destination,
         deduplicate: bool,
     },
     Broadcast(Broadcast),
@@ -1074,10 +1095,8 @@ impl Client {
                 | ERR_NOTONCHANNEL | ERR_CHANOPRIVSNEEDED | ERR_USERONCHANNEL,
                 _,
             ) if self.reroute_responses_to.is_some() => {
-                if let Some(target) = self
-                    .reroute_responses_to
-                    .as_ref()
-                    .map(buffer::Upstream::target)
+                if let Some(target) =
+                    self.reroute_responses_to.as_ref().map(Destination::from)
                 {
                     return Ok(vec![Event::WithTarget {
                         message,
@@ -1845,7 +1864,7 @@ impl Client {
                     } else if let Some(target) = self
                         .reroute_responses_to
                         .as_ref()
-                        .map(buffer::Upstream::target)
+                        .map(Destination::from)
                     {
                         return Ok(vec![Event::WithTarget {
                             message,
@@ -1963,7 +1982,7 @@ impl Client {
                     } else if let Some(target) = self
                         .reroute_responses_to
                         .as_ref()
-                        .map(buffer::Upstream::target)
+                        .map(Destination::from)
                     {
                         return Ok(vec![Event::WithTarget {
                             message,
@@ -2039,7 +2058,7 @@ impl Client {
                     } else if let Some(target) = self
                         .reroute_responses_to
                         .as_ref()
-                        .map(buffer::Upstream::target)
+                        .map(Destination::from)
                     {
                         return Ok(vec![Event::WithTarget {
                             message,
@@ -3037,10 +3056,8 @@ impl Client {
             _ => {}
         }
 
-        if let Some(target) = context
-            .map(Context::buffer)
-            .as_ref()
-            .map(buffer::Upstream::target)
+        if let Some(target) =
+            context.map(Context::buffer).as_ref().map(Destination::from)
         {
             Ok(vec![Event::WithTarget {
                 message,
@@ -3078,25 +3095,25 @@ impl Client {
                 Command::NICK(_) => vec![Event::WithTarget {
                     message,
                     our_nick: self.nickname().to_owned(),
-                    target: Some(batch_target),
+                    target: batch_target.into(),
                     deduplicate: true,
                 }],
                 Command::JOIN(_, _) => vec![Event::WithTarget {
                     message,
                     our_nick: self.nickname().to_owned(),
-                    target: Some(batch_target),
+                    target: batch_target.into(),
                     deduplicate: true,
                 }],
                 Command::PART(_, _) => vec![Event::WithTarget {
                     message,
                     our_nick: self.nickname().to_owned(),
-                    target: Some(batch_target),
+                    target: batch_target.into(),
                     deduplicate: true,
                 }],
                 Command::QUIT(_) => vec![Event::WithTarget {
                     message,
                     our_nick: self.nickname().to_owned(),
-                    target: Some(batch_target),
+                    target: batch_target.into(),
                     deduplicate: true,
                 }],
                 Command::PRIVMSG(target, text)

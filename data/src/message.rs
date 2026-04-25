@@ -20,6 +20,7 @@ pub use self::highlight::Highlight;
 pub use self::source::Source;
 pub use self::source::server::{Change, Kind, StandardReply};
 use crate::capabilities::LabeledResponseContext;
+use crate::client::Destination;
 use crate::config::buffer::{CondensationFormat, UsernameFormat};
 use crate::config::{self, Highlights};
 use crate::history::reroute::RerouteRules;
@@ -650,22 +651,26 @@ impl Message {
         }
     }
 
-    pub fn with_target(self, target: Option<target::Target>) -> Self {
+    pub fn with_target(self, target: Destination) -> Self {
         let source = self.target.source();
 
         Self {
             target: match target {
-                None => Target::Server {
+                Destination::Server => Target::Server {
                     source: source.clone(),
                 },
-                Some(target::Target::Channel(channel)) => Target::Channel {
-                    channel,
-                    source: source.clone(),
-                },
-                Some(target::Target::Query(query)) => Target::Query {
-                    query,
-                    source: source.clone(),
-                },
+                Destination::Target(target::Target::Channel(channel)) => {
+                    Target::Channel {
+                        channel,
+                        source: source.clone(),
+                    }
+                }
+                Destination::Target(target::Target::Query(query)) => {
+                    Target::Query {
+                        query,
+                        source: source.clone(),
+                    }
+                }
             },
             ..self
         }
