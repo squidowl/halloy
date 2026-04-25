@@ -310,8 +310,12 @@ pub fn view<'a>(
     let status = state.status;
 
     let right_aligned_width = max_nick_chars.map(|max_nick_chars| {
-        let max_nick_width =
+        let mut max_nick_width =
             font::width_from_chars(max_nick_chars, &config.font) + 1.0;
+        if config.buffer.nickname.show_bot_icon {
+            // reserve space for any eventual bot icon
+            max_nick_width += theme::ICON_SIZE + theme::ICON_SPACE;
+        }
         let message_marker_width =
             font::width_of_message_marker(&config.font) + 1.0;
         let mut range_end_timestamp_width = range_end_timestamp_chars.map_or(
