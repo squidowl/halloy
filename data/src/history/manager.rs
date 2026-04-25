@@ -1434,12 +1434,11 @@ impl Data {
                                 buffer_config
                                     .nickname
                                     .brackets
-                                    .format(
-                                        user.display(
-                                            with_access_levels,
-                                            truncate,
-                                        ),
-                                    )
+                                    .format(user.display(
+                                        with_access_levels,
+                                        buffer_config.nickname.show_bot_icon,
+                                        truncate,
+                                    ))
                                     .chars()
                                     .count(),
                             )
@@ -1464,12 +1463,11 @@ impl Data {
                                 buffer_config
                                     .nickname
                                     .brackets
-                                    .format(
-                                        user.display(
-                                            with_access_levels,
-                                            truncate,
-                                        ),
-                                    )
+                                    .format(user.display(
+                                        with_access_levels,
+                                        buffer_config.nickname.show_bot_icon,
+                                        truncate,
+                                    ))
                                     .chars()
                                     .count(),
                             )

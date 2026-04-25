@@ -187,6 +187,7 @@ pub fn view<'a>(
                         let (user_display, show_nickname_tooltip) = user
                             .display_with_truncated(
                                 with_access_levels,
+                                config.buffer.nickname.show_bot_icon,
                                 truncate,
                             );
 
