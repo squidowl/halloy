@@ -1,7 +1,8 @@
 use chrono::{DateTime, Utc};
 use data::{Config, history, message, target};
 use iced::widget::{
-    button, column, container, operation, row, scrollable, text, text_input,
+    self, button, column, container, operation, row, scrollable, text,
+    text_input,
 };
 use iced::{Length, Size, Task, alignment, padding};
 
@@ -46,7 +47,7 @@ pub struct Search {
     scope: Option<Scope>,
     query: String,
     results: Vec<ResultRow>,
-    query_id: text_input::Id,
+    query_id: widget::Id,
 }
 
 impl Search {
@@ -59,7 +60,7 @@ impl Search {
             scope,
             query: String::new(),
             results: vec![],
-            query_id: text_input::Id::unique(),
+            query_id: widget::Id::unique(),
         }
     }
 

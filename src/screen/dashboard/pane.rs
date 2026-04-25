@@ -234,7 +234,8 @@ impl Pane {
             | Buffer::FileTransfers(_)
             | Buffer::Logs(_)
             | Buffer::Highlights(_)
-            | Buffer::ChannelDiscovery(_) => vec![],
+            | Buffer::ChannelDiscovery(_)
+            | Buffer::Search(_) => vec![],
         }
     }
 }
@@ -528,6 +529,9 @@ impl From<Pane> for data::Pane {
             Buffer::ChannelDiscovery(state) => data::Buffer::Internal(
                 buffer::Internal::ChannelDiscovery(state.server.clone()),
             ),
+            Buffer::Search(_) => {
+                data::Buffer::Internal(buffer::Internal::Search)
+            }
         };
 
         data::Pane::Buffer { buffer }
