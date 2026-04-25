@@ -673,7 +673,7 @@ mod nick_list {
                 });
                 row![nick, bot_icon]
                     .align_y(iced::Alignment::Center)
-                    .spacing(2)
+                    .spacing(theme::ICON_SPACE)
                     .into()
             } else {
                 nick.into()

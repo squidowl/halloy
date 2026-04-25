@@ -479,7 +479,7 @@ impl<'a> ChannelQueryLayout<'a> {
 
                 let nick_text = row![nick_text, icon_and_close]
                     .align_y(iced::Alignment::Center)
-                    .spacing(2);
+                    .spacing(theme::ICON_SPACE);
 
                 if let Some(w) = right_aligned_width {
                     container(nick_text)
