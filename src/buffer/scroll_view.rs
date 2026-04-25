@@ -260,6 +260,7 @@ pub fn view<'a>(
         old_messages,
         new_messages,
         max_nick_chars,
+        max_bot_nick_chars,
         max_prefix_chars,
         range_end_timestamp_chars,
         cleared,
@@ -310,12 +311,24 @@ pub fn view<'a>(
     let status = state.status;
 
     let right_aligned_width = max_nick_chars.map(|max_nick_chars| {
-        let mut max_nick_width =
-            font::width_from_chars(max_nick_chars, &config.font) + 1.0;
-        if config.buffer.nickname.show_bot_icon {
-            // reserve space for any eventual bot icon
-            max_nick_width += theme::ICON_SIZE + theme::ICON_SPACE;
-        }
+        let max_nick_width =
+            if let Some(max_bot_nick_chars) = max_bot_nick_chars {
+                if config.buffer.nickname.show_bot_icon {
+                    // reserve space for any eventual bot icon
+                    font::width_from_chars(max_nick_chars, &config.font).max(
+                        font::width_from_chars(max_nick_chars, &config.font)
+                            + theme::ICON_SIZE
+                            + theme::ICON_SPACE,
+                    )
+                } else {
+                    font::width_from_chars(
+                        max_nick_chars.max(max_bot_nick_chars),
+                        &config.font,
+                    )
+                }
+            } else {
+                font::width_from_chars(max_nick_chars, &config.font)
+            } + 1.0;
         let message_marker_width =
             font::width_of_message_marker(&config.font) + 1.0;
         let mut range_end_timestamp_width = range_end_timestamp_chars.map_or(

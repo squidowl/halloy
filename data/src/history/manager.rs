@@ -1428,6 +1428,37 @@ impl Data {
                     .filter_map(|message| {
                         if let message::Source::User(user) =
                             message.target.source()
+                            && !user.is_bot()
+                        {
+                            Some(
+                                buffer_config
+                                    .nickname
+                                    .brackets
+                                    .format(
+                                        user.display(
+                                            with_access_levels,
+                                            truncate,
+                                        ),
+                                    )
+                                    .chars()
+                                    .count(),
+                            )
+                        } else {
+                            None
+                        }
+                    })
+                    .max()
+                    .unwrap_or_default()
+            });
+
+        let max_bot_nick_chars =
+            buffer_config.nickname.alignment.is_right().then(|| {
+                processed
+                    .iter()
+                    .filter_map(|message| {
+                        if let message::Source::User(user) =
+                            message.target.source()
+                            && user.is_bot()
                         {
                             Some(
                                 buffer_config
@@ -1543,6 +1574,7 @@ impl Data {
             old_messages: old.to_vec(),
             new_messages: new.to_vec(),
             max_nick_chars,
+            max_bot_nick_chars,
             max_prefix_chars,
             range_end_timestamp_chars,
             cleared: *cleared,

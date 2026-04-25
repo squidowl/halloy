@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::collections::BTreeMap;
 
 use chrono::{DateTime, TimeDelta, Utc};
@@ -440,20 +441,6 @@ impl<'a> ChannelQueryLayout<'a> {
             };
             Space::new().width(width).into()
         } else {
-            let nick_width = right_aligned_width.map(|width| {
-                if show_bot_icon {
-                    width
-                        - theme::ICON_SIZE
-                        - theme::ICON_SPACE
-                        - font::width_from_chars(
-                            nick_close.chars().count(),
-                            &self.config.font,
-                        )
-                } else {
-                    width
-                }
-            });
-
             let mut nick_text = selectable_text(if show_bot_icon {
                 nick_open
             } else {
@@ -465,11 +452,64 @@ impl<'a> ChannelQueryLayout<'a> {
                     .map(font::get),
             );
 
-            if let Some(w) = nick_width {
-                nick_text = nick_text.width(w).align_x(text::Alignment::Right);
-            }
+            let nick_text: Element<_> = if show_bot_icon {
+                let nick_color = nickname_style.color;
+                let bot_icon = icon::robot().style(move |_| {
+                    iced::widget::text::Style { color: nick_color }
+                });
 
-            let nick_with_ctx = tooltip(
+                let icon_and_close: Element<_> = if nick_close.is_empty() {
+                    bot_icon.into()
+                } else {
+                    row![
+                        bot_icon,
+                        selectable_text(nick_close)
+                            .style(move |_| nickname_style)
+                            .font_maybe(
+                                theme::font_style::nickname(
+                                    self.theme,
+                                    is_user_offline,
+                                )
+                                .map(font::get),
+                            ),
+                    ]
+                    .align_y(iced::Alignment::Center)
+                    .into()
+                };
+
+                let nick_text = row![nick_text, icon_and_close]
+                    .align_y(iced::Alignment::Center)
+                    .spacing(2);
+
+                if let Some(w) = right_aligned_width {
+                    container(nick_text)
+                        .width(w)
+                        .align_x(text::Alignment::Right)
+                        .into()
+                } else {
+                    nick_text.into()
+                }
+            } else {
+                if let Some(w) = right_aligned_width {
+                    nick_text =
+                        nick_text.width(w).align_x(text::Alignment::Right);
+                }
+
+                nick_text.into()
+            };
+
+            let nick_tooltip = if show_bot_icon {
+                Some(Cow::Owned(format!(
+                    "{} has marked itself as a bot",
+                    user.nickname()
+                )))
+            } else if show_nickname_tooltip {
+                Some(Cow::Borrowed(user.as_str()))
+            } else {
+                None
+            };
+
+            tooltip(
                 if rerouted_private && !is_ourself {
                     context_menu::rerouted_private_user(
                         nick_text,
@@ -496,59 +536,10 @@ impl<'a> ChannelQueryLayout<'a> {
                     )
                     .map(Message::ContextMenu)
                 },
-                show_nickname_tooltip.then_some(user.as_str()),
-                tooltip::Position::Bottom,
+                nick_tooltip,
+                tooltip::Position::Top,
                 self.theme,
-            );
-
-            if show_bot_icon {
-                let nick_color = nickname_style.color;
-                let bot_tooltip =
-                    format!("{} has marked itself as a bot", user.nickname());
-
-                let bot_icon = tooltip(
-                    icon::robot().style(move |_| iced::widget::text::Style {
-                        color: nick_color,
-                    }),
-                    Some(bot_tooltip),
-                    tooltip::Position::Bottom,
-                    self.theme,
-                );
-
-                let icon_and_close: Element<_> = if nick_close.is_empty() {
-                    bot_icon
-                } else {
-                    row![
-                        bot_icon,
-                        selectable_text(nick_close)
-                            .style(move |_| nickname_style)
-                            .font_maybe(
-                                theme::font_style::nickname(
-                                    self.theme,
-                                    is_user_offline,
-                                )
-                                .map(font::get),
-                            ),
-                    ]
-                    .align_y(iced::Alignment::Center)
-                    .into()
-                };
-
-                let icon_row = row![nick_with_ctx, icon_and_close]
-                    .align_y(iced::Alignment::Center)
-                    .spacing(2);
-
-                if let Some(width) = right_aligned_width {
-                    container(icon_row)
-                        .width(Length::Fixed(width))
-                        .align_x(alignment::Horizontal::Right)
-                        .into()
-                } else {
-                    icon_row.into()
-                }
-            } else {
-                nick_with_ctx
-            }
+            )
         };
 
         let formatter = *self;
