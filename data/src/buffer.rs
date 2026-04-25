@@ -37,6 +37,7 @@ pub enum Internal {
     Highlights,
     #[strum(serialize = "Channel Discovery")]
     ChannelDiscovery(Option<Server>),
+    Search,
 }
 
 impl Buffer {
@@ -126,6 +127,7 @@ impl Internal {
         Self::Logs,
         Self::Highlights,
         Self::ChannelDiscovery(None),
+        Self::Search,
     ];
 
     pub fn key(&self) -> String {
@@ -134,6 +136,7 @@ impl Internal {
             Internal::Logs => "logs",
             Internal::Highlights => "highlights",
             Internal::ChannelDiscovery(_) => "channel-discovery",
+            Internal::Search => "search",
         }
         .to_string()
     }

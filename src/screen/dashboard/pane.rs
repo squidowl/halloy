@@ -123,6 +123,7 @@ impl Pane {
             }
             Buffer::Logs(_) => "Logs".to_string(),
             Buffer::Highlights(_) => "Highlights".to_string(),
+            Buffer::Search(_) => "Search".to_string(),
         };
 
         let title_bar = self.title_bar.view(
@@ -216,7 +217,9 @@ impl Pane {
             }),
             Buffer::Logs(_) => Some(history::Resource::logs()),
             Buffer::Highlights(_) => Some(history::Resource::highlights()),
-            Buffer::ChannelDiscovery(_) | Buffer::FileTransfers(_) => None,
+            Buffer::ChannelDiscovery(_)
+            | Buffer::FileTransfers(_)
+            | Buffer::Search(_) => None,
         }
     }
 

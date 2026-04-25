@@ -22,6 +22,7 @@ pub struct Keyboard {
     pub toggle_sidebar: KeyBinds,
     pub toggle_fullscreen: KeyBinds,
     pub command_bar: KeyBinds,
+    pub search: KeyBinds,
     pub reload_configuration: KeyBinds,
     pub file_transfers: KeyBinds,
     pub logs: KeyBinds,
@@ -60,6 +61,7 @@ impl Default for Keyboard {
             toggle_topic: KeyBind::toggle_topic().into(),
             toggle_fullscreen: KeyBind::toggle_fullscreen().into(),
             command_bar: KeyBind::command_bar().into(),
+            search: KeyBind::search().into(),
             reload_configuration: KeyBind::reload_configuration().into(),
             file_transfers: KeyBind::file_transfers().into(),
             logs: KeyBind::logs().into(),
@@ -112,6 +114,7 @@ impl Keyboard {
         push(&self.toggle_sidebar, ToggleSidebar);
         push(&self.toggle_fullscreen, ToggleFullscreen);
         push(&self.command_bar, CommandBar);
+        push(&self.search, Search);
         push(&self.reload_configuration, ReloadConfiguration);
         push(&self.file_transfers, FileTransfers);
         push(&self.logs, Logs);

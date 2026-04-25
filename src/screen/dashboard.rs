@@ -1316,6 +1316,16 @@ impl Dashboard {
                             None,
                         );
                     }
+                    Search => {
+                        return (
+                            self.toggle_internal_buffer(
+                                clients,
+                                config,
+                                buffer::Internal::Search,
+                            ),
+                            None,
+                        );
+                    }
                     ReloadConfiguration => {
                         return (
                             Task::perform(
@@ -2857,6 +2867,16 @@ impl Dashboard {
         clients: &mut data::client::Map,
         config: &Config,
     ) -> Task<Message> {
+        let search_scope =
+            if matches!(buffer, data::Buffer::Internal(buffer::Internal::Search))
+            {
+                self.panes
+                    .get(self.focus.window, self.focus.pane)
+                    .and_then(|pane| pane.buffer.search_scope())
+            } else {
+                None
+            };
+
         // TODO(pounce) reduce clones
         let panes = self.panes.clone();
 
@@ -2886,11 +2906,12 @@ impl Dashboard {
                         config,
                     );
 
-                    state.buffer = Buffer::from_data(
+                    state.buffer = Buffer::from_data_with_search_scope(
                         buffer,
                         &self.history,
                         state.size,
                         config,
+                        search_scope,
                     );
                     self.last_changed = Some(Instant::now());
 
@@ -2918,11 +2939,12 @@ impl Dashboard {
                     for (id, pane) in panes.main.iter() {
                         if matches!(pane.buffer, Buffer::Empty) {
                             self.panes.main.panes.entry(*id).and_modify(|p| {
-                                p.buffer = Buffer::from_data(
+                                p.buffer = Buffer::from_data_with_search_scope(
                                     buffer.clone(),
                                     &self.history,
                                     p.size,
                                     config,
+                                    search_scope.clone(),
                                 );
                             });
                             self.last_changed = Some(Instant::now());
@@ -2990,11 +3012,12 @@ impl Dashboard {
                 let result = self.panes.main.split(
                     split_axis,
                     pane_to_split,
-                    Pane::new(Buffer::from_data(
+                    Pane::new(Buffer::from_data_with_search_scope(
                         buffer,
                         &self.history,
                         pane_to_split_state.size,
                         config,
+                        search_scope,
                     )),
                 );
 
@@ -3006,11 +3029,12 @@ impl Dashboard {
             }
             BufferAction::NewWindow => {
                 iced::window::position(self.main_window()).then({
-                    let pane = Pane::new(Buffer::from_data(
+                    let pane = Pane::new(Buffer::from_data_with_search_scope(
                         buffer.clone(),
                         &self.history,
                         Size::default(),
                         config,
+                        search_scope,
                     ));
 
                     let config = config.clone();
