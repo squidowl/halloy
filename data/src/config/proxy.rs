@@ -108,7 +108,9 @@ pub fn build_client(
             reqwest::Client::builder().proxy(proxy)
         }
         #[cfg(feature = "tor")]
-        Some(Proxy::Tor) => Err(BuildError::Tor),
+        Some(Proxy::Tor) => {
+            return Err(BuildError::Tor);
+        }
     };
 
     if let Some(identity) = identity {
