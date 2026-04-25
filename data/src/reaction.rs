@@ -8,14 +8,14 @@ use crate::message::{Encoded, Id};
 use crate::target::Target;
 use crate::user::Nick;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct Reaction {
     pub sender: Nick,
     pub text: String,
     pub unreact: bool,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct Context {
     pub inner: Reaction,
     pub target: Target,
@@ -78,7 +78,7 @@ impl Reaction {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Pending {
     pub reactions: Vec<Reaction>,
     pub server_time: DateTime<Utc>,

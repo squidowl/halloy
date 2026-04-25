@@ -10,15 +10,15 @@ use futures::{Future, FutureExt};
 use tokio::fs;
 use tokio::time::Instant;
 
-pub use self::manager::{Manager, Resource};
+pub use self::manager::{Manager, ReactionToEcho, Resource};
 pub use self::metadata::{Metadata, ReadMarker};
 use crate::capabilities::LabeledResponseContext;
-use crate::message::{self, MessageReferences, Source};
-use crate::reaction::{self, Reaction};
+use crate::message::{self, Direction, MessageReferences, Source};
 use crate::target::{self, Target};
 use crate::user::Nick;
 use crate::{
-    Buffer, Message, Server, buffer, compression, config, environment, isupport,
+    Buffer, Message, Server, buffer, compression, config, environment,
+    isupport, reaction,
 };
 
 pub mod filter;
@@ -267,8 +267,10 @@ pub async fn append(
     read_marker: Option<ReadMarker>,
     chathistory_references: Option<MessageReferences>,
     pending_reactions: HashMap<message::Id, reaction::Pending>,
-) -> Result<(), Error> {
+) -> Result<Vec<ReactionToEcho>, Error> {
     let loaded = load(kind.clone(), seed).await?;
+
+    let mut pending_reactions_flushed: Vec<ReactionToEcho> = vec![];
 
     let mut all_messages = loaded.messages;
     // pending reactions should only exist for unloaded history entries
@@ -276,6 +278,25 @@ pub async fn append(
         if let Some(message) =
             find_reaction_target(&mut all_messages, &id, &pending.server_time)
         {
+            if message.is_echo
+                && message.direction == Direction::Received
+                && let Ok(target) = Target::try_from(message.target.clone())
+            {
+                let message_text = message.text();
+                for reaction in pending.clone().reactions.into_iter() {
+                    let reaction_to_echo = ReactionToEcho {
+                        reaction: reaction::Context {
+                            inner: reaction,
+                            target: target.clone(),
+                            in_reply_to: id.clone(),
+                            server_time: pending.server_time,
+                        },
+                        message_text: message_text.clone(),
+                    };
+                    pending_reactions_flushed.push(reaction_to_echo);
+                }
+            }
+
             message.reactions.append(&mut pending.reactions);
         }
     }
@@ -289,7 +310,9 @@ pub async fn append(
         },
     );
 
-    overwrite(kind, &all_messages, read_marker, chathistory_references).await
+    overwrite(kind, &all_messages, read_marker, chathistory_references)
+        .await
+        .map(|()| pending_reactions_flushed)
 }
 
 pub async fn delete(kind: &Kind) -> Result<(), Error> {
@@ -659,7 +682,7 @@ impl History {
         &mut self,
         now: Option<Instant>,
         seed: Option<Seed>,
-    ) -> Option<BoxFuture<'static, Result<(), Error>>> {
+    ) -> Option<BoxFuture<'static, Result<Vec<ReactionToEcho>, Error>>> {
         match self {
             History::Partial {
                 kind,
@@ -739,6 +762,7 @@ impl History {
                                 chathistory_references,
                             )
                             .await
+                            .map(|()| vec![])
                         }
                         .boxed(),
                     );
@@ -814,17 +838,16 @@ impl History {
                 chathistory_references,
                 pending_reactions,
                 ..
-            } => {
-                append(
-                    &kind,
-                    seed,
-                    pending_messages,
-                    read_marker,
-                    chathistory_references,
-                    pending_reactions,
-                )
-                .await
-            }
+            } => append(
+                &kind,
+                seed,
+                pending_messages,
+                read_marker,
+                chathistory_references,
+                pending_reactions,
+            )
+            .await
+            .map(|_| ()),
             History::Full {
                 kind,
                 messages,
@@ -1050,10 +1073,8 @@ impl History {
 
     pub fn add_reaction(
         &mut self,
-        id: message::Id,
-        reaction: Reaction,
-        server_time: DateTime<Utc>,
-    ) {
+        reaction: reaction::Context,
+    ) -> Option<ReactionToEcho> {
         match self {
             History::Partial {
                 pending_messages,
@@ -1063,18 +1084,37 @@ impl History {
             } => {
                 if let Some(message) =
                     pending_messages.iter_mut().rev().find_map(|(m, _)| {
-                        (m.id.as_deref() == Some(&*id)).then_some(m)
+                        (m.id.as_deref() == Some(&*reaction.in_reply_to))
+                            .then_some(m)
                     })
                 {
-                    message.reactions.push(reaction);
+                    let message_text = if message.is_echo
+                        && message.direction == Direction::Received
+                    {
+                        Some(message.text())
+                    } else {
+                        None
+                    };
+                    message.reactions.push(reaction.inner.clone());
+
+                    if let Some(message_text) = message_text {
+                        return Some(ReactionToEcho {
+                            reaction,
+                            message_text,
+                        });
+                    } else {
+                        return None;
+                    }
                 } else {
                     let pending = pending_reactions
-                        .entry(id)
-                        .or_insert(reaction::Pending::new(server_time));
+                        .entry(reaction.in_reply_to)
+                        .or_insert(reaction::Pending::new(
+                            reaction.server_time,
+                        ));
 
                     pending.server_time =
-                        (pending.server_time).min(server_time);
-                    pending.reactions.push(reaction);
+                        (pending.server_time).min(reaction.server_time);
+                    pending.reactions.push(reaction.inner);
                 }
 
                 *last_updated_at = Some(Instant::now());
@@ -1084,16 +1124,26 @@ impl History {
                 last_updated_at,
                 ..
             } => {
-                let Some(message) =
-                    find_reaction_target(messages, &id, &server_time)
-                else {
-                    return;
-                };
-                message.reactions.push(reaction);
+                let message = find_reaction_target(
+                    messages,
+                    &reaction.in_reply_to,
+                    &reaction.server_time,
+                )?;
+                message.reactions.push(reaction.inner.clone());
 
                 *last_updated_at = Some(Instant::now());
+
+                if message.is_echo && message.direction == Direction::Received {
+                    return Some(ReactionToEcho {
+                        reaction,
+                        message_text: message.text(),
+                    });
+                } else {
+                    return None;
+                };
             }
         }
+        None
     }
 
     pub fn last_seen(&self) -> HashMap<Nick, DateTime<Utc>> {

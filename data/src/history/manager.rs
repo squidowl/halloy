@@ -14,10 +14,11 @@ use crate::capabilities::LabeledResponseContext;
 use crate::history::{self, History, MessageReferences, ReadMarker, metadata};
 use crate::message::broadcast::{self, Broadcast};
 use crate::message::{self, Limit};
-use crate::reaction::{self, Reaction};
 use crate::target::{self, Target};
 use crate::user::Nick;
-use crate::{Config, Server, buffer, client, config, input, isupport, server};
+use crate::{
+    Config, Server, buffer, client, config, input, isupport, reaction, server,
+};
 
 const DRAFT_SAVE_EVERY: Duration = Duration::from_secs(10);
 
@@ -40,6 +41,12 @@ impl Resource {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ReactionToEcho {
+    pub reaction: reaction::Context,
+    pub message_text: String,
+}
+
 #[derive(Debug)]
 pub enum Message {
     LoadFull(history::Kind, Result<history::Loaded, history::Error>),
@@ -55,11 +62,12 @@ pub enum Message {
         Result<(), history::Error>,
     ),
     Closed(history::Kind, Result<(), history::Error>),
-    Flushed(history::Kind, Result<(), history::Error>),
+    Flushed(history::Kind, Result<Vec<ReactionToEcho>, history::Error>),
     Exited(Vec<(history::Kind, Result<(), history::Error>)>),
     SentMessageUpdated(history::Kind, history::ReadMarker),
     ResendMessage(history::Kind, message::Message),
     DraftsSaved,
+    ReactionsToEcho(Server, Vec<ReactionToEcho>),
 }
 
 pub enum Event {
@@ -67,6 +75,7 @@ pub enum Event {
     Exited,
     SentMessageUpdated(history::Kind, history::ReadMarker),
     ResendMessage(history::Kind, message::Message),
+    ReactionsToEcho(Server, Vec<ReactionToEcho>),
 }
 
 #[derive(Debug, Default)]
@@ -98,8 +107,10 @@ impl Manager {
             log::debug!("cleared messages for {kind}");
 
             return task.map(move |task| {
-                task.map(move |result| Message::Flushed(kind, result))
-                    .boxed()
+                task.map(move |result| {
+                    Message::Flushed(kind, result.map(|_| vec![]))
+                })
+                .boxed()
             });
         }
 
@@ -165,10 +176,18 @@ impl Manager {
             Message::Closed(kind, Err(error)) => {
                 log::warn!("failed to close history for {kind}: {error}");
             }
-            Message::Flushed(kind, Ok(())) => {
+            Message::Flushed(kind, Ok(reactions)) => {
                 // Will cause flush loop if we emit a log every time we flush logs
                 if !matches!(kind, history::Kind::Logs) {
                     log::debug!("flushed history for {kind}",);
+                }
+                if !reactions.is_empty()
+                    && let Some(server) = kind.server()
+                {
+                    return Some(Event::ReactionsToEcho(
+                        server.clone(),
+                        reactions,
+                    ));
                 }
             }
             Message::Flushed(kind, Err(error)) => {
@@ -230,6 +249,9 @@ impl Manager {
                 return Some(Event::ResendMessage(kind, message));
             }
             Message::DraftsSaved => {}
+            Message::ReactionsToEcho(server, reactions) => {
+                return Some(Event::ReactionsToEcho(server, reactions));
+            }
         }
 
         None
@@ -446,14 +468,7 @@ impl Manager {
         server: &Server,
         reaction: reaction::Context,
     ) -> Option<impl Future<Output = Message> + use<>> {
-        let kind =
-            history::Kind::from_target(server.clone(), reaction.target.clone());
-        self.data.add_reaction(
-            kind,
-            reaction.in_reply_to,
-            reaction.inner,
-            reaction.server_time,
-        )
+        self.data.add_reaction(server.clone(), reaction)
     }
 
     pub fn block_and_record_message(
@@ -1828,27 +1843,24 @@ impl Data {
 
     fn add_reaction(
         &mut self,
-        kind: history::Kind,
-        in_reply_to: message::Id,
-        reaction: Reaction,
-        server_time: DateTime<Utc>,
+        server: Server,
+        reaction: reaction::Context,
     ) -> Option<impl Future<Output = Message> + use<>> {
+        let kind =
+            history::Kind::from_target(server.clone(), reaction.target.clone());
         match self.map.entry(kind.clone()) {
             hash_map::Entry::Occupied(mut entry) => {
-                entry.get_mut().add_reaction(
-                    in_reply_to,
-                    reaction,
-                    server_time,
-                );
-
-                None
+                entry.get_mut().add_reaction(reaction).map(|reaction| {
+                    async move {
+                        Message::ReactionsToEcho(server, vec![reaction])
+                    }
+                    .boxed()
+                })
             }
             hash_map::Entry::Vacant(entry) => {
-                entry.insert(History::partial(kind.clone())).add_reaction(
-                    in_reply_to,
-                    reaction,
-                    server_time,
-                );
+                entry
+                    .insert(History::partial(kind.clone()))
+                    .add_reaction(reaction);
 
                 Some(
                     async move {

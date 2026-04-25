@@ -24,6 +24,7 @@ enum NotificationDelayKey {
     MonitoredOnline,
     MonitoredOffline,
     Channel(Box<str>),
+    Reaction,
 }
 
 impl From<&Notification> for NotificationDelayKey {
@@ -58,6 +59,7 @@ impl From<&Notification> for NotificationDelayKey {
                     channel.as_normalized_str().into(),
                 )
             }
+            Notification::Reaction { .. } => NotificationDelayKey::Reaction,
         }
     }
 }
@@ -336,6 +338,75 @@ impl Notifications {
 
                         notification_config.request_attention
                     }
+                } else {
+                    false
+                }
+            }
+            Notification::Reaction {
+                casemapping,
+                reaction,
+                message_text,
+            } => {
+                let channel_option = reaction.target.clone().to_channel();
+                let channel = channel_option.as_ref();
+                if config.reaction.should_notify(
+                    &User::from(reaction.inner.sender.clone()),
+                    channel,
+                    server,
+                    *casemapping,
+                ) {
+                    let react_sent_in = match channel {
+                        Some(channel) => {
+                            if cfg!(target_os = "macos")
+                                || !config.reaction.show_content
+                            {
+                                format!("{channel} ({server})")
+                            } else {
+                                format!("{channel}, {server}")
+                            }
+                        }
+                        None => {
+                            if cfg!(target_os = "macos")
+                                || !config.reaction.show_content
+                            {
+                                format!("query ({server})")
+                            } else {
+                                format!("query, {server}")
+                            }
+                        }
+                    };
+
+                    let (title, subtitle, body): (
+                        String,
+                        Option<String>,
+                        String,
+                    ) = if config.reaction.show_content {
+                        (
+                            reaction.inner.sender.to_string(),
+                            Some(react_sent_in.to_string()),
+                            format!(
+                                "Reacted {} to your message: {message_text}",
+                                reaction.inner.text
+                            ),
+                        )
+                    } else {
+                        (
+                            reaction.inner.sender.to_string(),
+                            Some(react_sent_in.to_string()),
+                            "Reacted to your message".to_string(),
+                        )
+                    };
+
+                    self.execute(
+                        &config.reaction,
+                        notification,
+                        title.as_str(),
+                        subtitle.as_deref(),
+                        body.as_str(),
+                        None,
+                    );
+
+                    config.reaction.request_attention
                 } else {
                     false
                 }

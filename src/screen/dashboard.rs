@@ -13,6 +13,7 @@ use data::dashboard::{self, BufferAction};
 use data::environment::{RELEASE_WEBSITE, WIKI_WEBSITE};
 use data::history::ReadMarker;
 use data::history::filter::Filter;
+use data::history::manager::ReactionToEcho;
 use data::history::reroute::RerouteRules;
 use data::isupport::{self, ChatHistorySubcommand, MessageReference};
 use data::message::{self, Broadcast};
@@ -115,6 +116,7 @@ pub enum Event {
         has_credentials: bool,
         window: window::Id,
     },
+    ReactionsToEcho(Server, Vec<ReactionToEcho>),
 }
 
 impl Dashboard {
@@ -984,6 +986,15 @@ impl Dashboard {
                                     );
                                 }
                             }
+                        }
+                        history::manager::Event::ReactionsToEcho(
+                            server,
+                            reactions,
+                        ) => {
+                            return (
+                                Task::none(),
+                                Some(Event::ReactionsToEcho(server, reactions)),
+                            );
                         }
                     }
                 }
@@ -3196,8 +3207,9 @@ impl Dashboard {
         server: &Server,
         reaction: reaction::Context,
     ) -> Task<Message> {
-        if let Some(task) = self.history.record_reaction(server, reaction) {
-            Task::perform(task, Message::History)
+        let future = self.history.record_reaction(server, reaction);
+        if let Some(f) = future {
+            Task::perform(f, Message::History)
         } else {
             Task::none()
         }

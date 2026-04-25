@@ -1,6 +1,6 @@
 use crate::target::Channel;
 use crate::user::Nick;
-use crate::{User, isupport};
+use crate::{User, isupport, reaction};
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub enum Notification {
@@ -32,5 +32,10 @@ pub enum Notification {
         channel: Channel,
         casemapping: isupport::CaseMap,
         message: String,
+    },
+    Reaction {
+        casemapping: isupport::CaseMap,
+        reaction: reaction::Context,
+        message_text: String,
     },
 }

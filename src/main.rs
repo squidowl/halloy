@@ -30,11 +30,13 @@ use std::{env, mem};
 use appearance::{Theme, theme};
 use data::capabilities::LabeledResponseContext;
 use data::config::{self, Config};
+use data::history::ReactionToEcho;
 use data::history::filter::FilterChain;
 use data::history::reroute::RerouteRules;
 use data::message::{self, Broadcast};
 use data::reaction::Reaction;
 use data::target::{self, Target};
+use data::user::Nick;
 use data::version::Version;
 use data::{
     Notification, Server, Url, User, client, environment, history, server,
@@ -581,6 +583,43 @@ impl Halloy {
                             window,
                         });
                         Task::none()
+                    }
+                    Some(dashboard::Event::ReactionsToEcho(
+                        server,
+                        reactions,
+                    )) => {
+                        let casemapping = self
+                            .clients
+                            .get_server_casemapping_or_default(&server);
+                        let chantypes = self
+                            .clients
+                            .get_server_chantypes_or_default(&server);
+                        let statusmsg = self
+                            .clients
+                            .get_server_statusmsg_or_default(&server);
+                        if let Some(our_nick) = self.clients.nickname(&server) {
+                            Task::batch(
+                                reactions
+                                    .into_iter()
+                                    .filter_map(|reaction| {
+                                        handle_reaction_to_echo(
+                                            &self.config,
+                                            &server,
+                                            casemapping,
+                                            chantypes,
+                                            statusmsg,
+                                            dashboard,
+                                            &self.main_window,
+                                            reaction,
+                                            &mut self.notifications,
+                                            our_nick.to_owned(),
+                                        )
+                                    })
+                                    .collect::<Vec<_>>(),
+                            )
+                        } else {
+                            Task::none()
+                        }
                     }
                     None => Task::none(),
                 };
@@ -2202,6 +2241,75 @@ fn handle_broadcast(
     };
 
     commands.push(task.map(Message::Dashboard));
+}
+
+fn handle_reaction_to_echo(
+    config: &Config,
+    server: &Server,
+    casemapping: data::isupport::CaseMap,
+    chantypes: &[char],
+    statusmsg: &[char],
+    dashboard: &mut screen::Dashboard,
+    main_window: &Window,
+    reaction_to_echo: ReactionToEcho,
+    notifications: &mut Notifications,
+    our_nick: Nick,
+) -> Option<Task<Message>> {
+    let sender_nick = reaction_to_echo.reaction.inner.sender.clone();
+    let self_reaction = our_nick == sender_nick;
+    let sender = User::from(sender_nick);
+    let channel = reaction_to_echo.reaction.target.as_channel();
+    let query = match channel {
+        None => target::Query::parse(
+            sender.nickname().as_str(),
+            chantypes,
+            statusmsg,
+            casemapping,
+        )
+        .ok(),
+        Some(_) => None,
+    };
+
+    let kind = match channel {
+        Some(channel) => Some(history::Kind::Channel(
+            server.to_owned(),
+            channel.to_owned(),
+        )),
+        None => query
+            .to_owned()
+            .map(|query| history::Kind::Query(server.to_owned(), query)),
+    };
+    let message_window =
+        kind.and_then(|kind| dashboard.find_window_with_history(&kind));
+
+    let blocked = match (channel, query) {
+        (Some(channel), None) => FilterChain::borrow(dashboard.get_filters())
+            .filter_user(&sender, Some(channel), server),
+        (None, Some(query)) => FilterChain::borrow(dashboard.get_filters())
+            .filter_query(&query, server),
+        _ => false,
+    };
+
+    if !blocked
+        && !self_reaction
+        && !reaction_to_echo.reaction.inner.unreact
+        && (message_window.is_none() || !main_window.focused)
+    {
+        let request_attention = notifications.notify(
+            &config.notifications,
+            &Notification::Reaction {
+                casemapping,
+                reaction: reaction_to_echo.reaction.clone(),
+                message_text: reaction_to_echo.message_text,
+            },
+            server,
+            message_window.unwrap_or(main_window.id),
+        );
+
+        return request_attention;
+    }
+
+    None
 }
 
 fn handle_direct_message(
