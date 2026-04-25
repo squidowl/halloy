@@ -350,10 +350,6 @@ impl User {
         self.bot = bot;
     }
 
-    pub fn with_bot(self, bot: bool) -> Self {
-        Self { bot, ..self }
-    }
-
     pub fn renormalize(&mut self, casemapping: isupport::CaseMap) {
         self.nickname.renormalize(casemapping);
     }
