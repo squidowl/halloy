@@ -5,7 +5,7 @@ Added:
 - The default font is not bundled if default feature `iosevka-font` is disabled.
 - Configuration options for font stretch (`font.stretch`)
 - Notification for reacts
-- Bot mode support: a configurable icon is shown next to bots nicknames in buffer and nicklist
+- IRCv3 bot mode support, with bot icon in buffers and nicklists
 
 Fixed:
 
