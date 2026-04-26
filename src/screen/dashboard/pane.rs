@@ -512,7 +512,7 @@ fn query_title<'a>(
     ));
     let shared_channels = clients.get_user_channels(server, user.nickname());
     let current_user = shared_channels.iter().find_map(|channel| {
-        clients.resolve_user_attributes(server, &channel, &user)
+        clients.resolve_user_attributes(server, channel, &user)
     });
 
     let is_user_away = config
