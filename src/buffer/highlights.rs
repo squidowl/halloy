@@ -101,6 +101,8 @@ pub fn view<'a>(
                         config.buffer.nickname.show_access_levels;
                     let show_bot_icon = config.buffer.nickname.show_bot_icon;
                     let truncate = config.buffer.nickname.truncate;
+                    let truncation_character =
+                        config.display.truncation_character;
 
                     let current_user =
                         users.and_then(|users| users.resolve(user));
@@ -115,6 +117,7 @@ pub fn view<'a>(
                             with_access_levels,
                             show_bot_icon,
                             truncate,
+                            truncation_character,
                         );
 
                     let nick_text =

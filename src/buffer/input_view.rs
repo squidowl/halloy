@@ -583,6 +583,7 @@ pub fn view<'a>(
                         config.buffer.text_input.nickname.show_access_levels,
                         config.buffer.nickname.show_bot_icon,
                         None,
+                        config.display.truncation_character,
                     ))
                     .style(move |_| our_user_style)
                     .font_maybe(

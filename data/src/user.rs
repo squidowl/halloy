@@ -208,9 +208,15 @@ impl User {
         with_access_levels: AccessLevelFormat,
         show_bot_icon: bool,
         truncate: Option<u16>,
+        truncation_character: char,
     ) -> String {
-        self.display_with_truncated(with_access_levels, show_bot_icon, truncate)
-            .0
+        self.display_with_truncated(
+            with_access_levels,
+            show_bot_icon,
+            truncate,
+            truncation_character,
+        )
+        .0
     }
 
     pub fn display_with_truncated(
@@ -218,6 +224,7 @@ impl User {
         with_access_levels: AccessLevelFormat,
         show_bot_icon: bool,
         truncate: Option<u16>,
+        truncation_character: char,
     ) -> (String, bool) {
         let mut nickname = match with_access_levels {
             AccessLevelFormat::All => {
@@ -251,7 +258,7 @@ impl User {
                 .take(len.saturating_sub(if show_bot_icon { 3 } else { 1 })
                     as usize)
                 .collect::<String>();
-            nickname.push('…');
+            nickname.push(truncation_character);
 
             show_tooltip = true;
         }

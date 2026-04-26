@@ -189,6 +189,7 @@ pub fn view<'a>(
                                 with_access_levels,
                                 config.buffer.nickname.show_bot_icon,
                                 truncate,
+                                config.display.truncation_character,
                             );
 
                         let nick: Element<_> = if hide_nickname {

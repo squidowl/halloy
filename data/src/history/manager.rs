@@ -615,9 +615,9 @@ impl Manager {
         &self,
         kind: &history::Kind,
         limit: Option<Limit>,
-        buffer_config: &config::Buffer,
+        config: &Config,
     ) -> Option<history::View<'_>> {
-        self.data.history_view(kind, limit, buffer_config)
+        self.data.history_view(kind, limit, config)
     }
 
     pub fn get_last_seen(
@@ -1364,7 +1364,7 @@ impl Data {
         &self,
         kind: &history::Kind,
         limit: Option<Limit>,
-        buffer_config: &config::Buffer,
+        config: &Config,
     ) -> Option<history::View<'_>> {
         let History::Full {
             messages,
@@ -1382,7 +1382,7 @@ impl Data {
                 if message.blocked {
                     None
                 } else if message
-                    .can_condense(&buffer_config.server_messages.condense)
+                    .can_condense(&config.buffer.server_messages.condense)
                 {
                     if message.expanded {
                         Some(message)
@@ -1397,11 +1397,11 @@ impl Data {
                         message::Source::Internal(
                             message::source::Internal::Status(status),
                         ) => {
-                            if !buffer_config.internal_messages.enabled(status)
+                            if !config.buffer.internal_messages.enabled(status)
                             {
                                 return None;
                             } else if let Some(seconds) =
-                                buffer_config.internal_messages.smart(status)
+                                config.buffer.internal_messages.smart(status)
                             {
                                 return (!smart_filter_internal_message(
                                     message, &seconds,
@@ -1418,11 +1418,11 @@ impl Data {
             .collect::<Vec<_>>();
 
         let total = processed.len();
-        let with_access_levels = buffer_config.nickname.show_access_levels;
-        let truncate = buffer_config.nickname.truncate;
+        let with_access_levels = config.buffer.nickname.show_access_levels;
+        let truncate = config.buffer.nickname.truncate;
 
         let max_nick_chars =
-            buffer_config.nickname.alignment.is_right().then(|| {
+            config.buffer.nickname.alignment.is_right().then(|| {
                 processed
                     .iter()
                     .filter_map(|message| {
@@ -1431,13 +1431,15 @@ impl Data {
                             && !user.is_bot()
                         {
                             Some(
-                                buffer_config
+                                config
+                                    .buffer
                                     .nickname
                                     .brackets
                                     .format(user.display(
                                         with_access_levels,
-                                        buffer_config.nickname.show_bot_icon,
+                                        config.buffer.nickname.show_bot_icon,
                                         truncate,
+                                        config.display.truncation_character,
                                     ))
                                     .chars()
                                     .count(),
@@ -1451,7 +1453,7 @@ impl Data {
             });
 
         let max_bot_nick_chars =
-            buffer_config.nickname.alignment.is_right().then(|| {
+            config.buffer.nickname.alignment.is_right().then(|| {
                 processed
                     .iter()
                     .filter_map(|message| {
@@ -1460,13 +1462,15 @@ impl Data {
                             && user.is_bot()
                         {
                             Some(
-                                buffer_config
+                                config
+                                    .buffer
                                     .nickname
                                     .brackets
                                     .format(user.display(
                                         with_access_levels,
-                                        buffer_config.nickname.show_bot_icon,
+                                        config.buffer.nickname.show_bot_icon,
                                         truncate,
+                                        config.display.truncation_character,
                                     ))
                                     .chars()
                                     .count(),
@@ -1480,13 +1484,14 @@ impl Data {
             });
 
         let max_prefix_chars =
-            buffer_config.nickname.alignment.is_right().then(|| {
+            config.buffer.nickname.alignment.is_right().then(|| {
                 if matches!(kind, history::Kind::Channel(..)) {
                     processed
                         .iter()
                         .filter_map(|message| {
                             message.target.prefixes().map(|prefixes| {
-                                buffer_config
+                                config
+                                    .buffer
                                     .status_message_prefix
                                     .brackets
                                     .format(prefixes.iter().collect::<String>())
@@ -1504,32 +1509,33 @@ impl Data {
         // The right-aligned nicknames setting expects timestamps to have a
         // constant character count to function, so we can utilize that
         // expectation in this calculation
-        let range_end_timestamp_chars = (buffer_config
-            .nickname
-            .alignment
-            .is_right()
-            && buffer_config.server_messages.condense.any())
-        .then(|| {
-            processed
-                .iter()
-                .find_map(|message| {
-                    if let message::Source::Internal(
-                        message::source::Internal::Condensed(end_server_time),
-                    ) = message.target.source()
-                        && message.server_time != *end_server_time
-                    {
-                        buffer_config
-                            .format_range_end_timestamp(end_server_time)
-                            .map(|(dash, end_timestamp)| {
-                                dash.chars().count()
-                                    + end_timestamp.chars().count()
-                            })
-                    } else {
-                        None
-                    }
-                })
-                .unwrap_or_default()
-        });
+        let range_end_timestamp_chars =
+            (config.buffer.nickname.alignment.is_right()
+                && config.buffer.server_messages.condense.any())
+            .then(|| {
+                processed
+                    .iter()
+                    .find_map(|message| {
+                        if let message::Source::Internal(
+                            message::source::Internal::Condensed(
+                                end_server_time,
+                            ),
+                        ) = message.target.source()
+                            && message.server_time != *end_server_time
+                        {
+                            config
+                                .buffer
+                                .format_range_end_timestamp(end_server_time)
+                                .map(|(dash, end_timestamp)| {
+                                    dash.chars().count()
+                                        + end_timestamp.chars().count()
+                                })
+                        } else {
+                            None
+                        }
+                    })
+                    .unwrap_or_default()
+            });
 
         let first_without_limit = processed.first().copied();
         let last_without_limit = processed.last().copied();

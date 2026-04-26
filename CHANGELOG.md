@@ -6,6 +6,7 @@ Added:
 - Configuration options for font stretch (`font.stretch`)
 - Notification for reacts
 - IRCv3 bot mode support, with bot icon in buffers and nicklists
+- Customize the character used to indicate a nickname was truncated with `display.truncation_character`
 
 Fixed:
 
@@ -16,6 +17,7 @@ Thanks:
 
 - Contributions: @bb010g, @furudean, @englut
 - Bug reports: @bb010g
+- Feature requests: @WinnerWind
 
 # 2026.6 (2026-04-21)
 
