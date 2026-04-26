@@ -277,6 +277,12 @@
       "search": [
         "fontawesome-robot"
       ]
+    },
+    {
+      "uid": "1a7104205ea96e6f40ac716d0ca72f21",
+      "css": "lock",
+      "code": 59425,
+      "src": "entypo"
     }
   ]
 }
