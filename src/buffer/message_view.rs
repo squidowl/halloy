@@ -409,8 +409,8 @@ impl<'a> ChannelQueryLayout<'a> {
             dimmed_background_tuple,
         );
 
-        let (user_display, show_nickname_tooltip) = user
-            .display_with_truncated(
+        let (user_display, show_nickname_tooltip) =
+            user_in_channel.unwrap_or(user).display_with_truncated(
                 with_access_levels,
                 show_bot_icon,
                 truncate,

@@ -244,11 +244,11 @@ impl User {
 
         if let Some(len) = truncate
             && (UnicodeSegmentation::graphemes(nickname.as_str(), true).count()
-                + if show_bot_icon { 1 } else { 0 })
+                + if show_bot_icon { 2 } else { 0 })
                 > len as usize
         {
             nickname = UnicodeSegmentation::graphemes(nickname.as_str(), true)
-                .take(len.saturating_sub(if show_bot_icon { 2 } else { 1 })
+                .take(len.saturating_sub(if show_bot_icon { 3 } else { 1 })
                     as usize)
                 .collect::<String>();
             nickname.push('…');
