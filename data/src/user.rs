@@ -206,14 +206,17 @@ impl User {
     pub fn display(
         &self,
         with_access_levels: AccessLevelFormat,
+        show_bot_icon: bool,
         truncate: Option<u16>,
     ) -> String {
-        self.display_with_truncated(with_access_levels, truncate).0
+        self.display_with_truncated(with_access_levels, show_bot_icon, truncate)
+            .0
     }
 
     pub fn display_with_truncated(
         &self,
         with_access_levels: AccessLevelFormat,
+        show_bot_icon: bool,
         truncate: Option<u16>,
     ) -> (String, bool) {
         let mut nickname = match with_access_levels {
@@ -235,14 +238,18 @@ impl User {
             AccessLevelFormat::None => self.nickname().to_string(),
         };
 
+        let show_bot_icon = self.is_bot() && show_bot_icon;
+
         let mut show_tooltip = false;
 
         if let Some(len) = truncate
-            && UnicodeSegmentation::graphemes(nickname.as_str(), true).count()
+            && (UnicodeSegmentation::graphemes(nickname.as_str(), true).count()
+                + if show_bot_icon { 2 } else { 0 })
                 > len as usize
         {
             nickname = UnicodeSegmentation::graphemes(nickname.as_str(), true)
-                .take(len.saturating_sub(1) as usize)
+                .take(len.saturating_sub(if show_bot_icon { 3 } else { 1 })
+                    as usize)
                 .collect::<String>();
             nickname.push('…');
 

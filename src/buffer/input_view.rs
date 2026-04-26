@@ -581,6 +581,7 @@ pub fn view<'a>(
                 container(
                     text(user.display(
                         config.buffer.text_input.nickname.show_access_levels,
+                        config.buffer.nickname.show_bot_icon,
                         None,
                     ))
                     .style(move |_| our_user_style)

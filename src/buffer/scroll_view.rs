@@ -311,24 +311,25 @@ pub fn view<'a>(
     let status = state.status;
 
     let right_aligned_width = max_nick_chars.map(|max_nick_chars| {
-        let max_nick_width =
-            if let Some(max_bot_nick_chars) = max_bot_nick_chars {
-                if config.buffer.nickname.show_bot_icon {
-                    // reserve space for any eventual bot icon
-                    font::width_from_chars(max_nick_chars, &config.font).max(
-                        font::width_from_chars(max_nick_chars, &config.font)
-                            + theme::ICON_SIZE
-                            + theme::ICON_SPACE,
-                    )
-                } else {
-                    font::width_from_chars(
-                        max_nick_chars.max(max_bot_nick_chars),
-                        &config.font,
-                    )
-                }
+        let max_nick_width = if let Some(max_bot_nick_chars) =
+            max_bot_nick_chars
+        {
+            if config.buffer.nickname.show_bot_icon {
+                // reserve space for any eventual bot icon
+                font::width_from_chars(max_nick_chars, &config.font).max(
+                    font::width_from_chars(max_bot_nick_chars, &config.font)
+                        + theme::ICON_SIZE
+                        + theme::ICON_SPACE,
+                )
             } else {
-                font::width_from_chars(max_nick_chars, &config.font)
-            } + 1.0;
+                font::width_from_chars(
+                    max_nick_chars.max(max_bot_nick_chars),
+                    &config.font,
+                )
+            }
+        } else {
+            font::width_from_chars(max_nick_chars, &config.font)
+        } + 1.0;
         let message_marker_width =
             font::width_of_message_marker(&config.font) + 1.0;
         let mut range_end_timestamp_width = range_end_timestamp_chars.map_or(
@@ -1999,31 +2000,35 @@ fn preview_row<'a>(
             );
 
             let with_access_levels = config.buffer.nickname.show_access_levels;
+            let show_bot_icon = config.buffer.nickname.show_bot_icon;
             let truncate = config.buffer.nickname.truncate;
 
-            let nick = if let message::Source::User(user) =
-                message.target.source()
-            {
-                let mut nick = selectable_text(
-                    " ".repeat(
-                        config
-                            .buffer
-                            .nickname
-                            .brackets
-                            .format(user.display(with_access_levels, truncate))
-                            .chars()
-                            .count(),
-                    ),
-                );
+            let nick =
+                if let message::Source::User(user) = message.target.source() {
+                    let mut nick = selectable_text(
+                        " ".repeat(
+                            config
+                                .buffer
+                                .nickname
+                                .brackets
+                                .format(user.display(
+                                    with_access_levels,
+                                    show_bot_icon,
+                                    truncate,
+                                ))
+                                .chars()
+                                .count(),
+                        ),
+                    );
 
-                if let Some(width) = right_aligned_width {
-                    nick = nick.width(width);
-                }
+                    if let Some(width) = right_aligned_width {
+                        nick = nick.width(width);
+                    }
 
-                Some(nick)
-            } else {
-                None
-            };
+                    Some(nick)
+                } else {
+                    None
+                };
 
             let timestamp_nickname_row =
                 row![timestamp_gap, space, prefixes, nick];

@@ -371,6 +371,7 @@ impl<'a> ChannelQueryLayout<'a> {
             .map(|dimmed| (dimmed, self.theme.styles().buffer.background));
 
         let with_access_levels = self.config.buffer.nickname.show_access_levels;
+        let show_bot_icon = self.config.buffer.nickname.show_bot_icon;
         let truncate = self.config.buffer.nickname.truncate;
         let user_in_channel = self
             .target
@@ -409,7 +410,11 @@ impl<'a> ChannelQueryLayout<'a> {
         );
 
         let (user_display, show_nickname_tooltip) =
-            user.display_with_truncated(with_access_levels, truncate);
+            user_in_channel.unwrap_or(user).display_with_truncated(
+                with_access_levels,
+                show_bot_icon,
+                truncate,
+            );
 
         let is_bot =
             user_in_channel.map_or_else(|| user.is_bot(), User::is_bot);

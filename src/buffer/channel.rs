@@ -583,31 +583,54 @@ mod nick_list {
         let width = match nicklist_config.width {
             Some(width) => width,
             None => {
-                let max_nick_length = users
-                    .into_iter()
-                    .flatten()
-                    .map(|user| {
-                        user.display(
-                            nicklist_config.show_access_levels,
-                            truncate,
+                let (max_nick_length, max_bot_nick_length) =
+                    users.into_iter().flatten().fold(
+                        (0, None),
+                        |(max_nick_length, max_bot_nick_length), user| {
+                            let nick_length = user
+                                .display(
+                                    nicklist_config.show_access_levels,
+                                    nicklist_config.show_bot_icon,
+                                    truncate,
+                                )
+                                .chars()
+                                .count();
+
+                            if user.is_bot() {
+                                (
+                                    max_nick_length,
+                                    max_bot_nick_length.max(Some(nick_length)),
+                                )
+                            } else {
+                                (
+                                    max_nick_length.max(nick_length),
+                                    max_bot_nick_length,
+                                )
+                            }
+                        },
+                    );
+
+                (if let Some(max_bot_nick_length) = max_bot_nick_length {
+                    if nicklist_config.show_bot_icon {
+                        // reserve space for any eventual bot icon
+                        font::width_from_chars(max_nick_length, &config.font)
+                            .max(
+                                font::width_from_chars(
+                                    max_bot_nick_length,
+                                    &config.font,
+                                ) + theme::ICON_SIZE
+                                    + theme::ICON_SPACE,
+                            )
+                    } else {
+                        font::width_from_chars(
+                            max_nick_length.max(max_bot_nick_length),
+                            &config.font,
                         )
-                        .chars()
-                        .count()
-                    })
-                    .max()
-                    .unwrap_or_default();
-
-                font::width_from_chars(max_nick_length, &config.font) + 1.0
+                    }
+                } else {
+                    font::width_from_chars(max_nick_length, &config.font)
+                } + 1.0)
             }
-        };
-
-        let bot_nick_max_chars = if nicklist_config.show_bot_icon {
-            let char_width = font::width_from_chars(1, &config.font);
-            let available = width - theme::ICON_SIZE - theme::ICON_SPACE;
-            let px_max = (available / char_width).floor() as u16;
-            Some(truncate.map_or(px_max, |t| t.min(px_max)))
-        } else {
-            None
         };
 
         let content = column(users.into_iter().flatten().map(|user| {
@@ -616,11 +639,8 @@ mod nick_list {
             let (nick_display, show_nick_tooltip) = user
                 .display_with_truncated(
                     nicklist_config.show_access_levels,
-                    if show_bot_icon {
-                        bot_nick_max_chars
-                    } else {
-                        truncate
-                    },
+                    nicklist_config.show_bot_icon,
+                    truncate,
                 );
 
             let nick = selectable_text(nick_display)
@@ -645,9 +665,7 @@ mod nick_list {
                         Length::Shrink
                     }
                     (true, config::buffer::channel::Alignment::Right) => {
-                        Length::Fixed(
-                            width - theme::ICON_SIZE - theme::ICON_SPACE,
-                        )
+                        Length::Fixed(width)
                     }
                     (false, _) => Length::Fixed(width),
                 });
