@@ -1793,12 +1793,20 @@ impl Client {
                     );
 
                     // Add channel to WHO poll queue
-                    if !self
-                        .who_polls
-                        .iter()
-                        .any(|who_poll| who_poll.channel == target_channel)
-                    {
-                        self.who_polls.push_back(WhoPoll {
+                    if !self.who_polls.iter().any(|who_poll| {
+                        who_poll.channel == target_channel
+                            && (!self
+                                .capabilities
+                                .acknowledged(Capability::NoImplicitNames)
+                                || (self
+                                    .capabilities
+                                    .acknowledged(Capability::NoImplicitNames)
+                                    && matches!(
+                                        who_poll.status,
+                                        WhoStatus::Joined
+                                    )))
+                    }) {
+                        self.who_polls.push_front(WhoPoll {
                             channel: target_channel.clone(),
                             status: WhoStatus::Joined,
                         });
