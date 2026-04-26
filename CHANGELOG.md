@@ -12,6 +12,7 @@ Fixed:
 
 - `NICK` and `QUIT` messages returned by `draft/event-playback` (`chathistory`)
 - Backlog separator text colour now follows `buffer.backlog_rule`
+- Distinguish between reacts in chathistory vs active history
 
 Thanks:
 

@@ -467,8 +467,10 @@ impl Manager {
         &mut self,
         server: &Server,
         reaction: reaction::Context,
+        notification_enabled: bool,
     ) -> Option<impl Future<Output = Message> + use<>> {
-        self.data.add_reaction(server.clone(), reaction)
+        self.data
+            .add_reaction(server.clone(), reaction, notification_enabled)
     }
 
     pub fn block_and_record_message(
@@ -1287,7 +1289,13 @@ impl Data {
                             id,
                             &pending.server_time,
                         ) {
-                            message.reactions.append(&mut pending.reactions);
+                            message.reactions.append(
+                                &mut pending
+                                    .reactions
+                                    .iter()
+                                    .map(|(reaction, _)| reaction.clone())
+                                    .collect(),
+                            );
                         }
                     }
 
@@ -1881,22 +1889,31 @@ impl Data {
         &mut self,
         server: Server,
         reaction: reaction::Context,
+        notification_enabled: bool,
     ) -> Option<impl Future<Output = Message> + use<>> {
         let kind =
             history::Kind::from_target(server.clone(), reaction.target.clone());
         match self.map.entry(kind.clone()) {
             hash_map::Entry::Occupied(mut entry) => {
-                entry.get_mut().add_reaction(reaction).map(|reaction| {
-                    async move {
-                        Message::ReactionsToEcho(server, vec![reaction])
-                    }
-                    .boxed()
-                })
+                let reactions = entry
+                    .get_mut()
+                    .add_reaction(reaction, notification_enabled);
+
+                if notification_enabled {
+                    reactions.map(|reaction| {
+                        async move {
+                            Message::ReactionsToEcho(server, vec![reaction])
+                        }
+                        .boxed()
+                    })
+                } else {
+                    None
+                }
             }
             hash_map::Entry::Vacant(entry) => {
                 entry
                     .insert(History::partial(kind.clone()))
-                    .add_reaction(reaction);
+                    .add_reaction(reaction, notification_enabled);
 
                 Some(
                     async move {

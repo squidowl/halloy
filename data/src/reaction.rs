@@ -80,7 +80,7 @@ impl Reaction {
 
 #[derive(Debug, Clone)]
 pub struct Pending {
-    pub reactions: Vec<Reaction>,
+    pub reactions: Vec<(Reaction, bool)>,
     pub server_time: DateTime<Utc>,
 }
 

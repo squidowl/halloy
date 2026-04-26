@@ -1784,9 +1784,13 @@ fn handle_client_events(
 
                 controllers.disconnect(server, error);
             }
-            Event::Reaction(encoded, our_nick) => {
+            Event::Reaction {
+                message,
+                our_nick,
+                notification_enabled,
+            } => {
                 if let Some(reaction) = Reaction::received(
-                    encoded,
+                    message,
                     our_nick,
                     clients.get_server_chantypes_or_default(server),
                     clients.get_server_statusmsg_or_default(server),
@@ -1795,7 +1799,11 @@ fn handle_client_events(
                 ) {
                     reactions.push(
                         dashboard
-                            .record_reaction(server, reaction)
+                            .record_reaction(
+                                server,
+                                reaction,
+                                notification_enabled,
+                            )
                             .map(Message::Dashboard),
                     );
                 }
