@@ -1086,13 +1086,23 @@ impl Dashboard {
                             );
 
                             state.buffer = Buffer::from_data(
-                                data::Buffer::Upstream(buffer),
+                                data::Buffer::Upstream(buffer.clone()),
                                 clients,
                                 history,
                                 state.size,
                                 config,
                             );
                             self.last_changed = Some(Instant::now());
+
+                            let server = buffer.server();
+                            if let Some(channel) = buffer.channel()
+                                && let Some(client) = clients.client_mut(server)
+                            {
+                                client.prioritize_joined_who_poll(
+                                    channel.to_owned(),
+                                );
+                            }
+
                             return (self.focus_pane(window, pane), None);
                         }
                     }
@@ -1116,13 +1126,23 @@ impl Dashboard {
                             );
 
                             state.buffer = Buffer::from_data(
-                                data::Buffer::Upstream(buffer),
+                                data::Buffer::Upstream(buffer.clone()),
                                 clients,
                                 history,
                                 state.size,
                                 config,
                             );
                             self.last_changed = Some(Instant::now());
+
+                            let server = buffer.server();
+                            if let Some(channel) = buffer.channel()
+                                && let Some(client) = clients.client_mut(server)
+                            {
+                                client.prioritize_joined_who_poll(
+                                    channel.to_owned(),
+                                );
+                            }
+
                             return (self.focus_pane(window, pane), None);
                         }
                     }
@@ -2989,6 +3009,14 @@ impl Dashboard {
         let panes = self.panes.clone();
 
         self.last_changed = Some(Instant::now());
+
+        if let Some(upstream) = buffer.upstream()
+            && let server = upstream.server()
+            && let Some(channel) = upstream.channel()
+            && let Some(client) = clients.client_mut(server)
+        {
+            client.prioritize_joined_who_poll(channel.to_owned());
+        }
 
         if let Some(buffer::Upstream::Query(server, query)) = buffer.upstream()
             && let Some(client) = clients.client_mut(server)
@@ -4908,6 +4936,24 @@ impl Dashboard {
                 (win == w && !matches!(pane.buffer, Buffer::Empty))
                     .then_some(pane.buffer.to_string())
             })
+        }
+    }
+
+    pub fn prioritize_panes_joined_who_polls(
+        &self,
+        server: &data::Server,
+        clients: &mut client::Map,
+    ) {
+        if let Some(client) = clients.client_mut(server) {
+            for (_, _, pane) in self.panes.iter() {
+                if let Some(buffer) = pane.buffer.data()
+                    && let Some(upstream) = buffer.upstream()
+                    && upstream.server() == server
+                    && let Some(channel) = upstream.channel()
+                {
+                    client.prioritize_joined_who_poll(channel.to_owned());
+                }
+            }
         }
     }
 

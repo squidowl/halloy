@@ -1833,6 +1833,7 @@ fn handle_client_events(
                 {
                     commands.push(command);
                 }
+                dashboard.prioritize_panes_joined_who_polls(server, clients);
             }
             Event::ChatHistoryTargetReceived(target, server_time) => {
                 commands.push(
