@@ -4373,7 +4373,8 @@ impl Client {
     pub fn prioritize_joined_who_poll(&mut self, channel: target::Channel) {
         if let Some(pos) = self.who_polls.iter().position(|who_poll| {
             who_poll.channel == channel
-                && matches!(who_poll.status, WhoStatus::Joined)
+                && (matches!(who_poll.status, WhoStatus::Joined)
+                    || matches!(who_poll.status, WhoStatus::Received))
         }) && pos != 0
             && let Some(mut who_poll) = self.who_polls.remove(pos)
         {
