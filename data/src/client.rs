@@ -29,7 +29,6 @@ use crate::isupport::{
     ChatHistoryState, ChatHistorySubcommand, MessageReference, WhoToken,
     WhoXPollParameters, find_target_limit,
 };
-use crate::message::source;
 use crate::rate_limit::{BackoffInterval, TokenBucket, TokenPriority};
 use crate::target::{self, Target};
 use crate::time::Posix;
@@ -102,6 +101,27 @@ pub enum Broadcast {
 }
 
 #[derive(Debug)]
+pub enum Destination {
+    Server,
+    Target(Target),
+}
+
+impl From<&buffer::Upstream> for Destination {
+    fn from(buffer: &buffer::Upstream) -> Self {
+        match buffer.target() {
+            Some(target) => Self::Target(target),
+            None => Self::Server,
+        }
+    }
+}
+
+impl From<Target> for Destination {
+    fn from(target: Target) -> Self {
+        Self::Target(target)
+    }
+}
+
+#[derive(Debug)]
 pub enum Message {
     ChatHistoryRequest(Server, ChatHistorySubcommand),
     ChatHistoryTargetsTimestampUpdated(
@@ -131,7 +151,7 @@ pub enum Event {
     WithTarget {
         message: message::Encoded,
         our_nick: Nick,
-        target: message::Target,
+        target: Destination,
         deduplicate: bool,
     },
     Broadcast(Broadcast),
@@ -534,10 +554,7 @@ impl Client {
         message: &mut message::Encoded,
     ) -> Option<LabeledResponseContext> {
         buffer.and_then(|buffer| {
-            let labeled_response_context = if self
-                .capabilities
-                .acknowledged(Capability::LabeledResponse)
-            {
+            if self.capabilities.acknowledged(Capability::LabeledResponse) {
                 let label = generate_label();
 
                 let context =
@@ -553,13 +570,12 @@ impl Client {
 
                 labeled_response_context
             } else {
+                self.reroute_responses_to = self
+                    .start_reroute(&message.command)
+                    .then(|| buffer.clone());
+
                 None
-            };
-
-            self.reroute_responses_to =
-                self.start_reroute(&message.command).then(|| buffer.clone());
-
-            labeled_response_context
+            }
         })
     }
 
@@ -1059,20 +1075,6 @@ impl Client {
                     }
                 }
             }
-            // Label context whois
-            _ if context.as_ref().is_some_and(Context::is_whois) => {
-                if let Some(source) = context
-                    .map(Context::buffer)
-                    .map(|buffer| buffer.server_message_target(None))
-                {
-                    return Ok(vec![Event::WithTarget {
-                        message,
-                        our_nick: self.nickname().to_owned(),
-                        target: source,
-                        deduplicate: false,
-                    }]);
-                }
-            }
             _ if is_reaction(&message) => {
                 return Ok(vec![Event::Reaction(
                     message,
@@ -1093,15 +1095,13 @@ impl Client {
                 | ERR_NOTONCHANNEL | ERR_CHANOPRIVSNEEDED | ERR_USERONCHANNEL,
                 _,
             ) if self.reroute_responses_to.is_some() => {
-                if let Some(source) = self
-                    .reroute_responses_to
-                    .clone()
-                    .map(|buffer| buffer.server_message_target(None))
+                if let Some(target) =
+                    self.reroute_responses_to.as_ref().map(Destination::from)
                 {
                     return Ok(vec![Event::WithTarget {
                         message,
                         our_nick: self.nickname().to_owned(),
-                        target: source,
+                        target,
                         deduplicate: false,
                     }]);
                 }
@@ -1861,15 +1861,15 @@ impl Client {
                         // User did not request, don't save to history
                         return Ok(vec![]);
                     // Reroute who responses
-                    } else if let Some(source) = self
+                    } else if let Some(target) = self
                         .reroute_responses_to
-                        .clone()
-                        .map(|buffer| buffer.server_message_target(None))
+                        .as_ref()
+                        .map(Destination::from)
                     {
                         return Ok(vec![Event::WithTarget {
                             message,
                             our_nick: self.nickname().to_owned(),
-                            target: source,
+                            target,
                             deduplicate: false,
                         }]);
                     }
@@ -1979,15 +1979,15 @@ impl Client {
                         // User did not request, don't save to history
                         return Ok(vec![]);
                     // Reroute who responses
-                    } else if let Some(source) = self
+                    } else if let Some(target) = self
                         .reroute_responses_to
-                        .clone()
-                        .map(|buffer| buffer.server_message_target(None))
+                        .as_ref()
+                        .map(Destination::from)
                     {
                         return Ok(vec![Event::WithTarget {
                             message,
                             our_nick: self.nickname().to_owned(),
-                            target: source,
+                            target,
                             deduplicate: false,
                         }]);
                     }
@@ -2055,15 +2055,15 @@ impl Client {
                         // User did not request, don't save to history
                         return Ok(vec![]);
                     // Reroute who responses
-                    } else if let Some(source) = self
+                    } else if let Some(target) = self
                         .reroute_responses_to
-                        .clone()
-                        .map(|buffer| buffer.server_message_target(None))
+                        .as_ref()
+                        .map(Destination::from)
                     {
                         return Ok(vec![Event::WithTarget {
                             message,
                             our_nick: self.nickname().to_owned(),
-                            target: source,
+                            target,
                             deduplicate: false,
                         }]);
                     }
@@ -3073,11 +3073,22 @@ impl Client {
             _ => {}
         }
 
-        Ok(vec![Event::Single {
-            message,
-            our_nick: self.nickname().to_owned(),
-            deduplicate: false,
-        }])
+        if let Some(target) =
+            context.map(Context::buffer).as_ref().map(Destination::from)
+        {
+            Ok(vec![Event::WithTarget {
+                message,
+                our_nick: self.nickname().to_owned(),
+                target,
+                deduplicate: false,
+            }])
+        } else {
+            Ok(vec![Event::Single {
+                message,
+                our_nick: self.nickname().to_owned(),
+                deduplicate: false,
+            }])
+        }
     }
 
     fn handle_chathistory(
@@ -3098,108 +3109,30 @@ impl Client {
                 _ if is_reaction(&message) => {
                     vec![Event::Reaction(message, self.nickname().to_owned())]
                 }
-                Command::NICK(new_nick) => {
-                    let new_nick = Nick::from_str(new_nick, self.casemapping());
-
-                    batch_target
-                        .as_channel()
-                        .map(|channel| {
-                            let target = message::Target::Channel {
-                                channel: channel.clone(),
-                                source: source::Source::Server(Some(
-                                    source::Server::new(
-                                        source::server::Kind::ChangeNick,
-                                        message.user(self.casemapping()).map(
-                                            |user| Nick::from(user.nickname()),
-                                        ),
-                                        Some(source::server::Change::Nick(
-                                            new_nick,
-                                        )),
-                                    ),
-                                )),
-                            };
-
-                            vec![Event::WithTarget {
-                                message,
-                                our_nick: self.nickname().to_owned(),
-                                target,
-                                deduplicate: true,
-                            }]
-                        })
-                        .unwrap_or_default()
-                }
-                Command::JOIN(_, _) => batch_target
-                    .as_channel()
-                    .map(|channel| {
-                        let target = message::Target::Channel {
-                            channel: channel.clone(),
-                            source: source::Source::Server(Some(
-                                source::Server::new(
-                                    source::server::Kind::Join,
-                                    message.user(self.casemapping()).map(
-                                        |user| Nick::from(user.nickname()),
-                                    ),
-                                    None,
-                                ),
-                            )),
-                        };
-
-                        vec![Event::WithTarget {
-                            message,
-                            our_nick: self.nickname().to_owned(),
-                            target,
-                            deduplicate: true,
-                        }]
-                    })
-                    .unwrap_or_default(),
-                Command::PART(_, _) => batch_target
-                    .as_channel()
-                    .map(|channel| {
-                        let target = message::Target::Channel {
-                            channel: channel.clone(),
-                            source: source::Source::Server(Some(
-                                source::Server::new(
-                                    source::server::Kind::Part,
-                                    message.user(self.casemapping()).map(
-                                        |user| Nick::from(user.nickname()),
-                                    ),
-                                    None,
-                                ),
-                            )),
-                        };
-
-                        vec![Event::WithTarget {
-                            message,
-                            our_nick: self.nickname().to_owned(),
-                            target,
-                            deduplicate: true,
-                        }]
-                    })
-                    .unwrap_or_default(),
-                Command::QUIT(_) => batch_target
-                    .as_channel()
-                    .map(|channel| {
-                        let target = message::Target::Channel {
-                            channel: channel.clone(),
-                            source: source::Source::Server(Some(
-                                source::Server::new(
-                                    source::server::Kind::Quit,
-                                    message.user(self.casemapping()).map(
-                                        |user| Nick::from(user.nickname()),
-                                    ),
-                                    None,
-                                ),
-                            )),
-                        };
-
-                        vec![Event::WithTarget {
-                            message,
-                            our_nick: self.nickname().to_owned(),
-                            target,
-                            deduplicate: true,
-                        }]
-                    })
-                    .unwrap_or_default(),
+                Command::NICK(_) => vec![Event::WithTarget {
+                    message,
+                    our_nick: self.nickname().to_owned(),
+                    target: batch_target.into(),
+                    deduplicate: true,
+                }],
+                Command::JOIN(_, _) => vec![Event::WithTarget {
+                    message,
+                    our_nick: self.nickname().to_owned(),
+                    target: batch_target.into(),
+                    deduplicate: true,
+                }],
+                Command::PART(_, _) => vec![Event::WithTarget {
+                    message,
+                    our_nick: self.nickname().to_owned(),
+                    target: batch_target.into(),
+                    deduplicate: true,
+                }],
+                Command::QUIT(_) => vec![Event::WithTarget {
+                    message,
+                    our_nick: self.nickname().to_owned(),
+                    target: batch_target.into(),
+                    deduplicate: true,
+                }],
                 Command::PRIVMSG(target, text)
                 | Command::NOTICE(target, text) => {
                     if ctcp::is_query(text) && !message::is_action(text) {
@@ -5043,7 +4976,6 @@ impl Map {
 pub enum Context {
     Buffer(buffer::Upstream),
     PrivOrNotice(buffer::Upstream, Option<LabeledResponseContext>),
-    Whois(buffer::Upstream),
 }
 
 impl Context {
@@ -5053,7 +4985,6 @@ impl Context {
         label: Option<&str>,
     ) -> Self {
         match &message.command {
-            Command::WHOIS(_, _) => Self::Whois(buffer),
             Command::PRIVMSG(_, _) | Command::NOTICE(_, _) => {
                 Self::PrivOrNotice(
                     buffer,
@@ -5076,15 +5007,10 @@ impl Context {
         }
     }
 
-    fn is_whois(&self) -> bool {
-        matches!(self, Self::Whois(_))
-    }
-
     fn buffer(self) -> buffer::Upstream {
         match self {
             Context::Buffer(buffer) => buffer,
             Context::PrivOrNotice(buffer, _) => buffer,
-            Context::Whois(buffer) => buffer,
         }
     }
 
@@ -5093,7 +5019,7 @@ impl Context {
             Context::PrivOrNotice(_, labeled_response_context) => {
                 labeled_response_context.as_ref()
             }
-            Context::Buffer(_) | Context::Whois(_) => None,
+            Context::Buffer(_) => None,
         }
     }
 }
@@ -5104,7 +5030,7 @@ impl From<Context> for Option<LabeledResponseContext> {
             Context::PrivOrNotice(_, labeled_response_context) => {
                 labeled_response_context
             }
-            Context::Buffer(_) | Context::Whois(_) => None,
+            Context::Buffer(_) => None,
         }
     }
 }
