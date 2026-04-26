@@ -265,7 +265,7 @@ pub fn view<'a>(
         range_end_timestamp_chars,
         cleared,
         ..
-    }) = history.get_messages(&kind.into(), Some(state.limit), &config.buffer)
+    }) = history.get_messages(&kind.into(), Some(state.limit), config)
     else {
         return column![].into();
     };
@@ -861,7 +861,7 @@ impl State {
                             }) = history.get_messages(
                                 &kind.into(),
                                 Some(self.limit),
-                                &config.buffer,
+                                config,
                             ) && let Some(oldest) =
                                 old_messages.iter().chain(&new_messages).next()
                             {
@@ -1262,7 +1262,7 @@ impl State {
             old_messages,
             new_messages,
             ..
-        }) = history.get_messages(&kind.into(), None, &config.buffer)
+        }) = history.get_messages(&kind.into(), None, config)
         else {
             // We're still loading history, which will trigger scroll_to_backlog
             // after loading. If this is set, we will scroll_to_message
@@ -1306,7 +1306,7 @@ impl State {
             old_messages,
             new_messages,
             ..
-        }) = history.get_messages(&kind.into(), None, &config.buffer)
+        }) = history.get_messages(&kind.into(), None, config)
         else {
             return Task::none();
         };
@@ -1352,7 +1352,7 @@ impl State {
             old_messages,
             new_messages,
             ..
-        }) = history.get_messages(&kind.into(), None, &config.buffer)
+        }) = history.get_messages(&kind.into(), None, config)
         else {
             return Task::none();
         };
@@ -2002,6 +2002,7 @@ fn preview_row<'a>(
             let with_access_levels = config.buffer.nickname.show_access_levels;
             let show_bot_icon = config.buffer.nickname.show_bot_icon;
             let truncate = config.buffer.nickname.truncate;
+            let truncation_character = config.display.truncation_character;
 
             let nick =
                 if let message::Source::User(user) = message.target.source() {
@@ -2015,6 +2016,7 @@ fn preview_row<'a>(
                                     with_access_levels,
                                     show_bot_icon,
                                     truncate,
+                                    truncation_character,
                                 ))
                                 .chars()
                                 .count(),

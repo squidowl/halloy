@@ -373,6 +373,7 @@ impl<'a> ChannelQueryLayout<'a> {
         let with_access_levels = self.config.buffer.nickname.show_access_levels;
         let show_bot_icon = self.config.buffer.nickname.show_bot_icon;
         let truncate = self.config.buffer.nickname.truncate;
+        let truncation_character = self.config.display.truncation_character;
         let user_in_channel = self
             .target
             .users()
@@ -414,6 +415,7 @@ impl<'a> ChannelQueryLayout<'a> {
                 with_access_levels,
                 show_bot_icon,
                 truncate,
+                truncation_character,
             );
 
         let is_bot =

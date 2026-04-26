@@ -592,6 +592,7 @@ mod nick_list {
                                     nicklist_config.show_access_levels,
                                     nicklist_config.show_bot_icon,
                                     truncate,
+                                    config.display.truncation_character,
                                 )
                                 .chars()
                                 .count();
@@ -641,6 +642,7 @@ mod nick_list {
                     nicklist_config.show_access_levels,
                     nicklist_config.show_bot_icon,
                     truncate,
+                    config.display.truncation_character,
                 );
 
             let nick = selectable_text(nick_display)
