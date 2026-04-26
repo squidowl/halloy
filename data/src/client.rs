@@ -2118,52 +2118,6 @@ impl Client {
                         {
                             self.who_polls.push_back(who_poll);
                         }
-
-                        // Prioritize WHO requests due to joining a channel
-                        if self
-                            .capabilities
-                            .acknowledged(Capability::NoImplicitNames)
-                            && let Some(pos) =
-                                self.who_polls.iter().position(|who_poll| {
-                                    matches!(
-                                        who_poll.status,
-                                        WhoStatus::Requested(..)
-                                    )
-                                })
-                            && pos != 0
-                            && let Some(who_poll) = self.who_polls.remove(pos)
-                        {
-                            self.who_polls.push_front(who_poll);
-                        }
-
-                        if !self
-                            .capabilities
-                            .acknowledged(Capability::NoImplicitNames)
-                            && let Some(pos) = self
-                                .who_polls
-                                .iter()
-                                .position(|who_poll| {
-                                    matches!(who_poll.status, WhoStatus::Joined)
-                                })
-                                .or(self.who_polls.iter().position(
-                                    |who_poll| {
-                                        matches!(
-                                            who_poll.status,
-                                            WhoStatus::Received
-                                        )
-                                    },
-                                ))
-                        {
-                            self.who_polls[pos].status =
-                                WhoStatus::Waiting(Instant::now());
-
-                            if pos != 0
-                                && let Some(who_poll) =
-                                    self.who_polls.remove(pos)
-                            {
-                                self.who_polls.push_front(who_poll);
-                            }
-                        }
                     }
 
                     log::trace!("[{}] {mask} - WHO done", self.server);
@@ -4414,6 +4368,18 @@ impl Client {
 
     pub fn multiline_limits(&self) -> Option<MultilineLimits> {
         self.capabilities.multiline_limits()
+    }
+
+    pub fn prioritize_joined_who_poll(&mut self, channel: target::Channel) {
+        if let Some(pos) = self.who_polls.iter().position(|who_poll| {
+            who_poll.channel == channel
+                && matches!(who_poll.status, WhoStatus::Joined)
+        }) && pos != 0
+            && let Some(mut who_poll) = self.who_polls.remove(pos)
+        {
+            who_poll.status = WhoStatus::Waiting(Instant::now());
+            self.who_polls.push_front(who_poll);
+        }
     }
 }
 

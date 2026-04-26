@@ -4471,6 +4471,10 @@ impl Dashboard {
             clients.join(&server, slice::from_ref(&channel));
         }
 
+        if let Some(client) = clients.client_mut(&server) {
+            client.prioritize_joined_who_poll(channel);
+        }
+
         self.open_buffer(
             data::Buffer::Upstream(buffer),
             buffer_action,
