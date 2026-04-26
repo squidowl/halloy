@@ -3206,8 +3206,13 @@ impl Dashboard {
         &mut self,
         server: &Server,
         reaction: reaction::Context,
+        notification_enabled: bool,
     ) -> Task<Message> {
-        let future = self.history.record_reaction(server, reaction);
+        let future = self.history.record_reaction(
+            server,
+            reaction,
+            notification_enabled,
+        );
         if let Some(f) = future {
             Task::perform(f, Message::History)
         } else {

@@ -147,7 +147,11 @@ pub enum Event {
         deduplicate: bool,
         labeled_response_context: Option<LabeledResponseContext>,
     },
-    Reaction(message::Encoded, Nick),
+    Reaction {
+        message: message::Encoded,
+        our_nick: Nick,
+        notification_enabled: bool,
+    },
     WithTarget {
         message: message::Encoded,
         our_nick: Nick,
@@ -1076,10 +1080,11 @@ impl Client {
                 }
             }
             _ if is_reaction(&message) => {
-                return Ok(vec![Event::Reaction(
+                return Ok(vec![Event::Reaction {
                     message,
-                    self.nickname().to_owned(),
-                )]);
+                    our_nick: self.nickname().to_owned(),
+                    notification_enabled: true,
+                }]);
             }
             // Reroute whois, whowas, mode, and invite responses
             Command::Numeric(
@@ -3107,7 +3112,11 @@ impl Client {
         } else {
             match &message.command {
                 _ if is_reaction(&message) => {
-                    vec![Event::Reaction(message, self.nickname().to_owned())]
+                    vec![Event::Reaction {
+                        message,
+                        our_nick: self.nickname().to_owned(),
+                        notification_enabled: false,
+                    }]
                 }
                 Command::NICK(_) => vec![Event::WithTarget {
                     message,
@@ -4219,7 +4228,7 @@ fn continue_chathistory_between(
             | Event::PrivOrNotice { message, .. }
             | Event::WithTarget { message, .. }
             | Event::DirectMessage(message, _, _)
-            | Event::Reaction(message, _) => match end_message_reference {
+            | Event::Reaction { message, .. } => match end_message_reference {
                 MessageReference::MessageId(_) => {
                     message.message_id().map(MessageReference::MessageId)
                 }
@@ -4268,7 +4277,7 @@ fn continue_chathistory_targets(
             | Event::PrivOrNotice { .. }
             | Event::WithTarget { .. }
             | Event::DirectMessage(_, _, _)
-            | Event::Reaction(_, _)
+            | Event::Reaction { .. }
             | Event::Broadcast(_)
             | Event::FileTransferRequest(_)
             | Event::UpdateReadMarker(_, _)

@@ -274,7 +274,7 @@ pub async fn append(
 
     let mut all_messages = loaded.messages;
     // pending reactions should only exist for unloaded history entries
-    for (id, mut pending) in pending_reactions.into_iter() {
+    for (id, pending) in pending_reactions.into_iter() {
         if let Some(message) =
             find_reaction_target(&mut all_messages, &id, &pending.server_time)
         {
@@ -283,21 +283,31 @@ pub async fn append(
                 && let Ok(target) = Target::try_from(message.target.clone())
             {
                 let message_text = message.text();
-                for reaction in pending.clone().reactions.into_iter() {
-                    let reaction_to_echo = ReactionToEcho {
-                        reaction: reaction::Context {
-                            inner: reaction,
-                            target: target.clone(),
-                            in_reply_to: id.clone(),
-                            server_time: pending.server_time,
-                        },
-                        message_text: message_text.clone(),
-                    };
-                    pending_reactions_flushed.push(reaction_to_echo);
+                for (reaction, notification_enabled) in
+                    pending.clone().reactions.into_iter()
+                {
+                    if notification_enabled {
+                        let reaction_to_echo = ReactionToEcho {
+                            reaction: reaction::Context {
+                                inner: reaction,
+                                target: target.clone(),
+                                in_reply_to: id.clone(),
+                                server_time: pending.server_time,
+                            },
+                            message_text: message_text.clone(),
+                        };
+                        pending_reactions_flushed.push(reaction_to_echo);
+                    }
                 }
             }
 
-            message.reactions.append(&mut pending.reactions);
+            message.reactions.append(
+                &mut pending
+                    .reactions
+                    .iter()
+                    .map(|(reaction, _)| reaction.clone())
+                    .collect(),
+            );
         }
     }
     pending_messages.into_iter().for_each(
@@ -1074,6 +1084,7 @@ impl History {
     pub fn add_reaction(
         &mut self,
         reaction: reaction::Context,
+        notification_enabled: bool,
     ) -> Option<ReactionToEcho> {
         match self {
             History::Partial {
@@ -1095,9 +1106,12 @@ impl History {
                     } else {
                         None
                     };
+
                     message.reactions.push(reaction.inner.clone());
 
-                    if let Some(message_text) = message_text {
+                    if let Some(message_text) = message_text
+                        && notification_enabled
+                    {
                         return Some(ReactionToEcho {
                             reaction,
                             message_text,
@@ -1114,7 +1128,9 @@ impl History {
 
                     pending.server_time =
                         (pending.server_time).min(reaction.server_time);
-                    pending.reactions.push(reaction.inner);
+                    pending
+                        .reactions
+                        .push((reaction.inner, notification_enabled));
                 }
 
                 *last_updated_at = Some(Instant::now());
@@ -1133,7 +1149,10 @@ impl History {
 
                 *last_updated_at = Some(Instant::now());
 
-                if message.is_echo && message.direction == Direction::Received {
+                if message.is_echo
+                    && message.direction == Direction::Received
+                    && notification_enabled
+                {
                     return Some(ReactionToEcho {
                         reaction,
                         message_text: message.text(),
