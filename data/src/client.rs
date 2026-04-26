@@ -2182,6 +2182,31 @@ impl Client {
                         }
                     }
                 } else {
+                    let modes = mode::parse::<mode::User>(
+                        modes,
+                        args,
+                        self.chanmodes(),
+                        self.prefix(),
+                    );
+
+                    let bot_change = modes.iter().find_map(|mode| match mode {
+                        mode::Mode::Add(mode::User::Bot, _) => Some(true),
+                        mode::Mode::Remove(mode::User::Bot, _) => Some(false),
+                        _ => None,
+                    });
+
+                    if let Some(is_bot) = bot_change {
+                        let lookup =
+                            User::from(Nick::from_str(target, casemapping));
+                        self.chanmap.values_mut().for_each(|channel| {
+                            if let Some(mut user) = channel.users.take(&lookup)
+                            {
+                                user.update_bot(is_bot);
+                                channel.users.insert(user);
+                            }
+                        });
+                    }
+
                     // Only check for being logged in via mode if account-notify is not available,
                     // since it is not standardized across networks.
 
@@ -2191,30 +2216,22 @@ impl Client {
                             .capabilities
                             .acknowledged(Capability::AccountNotify)
                         && !self.registration_required_channels.is_empty()
-                    {
-                        let modes = mode::parse::<mode::User>(
-                            modes,
-                            args,
-                            self.chanmodes(),
-                            self.prefix(),
-                        );
-
-                        if modes.into_iter().any(|mode| {
+                        && modes.into_iter().any(|mode| {
                             matches!(
                                 mode,
                                 mode::Mode::Add(mode::User::Registered, None)
                             )
-                        }) {
-                            for message in group_joins(
-                                &self.registration_required_channels,
-                                &self.config.channel_keys,
-                                find_target_limit(&self.isupport, "JOIN"),
-                            ) {
-                                self.handle.try_send(message)?;
-                            }
-
-                            self.registration_required_channels.clear();
+                        })
+                    {
+                        for message in group_joins(
+                            &self.registration_required_channels,
+                            &self.config.channel_keys,
+                            find_target_limit(&self.isupport, "JOIN"),
+                        ) {
+                            self.handle.try_send(message)?;
                         }
+
+                        self.registration_required_channels.clear();
                     }
                 }
             }
