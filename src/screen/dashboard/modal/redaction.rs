@@ -1,11 +1,11 @@
 use data::{Config, message};
-use iced::widget::{button, column, operation, text_input};
-use iced::{Length, Task};
+use iced::widget::{button, column, container, operation, text_input};
+use iced::{Length, Task, alignment};
 
+use crate::theme;
 use crate::widget::{Element, text};
 
 const MODAL_WIDTH: f32 = 380.0;
-const MODAL_HEIGHT: f32 = 130.0;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct State {
@@ -62,25 +62,29 @@ impl State {
 
 pub fn view<'a>(state: &'a State, _config: &'a Config) -> Element<'a, Message> {
     let content = column![
-        text("Reason for redaction:").size(16),
-        text_input("Enter reason", &state.reason)
+        text("Reason for redaction"),
+        text_input("Enter reason (optional)", &state.reason)
             .id(state.reason_id.clone())
             .on_input(Message::ReasonChanged)
             .padding(8)
             .width(Length::Fill)
             .on_submit(Message::Submit),
-        button("Redact")
-            .padding(8)
-            .width(Length::Fill)
-            .on_press(Message::Submit),
+        button(
+            container(text("Redact"))
+                .align_x(alignment::Horizontal::Center)
+                .width(Length::Fill),
+        )
+        .padding(5)
+        .width(Length::Fixed(250.0))
+        .style(|theme, status| theme::button::secondary(theme, status, false))
+        .on_press(Message::Submit),
     ]
-    .spacing(12)
-    .height(Length::Fill);
+    .spacing(20)
+    .align_x(iced::Alignment::Center);
 
-    iced::widget::container(content)
+    container(content)
         .width(Length::Fixed(MODAL_WIDTH))
-        .height(Length::Fixed(MODAL_HEIGHT))
-        .padding(8)
-        .style(crate::theme::container::tooltip)
+        .padding(25)
+        .style(theme::container::tooltip)
         .into()
 }
