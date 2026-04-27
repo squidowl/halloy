@@ -1572,11 +1572,11 @@ Customize how redacted messages behave in buffers
 
 ### `display`
 
-How to display redacted messages in the buffer.
+How to display redacted messages in the buffer.  If displayed as `"dimmed"` then the message will be displayed dimmed and the redaction reason viewable via tooltip.  If displayed as `"redacted"` then the message will be replaced with the redaction reason, and the redcated message can be revealed by clicking on the message. 
 
 ```toml
 # Type: string
-# Values: "none", "dimmed"
+# Values: "none", "dimmed", "redacted"
 # Default: "none"
 
 [buffer.redaction]

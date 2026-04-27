@@ -553,26 +553,24 @@ impl Manager {
         self.data.remove_message(kind, server_time, hash, resend)
     }
 
-    pub fn expand_condensed_message(
+    pub fn expand_message(
         &mut self,
         kind: history::Kind,
         server_time: DateTime<Utc>,
         hash: message::Hash,
         config: &config::buffer::Condensation,
     ) {
-        self.data
-            .expand_condensed_message(kind, server_time, hash, config);
+        self.data.expand_message(kind, server_time, hash, config);
     }
 
-    pub fn contract_condensed_message(
+    pub fn contract_message(
         &mut self,
         kind: history::Kind,
         server_time: DateTime<Utc>,
         hash: message::Hash,
         config: &config::buffer::Condensation,
     ) {
-        self.data
-            .contract_condensed_message(kind, server_time, hash, config);
+        self.data.contract_message(kind, server_time, hash, config);
     }
 
     pub fn update_chathistory_references<T: Into<history::Kind>>(
@@ -1051,7 +1049,7 @@ impl Manager {
                 message.blocked = false;
 
                 if message.redaction.is_some()
-                    && !buffer_config.redaction.display.is_dimmed()
+                    && !buffer_config.redaction.display.is_visible()
                 {
                     message.blocked = true;
                 } else {
@@ -1703,7 +1701,7 @@ impl Data {
         })
     }
 
-    fn expand_condensed_message(
+    fn expand_message(
         &mut self,
         kind: history::Kind,
         server_time: DateTime<Utc>,
@@ -1712,7 +1710,7 @@ impl Data {
     ) {
         if let Some(history) = self.map.get_mut(&kind) {
             history
-                .get_condensed_messages(server_time, hash, config)
+                .get_expansion_messages(server_time, hash, config)
                 .iter_mut()
                 .for_each(|message| {
                     message.expanded = true;
@@ -1720,7 +1718,7 @@ impl Data {
         }
     }
 
-    fn contract_condensed_message(
+    fn contract_message(
         &mut self,
         kind: history::Kind,
         server_time: DateTime<Utc>,
@@ -1729,7 +1727,7 @@ impl Data {
     ) {
         if let Some(history) = self.map.get_mut(&kind) {
             history
-                .get_condensed_messages(server_time, hash, config)
+                .get_expansion_messages(server_time, hash, config)
                 .iter_mut()
                 .for_each(|message| {
                     message.expanded = false;

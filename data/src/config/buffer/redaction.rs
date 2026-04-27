@@ -11,11 +11,16 @@ pub struct Redaction {
 pub enum Display {
     #[default]
     None,
+    Redacted,
     Dimmed,
 }
 
 impl Display {
-    pub fn is_dimmed(self) -> bool {
-        matches!(self, Self::Dimmed)
+    pub fn is_visible(self) -> bool {
+        matches!(self, Self::Redacted | Self::Dimmed)
+    }
+
+    pub fn is_redacted(self) -> bool {
+        matches!(self, Self::Redacted)
     }
 }

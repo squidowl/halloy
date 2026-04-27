@@ -1,14 +1,14 @@
 use data::appearance::theme::{FontStyle, nickname_color};
 use data::{Config, Server, isupport, message, target};
-use iced::widget::span;
 use iced::widget::text::Span;
+use iced::widget::{button, span};
 use iced::{Color, Length, border};
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::{Element, Renderer, selectable_rich_text, selectable_text};
 use crate::{Theme, font, theme};
 
-pub fn message_content<'a, M: 'a>(
+pub fn message_content<'a, M: 'a + std::clone::Clone>(
     content: &'a message::Content,
     server: &'a Server,
     chantypes: &[char],
@@ -37,7 +37,7 @@ pub fn message_content<'a, M: 'a>(
     )
 }
 
-pub fn with_context<'a, T: Copy + 'a, M: 'a>(
+pub fn with_context<'a, T: Copy + 'a, M: 'a + std::clone::Clone>(
     content: &'a message::Content,
     server: &'a Server,
     chantypes: &[char],
@@ -69,7 +69,7 @@ pub fn with_context<'a, T: Copy + 'a, M: 'a>(
 }
 
 #[allow(clippy::type_complexity)]
-fn message_content_impl<'a, T: Copy + 'a, M: 'a>(
+fn message_content_impl<'a, T: Copy + 'a, M: 'a + std::clone::Clone>(
     content: &'a message::Content,
     server: &'a Server,
     chantypes: &[char],
@@ -88,7 +88,8 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a>(
 ) -> Element<'a, M> {
     match content {
         data::message::Content::Plain(text) => {
-            if let Some(only_emojis_size) = config.font.only_emojis_size
+            let selectable_text = if let Some(only_emojis_size) =
+                config.font.only_emojis_size
                 && UnicodeSegmentation::graphemes(text.as_str(), true)
                     .all(|grapheme| emojis::get(grapheme).is_some())
             {
@@ -96,12 +97,20 @@ fn message_content_impl<'a, T: Copy + 'a, M: 'a>(
                     .font_maybe(font_style(theme).map(font::get))
                     .size(f32::from(only_emojis_size))
                     .style(style)
-                    .into()
             } else {
                 selectable_text(text)
                     .font_maybe(font_style(theme).map(font::get))
                     .style(style)
+            };
+
+            if let Some(default_link) = default_link {
+                button(selectable_text)
+                    .style(theme::button::bare)
+                    .padding(0)
+                    .on_press(on_link(default_link))
                     .into()
+            } else {
+                selectable_text.into()
             }
         }
         data::message::Content::Fragments(fragments) => {

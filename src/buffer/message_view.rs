@@ -584,7 +584,7 @@ impl<'a> ChannelQueryLayout<'a> {
             }
         });
 
-        let redaction_tooltip = if let Some(redaction) =
+        let redaction_message = if let Some(redaction) =
             message.redaction.as_ref()
         {
             match &redaction.reason {
@@ -598,57 +598,96 @@ impl<'a> ChannelQueryLayout<'a> {
             None
         };
 
-        let message_content = tooltip(
-            message_content::with_context(
-                &message.content,
-                self.server,
-                self.chantypes,
-                self.casemapping,
-                self.theme,
-                Message::Link,
-                None,
-                message_style,
-                theme::font_style::primary,
-                color_transformation,
-                move |link| match link {
-                    message::Link::User(_, _) => {
-                        if rerouted_private && !is_ourself {
-                            vec![context_menu::Entry::Whois]
-                        } else {
-                            context_menu::Entry::user_list(
-                                formatter.target.is_channel(),
-                                user_in_channel,
-                                formatter.target.our_user(),
-                                formatter.config.file_transfer.enabled,
+        let (message_content, after_content) =
+            if self.config.buffer.redaction.display.is_redacted()
+                && !message.expanded
+                && let Some(redaction_message) = redaction_message
+            {
+                (
+                    button(
+                        selectable_text(redaction_message)
+                            .font_maybe(
+                                theme::font_style::primary(self.theme)
+                                    .map(font::get),
                             )
-                        }
-                    }
-                    message::Link::Url(_) => {
-                        formatter.url_entries(message, link)
-                    }
-                    _ => vec![],
-                },
-                move |link, entry, length| {
-                    entry
-                        .view(
-                            formatter.link_context(message, link),
-                            length,
-                            formatter.config,
-                            formatter.theme,
-                        )
-                        .map(Message::ContextMenu)
-                },
-                self.config,
-            ),
-            redaction_tooltip,
-            tooltip::Position::Top,
-            self.theme,
-        );
+                            .style(message_style),
+                    )
+                    .style(theme::button::bare)
+                    .padding(0)
+                    .on_press(Message::Link(message::Link::ExpandMessage(
+                        message.server_time,
+                        message.hash,
+                    )))
+                    .into(),
+                    vec![],
+                )
+            } else {
+                let link = (self.config.buffer.redaction.display.is_redacted()
+                    && message.expanded
+                    && redaction_message.is_some())
+                .then_some(message::Link::ContractMessage(
+                    message.server_time,
+                    message.hash,
+                ));
 
-        let after_content =
-            self.reaction_row(message).into_iter().chain(not_sent_row);
+                (
+                    tooltip(
+                        message_content::with_context(
+                            &message.content,
+                            self.server,
+                            self.chantypes,
+                            self.casemapping,
+                            self.theme,
+                            Message::Link,
+                            link,
+                            message_style,
+                            theme::font_style::primary,
+                            color_transformation,
+                            move |link| match link {
+                                message::Link::User(_, _) => {
+                                    if rerouted_private && !is_ourself {
+                                        vec![context_menu::Entry::Whois]
+                                    } else {
+                                        context_menu::Entry::user_list(
+                                            formatter.target.is_channel(),
+                                            user_in_channel,
+                                            formatter.target.our_user(),
+                                            formatter
+                                                .config
+                                                .file_transfer
+                                                .enabled,
+                                        )
+                                    }
+                                }
+                                message::Link::Url(_) => {
+                                    formatter.url_entries(message, link)
+                                }
+                                _ => vec![],
+                            },
+                            move |link, entry, length| {
+                                entry
+                                    .view(
+                                        formatter.link_context(message, link),
+                                        length,
+                                        formatter.config,
+                                        formatter.theme,
+                                    )
+                                    .map(Message::ContextMenu)
+                            },
+                            self.config,
+                        ),
+                        redaction_message,
+                        tooltip::Position::Top,
+                        self.theme,
+                    ),
+                    self.reaction_row(message)
+                        .into_iter()
+                        .chain(not_sent_row)
+                        .collect(),
+                )
+            };
 
-        (nick_element, message_content, after_content.collect())
+        (nick_element, message_content, after_content)
     }
 
     fn format_server_message(
@@ -682,12 +721,10 @@ impl<'a> ChannelQueryLayout<'a> {
             theme::font_style::server(message_theme, server)
         };
 
-        let link = message.expanded.then_some(
-            message::Link::ContractCondensedMessage(
-                message.server_time,
-                message.hash,
-            ),
-        );
+        let link = message.expanded.then_some(message::Link::ContractMessage(
+            message.server_time,
+            message.hash,
+        ));
 
         let marker_style = move |message_theme: &Theme| {
             if message.expanded || message.condensed.is_some() {
@@ -794,10 +831,8 @@ impl<'a> ChannelQueryLayout<'a> {
             theme::font_style::server(message_theme, None)
         };
 
-        let link = message::Link::ExpandCondensedMessage(
-            message.server_time,
-            message.hash,
-        );
+        let link =
+            message::Link::ExpandMessage(message.server_time, message.hash);
         let moved_link = link.clone();
 
         let range_end_timestamp = if let message::Source::Internal(
