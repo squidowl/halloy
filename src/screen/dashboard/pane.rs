@@ -81,21 +81,24 @@ impl Pane {
                 };
 
                 let server = &state.server;
-                if let Some(mode) =
-                    clients.get_channel_mode(&state.server, &state.target)
-                {
-                    let users = clients
-                        .get_channel_users(&state.server, &state.target)
-                        .map(ChannelUsers::len)
-                        .unwrap_or_default();
+                row![
+                    text(display_channel).style(theme::text::url).font_maybe(
+                        theme::font_style::url(theme).map(font::get),
+                    ),
+                    if let Some(mode) =
+                        clients.get_channel_mode(&state.server, &state.target)
+                    {
+                        let users = clients
+                            .get_channel_users(&state.server, &state.target)
+                            .map(ChannelUsers::len)
+                            .unwrap_or_default();
 
-                    text(format!(
-                        "{display_channel} ({mode}) @ {server} - {users} users"
-                    ))
-                    .into()
-                } else {
-                    text(format!("{display_channel} @ {server}")).into()
-                }
+                        text(format!(" ({mode}) @ {server} - {users} users"))
+                    } else {
+                        text(format!(" @ {server}"))
+                    }
+                ]
+                .into()
             }
             Buffer::Server(state) => text(state.server.to_string()).into(),
             Buffer::Query(state) => query_title(
