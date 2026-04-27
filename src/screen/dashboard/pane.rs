@@ -1,7 +1,7 @@
 use data::user::{ChannelUsers, User};
 use data::{Config, file_transfer, history, preview};
 use iced::widget::{button, center, column, container, pane_grid, row, text};
-use iced::{Length, Size, Task};
+use iced::{Length, Size, Task, padding};
 
 use super::sidebar;
 use crate::buffer::{self, Buffer};
@@ -561,9 +561,9 @@ fn query_title<'a>(
                                     is_user_offline,
                                 )
                             })
-                            .line_height(1.0),
-                        text(" ")
+                            .line_height(1.0)
                     ]
+                    .padding(padding::horizontal(4))
                     .align_y(iced::Alignment::Center),
                     container(
                         text(format!("Authenticated as {accountname}"))
@@ -582,14 +582,13 @@ fn query_title<'a>(
                 .into()
             }
         ),
-        text(format!("@ {server}"))
+        text(format!(" @ {server}"))
             .style(theme::text::buffer_title_bar)
             .font_maybe(
                 theme::font_style::buffer_title_bar(theme).map(font::get)
             )
             .shaping(text::Shaping::Advanced),
     ]
-    .spacing(4)
     .width(Length::Shrink)
     .align_y(iced::Alignment::Center)
     .into()
