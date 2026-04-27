@@ -66,6 +66,7 @@ pub struct ChannelQueryLayout<'a> {
     pub prefix: &'a [PrefixMap],
     pub confirm_message_delivery: bool,
     pub can_send_reactions: bool,
+    pub can_redact: bool,
     pub our_nick: Option<NickRef<'a>>,
     pub connected: bool,
     pub server: &'a Server,
@@ -108,6 +109,7 @@ impl<'a> ChannelQueryLayout<'a> {
             message::Link::Url(url) => context_menu::Entry::url_list(
                 self.preview_hidden_for_url(message, url),
                 self.can_send_reactions,
+                self.can_redact_message(message),
             ),
             _ => {
                 if self.can_send_reactions {
@@ -117,6 +119,16 @@ impl<'a> ChannelQueryLayout<'a> {
                 }
             }
         }
+    }
+
+    fn can_redact_message(&self, message: &data::Message) -> bool {
+        // Gate on message-redaction capability first.
+        if !self.can_redact {
+            return false;
+        }
+
+        // A message can only be redacted once.
+        message.redaction.is_none()
     }
 
     fn condensation_marker(
@@ -366,7 +378,8 @@ impl<'a> ChannelQueryLayout<'a> {
     ) {
         let not_sent_row = self.not_sent_row(message);
 
-        let dimmed = not_sent_row.is_some().then_some(Dimmed::new(None));
+        let dimmed = (not_sent_row.is_some() || message.redaction.is_some())
+            .then_some(Dimmed::new(None));
         let dimmed_background_tuple = dimmed
             .map(|dimmed| (dimmed, self.theme.styles().buffer.background));
 
@@ -571,44 +584,65 @@ impl<'a> ChannelQueryLayout<'a> {
             }
         });
 
-        let message_content = message_content::with_context(
-            &message.content,
-            self.server,
-            self.chantypes,
-            self.casemapping,
-            self.theme,
-            Message::Link,
-            None,
-            message_style,
-            theme::font_style::primary,
-            color_transformation,
-            move |link| match link {
-                message::Link::User(_, _) => {
-                    if rerouted_private && !is_ourself {
-                        vec![context_menu::Entry::Whois]
-                    } else {
-                        context_menu::Entry::user_list(
-                            formatter.target.is_channel(),
-                            user_in_channel,
-                            formatter.target.our_user(),
-                            formatter.config.file_transfer.enabled,
-                        )
+        let redaction_tooltip = if let Some(redaction) =
+            message.redaction.as_ref()
+        {
+            match &redaction.reason {
+                Some(reason) if !reason.is_empty() => Some(format!(
+                    "Message redacted by {}: {reason}",
+                    redaction.from
+                )),
+                _ => Some(format!("Message redacted by {}", redaction.from)),
+            }
+        } else {
+            None
+        };
+
+        let message_content = tooltip(
+            message_content::with_context(
+                &message.content,
+                self.server,
+                self.chantypes,
+                self.casemapping,
+                self.theme,
+                Message::Link,
+                None,
+                message_style,
+                theme::font_style::primary,
+                color_transformation,
+                move |link| match link {
+                    message::Link::User(_, _) => {
+                        if rerouted_private && !is_ourself {
+                            vec![context_menu::Entry::Whois]
+                        } else {
+                            context_menu::Entry::user_list(
+                                formatter.target.is_channel(),
+                                user_in_channel,
+                                formatter.target.our_user(),
+                                formatter.config.file_transfer.enabled,
+                            )
+                        }
                     }
-                }
-                message::Link::Url(_) => formatter.url_entries(message, link),
-                _ => vec![],
-            },
-            move |link, entry, length| {
-                entry
-                    .view(
-                        formatter.link_context(message, link),
-                        length,
-                        formatter.config,
-                        formatter.theme,
-                    )
-                    .map(Message::ContextMenu)
-            },
-            self.config,
+                    message::Link::Url(_) => {
+                        formatter.url_entries(message, link)
+                    }
+                    _ => vec![],
+                },
+                move |link, entry, length| {
+                    entry
+                        .view(
+                            formatter.link_context(message, link),
+                            length,
+                            formatter.config,
+                            formatter.theme,
+                        )
+                        .map(Message::ContextMenu)
+                },
+                self.config,
+            ),
+            redaction_tooltip,
+            tooltip::Position::Top,
+            self.theme,
         );
 
         let after_content =
@@ -1085,6 +1119,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
             message.id.as_ref(),
             selected_reaction_texts,
             self.can_send_reactions,
+            self.can_redact_message(message),
             &message.content,
             self.config,
             self.theme,

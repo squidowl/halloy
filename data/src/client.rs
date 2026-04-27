@@ -152,6 +152,7 @@ pub enum Event {
         our_nick: Nick,
         notification_enabled: bool,
     },
+    Redaction(message::Encoded, Nick),
     WithTarget {
         message: message::Encoded,
         our_nick: Nick,
@@ -1085,6 +1086,12 @@ impl Client {
                     our_nick: self.nickname().to_owned(),
                     notification_enabled: true,
                 }]);
+            }
+            _ if matches!(message.command, Command::REDACT(_, _, _)) => {
+                return Ok(vec![Event::Redaction(
+                    message,
+                    self.nickname().to_owned(),
+                )]);
             }
             // Reroute whois, whowas, mode, and invite responses
             Command::Numeric(
@@ -3118,6 +3125,9 @@ impl Client {
                         notification_enabled: false,
                     }]
                 }
+                Command::REDACT(_, _, _) => {
+                    vec![Event::Redaction(message, self.nickname().to_owned())]
+                }
                 Command::NICK(_) => vec![Event::WithTarget {
                     message,
                     our_nick: self.nickname().to_owned(),
@@ -4105,6 +4115,11 @@ impl Client {
                 || isupport::is_client_tag_allowed(&self.isupport, "reply"))
     }
 
+    fn can_redact(&self) -> bool {
+        self.capabilities.acknowledged(Capability::MessageTags)
+            && self.capabilities.acknowledged(Capability::MessageRedaction)
+    }
+
     pub fn is_channel(&self, target: &str) -> bool {
         proto::is_channel(target, self.chantypes())
     }
@@ -4228,7 +4243,8 @@ fn continue_chathistory_between(
             | Event::PrivOrNotice { message, .. }
             | Event::WithTarget { message, .. }
             | Event::DirectMessage(message, _, _)
-            | Event::Reaction { message, .. } => match end_message_reference {
+            | Event::Reaction { message, .. }
+            | Event::Redaction(message, _) => match end_message_reference {
                 MessageReference::MessageId(_) => {
                     message.message_id().map(MessageReference::MessageId)
                 }
@@ -4278,6 +4294,7 @@ fn continue_chathistory_targets(
             | Event::WithTarget { .. }
             | Event::DirectMessage(_, _, _)
             | Event::Reaction { .. }
+            | Event::Redaction(_, _)
             | Event::Broadcast(_)
             | Event::FileTransferRequest(_)
             | Event::UpdateReadMarker(_, _)
@@ -4727,6 +4744,10 @@ impl Map {
 
     pub fn get_server_can_send_reactions(&self, server: &Server) -> bool {
         self.client(server).is_some_and(Client::can_send_reactions)
+    }
+
+    pub fn get_server_can_redact(&self, server: &Server) -> bool {
+        self.client(server).is_some_and(Client::can_redact)
     }
 
     pub fn get_server_can_send_typing(&self, server: &Server) -> bool {

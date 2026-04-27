@@ -14,10 +14,12 @@ use crate::capabilities::LabeledResponseContext;
 use crate::history::{self, History, MessageReferences, ReadMarker, metadata};
 use crate::message::broadcast::{self, Broadcast};
 use crate::message::{self, Limit};
+use crate::redaction::Redaction;
 use crate::target::{self, Target};
 use crate::user::Nick;
 use crate::{
-    Config, Server, buffer, client, config, input, isupport, reaction, server,
+    Config, Server, buffer, client, config, input, isupport, reaction,
+    redaction, server,
 };
 
 const DRAFT_SAVE_EVERY: Duration = Duration::from_secs(10);
@@ -471,6 +473,25 @@ impl Manager {
     ) -> Option<impl Future<Output = Message> + use<>> {
         self.data
             .add_reaction(server.clone(), reaction, notification_enabled)
+    }
+
+    pub fn redact_message(
+        &mut self,
+        server: &Server,
+        redaction: redaction::Context,
+        display_redacted: bool,
+    ) -> Option<impl Future<Output = Message> + use<>> {
+        let kind = history::Kind::from_target(
+            server.clone(),
+            redaction.target.clone(),
+        );
+        self.data.redact_message(
+            kind,
+            redaction.id,
+            redaction.inner,
+            redaction.server_time,
+            display_redacted,
+        )
     }
 
     pub fn block_and_record_message(
@@ -1029,115 +1050,128 @@ impl Manager {
             messages.iter_mut().for_each(|message| {
                 message.blocked = false;
 
-                match message.target.source() {
-                    message::Source::Server(source) => {
-                        let server = if let Some(server) = kind.server() {
-                            Some(server)
-                        } else if let message::Target::Highlights {
-                            server,
-                            ..
-                        } = &message.target
-                        {
-                            Some(server)
-                        } else {
-                            None
-                        };
-
-                        let casemapping = clients
-                            .get_maybe_server_casemapping_or_default(server);
-
-                        // Check if target is included/excluded.
-                        let target_ref = match &message.target {
-                            message::Target::Channel { channel, .. }
-                            | message::Target::Highlights { channel, .. } => {
-                                Some(channel.as_target_ref())
-                            }
-
-                            message::Target::Query { query, .. } => {
-                                Some(query.as_target_ref())
-                            }
-                            message::Target::Server { .. }
-                            | message::Target::Logs { .. } => None,
-                        };
-
-                        let source_kind = source
-                            .as_ref()
-                            .map(message::source::server::Server::kind);
-
-                        if let Some(target_ref) = target_ref
-                            && let Some(server) = server
-                            && !buffer_config
-                                .server_messages
-                                .should_send_message(
-                                    source.as_ref(),
-                                    target_ref,
-                                    server,
-                                    casemapping,
-                                )
-                        {
-                            message.blocked = true;
-                        } else if let Some(seconds) =
-                            buffer_config.server_messages.smart(source_kind)
-                        {
-                            let nick = match source
-                                .as_ref()
-                                .and_then(|source| source.nick())
+                if message.redaction.is_some()
+                    && !buffer_config.redaction.display.is_dimmed()
+                {
+                    message.blocked = true;
+                } else {
+                    match message.target.source() {
+                        message::Source::Server(source) => {
+                            let server = if let Some(server) = kind.server() {
+                                Some(server)
+                            } else if let message::Target::Highlights {
+                                server,
+                                ..
+                            } = &message.target
                             {
-                                Some(nick) => Some(nick.clone()),
-                                None => message.plain().and_then(|s| {
-                                    s.split(' ').nth(1).map(|nick| {
-                                        Nick::from_str(nick, casemapping)
-                                    })
-                                }),
+                                Some(server)
+                            } else {
+                                None
                             };
 
-                            if let Some(nick) = nick {
-                                match source_kind {
-                                    Some(message::Kind::Away) => {
-                                        message.blocked = smart_filter_repeat(
-                                            message,
-                                            &seconds,
-                                            last_away.get(&nick),
-                                        );
+                            let casemapping = clients
+                                .get_maybe_server_casemapping_or_default(
+                                    server,
+                                );
 
-                                        if !message.blocked {
-                                            last_away.insert(
-                                                nick.clone(),
-                                                message.server_time,
-                                            );
+                            // Check if target is included/excluded.
+                            let target_ref = match &message.target {
+                                message::Target::Channel {
+                                    channel, ..
+                                }
+                                | message::Target::Highlights {
+                                    channel, ..
+                                } => Some(channel.as_target_ref()),
+
+                                message::Target::Query { query, .. } => {
+                                    Some(query.as_target_ref())
+                                }
+                                message::Target::Server { .. }
+                                | message::Target::Logs { .. } => None,
+                            };
+
+                            let source_kind = source
+                                .as_ref()
+                                .map(message::source::server::Server::kind);
+
+                            if let Some(target_ref) = target_ref
+                                && let Some(server) = server
+                                && !buffer_config
+                                    .server_messages
+                                    .should_send_message(
+                                        source.as_ref(),
+                                        target_ref,
+                                        server,
+                                        casemapping,
+                                    )
+                            {
+                                message.blocked = true;
+                            } else if let Some(seconds) =
+                                buffer_config.server_messages.smart(source_kind)
+                            {
+                                let nick = match source
+                                    .as_ref()
+                                    .and_then(|source| source.nick())
+                                {
+                                    Some(nick) => Some(nick.clone()),
+                                    None => message.plain().and_then(|s| {
+                                        s.split(' ').nth(1).map(|nick| {
+                                            Nick::from_str(nick, casemapping)
+                                        })
+                                    }),
+                                };
+
+                                if let Some(nick) = nick {
+                                    match source_kind {
+                                        Some(message::Kind::Away) => {
+                                            message.blocked =
+                                                smart_filter_repeat(
+                                                    message,
+                                                    &seconds,
+                                                    last_away.get(&nick),
+                                                );
+
+                                            if !message.blocked {
+                                                last_away.insert(
+                                                    nick.clone(),
+                                                    message.server_time,
+                                                );
+                                            }
                                         }
-                                    }
-                                    _ => {
-                                        message.blocked = smart_filter_message(
-                                            message,
-                                            &seconds,
-                                            last_seen.get(&nick),
-                                        );
+                                        _ => {
+                                            message.blocked =
+                                                smart_filter_message(
+                                                    message,
+                                                    &seconds,
+                                                    last_seen.get(&nick),
+                                                );
+                                        }
                                     }
                                 }
                             }
                         }
-                    }
-                    crate::message::Source::User(message_user) => {
-                        last_seen.insert(
-                            message_user.nickname().to_owned(),
-                            message.server_time,
-                        );
-                    }
-                    message::Source::Internal(
-                        message::source::Internal::Status(status),
-                    ) => {
-                        if !buffer_config.internal_messages.enabled(status) {
-                            message.blocked = true;
-                        } else if let Some(seconds) =
-                            buffer_config.internal_messages.smart(status)
-                        {
-                            message.blocked = smart_filter_internal_message(
-                                message, &seconds,
+                        crate::message::Source::User(message_user) => {
+                            last_seen.insert(
+                                message_user.nickname().to_owned(),
+                                message.server_time,
                             );
                         }
+                        message::Source::Internal(
+                            message::source::Internal::Status(status),
+                        ) => {
+                            if !buffer_config.internal_messages.enabled(status)
+                            {
+                                message.blocked = true;
+                            } else if let Some(seconds) =
+                                buffer_config.internal_messages.smart(status)
+                            {
+                                message.blocked = smart_filter_internal_message(
+                                    message, &seconds,
+                                );
+                            }
+                        }
+                        _ => (),
                     }
-                    _ => (),
                 }
             });
 
@@ -1269,6 +1303,7 @@ impl Data {
                     chathistory_references: partial_chathistory_references,
                     last_seen,
                     pending_reactions,
+                    pending_redactions,
                     ..
                 } => {
                     let read_marker =
@@ -1284,7 +1319,7 @@ impl Data {
                     let mut last_seen = last_seen.clone();
 
                     for (id, pending) in pending_reactions.iter_mut() {
-                        if let Some(message) = history::find_reaction_target(
+                        if let Some(message) = history::find_message_target(
                             &mut messages,
                             id,
                             &pending.server_time,
@@ -1296,6 +1331,16 @@ impl Data {
                                     .map(|(reaction, _)| reaction.clone())
                                     .collect(),
                             );
+                        }
+                    }
+
+                    for (id, pending) in pending_redactions.iter_mut() {
+                        if let Some(message) = history::find_message_target(
+                            &mut messages,
+                            id,
+                            &pending.server_time,
+                        ) {
+                            message.redaction = Some(pending.redaction.clone());
                         }
                     }
 
@@ -1914,6 +1959,45 @@ impl Data {
                 entry
                     .insert(History::partial(kind.clone()))
                     .add_reaction(reaction, notification_enabled);
+
+                Some(
+                    async move {
+                        let loaded =
+                            history::metadata::load(kind.clone()).await;
+                        Message::UpdatePartial(kind, loaded)
+                    }
+                    .boxed(),
+                )
+            }
+        }
+    }
+
+    fn redact_message(
+        &mut self,
+        kind: history::Kind,
+        id: message::Id,
+        redaction: Redaction,
+        server_time: DateTime<Utc>,
+        display_redacted: bool,
+    ) -> Option<impl Future<Output = Message> + use<>> {
+        match self.map.entry(kind.clone()) {
+            hash_map::Entry::Occupied(mut entry) => {
+                entry.get_mut().redact_message(
+                    id,
+                    redaction,
+                    server_time,
+                    display_redacted,
+                );
+
+                None
+            }
+            hash_map::Entry::Vacant(entry) => {
+                entry.insert(History::partial(kind.clone())).redact_message(
+                    id,
+                    redaction,
+                    server_time,
+                    display_redacted,
+                );
 
                 Some(
                     async move {

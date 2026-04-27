@@ -1941,6 +1941,7 @@ fn preview_row<'a>(
                     .is_enabled(url.as_str())
                     .then_some(message.hidden_urls.contains(url)),
                 false,
+                false,
             ),
             move |entry, length| {
                 entry

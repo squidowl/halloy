@@ -26,6 +26,7 @@ use crate::config::{self, Highlights};
 use crate::history::reroute::RerouteRules;
 use crate::log::Level;
 use crate::reaction::Reaction;
+use crate::redaction::Redaction;
 use crate::serde::fail_as_none;
 use crate::server::Server;
 use crate::target::join_targets;
@@ -312,6 +313,7 @@ pub struct Message {
     pub reactions: Vec<Reaction>,
     pub rerouted_from: Option<Target>,
     pub deduplicate: bool,
+    pub redaction: Option<Redaction>,
 }
 
 impl Message {
@@ -455,6 +457,7 @@ impl Message {
             reactions: vec![],
             rerouted_from,
             deduplicate,
+            redaction: None,
         })
     }
 
@@ -521,6 +524,7 @@ impl Message {
             reactions: vec![],
             rerouted_from,
             deduplicate,
+            redaction: None,
         };
 
         let highlight = highlight.and_then(|kind| {
@@ -590,6 +594,7 @@ impl Message {
             reactions: vec![],
             rerouted_from: None,
             deduplicate: false,
+            redaction: None,
         }
     }
 
@@ -626,6 +631,7 @@ impl Message {
             reactions: vec![],
             rerouted_from: None,
             deduplicate: false,
+            redaction: None,
         }
     }
 
@@ -660,6 +666,7 @@ impl Message {
             reactions: vec![],
             rerouted_from: None,
             deduplicate: false,
+            redaction: None,
         }
     }
 
@@ -749,6 +756,7 @@ impl Message {
             reactions: vec![],
             rerouted_from: None,
             deduplicate: false,
+            redaction: None,
         }
     }
 
@@ -797,6 +805,7 @@ impl Serialize for Message {
             #[serde(skip_serializing_if = "<[_]>::is_empty")]
             reactions: &'a [Reaction],
             rerouted_from: &'a Option<Target>,
+            redaction: &'a Option<Redaction>,
         }
 
         Data {
@@ -812,6 +821,7 @@ impl Serialize for Message {
             command: &self.command,
             reactions: &self.reactions,
             rerouted_from: &self.rerouted_from,
+            redaction: &self.redaction,
         }
         .serialize(serializer)
     }
@@ -845,6 +855,8 @@ impl<'de> Deserialize<'de> for Message {
             reactions: Vec<Reaction>,
             #[serde(default, deserialize_with = "fail_as_none")]
             rerouted_from: Option<Target>,
+            #[serde(default, deserialize_with = "fail_as_none")]
+            redaction: Option<Redaction>,
         }
 
         let Data {
@@ -860,6 +872,7 @@ impl<'de> Deserialize<'de> for Message {
             command,
             reactions,
             rerouted_from,
+            redaction,
         } = Data::deserialize(deserializer)?;
 
         let content = if let Some(content) = content {
@@ -893,6 +906,7 @@ impl<'de> Deserialize<'de> for Message {
             reactions,
             rerouted_from,
             deduplicate: false,
+            redaction,
         })
     }
 }
@@ -1086,6 +1100,7 @@ pub fn condense(
             reactions: vec![],
             rerouted_from: None,
             deduplicate: false,
+            redaction: None,
         }))
     } else {
         None
@@ -2752,6 +2767,7 @@ fn target(
         | Command::Numeric(_, _)
         | Command::Unknown(_, _)
         | Command::BOUNCER(_, _)
+        | Command::REDACT(_, _, _)
         | Command::Raw(_) => Some((
             Target::Server {
                 source: Source::Server(None),

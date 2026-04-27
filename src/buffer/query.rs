@@ -66,6 +66,7 @@ pub fn view<'a>(
     let server = &state.server;
     let connected = matches!(clients.status(server), client::Status::Connected);
     let can_send_reactions = clients.get_server_can_send_reactions(server);
+    let can_redact = clients.get_server_can_redact(server);
     let chantypes = clients.get_server_chantypes_or_default(server);
     let casemapping = clients.get_server_casemapping_or_default(server);
     let prefix = clients.get_server_prefix_or_default(server);
@@ -101,6 +102,7 @@ pub fn view<'a>(
         prefix,
         confirm_message_delivery,
         can_send_reactions,
+        can_redact,
         our_nick,
         connected,
         server,

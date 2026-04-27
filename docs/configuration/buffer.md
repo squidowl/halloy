@@ -1565,3 +1565,20 @@ Prompt before opening a hyperlink.
 [buffer.url]
 prompt_before_open = true
 ```
+
+## `redaction`
+
+Customize how redacted messages behave in buffers
+
+### `display`
+
+How to display redacted messages in the buffer.
+
+```toml
+# Type: string
+# Values: "none", "dimmed"
+# Default: "none"
+
+[buffer.redaction]
+display = "dimmed"
+```

@@ -14,11 +14,12 @@ pub use self::manager::{Manager, ReactionToEcho, Resource};
 pub use self::metadata::{Metadata, ReadMarker};
 use crate::capabilities::LabeledResponseContext;
 use crate::message::{self, Direction, MessageReferences, Source};
+use crate::redaction::Redaction;
 use crate::target::{self, Target};
 use crate::user::Nick;
 use crate::{
     Buffer, Message, Server, buffer, compression, config, environment,
-    isupport, reaction,
+    isupport, reaction, redaction,
 };
 
 pub mod filter;
@@ -267,16 +268,18 @@ pub async fn append(
     read_marker: Option<ReadMarker>,
     chathistory_references: Option<MessageReferences>,
     pending_reactions: HashMap<message::Id, reaction::Pending>,
+    pending_redactions: HashMap<message::Id, redaction::Pending>,
 ) -> Result<Vec<ReactionToEcho>, Error> {
     let loaded = load(kind.clone(), seed).await?;
 
     let mut pending_reactions_flushed: Vec<ReactionToEcho> = vec![];
 
     let mut all_messages = loaded.messages;
+
     // pending reactions should only exist for unloaded history entries
     for (id, pending) in pending_reactions.into_iter() {
         if let Some(message) =
-            find_reaction_target(&mut all_messages, &id, &pending.server_time)
+            find_message_target(&mut all_messages, &id, &pending.server_time)
         {
             if message.is_echo
                 && message.direction == Direction::Received
@@ -310,6 +313,15 @@ pub async fn append(
             );
         }
     }
+
+    for (id, pending) in pending_redactions.into_iter() {
+        if let Some(message) =
+            find_message_target(&mut all_messages, &id, &pending.server_time)
+        {
+            message.redaction = Some(pending.redaction);
+        }
+    }
+
     pending_messages.into_iter().for_each(
         |(message, labeled_response_context)| {
             insert_message(
@@ -382,6 +394,7 @@ pub enum History {
         chathistory_references: Option<MessageReferences>,
         last_seen: HashMap<Nick, DateTime<Utc>>,
         pending_reactions: HashMap<message::Id, reaction::Pending>,
+        pending_redactions: HashMap<message::Id, redaction::Pending>,
         show_in_sidebar: bool,
     },
     Full {
@@ -408,6 +421,7 @@ impl History {
             chathistory_references: None,
             last_seen: HashMap::new(),
             pending_reactions: HashMap::new(),
+            pending_redactions: HashMap::new(),
             show_in_sidebar: false,
         }
     }
@@ -701,6 +715,7 @@ impl History {
                 read_marker,
                 chathistory_references,
                 pending_reactions,
+                pending_redactions,
                 ..
             } => {
                 if let Some(last_received) = *last_updated_at
@@ -714,6 +729,7 @@ impl History {
                     let read_marker = *read_marker;
                     let chathistory_references = chathistory_references.clone();
                     let pending_reactions = std::mem::take(pending_reactions);
+                    let pending_redactions = std::mem::take(pending_redactions);
 
                     *last_updated_at = None;
 
@@ -726,6 +742,7 @@ impl History {
                                 read_marker,
                                 chathistory_references,
                                 pending_reactions,
+                                pending_redactions,
                             )
                             .await
                         }
@@ -819,6 +836,7 @@ impl History {
                         chathistory_references: chathistory_references.clone(),
                         last_seen,
                         pending_reactions: HashMap::new(),
+                        pending_redactions: HashMap::new(),
                         show_in_sidebar: true,
                     },
                 );
@@ -847,6 +865,7 @@ impl History {
                 read_marker,
                 chathistory_references,
                 pending_reactions,
+                pending_redactions,
                 ..
             } => append(
                 &kind,
@@ -855,6 +874,7 @@ impl History {
                 read_marker,
                 chathistory_references,
                 pending_reactions,
+                pending_redactions,
             )
             .await
             .map(|_| ()),
@@ -1140,7 +1160,7 @@ impl History {
                 last_updated_at,
                 ..
             } => {
-                let message = find_reaction_target(
+                let message = find_message_target(
                     messages,
                     &reaction.in_reply_to,
                     &reaction.server_time,
@@ -1163,6 +1183,59 @@ impl History {
             }
         }
         None
+    }
+
+    pub fn redact_message(
+        &mut self,
+        id: message::Id,
+        redaction: Redaction,
+        server_time: DateTime<Utc>,
+        display_redacted: bool,
+    ) {
+        match self {
+            History::Partial {
+                pending_messages,
+                last_updated_at,
+                pending_redactions,
+                ..
+            } => {
+                if let Some(message) =
+                    pending_messages.iter_mut().rev().find_map(|(m, _)| {
+                        (m.id.as_deref() == Some(&*id)).then_some(m)
+                    })
+                {
+                    message.redaction = Some(redaction);
+                } else {
+                    let pending = pending_redactions.entry(id).or_insert(
+                        redaction::Pending::new(redaction, server_time),
+                    );
+
+                    pending.server_time =
+                        (pending.server_time).min(server_time);
+                }
+
+                *last_updated_at = Some(Instant::now());
+            }
+            History::Full {
+                messages,
+                last_updated_at,
+                ..
+            } => {
+                let Some(message) =
+                    find_message_target(messages, &id, &server_time)
+                else {
+                    return;
+                };
+
+                message.redaction = Some(redaction);
+
+                if !display_redacted {
+                    message.blocked = true;
+                }
+
+                *last_updated_at = Some(Instant::now());
+            }
+        }
     }
 
     pub fn last_seen(&self) -> HashMap<Nick, DateTime<Utc>> {
@@ -1405,7 +1478,7 @@ pub fn get_last_seen(messages: &[Message]) -> HashMap<Nick, DateTime<Utc>> {
     last_seen
 }
 
-pub fn find_reaction_target<'a>(
+pub fn find_message_target<'a>(
     messages: &'a mut [Message],
     id: &message::Id,
     server_time: &DateTime<Utc>,

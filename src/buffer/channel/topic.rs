@@ -127,7 +127,7 @@ pub fn view<'a>(
                     )
                 }
                 message::Link::Url(_) =>
-                    context_menu::Entry::url_list(None, false),
+                    context_menu::Entry::url_list(None, false, false),
                 _ => vec![],
             },
             move |link, entry, length| {
