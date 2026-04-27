@@ -34,6 +34,8 @@ const MAX_MESSAGES: usize = 10_000;
 const TRUNC_COUNT: usize = 500;
 /// Duration to wait after receiving last message before flushing
 const FLUSH_AFTER_LAST_RECEIVED: Duration = Duration::from_secs(5);
+/// Duration to wait after receiving first message before flushing, regardless of activity
+const FLUSH_AFTER_FIRST_RECEIVED: Duration = Duration::from_secs(60);
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Kind {
@@ -388,6 +390,7 @@ pub enum History {
         kind: Kind,
         pending_messages: Vec<(Message, Option<LabeledResponseContext>)>, // Unordered
         last_updated_at: Option<Instant>,
+        first_updated_at: Option<Instant>,
         max_triggers_unread: Option<DateTime<Utc>>,
         max_triggers_highlight: Option<DateTime<Utc>>,
         read_marker: Option<ReadMarker>,
@@ -401,6 +404,7 @@ pub enum History {
         kind: Kind,
         messages: Vec<Message>, // Sorted by Message.server_time
         last_updated_at: Option<Instant>,
+        first_updated_at: Option<Instant>,
         read_marker: Option<ReadMarker>,
         display_read_marker: Option<ReadMarker>,
         chathistory_references: Option<MessageReferences>,
@@ -415,6 +419,7 @@ impl History {
             kind,
             pending_messages: vec![],
             last_updated_at: None,
+            first_updated_at: None,
             max_triggers_unread: None,
             max_triggers_highlight: None,
             read_marker: None,
@@ -557,15 +562,20 @@ impl History {
         match self {
             History::Partial {
                 last_updated_at,
+                first_updated_at,
                 last_seen,
                 ..
             }
             | History::Full {
                 last_updated_at,
+                first_updated_at,
                 last_seen,
                 ..
             } => {
                 *last_updated_at = Some(Instant::now());
+                if first_updated_at.is_none() {
+                    *first_updated_at = *last_updated_at;
+                }
 
                 update_last_seen(last_seen, &message);
             }
@@ -712,18 +722,30 @@ impl History {
                 kind,
                 pending_messages,
                 last_updated_at,
+                first_updated_at,
                 read_marker,
                 chathistory_references,
                 pending_reactions,
                 pending_redactions,
                 ..
             } => {
-                if let Some(last_received) = *last_updated_at
-                    && now.is_none_or(|now| {
-                        now.duration_since(last_received)
-                            >= FLUSH_AFTER_LAST_RECEIVED
-                    })
-                {
+                let should_flush_for_inactivity =
+                    last_updated_at.is_some_and(|last_received| {
+                        now.is_none_or(|now| {
+                            now.duration_since(last_received)
+                                >= FLUSH_AFTER_LAST_RECEIVED
+                        })
+                    });
+
+                let should_flush_for_age =
+                    first_updated_at.is_some_and(|first_received| {
+                        now.is_none_or(|now| {
+                            now.duration_since(first_received)
+                                >= FLUSH_AFTER_FIRST_RECEIVED
+                        })
+                    });
+
+                if should_flush_for_inactivity || should_flush_for_age {
                     let kind = kind.clone();
                     let pending_messages = std::mem::take(pending_messages);
                     let read_marker = *read_marker;
@@ -732,6 +754,7 @@ impl History {
                     let pending_redactions = std::mem::take(pending_redactions);
 
                     *last_updated_at = None;
+                    *first_updated_at = None;
 
                     return Some(
                         async move {
@@ -756,21 +779,35 @@ impl History {
                 kind,
                 messages,
                 last_updated_at,
+                first_updated_at,
                 read_marker,
                 chathistory_references,
                 ..
             } => {
-                if let Some(last_received) = *last_updated_at
-                    && now.is_none_or(|now| {
-                        now.duration_since(last_received)
-                            >= FLUSH_AFTER_LAST_RECEIVED
-                    })
+                let should_flush_for_inactivity =
+                    last_updated_at.is_some_and(|last_received| {
+                        now.is_none_or(|now| {
+                            now.duration_since(last_received)
+                                >= FLUSH_AFTER_LAST_RECEIVED
+                        })
+                    });
+
+                let should_flush_for_age =
+                    first_updated_at.is_some_and(|first_received| {
+                        now.is_none_or(|now| {
+                            now.duration_since(first_received)
+                                >= FLUSH_AFTER_FIRST_RECEIVED
+                        })
+                    });
+
+                if (should_flush_for_inactivity || should_flush_for_age)
                     && !messages.is_empty()
                 {
                     let kind = kind.clone();
                     let read_marker = *read_marker;
                     let chathistory_references = chathistory_references.clone();
                     *last_updated_at = None;
+                    *first_updated_at = None;
 
                     if messages.len() > MAX_MESSAGES {
                         messages.drain(
@@ -830,6 +867,7 @@ impl History {
                         kind,
                         pending_messages: vec![],
                         last_updated_at: None,
+                        first_updated_at: None,
                         read_marker,
                         max_triggers_unread,
                         max_triggers_highlight,
@@ -996,17 +1034,27 @@ impl History {
         &mut self,
         chathistory_references: MessageReferences,
     ) {
-        let (stored, last_updated_at) = match self {
+        let (stored, last_updated_at, first_updated_at) = match self {
             History::Partial {
                 chathistory_references: stored_chathistory_references,
                 last_updated_at,
+                first_updated_at,
                 ..
-            } => (stored_chathistory_references, last_updated_at),
+            } => (
+                stored_chathistory_references,
+                last_updated_at,
+                first_updated_at,
+            ),
             History::Full {
                 chathistory_references: stored_chathistory_references,
                 last_updated_at,
+                first_updated_at,
                 ..
-            } => (stored_chathistory_references, last_updated_at),
+            } => (
+                stored_chathistory_references,
+                last_updated_at,
+                first_updated_at,
+            ),
         };
 
         if stored
@@ -1015,6 +1063,9 @@ impl History {
         {
             *stored = Some(chathistory_references);
             *last_updated_at = Some(Instant::now());
+            if first_updated_at.is_none() {
+                *first_updated_at = *last_updated_at;
+            }
         }
     }
 
@@ -1075,6 +1126,7 @@ impl History {
         if let Self::Full {
             messages,
             last_updated_at,
+            first_updated_at,
             ..
         } = self
             && let Some(message) =
@@ -1083,6 +1135,9 @@ impl History {
             message.hidden_urls.insert(url);
 
             *last_updated_at = Some(Instant::now());
+            if first_updated_at.is_none() {
+                *first_updated_at = *last_updated_at;
+            }
         }
     }
 
@@ -1090,6 +1145,7 @@ impl History {
         if let Self::Full {
             messages,
             last_updated_at,
+            first_updated_at,
             ..
         } = self
             && let Some(message) =
@@ -1098,6 +1154,9 @@ impl History {
             message.hidden_urls.remove(url);
 
             *last_updated_at = Some(Instant::now());
+            if first_updated_at.is_none() {
+                *first_updated_at = *last_updated_at;
+            }
         }
     }
 
@@ -1110,6 +1169,7 @@ impl History {
             History::Partial {
                 pending_messages,
                 last_updated_at,
+                first_updated_at,
                 pending_reactions,
                 ..
             } => {
@@ -1154,10 +1214,14 @@ impl History {
                 }
 
                 *last_updated_at = Some(Instant::now());
+                if first_updated_at.is_none() {
+                    *first_updated_at = Some(Instant::now());
+                }
             }
             History::Full {
                 messages,
                 last_updated_at,
+                first_updated_at,
                 ..
             } => {
                 let message = find_message_target(
@@ -1168,6 +1232,9 @@ impl History {
                 message.reactions.push(reaction.inner.clone());
 
                 *last_updated_at = Some(Instant::now());
+                if first_updated_at.is_none() {
+                    *first_updated_at = Some(Instant::now());
+                }
 
                 if message.is_echo
                     && message.direction == Direction::Received
@@ -1196,6 +1263,7 @@ impl History {
             History::Partial {
                 pending_messages,
                 last_updated_at,
+                first_updated_at,
                 pending_redactions,
                 ..
             } => {
@@ -1215,10 +1283,14 @@ impl History {
                 }
 
                 *last_updated_at = Some(Instant::now());
+                if first_updated_at.is_none() {
+                    *first_updated_at = Some(Instant::now());
+                }
             }
             History::Full {
                 messages,
                 last_updated_at,
+                first_updated_at,
                 ..
             } => {
                 let Some(message) =
@@ -1234,6 +1306,9 @@ impl History {
                 }
 
                 *last_updated_at = Some(Instant::now());
+                if first_updated_at.is_none() {
+                    *first_updated_at = Some(Instant::now());
+                }
             }
         }
     }

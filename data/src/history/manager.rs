@@ -1299,6 +1299,7 @@ impl Data {
                 History::Partial {
                     pending_messages,
                     last_updated_at,
+                    first_updated_at,
                     read_marker: partial_read_marker,
                     chathistory_references: partial_chathistory_references,
                     last_seen,
@@ -1315,6 +1316,7 @@ impl Data {
                         .max(metadata::latest_can_reference(&messages));
 
                     let last_updated_at = *last_updated_at;
+                    let first_updated_at = *first_updated_at;
 
                     let mut last_seen = last_seen.clone();
 
@@ -1359,6 +1361,7 @@ impl Data {
                         kind,
                         messages,
                         last_updated_at,
+                        first_updated_at,
                         read_marker,
                         display_read_marker: read_marker,
                         chathistory_references,
@@ -1377,6 +1380,7 @@ impl Data {
                         kind,
                         messages,
                         last_updated_at: None,
+                        first_updated_at: None,
                         read_marker: metadata.read_marker,
                         display_read_marker: metadata.read_marker,
                         chathistory_references,
@@ -1396,6 +1400,7 @@ impl Data {
                     kind,
                     messages,
                     last_updated_at: None,
+                    first_updated_at: None,
                     read_marker: metadata.read_marker,
                     display_read_marker: metadata.read_marker,
                     chathistory_references,
