@@ -89,7 +89,7 @@ pub struct Url {
 #[derive(Debug, Clone, Deserialize, Default)]
 #[serde(default)]
 pub struct Redaction {
-    pub enabled: bool,
+    pub show: bool,
 }
 
 #[derive(Debug, Default, Clone, Deserialize)]

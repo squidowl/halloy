@@ -1570,9 +1570,9 @@ prompt_before_open = true
 
 Customize how redacted messages behave in buffers
 
-### `enabled`
+### `show`
 
-Whether to display redacted messages in the buffer
+Whether to display redacted messages in the buffer.  When redacted messages are displayed, they will be dimmed to signal they have been redacted.
 
 ```toml
 # Type: boolean
@@ -1580,5 +1580,5 @@ Whether to display redacted messages in the buffer
 # Default: false
 
 [buffer.redaction]
-enabled = true
+show = true
 ```

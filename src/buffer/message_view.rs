@@ -589,11 +589,11 @@ impl<'a> ChannelQueryLayout<'a> {
             message.redaction.as_ref()
         {
             match &redaction.reason {
-                Some(reason) => Some(format!(
+                Some(reason) if !reason.is_empty() => Some(format!(
                     "Message redacted by {}: {reason}",
                     redaction.from
                 )),
-                None => Some(format!("Message redacted by {}", redaction.from)),
+                _ => Some(format!("Message redacted by {}", redaction.from)),
             }
         } else {
             None
@@ -965,18 +965,16 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
             Element<'a, Message>,
             Vec<Element<'a, Message>>,
         ) = match message.target.source() {
-            message::Source::User(user) => {
-                (self.config.buffer.redaction.enabled
-                    || message.redaction.is_none())
-                .then(|| {
-                    self.format_user_message(
-                        message,
-                        right_aligned_width,
-                        user,
-                        hide_nickname,
-                    )
-                })
-            }
+            message::Source::User(user) => (self.config.buffer.redaction.show
+                || message.redaction.is_none())
+            .then(|| {
+                self.format_user_message(
+                    message,
+                    right_aligned_width,
+                    user,
+                    hide_nickname,
+                )
+            }),
             message::Source::Server(server_message) => {
                 Some(self.format_server_message(
                     message,
