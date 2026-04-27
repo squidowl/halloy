@@ -2754,6 +2754,13 @@ fn show_while_typing(error: &input::Error) -> bool {
     }
 }
 
+// arboard returns paths ending with \r
+fn clean_path(path: &std::path::Path) -> std::path::PathBuf {
+    let path_string = path.to_string_lossy();
+    let cleaned = path_string.trim_end_matches(|c: char| c.is_control());
+    std::path::PathBuf::from(cleaned)
+}
+
 fn try_clipboard_upload() -> Option<std::path::PathBuf> {
     // macos needs special treatment
     #[cfg(target_os = "macos")]
@@ -2762,20 +2769,30 @@ fn try_clipboard_upload() -> Option<std::path::PathBuf> {
     }
 
     let mut cb = arboard::Clipboard::new().ok()?;
-    let img = cb.get_image().ok()?;
 
-    let rgba: image::RgbaImage = image::ImageBuffer::from_raw(
-        img.width as u32,
-        img.height as u32,
-        img.bytes.into_owned(),
-    )?;
+    if let Ok(img) = cb.get().image() {
+        let rgba: image::RgbaImage = image::ImageBuffer::from_raw(
+            img.width as u32,
+            img.height as u32,
+            img.bytes.into_owned(),
+        )?;
 
-    let path = std::env::temp_dir()
-        .join(format!("halloy-paste-{}.png", uuid::Uuid::new_v4()));
+        let path = std::env::temp_dir()
+            .join(format!("halloy-paste-{}.png", uuid::Uuid::new_v4()));
 
-    rgba.save(&path).ok()?;
+        rgba.save(&path).ok()?;
 
-    Some(path)
+        return Some(path);
+    } else if let Ok(file_list) = cb.get().file_list()
+        && let Some(file) = file_list.first()
+    {
+        let path = clean_path(file);
+        if path.is_file() {
+            return Some(path);
+        }
+    }
+
+    None
 }
 
 #[cfg(target_os = "macos")]
