@@ -3276,10 +3276,10 @@ impl Dashboard {
         &mut self,
         server: &Server,
         redaction: redaction::Context,
-        show_redacted: bool,
+        display_redacted: bool,
     ) {
         self.history
-            .redact_message(server, redaction, show_redacted);
+            .redact_message(server, redaction, display_redacted);
     }
 
     pub fn is_focused_and_at_bottom(

@@ -1190,7 +1190,7 @@ impl History {
         id: message::Id,
         redaction: Redaction,
         server_time: DateTime<Utc>,
-        show_redacted: bool,
+        display_redacted: bool,
     ) {
         match self {
             History::Partial {
@@ -1229,7 +1229,7 @@ impl History {
 
                 message.redaction = Some(redaction);
 
-                if !show_redacted {
+                if !display_redacted {
                     message.blocked = true;
                 }
 

@@ -479,7 +479,7 @@ impl Manager {
         &mut self,
         server: &Server,
         redaction: redaction::Context,
-        show_redacted: bool,
+        display_redacted: bool,
     ) -> Option<impl Future<Output = Message> + use<>> {
         let kind = history::Kind::from_target(
             server.clone(),
@@ -490,7 +490,7 @@ impl Manager {
             redaction.id,
             redaction.inner,
             redaction.server_time,
-            show_redacted,
+            display_redacted,
         )
     }
 
@@ -1050,7 +1050,8 @@ impl Manager {
             messages.iter_mut().for_each(|message| {
                 message.blocked = false;
 
-                if message.redaction.is_some() && !buffer_config.redaction.show
+                if message.redaction.is_some()
+                    && !buffer_config.redaction.display.is_dimmed()
                 {
                     message.blocked = true;
                 } else {
@@ -1977,7 +1978,7 @@ impl Data {
         id: message::Id,
         redaction: Redaction,
         server_time: DateTime<Utc>,
-        show_redacted: bool,
+        display_redacted: bool,
     ) -> Option<impl Future<Output = Message> + use<>> {
         match self.map.entry(kind.clone()) {
             hash_map::Entry::Occupied(mut entry) => {
@@ -1985,7 +1986,7 @@ impl Data {
                     id,
                     redaction,
                     server_time,
-                    show_redacted,
+                    display_redacted,
                 );
 
                 None
@@ -1995,7 +1996,7 @@ impl Data {
                     id,
                     redaction,
                     server_time,
-                    show_redacted,
+                    display_redacted,
                 );
 
                 Some(

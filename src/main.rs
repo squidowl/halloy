@@ -1824,7 +1824,7 @@ fn handle_client_events(
                     dashboard.redact_message(
                         server,
                         redaction,
-                        config.buffer.redaction.show,
+                        config.buffer.redaction.display.is_dimmed(),
                     );
                 }
             }

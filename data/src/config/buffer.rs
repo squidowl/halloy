@@ -6,6 +6,7 @@ use iced::Color;
 use serde::{Deserialize, Deserializer};
 
 pub use self::channel::{Channel, ChannelNameCasing};
+pub use self::redaction::Redaction;
 pub use self::typing::{Animation, Style, Typing};
 pub use crate::appearance::theme::{alpha_color, alpha_color_calculate};
 use crate::config::buffer::nickname::Nickname;
@@ -20,6 +21,7 @@ use crate::{Server, isupport};
 pub mod channel;
 pub mod hide_consecutive;
 pub mod nickname;
+pub mod redaction;
 pub mod text_input;
 pub mod typing;
 
@@ -84,12 +86,6 @@ impl Default for Emojis {
 #[serde(default)]
 pub struct Url {
     pub prompt_before_open: bool,
-}
-
-#[derive(Debug, Clone, Deserialize, Default)]
-#[serde(default)]
-pub struct Redaction {
-    pub show: bool,
 }
 
 #[derive(Debug, Default, Clone, Deserialize)]
