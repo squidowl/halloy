@@ -100,7 +100,12 @@ impl Pane {
                 ]
                 .into()
             }
-            Buffer::Server(state) => text(state.server.to_string()).into(),
+            Buffer::Server(state) => text(state.server.to_string())
+                .style(|theme| theme::text::server(theme, None))
+                .font_maybe(
+                    theme::font_style::server(theme, None).map(font::get),
+                )
+                .into(),
             Buffer::Query(state) => query_title(
                 &state.server,
                 &state.target,
