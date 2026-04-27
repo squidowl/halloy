@@ -2963,6 +2963,14 @@ impl Dashboard {
 
         self.last_changed = Some(Instant::now());
 
+        if let Some(upstream) = buffer.upstream()
+            && let server = upstream.server()
+            && let Some(channel) = upstream.channel()
+            && let Some(client) = clients.client_mut(server)
+        {
+            client.prioritize_joined_who_poll(channel.to_owned());
+        }
+
         match buffer_action {
             BufferAction::ReplacePane => {
                 // If buffer already is open, we swap it with focused pane.
@@ -4471,10 +4479,6 @@ impl Dashboard {
             clients.join(&server, slice::from_ref(&channel));
         }
 
-        if let Some(client) = clients.client_mut(&server) {
-            client.prioritize_joined_who_poll(channel);
-        }
-
         self.open_buffer(
             data::Buffer::Upstream(buffer),
             buffer_action,
@@ -4614,6 +4618,24 @@ impl Dashboard {
                 (win == w && !matches!(pane.buffer, Buffer::Empty))
                     .then_some(pane.buffer.to_string())
             })
+        }
+    }
+
+    pub fn prioritize_panes_joined_who_polls(
+        &self,
+        server: &data::Server,
+        clients: &mut client::Map,
+    ) {
+        if let Some(client) = clients.client_mut(server) {
+            for (_, _, pane) in self.panes.iter() {
+                if let Some(buffer) = pane.buffer.data()
+                    && let Some(upstream) = buffer.upstream()
+                    && upstream.server() == server
+                    && let Some(channel) = upstream.channel()
+                {
+                    client.prioritize_joined_who_poll(channel.to_owned());
+                }
+            }
         }
     }
 }

@@ -1793,19 +1793,11 @@ impl Client {
                     );
 
                     // Add channel to WHO poll queue
-                    if !self.who_polls.iter().any(|who_poll| {
-                        who_poll.channel == target_channel
-                            && (!self
-                                .capabilities
-                                .acknowledged(Capability::NoImplicitNames)
-                                || (self
-                                    .capabilities
-                                    .acknowledged(Capability::NoImplicitNames)
-                                    && matches!(
-                                        who_poll.status,
-                                        WhoStatus::Joined
-                                    )))
-                    }) {
+                    if !self
+                        .who_polls
+                        .iter()
+                        .any(|who_poll| who_poll.channel == target_channel)
+                    {
                         self.who_polls.push_front(WhoPoll {
                             channel: target_channel.clone(),
                             status: WhoStatus::Joined,
@@ -4163,7 +4155,10 @@ impl Client {
                             },
                         )
                     } else {
-                        (self.config.who_poll_enabled
+                        ((self
+                            .capabilities
+                            .acknowledged(Capability::NoImplicitNames)
+                            || self.config.who_poll_enabled)
                             && (now.duration_since(*last)
                                 >= self.who_poll_interval.duration()))
                         .then_some(Request::Poll)
@@ -4381,11 +4376,11 @@ impl Client {
     pub fn prioritize_joined_who_poll(&mut self, channel: target::Channel) {
         if let Some(pos) = self.who_polls.iter().position(|who_poll| {
             who_poll.channel == channel
-                && (matches!(who_poll.status, WhoStatus::Joined)
-                    || matches!(who_poll.status, WhoStatus::Received))
+                && matches!(who_poll.status, WhoStatus::Joined)
         }) && pos != 0
             && let Some(mut who_poll) = self.who_polls.remove(pos)
         {
+            log::debug!("prioritizing who poll for: {channel:?}");
             who_poll.status = WhoStatus::Waiting(Instant::now());
             self.who_polls.push_front(who_poll);
         }
