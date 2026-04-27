@@ -410,16 +410,15 @@ impl<'a> ChannelQueryLayout<'a> {
             dimmed_background_tuple,
         );
 
-        let (user_display, show_nickname_tooltip) =
-            user_in_channel.unwrap_or(user).display_with_truncated(
+        let (user_display, show_nickname_tooltip) = user
+            .display_with_truncated(
                 with_access_levels,
                 show_bot_icon,
                 truncate,
                 truncation_character,
             );
 
-        let is_bot =
-            user_in_channel.map_or_else(|| user.is_bot(), User::is_bot);
+        let is_bot = user.is_bot();
         let show_bot_icon = is_bot && self.config.buffer.nickname.show_bot_icon;
         let brackets = &self.config.buffer.nickname.brackets;
 

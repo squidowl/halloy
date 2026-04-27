@@ -116,8 +116,9 @@ impl Serialize for User {
             .hostname()
             .map(|hostname| format!("@{hostname}"))
             .unwrap_or_default();
+        let is_bot = if self.is_bot() { ":" } else { "" };
 
-        format!("{access_levels} {nickname}{username}{hostname}")
+        format!("{access_levels}{is_bot} {nickname}{username}{hostname}")
             .serialize(serializer)
     }
 }
@@ -129,11 +130,12 @@ impl<'de> Deserialize<'de> for User {
     {
         let value = String::deserialize(deserializer)?;
 
-        if let Some((access_levels, names)) = value.split_once(' ') {
-            let access_levels = access_levels
+        if let Some((access_levels_and_is_bot, names)) = value.split_once(' ') {
+            let access_levels = access_levels_and_is_bot
                 .chars()
                 .filter_map(|c| AccessLevel::try_from(c).ok())
                 .collect::<BTreeSet<_>>();
+            let is_bot = access_levels_and_is_bot.ends_with(':');
 
             let (nickname, username, hostname) =
                 parse_user_names(names, isupport::CaseMap::default());
@@ -145,7 +147,7 @@ impl<'de> Deserialize<'de> for User {
                 accountname: None,
                 access_levels,
                 away: false,
-                bot: false,
+                bot: is_bot,
             })
         } else {
             // Older format for user string, with no space; attempt to parse

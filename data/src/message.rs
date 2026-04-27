@@ -276,6 +276,16 @@ impl Target {
             | Target::Highlights { .. } => None,
         }
     }
+
+    pub fn channel(&self) -> Option<&target::Channel> {
+        match self {
+            Target::Channel { channel, .. } => Some(channel),
+            Target::Query { .. }
+            | Target::Server { .. }
+            | Target::Logs { .. }
+            | Target::Highlights { .. } => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
@@ -402,8 +412,19 @@ impl Message {
         let is_echo = encoded
             .user(casemapping)
             .is_some_and(|user| user.nickname() == our_nick);
-        let (content, _) = content(
+        let (target, rerouted_from) = target(
             &encoded,
+            &our_nick,
+            reroute_rules,
+            &resolve_attributes,
+            server,
+            chantypes,
+            statusmsg,
+            casemapping,
+        )?;
+        let (content, _) = content(
+            encoded,
+            &target,
             &our_nick,
             config,
             &resolve_attributes,
@@ -413,16 +434,6 @@ impl Message {
             statusmsg,
             casemapping,
             prefix,
-        )?;
-        let (target, rerouted_from) = target(
-            encoded,
-            &our_nick,
-            reroute_rules,
-            &resolve_attributes,
-            server,
-            chantypes,
-            statusmsg,
-            casemapping,
         )?;
         let received_at = Posix::now();
         let hash = Hash::new(&server_time, &content);
@@ -467,8 +478,19 @@ impl Message {
         let is_echo = encoded
             .user(casemapping)
             .is_some_and(|user| user.nickname() == our_nick);
-        let (content, highlight) = content(
+        let (target, rerouted_from) = target(
             &encoded,
+            &our_nick,
+            reroute_rules,
+            &resolve_attributes,
+            server,
+            chantypes,
+            statusmsg,
+            casemapping,
+        )?;
+        let (content, highlight) = content(
+            encoded,
+            &target,
             &our_nick,
             config,
             &resolve_attributes,
@@ -478,16 +500,6 @@ impl Message {
             statusmsg,
             casemapping,
             prefix,
-        )?;
-        let (target, rerouted_from) = target(
-            encoded,
-            &our_nick,
-            reroute_rules,
-            &resolve_attributes,
-            server,
-            chantypes,
-            statusmsg,
-            casemapping,
         )?;
         let received_at = Posix::now();
         let hash = Hash::new(&server_time, &content);
@@ -2166,7 +2178,7 @@ impl From<formatting::Fragment> for Fragment {
 }
 
 fn target(
-    message: Encoded,
+    message: &Encoded,
     our_nick: &Nick,
     reroute_rules: &RerouteRules,
     resolve_attributes: &dyn Fn(&User, &target::Channel) -> Option<User>,
@@ -2179,11 +2191,11 @@ fn target(
 
     let user = message.user(casemapping);
 
-    match message.0.command {
+    match &message.command {
         // Channel
         Command::MODE(target, ..) => {
             if let Ok(channel) = target::Channel::parse(
-                &target,
+                target,
                 chantypes,
                 statusmsg,
                 casemapping,
@@ -2210,7 +2222,7 @@ fn target(
         }
         Command::TOPIC(channel, _) => {
             let channel = target::Channel::parse(
-                &channel,
+                channel,
                 chantypes,
                 statusmsg,
                 casemapping,
@@ -2231,7 +2243,7 @@ fn target(
         }
         Command::KICK(channel, victim, _) => {
             let channel = target::Channel::parse(
-                &channel,
+                channel,
                 chantypes,
                 statusmsg,
                 casemapping,
@@ -2255,7 +2267,7 @@ fn target(
         }
         Command::PART(channel, _) => {
             let channel = target::Channel::parse(
-                &channel,
+                channel,
                 chantypes,
                 statusmsg,
                 casemapping,
@@ -2286,7 +2298,7 @@ fn target(
         )),
         Command::JOIN(channel, _) => {
             let channel = target::Channel::parse(
-                &channel,
+                channel,
                 chantypes,
                 statusmsg,
                 casemapping,
@@ -2306,7 +2318,7 @@ fn target(
             ))
         }
         Command::NICK(new_nick) => {
-            let new_nick = Nick::from_string(new_nick, casemapping);
+            let new_nick = Nick::from_str(new_nick, casemapping);
 
             Some((
                 Target::Server {
@@ -2400,8 +2412,7 @@ fn target(
                 None,
             ))
         }
-        Command::PRIVMSG(ref target, ref text)
-        | Command::NOTICE(ref target, ref text) => {
+        Command::PRIVMSG(target, text) | Command::NOTICE(target, text) => {
             let is_notice = matches!(message.0.command, Command::NOTICE(_, _));
             let is_privmsg =
                 matches!(message.0.command, Command::PRIVMSG(_, _));
@@ -2445,14 +2456,14 @@ fn target(
             // CTCP Handling.
             let (target, rerouted_from) = if ctcp::is_query(text) && !is_action
             {
-                let user = user?;
+                let user = user.as_ref()?;
                 let target = User::from(Nick::from_str(target, casemapping));
 
                 // We want to show both requests, and responses in query with the client.
                 let user = if user.nickname() == *our_nick {
                     target
                 } else {
-                    user
+                    user.clone()
                 };
 
                 (
@@ -2470,11 +2481,12 @@ fn target(
                         statusmsg,
                         casemapping,
                     ),
-                    user,
+                    &user,
                 ) {
                     (target::Target::Channel(channel), Some(user)) => {
                         let source = source(
-                            resolve_attributes(&user, &channel).unwrap_or(user),
+                            resolve_attributes(user, &channel)
+                                .unwrap_or(user.clone()),
                         );
                         (Target::Channel { channel, source }, None)
                     }
@@ -2496,7 +2508,7 @@ fn target(
 
                         let target = Target::Query {
                             query,
-                            source: source(user),
+                            source: source(user.clone()),
                         };
 
                         if is_privmsg
@@ -2534,9 +2546,18 @@ fn target(
                 message.channel_context(chantypes, statusmsg, casemapping);
 
             Some(if let Some(channel_context) = channel_context {
+                // Resolve attributes in the context channel
+                let source =
+                    user.as_ref().map_or(Source::Server(None), |user| {
+                        source(
+                            resolve_attributes(user, &channel_context)
+                                .unwrap_or(user.clone()),
+                        )
+                    });
+
                 let channel_context = Target::Channel {
                     channel: channel_context,
-                    source: target.source().clone(),
+                    source,
                 };
 
                 if rerouted_from.is_some() {
@@ -2544,6 +2565,23 @@ fn target(
                 } else {
                     (channel_context, Some(target))
                 }
+            } else if rerouted_from.is_some()
+                && let Target::Channel { channel, source } = target
+            {
+                // Resolve attributes in the target channel
+                let source = match source {
+                    Source::User(user) => Source::User(
+                        resolve_attributes(&user, &channel).unwrap_or(user),
+                    ),
+                    Source::Action(Some(user)) => Source::Action(Some(
+                        resolve_attributes(&user, &channel).unwrap_or(user),
+                    )),
+                    Source::Action(None)
+                    | Source::Server(_)
+                    | Source::Internal(_) => source,
+                };
+
+                (Target::Channel { channel, source }, rerouted_from)
             } else {
                 (target, rerouted_from)
             })
@@ -2632,7 +2670,7 @@ fn target(
             }
         }
         Command::INVITE(invitee, channel) => {
-            let invitee = User::from(Nick::from_string(invitee, casemapping));
+            let invitee = User::from(Nick::from_str(invitee, casemapping));
 
             if invitee.nickname() == *our_nick {
                 if let Some(user) = user {
@@ -2654,7 +2692,7 @@ fn target(
             }
 
             let channel = target::Channel::parse(
-                &channel,
+                channel,
                 chantypes,
                 statusmsg,
                 casemapping,
@@ -2726,7 +2764,8 @@ fn target(
 pub type Id = Arc<str>;
 
 fn content<'a>(
-    message: &Encoded,
+    message: Encoded,
+    message_target: &Target,
     our_nick: &Nick,
     config: &Config,
     resolve_attributes: &dyn Fn(&User, &target::Channel) -> Option<User>,
@@ -2994,7 +3033,8 @@ fn content<'a>(
 
             let user = message.user(casemapping);
 
-            let channel_users = target.as_channel().and_then(channel_users);
+            let channel_users =
+                message_target.channel().and_then(channel_users);
 
             // Check if a synthetic action message
 
@@ -3866,7 +3906,7 @@ pub mod tests {
             let encoded = proto::parse::message(irc_message).unwrap();
 
             let actual = message::target(
-                message::Encoded(encoded),
+                &message::Encoded(encoded),
                 &our_nick,
                 &reroute_rules,
                 &|_: &User, _: &target::Channel| None,
