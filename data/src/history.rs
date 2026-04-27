@@ -1190,6 +1190,7 @@ impl History {
         id: message::Id,
         redaction: Redaction,
         server_time: DateTime<Utc>,
+        show_redacted: bool,
     ) {
         match self {
             History::Partial {
@@ -1225,7 +1226,12 @@ impl History {
                 else {
                     return;
                 };
+
                 message.redaction = Some(redaction);
+
+                if !show_redacted {
+                    message.blocked = true;
+                }
 
                 *last_updated_at = Some(Instant::now());
             }

@@ -965,16 +965,12 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
             Element<'a, Message>,
             Vec<Element<'a, Message>>,
         ) = match message.target.source() {
-            message::Source::User(user) => (self.config.buffer.redaction.show
-                || message.redaction.is_none())
-            .then(|| {
-                self.format_user_message(
-                    message,
-                    right_aligned_width,
-                    user,
-                    hide_nickname,
-                )
-            }),
+            message::Source::User(user) => Some(self.format_user_message(
+                message,
+                right_aligned_width,
+                user,
+                hide_nickname,
+            )),
             message::Source::Server(server_message) => {
                 Some(self.format_server_message(
                     message,

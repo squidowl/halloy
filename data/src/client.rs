@@ -4243,16 +4243,8 @@ fn continue_chathistory_between(
             | Event::PrivOrNotice { message, .. }
             | Event::WithTarget { message, .. }
             | Event::DirectMessage(message, _, _)
-            | Event::Reaction { message, .. } => match end_message_reference {
-                MessageReference::MessageId(_) => {
-                    message.message_id().map(MessageReference::MessageId)
-                }
-                MessageReference::Timestamp(_) => Some(
-                    MessageReference::Timestamp(message.server_time_or_now()),
-                ),
-                MessageReference::None => None,
-            },
-            Event::Redaction(message, _) => match end_message_reference {
+            | Event::Reaction { message, .. }
+            | Event::Redaction(message, _) => match end_message_reference {
                 MessageReference::MessageId(_) => {
                     message.message_id().map(MessageReference::MessageId)
                 }

@@ -1466,6 +1466,10 @@ impl Halloy {
                         &self.config.buffer,
                     );
 
+                    // If redaction settings are changed then history needs to
+                    // be reprocessed; that is already performed by
+                    // update_filters, so it does not need to be done again.
+
                     return dashboard
                         .reload_visible_previews(&self.clients, &self.config)
                         .map(Message::Dashboard);
@@ -1817,7 +1821,11 @@ fn handle_client_events(
                     clients.get_server_statusmsg_or_default(server),
                     clients.get_server_casemapping_or_default(server),
                 ) {
-                    dashboard.redact_message(server, redaction);
+                    dashboard.redact_message(
+                        server,
+                        redaction,
+                        config.buffer.redaction.show,
+                    );
                 }
             }
         }
