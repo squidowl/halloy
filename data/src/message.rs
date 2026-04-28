@@ -55,7 +55,7 @@ static URL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
 
 // Restrict characters per spec: https://modern.ircdocs.horse/#channels
 static CHANNEL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-    RegexBuilder::new(r#"(?i)(?<!\w)#([^ ,\x07]+)(?!\w)"#)
+    RegexBuilder::new(r#"(?i)(?<!\w)#([^\s,\x07]+)(?!\w)"#)
         .build()
         .unwrap()
 });
@@ -3995,6 +3995,14 @@ pub mod tests {
                     Fragment::Text(" and ".into()),
                     Fragment::Channel("#channel2".into()),
                     Fragment::Text(").".into()),
+                ],
+            ),
+            (
+                "testing new line #match\ning.",
+                vec![
+                    Fragment::Text("testing new line ".into()),
+                    Fragment::Channel("#match".into()),
+                    Fragment::Text("\ning.".into()),
                 ],
             ),
             (
