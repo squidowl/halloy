@@ -1741,7 +1741,8 @@ impl Client {
                 })]);
             }
             Command::PART(channel, _) => {
-                let user = ok!(message.user(self.casemapping()));
+                let casemapping = self.casemapping();
+                let user = ok!(message.user(casemapping));
 
                 if user.nickname() == self.nickname() {
                     self.chanmap.shift_remove(&context!(
@@ -1752,6 +1753,21 @@ impl Client {
                             self.casemapping(),
                         )
                     ));
+
+                    // Remove departed channel who polls from queue
+                    let target_channel = context!(target::Channel::parse(
+                        channel,
+                        self.chantypes(),
+                        self.statusmsg(),
+                        casemapping,
+                    ));
+                    if let Some(pos) = self
+                        .who_polls
+                        .iter()
+                        .position(|who_poll| who_poll.channel == target_channel)
+                    {
+                        self.who_polls.remove(pos);
+                    }
                 } else if let Some(channel) =
                     self.chanmap.get_mut(&context!(target::Channel::parse(
                         channel,
@@ -2117,6 +2133,28 @@ impl Client {
                             && self.config.who_poll_enabled
                         {
                             self.who_polls.push_back(who_poll);
+                        }
+
+                        // Prioritize WHO requests due to joining a channel
+                        if let Some(pos) = self
+                            .who_polls
+                            .iter()
+                            .position(|who_poll| {
+                                matches!(who_poll.status, WhoStatus::Joined)
+                            })
+                            .or(self.who_polls.iter().position(|who_poll| {
+                                matches!(who_poll.status, WhoStatus::Received)
+                            }))
+                        {
+                            self.who_polls[pos].status =
+                                WhoStatus::Waiting(Instant::now());
+
+                            if pos != 0
+                                && let Some(who_poll) =
+                                    self.who_polls.remove(pos)
+                            {
+                                self.who_polls.push_front(who_poll);
+                            }
                         }
                     }
 
@@ -4374,14 +4412,14 @@ impl Client {
     }
 
     pub fn prioritize_joined_who_poll(&mut self, channel: target::Channel) {
-        if let Some(pos) = self.who_polls.iter().position(|who_poll| {
-            who_poll.channel == channel
-                && matches!(who_poll.status, WhoStatus::Joined)
-        }) && pos != 0
-            && let Some(mut who_poll) = self.who_polls.remove(pos)
+        if let Some(pos) = self
+            .who_polls
+            .iter()
+            .position(|who_poll| who_poll.channel == channel)
+            && pos != 0
+            && let Some(who_poll) = self.who_polls.remove(pos)
         {
             log::debug!("prioritizing who poll for: {channel:?}");
-            who_poll.status = WhoStatus::Waiting(Instant::now());
             self.who_polls.push_front(who_poll);
         }
     }
