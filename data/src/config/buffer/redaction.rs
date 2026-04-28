@@ -9,8 +9,8 @@ pub struct Redaction {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Default)]
 #[serde(rename_all = "kebab-case")]
 pub enum Display {
-    #[default]
     None,
+    #[default]
     Redacted,
     Dimmed,
 }
