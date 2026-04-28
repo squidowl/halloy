@@ -36,12 +36,13 @@ pub(crate) fn formatted_buffer_nickname(
         truncate,
         config.display.truncation_character,
     ));
+    let query = Query::from(user);
 
     data::config::display::nickname::format(
         &nickname,
         &config.display.nickname,
-        registry.display_name(TargetRef::Query(&Query::from(user))),
-        registry.pronouns(&Query::from(user)),
+        registry.display_name(TargetRef::Query(&query)),
+        registry.pronouns(&query),
     )
 }
 
@@ -469,8 +470,6 @@ impl<'a> ChannelQueryLayout<'a> {
         let nick_open = format!("{}{}", brackets.left, &*user_display);
         let nick_close = brackets.right.as_str();
         let nick_text = formatted_buffer_nickname(user, self.config, registry);
-        let display_name =
-            registry.display_name(TargetRef::Query(&Query::from(user)));
 
         let nick_element: Element<_> = if hide_nickname {
             let width = match self.config.buffer.nickname.alignment {
@@ -492,7 +491,9 @@ impl<'a> ChannelQueryLayout<'a> {
             };
             Space::new().width(width).into()
         } else {
-            let pronouns = registry.pronouns(&Query::from(user));
+            let query = Query::from(user);
+            let display_name = registry.display_name(TargetRef::Query(&query));
+            let pronouns = registry.pronouns(&query);
             let metadata = &self.config.display.nickname;
             let display_name = metadata
                 .contains(
