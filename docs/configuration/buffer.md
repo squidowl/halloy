@@ -243,7 +243,7 @@ Control if topic banner should be shown or not by default.
 ```toml
 # Type: boolean
 # Values: true, false
-# Default: false
+# Default: true
 
 [buffer.channel.topic_banner]
 enabled = true
@@ -982,7 +982,7 @@ Control if server message type is enabled.
 ```toml
 # Type: boolean
 # Values: true, false
-# Default: true
+# Default: true (except for topic, which is false)
 
 [buffer.server_messages.<server_message>]
 enabled = true

@@ -341,7 +341,7 @@ impl<'de> Deserialize<'de> for Away {
     }
 }
 
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
 pub struct ServerMessages {
     pub condense: Condensation,
@@ -363,6 +363,35 @@ pub struct ServerMessages {
     pub away: ServerMessage,
     pub invite: ServerMessage,
     pub default: ServerMessageDefault,
+}
+
+impl Default for ServerMessages {
+    fn default() -> Self {
+        Self {
+            condense: Condensation::default(),
+            topic: ServerMessage {
+                enabled: Some(false),
+                ..ServerMessage::default()
+            },
+            join: ServerMessage::default(),
+            part: ServerMessage::default(),
+            quit: ServerMessage::default(),
+            change_host: ServerMessage::default(),
+            change_mode: ServerMessage::default(),
+            change_nick: ServerMessage::default(),
+            monitored_online: ServerMessage::default(),
+            monitored_offline: ServerMessage::default(),
+            standard_reply_fail: ServerMessage::default(),
+            standard_reply_warn: ServerMessage::default(),
+            standard_reply_note: ServerMessage::default(),
+            wallops: ServerMessage::default(),
+            kick: ServerMessage::default(),
+            change_topic: ServerMessage::default(),
+            away: ServerMessage::default(),
+            invite: ServerMessage::default(),
+            default: ServerMessageDefault::default(),
+        }
+    }
 }
 
 impl ServerMessages {
