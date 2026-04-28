@@ -149,6 +149,10 @@ impl Encoded {
         self.server_time().unwrap_or_else(Utc::now)
     }
 
+    pub fn from_bot(&self) -> bool {
+        self.tags.contains_key("bot")
+    }
+
     pub fn channel_context(
         &self,
         chantypes: &[char],
@@ -2204,7 +2208,15 @@ fn target(
 ) -> Option<(Target, Option<Target>)> {
     use proto::command::Numeric::*;
 
-    let user = message.user(casemapping);
+    let update_bot = |mut user: User| -> User {
+        if message.from_bot() {
+            user.update_bot(true);
+        }
+
+        user
+    };
+
+    let user = message.user(casemapping).map(&update_bot);
 
     match &message.command {
         // Channel
@@ -2501,7 +2513,7 @@ fn target(
                     (target::Target::Channel(channel), Some(user)) => {
                         let source = source(
                             resolve_attributes(user, &channel)
-                                .unwrap_or(user.clone()),
+                                .map_or(user.clone(), &update_bot),
                         );
                         (Target::Channel { channel, source }, None)
                     }
@@ -2566,7 +2578,7 @@ fn target(
                     user.as_ref().map_or(Source::Server(None), |user| {
                         source(
                             resolve_attributes(user, &channel_context)
-                                .unwrap_or(user.clone()),
+                                .map_or(user.clone(), &update_bot),
                         )
                     });
 
@@ -2586,10 +2598,12 @@ fn target(
                 // Resolve attributes in the target channel
                 let source = match source {
                     Source::User(user) => Source::User(
-                        resolve_attributes(&user, &channel).unwrap_or(user),
+                        resolve_attributes(&user, &channel)
+                            .map_or(user, &update_bot),
                     ),
                     Source::Action(Some(user)) => Source::Action(Some(
-                        resolve_attributes(&user, &channel).unwrap_or(user),
+                        resolve_attributes(&user, &channel)
+                            .map_or(user, &update_bot),
                     )),
                     Source::Action(None)
                     | Source::Server(_)
@@ -3230,7 +3244,8 @@ fn content<'a>(
             ))
         }
         Command::Numeric(
-            RPL_WHOISCERTFP | RPL_WHOISHOST | RPL_WHOISSECURE,
+            RPL_WHOISCERTFP | RPL_WHOISHOST | RPL_WHOISSECURE | RPL_WHOISBOT
+            | RPL_WHOISMODES,
             params,
         ) => {
             let user: User = User::from(Nick::from_str(
@@ -3259,22 +3274,6 @@ fn content<'a>(
             Some((
                 parse_fragments_with_user(
                     format!("{} {status_text} {account}", user.nickname()),
-                    &user,
-                    casemapping,
-                ),
-                None,
-            ))
-        }
-        Command::Numeric(RPL_WHOISBOT, params) => {
-            let user: User = User::from(Nick::from_str(
-                params.get(1)?.as_str(),
-                casemapping,
-            ));
-            let status_text = params.get(2)?;
-
-            Some((
-                parse_fragments_with_user(
-                    format!("{} {status_text}", user.nickname()),
                     &user,
                     casemapping,
                 ),
