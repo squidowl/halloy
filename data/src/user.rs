@@ -412,6 +412,33 @@ impl User {
         })
     }
 
+    pub fn has_matching_display(
+        &self,
+        other: &User,
+        with_access_levels: AccessLevelFormat,
+        show_bot_icon: bool,
+    ) -> bool {
+        if self != other {
+            return false;
+        }
+
+        match with_access_levels {
+            AccessLevelFormat::All => {
+                if self.access_levels != other.access_levels {
+                    return false;
+                }
+            }
+            AccessLevelFormat::Highest => {
+                if self.highest_access_level() != other.highest_access_level() {
+                    return false;
+                }
+            }
+            AccessLevelFormat::None => (),
+        }
+
+        !show_bot_icon || self.is_bot() == other.is_bot()
+    }
+
     pub fn parse(
         value: &str,
         casemapping: isupport::CaseMap,

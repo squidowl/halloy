@@ -1777,7 +1777,7 @@ impl Client {
                 } else if let Some(channel) =
                     self.chanmap.get_mut(&target_channel)
                 {
-                    let user = if self
+                    let mut user = if self
                         .capabilities
                         .acknowledged(Capability::ExtendedJoin)
                     {
@@ -1789,6 +1789,10 @@ impl Client {
                     } else {
                         user
                     };
+
+                    if message.tags.contains_key("bot") {
+                        user.update_bot(true);
+                    }
 
                     channel.users.insert(user);
                 }

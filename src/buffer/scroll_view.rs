@@ -227,15 +227,24 @@ fn is_consecutive_user_message(
     message: &data::Message,
     prev_message: Option<&data::Message>,
     duration: Option<chrono::TimeDelta>,
+    config: &Config,
 ) -> bool {
     matches!(message.target.source(), message::Source::User(_))
         && prev_message.is_some_and(|prev_message| {
-            matches!(
-                (message.target.source(), prev_message.target.source()),
-                (message::Source::User(user), message::Source::User(prev_user)) if user == prev_user
-            ) && duration.is_none_or(|duration| {
+            if duration.is_none_or(|duration| {
                 message.server_time - prev_message.server_time < duration
-            })
+            }) && let message::Source::User(user) = message.target.source()
+                && let message::Source::User(prev_user) =
+                    prev_message.target.source()
+            {
+                user.has_matching_display(
+                    prev_user,
+                    config.buffer.nickname.show_access_levels,
+                    config.buffer.nickname.show_bot_icon,
+                )
+            } else {
+                false
+            }
         })
 }
 
@@ -372,6 +381,7 @@ pub fn view<'a>(
                             message,
                             *prev_message,
                             duration,
+                            config,
                         )
                     } else {
                         false
@@ -386,6 +396,7 @@ pub fn view<'a>(
                             message,
                             *prev_message,
                             duration,
+                            config
                         )
                         // don't hide if prev message has visible preview (when show_after_previews is enabled)
                         && !(config
