@@ -1266,12 +1266,10 @@ impl<'a> ChannelQueryLayout<'a> {
             row![
                 text(format!(" {formatted_nick}"))
                     .style(move |_| nick_color)
-                    .size(sm_font_s)
-                    .line_height(LineHeight::Relative(1.0)),
+                    .size(sm_font_s),
                 text(format!(" {preview}"))
                     .style(theme::text::primary)
                     .size(sm_font_s)
-                    .line_height(LineHeight::Relative(1.0))
                     .wrapping(Wrapping::None)
                     .ellipsis(text::Ellipsis::End)
                     .width(Length::Fill),
@@ -1282,7 +1280,6 @@ impl<'a> ChannelQueryLayout<'a> {
             text(" replied to a message")
                 .style(theme::text::timestamp)
                 .size(sm_font_s)
-                .line_height(LineHeight::Relative(1.0))
                 .width(Length::Fill)
                 .into()
         };
@@ -1303,15 +1300,11 @@ impl<'a> ChannelQueryLayout<'a> {
         Some(
             row![
                 Space::new().width(indent),
-                text(arm)
-                    .style(theme::text::timestamp)
-                    .size(reg_text_s)
-                    .line_height(LineHeight::Relative(1.0)),
+                text(arm).style(theme::text::timestamp).size(reg_text_s),
                 Space::new().width(char_width),
                 icon::reply()
                     .size(theme::ICON_SIZE)
                     .align_y(alignment::Vertical::Center)
-                    .line_height(LineHeight::Relative(1.0))
                     .style(theme::text::primary),
                 content,
             ]
