@@ -1182,7 +1182,7 @@ impl State {
                 let task = Task::perform(
                     async move { has_filehost.then(try_clipboard_upload).flatten() },
                     |path| match path {
-                        Some(p) => Message::FilesSelected(vec![p]),
+                        Some(p) => Message::FilesSelected(p),
                         None => Message::PasteText,
                     },
                 );
@@ -2755,17 +2755,18 @@ fn show_while_typing(error: &input::Error) -> bool {
 }
 
 // arboard returns paths ending with \r
-fn clean_path(path: &std::path::Path) -> std::path::PathBuf {
+// https://github.com/1Password/arboard/issues/216
+fn clean_path(path: std::path::PathBuf) -> std::path::PathBuf {
     let path_string = path.to_string_lossy();
-    let cleaned = path_string.trim_end_matches(|c: char| c.is_control());
+    let cleaned = path_string.strip_suffix("\r").unwrap_or(&path_string);
     std::path::PathBuf::from(cleaned)
 }
 
-fn try_clipboard_upload() -> Option<std::path::PathBuf> {
+fn try_clipboard_upload() -> Option<Vec<std::path::PathBuf>> {
     // macos needs special treatment
     #[cfg(target_os = "macos")]
     if let Some(path) = macos_clipboard_file() {
-        return Some(path);
+        return Some(vec![path]);
     }
 
     let mut cb = arboard::Clipboard::new().ok()?;
@@ -2782,14 +2783,9 @@ fn try_clipboard_upload() -> Option<std::path::PathBuf> {
 
         rgba.save(&path).ok()?;
 
-        return Some(path);
-    } else if let Ok(file_list) = cb.get().file_list()
-        && let Some(file) = file_list.first()
-    {
-        let path = clean_path(file);
-        if path.is_file() {
-            return Some(path);
-        }
+        return Some(vec![path]);
+    } else if let Ok(file_list) = cb.get().file_list() {
+        return Some(file_list.into_iter().map(clean_path).collect());
     }
 
     None
