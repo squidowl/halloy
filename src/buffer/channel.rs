@@ -584,6 +584,31 @@ mod nick_list {
     use crate::widget::{Element, selectable_text, tooltip};
     use crate::{Theme, font, icon, theme};
 
+    fn formatted_nicklist_nickname(
+        user: &User,
+        config: &Config,
+        registry: &dyn metadata::Registry,
+        truncate: Option<u16>,
+    ) -> (String, bool) {
+        let (nickname, show_tooltip) = user.display_with_truncated(
+            config.buffer.channel.nicklist.show_access_levels,
+            config.buffer.channel.nicklist.show_bot_icon,
+            truncate,
+            config.display.truncation_character,
+        );
+        let query = target::Query::from(user);
+
+        (
+            data::config::display::nickname::format(
+                &nickname,
+                &config.display.nicklist_nickname,
+                registry.display_name(target::TargetRef::Query(&query)),
+                registry.pronouns(&query),
+            ),
+            show_tooltip,
+        )
+    }
+
     pub fn view<'a>(
         server: &'a Server,
         prefix: &'a [isupport::PrefixMap],
@@ -609,15 +634,10 @@ mod nick_list {
                     users.into_iter().flatten().fold(
                         (0, None),
                         |(max_nick_length, max_bot_nick_length), user| {
-                            let nick_length = user
-                                .display(
-                                    nicklist_config.show_access_levels,
-                                    nicklist_config.show_bot_icon,
-                                    truncate,
-                                    config.display.truncation_character,
-                                )
-                                .chars()
-                                .count();
+                            let (nick_display, _) = formatted_nicklist_nickname(
+                                user, config, registry, truncate,
+                            );
+                            let nick_length = nick_display.chars().count();
 
                             if user.is_bot() {
                                 (
@@ -659,13 +679,8 @@ mod nick_list {
         let content = column(users.into_iter().flatten().map(|user| {
             let show_bot_icon = user.is_bot() && nicklist_config.show_bot_icon;
 
-            let (nick_display, show_nick_tooltip) = user
-                .display_with_truncated(
-                    nicklist_config.show_access_levels,
-                    nicklist_config.show_bot_icon,
-                    truncate,
-                    config.display.truncation_character,
-                );
+            let (nick_display, show_nick_tooltip) =
+                formatted_nicklist_nickname(user, config, registry, truncate);
 
             let nick = selectable_text(nick_display)
                 .font_maybe(
