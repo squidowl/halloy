@@ -584,6 +584,12 @@ mod nick_list {
     use crate::widget::{Element, selectable_text, tooltip};
     use crate::{Theme, font, icon, theme};
 
+    struct FormattedUser<'a> {
+        user: &'a User,
+        nickname: String,
+        show_tooltip: bool,
+    }
+
     fn formatted_nicklist_nickname(
         user: &User,
         config: &Config,
@@ -627,31 +633,43 @@ mod nick_list {
             nicklist_config.truncate.or(config.buffer.nickname.truncate)
         };
 
+        let users = users
+            .into_iter()
+            .flatten()
+            .map(|user| {
+                let (nickname, show_tooltip) = formatted_nicklist_nickname(
+                    user, config, registry, truncate,
+                );
+
+                FormattedUser {
+                    user,
+                    nickname,
+                    show_tooltip,
+                }
+            })
+            .collect::<Vec<_>>();
+
         let width = match nicklist_config.width {
             Some(width) => width,
             None => {
-                let (max_nick_length, max_bot_nick_length) =
-                    users.into_iter().flatten().fold(
-                        (0, None),
-                        |(max_nick_length, max_bot_nick_length), user| {
-                            let (nick_display, _) = formatted_nicklist_nickname(
-                                user, config, registry, truncate,
-                            );
-                            let nick_length = nick_display.chars().count();
+                let (max_nick_length, max_bot_nick_length) = users.iter().fold(
+                    (0, None),
+                    |(max_nick_length, max_bot_nick_length), user| {
+                        let nick_length = user.nickname.chars().count();
 
-                            if user.is_bot() {
-                                (
-                                    max_nick_length,
-                                    max_bot_nick_length.max(Some(nick_length)),
-                                )
-                            } else {
-                                (
-                                    max_nick_length.max(nick_length),
-                                    max_bot_nick_length,
-                                )
-                            }
-                        },
-                    );
+                        if user.user.is_bot() {
+                            (
+                                max_nick_length,
+                                max_bot_nick_length.max(Some(nick_length)),
+                            )
+                        } else {
+                            (
+                                max_nick_length.max(nick_length),
+                                max_bot_nick_length,
+                            )
+                        }
+                    },
+                );
 
                 (if let Some(max_bot_nick_length) = max_bot_nick_length {
                     if nicklist_config.show_bot_icon {
@@ -676,13 +694,11 @@ mod nick_list {
             }
         };
 
-        let content = column(users.into_iter().flatten().map(|user| {
+        let rows = users.into_iter().map(|formatted_user| {
+            let user = formatted_user.user;
             let show_bot_icon = user.is_bot() && nicklist_config.show_bot_icon;
 
-            let (nick_display, show_nick_tooltip) =
-                formatted_nicklist_nickname(user, config, registry, truncate);
-
-            let nick = selectable_text(nick_display)
+            let nick = selectable_text(formatted_user.nickname)
                 .font_maybe(
                     theme::font_style::nickname(theme, false).map(font::get),
                 )
@@ -714,7 +730,7 @@ mod nick_list {
                     "{} has marked itself as a bot",
                     user.nickname()
                 )))
-            } else if show_nick_tooltip {
+            } else if formatted_user.show_tooltip {
                 Some(Cow::Borrowed(user.as_str()))
             } else {
                 None
@@ -757,7 +773,9 @@ mod nick_list {
                 theme,
                 &config.buffer.channel.nicklist.click,
             )
-        }));
+        });
+
+        let content = column(rows);
 
         Scrollable::new(content)
             .direction(scrollable::Direction::Vertical(
