@@ -1,7 +1,7 @@
 use data::user::{ChannelUsers, User};
 use data::{Config, file_transfer, history, preview};
 use iced::widget::{button, center, column, container, pane_grid, row, text};
-use iced::{Length, Size, Task};
+use iced::{Length, Size, Task, padding};
 
 use super::sidebar;
 use crate::buffer::{self, Buffer};
@@ -81,23 +81,31 @@ impl Pane {
                 };
 
                 let server = &state.server;
-                if let Some(mode) =
-                    clients.get_channel_mode(&state.server, &state.target)
-                {
-                    let users = clients
-                        .get_channel_users(&state.server, &state.target)
-                        .map(ChannelUsers::len)
-                        .unwrap_or_default();
+                row![
+                    text(display_channel).style(theme::text::url).font_maybe(
+                        theme::font_style::url(theme).map(font::get),
+                    ),
+                    if let Some(mode) =
+                        clients.get_channel_mode(&state.server, &state.target)
+                    {
+                        let users = clients
+                            .get_channel_users(&state.server, &state.target)
+                            .map(ChannelUsers::len)
+                            .unwrap_or_default();
 
-                    text(format!(
-                        "{display_channel} ({mode}) @ {server} - {users} users"
-                    ))
-                    .into()
-                } else {
-                    text(format!("{display_channel} @ {server}")).into()
-                }
+                        text(format!(" ({mode}) @ {server} - {users} users"))
+                    } else {
+                        text(format!(" @ {server}"))
+                    }
+                ]
+                .into()
             }
-            Buffer::Server(state) => text(state.server.to_string()).into(),
+            Buffer::Server(state) => text(state.server.to_string())
+                .style(|theme| theme::text::server(theme, None))
+                .font_maybe(
+                    theme::font_style::server(theme, None).map(font::get),
+                )
+                .into(),
             Buffer::Query(state) => query_title(
                 &state.server,
                 &state.target,
@@ -558,9 +566,9 @@ fn query_title<'a>(
                                     is_user_offline,
                                 )
                             })
-                            .line_height(1.0),
-                        text(" ")
+                            .line_height(1.0)
                     ]
+                    .padding(padding::horizontal(4))
                     .align_y(iced::Alignment::Center),
                     container(
                         text(format!("Authenticated as {accountname}"))
@@ -579,14 +587,13 @@ fn query_title<'a>(
                 .into()
             }
         ),
-        text(format!("@ {server}"))
+        text(format!(" @ {server}"))
             .style(theme::text::buffer_title_bar)
             .font_maybe(
                 theme::font_style::buffer_title_bar(theme).map(font::get)
             )
             .shaping(text::Shaping::Advanced),
     ]
-    .spacing(4)
     .width(Length::Shrink)
     .align_y(iced::Alignment::Center)
     .into()
