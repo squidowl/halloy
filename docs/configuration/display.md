@@ -85,3 +85,16 @@ This renders as:
 - `["display-name"]` -> `Casper (casperstorm)` when display name (`Casper`) is set, otherwise `casperstorm`
 - `["pronouns"]` -> `casperstorm (he/him)` when pronouns are set, otherwise `storm`
 - `["display-name", "pronouns"]` -> `Casper (casperstorm, he/him)`, omitting missing metadata
+
+## `nicklist_nickname`
+
+Metadata to include when rendering user nicknames in the nicklist.
+
+```toml
+# Type: array of strings
+# Values: "display-name", "pronouns"
+# Default: ["display-name"]
+
+[display]
+nicklist_nickname = ["display-name"]
+```

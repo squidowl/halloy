@@ -9,6 +9,7 @@ pub struct Display {
     pub decode_urls: bool,
     pub truncation_character: char,
     pub nickname: Vec<nickname::Metadata>,
+    pub nicklist_nickname: Vec<nickname::Metadata>,
 }
 
 impl Default for Display {
@@ -18,6 +19,7 @@ impl Default for Display {
             decode_urls: true,
             truncation_character: '…',
             nickname: vec![nickname::Metadata::DisplayName],
+            nicklist_nickname: vec![nickname::Metadata::DisplayName],
         }
     }
 }
