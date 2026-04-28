@@ -35,6 +35,7 @@ pub struct PendingUpload {
     pub server: data::Server,
     pub target: Option<Target>,
     pub upload_url: String,
+    pub is_override_url: bool,
     pub has_credentials: bool,
     pub file_paths: Vec<PathBuf>,
     pub upload_ids: Vec<u32>,
@@ -210,6 +211,7 @@ fn start_tasks(
         server,
         target,
         upload_url,
+        is_override_url,
         has_credentials: _,
         file_paths,
         upload_ids,
@@ -235,6 +237,7 @@ fn start_tasks(
                         &file_path,
                         auth,
                         irc_uses_tls,
+                        is_override_url,
                         http_client,
                         proxy_config.as_ref(),
                     );

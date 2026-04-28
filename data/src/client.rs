@@ -4648,6 +4648,30 @@ impl Map {
         self.client(server).is_none_or(|c| c.config.use_tls)
     }
 
+    pub fn get_filehost_is_override(&self, server: &Server) -> bool {
+        let Some(client) = self.client(server) else {
+            return false;
+        };
+
+        if !client.config.filehost.enabled {
+            return false;
+        }
+
+        if client.config.filehost.override_url.is_some() {
+            return true;
+        }
+
+        if server.is_bouncer_network() {
+            server
+                .parent()
+                .as_ref()
+                .map(|p| self.get_filehost_is_override(p))
+                .unwrap_or(false)
+        } else {
+            false
+        }
+    }
+
     pub fn get_features_ref(&self, server: &Server) -> &Features {
         self.client(server)
             .map_or(&features::DEFAULT, |client| &client.features)

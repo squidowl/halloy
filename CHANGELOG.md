@@ -22,6 +22,7 @@ Fixed:
 Changed:
 
 - On-join topic messages disabled by default (`buffer.server_messages.topic`), instead the topic banner is enabled by default (`buffer.channel.topic_banner`)
+- For filehosts, localhost is now treated as a secure transport when using `servers.<name>.filehost.override_url`
 
 Thanks:
 
