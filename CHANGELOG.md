@@ -15,6 +15,10 @@ Fixed:
 - Backlog separator text colour now follows `buffer.backlog_rule`
 - Distinguish between reacts in chathistory vs active history
 
+Changed:
+
+- On-join topic messages disabled by default (`buffer.server_messages.topic`), instead the topic banner is enabled by default (`buffer.channel.topic_banner`)
+
 Thanks:
 
 - Contributions: @bb010g, @furudean, @englut, @luca020400
