@@ -1303,7 +1303,7 @@ impl<'a> ChannelQueryLayout<'a> {
                 text(arm).style(theme::text::timestamp).size(reg_text_s),
                 Space::new().width(char_width),
                 icon::reply()
-                    .size(theme::ICON_SIZE)
+                    .size(theme::ICON_SIZE - 2.0)
                     .align_y(alignment::Vertical::Center)
                     .style(theme::text::primary),
                 content,
