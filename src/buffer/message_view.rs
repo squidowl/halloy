@@ -128,7 +128,15 @@ impl<'a> ChannelQueryLayout<'a> {
         }
 
         // A message can only be redacted once.
-        message.redaction.is_none()
+        if message.redaction.is_none() {
+            return false;
+        }
+
+        // Message MUST be PRIVMSG, NOTICE, or TAGMSG
+        match message.target.source() {
+            message::Source::User(_) | message::Source::Action(_) => true,
+            message::Source::Server(_) | message::Source::Internal(_) => false,
+        }
     }
 
     fn condensation_marker(
