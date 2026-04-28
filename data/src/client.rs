@@ -4665,8 +4665,7 @@ impl Map {
             server
                 .parent()
                 .as_ref()
-                .map(|p| self.get_filehost_is_override(p))
-                .unwrap_or(false)
+                .is_some_and(|p| self.get_filehost_is_override(p))
         } else {
             false
         }
