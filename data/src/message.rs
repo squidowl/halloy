@@ -3244,7 +3244,8 @@ fn content<'a>(
             ))
         }
         Command::Numeric(
-            RPL_WHOISCERTFP | RPL_WHOISHOST | RPL_WHOISSECURE,
+            RPL_WHOISCERTFP | RPL_WHOISHOST | RPL_WHOISSECURE | RPL_WHOISBOT
+            | RPL_WHOISMODES,
             params,
         ) => {
             let user: User = User::from(Nick::from_str(
@@ -3273,22 +3274,6 @@ fn content<'a>(
             Some((
                 parse_fragments_with_user(
                     format!("{} {status_text} {account}", user.nickname()),
-                    &user,
-                    casemapping,
-                ),
-                None,
-            ))
-        }
-        Command::Numeric(RPL_WHOISBOT, params) => {
-            let user: User = User::from(Nick::from_str(
-                params.get(1)?.as_str(),
-                casemapping,
-            ));
-            let status_text = params.get(2)?;
-
-            Some((
-                parse_fragments_with_user(
-                    format!("{} {status_text}", user.nickname()),
                     &user,
                     casemapping,
                 ),
