@@ -127,7 +127,7 @@ pub fn view<'a>(
                     )
                 }
                 message::Link::Url(_) =>
-                    context_menu::Entry::url_list(None, false, false),
+                    context_menu::Entry::url_list(None, false, false, false),
                 _ => vec![],
             },
             move |link, entry, length| {
@@ -148,6 +148,8 @@ pub fn view<'a>(
                         message: None,
                         msgid: None,
                         selected_reactions: vec![],
+                        to_nick: None,
+                        reply_preview: None,
                     })
                 };
 

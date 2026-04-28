@@ -152,6 +152,7 @@ pub fn view<'a>(
                             vec![],
                             false,
                             false,
+                            false,
                             &message.content,
                             config,
                             theme,
@@ -277,6 +278,7 @@ pub fn view<'a>(
                             vec![],
                             false,
                             false,
+                            false,
                             &message.content,
                             config,
                             theme,
@@ -340,9 +342,7 @@ impl Server {
         let buffer = buffer::Upstream::Server(server.clone());
 
         Self {
-            input_view: input_view::State::new(Some(
-                history.input(&buffer).draft,
-            )),
+            input_view: input_view::State::new(Some(history.input(&buffer))),
             buffer,
             server,
             scroll_view: scroll_view::State::new(pane_size, config),

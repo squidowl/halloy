@@ -17,7 +17,7 @@ use data::user::Nick;
 use data::{Config, User, client, command, message, shortcut};
 use iced::advanced::widget::Tree;
 use iced::advanced::{Clipboard, Layout, Shell, mouse};
-use iced::widget::text::{Shaping, Wrapping};
+use iced::widget::text::{Ellipsis, LineHeight, Shaping, Wrapping};
 use iced::widget::{
     self, button, center, column, container, mouse_area, operation, row, rule,
     text_editor,
@@ -112,6 +112,12 @@ pub enum Message {
     UploadAnimTick,
     CancelUploads,
     SpinnerHovered(bool),
+    SetDraftReply {
+        msgid: message::Id,
+        to_nick: String,
+        reply_preview: String,
+    },
+    ClearDraftReply,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -664,27 +670,33 @@ pub fn view<'a>(
             )
         });
 
-    let content = column![
-        container(
-            row![
-                maybe_our_user,
-                maybe_vertical_rule,
-                wrapped_input,
-                maybe_upload_spinner,
-                maybe_upload_button,
-            ]
-            .spacing(4)
-            .height(Length::Shrink)
-            .align_y(Alignment::Center)
-        )
-        .max_height(
-            (7.55 * theme::resolve_line_height(&config.font).ceil()).ceil(),
-        )
-        .padding(8)
-        .style(theme::container::buffer_text_input)
-    ]
-    .spacing(4)
-    .padding(padding::top(4));
+    let maybe_reply_bar = reply_bar(state, config, theme);
+
+    let input_row = container(
+        row![
+            maybe_our_user,
+            maybe_vertical_rule,
+            wrapped_input,
+            maybe_upload_spinner,
+            maybe_upload_button,
+        ]
+        .spacing(4)
+        .height(Length::Shrink)
+        .align_y(Alignment::Center),
+    )
+    .max_height((7.55 * theme::resolve_line_height(&config.font).ceil()).ceil())
+    .padding(8);
+
+    let styled_input =
+        container(input_row).style(theme::container::buffer_text_input);
+
+    let mut input_column = column![].spacing(0);
+    if let Some(bar) = maybe_reply_bar {
+        input_column = input_column.push(bar);
+    }
+    input_column = input_column.push(styled_input);
+
+    let content = column![input_column].spacing(4).padding(padding::top(4));
 
     if config.tooltips.show_for_autocomplete() {
         let overlay = column![
@@ -712,6 +724,75 @@ pub fn view<'a>(
     } else {
         column![content].into()
     }
+}
+
+fn reply_bar<'a>(
+    state: &'a State,
+    config: &'a Config,
+    theme: &'a Theme,
+) -> Option<crate::widget::Element<'a, Message>> {
+    let input::DraftReply { nick, preview, .. } = state.draft_reply.as_ref()?;
+    let font_size = config.font.size.map_or(theme::TEXT_SIZE, f32::from) * 0.85;
+    let display_nick = data::user::truncate_nick(
+        nick,
+        config.buffer.nickname.truncate,
+        config.display.truncation_character,
+    );
+    let formatted_nick = config
+        .buffer
+        .nickname
+        .brackets
+        .format(display_nick.as_ref());
+    let nick_color = theme::text::nickname(
+        theme,
+        &config.buffer.nickname.color,
+        Some(nick.as_str()),
+        None,
+        false,
+    );
+
+    Some(
+        container(
+            row![
+                crate::icon::reply().style(theme::text::primary),
+                row![
+                    text("Replying to ")
+                        .style(theme::text::primary)
+                        .line_height(LineHeight::Relative(1.0))
+                        .size(font_size),
+                    text(formatted_nick.to_string())
+                        .style(move |_| nick_color)
+                        .line_height(LineHeight::Relative(1.0))
+                        .size(font_size),
+                    text(format!(" {preview}"))
+                        .style(theme::text::primary)
+                        .size(font_size)
+                        .wrapping(Wrapping::None)
+                        .ellipsis(Ellipsis::End)
+                        .line_height(LineHeight::Relative(1.0))
+                        .width(Length::Fill),
+                ]
+                .width(Length::Fill),
+                tooltip(
+                    button(center(crate::icon::cancel()))
+                        .on_press(Message::ClearDraftReply)
+                        .width(20)
+                        .height(20)
+                        .style(|theme, status| {
+                            theme::button::secondary(theme, status, false)
+                        })
+                        .padding(5),
+                    Some("Remove reply"),
+                    widget::tooltip::Position::Top,
+                    theme,
+                )
+            ]
+            .spacing(6)
+            .align_y(Alignment::Center),
+        )
+        .padding([2, 8])
+        .into(),
+    )
 }
 
 fn notice_view<'a, 'b, Message: 'a>(
@@ -745,6 +826,7 @@ pub struct State {
     upload_anim: f32,
     spinner_hovered: bool,
     upload_abort_handles: Vec<futures::future::AbortHandle>,
+    draft_reply: Option<input::DraftReply>,
 }
 
 impl Default for State {
@@ -754,13 +836,14 @@ impl Default for State {
 }
 
 impl State {
-    pub fn new(input_draft: Option<&str>) -> Self {
+    pub fn new(cache: Option<input::Cache<'_>>) -> Self {
         Self {
             input_id: widget::Id::unique(),
-            input_content: input_draft.map_or(
-                text_editor::Content::new(),
-                text_editor::Content::with_text,
-            ),
+            input_content: cache
+                .filter(|c| !c.draft_message.is_empty())
+                .map_or(text_editor::Content::new(), |c| {
+                    text_editor::Content::with_text(c.draft_message)
+                }),
             parsed: Vec::new(),
             notice: None,
             completion: Completion::default(),
@@ -771,6 +854,7 @@ impl State {
             upload_anim: 0.0,
             spinner_hovered: false,
             upload_abort_handles: Vec::new(),
+            draft_reply: cache.and_then(|c| c.draft_reply).cloned(),
         }
     }
 
@@ -1133,7 +1217,7 @@ impl State {
                 if let Some(index) = self.selected_history.as_mut() {
                     let new_input = if *index == 0 {
                         self.selected_history = None;
-                        cache.draft.to_string()
+                        cache.draft_message.to_string()
                     } else {
                         *index -= 1;
                         cache.history.get(*index).unwrap().clone()
@@ -1269,6 +1353,7 @@ impl State {
                     history.record_draft(RawInput {
                         buffer: buffer.clone(),
                         text: self.input_content.text(),
+                        reply: self.draft_reply.clone(),
                     });
                 }
 
@@ -1314,6 +1399,36 @@ impl State {
                 self.spinner_hovered = hovered;
                 (Task::none(), None)
             }
+            Message::SetDraftReply {
+                msgid,
+                to_nick,
+                reply_preview,
+            } => {
+                self.draft_reply = Some(input::DraftReply {
+                    id: msgid,
+                    nick: to_nick.clone(),
+                    preview: reply_preview,
+                });
+                self.insert_user(
+                    Nick::from_string(
+                        to_nick,
+                        data::isupport::CaseMap::default(),
+                    ),
+                    buffer.clone(),
+                    history,
+                    &config.buffer.text_input.autocomplete,
+                );
+                (self.focus(), None)
+            }
+            Message::ClearDraftReply => {
+                self.draft_reply = None;
+                history.record_draft(RawInput {
+                    buffer: buffer.clone(),
+                    text: self.input_content.text(),
+                    reply: None,
+                });
+                (Task::none(), None)
+            }
             Message::FilehostUploadDone { id, url } => {
                 self.uploading = self.uploading.saturating_sub(1);
                 // ids are sequential per upload batch — resetting when idle
@@ -1328,6 +1443,7 @@ impl State {
                 history.record_draft(RawInput {
                     buffer: buffer.clone(),
                     text: self.input_content.text(),
+                    reply: self.draft_reply.clone(),
                 });
 
                 (Task::none(), None)
@@ -1521,6 +1637,7 @@ impl State {
                         history.record_draft(RawInput {
                             buffer: buffer.clone(),
                             text: self.input_content.text(),
+                            reply: self.draft_reply.clone(),
                         });
 
                         (Task::none(), None)
@@ -1806,6 +1923,18 @@ impl State {
         let encoded = inputs
             .iter()
             .filter_map(data::Input::encoded)
+            .map(|mut e| {
+                if let Some(input::DraftReply { id: reply_id, .. }) =
+                    &self.draft_reply
+                {
+                    e.tags.insert("+reply".to_string(), reply_id.to_string());
+                    e.tags.insert(
+                        "+draft/reply".to_string(),
+                        reply_id.to_string(),
+                    );
+                }
+                e
+            })
             .collect::<Vec<_>>();
 
         let labeled_response_context = if let Some(last_encoded) =
@@ -1959,6 +2088,12 @@ impl State {
                     batch_message
                 })
             {
+                let mut message = message;
+                if let Some(input::DraftReply { id: reply_id, .. }) =
+                    &self.draft_reply
+                {
+                    message.reply_to = Some(reply_id.clone());
+                }
                 history_tasks.extend(history.record_input_message(
                     message,
                     labeled_response_context,
@@ -1967,6 +2102,8 @@ impl State {
                     config,
                 ));
             }
+
+            self.draft_reply = None;
 
             history_task =
                 Task::batch(history_tasks.into_iter().map(Task::future));
@@ -2204,6 +2341,7 @@ impl State {
                             history.record_draft(RawInput {
                                 buffer: buffer.clone(),
                                 text: self.input_content.text(),
+                                reply: self.draft_reply.clone(),
                             });
                         }
                         let anim = was_idle
@@ -2258,7 +2396,20 @@ impl State {
             }
         };
 
-        let labeled_response_context = if let Some(encoded) = input.encoded() {
+        let labeled_response_context = if let Some(mut encoded) =
+            input.encoded()
+        {
+            if let Some(input::DraftReply { id: reply_id, .. }) =
+                &self.draft_reply
+            {
+                encoded
+                    .tags
+                    .insert("+reply".to_string(), reply_id.to_string());
+                encoded
+                    .tags
+                    .insert("+draft/reply".to_string(), reply_id.to_string());
+            }
+
             let sent_time = encoded.server_time_or_now();
 
             let labeled_response_context =
@@ -2334,7 +2485,12 @@ impl State {
                 supports_echoes,
                 history.get_reroute_rules(),
             ) {
-                for message in messages {
+                for mut message in messages {
+                    if let Some(input::DraftReply { id: reply_id, .. }) =
+                        &self.draft_reply
+                    {
+                        message.reply_to = Some(reply_id.clone());
+                    }
                     history_tasks.extend(history.record_input_message(
                         message,
                         labeled_response_context.clone(),
@@ -2344,6 +2500,8 @@ impl State {
                     ));
                 }
             }
+
+            self.draft_reply = None;
 
             history_task =
                 Task::batch(history_tasks.into_iter().map(Task::future));
@@ -2449,6 +2607,7 @@ impl State {
             history.record_draft(RawInput {
                 buffer: buffer.clone(),
                 text: self.input_content.text(),
+                reply: self.draft_reply.clone(),
             });
         }
 
@@ -2468,6 +2627,7 @@ impl State {
             history.record_draft(RawInput {
                 buffer: buffer.clone(),
                 text: text.to_string(),
+                reply: self.draft_reply.clone(),
             });
         }
 
@@ -2566,6 +2726,7 @@ impl State {
         history.record_draft(RawInput {
             buffer,
             text: self.input_content.text(),
+            reply: self.draft_reply.clone(),
         });
     }
 

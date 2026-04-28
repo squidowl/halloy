@@ -4112,9 +4112,13 @@ impl Client {
     }
 
     fn can_send_reactions(&self) -> bool {
-        self.capabilities.acknowledged(Capability::MessageTags)
+        self.can_send_replies()
             && isupport::is_client_tag_allowed(&self.isupport, "draft/react")
             && isupport::is_client_tag_allowed(&self.isupport, "draft/unreact")
+    }
+
+    fn can_send_replies(&self) -> bool {
+        self.capabilities.acknowledged(Capability::MessageTags)
             && (isupport::is_client_tag_allowed(&self.isupport, "draft/reply")
                 || isupport::is_client_tag_allowed(&self.isupport, "reply"))
     }
@@ -4752,6 +4756,10 @@ impl Map {
 
     pub fn get_server_can_redact(&self, server: &Server) -> bool {
         self.client(server).is_some_and(Client::can_redact)
+    }
+
+    pub fn get_server_can_send_replies(&self, server: &Server) -> bool {
+        self.client(server).is_some_and(Client::can_send_replies)
     }
 
     pub fn get_server_can_send_typing(&self, server: &Server) -> bool {

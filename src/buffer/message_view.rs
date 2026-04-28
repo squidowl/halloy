@@ -9,6 +9,7 @@ use data::preview::{self, Previews};
 use data::server::Server;
 use data::user::{ChannelUsers, NickRef};
 use data::{Config, User, message, target};
+use iced::widget::text::{LineHeight, Wrapping};
 use iced::widget::{Space, button, column, container, row, text};
 use iced::{Color, Length, alignment};
 
@@ -65,6 +66,7 @@ pub struct ChannelQueryLayout<'a> {
     pub casemapping: CaseMap,
     pub prefix: &'a [PrefixMap],
     pub confirm_message_delivery: bool,
+    pub can_send_replies: bool,
     pub can_send_reactions: bool,
     pub can_redact: bool,
     pub our_nick: Option<NickRef<'a>>,
@@ -105,18 +107,25 @@ impl<'a> ChannelQueryLayout<'a> {
         message: &data::Message,
         link: &message::Link,
     ) -> Vec<context_menu::Entry> {
+        let can_send_replies = self.can_send_replies && message.id.is_some();
         match link {
             message::Link::Url(url) => context_menu::Entry::url_list(
                 self.preview_hidden_for_url(message, url),
                 self.can_send_reactions,
                 self.can_redact_message(message),
+                can_send_replies,
             ),
             _ => {
-                if self.can_send_reactions {
-                    vec![context_menu::Entry::AddReaction]
-                } else {
-                    vec![]
+                let mut entries = vec![];
+                if can_send_replies || self.can_send_reactions {
+                    if can_send_replies {
+                        entries.push(context_menu::Entry::Reply);
+                    }
+                    if self.can_send_reactions {
+                        entries.push(context_menu::Entry::AddReaction);
+                    }
                 }
+                entries
             }
         }
     }
@@ -977,11 +986,25 @@ impl<'a> ChannelQueryLayout<'a> {
             let selected_reaction_texts =
                 selected_reactions_refs(message, self.our_nick);
 
+            let (to_nick, reply_preview) = match message.target.source() {
+                message::Source::User(user) => (
+                    Some(user.nickname().to_string()),
+                    Some(message.content.preview_text()),
+                ),
+                message::Source::Action(Some(user)) => (
+                    Some(user.nickname().to_string()),
+                    Some(message.content.preview_text()),
+                ),
+                _ => (None, None),
+            };
+
             link.url().map(move |url| Context::Url {
                 url,
                 message: Some(message.hash),
                 msgid: message.id.as_ref(),
                 selected_reactions: selected_reaction_texts,
+                to_nick,
+                reply_preview,
             })
         }
     }
@@ -1161,6 +1184,7 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
             message.target.source(),
             message.id.as_ref(),
             selected_reaction_texts,
+            self.can_send_replies,
             self.can_send_reactions,
             self.can_redact_message(message),
             &message.content,
@@ -1188,11 +1212,112 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
             selectable_text(" ")
         ];
 
-        if self.content_on_new_line(message) {
-            Some(container(column![row, content]).into())
+        let message_element = if self.content_on_new_line(message) {
+            container(column![row, content]).into()
         } else {
-            Some(container(row![row, content]).into())
-        }
+            container(row![row, content]).into()
+        };
+
+        let message_element =
+            if let Some(reply_row) = self.format_reply_preview(message) {
+                column![reply_row, message_element].into()
+            } else {
+                message_element
+            };
+
+        Some(message_element)
+    }
+}
+
+impl<'a> ChannelQueryLayout<'a> {
+    fn format_reply_preview(
+        &self,
+        message: &'a data::Message,
+    ) -> Option<Element<'a, Message>> {
+        message.reply_to.as_ref()?;
+
+        let reg_text_s =
+            self.config.font.size.map_or(theme::TEXT_SIZE, f32::from);
+        let sm_font_s = reg_text_s * 0.85;
+
+        let content: Element<_> = if let Some(data::message::ReplyPreview {
+            nick,
+            text: preview,
+        }) = &message.reply_preview
+        {
+            let display_nick = data::user::truncate_nick(
+                nick,
+                self.config.buffer.nickname.truncate,
+                self.config.display.truncation_character,
+            );
+            let formatted_nick = self
+                .config
+                .buffer
+                .nickname
+                .brackets
+                .format(display_nick.as_ref());
+            let nick_color = theme::text::nickname(
+                self.theme,
+                &self.config.buffer.nickname.color,
+                Some(nick.as_str()),
+                Some(data::config::buffer::Away::None),
+                false,
+            );
+            row![
+                text(format!(" {formatted_nick}"))
+                    .style(move |_| nick_color)
+                    .size(sm_font_s)
+                    .line_height(LineHeight::Relative(1.0)),
+                text(format!(" {preview}"))
+                    .style(theme::text::primary)
+                    .size(sm_font_s)
+                    .line_height(LineHeight::Relative(1.0))
+                    .wrapping(Wrapping::None)
+                    .ellipsis(text::Ellipsis::End)
+                    .width(Length::Fill),
+            ]
+            .into()
+        } else {
+            // the message may not be loaded into history
+            text(" replied to a message")
+                .style(theme::text::timestamp)
+                .size(sm_font_s)
+                .line_height(LineHeight::Relative(1.0))
+                .width(Length::Fill)
+                .into()
+        };
+
+        let char_width = font::width_from_chars(1, &self.config.font);
+        let ts_w = self
+            .config
+            .buffer
+            .format_timestamp(&message.server_time)
+            .map_or(0.0, |s| {
+                font::width_from_chars(s.chars().count(), &self.config.font)
+            });
+        let indent = ts_w / 2.0 - char_width;
+        let ts_chars = (ts_w / char_width).round() as usize;
+        let arm_chars = ts_chars / 2 + 1;
+        let arm = format!("┌{}", "─".repeat(arm_chars.saturating_sub(1)));
+
+        Some(
+            row![
+                Space::new().width(indent),
+                text(arm)
+                    .style(theme::text::timestamp)
+                    .size(reg_text_s)
+                    .line_height(LineHeight::Relative(1.0)),
+                Space::new().width(char_width),
+                icon::reply()
+                    .size(theme::ICON_SIZE)
+                    .align_y(alignment::Vertical::Center)
+                    .line_height(LineHeight::Relative(1.0))
+                    .style(theme::text::primary),
+                content,
+            ]
+            .align_y(alignment::Vertical::Center)
+            .into(),
+        )
     }
 }
 

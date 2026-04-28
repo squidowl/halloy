@@ -586,6 +586,20 @@ impl History {
         }
     }
 
+    fn find_by_id(&self, id: &str) -> Option<&Message> {
+        match self {
+            History::Partial {
+                pending_messages, ..
+            } => pending_messages
+                .iter()
+                .find(|(m, _)| m.id.as_deref() == Some(id))
+                .map(|(m, _)| m),
+            History::Full { messages, .. } => {
+                messages.iter().find(|m| m.id.as_deref() == Some(id))
+            }
+        }
+    }
+
     fn remove_message(
         &mut self,
         server_time: DateTime<Utc>,

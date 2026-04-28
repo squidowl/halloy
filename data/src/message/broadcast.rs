@@ -35,6 +35,8 @@ fn expand(
             target,
             content,
             id: None,
+            reply_to: None,
+            reply_preview: None,
             hash,
             hidden_urls: HashSet::default(),
             is_echo: false,

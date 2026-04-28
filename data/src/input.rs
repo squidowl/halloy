@@ -360,16 +360,25 @@ impl Content {
     }
 }
 
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct DraftReply {
+    pub id: message::Id,
+    pub nick: String,
+    pub preview: String,
+}
+
 #[derive(Debug, Clone)]
 pub struct RawInput {
     pub buffer: buffer::Upstream,
     pub text: String,
+    pub reply: Option<DraftReply>,
 }
 
 #[derive(Debug, Clone, Default)]
 pub struct Storage {
     sent: HashMap<buffer::Upstream, Vec<String>>,
-    draft: HashMap<buffer::Upstream, String>,
+    draft_messages: HashMap<buffer::Upstream, String>,
+    draft_reply: HashMap<buffer::Upstream, DraftReply>,
     cursor_position: HashMap<buffer::Upstream, (usize, usize)>,
 }
 
@@ -381,17 +390,19 @@ impl Storage {
                 .get(buffer)
                 .map(Vec::as_slice)
                 .unwrap_or_default(),
-            draft: self
-                .draft
+            draft_message: self
+                .draft_messages
                 .get(buffer)
                 .map(AsRef::as_ref)
                 .unwrap_or_default(),
+            draft_reply: self.draft_reply.get(buffer),
             cursor_position: self.cursor_position.get(buffer),
         }
     }
 
     pub fn record(&mut self, buffer: &buffer::Upstream, text: String) {
-        self.draft.remove(buffer);
+        self.draft_messages.remove(buffer);
+        self.draft_reply.remove(buffer);
         let history = self.sent.entry(buffer.clone()).or_default();
         history.insert(0, text);
         history.truncate(INPUT_HISTORY_LENGTH);
@@ -399,18 +410,48 @@ impl Storage {
 
     pub fn store_draft(&mut self, raw_input: RawInput) {
         if raw_input.text.is_empty() {
-            self.draft.remove(&raw_input.buffer);
+            self.draft_messages.remove(&raw_input.buffer);
         } else {
-            self.draft.insert(raw_input.buffer, raw_input.text);
+            self.draft_messages
+                .insert(raw_input.buffer.clone(), raw_input.text);
+        }
+        match raw_input.reply {
+            Some(reply) => {
+                self.draft_reply.insert(raw_input.buffer, reply);
+            }
+            None => {
+                self.draft_reply.remove(&raw_input.buffer);
+            }
         }
     }
 
-    pub fn clone_draft_map(&self) -> HashMap<buffer::Upstream, String> {
-        self.draft.clone()
+    pub fn clone_drafts(&self) -> HashMap<buffer::Upstream, SavedDraft> {
+        self.draft_messages
+            .iter()
+            .map(|(buffer, text)| {
+                (
+                    buffer.clone(),
+                    SavedDraft {
+                        text: text.clone(),
+                        reply: self.draft_reply.get(buffer).cloned(),
+                    },
+                )
+            })
+            .collect()
     }
 
-    pub fn load_into(&mut self, drafts: HashMap<buffer::Upstream, String>) {
-        self.draft = drafts;
+    pub fn load_drafts_into(
+        &mut self,
+        drafts: HashMap<buffer::Upstream, SavedDraft>,
+    ) {
+        for (buffer, saved) in drafts {
+            if !saved.text.is_empty() {
+                self.draft_messages.insert(buffer.clone(), saved.text);
+            }
+            if let Some(reply) = saved.reply {
+                self.draft_reply.insert(buffer, reply);
+            }
+        }
     }
 }
 
@@ -418,12 +459,20 @@ fn draft_path() -> PathBuf {
     environment::data_dir().join("drafts.json")
 }
 
-pub async fn save_drafts(drafts: HashMap<buffer::Upstream, String>) {
+#[derive(serde::Serialize, serde::Deserialize)]
+pub struct SavedDraft {
+    pub text: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reply: Option<DraftReply>,
+}
+
+pub async fn save_drafts(drafts: HashMap<buffer::Upstream, SavedDraft>) {
     if drafts.is_empty() {
         let _ = tokio::fs::remove_file(draft_path()).await;
         return;
     }
-    let pairs: Vec<(buffer::Upstream, String)> = drafts.into_iter().collect();
+    let pairs: Vec<(buffer::Upstream, SavedDraft)> =
+        drafts.into_iter().collect();
     match serde_json::to_vec(&pairs) {
         Ok(bytes) => {
             if let Err(e) = tokio::fs::write(draft_path(), bytes).await {
@@ -434,11 +483,11 @@ pub async fn save_drafts(drafts: HashMap<buffer::Upstream, String>) {
     }
 }
 
-pub fn load_drafts_sync() -> HashMap<buffer::Upstream, String> {
+pub fn load_drafts_sync() -> HashMap<buffer::Upstream, SavedDraft> {
     let Ok(bytes) = std::fs::read(draft_path()) else {
         return HashMap::new();
     };
-    serde_json::from_slice::<Vec<(buffer::Upstream, String)>>(&bytes)
+    serde_json::from_slice::<Vec<(buffer::Upstream, SavedDraft)>>(&bytes)
         .unwrap_or_default()
         .into_iter()
         .collect()
@@ -448,7 +497,8 @@ pub fn load_drafts_sync() -> HashMap<buffer::Upstream, String> {
 #[derive(Debug, Clone, Copy)]
 pub struct Cache<'a> {
     pub history: &'a [String],
-    pub draft: &'a str,
+    pub draft_message: &'a str,
+    pub draft_reply: Option<&'a DraftReply>,
     pub cursor_position: Option<&'a (usize, usize)>,
 }
 

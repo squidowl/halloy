@@ -267,7 +267,29 @@ impl User {
 
         (nickname, show_tooltip)
     }
+}
 
+pub fn truncate_nick(
+    nick: &str,
+    truncate: Option<u16>,
+    truncation_character: char,
+) -> std::borrow::Cow<'_, str> {
+    if let Some(len) = truncate {
+        let graphemes: Vec<&str> =
+            UnicodeSegmentation::graphemes(nick, true).collect();
+        if graphemes.len() > len as usize {
+            let mut truncated: String = graphemes
+                .into_iter()
+                .take(len.saturating_sub(1) as usize)
+                .collect();
+            truncated.push(truncation_character);
+            return std::borrow::Cow::Owned(truncated);
+        }
+    }
+    std::borrow::Cow::Borrowed(nick)
+}
+
+impl User {
     pub fn as_str(&self) -> &str {
         self.nickname.raw.as_ref()
     }
