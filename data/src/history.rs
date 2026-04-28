@@ -635,14 +635,14 @@ impl History {
 
     // Find the first message in the condensation, then return all messages in
     // the condensation
-    fn get_condensed_messages(
+    fn get_expansion_messages(
         &mut self,
         server_time: DateTime<Utc>,
         hash: message::Hash,
         config: &config::buffer::Condensation,
     ) -> Vec<&mut Message> {
         match self {
-            History::Partial { .. } => vec![],
+            History::Partial { .. } => (),
             History::Full { messages, .. } => {
                 if messages.is_empty() {
                     return vec![];
@@ -673,31 +673,35 @@ impl History {
                         (message.hash == hash)
                             .then_some(start_index + slice_index)
                     })
-                    && let Some(first_index) = messages[..=index]
+                {
+                    if messages[index].redaction.is_some() {
+                        return vec![&mut messages[index]];
+                    } else if let Some(first_index) = messages[..=index]
                         .iter()
                         .rev()
                         .position(|message| message.condensed.is_some())
                         .map(|position| index - position)
-                {
-                    messages[first_index..]
-                        .iter_mut()
-                        .filter(|message| !message.blocked)
-                        .scan(true, |is_first_message, message| {
-                            if *is_first_message {
-                                *is_first_message = false;
-                                Some(message)
-                            } else {
-                                (message.can_condense(config)
-                                    && message.condensed.is_none())
-                                .then_some(message)
-                            }
-                        })
-                        .collect()
-                } else {
-                    vec![]
+                    {
+                        return messages[first_index..]
+                            .iter_mut()
+                            .filter(|message| !message.blocked)
+                            .scan(true, |is_first_message, message| {
+                                if *is_first_message {
+                                    *is_first_message = false;
+                                    Some(message)
+                                } else {
+                                    (message.can_condense(config)
+                                        && message.condensed.is_none())
+                                    .then_some(message)
+                                }
+                            })
+                            .collect();
+                    }
                 }
             }
         }
+
+        vec![]
     }
 
     // If now is None then history will be flushed regardless of time

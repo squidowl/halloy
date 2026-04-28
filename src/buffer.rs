@@ -76,8 +76,8 @@ pub enum Event {
     MarkAsRead(history::Kind),
     OpenUrl(String),
     ImagePreview(PathBuf, url::Url),
-    ExpandCondensedMessage(DateTime<Utc>, message::Hash),
-    ContractCondensedMessage(DateTime<Utc>, message::Hash),
+    ExpandMessage(DateTime<Utc>, message::Hash),
+    ContractMessage(DateTime<Utc>, message::Hash),
     InputSent {
         history_task: Task<history::manager::Message>,
         open_buffers: Vec<(Target, BufferAction)>,
@@ -295,14 +295,12 @@ impl Buffer {
                     channel::Event::ImagePreview(path, url) => {
                         Event::ImagePreview(path, url)
                     }
-                    channel::Event::ExpandCondensedMessage(
-                        server_time,
-                        hash,
-                    ) => Event::ExpandCondensedMessage(server_time, hash),
-                    channel::Event::ContractCondensedMessage(
-                        server_time,
-                        hash,
-                    ) => Event::ContractCondensedMessage(server_time, hash),
+                    channel::Event::ExpandMessage(server_time, hash) => {
+                        Event::ExpandMessage(server_time, hash)
+                    }
+                    channel::Event::ContractMessage(server_time, hash) => {
+                        Event::ContractMessage(server_time, hash)
+                    }
                     channel::Event::InputSent {
                         history_task,
                         open_buffers,
@@ -361,14 +359,12 @@ impl Buffer {
                     server::Event::ImagePreview(path, url) => {
                         Event::ImagePreview(path, url)
                     }
-                    server::Event::ExpandCondensedMessage(
-                        server_time,
-                        hash,
-                    ) => Event::ExpandCondensedMessage(server_time, hash),
-                    server::Event::ContractCondensedMessage(
-                        server_time,
-                        hash,
-                    ) => Event::ContractCondensedMessage(server_time, hash),
+                    server::Event::ExpandMessage(server_time, hash) => {
+                        Event::ExpandMessage(server_time, hash)
+                    }
+                    server::Event::ContractMessage(server_time, hash) => {
+                        Event::ContractMessage(server_time, hash)
+                    }
                     server::Event::InputSent {
                         history_task,
                         open_buffers,
@@ -432,13 +428,12 @@ impl Buffer {
                     query::Event::ImagePreview(path, url) => {
                         Event::ImagePreview(path, url)
                     }
-                    query::Event::ExpandCondensedMessage(server_time, hash) => {
-                        Event::ExpandCondensedMessage(server_time, hash)
+                    query::Event::ExpandMessage(server_time, hash) => {
+                        Event::ExpandMessage(server_time, hash)
                     }
-                    query::Event::ContractCondensedMessage(
-                        server_time,
-                        hash,
-                    ) => Event::ContractCondensedMessage(server_time, hash),
+                    query::Event::ContractMessage(server_time, hash) => {
+                        Event::ContractMessage(server_time, hash)
+                    }
                     query::Event::InputSent {
                         history_task,
                         open_buffers,
@@ -517,13 +512,12 @@ impl Buffer {
                     logs::Event::ImagePreview(path, url) => {
                         Event::ImagePreview(path, url)
                     }
-                    logs::Event::ExpandCondensedMessage(server_time, hash) => {
-                        Event::ExpandCondensedMessage(server_time, hash)
+                    logs::Event::ExpandMessage(server_time, hash) => {
+                        Event::ExpandMessage(server_time, hash)
                     }
-                    logs::Event::ContractCondensedMessage(
-                        server_time,
-                        hash,
-                    ) => Event::ContractCondensedMessage(server_time, hash),
+                    logs::Event::ContractMessage(server_time, hash) => {
+                        Event::ContractMessage(server_time, hash)
+                    }
                 });
 
                 (command.map(Message::Logs), event)
@@ -554,14 +548,12 @@ impl Buffer {
                     highlights::Event::ImagePreview(path, url) => {
                         Event::ImagePreview(path, url)
                     }
-                    highlights::Event::ExpandCondensedMessage(
-                        server_time,
-                        hash,
-                    ) => Event::ExpandCondensedMessage(server_time, hash),
-                    highlights::Event::ContractCondensedMessage(
-                        server_time,
-                        hash,
-                    ) => Event::ContractCondensedMessage(server_time, hash),
+                    highlights::Event::ExpandMessage(server_time, hash) => {
+                        Event::ExpandMessage(server_time, hash)
+                    }
+                    highlights::Event::ContractMessage(server_time, hash) => {
+                        Event::ContractMessage(server_time, hash)
+                    }
                 });
 
                 (command.map(Message::Highlights), event)

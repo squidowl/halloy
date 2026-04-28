@@ -312,7 +312,7 @@ pub struct Message {
     pub is_echo: bool, // Only relevant if direction == Direction::Received
     pub blocked: bool,
     pub condensed: Option<Arc<Message>>,
-    pub expanded: bool, // Only relevant if can_condense
+    pub expanded: bool, // Only relevant if can_condense or redaction.is_some()
     pub command: Option<command::Irc>, // Only relevant if direction == Direction::Sent
     pub reactions: Vec<Reaction>,
     pub rerouted_from: Option<Target>,
@@ -3766,8 +3766,8 @@ pub enum Link {
     Url(String),
     User(Server, User),
     GoToMessage(Server, target::Channel, Hash),
-    ExpandCondensedMessage(DateTime<Utc>, Hash),
-    ContractCondensedMessage(DateTime<Utc>, Hash),
+    ExpandMessage(DateTime<Utc>, Hash),
+    ContractMessage(DateTime<Utc>, Hash),
 }
 
 impl Link {

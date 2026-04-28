@@ -36,8 +36,8 @@ pub fn update(message: Message) -> Option<Event> {
             )))
         }
         Message::Link(message::Link::GoToMessage(..))
-        | Message::Link(message::Link::ExpandCondensedMessage(..))
-        | Message::Link(message::Link::ContractCondensedMessage(..)) => None,
+        | Message::Link(message::Link::ExpandMessage(..))
+        | Message::Link(message::Link::ContractMessage(..)) => None,
     }
 }
 

@@ -88,8 +88,8 @@ pub enum Event {
     MarkAsRead,
     OpenUrl(String),
     ImagePreview(PathBuf, url::Url),
-    ExpandCondensedMessage(DateTime<Utc>, message::Hash),
-    ContractCondensedMessage(DateTime<Utc>, message::Hash),
+    ExpandMessage(DateTime<Utc>, message::Hash),
+    ContractMessage(DateTime<Utc>, message::Hash),
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -1044,22 +1044,19 @@ impl State {
                     );
                 }
             }
-            Message::Link(message::Link::ExpandCondensedMessage(
-                server_time,
-                hash,
-            )) => {
+            Message::Link(message::Link::ExpandMessage(server_time, hash)) => {
                 return (
                     Task::none(),
-                    Some(Event::ExpandCondensedMessage(server_time, hash)),
+                    Some(Event::ExpandMessage(server_time, hash)),
                 );
             }
-            Message::Link(message::Link::ContractCondensedMessage(
+            Message::Link(message::Link::ContractMessage(
                 server_time,
                 hash,
             )) => {
                 return (
                     Task::none(),
-                    Some(Event::ContractCondensedMessage(server_time, hash)),
+                    Some(Event::ContractMessage(server_time, hash)),
                 );
             }
             Message::RequestOlderChatHistory => {
