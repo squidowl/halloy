@@ -128,7 +128,7 @@ impl<'a> ChannelQueryLayout<'a> {
         }
 
         // A message can only be redacted once.
-        if message.redaction.is_none() {
+        if message.redaction.is_some() {
             return false;
         }
 
