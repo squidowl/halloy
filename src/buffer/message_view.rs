@@ -9,7 +9,7 @@ use data::preview::{self, Previews};
 use data::server::Server;
 use data::user::{ChannelUsers, NickRef};
 use data::{Config, User, message, target};
-use iced::widget::text::{LineHeight, Wrapping};
+use iced::widget::text::Wrapping;
 use iced::widget::{Space, button, column, container, row, text};
 use iced::{Color, Length, alignment};
 
