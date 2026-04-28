@@ -15,6 +15,7 @@ Fixed:
 - Backlog separator text colour now follows `buffer.backlog_rule`
 - Distinguish between reacts in chathistory vs active history
 - Channel matching on single line only
+- Do not hide consecutive nicknames if the user's displayed access levels or bot mode changes
 
 Changed:
 
