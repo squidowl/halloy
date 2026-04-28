@@ -244,6 +244,7 @@ impl Query {
                         input_view::Message::SetDraftReply {
                             msgid: msgid.clone(),
                             to_nick: to_nick.clone(),
+                            to_nick_prefix: String::new(),
                             reply_preview: reply_preview.clone(),
                         },
                         &self.buffer,

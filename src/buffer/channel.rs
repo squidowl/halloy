@@ -291,10 +291,22 @@ impl Channel {
                     },
                 )) = &event
                 {
+                    let casemapping =
+                        clients.get_server_casemapping_or_default(&self.server);
+                    let nick_obj =
+                        Nick::from_str(to_nick.as_str(), casemapping);
+                    let prefix = clients
+                        .get_channel_users(&self.server, &self.target)
+                        .and_then(|users| {
+                            users.get_by_nick(nick_obj.as_nickref())
+                        })
+                        .map(|user| user.highest_access_level().to_string())
+                        .unwrap_or_default();
                     let (reply_task, _) = self.input_view.update(
                         input_view::Message::SetDraftReply {
                             msgid: msgid.clone(),
                             to_nick: to_nick.clone(),
+                            to_nick_prefix: prefix,
                             reply_preview: reply_preview.clone(),
                         },
                         &self.buffer,

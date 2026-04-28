@@ -115,6 +115,7 @@ pub enum Message {
     SetDraftReply {
         msgid: message::Id,
         to_nick: String,
+        to_nick_prefix: String,
         reply_preview: String,
     },
     ClearDraftReply,
@@ -731,7 +732,12 @@ fn reply_bar<'a>(
     config: &'a Config,
     theme: &'a Theme,
 ) -> Option<crate::widget::Element<'a, Message>> {
-    let input::DraftReply { nick, preview, .. } = state.draft_reply.as_ref()?;
+    let input::DraftReply {
+        nick,
+        prefix,
+        preview,
+        ..
+    } = state.draft_reply.as_ref()?;
     let font_size = config.font.size.map_or(theme::TEXT_SIZE, f32::from) * 0.85;
     let display_nick = data::user::truncate_nick(
         nick,
@@ -742,7 +748,7 @@ fn reply_bar<'a>(
         .buffer
         .nickname
         .brackets
-        .format(display_nick.as_ref());
+        .format(format!("{prefix}{}", display_nick.as_ref()));
     let nick_color = theme::text::nickname(
         theme,
         &config.buffer.nickname.color,
@@ -1402,11 +1408,13 @@ impl State {
             Message::SetDraftReply {
                 msgid,
                 to_nick,
+                to_nick_prefix,
                 reply_preview,
             } => {
                 self.draft_reply = Some(input::DraftReply {
                     id: msgid,
                     nick: to_nick.clone(),
+                    prefix: to_nick_prefix,
                     preview: reply_preview,
                 });
                 self.insert_user(

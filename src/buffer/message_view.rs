@@ -7,7 +7,7 @@ use data::config::buffer::{CondensationIcon, Dimmed};
 use data::isupport::{CaseMap, PrefixMap};
 use data::preview::{self, Previews};
 use data::server::Server;
-use data::user::{ChannelUsers, NickRef};
+use data::user::{ChannelUsers, Nick, NickRef};
 use data::{Config, User, message, target};
 use iced::widget::text::Wrapping;
 use iced::widget::{Space, button, column, container, row, text};
@@ -1245,6 +1245,13 @@ impl<'a> ChannelQueryLayout<'a> {
             text: preview,
         }) = &message.reply_preview
         {
+            let nick_obj = Nick::from_str(nick, self.casemapping);
+            let prefix = self
+                .target
+                .users()
+                .and_then(|users| users.get_by_nick(nick_obj.as_nickref()))
+                .map(|user| user.highest_access_level().to_string())
+                .unwrap_or_default();
             let display_nick = data::user::truncate_nick(
                 nick,
                 self.config.buffer.nickname.truncate,
@@ -1255,7 +1262,7 @@ impl<'a> ChannelQueryLayout<'a> {
                 .buffer
                 .nickname
                 .brackets
-                .format(display_nick.as_ref());
+                .format(format!("{prefix}{}", display_nick.as_ref()));
             let nick_color = theme::text::nickname(
                 self.theme,
                 &self.config.buffer.nickname.color,
