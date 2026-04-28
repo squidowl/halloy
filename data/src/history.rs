@@ -465,14 +465,15 @@ impl History {
             }
             History::Full {
                 messages,
-                read_marker,
+                display_read_marker,
                 ..
             } => {
                 let latest = metadata::latest_triggers_unread(messages);
 
-                if let Some(read_marker) = read_marker {
-                    latest
-                        .is_some_and(|latest| read_marker.date_time() < latest)
+                if let Some(display_read_marker) = display_read_marker {
+                    latest.is_some_and(|latest| {
+                        display_read_marker.date_time() < latest
+                    })
                 } else {
                     latest.is_some()
                 }
