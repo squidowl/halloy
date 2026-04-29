@@ -1291,24 +1291,24 @@ impl<'a> ChannelQueryLayout<'a> {
                 .into()
         };
 
-        let char_width = font::width_from_chars(1, &self.config.font);
-        let ts_w = self
+        let timestamp_chars = self
             .config
             .buffer
             .format_timestamp(&message.server_time)
-            .map_or(0.0, |s| {
-                font::width_from_chars(s.chars().count(), &self.config.font)
-            });
-        let indent = ts_w / 2.0 - char_width;
-        let ts_chars = (ts_w / char_width).round() as usize;
-        let arm_chars = ts_chars / 2 + 1;
-        let arm = format!("┌{}", "─".repeat(arm_chars.saturating_sub(1)));
+            .map_or(0, |s| s.chars().count());
+        let arm = format!(
+            "┌{}",
+            "─".repeat(
+                (timestamp_chars / 2).saturating_sub(1)
+                    + usize::from(!timestamp_chars.is_multiple_of(2))
+            )
+        );
 
         Some(
             row![
-                Space::new().width(indent),
+                text(" ".repeat(timestamp_chars / 2)).size(reg_text_s),
                 text(arm).style(theme::text::timestamp).size(reg_text_s),
-                Space::new().width(char_width),
+                text(" ").size(reg_text_s),
                 icon::reply()
                     .size(theme::ICON_SIZE - 2.0)
                     .align_y(alignment::Vertical::Center)
