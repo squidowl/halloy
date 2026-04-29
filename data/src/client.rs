@@ -1,5 +1,5 @@
 use std::cmp::Ordering;
-use std::collections::{BTreeMap, HashMap, VecDeque};
+use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use std::mem::take;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -212,6 +212,7 @@ pub struct Client {
     resolved_netid: Option<String>,
     anti_flood: Option<TokenBucket<message::Encoded>>,
     mode_requests: Vec<ModeRequest>,
+    metadata_sub_requests: HashSet<String>,
     channel_discovery_manager: channel_discovery::Manager,
     http_client: Option<Arc<reqwest::Client>>, // Only Some if config.proxy.is_some()
     registry: metadata::ServerRegistry,
@@ -280,6 +281,7 @@ impl Client {
             resolved_netid: None,
             anti_flood: Some(TokenBucket::new(config.anti_flood, 10)),
             mode_requests: Vec::new(),
+            metadata_sub_requests: HashSet::new(),
             http_client: http_client.map(Arc::new),
             config,
             channel_discovery_manager: channel_discovery::Manager::new(),
@@ -3006,6 +3008,10 @@ impl Client {
                     );
 
                     if !requested.is_empty() {
+                        for key in &requested {
+                            self.metadata_sub_requests.insert(key.to_string());
+                        }
+
                         let mut args = vec!["*".to_string(), "SUB".to_string()];
                         args.extend(requested);
 
@@ -3129,6 +3135,23 @@ impl Client {
                         key.clone(),
                         value.clone(),
                     );
+                }
+            }
+            Command::FAIL(command, code, context, _) => {
+                if command == "METADATA"
+                    && code == "KEY_INVALID"
+                    && let Some(key) =
+                        context.as_ref().and_then(|context| context.first())
+                    && self.metadata_sub_requests.take(key).is_some()
+                {
+                    // Expected as part of requesting keys via METADATA SUB,
+                    // hide from the user.
+                    return Ok(vec![]);
+                }
+            }
+            Command::Numeric(RPL_METADATASUBOK, args) => {
+                for key in args.iter().skip(1) {
+                    self.metadata_sub_requests.remove(key);
                 }
             }
             _ => {}
