@@ -1277,7 +1277,7 @@ impl<'a> ChannelQueryLayout<'a> {
                     .style(move |_| nick_color)
                     .size(sm_font_s),
                 text(format!(" {preview}"))
-                    .style(theme::text::primary)
+                    .style(theme::text::secondary)
                     .size(sm_font_s)
                     .wrapping(Wrapping::None)
                     .ellipsis(text::Ellipsis::End)

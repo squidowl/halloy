@@ -17,7 +17,7 @@ use data::user::Nick;
 use data::{Config, User, client, command, message, shortcut};
 use iced::advanced::widget::Tree;
 use iced::advanced::{Clipboard, Layout, Shell, mouse};
-use iced::widget::text::{Ellipsis, LineHeight, Shaping, Wrapping};
+use iced::widget::text::{Ellipsis, Shaping, Wrapping};
 use iced::widget::{
     self, button, center, column, container, mouse_area, operation, row, rule,
     text_editor,
@@ -764,18 +764,15 @@ fn reply_bar<'a>(
                 row![
                     text("Replying to ")
                         .style(theme::text::primary)
-                        .line_height(LineHeight::Relative(1.0))
                         .size(font_size),
                     text(formatted_nick.to_string())
                         .style(move |_| nick_color)
-                        .line_height(LineHeight::Relative(1.0))
                         .size(font_size),
                     text(format!(" {preview}"))
-                        .style(theme::text::primary)
+                        .style(theme::text::secondary)
                         .size(font_size)
                         .wrapping(Wrapping::None)
                         .ellipsis(Ellipsis::End)
-                        .line_height(LineHeight::Relative(1.0))
                         .width(Length::Fill),
                 ]
                 .width(Length::Fill),
