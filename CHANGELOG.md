@@ -28,7 +28,7 @@ Thanks:
 
 - Contributions: @bb010g, @furudean, @englut, @luca020400
 - Bug reports: @bb010g
-- Feature requests: @WinnerWind
+- Feature requests: @WinnerWind, Shyny
 
 # 2026.6 (2026-04-21)
 
