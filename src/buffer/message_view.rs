@@ -1218,12 +1218,13 @@ impl<'a> LayoutMessage<'a> for ChannelQueryLayout<'a> {
             container(row![row, content]).into()
         };
 
-        let message_element =
-            if let Some(reply_row) = self.format_reply_preview(message) {
-                column![reply_row, message_element].into()
-            } else {
-                message_element
-            };
+        let message_element = if let Some(reply_row) =
+            self.format_reply_preview(message, right_aligned_width)
+        {
+            column![reply_row, message_element].into()
+        } else {
+            message_element
+        };
 
         Some(message_element)
     }
@@ -1233,6 +1234,7 @@ impl<'a> ChannelQueryLayout<'a> {
     fn format_reply_preview(
         &self,
         message: &'a data::Message,
+        right_aligned_width: Option<f32>,
     ) -> Option<Element<'a, Message>> {
         message.reply_to.as_ref()?;
 
@@ -1296,28 +1298,43 @@ impl<'a> ChannelQueryLayout<'a> {
             .buffer
             .format_timestamp(&message.server_time)
             .map_or(0, |s| s.chars().count());
-        let arm = format!(
-            "┌{}",
-            "─".repeat(
-                (timestamp_chars / 2).saturating_sub(1)
-                    + usize::from(!timestamp_chars.is_multiple_of(2))
-            )
-        );
 
-        Some(
+        // right-aligned: fixed short arm offset to content column.
+        // left-aligned: arm spans from timestamp midpoint to its edge
+        let reply_row = if let Some(nick_col_width) = right_aligned_width {
+            let char_width = font::width_from_chars(1, &self.config.font);
+            let nick_col_chars = (nick_col_width / char_width).round() as usize;
+            let indent = timestamp_chars + nick_col_chars - 2;
             row![
-                text(" ".repeat(timestamp_chars / 2)).size(reg_text_s),
-                text(arm).style(theme::text::timestamp).size(reg_text_s),
-                text(" ").size(reg_text_s),
+                text(" ".repeat(indent)).size(reg_text_s),
+                text("┌── ").style(theme::text::timestamp).size(reg_text_s),
                 icon::reply()
                     .size(theme::ICON_SIZE - 2.0)
                     .align_y(alignment::Vertical::Center)
                     .style(theme::text::primary),
                 content,
             ]
-            .align_y(alignment::Vertical::Center)
-            .into(),
-        )
+        } else {
+            let half = timestamp_chars / 2;
+            let arm = format!(
+                "┌{}",
+                "─".repeat(
+                    half.saturating_sub(1)
+                        + usize::from(!timestamp_chars.is_multiple_of(2))
+                )
+            );
+            row![
+                text(" ".repeat(half)).size(reg_text_s),
+                text(arm).style(theme::text::timestamp).size(reg_text_s),
+                text(" ").size(reg_text_s),
+                icon::reply()
+                    .size(theme::ICON_SIZE - 2.0)
+                    .style(theme::text::primary),
+                content,
+            ]
+        };
+
+        Some(reply_row.align_y(alignment::Vertical::Center).into())
     }
 }
 
