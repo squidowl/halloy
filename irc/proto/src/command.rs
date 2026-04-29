@@ -741,6 +741,7 @@ impl TryFrom<u16> for Numeric {
             733 => RPL_ENDOFMONLIST,
             734 => ERR_MONLISTFULL,
             760 => RPL_WHOISKEYVALUE,
+            770 => RPL_METADATASUBOK,
             900 => RPL_LOGGEDIN,
             901 => RPL_LOGGEDOUT,
             902 => ERR_NICKLOCKED,
