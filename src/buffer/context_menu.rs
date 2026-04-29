@@ -1014,7 +1014,6 @@ fn user_metadata<'a>(
     const AVATAR_SIZE: f32 = 36.0;
 
     let query = target::Query::from(user);
-    let show_avatar = avatar.is_some();
     let avatar: Option<Element<'a, Message>> = avatar.map(|avatar| {
         let content: Element<'a, Message> = match avatar {
             UserAvatar::Loaded(path) => image(path.clone())
@@ -1039,7 +1038,7 @@ fn user_metadata<'a>(
         .preferred_keys
         .iter()
         .copied()
-        .filter(|key| !(show_avatar && matches!(key, metadata::Key::Avatar)))
+        .filter(|key| !matches!(key, metadata::Key::Avatar))
         .filter_map(|key| {
             registry
                 .get_user(&query, key)
@@ -1056,13 +1055,17 @@ fn user_metadata<'a>(
 
     let mut content = column![];
 
-    if let Some(avatar) = avatar {
+    let inter_column_spacing = if let Some(avatar) = avatar {
         content = content.push(avatar);
-    }
 
-    content
-        .push(column(rows).spacing(2))
-        .spacing(2)
+        4
+    } else {
+        0
+    };
+
+    row![content, column(rows).spacing(2)]
+        .spacing(inter_column_spacing)
+        .align_y(iced::alignment::Vertical::Top)
         .padding(right_justified_padding(config))
         .into()
 }
