@@ -1182,7 +1182,7 @@ impl State {
                 let task = Task::perform(
                     async move { has_filehost.then(try_clipboard_upload).flatten() },
                     |path| match path {
-                        Some(p) => Message::FilesSelected(vec![p]),
+                        Some(p) => Message::FilesSelected(p),
                         None => Message::PasteText,
                     },
                 );
@@ -2754,28 +2754,41 @@ fn show_while_typing(error: &input::Error) -> bool {
     }
 }
 
-fn try_clipboard_upload() -> Option<std::path::PathBuf> {
+// arboard returns paths ending with \r
+// https://github.com/1Password/arboard/issues/216
+fn clean_path(path: std::path::PathBuf) -> std::path::PathBuf {
+    let path_string = path.to_string_lossy();
+    let cleaned = path_string.strip_suffix("\r").unwrap_or(&path_string);
+    std::path::PathBuf::from(cleaned)
+}
+
+fn try_clipboard_upload() -> Option<Vec<std::path::PathBuf>> {
     // macos needs special treatment
     #[cfg(target_os = "macos")]
     if let Some(path) = macos_clipboard_file() {
-        return Some(path);
+        return Some(vec![path]);
     }
 
     let mut cb = arboard::Clipboard::new().ok()?;
-    let img = cb.get_image().ok()?;
 
-    let rgba: image::RgbaImage = image::ImageBuffer::from_raw(
-        img.width as u32,
-        img.height as u32,
-        img.bytes.into_owned(),
-    )?;
+    if let Ok(img) = cb.get().image() {
+        let rgba: image::RgbaImage = image::ImageBuffer::from_raw(
+            img.width as u32,
+            img.height as u32,
+            img.bytes.into_owned(),
+        )?;
 
-    let path = std::env::temp_dir()
-        .join(format!("halloy-paste-{}.png", uuid::Uuid::new_v4()));
+        let path = std::env::temp_dir()
+            .join(format!("halloy-paste-{}.png", uuid::Uuid::new_v4()));
 
-    rgba.save(&path).ok()?;
+        rgba.save(&path).ok()?;
 
-    Some(path)
+        return Some(vec![path]);
+    } else if let Ok(file_list) = cb.get().file_list() {
+        return Some(file_list.into_iter().map(clean_path).collect());
+    }
+
+    None
 }
 
 #[cfg(target_os = "macos")]
