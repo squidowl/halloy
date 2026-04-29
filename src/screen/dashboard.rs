@@ -1271,12 +1271,22 @@ impl Dashboard {
                             );
 
                             state.buffer = Buffer::from_data(
-                                data::Buffer::Upstream(buffer),
+                                data::Buffer::Upstream(buffer.clone()),
                                 history,
                                 state.size,
                                 config,
                             );
                             self.last_changed = Some(Instant::now());
+
+                            let server = buffer.server();
+                            if let Some(channel) = buffer.channel()
+                                && let Some(client) = clients.client_mut(server)
+                            {
+                                client.prioritize_joined_who_poll(
+                                    channel.to_owned(),
+                                );
+                            }
+
                             return (self.focus_pane(window, pane), None);
                         }
                     }
@@ -1300,12 +1310,22 @@ impl Dashboard {
                             );
 
                             state.buffer = Buffer::from_data(
-                                data::Buffer::Upstream(buffer),
+                                data::Buffer::Upstream(buffer.clone()),
                                 history,
                                 state.size,
                                 config,
                             );
                             self.last_changed = Some(Instant::now());
+
+                            let server = buffer.server();
+                            if let Some(channel) = buffer.channel()
+                                && let Some(client) = clients.client_mut(server)
+                            {
+                                client.prioritize_joined_who_poll(
+                                    channel.to_owned(),
+                                );
+                            }
+
                             return (self.focus_pane(window, pane), None);
                         }
                     }
