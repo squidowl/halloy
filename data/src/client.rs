@@ -1523,8 +1523,9 @@ impl Client {
                         }
                     }
 
-                    if let Some(channel) =
-                        self.message_channel_target(&message.command)
+                    if self.isupport.contains_key(&isupport::Kind::BOT)
+                        && let Some(channel) =
+                            self.message_channel_target(&message.command)
                         && let Some(ch) = self.chanmap.get_mut(&channel)
                     {
                         ch.users.update_user(
