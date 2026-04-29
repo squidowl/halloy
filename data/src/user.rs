@@ -202,6 +202,7 @@ impl User {
     pub fn from_proto_user(
         user: proto::User,
         casemapping: isupport::CaseMap,
+        from_bot: bool,
     ) -> Self {
         User {
             nickname: Nick::from_string(user.nickname, casemapping),
@@ -210,7 +211,7 @@ impl User {
             accountname: None,
             access_levels: BTreeSet::default(),
             away: false,
-            bot: false,
+            bot: from_bot,
         }
     }
 

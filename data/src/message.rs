@@ -120,9 +120,11 @@ impl Encoded {
         let source = self.source.as_ref()?;
 
         match source {
-            proto::Source::User(user) => {
-                Some(User::from_proto_user(user.clone(), casemapping))
-            }
+            proto::Source::User(user) => Some(User::from_proto_user(
+                user.clone(),
+                casemapping,
+                self.from_bot(),
+            )),
             _ => None,
         }
     }
@@ -2208,15 +2210,7 @@ fn target(
 ) -> Option<(Target, Option<Target>)> {
     use proto::command::Numeric::*;
 
-    let update_bot = |mut user: User| -> User {
-        if message.from_bot() {
-            user.update_bot(true);
-        }
-
-        user
-    };
-
-    let user = message.user(casemapping).map(&update_bot);
+    let user = message.user(casemapping);
 
     match &message.command {
         // Channel
