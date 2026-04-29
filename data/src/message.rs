@@ -2513,7 +2513,7 @@ fn target(
                     (target::Target::Channel(channel), Some(user)) => {
                         let source = source(
                             resolve_attributes(user, &channel)
-                                .map_or(user.clone(), &update_bot),
+                                .unwrap_or(user.clone()),
                         );
                         (Target::Channel { channel, source }, None)
                     }
@@ -2578,7 +2578,7 @@ fn target(
                     user.as_ref().map_or(Source::Server(None), |user| {
                         source(
                             resolve_attributes(user, &channel_context)
-                                .map_or(user.clone(), &update_bot),
+                                .unwrap_or(user.clone()),
                         )
                     });
 
@@ -2598,12 +2598,10 @@ fn target(
                 // Resolve attributes in the target channel
                 let source = match source {
                     Source::User(user) => Source::User(
-                        resolve_attributes(&user, &channel)
-                            .map_or(user, &update_bot),
+                        resolve_attributes(&user, &channel).unwrap_or(user),
                     ),
                     Source::Action(Some(user)) => Source::Action(Some(
-                        resolve_attributes(&user, &channel)
-                            .map_or(user, &update_bot),
+                        resolve_attributes(&user, &channel).unwrap_or(user),
                     )),
                     Source::Action(None)
                     | Source::Server(_)
