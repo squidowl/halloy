@@ -1300,7 +1300,8 @@ impl<'a> ChannelQueryLayout<'a> {
             .map_or(0, |s| s.chars().count());
 
         // right-aligned: fixed short arm offset to content column.
-        // left-aligned: arm spans from timestamp midpoint to its edge
+        // left-aligned: arm spans from timestamp midpoint to its edge.
+        // top-aligned: no arm or indent.
         let reply_row = if let Some(nick_col_width) = right_aligned_width {
             let char_width = font::width_from_chars(1, &self.config.font);
             let nick_col_chars = (nick_col_width / char_width).round() as usize;
@@ -1311,6 +1312,16 @@ impl<'a> ChannelQueryLayout<'a> {
                 icon::reply()
                     .size(theme::ICON_SIZE - 2.0)
                     .align_y(alignment::Vertical::Center)
+                    .style(theme::text::primary),
+                content,
+            ]
+        } else if matches!(
+            self.config.buffer.nickname.alignment,
+            data::buffer::Alignment::Top
+        ) {
+            row![
+                icon::reply()
+                    .size(theme::ICON_SIZE - 2.0)
                     .style(theme::text::primary),
                 content,
             ]
