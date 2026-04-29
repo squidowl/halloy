@@ -8,6 +8,7 @@ Added:
 - IRCv3 bot mode support, with bot icon in buffers and nicklists
 - Customize the character used to indicate a nickname was truncated with `display.truncation_character`
 - Support for IRCv3 `draft/message-redaction`
+- Setting to close queries when closing query buffer panes (`buffer.close.query`)
 
 Fixed:
 

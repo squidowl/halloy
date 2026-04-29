@@ -3720,6 +3720,8 @@ impl Dashboard {
         window: window::Id,
         pane: pane_grid::Pane,
     ) -> Task<Message> {
+        let mut tasks = vec![];
+
         if let Some(state) = self.panes.get(window, pane) {
             mark_as_read_on_buffer_close(
                 &state.buffer,
@@ -3727,6 +3729,19 @@ impl Dashboard {
                 clients,
                 config,
             );
+
+            if config.buffer.close.query.close()
+                && let Some(history::Kind::Query(server, nick)) =
+                    state.buffer.data().and_then(history::Kind::from_buffer)
+            {
+                tasks.push(
+                    self.history
+                        .close(history::Kind::Query(server, nick), clients)
+                        .map_or_else(Task::none, |task| {
+                            Task::perform(task, Message::History)
+                        }),
+                );
+            }
         }
 
         self.last_changed = Some(Instant::now());
@@ -3736,7 +3751,8 @@ impl Dashboard {
 
             if let Some((_, sibling)) = self.panes.main.close(pane) {
                 if (Focus { window, pane } == self.focus) {
-                    return self.focus_pane(self.main_window(), sibling);
+                    tasks.push(self.focus_pane(self.main_window(), sibling));
+                    return Task::batch(tasks);
                 }
             } else if let Some(pane) = self.panes.main.get_mut(pane) {
                 pane.buffer = Buffer::Empty;
@@ -3746,11 +3762,14 @@ impl Dashboard {
                 self.close_command_bar();
             }
 
-            return window::close(window)
-                .chain(self.focus_window(self.main_window()));
+            tasks.push(
+                window::close(window)
+                    .chain(self.focus_window(self.main_window())),
+            );
+            return Task::batch(tasks);
         }
 
-        Task::none()
+        Task::batch(tasks)
     }
 
     fn popout_pane(
