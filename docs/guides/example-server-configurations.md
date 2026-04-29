@@ -2,6 +2,8 @@
 
 ## [Libera](https://libera.chat/)
 
+### Unregistered
+
 ```toml
 [servers.Libera]
 server = "irc.libera.chat"
@@ -11,6 +13,22 @@ port = 6697 # default value when use_tls = true
 nickname = "halloy-user"
 
 channels = ["#halloy"]
+```
+
+### [Registered](https://libera.chat/guides/registration)
+
+```toml
+[servers.Libera]
+server = "irc.libera.chat"
+use_tls = true # default value
+port = 6697 # default value when use_tls = true
+
+nickname = "registered-user"
+
+channels = ["#registered-users-clubhouse"]
+
+sasl.plain.username = "registered-user"
+sasl.plain.password_file = "super-secret-password"
 ```
 
 ## [OFTC](https://oftc.net/)
