@@ -1414,15 +1414,30 @@ impl State {
                     prefix: to_nick_prefix,
                     preview: reply_preview,
                 });
-                self.insert_user(
-                    Nick::from_string(
-                        to_nick,
-                        data::isupport::CaseMap::default(),
-                    ),
-                    buffer.clone(),
-                    history,
-                    &config.buffer.text_input.autocomplete,
-                );
+                let suffix =
+                    &config.buffer.text_input.autocomplete.completion_suffixes
+                        [0];
+                let prefix_str = format!("{to_nick}{suffix}");
+                let current_text = self.input_content.text();
+                if !current_text.starts_with(&prefix_str) {
+                    let replaced = format!("{prefix_str}{current_text}");
+                    let delta = prefix_str.chars().count() as i64;
+                    let cursor = adjust_cursor(
+                        &self.input_content,
+                        &replaced,
+                        0,
+                        0,
+                        delta,
+                    );
+                    self.input_content =
+                        text_editor::Content::with_text(&replaced);
+                    self.input_content.move_to(cursor);
+                    history.record_draft(RawInput {
+                        buffer: buffer.clone(),
+                        text: self.input_content.text(),
+                        reply: self.draft_reply.clone(),
+                    });
+                }
                 (self.focus(), None)
             }
             Message::ClearDraftReply => {
