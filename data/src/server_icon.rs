@@ -5,6 +5,7 @@ use std::sync::Arc;
 use iced::Task;
 use sha2::{Digest, Sha256};
 use tokio::fs;
+use tokio_stream::StreamExt;
 use url::Url;
 
 use self::icon::Icon;
@@ -135,17 +136,27 @@ async fn load(
     }
 }
 
+const MAX_ICON_SIZE: usize = 5 * 1024 * 1024; // 5 MiB
+
 async fn fetch(
     url: Url,
     http_client: Arc<reqwest::Client>,
 ) -> Result<Icon, LoadError> {
-    let response = http_client
+    let mut stream = http_client
         .get(url.clone())
         .send()
         .await?
-        .error_for_status()?;
+        .error_for_status()?
+        .bytes_stream();
 
-    let bytes = response.bytes().await?;
+    let mut bytes = Vec::new();
+
+    while let Some(chunk) = stream.next().await.transpose()? {
+        if bytes.len() + chunk.len() > MAX_ICON_SIZE {
+            return Err(LoadError::TooLarge);
+        }
+        bytes.extend_from_slice(&chunk);
+    }
 
     if bytes.is_empty() {
         return Err(LoadError::EmptyBody);
@@ -154,7 +165,7 @@ async fn fetch(
     let format = image::guess_format(&bytes).map_err(LoadError::ParseImage)?;
 
     let mut hasher = Sha256::default();
-    hasher.update(bytes.as_ref());
+    hasher.update(&bytes);
 
     let digest = icon::Digest::new(hasher.finalize().as_ref());
     let image_path = cache::image_path(&format, &digest);
@@ -164,7 +175,7 @@ async fn fetch(
             fs::create_dir_all(parent).await?;
         }
 
-        fs::write(&image_path, bytes.as_ref()).await?;
+        fs::write(&image_path, &bytes).await?;
 
         cache::maybe_trim_icon_cache(bytes.len() as u64, image_path.clone());
     }
@@ -178,6 +189,8 @@ pub enum LoadError {
     CachedFailed,
     #[error("empty body")]
     EmptyBody,
+    #[error("image too large")]
+    TooLarge,
     #[error("failed to parse image: {0}")]
     ParseImage(#[from] icon::Error),
     #[error("request failed: {0}")]
