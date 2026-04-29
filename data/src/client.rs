@@ -1523,14 +1523,16 @@ impl Client {
                         }
                     }
 
-                    if message.tags.contains_key("bot")
+                    if self.isupport.contains_key(&isupport::Kind::BOT)
                         && let Some(channel) =
                             self.message_channel_target(&message.command)
                         && let Some(ch) = self.chanmap.get_mut(&channel)
-                        && let Some(mut chan_user) = ch.users.take(&user)
                     {
-                        chan_user.update_bot(true);
-                        ch.users.insert(chan_user);
+                        ch.users.update_user(
+                            &user,
+                            None,
+                            Some(message.tags.contains_key("bot")),
+                        );
                     }
 
                     let user_query = target::Query::from(&user);
@@ -5174,13 +5176,11 @@ impl Channel {
                 _ => return,
             };
 
-            if let Some(mut user) = self.users.take(&user) {
-                user.update_away(away);
-                if let Some(bot_char) = bot_mode_char {
-                    user.update_bot(flags.contains(bot_char));
-                }
-                self.users.insert(user);
-            }
+            self.users.update_user(
+                &user,
+                Some(away),
+                bot_mode_char.map(|bot_char| flags.contains(bot_char)),
+            );
         }
     }
 

@@ -120,9 +120,11 @@ impl Encoded {
         let source = self.source.as_ref()?;
 
         match source {
-            proto::Source::User(user) => {
-                Some(User::from_proto_user(user.clone(), casemapping))
-            }
+            proto::Source::User(user) => Some(User::from_proto_user(
+                user.clone(),
+                casemapping,
+                self.from_bot(),
+            )),
             _ => None,
         }
     }
@@ -2208,15 +2210,7 @@ fn target(
 ) -> Option<(Target, Option<Target>)> {
     use proto::command::Numeric::*;
 
-    let update_bot = |mut user: User| -> User {
-        if message.from_bot() {
-            user.update_bot(true);
-        }
-
-        user
-    };
-
-    let user = message.user(casemapping).map(&update_bot);
+    let user = message.user(casemapping);
 
     match &message.command {
         // Channel
@@ -2513,7 +2507,7 @@ fn target(
                     (target::Target::Channel(channel), Some(user)) => {
                         let source = source(
                             resolve_attributes(user, &channel)
-                                .map_or(user.clone(), &update_bot),
+                                .unwrap_or(user.clone()),
                         );
                         (Target::Channel { channel, source }, None)
                     }
@@ -2578,7 +2572,7 @@ fn target(
                     user.as_ref().map_or(Source::Server(None), |user| {
                         source(
                             resolve_attributes(user, &channel_context)
-                                .map_or(user.clone(), &update_bot),
+                                .unwrap_or(user.clone()),
                         )
                     });
 
@@ -2598,12 +2592,10 @@ fn target(
                 // Resolve attributes in the target channel
                 let source = match source {
                     Source::User(user) => Source::User(
-                        resolve_attributes(&user, &channel)
-                            .map_or(user, &update_bot),
+                        resolve_attributes(&user, &channel).unwrap_or(user),
                     ),
                     Source::Action(Some(user)) => Source::Action(Some(
-                        resolve_attributes(&user, &channel)
-                            .map_or(user, &update_bot),
+                        resolve_attributes(&user, &channel).unwrap_or(user),
                     )),
                     Source::Action(None)
                     | Source::Server(_)
