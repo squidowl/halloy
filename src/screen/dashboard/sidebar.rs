@@ -885,34 +885,40 @@ fn upstream_buffer_button<'a>(
         data::config::sidebar::ServerIcon::Size(size),
     ) = (&buffer, &config.sidebar.server_icon)
     {
-        let icon_widget: Element<'a, Message> =
-            if let Some(server_icon) = server_icons.get(server) {
-                image(iced::widget::image::Handle::from_path(
-                    server_icon.path.clone(),
-                ))
-                .width(*size)
-                .height(*size)
-                .into()
+        let server_icon_enabled = config
+            .servers
+            .get(server)
+            .is_some_and(|server_config| server_config.icon.enabled);
+
+        let icon_widget: Element<'a, Message> = if server_icon_enabled
+            && let Some(server_icon) = server_icons.get(server)
+        {
+            image(iced::widget::image::Handle::from_path(
+                server_icon.path.clone(),
+            ))
+            .width(*size)
+            .height(*size)
+            .into()
+        } else {
+            if server.is_bouncer_network() {
+                icon::link()
             } else {
-                if server.is_bouncer_network() {
-                    icon::link()
+                icon::connected()
+            }
+            .style(if connected {
+                if has_highlight {
+                    theme::text::highlight_indicator
+                } else if has_unread {
+                    theme::text::unread_indicator
                 } else {
-                    icon::connected()
+                    theme::text::primary
                 }
-                .style(if connected {
-                    if has_highlight {
-                        theme::text::highlight_indicator
-                    } else if has_unread {
-                        theme::text::unread_indicator
-                    } else {
-                        theme::text::primary
-                    }
-                } else {
-                    theme::text::error
-                })
-                .size(*size)
-                .into()
-            };
+            } else {
+                theme::text::error
+            })
+            .size(*size)
+            .into()
+        };
 
         Some((icon_widget, *size))
     }

@@ -8,6 +8,7 @@ use tokio::fs;
 use tokio::process::Command;
 
 use self::filehost::Filehost;
+use self::icon::Icon;
 use crate::config::inclusivities::{
     Inclusivities, is_target_channel_included, is_target_query_included,
 };
@@ -20,6 +21,7 @@ use crate::{config, isupport, metadata, target};
 
 pub mod filehost;
 pub mod filters;
+pub mod icon;
 pub mod reroute;
 
 pub use self::filters::{FancyRegex, Filters, Ignore};
@@ -128,6 +130,7 @@ pub struct Server {
     pub typing: OptionalTyping,
     pub filehost: Filehost,
     pub metadata: HashMap<metadata::Key, String>,
+    pub icon: Icon,
 }
 
 impl Server {
@@ -248,6 +251,7 @@ impl Default for Server {
             typing: OptionalTyping::default(),
             filehost: Filehost::default(),
             metadata: HashMap::default(),
+            icon: Icon::default(),
         }
     }
 }
