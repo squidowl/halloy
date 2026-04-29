@@ -3276,6 +3276,27 @@ fn content<'a>(
                 None,
             ))
         }
+        Command::Numeric(RPL_WHOISKEYVALUE, params) => {
+            let user: User = User::from(Nick::from_str(
+                params.get(1)?.as_str(),
+                casemapping,
+            ));
+            let key = params.get(2)?;
+            let visibility = params.get(3)?;
+            let value = params.get(4)?;
+
+            Some((
+                parse_fragments_with_user(
+                    format!(
+                        "{} has {key} {value} (visibility: {visibility})",
+                        user.nickname()
+                    ),
+                    &user,
+                    casemapping,
+                ),
+                None,
+            ))
+        }
         Command::Numeric(RPL_TOPICWHOTIME, params) => {
             let user =
                 User::parse(params.get(2)?.as_str(), casemapping, Some(prefix))
