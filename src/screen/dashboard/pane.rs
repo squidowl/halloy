@@ -532,22 +532,61 @@ fn query_title<'a>(
         .buffer
         .nickname
         .offline
-        .is_offline(!shared_channels.is_empty() && current_user.is_none());
+        .is_offline(shared_channels.is_empty() || current_user.is_none());
 
-    let nickname = text(resolved_query.as_str())
-        .style(move |_| {
-            theme::text::nickname(
-                theme,
-                &config.buffer.nickname.color,
-                Some(resolved_query.as_str()),
-                is_user_away,
-                is_user_offline,
+    let nickname: Element<'a, Message> = if is_user_offline
+        && matches!(config.tooltips, data::config::Tooltips::All)
+    {
+        iced::widget::tooltip(
+            row![
+                text(resolved_query.as_str())
+                    .style(move |_| {
+                        theme::text::nickname(
+                            theme,
+                            &config.buffer.nickname.color,
+                            Some(resolved_query.as_str()),
+                            is_user_away,
+                            is_user_offline,
+                        )
+                    })
+                    .font_maybe(
+                        theme::font_style::nickname(theme, is_user_offline)
+                            .map(font::get),
+                    )
+                    .shaping(text::Shaping::Advanced)
+            ],
+            container(
+                text("offline".to_string())
+                    .style(theme::text::secondary)
+                    .line_height(font::line_height())
+                    .font_maybe(
+                        theme::font_style::secondary(theme).map(font::get),
+                    ),
             )
-        })
-        .font_maybe(
-            theme::font_style::nickname(theme, is_user_offline).map(font::get),
+            .style(theme::container::tooltip)
+            .padding(8),
+            crate::widget::tooltip::Position::Bottom,
         )
-        .shaping(text::Shaping::Advanced);
+        .delay(iced::time::Duration::ZERO)
+        .into()
+    } else {
+        text(resolved_query.as_str())
+            .style(move |_| {
+                theme::text::nickname(
+                    theme,
+                    &config.buffer.nickname.color,
+                    Some(resolved_query.as_str()),
+                    is_user_away,
+                    is_user_offline,
+                )
+            })
+            .font_maybe(
+                theme::font_style::nickname(theme, is_user_offline)
+                    .map(font::get),
+            )
+            .shaping(text::Shaping::Advanced)
+            .into()
+    };
 
     row![
         nickname,
