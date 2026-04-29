@@ -223,6 +223,10 @@ impl Dashboard {
         self.reprocess_history(clients, buffer_config);
     }
 
+    pub fn refresh_cache_limits(&mut self, config: &Config) {
+        self.previews_cache = Arc::new(preview_cache(&config.preview));
+    }
+
     pub fn set_reroute_rules(
         &mut self,
         servers: &server::Map,
