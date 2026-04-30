@@ -9,9 +9,9 @@ use tokio_stream::StreamExt;
 use url::Url;
 
 use self::icon::Icon;
-use crate::Server;
+use crate::cache::{self, Asset, CacheState, CachedAsset, FileCache};
+use crate::{Server, environment};
 
-mod cache;
 mod icon;
 
 #[derive(Debug)]
@@ -19,10 +19,20 @@ pub enum Message {
     Loaded(Server, Url, Result<Icon, LoadError>),
 }
 
-#[derive(Default)]
 pub struct Manager {
     icons: HashMap<Server, Icon>,
     pending: HashMap<Server, Url>,
+    cache: Arc<FileCache>,
+}
+
+impl Default for Manager {
+    fn default() -> Self {
+        Self {
+            icons: HashMap::new(),
+            pending: HashMap::new(),
+            cache: Arc::new(Self::server_icon_cache()),
+        }
+    }
 }
 
 impl Manager {
@@ -63,9 +73,12 @@ impl Manager {
         self.icons.remove(&server);
         self.pending.insert(server.clone(), icon_url.clone());
 
-        Task::perform(load(icon_url.clone(), http_client), move |result| {
-            Message::Loaded(server.clone(), icon_url.clone(), result)
-        })
+        Task::perform(
+            load(icon_url.clone(), http_client, self.cache.clone()),
+            move |result| {
+                Message::Loaded(server.clone(), icon_url.clone(), result)
+            },
+        )
     }
 
     pub fn update(&mut self, message: Message) {
@@ -99,6 +112,23 @@ impl Manager {
         self.pending.remove(server);
         self.icons.remove(server);
     }
+
+    fn server_icon_cache() -> cache::FileCache {
+        let root = environment::cache_dir().join("server_icons");
+
+        // A fixed sized cache is used since we expect icons to be small.
+        cache::FileCache::new(
+            root,
+            Some(50 * 1024 * 1024), // 50 MiB
+            32,
+        )
+    }
+}
+
+impl CachedAsset for Icon {
+    fn assets(&self) -> Vec<Asset<'_>> {
+        vec![Asset(self.path.as_path(), &self.digest)]
+    }
 }
 
 fn canonical_icon_url(url: &Url) -> Url {
@@ -110,25 +140,26 @@ fn canonical_icon_url(url: &Url) -> Url {
 async fn load(
     url: Url,
     http_client: Arc<reqwest::Client>,
+    cache: Arc<FileCache>,
 ) -> Result<Icon, LoadError> {
     let cache_key_url = canonical_icon_url(&url);
 
-    if let Some(state) = cache::load(&cache_key_url, http_client.clone()).await
-    {
+    if let Some(state) = cache.load(&cache_key_url).await {
         match state {
-            cache::State::Ok(icon) => Ok(icon),
-            cache::State::Error => Err(LoadError::CachedFailed),
+            CacheState::Ok(icon) => Ok(icon),
+            CacheState::Error => Err(LoadError::CachedFailed),
         }
     } else {
-        match fetch(url.clone(), http_client).await {
+        match fetch(url.clone(), http_client, &cache).await {
             Ok(icon) => {
-                cache::save(&cache_key_url, cache::State::Ok(icon.clone()))
+                cache
+                    .save(&cache_key_url, &CacheState::Ok(icon.clone()))
                     .await;
 
                 Ok(icon)
             }
             Err(error) => {
-                cache::save(&cache_key_url, cache::State::Error).await;
+                cache.save::<Icon>(&cache_key_url, &CacheState::Error).await;
 
                 Err(error)
             }
@@ -141,6 +172,7 @@ const MAX_ICON_SIZE: usize = 5 * 1024 * 1024; // 5 MiB
 async fn fetch(
     url: Url,
     http_client: Arc<reqwest::Client>,
+    cache: &FileCache,
 ) -> Result<Icon, LoadError> {
     let mut stream = http_client
         .get(url.clone())
@@ -167,8 +199,8 @@ async fn fetch(
     let mut hasher = Sha256::default();
     hasher.update(&bytes);
 
-    let digest = icon::Digest::new(hasher.finalize().as_ref());
-    let image_path = cache::image_path(&format, &digest);
+    let digest = cache::HexDigest::new(&hasher.finalize());
+    let image_path = cache.blob_path(&digest, format.extensions_str()[0]);
 
     if !image_path.exists() {
         if let Some(parent) = image_path.parent().filter(|p| !p.exists()) {
@@ -177,10 +209,10 @@ async fn fetch(
 
         fs::write(&image_path, &bytes).await?;
 
-        cache::maybe_trim_icon_cache(bytes.len() as u64, image_path.clone());
+        cache.account_blob(bytes.len() as u64, image_path.clone());
     }
 
-    Ok(Icon::new(format, url, digest))
+    Ok(Icon::new(format, url, digest, image_path))
 }
 
 #[derive(Debug, thiserror::Error)]
