@@ -2800,11 +2800,11 @@ fn macos_clipboard_files() -> Vec<std::path::PathBuf> {
     use objc2_foundation::{NSString, NSURL};
 
     let pasteboard = NSPasteboard::generalPasteboard();
-    
+
     let Some(items) = pasteboard.pasteboardItems() else {
         return vec![];
     };
-    
+
     let matcher = NSString::from_str("public.file-url");
 
     items
