@@ -1582,3 +1582,46 @@ How to display redacted messages in the buffer.  If displayed as `"dimmed"` then
 [buffer.redaction]
 display = "dimmed"
 ```
+
+## `reply`
+
+Customize how reply previews are displayed within a buffer.
+
+### `enabled`
+
+Show reply previews above messages that are replies.
+
+```toml
+# Type: bool
+# Values: true, false
+# Default: true
+
+[buffer.reply]
+enabled = true
+```
+
+### `show_icon`
+
+Show a reply icon next to replies
+
+```toml
+# Type: bool
+# Values: true, false
+# Default: false
+
+[buffer.reply]
+show_icon = true
+```
+
+### `icon_size`
+
+Size of the reply icon.
+
+```toml
+# Type: float
+# Values: positive floats
+# Default: 10.0
+
+[buffer.reply]
+icon_size = 12.0
+```

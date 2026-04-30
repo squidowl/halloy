@@ -52,6 +52,25 @@ pub struct Buffer {
     pub scroll_position_on_open: ScrollPosition,
     pub typing: Typing,
     pub redaction: Redaction,
+    pub reply: Reply,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(default)]
+pub struct Reply {
+    pub enabled: bool,
+    pub show_icon: bool,
+    pub icon_size: f32,
+}
+
+impl Default for Reply {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            show_icon: false,
+            icon_size: 10.0,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, Default)]

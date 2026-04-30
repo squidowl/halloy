@@ -1238,6 +1238,10 @@ impl<'a> ChannelQueryLayout<'a> {
     ) -> Option<Element<'a, Message>> {
         message.reply_to.as_ref()?;
 
+        if !self.config.buffer.reply.enabled {
+            return None;
+        }
+
         let reg_text_s =
             self.config.font.size.map_or(theme::TEXT_SIZE, f32::from);
         let sm_font_s = reg_text_s * 0.85;
@@ -1299,51 +1303,50 @@ impl<'a> ChannelQueryLayout<'a> {
             .format_timestamp(&message.server_time)
             .map_or(0, |s| s.chars().count());
 
+        let show_reply_icon = self.config.buffer.reply.show_icon;
+        let reply_icon_size = self.config.buffer.reply.icon_size;
+
         // right-aligned: fixed short arm offset to content column.
-        // left-aligned: arm spans from timestamp midpoint to its edge.
-        // top-aligned: no arm or indent.
-        let reply_row = if let Some(nick_col_width) = right_aligned_width {
+        // left-aligned / top-aligned: arm spans from timestamp midpoint to its edge.
+        let mut r = if let Some(nick_col_width) = right_aligned_width {
             let char_width = font::width_from_chars(1, &self.config.font);
             let nick_col_chars = (nick_col_width / char_width).round() as usize;
             let indent = timestamp_chars + nick_col_chars - 2;
+            let arm = if show_reply_icon {
+                "┌── "
+            } else {
+                "┌──"
+            };
             row![
                 text(" ".repeat(indent)).size(reg_text_s),
-                text("┌── ").style(theme::text::timestamp).size(reg_text_s),
-                icon::reply()
-                    .size(theme::ICON_SIZE - 2.0)
-                    .align_y(alignment::Vertical::Center)
-                    .style(theme::text::primary),
-                content,
-            ]
-        } else if matches!(
-            self.config.buffer.nickname.alignment,
-            data::buffer::Alignment::Top
-        ) {
-            row![
-                icon::reply()
-                    .size(theme::ICON_SIZE - 2.0)
-                    .style(theme::text::primary),
-                content,
+                text(arm).style(theme::text::timestamp).size(reg_text_s),
             ]
         } else {
             let half = timestamp_chars / 2;
+            let trailing = if show_reply_icon { " " } else { "" };
             let arm = format!(
-                "┌{}",
+                "┌{}{}",
                 "─".repeat(
                     half.saturating_sub(1)
                         + usize::from(!timestamp_chars.is_multiple_of(2))
-                )
+                ),
+                trailing
             );
             row![
                 text(" ".repeat(half)).size(reg_text_s),
                 text(arm).style(theme::text::timestamp).size(reg_text_s),
-                text(" ").size(reg_text_s),
-                icon::reply()
-                    .size(theme::ICON_SIZE - 2.0)
-                    .style(theme::text::primary),
-                content,
             ]
         };
+
+        if show_reply_icon {
+            r = r.push(
+                icon::reply()
+                    .size(reply_icon_size)
+                    .style(theme::text::primary),
+            );
+        }
+
+        let reply_row = r.push(content);
 
         Some(reply_row.align_y(alignment::Vertical::Center).into())
     }
