@@ -69,7 +69,7 @@ nucleo-matcher = { workspace = true }
 reqwest = { workspace = true }
 const_format = { workspace = true }
 dirs-next = "2.0.0"
-arboard = "3.6.1"
+arboard = { version = "3.6.1", features = ["wayland-data-control"] }
 image = "0.25"
 iced = { workspace = true, features = [
     "wgpu",

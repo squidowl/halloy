@@ -3,6 +3,7 @@ use std::collections::BTreeSet;
 use std::fmt;
 use std::hash::Hash;
 
+use indexmap::set::MutableValues;
 use indexmap::{Equivalent, IndexSet};
 use irc::proto;
 use itertools::sorted;
@@ -97,6 +98,25 @@ impl ChannelUsers {
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
+
+    // Any modifications to this procedure MUST ensure that no
+    // modifications are made to the user's hash.
+    pub fn update_user(
+        &mut self,
+        user: &User,
+        away: Option<bool>,
+        bot: Option<bool>,
+    ) {
+        if let Some(user) = self.0.get_full_mut2(user).map(|(_, user)| user) {
+            if let Some(away) = away {
+                user.update_away(away);
+            }
+
+            if let Some(bot) = bot {
+                user.update_bot(bot);
+            }
+        }
+    }
 }
 
 impl Serialize for User {
@@ -182,6 +202,7 @@ impl User {
     pub fn from_proto_user(
         user: proto::User,
         casemapping: isupport::CaseMap,
+        from_bot: bool,
     ) -> Self {
         User {
             nickname: Nick::from_string(user.nickname, casemapping),
@@ -190,7 +211,7 @@ impl User {
             accountname: None,
             access_levels: BTreeSet::default(),
             away: false,
-            bot: false,
+            bot: from_bot,
         }
     }
 
@@ -816,7 +837,50 @@ impl TryFrom<mode::Channel> for AccessLevel {
 
 #[cfg(test)]
 mod tests {
+    use std::hash::{DefaultHasher, Hasher};
+
     use super::*;
+
+    #[test]
+    fn user_hash() {
+        let user = User::from(Nick::from_str(
+            "test-user",
+            isupport::CaseMap::default(),
+        ));
+
+        let tests = [
+            (
+                User {
+                    away: false,
+                    ..user.clone()
+                },
+                User {
+                    away: true,
+                    ..user.clone()
+                },
+            ),
+            (
+                User {
+                    bot: false,
+                    ..user.clone()
+                },
+                User {
+                    bot: true,
+                    ..user.clone()
+                },
+            ),
+        ];
+
+        for (left, right) in tests {
+            let mut left_hasher = DefaultHasher::new();
+            left.hash(&mut left_hasher);
+
+            let mut right_hasher = DefaultHasher::new();
+            right.hash(&mut right_hasher);
+
+            assert_eq!(left_hasher.finish(), right_hasher.finish());
+        }
+    }
 
     #[test]
     fn user_serde() {
