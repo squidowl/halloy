@@ -662,6 +662,7 @@ impl Client {
         buffer: &buffer::Upstream,
         mut messages: Vec<message::Encoded>,
         priority: TokenPriority,
+        reply_id: Option<&str>,
     ) -> Option<LabeledResponseContext> {
         if let Some(multiline_limits) = self.multiline_limits()
             && let Some(batch_kind) =
@@ -681,6 +682,15 @@ impl Client {
                 target.as_str()
             )
             .into();
+
+            if let Some(id) = reply_id {
+                opening_batch
+                    .tags
+                    .insert("+reply".to_string(), id.to_string());
+                opening_batch
+                    .tags
+                    .insert("+draft/reply".to_string(), id.to_string());
+            }
 
             let labeled_response_context = self
                 .set_labeled_response_context(Some(buffer), &mut opening_batch);
@@ -4471,9 +4481,10 @@ impl Map {
         buffer: &buffer::Upstream,
         messages: Vec<message::Encoded>,
         priority: TokenPriority,
+        reply_id: Option<&str>,
     ) -> Option<LabeledResponseContext> {
         self.client_mut(buffer.server()).and_then(|client| {
-            client.send_multiline_batch(buffer, messages, priority)
+            client.send_multiline_batch(buffer, messages, priority, reply_id)
         })
     }
 

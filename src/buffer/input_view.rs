@@ -1943,19 +1943,12 @@ impl State {
         let encoded = inputs
             .iter()
             .filter_map(data::Input::encoded)
-            .map(|mut e| {
-                if let Some(input::DraftReply { id: reply_id, .. }) =
-                    &self.draft_reply
-                {
-                    e.tags.insert("+reply".to_string(), reply_id.to_string());
-                    e.tags.insert(
-                        "+draft/reply".to_string(),
-                        reply_id.to_string(),
-                    );
-                }
-                e
-            })
             .collect::<Vec<_>>();
+
+        let reply_id = self
+            .draft_reply
+            .as_ref()
+            .map(|input::DraftReply { id, .. }| id.as_ref());
 
         let labeled_response_context = if let Some(last_encoded) =
             encoded.last()
@@ -1966,6 +1959,7 @@ impl State {
                 buffer,
                 encoded,
                 TokenPriority::User,
+                reply_id,
             );
 
             let supports_echoes =

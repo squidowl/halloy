@@ -1002,6 +1002,7 @@ impl Dashboard {
                                             buffer,
                                             vec![encoded],
                                             TokenPriority::User,
+                                            None,
                                         )
                                     } else {
                                         clients.send(
