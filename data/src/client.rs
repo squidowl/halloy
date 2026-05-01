@@ -171,7 +171,8 @@ pub enum Event {
     MonitoredOnline(Vec<User>),
     MonitoredOffline(Vec<Nick>),
     OnConnect(on_connect::Stream),
-    BouncerNetwork(Server, config::Server),
+    BouncerNetworkNotification(Server, config::Server),
+    BouncerNetworkRemoved(Server),
     AddToSidebar(target::Query),
     Disconnect(Option<String>),
 }
@@ -210,6 +211,7 @@ pub struct Client {
     who_polls: VecDeque<WhoPoll>,
     who_poll_interval: BackoffInterval,
     resolved_netid: Option<String>,
+    bouncer_networks: HashMap<String, BouncerNetwork>,
     anti_flood: Option<TokenBucket<message::Encoded>>,
     mode_requests: Vec<ModeRequest>,
     channel_discovery_manager: channel_discovery::Manager,
@@ -277,6 +279,7 @@ impl Client {
                     .min(config.anti_flood.saturating_mul(2)),
             ),
             resolved_netid: None,
+            bouncer_networks: HashMap::new(),
             anti_flood: Some(TokenBucket::new(config.anti_flood, 10)),
             mode_requests: Vec::new(),
             http_client: http_client.map(Arc::new),
@@ -1132,6 +1135,31 @@ impl Client {
                     );
                 };
 
+                // "*" signals network removal as per soju.im/bouncer-networks-notify
+                if network == "*" {
+                    self.bouncer_networks.remove(netid);
+                    return Ok(vec![Event::BouncerNetworkRemoved(Server {
+                        network: Some(Arc::new(BouncerNetwork {
+                            id: netid.clone(),
+                            ..Default::default()
+                        })),
+                        ..self.server.clone()
+                    })]);
+                }
+
+                let cached_network = self
+                    .bouncer_networks
+                    .entry(netid.clone())
+                    .or_insert_with(|| BouncerNetwork {
+                        id: netid.clone(),
+                        ..Default::default()
+                    });
+                cached_network.merge(network)?;
+                if cached_network.name.is_empty() {
+                    return Ok(vec![]);
+                }
+                let network = cached_network.clone();
+
                 if !self.sasl_succeeded {
                     // our connection isn't currently SASL. We have to assume that SASL won't
                     // succeed for any other bouncer networks, which means they won't be able to
@@ -1143,9 +1171,8 @@ impl Client {
                     return Ok(vec![]);
                 }
 
-                let network = BouncerNetwork::parse(netid, network)?;
                 let network_config = self.config.bouncer_config();
-                return Ok(vec![Event::BouncerNetwork(
+                return Ok(vec![Event::BouncerNetworkNotification(
                     Server {
                         network: Some(network.into()),
                         ..self.server.clone()
@@ -1166,8 +1193,9 @@ impl Client {
 
                 // Finished
                 if asterisk.is_none() {
-                    let requested =
-                        self.capabilities.create_requested(&self.config);
+                    let requested = self
+                        .capabilities
+                        .create_requested(&self.config, self.is_primary());
 
                     if !requested.is_empty() {
                         // Request
@@ -1230,8 +1258,9 @@ impl Client {
                 self.capabilities
                     .extend_list(caps.split(' ').map(String::from));
 
-                let requested =
-                    self.capabilities.create_requested(&self.config);
+                let requested = self
+                    .capabilities
+                    .create_requested(&self.config, self.is_primary());
 
                 if !requested.is_empty() {
                     for message in group_capability_requests(&requested) {
@@ -2976,13 +3005,15 @@ impl Client {
                     ))?;
                 }
 
-                // Request bouncer networks
-                // TODO(pounce) replace this with "bouncer-networks-notify" after the cap handling
-                // is cleaned up.
+                // If soju.im/bouncer-networks-notify is negotiated, the server must send
+                // an initial BOUNCER NETWORK batch. If not, we BOUNCER LISTNETWORKS to get it.
                 if self.is_primary()
                     && self
                         .capabilities
                         .acknowledged(Capability::BouncerNetworks)
+                    && !self
+                        .capabilities
+                        .acknowledged(Capability::BouncerNetworksNotify)
                 {
                     self.handle
                         .try_send(command!("BOUNCER", "LISTNETWORKS"))?;
@@ -4270,7 +4301,8 @@ fn continue_chathistory_between(
             | Event::MonitoredOnline(_)
             | Event::MonitoredOffline(_)
             | Event::OnConnect(_)
-            | Event::BouncerNetwork(_, _)
+            | Event::BouncerNetworkNotification(_, _)
+            | Event::BouncerNetworkRemoved(_)
             | Event::AddToSidebar(_)
             | Event::Disconnect(_) => None,
         });
@@ -4311,7 +4343,8 @@ fn continue_chathistory_targets(
             | Event::MonitoredOnline(_)
             | Event::MonitoredOffline(_)
             | Event::OnConnect(_)
-            | Event::BouncerNetwork(_, _)
+            | Event::BouncerNetworkNotification(_, _)
+            | Event::BouncerNetworkRemoved(_)
             | Event::AddToSidebar(_)
             | Event::Disconnect(_) => None,
         });
@@ -5623,5 +5656,87 @@ mod tests {
 
         assert!(client.querymap.contains_key(&query("foobar")));
         assert_eq!(client.resolve_query(&query("foobar")), Some(&canonical));
+    }
+
+    fn bouncer_network_message(netid: &str, attrs: &str) -> message::Encoded {
+        message::Encoded(proto::Message {
+            tags: BTreeMap::default(),
+            source: None,
+            command: Command::BOUNCER(
+                "NETWORK".to_string(),
+                vec![netid.to_string(), attrs.to_string()],
+            ),
+        })
+    }
+
+    #[test]
+    fn bouncer_network_removal_emits_removed_event() {
+        let mut client = test_client("tester");
+        let config = config::Config::default();
+
+        let events = client
+            .handle(bouncer_network_message("42", "*"), None, &config)
+            .unwrap();
+
+        assert!(
+            matches!(events.as_slice(), [Event::BouncerNetworkRemoved(_)]),
+            "expected BouncerNetworkRemoved, got {events:?}"
+        );
+    }
+
+    #[test]
+    fn bouncer_network_full_listing_emits_bouncer_network_event() {
+        let mut client = test_client("tester");
+        client.sasl_succeeded = true;
+        let config = config::Config::default();
+
+        let events = client
+            .handle(
+                bouncer_network_message("42", "name=Freenode;state=connected"),
+                None,
+                &config,
+            )
+            .unwrap();
+
+        assert!(
+            matches!(
+                events.as_slice(),
+                [Event::BouncerNetworkNotification(_, _)]
+            ),
+            "expected BouncerNetwork, got {events:?}"
+        );
+    }
+
+    #[test]
+    fn bouncer_network_partial_update_merges_into_cache() {
+        let mut client = test_client("tester");
+        client.sasl_succeeded = true;
+        let config = config::Config::default();
+
+        // Initial full listing populates the cache
+        client
+            .handle(
+                bouncer_network_message("42", "name=Freenode;state=connected"),
+                None,
+                &config,
+            )
+            .unwrap();
+
+        // Partial update — only state changes, name absent
+        let events = client
+            .handle(
+                bouncer_network_message("42", "state=disconnected"),
+                None,
+                &config,
+            )
+            .unwrap();
+
+        assert!(
+            matches!(
+                events.as_slice(),
+                [Event::BouncerNetworkNotification(_, _)]
+            ),
+            "expected BouncerNetwork after partial update, got {events:?}"
+        );
     }
 }

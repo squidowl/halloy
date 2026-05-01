@@ -1774,11 +1774,22 @@ fn handle_client_events(
                     server, param, dashboard, clients, config,
                 );
             }
-            Event::BouncerNetwork(server, server_config) => {
+            Event::BouncerNetworkNotification(server, server_config) => {
                 servers.insert(server, server_config.into());
 
                 dashboard.set_reroute_rules(servers, clients);
 
+                dashboard.update_filters(servers, clients, &config.buffer);
+            }
+            Event::BouncerNetworkRemoved(network_server) => {
+                controllers.end(
+                    &network_server,
+                    &config.buffer.commands.quit.default_reason,
+                );
+                servers.remove(&network_server);
+                clients.remove(&network_server);
+
+                dashboard.set_reroute_rules(servers, clients);
                 dashboard.update_filters(servers, clients, &config.buffer);
             }
             Event::AddToSidebar(query) => {

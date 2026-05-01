@@ -38,6 +38,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
             BouncerNetwork {
                 id: "BouncerNetid".to_string(),
                 name: "Bouncer Name".to_string(),
+                ..Default::default()
             }
             .into(),
         ),

@@ -41,6 +41,10 @@ impl FromStr for NetworkState {
 pub struct BouncerNetwork {
     pub id: String,
     pub name: String,
+    #[serde(default)]
+    pub state: NetworkState,
+    #[serde(default)]
+    pub error: Option<String>,
 }
 
 // for ordering, we try to order lexiographically by name, and then check ID
@@ -80,14 +84,37 @@ impl Eq for BouncerNetwork {}
 
 impl BouncerNetwork {
     pub fn parse(id: &str, s: &str) -> Result<Self, Error> {
-        let mut parameter_map = tagstr(s)?;
+        let mut attrs = tagstr(s)?;
 
         Ok(BouncerNetwork {
             id: id.to_owned(),
-            name: parameter_map
-                .remove("name")
-                .ok_or(Error::MissingField("name"))?,
+            name: attrs.remove("name").ok_or(Error::MissingField("name"))?,
+            state: attrs
+                .remove("state")
+                .map(|s| s.parse())
+                .transpose()?
+                .unwrap_or_default(),
+            error: attrs.remove("error").filter(|e| !e.is_empty()),
         })
+    }
+
+    // Apply a partial attribute update in place. Only fields present in the
+    // attribute string are changed; absent fields are left as-is. An attribute
+    // with an empty value is treated as removed (per the spec).
+    pub fn merge(&mut self, s: &str) -> Result<(), Error> {
+        let mut attrs = tagstr(s)?;
+
+        if let Some(name) = attrs.remove("name") {
+            self.name = name;
+        }
+        if let Some(state) = attrs.remove("state") {
+            self.state = state.parse()?;
+        }
+        if attrs.contains_key("error") {
+            self.error = attrs.remove("error").filter(|e| !e.is_empty());
+        }
+
+        Ok(())
     }
 }
 
@@ -97,16 +124,66 @@ mod tests {
 
     #[test]
     fn parse_network() {
-        assert_eq!(
-            BouncerNetwork {
-                id: 44.to_string(),
-                name: "OFTC".to_owned(),
-            },
-            BouncerNetwork::parse(
-                "44",
-                "name=OFTC;host=irc.oftc.net;state=connecting"
-            )
-            .unwrap()
-        );
+        let network = BouncerNetwork::parse(
+            "44",
+            "name=OFTC;host=irc.oftc.net;state=connecting",
+        )
+        .unwrap();
+
+        assert_eq!(network.id, "44");
+        assert_eq!(network.name, "OFTC");
+        assert_eq!(network.state, NetworkState::Connecting);
+        assert_eq!(network.error, None);
+    }
+
+    #[test]
+    fn parse_network_no_name() {
+        assert!(matches!(
+            BouncerNetwork::parse("44", "state=connected"),
+            Err(Error::MissingField("name"))
+        ));
+    }
+
+    #[test]
+    fn parse_network_with_error() {
+        let network = BouncerNetwork::parse(
+            "44",
+            "name=OFTC;state=disconnected;error=Connection\\srefused",
+        )
+        .unwrap();
+
+        assert_eq!(network.state, NetworkState::Disconnected);
+        assert_eq!(network.error.as_deref(), Some("Connection refused"));
+    }
+
+    #[test]
+    fn merge_state_update() {
+        let mut network = BouncerNetwork {
+            id: "44".to_string(),
+            name: "OFTC".to_string(),
+            state: NetworkState::Connecting,
+            error: None,
+        };
+
+        network.merge("state=connected").unwrap();
+
+        assert_eq!(network.name, "OFTC");
+        assert_eq!(network.state, NetworkState::Connected);
+        assert_eq!(network.error, None);
+    }
+
+    #[test]
+    fn merge_clears_error() {
+        let mut network = BouncerNetwork {
+            id: "44".to_string(),
+            name: "OFTC".to_string(),
+            state: NetworkState::Disconnected,
+            error: Some("Connection refused".to_string()),
+        };
+
+        network.merge("state=connected;error=").unwrap();
+
+        assert_eq!(network.state, NetworkState::Connected);
+        assert_eq!(network.error, None);
     }
 }

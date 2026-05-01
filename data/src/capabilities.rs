@@ -22,6 +22,7 @@ pub enum Capability {
     AwayNotify,
     Batch,
     BouncerNetworks,
+    BouncerNetworksNotify,
     Chathistory,
     Chghost,
     EchoMessage,
@@ -65,6 +66,9 @@ impl FromStr for Capability {
             "server-time" => Ok(Self::ServerTime),
             "setname" => Ok(Self::Setname),
             "soju.im/bouncer-networks" => Ok(Self::BouncerNetworks),
+            "soju.im/bouncer-networks-notify" => {
+                Ok(Self::BouncerNetworksNotify)
+            }
             "userhost-in-names" => Ok(Self::UserhostInNames),
             _ if cap.starts_with("sasl") => Ok(Self::Sasl),
             _ => Err("unknown capability"),
@@ -222,6 +226,7 @@ impl Capabilities {
     pub fn create_requested(
         &mut self,
         config: &config::Server,
+        is_primary: bool,
     ) -> Vec<&'static str> {
         let mut requested = vec![];
 
@@ -345,6 +350,13 @@ impl Capabilities {
             && !self.acknowledged(Capability::BouncerNetworks)
         {
             requested.push("soju.im/bouncer-networks");
+        }
+
+        if is_primary
+            && self.pending.contains("soju.im/bouncer-networks-notify")
+            && !self.acknowledged(Capability::BouncerNetworksNotify)
+        {
+            requested.push("soju.im/bouncer-networks-notify");
         }
 
         if self.pending.iter().any(|cap| cap.starts_with("sasl"))

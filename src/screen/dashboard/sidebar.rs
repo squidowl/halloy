@@ -511,11 +511,18 @@ impl Sidebar {
                             ));
                         }
                         data::client::State::Ready(connection) => {
+                            // For bouncer networks, treat upstream disconnection the same as
+                            // a local connection drop.
+                            let connected = server
+                                .network
+                                .as_deref()
+                                .is_none_or(|n| n.state != data::bouncer::NetworkState::Disconnected);
+
                             // Connected server.
                             buffers.push(button(
                                 buffer::Upstream::Server(server.clone()),
                                 history::Kind::Server(server.clone()),
-                                true,
+                                connected,
                             ));
 
                             // Channels from the connected server.
