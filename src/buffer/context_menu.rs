@@ -84,13 +84,14 @@ impl Entry {
         can_redact: bool,
         can_send_replies: bool,
     ) -> Vec<Self> {
-        let mut entries = vec![Entry::CopyMessage];
+        let mut entries = vec![];
         if can_send_replies {
             entries.push(Entry::Reply);
         }
         if can_send_reactions {
             entries.push(Entry::AddReaction);
         }
+        entries.push(Entry::CopyMessage);
         if can_redact {
             entries.push(Entry::Redact);
         }
