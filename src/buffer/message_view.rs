@@ -1,4 +1,3 @@
-use std::borrow::Cow;
 use std::collections::BTreeMap;
 
 use chrono::{DateTime, TimeDelta, Utc};
@@ -7,7 +6,6 @@ use data::config::buffer::{CondensationIcon, Dimmed};
 use data::isupport::{CaseMap, PrefixMap};
 use data::preview::{self, Previews};
 use data::server::Server;
-use data::target::{Query, TargetRef};
 use data::user::{ChannelUsers, NickRef};
 use data::{Config, User, message, metadata, target};
 use iced::widget::{Space, button, column, container, row, text};
@@ -17,34 +15,11 @@ use super::context_menu::{self, Context};
 use super::scroll_view::LayoutMessage;
 use crate::buffer::scroll_view::Message;
 use crate::widget::reaction_row::{has_visible_reactions, reaction_row};
+use crate::widget::user_display::UserDisplay;
 use crate::widget::{
     Element, Marker, message_content, message_marker, selectable_text, tooltip,
 };
 use crate::{Theme, font, icon, theme};
-
-pub(crate) fn formatted_buffer_nickname(
-    user: &User,
-    config: &Config,
-    registry: &dyn metadata::Registry,
-) -> String {
-    let with_access_levels = config.buffer.nickname.show_access_levels;
-    let show_bot_icon = config.buffer.nickname.show_bot_icon;
-    let truncate = config.buffer.nickname.truncate;
-    let nickname = config.buffer.nickname.brackets.format(user.display(
-        with_access_levels,
-        show_bot_icon,
-        truncate,
-        config.display.truncation_character,
-    ));
-    let query = Query::from(user);
-
-    data::config::display::nickname::format(
-        &nickname,
-        &config.display.nickname,
-        registry.display_name(TargetRef::Query(&query)),
-        registry.pronouns(&query),
-    )
-}
 
 #[derive(Clone, Copy)]
 pub enum TargetInfo<'a> {
@@ -418,13 +393,14 @@ impl<'a> ChannelQueryLayout<'a> {
         let dimmed_background_tuple = dimmed
             .map(|dimmed| (dimmed, self.theme.styles().buffer.background));
 
-        let with_access_levels = self.config.buffer.nickname.show_access_levels;
-        let show_bot_icon = self.config.buffer.nickname.show_bot_icon;
-        let truncate = self.config.buffer.nickname.truncate;
-        let truncation_character = self.config.display.truncation_character;
         let user_in_channel =
             self.target.users().and_then(|users| users.resolve(user));
         let rerouted_private = message.is_rerouted();
+        let is_user_away = match self.config.buffer.nickname.shown_status {
+            ShownStatus::Current => user_in_channel.unwrap_or(user),
+            ShownStatus::Historical => user,
+        }
+        .is_away();
         let is_user_offline = if rerouted_private {
             false
         } else {
@@ -440,193 +416,71 @@ impl<'a> ChannelQueryLayout<'a> {
             .our_user()
             .is_some_and(|our_user| our_user.nickname() == user.nickname());
 
-        let nickname_style = theme::selectable_text::dimmed(
-            theme::selectable_text::nickname(
-                self.theme,
-                self.config,
-                match self.config.buffer.nickname.shown_status {
-                    ShownStatus::Current => user_in_channel.unwrap_or(user),
-                    ShownStatus::Historical => user,
-                },
-                is_user_offline,
-            ),
-            self.theme,
-            dimmed_background_tuple,
+        let user_display = UserDisplay::new(
+            user,
+            self.config.buffer.nickname.show_access_levels,
+            self.config.buffer.nickname.show_bot_icon,
+            registry,
+            self.config.buffer.nickname.truncate,
+            Some(&self.config.buffer.nickname.brackets),
+            self.config,
         );
 
-        let (user_display, show_nickname_tooltip) = user
-            .display_with_truncated(
-                with_access_levels,
-                show_bot_icon,
-                truncate,
-                truncation_character,
-            );
-
-        let is_bot = user.is_bot();
-        let show_bot_icon = is_bot && self.config.buffer.nickname.show_bot_icon;
-        let brackets = &self.config.buffer.nickname.brackets;
-
-        // nick_open + nick_close = full bracketed nick; bot icon sits inside open-close
-        let nick_open = format!("{}{}", brackets.left, &*user_display);
-        let nick_close = brackets.right.as_str();
-        let nick_text = formatted_buffer_nickname(user, self.config, registry);
-
         let nick_element: Element<_> = if hide_nickname {
-            let width = match self.config.buffer.nickname.alignment {
-                data::buffer::Alignment::Left
-                | data::buffer::Alignment::Top => {
-                    let base = font::width_from_chars(
-                        nick_text.chars().count(),
-                        &self.config.font,
-                    );
-                    if show_bot_icon {
-                        base + theme::ICON_SIZE + theme::ICON_SPACE
-                    } else {
-                        base
-                    }
-                }
-                data::buffer::Alignment::Right => {
-                    right_aligned_width.unwrap_or_default()
-                }
+            let width = if let Some(right_aligned_width) = right_aligned_width {
+                right_aligned_width
+            } else {
+                user_display.width(self.config)
             };
+
             Space::new().width(width).into()
         } else {
-            let query = Query::from(user);
-            let display_name = registry.display_name(TargetRef::Query(&query));
-            let pronouns = registry.pronouns(&query);
-            let metadata = &self.config.display.nickname;
-            let display_name = metadata
-                .contains(
-                    &data::config::display::nickname::Metadata::DisplayName,
-                )
-                .then_some(display_name)
-                .flatten()
-                .filter(|s| !s.is_empty());
-            let pronouns = metadata
-                .contains(&data::config::display::nickname::Metadata::Pronouns)
-                .then_some(pronouns)
-                .flatten()
-                .filter(|s| !s.is_empty());
-            let nick_prefix = if show_bot_icon {
-                match (display_name, pronouns) {
-                    (Some(display_name), Some(_))
-                    | (Some(display_name), None) => {
-                        format!("{display_name} ({nick_open}")
-                    }
-                    (None, Some(_)) | (None, None) => nick_open,
-                }
-            } else {
-                nick_text
-            };
-            let mut nick_text = selectable_text(nick_prefix)
-                .style(move |_| nickname_style)
-                .font_maybe(
-                    theme::font_style::nickname(self.theme, is_user_offline)
-                        .map(font::get),
-                );
-
-            let nick_text: Element<_> = if show_bot_icon {
-                let nick_color = nickname_style.color;
-                let bot_icon = icon::robot().style(move |_| {
-                    iced::widget::text::Style { color: nick_color }
-                });
-                let nick_close = match (display_name, pronouns) {
-                    (Some(_), Some(pronouns)) => {
-                        Cow::Owned(format!("{nick_close}, {pronouns})"))
-                    }
-                    (Some(_), None) => Cow::Owned(format!("{nick_close})")),
-                    (None, Some(pronouns)) => {
-                        Cow::Owned(format!("{nick_close} ({pronouns})"))
-                    }
-                    (None, None) => Cow::Borrowed(nick_close),
-                };
-
-                let icon_and_close: Element<_> = if nick_close.is_empty() {
-                    bot_icon.into()
-                } else {
-                    row![
-                        bot_icon,
-                        selectable_text(nick_close)
-                            .style(move |_| nickname_style)
-                            .font_maybe(
-                                theme::font_style::nickname(
-                                    self.theme,
-                                    is_user_offline,
-                                )
-                                .map(font::get),
-                            ),
-                    ]
-                    .align_y(iced::Alignment::Center)
-                    .into()
-                };
-
-                let nick_text = row![nick_text, icon_and_close]
-                    .align_y(iced::Alignment::Center)
-                    .spacing(theme::ICON_SPACE);
-
-                if let Some(w) = right_aligned_width {
-                    container(nick_text)
-                        .width(w)
-                        .align_x(text::Alignment::Right)
-                        .into()
-                } else {
-                    nick_text.into()
-                }
-            } else {
-                if let Some(w) = right_aligned_width {
-                    nick_text =
-                        nick_text.width(w).align_x(text::Alignment::Right);
-                }
-
-                nick_text.into()
-            };
-
-            let nick_tooltip = if show_bot_icon {
-                Some(Cow::Owned(format!(
-                    "{} has marked itself as a bot",
-                    user.nickname()
-                )))
-            } else if show_nickname_tooltip {
-                Some(Cow::Borrowed(user.as_str()))
-            } else {
-                None
-            };
-
-            tooltip(
-                if rerouted_private && !is_ourself {
-                    context_menu::rerouted_private_user(
-                        nick_text,
-                        self.server,
-                        self.prefix,
-                        self.registry,
-                        self.previews.collection(),
-                        user,
-                        self.config,
-                        self.theme,
-                        &self.config.buffer.nickname.click,
-                    )
-                    .map(Message::ContextMenu)
-                } else {
-                    context_menu::user(
-                        nick_text,
-                        self.server,
-                        self.prefix,
-                        self.target.channel(),
-                        self.registry,
-                        self.previews.collection(),
-                        user,
-                        user_in_channel,
-                        self.target.our_user(),
-                        self.config,
-                        self.theme,
-                        &self.config.buffer.nickname.click,
-                    )
-                    .map(Message::ContextMenu)
-                },
-                nick_tooltip,
-                tooltip::Position::Top,
+            let mut nick_text = user_display.into_element(
+                user,
+                is_user_away,
+                is_user_offline,
+                dimmed_background_tuple,
                 self.theme,
-            )
+                self.config,
+            );
+
+            if let Some(width) = right_aligned_width {
+                nick_text = container(nick_text)
+                    .width(width)
+                    .align_x(text::Alignment::Right)
+                    .into();
+            }
+
+            if rerouted_private && !is_ourself {
+                context_menu::rerouted_private_user(
+                    nick_text,
+                    self.server,
+                    self.prefix,
+                    self.registry,
+                    self.previews.collection(),
+                    user,
+                    self.config,
+                    self.theme,
+                    &self.config.buffer.nickname.click,
+                )
+                .map(Message::ContextMenu)
+            } else {
+                context_menu::user(
+                    nick_text,
+                    self.server,
+                    self.prefix,
+                    self.target.channel(),
+                    self.registry,
+                    self.previews.collection(),
+                    user,
+                    user_in_channel,
+                    self.target.our_user(),
+                    self.config,
+                    self.theme,
+                    &self.config.buffer.nickname.click,
+                )
+                .map(Message::ContextMenu)
+            }
         };
 
         let formatter = *self;

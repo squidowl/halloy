@@ -76,6 +76,7 @@ pub fn view<'a>(
     let chantypes = clients.get_server_chantypes_or_default(server);
     let casemapping = clients.get_server_casemapping_or_default(server);
     let prefix = clients.get_server_prefix_or_default(server);
+    let registry = clients.get_registry(server);
     let channel = &state.target;
     let confirm_message_delivery = clients.get_server_supports_echoes(server)
         && config.servers.get(server).is_some_and(|server_config| {
@@ -114,7 +115,7 @@ pub fn view<'a>(
         chantypes,
         casemapping,
         prefix,
-        registry: clients.get_registry(server),
+        registry,
         confirm_message_delivery,
         can_send_reactions,
         can_redact,
@@ -202,6 +203,7 @@ pub fn view<'a>(
             &state.input_view,
             our_user,
             &state.server,
+            registry,
             config,
             theme,
             filehost_url,
@@ -571,49 +573,16 @@ fn topic<'a>(
 }
 
 mod nick_list {
-    use std::borrow::Cow;
-
     use context_menu::Message;
     use data::user::ChannelUsers;
-    use data::{Config, Server, User, config, isupport, metadata, target};
+    use data::{Config, Server, User, isupport, metadata, target};
     use iced::Length;
-    use iced::advanced::text;
-    use iced::widget::{Scrollable, column, row, scrollable};
+    use iced::widget::{Scrollable, column, scrollable};
 
     use crate::buffer::context_menu;
-    use crate::widget::{Element, selectable_text, tooltip};
-    use crate::{Theme, font, icon, theme};
-
-    struct FormattedUser<'a> {
-        user: &'a User,
-        nickname: String,
-        show_tooltip: bool,
-    }
-
-    fn formatted_nicklist_nickname(
-        user: &User,
-        config: &Config,
-        registry: &dyn metadata::Registry,
-        truncate: Option<u16>,
-    ) -> (String, bool) {
-        let (nickname, show_tooltip) = user.display_with_truncated(
-            config.buffer.channel.nicklist.show_access_levels,
-            config.buffer.channel.nicklist.show_bot_icon,
-            truncate,
-            config.display.truncation_character,
-        );
-        let query = target::Query::from(user);
-
-        (
-            data::config::display::nickname::format(
-                &nickname,
-                &config.display.nicklist_nickname,
-                registry.display_name(target::TargetRef::Query(&query)),
-                registry.pronouns(&query),
-            ),
-            show_tooltip,
-        )
-    }
+    use crate::widget::Element;
+    use crate::widget::user_display::UserDisplay;
+    use crate::{Theme, theme};
 
     pub fn view<'a>(
         server: &'a Server,
@@ -627,140 +596,50 @@ mod nick_list {
         theme: &'a Theme,
     ) -> Element<'a, Message> {
         let nicklist_config = &config.buffer.channel.nicklist;
-        let truncate = if nicklist_config.width.is_some() {
-            None
-        } else {
-            nicklist_config.truncate.or(config.buffer.nickname.truncate)
-        };
 
-        let users = users
+        let user_displays = users
             .into_iter()
             .flatten()
             .map(|user| {
-                let (nickname, show_tooltip) = formatted_nicklist_nickname(
-                    user, config, registry, truncate,
-                );
-
-                FormattedUser {
+                (
                     user,
-                    nickname,
-                    show_tooltip,
-                }
+                    UserDisplay::new(
+                        user,
+                        nicklist_config.show_access_levels,
+                        nicklist_config.show_bot_icon,
+                        registry,
+                        nicklist_config
+                            .truncate
+                            .or(config.buffer.nickname.truncate),
+                        None,
+                        config,
+                    ),
+                )
             })
             .collect::<Vec<_>>();
 
         let width = match nicklist_config.width {
             Some(width) => width,
             None => {
-                let (max_nick_length, max_bot_nick_length) = users.iter().fold(
-                    (0, None),
-                    |(max_nick_length, max_bot_nick_length), user| {
-                        let nick_length = user.nickname.chars().count();
-
-                        if user.user.is_bot() {
-                            (
-                                max_nick_length,
-                                max_bot_nick_length.max(Some(nick_length)),
-                            )
-                        } else {
-                            (
-                                max_nick_length.max(nick_length),
-                                max_bot_nick_length,
-                            )
-                        }
+                user_displays.iter().fold(
+                    0.0_f32,
+                    |max_width, (_, user_display)| {
+                        max_width.max(user_display.width(config))
                     },
-                );
-
-                (if let Some(max_bot_nick_length) = max_bot_nick_length {
-                    if nicklist_config.show_bot_icon {
-                        // reserve space for any eventual bot icon
-                        font::width_from_chars(max_nick_length, &config.font)
-                            .max(
-                                font::width_from_chars(
-                                    max_bot_nick_length,
-                                    &config.font,
-                                ) + theme::ICON_SIZE
-                                    + theme::ICON_SPACE,
-                            )
-                    } else {
-                        font::width_from_chars(
-                            max_nick_length.max(max_bot_nick_length),
-                            &config.font,
-                        )
-                    }
-                } else {
-                    font::width_from_chars(max_nick_length, &config.font)
-                } + 1.0)
+                ) + 1.0
             }
         };
 
-        let rows = users.into_iter().map(|formatted_user| {
-            let user = formatted_user.user;
-            let show_bot_icon = user.is_bot() && nicklist_config.show_bot_icon;
-
-            let nick = selectable_text(formatted_user.nickname)
-                .font_maybe(
-                    theme::font_style::nickname(theme, false).map(font::get),
-                )
-                .style(|theme| {
-                    theme::selectable_text::nicklist_nickname(
-                        theme, config, user,
-                    )
-                })
-                .align_x(match nicklist_config.alignment {
-                    config::buffer::channel::Alignment::Left => {
-                        text::Alignment::Left
-                    }
-                    config::buffer::channel::Alignment::Right => {
-                        text::Alignment::Right
-                    }
-                })
-                .width(match (show_bot_icon, nicklist_config.alignment) {
-                    (true, config::buffer::channel::Alignment::Left) => {
-                        Length::Shrink
-                    }
-                    (true, config::buffer::channel::Alignment::Right) => {
-                        Length::Fixed(width)
-                    }
-                    (false, _) => Length::Fixed(width),
-                });
-
-            let content_tooltip = if show_bot_icon {
-                Some(Cow::Owned(format!(
-                    "{} has marked itself as a bot",
-                    user.nickname()
-                )))
-            } else if formatted_user.show_tooltip {
-                Some(Cow::Borrowed(user.as_str()))
-            } else {
-                None
-            };
-
-            let content: Element<_> = if show_bot_icon {
-                let nick_color = theme::selectable_text::nicklist_nickname(
-                    theme, config, user,
-                )
-                .color;
-                let bot_icon = icon::robot().style(move |_| {
-                    iced::widget::text::Style { color: nick_color }
-                });
-                row![nick, bot_icon]
-                    .align_y(iced::Alignment::Center)
-                    .spacing(theme::ICON_SPACE)
-                    .into()
-            } else {
-                nick.into()
-            };
-
-            let content: Element<_> = tooltip(
-                content,
-                content_tooltip,
-                tooltip::Position::Top,
-                theme,
-            );
-
+        let rows = user_displays.into_iter().map(|(user, user_display)| {
             context_menu::user(
-                content,
+                user_display.into_element(
+                    user,
+                    user.is_away(),
+                    false,
+                    None,
+                    theme,
+                    config,
+                ),
                 server,
                 prefix,
                 Some(channel),
@@ -781,7 +660,7 @@ mod nick_list {
             .direction(scrollable::Direction::Vertical(
                 scrollable::Scrollbar::new().width(1).scroller_width(1),
             ))
-            .width(Length::Shrink)
+            .width(Length::Fixed(width))
             .style(theme::scrollable::hidden)
             .into()
     }

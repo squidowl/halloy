@@ -9,10 +9,10 @@ use iced::widget::{container, row, span};
 use iced::{Color, Length, Size, Task};
 
 use super::context_menu::{self, Context};
-use super::message_view::formatted_buffer_nickname;
 use super::scroll_view;
+use crate::widget::user_display::UserDisplay;
 use crate::widget::{
-    Element, message_content, selectable_rich_text, selectable_text, tooltip,
+    Element, message_content, selectable_rich_text, selectable_text,
 };
 use crate::{Theme, font, theme};
 
@@ -102,43 +102,38 @@ pub fn view<'a>(
 
                     let current_user =
                         users.and_then(|users| users.resolve(user));
+                    let is_user_away =
+                        match config.buffer.nickname.shown_status {
+                            ShownStatus::Current => {
+                                current_user.unwrap_or(user)
+                            }
+                            ShownStatus::Historical => user,
+                        }
+                        .is_away();
                     let is_user_offline =
                         match config.buffer.nickname.shown_status {
                             ShownStatus::Current => current_user.is_none(),
                             ShownStatus::Historical => false,
                         };
 
-                    let show_nickname_tooltip = user.display_truncated(
+                    let user_display = UserDisplay::new(
+                        user,
                         config.buffer.nickname.show_access_levels,
                         config.buffer.nickname.show_bot_icon,
-                        config.buffer.nickname.truncate,
-                        config.display.truncation_character,
-                    );
-
-                    let nick_text = formatted_buffer_nickname(
-                        user,
-                        config,
                         clients.get_registry(server),
+                        config.buffer.nickname.truncate,
+                        Some(&config.buffer.nickname.brackets),
+                        config,
                     );
 
-                    let text = selectable_text(nick_text)
-                        .font_maybe(
-                            theme::font_style::nickname(theme, is_user_offline)
-                                .map(font::get),
-                        )
-                        .style(move |theme| {
-                            theme::selectable_text::nickname(
-                                theme,
-                                config,
-                                match config.buffer.nickname.shown_status {
-                                    ShownStatus::Current => {
-                                        current_user.unwrap_or(user)
-                                    }
-                                    ShownStatus::Historical => user,
-                                },
-                                is_user_offline,
-                            )
-                        });
+                    let nick_text = user_display.into_element(
+                        user,
+                        is_user_away,
+                        is_user_offline,
+                        None,
+                        theme,
+                        config,
+                    );
 
                     let chantypes =
                         clients.get_server_chantypes_or_default(server);
@@ -146,26 +141,21 @@ pub fn view<'a>(
                         clients.get_server_casemapping_or_default(server);
                     let prefix = clients.get_server_prefix_or_default(server);
 
-                    let nick = tooltip(
-                        context_menu::user(
-                            text,
-                            server,
-                            prefix,
-                            Some(channel),
-                            clients.get_registry(server),
-                            previews,
-                            user,
-                            current_user,
-                            None,
-                            config,
-                            theme,
-                            &config.buffer.nickname.click,
-                        )
-                        .map(scroll_view::Message::ContextMenu),
-                        show_nickname_tooltip.then_some(user.as_str()),
-                        tooltip::Position::Bottom,
+                    let nick = context_menu::user(
+                        nick_text,
+                        server,
+                        prefix,
+                        Some(channel),
+                        clients.get_registry(server),
+                        previews,
+                        user,
+                        current_user,
+                        None,
+                        config,
                         theme,
-                    );
+                        &config.buffer.nickname.click,
+                    )
+                    .map(scroll_view::Message::ContextMenu);
 
                     let text = message_content::with_context(
                         &message.content,

@@ -16,8 +16,8 @@ use data::server::Server;
 use data::target::{self, Target};
 use data::{Config, Preview, client, history, metadata, reaction};
 use iced::widget::{
-    self, Scrollable, button, center, column, container, image, mouse_area,
-    right, row, rule, scrollable, space, stack, text,
+    self, Scrollable, Space, button, center, column, container, image,
+    mouse_area, right, row, rule, scrollable, space, stack, text,
 };
 use iced::{
     ContentFit, Length, Padding, Size, Task, alignment, mouse, padding,
@@ -27,7 +27,7 @@ use tokio::time;
 use self::correct_viewport::correct_viewport;
 use self::keyed::keyed;
 use super::context_menu;
-use super::message_view::formatted_buffer_nickname;
+use crate::widget::user_display::UserDisplay;
 use crate::widget::{
     Element, notify_visibility, on_resize, selectable_text, tooltip,
 };
@@ -328,24 +328,17 @@ pub fn view<'a>(
                 .chain(&new_messages)
                 .filter_map(|message| match message.target.source() {
                     message::Source::User(user) => {
-                        let text_width = font::width_from_chars(
-                            formatted_buffer_nickname(user, config, registry)
-                                .chars()
-                                .count(),
-                            &config.font,
+                        let user_display = UserDisplay::new(
+                            user,
+                            config.buffer.nickname.show_access_levels,
+                            config.buffer.nickname.show_bot_icon,
+                            registry,
+                            config.buffer.nickname.truncate,
+                            Some(&config.buffer.nickname.brackets),
+                            config,
                         );
 
-                        Some(
-                            if user.is_bot()
-                                && config.buffer.nickname.show_bot_icon
-                            {
-                                text_width
-                                    + theme::ICON_SIZE
-                                    + theme::ICON_SPACE
-                            } else {
-                                text_width
-                            },
-                        )
+                        Some(user_display.width(config))
                     }
                     _ => None,
                 })
@@ -2027,24 +2020,29 @@ fn preview_row<'a>(
                 },
             );
 
-            let nick =
-                if let message::Source::User(user) = message.target.source() {
-                    let mut nick = selectable_text(
-                        " ".repeat(
-                            formatted_buffer_nickname(user, config, registry)
-                                .chars()
-                                .count(),
-                        ),
-                    );
+            let nick = if let message::Source::User(user) =
+                message.target.source()
+            {
+                let width =
+                    if let Some(right_aligned_width) = right_aligned_width {
+                        right_aligned_width
+                    } else {
+                        UserDisplay::new(
+                            user,
+                            config.buffer.nickname.show_access_levels,
+                            config.buffer.nickname.show_bot_icon,
+                            registry,
+                            config.buffer.nickname.truncate,
+                            Some(&config.buffer.nickname.brackets),
+                            config,
+                        )
+                        .width(config)
+                    };
 
-                    if let Some(width) = right_aligned_width {
-                        nick = nick.width(width);
-                    }
-
-                    Some(nick)
-                } else {
-                    None
-                };
+                Some(Space::new().width(width))
+            } else {
+                None
+            };
 
             let timestamp_nickname_row =
                 row![timestamp_gap, space, prefixes, nick];

@@ -9,9 +9,9 @@ use iced::advanced::text;
 use iced::widget::{Space, column, container, row, space};
 use iced::{Color, Length, Size, Task, padding};
 
-use super::message_view::formatted_buffer_nickname;
 use super::{context_menu, input_view, scroll_view};
-use crate::widget::{Element, message_content, selectable_text, tooltip};
+use crate::widget::user_display::UserDisplay;
+use crate::widget::{Element, message_content, selectable_text};
 use crate::window::Window;
 use crate::{Theme, font, theme};
 
@@ -184,67 +184,56 @@ pub fn view<'a>(
                         Some(row_with_timestamp(timestamp, content))
                     }
                     message::Source::User(user) => {
-                        let truncate = config.buffer.nickname.truncate;
-                        let with_access_levels =
-                            config.buffer.nickname.show_access_levels;
-
-                        let show_nickname_tooltip = user.display_truncated(
-                            with_access_levels,
+                        let user_display = UserDisplay::new(
+                            user,
+                            config.buffer.nickname.show_access_levels,
                             config.buffer.nickname.show_bot_icon,
-                            truncate,
-                            config.display.truncation_character,
+                            registry,
+                            config.buffer.nickname.truncate,
+                            Some(&config.buffer.nickname.brackets),
+                            config,
                         );
 
                         let nick: Element<_> = if hide_nickname {
                             let width = match config.buffer.nickname.alignment {
                                 data::buffer::Alignment::Left
-                                | data::buffer::Alignment::Top => 0.0,
+                                | data::buffer::Alignment::Top => {
+                                    user_display.width(config)
+                                }
                                 data::buffer::Alignment::Right => {
-                                    right_aligned_width.unwrap_or_default()
+                                    right_aligned_width
+                                        .unwrap_or(user_display.width(config))
                                 }
                             };
+
                             Space::new().width(width).into()
                         } else {
-                            let mut nick_text =
-                                selectable_text(formatted_buffer_nickname(
-                                    user, config, registry,
-                                ))
-                                .style(move |_| {
-                                    theme::selectable_text::nickname(
-                                        theme, config, user, false,
-                                    )
-                                })
-                                .font_maybe(
-                                    theme::font_style::nickname(theme, false)
-                                        .map(font::get),
-                                );
+                            let mut nick_text = user_display.into_element(
+                                user, false, false, None, theme, config,
+                            );
 
                             if let Some(width) = right_aligned_width {
-                                nick_text = nick_text
+                                nick_text = container(nick_text)
                                     .width(width)
-                                    .align_x(text::Alignment::Right);
+                                    .align_x(text::Alignment::Right)
+                                    .into();
                             }
 
-                            tooltip(
-                                context_menu::user(
-                                    nick_text,
-                                    &state.server,
-                                    prefix,
-                                    None,
-                                    registry,
-                                    previews,
-                                    user,
-                                    None,
-                                    None,
-                                    config,
-                                    theme,
-                                    &config.buffer.nickname.click,
-                                )
-                                .map(scroll_view::Message::ContextMenu),
-                                show_nickname_tooltip.then_some(user.as_str()),
-                                tooltip::Position::Bottom,
+                            context_menu::user(
+                                nick_text,
+                                &state.server,
+                                prefix,
+                                None,
+                                registry,
+                                previews,
+                                user,
+                                None,
+                                None,
+                                config,
                                 theme,
+                                &config.buffer.nickname.click,
                             )
+                            .map(scroll_view::Message::ContextMenu)
                         };
 
                         let rerouted_private = message.is_rerouted();
@@ -307,6 +296,7 @@ pub fn view<'a>(
                 &state.input_view,
                 our_user.as_ref(),
                 &state.server,
+                registry,
                 config,
                 theme,
                 filehost_url,

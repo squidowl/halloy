@@ -145,6 +145,30 @@ pub fn load() -> Vec<Cow<'static, [u8]>> {
     ]
 }
 
+pub fn width_from_str(text: &str, config: &config::Font) -> f32 {
+    use iced::advanced::graphics::text::Paragraph;
+    use iced::advanced::text::{self, Paragraph as _, Text};
+    use iced::{Size, alignment};
+
+    use crate::theme;
+
+    Paragraph::with_text(Text {
+        content: text,
+        bounds: Size::INFINITE,
+        size: config.size.map_or(theme::TEXT_SIZE, f32::from).into(),
+        line_height: line_height(),
+        font: MONO.clone().into(),
+        align_x: text::Alignment::Right,
+        align_y: alignment::Vertical::Top,
+        shaping: text::Shaping::Basic,
+        wrapping: text::Wrapping::default(),
+        ellipsis: text::Ellipsis::default(),
+        hint_factor: None,
+    })
+    .min_bounds()
+    .width
+}
+
 pub fn width_from_chars(len: usize, config: &config::Font) -> f32 {
     use iced::advanced::graphics::text::Paragraph;
     use iced::advanced::text::{self, Paragraph as _, Text};

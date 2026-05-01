@@ -70,6 +70,7 @@ pub fn view<'a>(
     let chantypes = clients.get_server_chantypes_or_default(server);
     let casemapping = clients.get_server_casemapping_or_default(server);
     let prefix = clients.get_server_prefix_or_default(server);
+    let registry = clients.get_registry(server);
     let query = &state.target;
     let confirm_message_delivery = clients.get_server_supports_echoes(server)
         && config.servers.get(server).is_some_and(|server_config| {
@@ -100,7 +101,7 @@ pub fn view<'a>(
         chantypes,
         casemapping,
         prefix,
-        registry: clients.get_registry(server),
+        registry,
         confirm_message_delivery,
         can_send_reactions,
         can_redact,
@@ -148,6 +149,7 @@ pub fn view<'a>(
             &state.input_view,
             our_user.as_ref(),
             &state.server,
+            registry,
             config,
             theme,
             filehost_url,

@@ -9,7 +9,6 @@ use irc::proto;
 use itertools::sorted;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use unicode_segmentation::UnicodeSegmentation;
 
 use crate::config::buffer::{AccessLevelFormat, UsernameFormat};
 use crate::{isupport, mode};
@@ -226,85 +225,6 @@ impl User {
         self.nickname.seed()
     }
 
-    pub fn display(
-        &self,
-        with_access_levels: AccessLevelFormat,
-        show_bot_icon: bool,
-        truncate: Option<u16>,
-        truncation_character: char,
-    ) -> String {
-        self.display_with_truncated(
-            with_access_levels,
-            show_bot_icon,
-            truncate,
-            truncation_character,
-        )
-        .0
-    }
-
-    pub fn display_truncated(
-        &self,
-        with_access_levels: AccessLevelFormat,
-        show_bot_icon: bool,
-        truncate: Option<u16>,
-        truncation_character: char,
-    ) -> bool {
-        self.display_with_truncated(
-            with_access_levels,
-            show_bot_icon,
-            truncate,
-            truncation_character,
-        )
-        .1
-    }
-
-    pub fn display_with_truncated(
-        &self,
-        with_access_levels: AccessLevelFormat,
-        show_bot_icon: bool,
-        truncate: Option<u16>,
-        truncation_character: char,
-    ) -> (String, bool) {
-        let mut nickname = match with_access_levels {
-            AccessLevelFormat::All => {
-                if self.access_levels.is_empty() {
-                    self.nickname().to_string()
-                } else {
-                    self.access_levels.iter().fold(
-                        self.nickname().to_string(),
-                        |display, access_level| {
-                            format!("{access_level}{display}")
-                        },
-                    )
-                }
-            }
-            AccessLevelFormat::Highest => {
-                format!("{}{}", self.highest_access_level(), self.nickname())
-            }
-            AccessLevelFormat::None => self.nickname().to_string(),
-        };
-
-        let show_bot_icon = self.is_bot() && show_bot_icon;
-
-        let mut show_tooltip = false;
-
-        if let Some(len) = truncate
-            && (UnicodeSegmentation::graphemes(nickname.as_str(), true).count()
-                + if show_bot_icon { 2 } else { 0 })
-                > len as usize
-        {
-            nickname = UnicodeSegmentation::graphemes(nickname.as_str(), true)
-                .take(len.saturating_sub(if show_bot_icon { 3 } else { 1 })
-                    as usize)
-                .collect::<String>();
-            nickname.push(truncation_character);
-
-            show_tooltip = true;
-        }
-
-        (nickname, show_tooltip)
-    }
-
     pub fn as_str(&self) -> &str {
         self.nickname.raw.as_ref()
     }
@@ -368,6 +288,10 @@ impl User {
             .last()
             .copied()
             .unwrap_or(AccessLevel::Member)
+    }
+
+    pub fn access_levels(&self) -> impl Iterator<Item = &AccessLevel> {
+        self.access_levels.iter()
     }
 
     pub fn has_access_level(&self, access_level: AccessLevel) -> bool {
@@ -772,21 +696,7 @@ pub enum ProtectedPrefix {
 
 impl std::fmt::Display for AccessLevel {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let access_level = match self {
-            AccessLevel::Founder => Some(proto::FOUNDER_PREFIX),
-            AccessLevel::Protected(prefix) => match prefix {
-                ProtectedPrefix::Standard => Some(proto::PROTECTED_PREFIX_STD),
-                ProtectedPrefix::Alternative => {
-                    Some(proto::PROTECTED_PREFIX_ALT)
-                }
-            },
-            AccessLevel::Oper => Some(proto::OPERATOR_PREFIX),
-            AccessLevel::HalfOp => Some(proto::HALF_OPERATOR_PREFIX),
-            AccessLevel::Voice => Some(proto::VOICED_PREFIX),
-            AccessLevel::Member => None,
-        };
-
-        if let Some(access_level) = access_level {
+        if let Some(access_level) = self.char() {
             write!(f, "{access_level}")
         } else {
             write!(f, "")
@@ -826,6 +736,24 @@ impl TryFrom<mode::Channel> for AccessLevel {
             mode::Channel::Voice => Self::Voice,
             _ => return Err(()),
         })
+    }
+}
+
+impl AccessLevel {
+    pub fn char(&self) -> Option<char> {
+        match self {
+            AccessLevel::Founder => Some(proto::FOUNDER_PREFIX),
+            AccessLevel::Protected(prefix) => match prefix {
+                ProtectedPrefix::Standard => Some(proto::PROTECTED_PREFIX_STD),
+                ProtectedPrefix::Alternative => {
+                    Some(proto::PROTECTED_PREFIX_ALT)
+                }
+            },
+            AccessLevel::Oper => Some(proto::OPERATOR_PREFIX),
+            AccessLevel::HalfOp => Some(proto::HALF_OPERATOR_PREFIX),
+            AccessLevel::Voice => Some(proto::VOICED_PREFIX),
+            AccessLevel::Member => None,
+        }
     }
 }
 
